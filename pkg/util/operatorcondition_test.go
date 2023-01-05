@@ -24,8 +24,7 @@ var _ = Describe("OperatorCondition", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		ctx := context.Background()
-		err = oc.Set(ctx, metav1.ConditionTrue, "Reason", "message")
-		Expect(err).ToNot(HaveOccurred())
+		Expect(oc.Set(ctx, metav1.ConditionTrue, "Reason", "message")).To(Succeed())
 	},
 		Entry("should no-op when not managed by OLM", &ClusterInfoImp{
 			managedByOLM:   false,
@@ -43,8 +42,7 @@ var _ = Describe("OperatorCondition", func() {
 
 	It("valid condition", func() {
 		testScheme := scheme.Scheme
-		err := operatorsapiv2.AddToScheme(testScheme)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(operatorsapiv2.AddToScheme(testScheme)).Should(Succeed())
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
@@ -70,8 +68,9 @@ var _ = Describe("OperatorCondition", func() {
 
 		Expect(cond.Type).Should(Equal("testCondition"))
 
-		err = oc.Set(context.TODO(), metav1.ConditionTrue, "myReason", "my message")
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(
+			oc.Set(context.TODO(), metav1.ConditionTrue, "myReason", "my message"),
+		).Should(Succeed())
 
 		cond, err = oc.cond.Get(context.TODO())
 		Expect(err).ShouldNot(HaveOccurred())

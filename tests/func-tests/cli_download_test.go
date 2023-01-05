@@ -56,14 +56,13 @@ func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {
 	s.AddKnownTypes(consolev1.GroupVersion)
 
 	var ccd consolev1.ConsoleCLIDownload
-	err := client.RestClient().Get().
+	ExpectWithOffset(1, client.RestClient().Get().
 		Resource("consoleclidownloads").
 		Name("virtctl-clidownloads-kubevirt-hyperconverged").
 		AbsPath("/apis", consolev1.GroupVersion.Group, consolev1.GroupVersion.Version).
-		Timeout(10 * time.Second).
-		Do(context.TODO()).Into(&ccd)
+		Timeout(10*time.Second).
+		Do(context.TODO()).Into(&ccd)).To(Succeed())
 
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, ccd.Spec.Links).Should(HaveLen(3))
 
 	for _, link := range ccd.Spec.Links {

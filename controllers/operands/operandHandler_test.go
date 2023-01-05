@@ -48,8 +48,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			req := commonTestUtils.NewReq(hco)
 
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 			expectedEvents := []commonTestUtils.MockEvent{
 				{
 					EventType: corev1.EventTypeNormal,
@@ -97,8 +96,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the KV object created", func() {
 				// Read back KV
 				kvList := kubevirtcorev1.KubeVirtList{}
-				err := cli.List(req.Ctx, &kvList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &kvList)).To(Succeed())
 				Expect(kvList).ToNot(BeNil())
 				Expect(kvList.Items).To(HaveLen(1))
 				Expect(kvList.Items[0].Name).Should(Equal("kubevirt-kubevirt-hyperconverged"))
@@ -107,8 +105,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CNA object created", func() {
 				// Read back CNA
 				cnaList := networkaddonsv1.NetworkAddonsConfigList{}
-				err := cli.List(req.Ctx, &cnaList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cnaList)).To(Succeed())
 				Expect(cnaList).ToNot(BeNil())
 				Expect(cnaList.Items).To(HaveLen(1))
 				Expect(cnaList.Items[0].Name).Should(Equal("cluster"))
@@ -117,8 +114,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CDI object created", func() {
 				// Read back CDI
 				cdiList := cdiv1beta1.CDIList{}
-				err := cli.List(req.Ctx, &cdiList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cdiList)).To(Succeed())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(HaveLen(1))
 				Expect(cdiList.Items[0].Name).Should(Equal("cdi-kubevirt-hyperconverged"))
@@ -127,8 +123,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the ConsoleQuickStart object created", func() {
 				// Read back the ConsoleQuickStart
 				qsList := consolev1.ConsoleQuickStartList{}
-				err := cli.List(req.Ctx, &qsList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &qsList)).To(Succeed())
 				Expect(qsList).ToNot(BeNil())
 				Expect(qsList.Items).To(HaveLen(1))
 				Expect(qsList.Items[0].Name).Should(Equal("test-quick-start"))
@@ -136,8 +131,7 @@ var _ = Describe("Test operandHandler", func() {
 
 			By("make sure the Dashboard confimap created", func() {
 				cmList := corev1.ConfigMapList{}
-				err := cli.List(req.Ctx, &cmList, &client.ListOptions{Namespace: "openshift-config-managed"})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cmList, &client.ListOptions{Namespace: "openshift-config-managed"})).To(Succeed())
 				Expect(cmList).ToNot(BeNil())
 				Expect(cmList.Items).To(HaveLen(1))
 				Expect(cmList.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
@@ -180,8 +174,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CDI object not created", func() {
 				// Read back CDI
 				cdiList := cdiv1beta1.CDIList{}
-				err := cli.List(req.Ctx, &cdiList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cdiList)).To(Succeed())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(BeEmpty())
 			})
@@ -198,12 +191,10 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			eventEmitter.Reset()
-			err = handler.EnsureDeleted(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.EnsureDeleted(req)).To(Succeed())
 
 			expectedEvents := []commonTestUtils.MockEvent{
 				{
@@ -252,8 +243,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("check that KV is deleted", func() {
 				// Read back KV
 				kvList := kubevirtcorev1.KubeVirtList{}
-				err = cli.List(req.Ctx, &kvList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &kvList)).To(Succeed())
 				Expect(kvList).ToNot(BeNil())
 				Expect(kvList.Items).To(BeEmpty())
 			})
@@ -261,8 +251,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CNA object deleted", func() {
 				// Read back CNA
 				cnaList := networkaddonsv1.NetworkAddonsConfigList{}
-				err := cli.List(req.Ctx, &cnaList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cnaList)).To(Succeed())
 				Expect(cnaList).ToNot(BeNil())
 				Expect(cnaList.Items).To(BeEmpty())
 			})
@@ -270,8 +259,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CDI object deleted", func() {
 				// Read back CDI
 				cdiList := cdiv1beta1.CDIList{}
-				err := cli.List(req.Ctx, &cdiList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cdiList)).To(Succeed())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(BeEmpty())
 			})
@@ -279,8 +267,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("check that ConsoleQuickStart is deleted", func() {
 				// Read back the ConsoleQuickStart
 				qsList := consolev1.ConsoleQuickStartList{}
-				err = cli.List(req.Ctx, &qsList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &qsList)).To(Succeed())
 				Expect(qsList).ToNot(BeNil())
 				Expect(qsList.Items).To(BeEmpty())
 			})
@@ -297,8 +284,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			fakeError := fmt.Errorf("fake KV deletion error")
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
@@ -319,7 +305,7 @@ var _ = Describe("Test operandHandler", func() {
 				},
 			}
 			eventEmitter.Reset()
-			err = handler.EnsureDeleted(req)
+			err := handler.EnsureDeleted(req)
 			Expect(err).Should(Equal(fakeError))
 
 			By("Check that event was emitted", func() {
@@ -329,8 +315,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("check that KV still exists", func() {
 				// Read back KV
 				kvList := kubevirtcorev1.KubeVirtList{}
-				err := cli.List(req.Ctx, &kvList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &kvList)).To(Succeed())
 				Expect(kvList).ToNot(BeNil())
 				Expect(kvList.Items).To(HaveLen(1))
 				Expect(kvList.Items[0].Name).Should(Equal("kubevirt-kubevirt-hyperconverged"))
@@ -348,8 +333,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			fakeError := fmt.Errorf("fake CDI deletion error")
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
@@ -371,7 +355,7 @@ var _ = Describe("Test operandHandler", func() {
 			}
 
 			eventEmitter.Reset()
-			err = handler.EnsureDeleted(req)
+			err := handler.EnsureDeleted(req)
 			Expect(err).Should(Equal(fakeError))
 
 			By("Check that event was emitted", func() {
@@ -381,8 +365,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CDI object still exists", func() {
 				// Read back KV
 				cdiList := cdiv1beta1.CDIList{}
-				err := cli.List(req.Ctx, &cdiList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cdiList)).To(Succeed())
 				Expect(cdiList).ToNot(BeNil())
 				Expect(cdiList.Items).To(HaveLen(1))
 				Expect(cdiList.Items[0].Name).Should(Equal("cdi-kubevirt-hyperconverged"))
@@ -401,8 +384,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
 				if unstructed, ok := obj.(runtime.Unstructured); ok {
@@ -423,7 +405,7 @@ var _ = Describe("Test operandHandler", func() {
 			}
 
 			eventEmitter.Reset()
-			err = handler.EnsureDeleted(req)
+			err := handler.EnsureDeleted(req)
 			Expect(err).Should(Equal(fakeError))
 
 			By("Check that event was emitted", func() {
@@ -433,8 +415,7 @@ var _ = Describe("Test operandHandler", func() {
 			By("make sure the CNA object still exists", func() {
 				// Read back CNA
 				cnaList := networkaddonsv1.NetworkAddonsConfigList{}
-				err := cli.List(req.Ctx, &cnaList)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(req.Ctx, &cnaList)).To(Succeed())
 				Expect(cnaList).ToNot(BeNil())
 				Expect(cnaList.Items).To(HaveLen(1))
 				Expect(cnaList.Items[0].Name).Should(Equal("cluster"))
@@ -452,8 +433,7 @@ var _ = Describe("Test operandHandler", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
 				if unstructed, ok := obj.(runtime.Unstructured); ok {
@@ -469,7 +449,7 @@ var _ = Describe("Test operandHandler", func() {
 			ctx, cancelFunc := context.WithTimeout(req.Ctx, time.Millisecond*300)
 			defer cancelFunc()
 			req.Ctx = ctx
-			err = handler.EnsureDeleted(req)
+			err := handler.EnsureDeleted(req)
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Error()).Should(Equal("context deadline exceeded"))
 

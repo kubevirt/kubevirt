@@ -73,7 +73,7 @@ var _ = Describe("test clusterInfo", func() {
 	)
 
 	testScheme := scheme.Scheme
-	Expect(openshiftconfigv1.Install(testScheme)).ToNot(HaveOccurred())
+	Expect(openshiftconfigv1.Install(testScheme)).To(Succeed())
 
 	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("clusterInfo_test")
 
@@ -82,8 +82,7 @@ var _ = Describe("test clusterInfo", func() {
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
 			Build()
-		err := GetClusterInfo().Init(context.TODO(), cl, logger)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
 		Expect(GetClusterInfo().IsManagedByOLM()).To(BeFalse(), "should return false for IsManagedByOLM()")
@@ -94,8 +93,7 @@ var _ = Describe("test clusterInfo", func() {
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
 			Build()
-		err := GetClusterInfo().Init(context.TODO(), cl, logger)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
 		Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
@@ -107,8 +105,7 @@ var _ = Describe("test clusterInfo", func() {
 			WithScheme(testScheme).
 			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
 			Build()
-		err := GetClusterInfo().Init(context.TODO(), cl, logger)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 		Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 		Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
@@ -125,8 +122,7 @@ var _ = Describe("test clusterInfo", func() {
 			WithScheme(testScheme).
 			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
 			Build()
-		err := GetClusterInfo().Init(context.TODO(), cl, logger)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 		Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 		Expect(GetClusterInfo().IsManagedByOLM()).To(BeFalse(), "should return false for IsManagedByOLM()")
@@ -154,8 +150,7 @@ var _ = Describe("test clusterInfo", func() {
 				WithScheme(testScheme).
 				WithRuntimeObjects(clusterVersion, testInfrastructure, ingress, apiServer, dns).
 				Build()
-			err := GetClusterInfo().Init(context.TODO(), cl, logger)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 			Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 			Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
@@ -225,8 +220,7 @@ var _ = Describe("test clusterInfo", func() {
 				WithRuntimeObjects(nodesArray...).
 				Build()
 
-			err := GetClusterInfo().Init(context.TODO(), cl, logger)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 			Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
 			Expect(GetClusterInfo().IsManagedByOLM()).To(BeFalse(), "should return false for IsManagedByOLM()")
@@ -289,8 +283,7 @@ var _ = Describe("test clusterInfo", func() {
 						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer, dns).
 						Build()
 				}
-				err := GetClusterInfo().Init(context.TODO(), cl, logger)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 				Expect(GetClusterInfo().IsOpenshift()).To(Equal(isOnOpenshift), "should return true for IsOpenshift()")
 				Expect(GetClusterInfo().GetTLSSecurityProfile(hcoTLSSecurityProfile)).To(Equal(expectedTLSSecurityProfile), "should return the expected TLSSecurityProfile")
@@ -460,8 +453,7 @@ var _ = Describe("test clusterInfo", func() {
 				WithScheme(testScheme).
 				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer, dns).
 				Build()
-			err := GetClusterInfo().Init(context.TODO(), cl, logger)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 			Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 			Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
@@ -469,12 +461,10 @@ var _ = Describe("test clusterInfo", func() {
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should return the initial value")
 
 			testApiServer.Spec.TLSSecurityProfile = updatedTLSSecurityProfile
-			err = cl.Update(context.TODO(), testApiServer)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(cl.Update(context.TODO(), testApiServer)).To(Succeed())
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
 
-			err = GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(updatedTLSSecurityProfile), "should return the updated value")
 

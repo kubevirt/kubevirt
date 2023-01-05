@@ -92,7 +92,7 @@ var _ = Describe("Test general utilities", func() {
 		}
 
 		testScheme := scheme.Scheme
-		Expect(openshiftconfigv1.Install(testScheme)).ToNot(HaveOccurred())
+		Expect(openshiftconfigv1.Install(testScheme)).To(Succeed())
 
 		ctx := context.Background()
 
@@ -107,8 +107,7 @@ var _ = Describe("Test general utilities", func() {
 			Expect(deleted).To(BeTrue())
 
 			podToSearch := &corev1.Pod{}
-			err = cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)
-			Expect(err).Should(HaveOccurred())
+			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ShouldNot(Succeed())
 		})
 
 		It("should not return error if the resource does not exist", func() {
@@ -121,8 +120,7 @@ var _ = Describe("Test general utilities", func() {
 			Expect(deleted).To(BeFalse())
 
 			podToSearch := &corev1.Pod{}
-			err = cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)
-			Expect(err).Should(HaveOccurred())
+			Expect(cl.Get(ctx, client.ObjectKeyFromObject(pod), podToSearch)).ShouldNot(Succeed())
 		})
 	})
 

@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,7 +109,7 @@ var _ = Describe("webhooks validator", func() {
 		networkaddonsv1.AddToScheme,
 		sspv1beta1.AddToScheme,
 	} {
-		Expect(f(s)).ToNot(HaveOccurred())
+		Expect(f(s)).To(Succeed())
 	}
 
 	codecFactory := serializer.NewCodecFactory(s)
@@ -120,15 +121,14 @@ var _ = Describe("webhooks validator", func() {
 	decoder, err := admission.NewDecoder(s)
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 
-	err = wh.InjectDecoder(decoder)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, wh.InjectDecoder(decoder)).Should(Succeed())
 
 	Context("Check create validation webhook", func() {
 		var cr *v1beta1.HyperConverged
 		var dryRun bool
 		var ctx context.Context
 		BeforeEach(func() {
-			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).ToNot(HaveOccurred())
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(Succeed())
 			cr = commonTestUtils.NewHco()
 			dryRun = false
 			ctx = context.TODO()
@@ -180,51 +180,43 @@ var _ = Describe("webhooks validator", func() {
 		})
 
 		It("should accept creation of a resource with a valid namespace", func() {
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 		})
 
 		It("should reject creation of a resource with an arbitrary namespace", func() {
 			cr.ObjectMeta.Namespace = ResourceInvalidNamespace
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).To(HaveOccurred())
+			Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 		})
 
-		It("should accept creation of a resource with a valid kv annotation", func() {
-			cr.Annotations = map[string]string{common.JSONPatchKVAnnotationName: validKvAnnotation}
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should reject creation of a resource with an invalid kv annotation", func() {
-			cr.Annotations = map[string]string{common.JSONPatchKVAnnotationName: invalidKvAnnotation}
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should accept creation of a resource with a valid cdi annotation", func() {
-			cr.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: validCdiAnnotation}
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should reject creation of a resource with an invalid cdi annotation", func() {
-			cr.Annotations = map[string]string{common.JSONPatchCDIAnnotationName: invalidCdiAnnotation}
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should accept creation of a resource with a valid cna annotation", func() {
-			cr.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: validCnaAnnotation}
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should reject creation of a resource with an invalid cna annotation", func() {
-			cr.Annotations = map[string]string{common.JSONPatchCNAOAnnotationName: invalidCnaAnnotation}
-			err := wh.ValidateCreate(ctx, dryRun, cr)
-			Expect(err).To(HaveOccurred())
-		})
+		DescribeTable("Validate annotations", func(annotations map[string]string, assertion types.GomegaMatcher) {
+			cr.Annotations = annotations
+			Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(assertion)
+		},
+			Entry("should accept creation of a resource with a valid kv annotation",
+				map[string]string{common.JSONPatchKVAnnotationName: validKvAnnotation},
+				Succeed(),
+			),
+			Entry("should reject creation of a resource with an invalid kv annotation",
+				map[string]string{common.JSONPatchKVAnnotationName: invalidKvAnnotation},
+				Not(Succeed()),
+			),
+			Entry("should accept creation of a resource with a valid cdi annotation",
+				map[string]string{common.JSONPatchCDIAnnotationName: validCdiAnnotation},
+				Succeed(),
+			),
+			Entry("should reject creation of a resource with an invalid cdi annotation",
+				map[string]string{common.JSONPatchCDIAnnotationName: invalidCdiAnnotation},
+				Not(Succeed()),
+			),
+			Entry("should accept creation of a resource with a valid cna annotation",
+				map[string]string{common.JSONPatchCNAOAnnotationName: validCnaAnnotation},
+				Succeed(),
+			),
+			Entry("should reject creation of a resource with an invalid cna annotation",
+				map[string]string{common.JSONPatchCNAOAnnotationName: invalidCnaAnnotation},
+				Not(Succeed()),
+			),
+		)
 
 		Context("test permitted host devices validation", func() {
 			It("should allow unique PCI Host Device", func() {
@@ -244,8 +236,7 @@ var _ = Describe("webhooks validator", func() {
 						},
 					},
 				}
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 			})
 
 			It("should allow unique Mediate Host Device", func() {
@@ -265,8 +256,7 @@ var _ = Describe("webhooks validator", func() {
 						},
 					},
 				}
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 			})
 		})
 
@@ -349,8 +339,7 @@ var _ = Describe("webhooks validator", func() {
 				cr.Spec.DataImportCronTemplates[2].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "TrUe"}
 				cr.Spec.DataImportCronTemplates[3].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "tRuE"}
 
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 			})
 
 			It("should allow setting the annotation to false", func() {
@@ -359,29 +348,25 @@ var _ = Describe("webhooks validator", func() {
 				cr.Spec.DataImportCronTemplates[2].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "FaLsE"}
 				cr.Spec.DataImportCronTemplates[3].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "fAlSe"}
 
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 			})
 
 			It("should allow setting no annotation", func() {
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 			})
 
 			It("should not allow empty annotation", func() {
 				cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: ""}
 				cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: ""}
 
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).To(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 			})
 
 			It("should not allow unknown annotation values", func() {
 				cr.Spec.DataImportCronTemplates[0].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "wrong"}
 				cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "mistake"}
 
-				err := wh.ValidateCreate(ctx, dryRun, cr)
-				Expect(err).To(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 			})
 
 			Context("Empty DICT spec", func() {
@@ -392,8 +377,7 @@ var _ = Describe("webhooks validator", func() {
 					// no annotation map
 					cr.Spec.DataImportCronTemplates[1].Spec = nil
 
-					err := wh.ValidateCreate(ctx, dryRun, cr)
-					Expect(err).To(HaveOccurred())
+					Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 				})
 
 				It("don't allow if the annotation is true", func() {
@@ -402,8 +386,7 @@ var _ = Describe("webhooks validator", func() {
 					cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "true"}
 					cr.Spec.DataImportCronTemplates[1].Spec = nil
 
-					err := wh.ValidateCreate(ctx, dryRun, cr)
-					Expect(err).To(HaveOccurred())
+					Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 				})
 
 				It("allow if the annotation is false", func() {
@@ -412,8 +395,7 @@ var _ = Describe("webhooks validator", func() {
 					cr.Spec.DataImportCronTemplates[1].Annotations = map[string]string{util.DataImportCronEnabledAnnotation: "false"}
 					cr.Spec.DataImportCronTemplates[1].Spec = nil
 
-					err := wh.ValidateCreate(ctx, dryRun, cr)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(wh.ValidateCreate(ctx, dryRun, cr)).To(Succeed())
 				})
 			})
 		})
@@ -442,21 +424,24 @@ var _ = Describe("webhooks validator", func() {
 
 			DescribeTable("should succeed if has any of the HTTP/2-required ciphers",
 				func(cipher string) {
-					err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", cipher, "DHE-RSA-CHACHA20-POLY1305"})
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", cipher, "DHE-RSA-CHACHA20-POLY1305"}),
+					).To(Succeed())
 				},
 				Entry("ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"),
 				Entry("ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256"),
 			)
 
 			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
-				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
-				Expect(err).To(HaveOccurred())
+				Expect(
+					updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
+				).ToNot(Succeed())
 			})
 
 			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
-				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(
+					updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
+				).To(Succeed())
 			})
 		})
 	})
@@ -518,7 +503,7 @@ var _ = Describe("webhooks validator", func() {
 			cli := getFakeClient(hco)
 
 			kv := operands.NewKubeVirtWithNameOnly(hco)
-			Expect(cli.Delete(ctx, kv)).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, kv)).To(Succeed())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
@@ -554,7 +539,7 @@ var _ = Describe("webhooks validator", func() {
 			cli := getFakeClient(hco)
 			cdi, err := operands.NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cli.Delete(ctx, cdi)).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, cdi)).To(Succeed())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
@@ -595,8 +580,7 @@ var _ = Describe("webhooks validator", func() {
 			// change something in workloads to trigger dry-run update
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
-			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 		})
 
 		It("should return error if NetworkAddons CR is missing", func() {
@@ -604,7 +588,7 @@ var _ = Describe("webhooks validator", func() {
 			cli := getFakeClient(hco)
 			cna, err := operands.NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cli.Delete(ctx, cna)).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, cna)).To(Succeed())
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
 			newHco := &v1beta1.HyperConverged{}
@@ -638,7 +622,7 @@ var _ = Describe("webhooks validator", func() {
 			ctx := context.TODO()
 			cli := getFakeClient(hco)
 
-			Expect(cli.Delete(ctx, operands.NewSSPWithNameOnly(hco))).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, operands.NewSSPWithNameOnly(hco))).To(Succeed())
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
 			newHco := &v1beta1.HyperConverged{}
@@ -693,8 +677,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco := &v1beta1.HyperConverged{}
 			hco.DeepCopyInto(newHco)
 
-			Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).ToNot(HaveOccurred())
-
+			Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 		})
 
 		Context("test permitted host devices update validation", func() {
@@ -720,7 +703,7 @@ var _ = Describe("webhooks validator", func() {
 						},
 					},
 				}
-				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
 
 			It("should allow unique Mediate Host Device", func() {
@@ -745,7 +728,7 @@ var _ = Describe("webhooks validator", func() {
 						},
 					},
 				}
-				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
 		})
 
@@ -756,7 +739,7 @@ var _ = Describe("webhooks validator", func() {
 				cli := getFakeClient(hco)
 				kv, err := operands.NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cli.Delete(ctx, kv)).ToNot(HaveOccurred())
+				Expect(cli.Delete(ctx, kv)).To(Succeed())
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, false, nil)
 
 				newHco := commonTestUtils.NewHco()
@@ -788,15 +771,14 @@ var _ = Describe("webhooks validator", func() {
 				// Later we'll check that there is no error from the webhook, and that will prove that
 				// the comparison works.
 				kv := operands.NewKubeVirtWithNameOnly(hco)
-				Expect(cli.Delete(context.TODO(), kv)).ToNot(HaveOccurred())
+				Expect(cli.Delete(context.TODO(), kv)).To(Succeed())
 
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
 				newHco := &v1beta1.HyperConverged{}
 				hco.DeepCopyInto(newHco)
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
 
 			It("should allow updating of live migration", func() {
@@ -811,8 +793,7 @@ var _ = Describe("webhooks validator", func() {
 				newVal := int64(200)
 				hco.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &newVal
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
 
 			It("should fail if live migration is wrong", func() {
@@ -848,15 +829,14 @@ var _ = Describe("webhooks validator", func() {
 				// Later we'll check that there is no error from the webhook, and that will prove that
 				// the comparison works.
 				kv := operands.NewKubeVirtWithNameOnly(hco)
-				Expect(cli.Delete(context.TODO(), kv)).ToNot(HaveOccurred())
+				Expect(cli.Delete(context.TODO(), kv)).To(Succeed())
 
 				wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
 				newHco := &v1beta1.HyperConverged{}
 				hco.DeepCopyInto(newHco)
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
 
 			It("should allow updating of cert config", func() {
@@ -873,8 +853,7 @@ var _ = Describe("webhooks validator", func() {
 				newHco.Spec.CertConfig.Server.Duration.Duration = hco.Spec.CertConfig.Server.Duration.Duration * 2
 				newHco.Spec.CertConfig.Server.RenewBefore.Duration = hco.Spec.CertConfig.Server.RenewBefore.Duration * 2
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			})
 
 			DescribeTable("should fail if cert config is wrong",
@@ -1060,25 +1039,26 @@ var _ = Describe("webhooks validator", func() {
 
 			DescribeTable("should succeed if has any of the HTTP/2-required ciphers",
 				func(cipher string) {
-					err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", cipher, "DHE-RSA-CHACHA20-POLY1305"})
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", cipher, "DHE-RSA-CHACHA20-POLY1305"}),
+					).To(Succeed())
 				},
 				Entry("ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"),
 				Entry("ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256"),
 			)
 
 			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
-				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
-				Expect(err).To(HaveOccurred())
+				Expect(
+					updateTlsSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
+				).ToNot(Succeed())
 			})
 
 			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
-				err := updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(
+					updateTlsSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
+				).To(Succeed())
 			})
-
 		})
-
 	})
 
 	Context("validate delete validation webhook", func() {
@@ -1129,18 +1109,15 @@ var _ = Describe("webhooks validator", func() {
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
-			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(wh.ValidateDelete(ctx, dryRun, hco)).To(Succeed())
 
 			By("Validate that KV still exists, as it a dry-run deletion")
 			kv := operands.NewKubeVirtWithNameOnly(hco)
-			err = util.GetRuntimeObject(context.TODO(), cli, kv, logger)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(util.GetRuntimeObject(context.TODO(), cli, kv, logger)).To(Succeed())
 
 			By("Validate that CDI still exists, as it a dry-run deletion")
 			cdi := operands.NewCDIWithNameOnly(hco)
-			err = util.GetRuntimeObject(context.TODO(), cli, cdi, logger)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(util.GetRuntimeObject(context.TODO(), cli, cdi, logger)).To(Succeed())
 		})
 
 		It("should reject if KV deletion fails", func() {
@@ -1188,12 +1165,11 @@ var _ = Describe("webhooks validator", func() {
 			ctx := context.TODO()
 
 			kv := operands.NewKubeVirtWithNameOnly(hco)
-			Expect(cli.Delete(ctx, kv)).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, kv)).To(Succeed())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
-			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(wh.ValidateDelete(ctx, dryRun, hco)).To(Succeed())
 		})
 
 		It("should reject if getting KV failed for not-not-exists error", func() {
@@ -1218,12 +1194,11 @@ var _ = Describe("webhooks validator", func() {
 			ctx := context.TODO()
 
 			cdi := operands.NewCDIWithNameOnly(hco)
-			Expect(cli.Delete(ctx, cdi)).ToNot(HaveOccurred())
+			Expect(cli.Delete(ctx, cdi)).To(Succeed())
 
 			wh := NewWebhookHandler(logger, cli, HcoValidNamespace, true, nil)
 
-			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(wh.ValidateDelete(ctx, dryRun, hco)).To(Succeed())
 		})
 
 		It("should reject if getting CDI failed for not-not-exists error", func() {
@@ -1247,7 +1222,7 @@ var _ = Describe("webhooks validator", func() {
 	Context("unsupported annotation", func() {
 		var hco *v1beta1.HyperConverged
 		BeforeEach(func() {
-			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).ToNot(HaveOccurred())
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(Succeed())
 			hco = commonTestUtils.NewHco()
 		})
 
@@ -1263,8 +1238,7 @@ var _ = Describe("webhooks validator", func() {
 				hco.DeepCopyInto(newHco)
 				hco.Annotations = map[string]string{annotationName: annotation}
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHco, hco)).To(Succeed())
 			},
 			Entry("should accept if kv annotation is valid", common.JSONPatchKVAnnotationName, validKvAnnotation),
 			Entry("should accept if cdi annotation is valid", common.JSONPatchCDIAnnotationName, validCdiAnnotation),
@@ -1316,7 +1290,7 @@ var _ = Describe("webhooks validator", func() {
 		}
 
 		BeforeEach(func() {
-			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).ToNot(HaveOccurred())
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(Succeed())
 			cr = commonTestUtils.NewHco()
 			ctx = context.TODO()
 			hcoTlsConfigCache = &initialTLSSecurityProfile
@@ -1327,16 +1301,14 @@ var _ = Describe("webhooks validator", func() {
 			It("should update hcoTlsConfigCache creating a resource not in dry run mode", func() {
 				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 				cr.Spec.TLSSecurityProfile = &modernTLSSecurityProfile
-				err := wh.ValidateCreate(ctx, false, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, false, cr)).To(Succeed())
 				Expect(hcoTlsConfigCache).To(Equal(&modernTLSSecurityProfile))
 			})
 
 			It("should not update hcoTlsConfigCache creating a resource in dry run mode", func() {
 				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 				cr.Spec.TLSSecurityProfile = &modernTLSSecurityProfile
-				err := wh.ValidateCreate(ctx, true, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, true, cr)).To(Succeed())
 				Expect(hcoTlsConfigCache).ToNot(Equal(&modernTLSSecurityProfile))
 			})
 
@@ -1344,11 +1316,9 @@ var _ = Describe("webhooks validator", func() {
 				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 				cr.Spec.TLSSecurityProfile = &modernTLSSecurityProfile
 				cr.Namespace = ResourceInvalidNamespace
-				err := wh.ValidateCreate(ctx, false, cr)
-				Expect(err).To(HaveOccurred())
+				Expect(wh.ValidateCreate(ctx, false, cr)).ToNot(Succeed())
 				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 			})
-
 		})
 
 		Context("update", func() {
@@ -1363,8 +1333,7 @@ var _ = Describe("webhooks validator", func() {
 				cr.DeepCopyInto(newCr)
 				newCr.Spec.TLSSecurityProfile = &oldTLSSecurityProfile
 
-				err = wh.ValidateUpdate(ctx, false, newCr, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, false, newCr, cr)).To(Succeed())
 				Expect(hcoTlsConfigCache).To(Equal(&oldTLSSecurityProfile))
 			})
 
@@ -1378,8 +1347,7 @@ var _ = Describe("webhooks validator", func() {
 				cr.DeepCopyInto(newCr)
 				newCr.Spec.TLSSecurityProfile = &oldTLSSecurityProfile
 
-				err = wh.ValidateUpdate(ctx, true, newCr, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateUpdate(ctx, true, newCr, cr)).To(Succeed())
 				Expect(hcoTlsConfigCache).To(Equal(&initialTLSSecurityProfile))
 			})
 
@@ -1409,8 +1377,7 @@ var _ = Describe("webhooks validator", func() {
 
 				hcoTlsConfigCache = &modernTLSSecurityProfile
 
-				err = wh.ValidateDelete(ctx, false, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateDelete(ctx, false, cr)).To(Succeed())
 				Expect(hcoTlsConfigCache).To(BeNil())
 			})
 
@@ -1420,8 +1387,7 @@ var _ = Describe("webhooks validator", func() {
 
 				hcoTlsConfigCache = &modernTLSSecurityProfile
 
-				err = wh.ValidateDelete(ctx, true, cr)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(wh.ValidateDelete(ctx, true, cr)).To(Succeed())
 				Expect(hcoTlsConfigCache).To(Equal(&modernTLSSecurityProfile))
 			})
 
@@ -1512,10 +1478,8 @@ var _ = Describe("webhooks validator", func() {
 			DescribeTable("should consume ApiServer config if HCO one is not explicitly set",
 				func(initApiTlsSecurityProfile, initHCOTlsSecurityProfile, midApiTlsSecurityProfile, midHCOTlsSecurityProfile, finApiTlsSecurityProfile, finHCOTlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile, initExpected, midExpected, finExpected openshiftconfigv1.TLSProtocolVersion) {
 					apiServer.Spec.TLSSecurityProfile = initApiTlsSecurityProfile
-					err = cl.Update(context.TODO(), apiServer)
-					Expect(err).ToNot(HaveOccurred())
-					err = util.GetClusterInfo().Init(context.TODO(), cl, logger)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
+					Expect(util.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 					ci := util.GetClusterInfo()
 					Expect(ci.IsOpenshift()).To(BeTrue())
 
@@ -1525,9 +1489,9 @@ var _ = Describe("webhooks validator", func() {
 					Expect(minTypedTLSVersion).Should(Equal(initExpected))
 
 					apiServer.Spec.TLSSecurityProfile = midApiTlsSecurityProfile
-					err = cl.Update(context.TODO(), apiServer)
+					Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
 					hcoTlsConfigCache = midHCOTlsSecurityProfile
-					err = util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)
+					Expect(util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 
 					_, minTypedTLSVersion = wh.selectCipherSuitesAndMinTLSVersion()
 					Expect(minTypedTLSVersion).Should(Equal(midExpected))
@@ -1535,8 +1499,8 @@ var _ = Describe("webhooks validator", func() {
 					apiServer.Spec.TLSSecurityProfile = finApiTlsSecurityProfile
 					err = cl.Update(context.TODO(), apiServer)
 					hcoTlsConfigCache = finHCOTlsSecurityProfile
-					err = util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)
-					Expect(err).ToNot(HaveOccurred())
+
+					Expect(util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 					_, minTypedTLSVersion = wh.selectCipherSuitesAndMinTLSVersion()
 					Expect(minTypedTLSVersion).Should(Equal(finExpected))
 				},

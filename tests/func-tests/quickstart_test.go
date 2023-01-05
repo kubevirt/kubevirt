@@ -62,14 +62,13 @@ func checkExpectedQuickStarts(client kubecli.KubevirtClient) {
 	for _, qs := range items {
 		// use a fresh object for each loop. get requests only override non-empty fields
 		var cqs consolev1.ConsoleQuickStart
-		err := client.RestClient().Get().
+		ExpectWithOffset(1, client.RestClient().Get().
 			Resource("consolequickstarts").
 			Name(qs.Name).
 			AbsPath("/apis", consolev1.GroupVersion.Group, consolev1.GroupVersion.Version).
-			Timeout(10 * time.Second).
-			Do(context.TODO()).Into(&cqs)
+			Timeout(10*time.Second).
+			Do(context.TODO()).Into(&cqs)).To(Succeed())
 
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, cqs.Spec.DisplayName).Should(Equal(qs.DisplayName))
 	}
 

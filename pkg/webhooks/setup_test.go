@@ -69,8 +69,7 @@ var _ = Describe("Hyperconverged API: Webhook", func() {
 			mgr, err := commonTestUtils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = SetupWebhookWithManager(context.TODO(), mgr, true, nil)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(SetupWebhookWithManager(context.TODO(), mgr, true, nil)).To(Succeed())
 		})
 
 		It("should fail setting up the webhooks with the manager when certificates are not accessible", func() {

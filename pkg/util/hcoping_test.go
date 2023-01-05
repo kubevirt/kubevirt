@@ -8,7 +8,7 @@ import (
 var _ = Describe("test hco ping", func() {
 	Context("test hcoChecker", func() {
 		It("should return no error", func() {
-			Expect(GetHcoPing()(nil)).ToNot(HaveOccurred())
+			Expect(GetHcoPing()(nil)).To(Succeed())
 		})
 	})
 })

@@ -156,8 +156,7 @@ func initMutator(s *runtime.Scheme, testClient client.Client) *NsMutator {
 	decoder, err := admission.NewDecoder(s)
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 
-	err = nsMutator.InjectDecoder(decoder)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(1, nsMutator.InjectDecoder(decoder)).Should(Succeed())
 
 	return nsMutator
 }

@@ -32,8 +32,7 @@ fieldObj:
             `
 			reader := strings.NewReader(input)
 			var obj testType
-			err := UnmarshalYamlFileToObject(reader, &obj)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(UnmarshalYamlFileToObject(reader, &obj)).To(Succeed())
 
 			Expect(obj).Should(Equal(testType{FieldStr: "abcd", FieldInt: 123, FieldObj: &nestedObj{NestedStr: "nested", NestedInt: 456}}))
 		})
@@ -48,15 +47,13 @@ fieldObj:
             `
 			reader := strings.NewReader(input)
 			var obj testType
-			err := UnmarshalYamlFileToObject(reader, &obj)
-			Expect(err).To(HaveOccurred())
+			Expect(UnmarshalYamlFileToObject(reader, &obj)).ToNot(Succeed())
 		})
 
 		It("should return error if failed to read", func() {
 			reader := badReader{}
 			var obj testType
-			err := UnmarshalYamlFileToObject(reader, &obj)
-			Expect(err).To(HaveOccurred())
+			Expect(UnmarshalYamlFileToObject(reader, &obj)).ToNot(Succeed())
 		})
 	})
 
@@ -93,8 +90,7 @@ fieldObj:
 				_ = os.RemoveAll(tempDir)
 			}()
 
-			err = ValidateManifestDir(tempDir)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(ValidateManifestDir(tempDir)).To(Succeed())
 		})
 	})
 

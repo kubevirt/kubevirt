@@ -126,15 +126,16 @@ func getHCO(client kubecli.KubevirtClient) v1beta1.HyperConverged {
 	s.AddKnownTypes(v1beta1.SchemeGroupVersion)
 
 	var hco v1beta1.HyperConverged
-	err := client.RestClient().Get().
-		Resource("hyperconvergeds").
-		Name("kubevirt-hyperconverged").
-		Namespace(flags.KubeVirtInstallNamespace).
-		AbsPath("/apis", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version).
-		Timeout(10 * time.Second).
-		Do(context.TODO()).Into(&hco)
-
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+	ExpectWithOffset(
+		1,
+		client.RestClient().Get().
+			Resource("hyperconvergeds").
+			Name("kubevirt-hyperconverged").
+			Namespace(flags.KubeVirtInstallNamespace).
+			AbsPath("/apis", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version).
+			Timeout(10*time.Second).
+			Do(context.TODO()).Into(&hco),
+	).To(Succeed())
 
 	return hco
 }
@@ -143,16 +144,14 @@ func updateHCO(client kubecli.KubevirtClient, hco v1beta1.HyperConverged) v1beta
 	hco.Kind = "HyperConverged"
 	hco.APIVersion = v1beta1.SchemeGroupVersion.String()
 
-	err := client.RestClient().Put().
+	ExpectWithOffset(1, client.RestClient().Put().
 		Resource("hyperconvergeds").
 		Name("kubevirt-hyperconverged").
 		Namespace(flags.KubeVirtInstallNamespace).
 		AbsPath("/apis", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version).
 		Body(&hco).
-		Timeout(10 * time.Second).
-		Do(context.TODO()).Into(&hco)
-
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+		Timeout(10*time.Second).
+		Do(context.TODO()).Into(&hco)).Should(Succeed())
 
 	return hco
 }
@@ -173,14 +172,13 @@ func getPrometheusRule(client kubecli.KubevirtClient) monitoringv1.PrometheusRul
 
 	var prometheusRule monitoringv1.PrometheusRule
 
-	err := client.RestClient().Get().
+	ExpectWithOffset(1, client.RestClient().Get().
 		Resource("prometheusrules").
 		Name("kubevirt-hyperconverged-prometheus-rule").
 		Namespace(flags.KubeVirtInstallNamespace).
 		AbsPath("/apis", monitoringv1.SchemeGroupVersion.Group, monitoringv1.SchemeGroupVersion.Version).
-		Timeout(10 * time.Second).
-		Do(context.TODO()).Into(&prometheusRule)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+		Timeout(10*time.Second).
+		Do(context.TODO()).Into(&prometheusRule)).Should(Succeed())
 	return prometheusRule
 }
 
