@@ -23113,6 +23113,13 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 							Format:      "",
 						},
 					},
+					"cdiHeaderSecretUrl": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CDIHeaderSecretUrl returns a Containerized Data Importer compatible secret",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"cert"},
 			},

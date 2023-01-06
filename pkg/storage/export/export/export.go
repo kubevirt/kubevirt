@@ -119,7 +119,8 @@ const (
 	vmManifest             = "virtualmachine-manifest"
 	exportNameKey          = "export-name"
 	manifestData           = "manifest-data"
-	exportDefPath          = "/export-def/"
+	manifestsPath          = "/manifests/all"
+	secretManifestPath     = "/manifests/secret"
 	externalHostKey        = "external_host"
 	internalHostKey        = "internal_host"
 	externalCaConfigMapKey = "external_ca_cm"
@@ -773,7 +774,7 @@ func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachine
 }
 
 func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
-	log.Log.V(3).Infof("Checking if pod exist: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
+	log.Log.V(3).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
 		log.Log.V(3).Errorf("error %v", err)
@@ -859,7 +860,10 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: getDeadlineValue(deadline, vmExport).Format(time.RFC3339),
 	}, corev1.EnvVar{
 		Name:  "EXPORT_VM_DEF_URI",
-		Value: exportDefPath,
+		Value: manifestsPath,
+	}, corev1.EnvVar{
+		Name:  "EXPORT_SECRET_DEF_URI",
+		Value: secretManifestPath,
 	})
 
 	tokenSecretRef := ""
@@ -936,9 +940,9 @@ func (ctrl *VMExportController) createDataManifestAndAddToPod(vmExport *exportv1
 }
 
 func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine, service *corev1.Service) (*corev1.ConfigMap, error) {
-	data := make(map[string][]byte)
+	data := make(map[string]string)
 
-	data[internalHostKey] = []byte(fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace))
+	data[internalHostKey] = fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
 	cert, err := ctrl.internalExportCa()
 	if err != nil {
 		return nil, err
@@ -948,24 +952,24 @@ func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.V
 	if err != nil {
 		return nil, err
 	}
-	data[internalCaConfigMapKey] = caCmBytes
+	data[internalCaConfigMapKey] = string(caCmBytes)
 
 	externalUrlPath := fmt.Sprintf(externalUrlLinkFormat, vmExport.Namespace, vmExport.Name)
 	externalLinkHost, cert := ctrl.getExternalLinkHostAndCert()
 	if externalLinkHost != "" {
-		data[externalHostKey] = []byte(path.Join(externalLinkHost, externalUrlPath))
+		data[externalHostKey] = path.Join(externalLinkHost, externalUrlPath)
 		externalCaCm := ctrl.createExportCaConfigMap(cert, vmExport.Name)
 		caCmBytes, err := json.Marshal(externalCaCm)
 		if err != nil {
 			return nil, err
 		}
-		data[externalCaConfigMapKey] = caCmBytes
+		data[externalCaConfigMapKey] = string(caCmBytes)
 	}
 	vmBytes, err := ctrl.generateVMDefinitionFromVm(vm)
 	if err != nil {
 		return nil, err
 	}
-	data[vmManifest] = vmBytes
+	data[vmManifest] = string(vmBytes)
 
 	datavolumes := ctrl.generateDataVolumesFromVm(vm)
 	for _, datavolume := range datavolumes {
@@ -974,10 +978,10 @@ func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.V
 			if err != nil {
 				return nil, err
 			}
-			data[fmt.Sprintf("dv-%s", datavolume.Name)] = dvBytes
+			data[fmt.Sprintf("dv-%s", datavolume.Name)] = string(dvBytes)
 		}
 	}
-	data[exportNameKey] = []byte(vmExport.Name)
+	data[exportNameKey] = vmExport.Name
 	res := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: vm.Namespace,
@@ -986,7 +990,7 @@ func (ctrl *VMExportController) createDataManifestConfigMap(vmExport *exportv1.V
 				*metav1.NewControllerRef(vmExport, exportGVK),
 			},
 		},
-		BinaryData: data,
+		Data: data,
 	}
 	return res, nil
 }
@@ -1325,6 +1329,10 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	// Clear status
 	expandedVm.Status = virtv1.VirtualMachineStatus{}
 	expandedVm.ManagedFields = nil
+	expandedVm.ObjectMeta.SetCreationTimestamp(metav1.Time{})
+	expandedVm.ObjectMeta.SetUID("")
+	expandedVm.ObjectMeta.SetResourceVersion("")
+
 	// Update dvTemplates if exists
 	expandedVm = ctrl.updateHttpSourceDataVolumeTemplate(vm)
 	vmBytes, err := json.Marshal(expandedVm)

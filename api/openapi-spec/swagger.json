@@ -19969,6 +19969,10 @@
      "cert"
     ],
     "properties": {
+     "cdiHeaderSecretUrl": {
+      "description": "CDIHeaderSecretUrl returns a Containerized Data Importer compatible secret",
+      "type": "string"
+     },
      "cert": {
       "description": "Cert is the public CA certificate base64 encoded",
       "type": "string"

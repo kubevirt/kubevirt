@@ -50,6 +50,8 @@ const (
 	exportResourceName    = "virtualmachineexports"
 	gv                    = apiGroup + "/" + apiVersion
 	externalUrlLinkFormat = "/api/" + gv + "/namespaces/%s/" + exportResourceName + "/%s"
+	internal              = "internal"
+	external              = "external"
 )
 
 func (ctrl *VMExportController) getInteralLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service) (*exportv1.VirtualMachineExportLink, error) {
@@ -58,7 +60,7 @@ func (ctrl *VMExportController) getInteralLinks(pvcs []*corev1.PersistentVolumeC
 		return nil, err
 	}
 	host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
-	return ctrl.getLinks(pvcs, exporterPod, host, internalCert)
+	return ctrl.getLinks(pvcs, exporterPod, host, internal, internalCert)
 }
 
 func (ctrl *VMExportController) getExternalLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
@@ -66,17 +68,18 @@ func (ctrl *VMExportController) getExternalLinks(pvcs []*corev1.PersistentVolume
 	externalLinkHost, cert := ctrl.getExternalLinkHostAndCert()
 	if externalLinkHost != "" {
 		hostAndBase := path.Join(externalLinkHost, urlPath)
-		return ctrl.getLinks(pvcs, exporterPod, hostAndBase, cert)
+		return ctrl.getLinks(pvcs, exporterPod, hostAndBase, external, cert)
 	}
 	return nil, nil
 }
 
-func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, hostAndBase, cert string) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, hostAndBase, linkType, cert string) (*exportv1.VirtualMachineExportLink, error) {
 	const scheme = "https://"
 	exportLink := &exportv1.VirtualMachineExportLink{
-		Volumes:       []exportv1.VirtualMachineExportVolume{},
-		Cert:          cert,
-		DefinitionUrl: scheme + path.Join(hostAndBase, exportDefPath),
+		Volumes:            []exportv1.VirtualMachineExportVolume{},
+		Cert:               cert,
+		DefinitionUrl:      scheme + path.Join(hostAndBase, linkType, manifestsPath),
+		CDIHeaderSecretUrl: scheme + path.Join(hostAndBase, linkType, secretManifestPath),
 	}
 	for _, pvc := range pvcs {
 		if pvc != nil && exporterPod != nil && exporterPod.Status.Phase == corev1.PodRunning {

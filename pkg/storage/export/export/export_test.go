@@ -79,7 +79,7 @@ var (
 	expectedPodEnvVars       = []k8sv1.EnvVar{
 		{
 			Name:  "EXPORT_VM_DEF_URI",
-			Value: exportDefPath,
+			Value: manifestsPath,
 		}, {
 			Name:  "CERT_FILE",
 			Value: "/cert/tls.crt",
@@ -1131,9 +1131,9 @@ var _ = Describe("Export controller", func() {
 			Expect(ok).To(BeTrue())
 			Expect(cm.GetName()).To(Equal(cmName))
 			Expect(cm.GetNamespace()).To(Equal(testNamespace))
-			Expect(cm.BinaryData).ToNot(BeEmpty())
-			Expect(string(cm.BinaryData[internalHostKey])).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
-			Expect(cm.BinaryData[vmManifest]).To(Equal(vmBytes))
+			Expect(cm.Data).ToNot(BeEmpty())
+			Expect(cm.Data[internalHostKey]).To(Equal(fmt.Sprintf("%s.%s.svc", controller.getExportServiceName(testVMExport), service.Namespace)))
+			Expect(cm.Data[vmManifest]).To(Equal(string(vmBytes)))
 			return true, cm, nil
 		})
 		err = controller.createDataManifestAndAddToPod(testVMExport, vm, testPod, service)

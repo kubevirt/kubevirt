@@ -7902,6 +7902,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
+                cdiHeaderSecretUrl:
+                  description: CDIHeaderSecretUrl returns a Containerized Data Importer
+                    compatible secret
+                  type: string
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
@@ -7953,6 +7957,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
+                cdiHeaderSecretUrl:
+                  description: CDIHeaderSecretUrl returns a Containerized Data Importer
+                    compatible secret
+                  type: string
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string

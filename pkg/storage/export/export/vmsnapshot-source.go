@@ -22,6 +22,7 @@ package export
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -185,6 +186,11 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
 	vmExportCopy := vmExport.DeepCopy()
 
+	// Change the names of the returned pvcs by removing the prefix we used to create the PVCs, this matches
+	// the volumes of the source VM
+	for _, pvc := range sourceVolumes.volumes {
+		pvc.Name = strings.TrimPrefix(pvc.Name, fmt.Sprintf("%s-", vmExport.Name))
+	}
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes); err != nil {
 		return 0, err
 	}

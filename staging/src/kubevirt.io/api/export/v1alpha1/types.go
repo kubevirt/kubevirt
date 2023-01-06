@@ -131,6 +131,9 @@ type VirtualMachineExportLink struct {
 	// DefinitionUrl is the url that contains the VM definition in either JSON or YAML format
 	// +optional
 	DefinitionUrl string `json:"definitionUrl,omitempty"`
+
+	// CDIHeaderSecretUrl returns a Containerized Data Importer compatible secret
+	CDIHeaderSecretUrl string `json:"cdiHeaderSecretUrl,omitempty"`
 }
 
 // VirtualMachineExportVolume contains the name and available formats for the exported volume

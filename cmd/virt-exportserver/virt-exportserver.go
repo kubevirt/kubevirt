@@ -66,6 +66,7 @@ func getVolumeInfo() []exportServer.VolumeInfo {
 				RawURI:     os.Getenv(envPrefix + "_EXPORT_RAW_URI"),
 				RawGzURI:   os.Getenv(envPrefix + "_EXPORT_RAW_GZIP_URI"),
 				VMURI:      os.Getenv("EXPORT_VM_DEF_URI"),
+				SecretURI:  os.Getenv("EXPORT_SECRET_DEF_URI"),
 			}
 			result = append(result, vi)
 		}

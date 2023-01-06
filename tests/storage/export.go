@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	goerrors "errors"
 	"fmt"
@@ -30,8 +31,9 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"sigs.k8s.io/yaml"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -55,9 +57,9 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -397,7 +399,6 @@ var _ = SIGDescribe("Export", func() {
 		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		log.DefaultLogger().Infof("Calculated MD5 %s", md5sum)
 		return pvc, md5sum
 	}
 
@@ -681,7 +682,7 @@ var _ = SIGDescribe("Export", func() {
 				Namespace: namespace,
 			},
 			Spec: exportv1.VirtualMachineExportSpec{
-				TokenSecretRef: &token.Name,
+				TokenSecretRef: pointer.StringPtr(token.Name),
 				Source: k8sv1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachineSnapshot",
@@ -731,7 +732,6 @@ var _ = SIGDescribe("Export", func() {
 	createRunningVMSnapshotExport := func(snapshot *snapshotv1.VirtualMachineSnapshot) *exportv1.VirtualMachineExport {
 		// For testing the token is the name of the source snapshot.
 		token := createExportTokenSecret(snapshot.Name, snapshot.Namespace)
-
 		export := createVMSnapshotExportObject(snapshot.Name, snapshot.Namespace, token)
 		return waitForReadyExport(export)
 	}
@@ -1330,7 +1330,7 @@ var _ = SIGDescribe("Export", func() {
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
 		checkExportSecretRef(export)
-		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		restoreName := vm.Spec.Template.Spec.Volumes[0].DataVolume.Name
 		verifyKubevirtInternal(export, export.Name, export.Namespace, restoreName)
 	})
 
@@ -1398,15 +1398,16 @@ var _ = SIGDescribe("Export", func() {
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
 		vm = createVM(vm)
+		stopVM(vm)
 		snapshot := createAndVerifyVMSnapshot(vm)
 		Expect(snapshot).ToNot(BeNil())
 		defer deleteSnapshot(snapshot)
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
 		checkExportSecretRef(export)
-		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		restoreName := vm.Spec.Template.Spec.Volumes[0].DataVolume.Name
 		// [1] is the cloud init
-		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
+		restoreName2 := vm.Spec.Template.Spec.Volumes[2].DataVolume.Name
 		verifyMultiKubevirtInternal(export, export.Name, export.Namespace, restoreName, restoreName2)
 	})
 
@@ -1538,39 +1539,13 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
 	})
 
-	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
-		}
-		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
-		vm.Spec.Running = pointer.BoolPtr(true)
-		vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-		vm = createVM(vm)
-		Expect(vm).ToNot(BeNil())
-		vm = stopVM(vm)
-		token := createExportTokenSecret(vm.Name, vm.Namespace)
-		export := createVMExportObject(vm.Name, vm.Namespace, token)
-		Expect(export).ToNot(BeNil())
-		export = waitForReadyExport(export)
-		checkExportSecretRef(export)
-		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
-		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
-		Expect(export.Status).ToNot(BeNil())
-		Expect(export.Status.Links).ToNot(BeNil())
-		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/export-def", fmt.Sprintf("virt-export-%s", export.Name), util.NamespaceTestDefault)))
-		Expect(err).ToNot(HaveOccurred())
-		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
-		Expect(caConfigMap).ToNot(BeNil())
-		pod := createDownloadPod(caConfigMap)
-		pod = tests.RunPod(pod)
-
+	checkWithYamlOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine) {
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
 		command := []string{
 			"curl",
-			"-L",
+			"--header",
+			"Accept:application/yaml",
 			"--cacert",
 			filepath.Join(caCertPath, caBundleKey),
 			url,
@@ -1593,12 +1568,12 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
 		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = resVM.Spec.DataVolumeTemplates[0].Name
-		resVM.ObjectMeta.ResourceVersion = ""
 		By("Getting token secret header")
-		url = fmt.Sprintf("%s/secret?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
+		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.CDIHeaderSecretUrl, token.Data["token"])
 		command = []string{
 			"curl",
-			"-L",
+			"--header",
+			"Accept:application/yaml",
 			"--cacert",
 			filepath.Join(caCertPath, caBundleKey),
 			url,
@@ -1613,6 +1588,283 @@ var _ = SIGDescribe("Export", func() {
 		resSecret, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resSecret).ToNot(BeNil())
+		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resCM).ToNot(BeNil())
+		Expect(resVM.Spec.Running).ToNot(BeNil())
+		*resVM.Spec.Running = true
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(resVM)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resVM).ToNot(BeNil())
+		waitForDisksComplete(resVM)
+	}
+
+	checkWithJsonOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine) {
+		By("Getting export VM definition yaml")
+		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
+		command := []string{
+			"curl",
+			"--cacert",
+			filepath.Join(caCertPath, caBundleKey),
+			url,
+		}
+
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		list := &k8sv1.List{}
+		err = json.Unmarshal([]byte(out), list)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(list.Items).To(HaveLen(2))
+
+		resCM := &k8sv1.ConfigMap{}
+		err = yaml.Unmarshal(list.Items[0].Raw, resCM)
+		Expect(err).ToNot(HaveOccurred())
+		resCM.Name = fmt.Sprintf("%s-clone-json", resCM.Name)
+		resVM := &virtv1.VirtualMachine{}
+		err = yaml.Unmarshal(list.Items[1].Raw, resVM)
+		Expect(err).ToNot(HaveOccurred())
+		resVM.SetName(fmt.Sprintf("%s-clone-json", resVM.Name))
+		Expect(resVM.Spec.DataVolumeTemplates).To(HaveLen(1))
+		resVM.Spec.DataVolumeTemplates[0].SetName(fmt.Sprintf("%s-clone-json", resVM.Spec.DataVolumeTemplates[0].Name))
+		resVM.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.CertConfigMap = resCM.Name
+		Expect(resVM.Spec.Template).ToNot(BeNil())
+		Expect(resVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
+		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = resVM.Spec.DataVolumeTemplates[0].Name
+		By("Getting token secret header")
+		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.CDIHeaderSecretUrl, token.Data["token"])
+		command = []string{
+			"curl",
+			"--header",
+			"Accept:application/yaml",
+			"--cacert",
+			filepath.Join(caCertPath, caBundleKey),
+			url,
+		}
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		resSecret := &k8sv1.Secret{}
+		err = yaml.Unmarshal([]byte(out), resSecret)
+		Expect(err).ToNot(HaveOccurred())
+		resSecret.Name = fmt.Sprintf("%s-clone-json", resSecret.Name)
+		resVM.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.SecretExtraHeaders = []string{resSecret.Name}
+		resSecret, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resSecret).ToNot(BeNil())
+		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resCM).ToNot(BeNil())
+		Expect(resVM.Spec.Running).ToNot(BeNil())
+		*resVM.Spec.Running = true
+		resVM, err = virtClient.VirtualMachine(vm.Namespace).Create(resVM)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resVM).ToNot(BeNil())
+		waitForDisksComplete(resVM)
+	}
+
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm.Spec.Running = pointer.BoolPtr(true)
+		vm = createVM(vm)
+		Expect(vm).ToNot(BeNil())
+		vm = stopVM(vm)
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		export = waitForReadyExport(export)
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
+		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		Expect(export.Status).ToNot(BeNil())
+		Expect(export.Status.Links).ToNot(BeNil())
+		Expect(export.Status.Links.Internal).ToNot(BeNil())
+		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(export.Status.Links.Internal.CDIHeaderSecretUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(err).ToNot(HaveOccurred())
+		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
+		Expect(caConfigMap).ToNot(BeNil())
+		pod := createDownloadPod(caConfigMap)
+		pod = tests.RunPod(pod)
+		checkWithYamlOutput(pod, export, vm)
+		checkWithJsonOutput(pod, export, vm)
+	})
+
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", func() {
+		virtClient, err := kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		if err != nil {
+			Skip("Skip test when snapshot storage is not present")
+		}
+		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
+		vm.Spec.Running = pointer.BoolPtr(true)
+		vm = createVM(vm)
+		Expect(vm).ToNot(BeNil())
+		vm = stopVM(vm)
+		snapshot := createAndVerifyVMSnapshot(vm)
+		export := createRunningVMSnapshotExport(snapshot)
+		Expect(export).ToNot(BeNil())
+		export = waitForReadyExport(export)
+		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		Expect(export.Status).ToNot(BeNil())
+		Expect(export.Status.Links).ToNot(BeNil())
+		Expect(export.Status.Links.Internal).ToNot(BeNil())
+		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(export.Status.Links.Internal.CDIHeaderSecretUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(err).ToNot(HaveOccurred())
+		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
+		Expect(caConfigMap).ToNot(BeNil())
+		pod := createDownloadPod(caConfigMap)
+		pod = tests.RunPod(pod)
+		checkWithYamlOutput(pod, export, vm)
+		checkWithJsonOutput(pod, export, vm)
+	})
+
+	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Skip("Skip test when Filesystem storage is not present")
+		}
+		clusterInstancetype := &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineClusterInstancetype",
+				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "export-test-cluster-instancetype",
+			},
+			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1alpha2.CPUInstancetype{
+					Guest: uint32(4),
+				},
+			},
+		}
+
+		_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		defer func() {
+			err = virtClient.VirtualMachineClusterInstancetype().Delete(context.Background(), clusterInstancetype.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}()
+
+		imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.CirrosVolumeSize)),
+		)
+		dataVolume.SetNamespace(testsuite.GetTestNamespace(dataVolume))
+		dataVolume = createDataVolume(dataVolume)
+		blankDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+		)
+		blankDv.SetNamespace(testsuite.GetTestNamespace(blankDv))
+		blankDv = createDataVolume(blankDv)
+
+		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+		tests.AddUserData(vmi, "cloud-init", bashHelloScript)
+		vm := tests.NewRandomVirtualMachine(vmi, false)
+		addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
+		vm.Spec.Running = pointer.BoolPtr(true)
+		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+			Name: clusterInstancetype.Name,
+		}
+		// If I don't remove this, it clashes with the instance type.
+		delete(vm.Spec.Template.Spec.Domain.Resources.Requests, k8sv1.ResourceMemory)
+		vm = createVM(vm)
+		Expect(vm).ToNot(BeNil())
+		vm = stopVM(vm)
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		export := createVMExportObject(vm.Name, vm.Namespace, token)
+		Expect(export).ToNot(BeNil())
+		export = waitForReadyExport(export)
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
+		Expect(vm).ToNot(BeNil())
+		Expect(vm.Spec.Template).ToNot(BeNil())
+		Expect(vm.Spec.Template.Spec.Volumes).ToNot(BeEmpty())
+		// index 1 is for cloud init
+		verifyMultiKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
+		Expect(export.Status).ToNot(BeNil())
+		Expect(export.Status.Links).ToNot(BeNil())
+		Expect(export.Status.Links.Internal).ToNot(BeNil())
+		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
+		Expect(export.Status.Links.Internal.CDIHeaderSecretUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
+		Expect(err).ToNot(HaveOccurred())
+		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
+		Expect(caConfigMap).ToNot(BeNil())
+		pod := createDownloadPod(caConfigMap)
+		pod = tests.RunPod(pod)
+		By("Getting export VM definition yaml")
+		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
+		command := []string{
+			"curl",
+			"--header",
+			"Accept:application/yaml",
+			"--cacert",
+			filepath.Join(caCertPath, caBundleKey),
+			url,
+		}
+
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		split := strings.Split(out, "\n---\n")
+		Expect(split).To(HaveLen(5))
+		resCM := &k8sv1.ConfigMap{}
+		err = yaml.Unmarshal([]byte(split[0]), resCM)
+		Expect(err).ToNot(HaveOccurred())
+		resVM := &virtv1.VirtualMachine{}
+		err = yaml.Unmarshal([]byte(split[1]), resVM)
+		Expect(err).ToNot(HaveOccurred())
+		resVM.SetName(fmt.Sprintf("%s-clone", resVM.Name))
+		Expect(resVM.Spec.DataVolumeTemplates).To(BeEmpty())
+		Expect(resVM.Spec.Template).ToNot(BeNil())
+		Expect(resVM.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(4)))
+		Expect(resVM.Spec.Template.Spec.Volumes).To(HaveLen(3))
+		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
+		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = fmt.Sprintf("%s-clone", resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		resVM.Spec.Template.Spec.Volumes[2].DataVolume.Name = fmt.Sprintf("%s-clone", resVM.Spec.Template.Spec.Volumes[2].DataVolume.Name)
+		diskDV := &cdiv1.DataVolume{}
+		err = yaml.Unmarshal([]byte(split[2]), diskDV)
+		Expect(err).ToNot(HaveOccurred())
+		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
+		diskDV.Spec.PVC.StorageClassName = pointer.StringPtr(sc)
+		Expect(diskDV.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
+		blankDv = &cdiv1.DataVolume{}
+		err = yaml.Unmarshal([]byte(split[3]), blankDv)
+		Expect(err).ToNot(HaveOccurred())
+		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
+		blankDv.Spec.PVC.StorageClassName = pointer.StringPtr(sc)
+		Expect(blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
+
+		By("Getting token secret header")
+		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.CDIHeaderSecretUrl, token.Data["token"])
+		command = []string{
+			"curl",
+			"--header",
+			"Accept:application/yaml",
+			"--cacert",
+			filepath.Join(caCertPath, caBundleKey),
+			url,
+		}
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		split = strings.Split(out, "\n---\n")
+		Expect(split).To(HaveLen(2))
+		resSecret := &k8sv1.Secret{}
+		err = yaml.Unmarshal([]byte(split[0]), resSecret)
+		Expect(err).ToNot(HaveOccurred())
+		resSecret, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resSecret).ToNot(BeNil())
+		diskDV = createDataVolume(diskDV)
+		Expect(diskDV).ToNot(BeNil())
+		blankDv = createDataVolume(blankDv)
+		Expect(blankDv).ToNot(BeNil())
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())

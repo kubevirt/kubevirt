@@ -20,6 +20,7 @@
 package virtexportserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,9 +32,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/yaml"
 )
@@ -60,7 +61,7 @@ func newTestServer(token string) *exportServer {
 		GzipHandler: func(string) http.Handler {
 			return http.HandlerFunc(successHandler)
 		},
-		VmHandler: func(s string, vi []VolumeInfo) http.Handler {
+		VmHandler: func(string, []VolumeInfo, func() (string, error), func() (*v1.ConfigMap, error)) http.Handler {
 			return http.HandlerFunc(successHandler)
 		},
 		TokenSecretHandler: func(tgf TokenGetterFunc) http.Handler {
@@ -113,12 +114,12 @@ var _ = Describe("exportserver", func() {
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def"},
-			"/vm_def",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/internal/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def/secret"},
-			"/vm_def/secret",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/internal/manifest/secret",
 		),
 	)
 
@@ -159,12 +160,12 @@ var _ = Describe("exportserver", func() {
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def"},
-			"/vm_def",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/internal/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def/secret"},
-			"/vm_def/secret",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/internal/manifest/secret",
 		),
 	)
 
@@ -202,12 +203,12 @@ var _ = Describe("exportserver", func() {
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def"},
-			"/vm_def",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/external/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def/secret"},
-			"/vm_def/secret",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/external/manifest/secret",
 		),
 	)
 
@@ -244,30 +245,25 @@ var _ = Describe("exportserver", func() {
 			"/volume/v1/disk.img.gz",
 		),
 		Entry("VM definition URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def"},
-			"/vm_def",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest"},
+			"/external/manifest",
 		),
 		Entry("Token Secret URI",
-			VolumeInfo{Path: "/tmp", VMURI: "/vm_def/secret"},
-			"/vm_def/secret",
+			VolumeInfo{Path: "/tmp", VMURI: "/manifest/secret"},
+			"/internal/manifest/secret",
 		),
 	)
 
 	Context("Vm handler", func() {
 		var (
 			orgGetExportName       = getExportName
-			orgGetCaConfigMap      = getCAConfigMap
 			orgGetInternalBasePath = getInternalBasePath
 			orgGetExpandedVM       = getExpandedVM
 			orgGetDataVolumes      = getDataVolumes
 			orgGetExternalBasePath = getExternalBasePath
-
-			errorGetCaConfigMap = func(string) (*v1.ConfigMap, error) {
-				return nil, fmt.Errorf("Error in reading CA")
-			}
 		)
 
-		verifyCm := func(yamlString string) {
+		verifyCmYaml := func(yamlString string) {
 			resCm := &v1.ConfigMap{}
 			err := yaml.Unmarshal([]byte(yamlString), resCm)
 			Expect(err).ToNot(HaveOccurred())
@@ -275,38 +271,51 @@ var _ = Describe("exportserver", func() {
 			Expect(resCm.Data["ca.crt"]).To((Equal("cert data")))
 		}
 
+		verifyCmJson := func(jsonBytes []byte) {
+			resCm := &v1.ConfigMap{}
+			err := json.Unmarshal(jsonBytes, resCm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resCm.Name).To(Equal("test-ca-configmap"))
+			Expect(resCm.Data["ca.crt"]).To((Equal("cert data")))
+		}
+
+		getBasePath := func() (string, error) {
+			return "base_path", nil
+		}
+
+		getErrorBasePath := func() (string, error) {
+			return "", fmt.Errorf("base path error")
+		}
+
+		getCaConfigMap := func() (*v1.ConfigMap, error) {
+			return &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ca-configmap",
+					Namespace: testNamespace,
+				},
+				Data: map[string]string{
+					"ca.crt": "cert data",
+				},
+			}, nil
+		}
+		getErrorCaConfigMap := func() (*v1.ConfigMap, error) {
+			return nil, fmt.Errorf("Error in reading CA")
+		}
+
 		BeforeEach(func() {
 			getExportName = func() (string, error) {
 				return "test-vm-export", nil
 			}
-			getInternalBasePath = func() (string, error) {
-				return "internal_base", nil
-			}
-			getExternalBasePath = func() (string, error) {
-				return "external_base", nil
-			}
-			getCAConfigMap = func(name string) (*v1.ConfigMap, error) {
-				return &v1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-ca-configmap",
-						Namespace: testNamespace,
-					},
-					Data: map[string]string{
-						"ca.crt": "cert data",
-					},
-				}, nil
-			}
 			getExpandedVM = func() *virtv1.VirtualMachine {
 				return &virtv1.VirtualMachine{}
 			}
-			getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*v1beta1.DataVolume, error) {
+			getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 				return nil, nil
 			}
 		})
 
 		AfterEach(func() {
 			getExportName = orgGetExportName
-			getCAConfigMap = orgGetCaConfigMap
 			getInternalBasePath = orgGetInternalBasePath
 			getExpandedVM = orgGetExpandedVM
 			getDataVolumes = orgGetDataVolumes
@@ -317,7 +326,7 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest(verb, "https://test.blah.invalid/vm_def/secret?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusBadRequest))
 		},
@@ -334,65 +343,40 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
 
-		It("Should return 500 if internal path returns error", func() {
+		It("Should return 500 if path returns error", func() {
 			getInternalBasePath = func() (string, error) {
 				return "", fmt.Errorf("Not found")
 			}
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getErrorBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
 
 		It("Should return 500 if reading CAConfigMap returns error", func() {
-			getCAConfigMap = errorGetCaConfigMap
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getErrorCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
 
-		It("Should return 500 if external path returns file not found", func() {
-			getExternalBasePath = orgGetExternalBasePath
-			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar&externalURI=test", nil)
-			resp := httptest.NewRecorder()
-			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
-			handler.ServeHTTP(resp, req)
-			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
-		})
-
-		It("Should return 500 if external path returns other error", func() {
+		It("Should return 500 if path returns other error", func() {
 			getExternalBasePath = func() (string, error) {
 				return "", fmt.Errorf("Error")
 			}
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar&externalURI=test", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
-			handler.ServeHTTP(resp, req)
-			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
-		})
-
-		It("Should return 500 if external path returns value but external CAConfigMap fails", func() {
-			getExternalBasePath = func() (string, error) {
-				// set function to failure
-				getCAConfigMap = errorGetCaConfigMap
-				return "external", nil
-			}
-			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar&externalURI=test", nil)
-			resp := httptest.NewRecorder()
-			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getErrorBasePath, getInternalCAConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
@@ -404,21 +388,22 @@ var _ = Describe("exportserver", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar&externalURI=test", nil)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
 
-		It("Should return vm definition and associated resources as bytes", func() {
+		It("Should return vm definition and associated resources as bytes, yaml", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			req.Header.Set("Accept", runtime.ContentTypeYAML)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
-			handler := vmHandler("/tmp", []VolumeInfo{})
+			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
 			out := strings.Split(resp.Body.String(), "---\n")
 			Expect(out).To(HaveLen(3))
-			verifyCm(out[0])
+			verifyCmYaml(out[0])
 			resVm := &virtv1.VirtualMachine{}
 			err = yaml.Unmarshal([]byte(out[1]), resVm)
 			Expect(err).ToNot(HaveOccurred())
@@ -430,8 +415,31 @@ var _ = Describe("exportserver", func() {
 			}))
 		})
 
-		It("Should override DVTemplates with new source URI", func() {
-			testVm := &virtv1.VirtualMachine{
+		It("Should return vm definition and associated resources as bytes, json", func() {
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			resp := httptest.NewRecorder()
+			Expect(err).ToNot(HaveOccurred())
+			handler := vmHandler("/tmp", []VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			list := &v1.List{}
+			err = json.Unmarshal(resp.Body.Bytes(), list)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list.Items).To(HaveLen(2))
+			verifyCmJson(list.Items[0].Raw)
+			resVm := &virtv1.VirtualMachine{}
+			err = yaml.Unmarshal(list.Items[1].Raw, resVm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resVm).To(Equal(&virtv1.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "VirtualMachine",
+					APIVersion: virtv1.GroupVersion.String(),
+				},
+			}))
+		})
+
+		getTestVm := func() *virtv1.VirtualMachine {
+			return &virtv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: testNamespace,
@@ -443,13 +451,13 @@ var _ = Describe("exportserver", func() {
 								Name:      "test-dv",
 								Namespace: testNamespace,
 							},
-							Spec: v1beta1.DataVolumeSpec{
-								Source: &v1beta1.DataVolumeSource{
-									HTTP: &v1beta1.DataVolumeSourceHTTP{
+							Spec: cdiv1.DataVolumeSpec{
+								Source: &cdiv1.DataVolumeSource{
+									HTTP: &cdiv1.DataVolumeSourceHTTP{
 										URL: "",
 									},
 								},
-								Storage: &v1beta1.StorageSpec{
+								Storage: &cdiv1.StorageSpec{
 									AccessModes: []v1.PersistentVolumeAccessMode{
 										v1.ReadWriteMany,
 									},
@@ -478,6 +486,41 @@ var _ = Describe("exportserver", func() {
 					},
 				},
 			}
+		}
+
+		It("Should override DVTemplates with new source URI, yaml", func() {
+			testVm := getTestVm()
+			getExpandedVM = func() *virtv1.VirtualMachine {
+				return testVm
+			}
+
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			req.Header.Set("Accept", runtime.ContentTypeYAML)
+			resp := httptest.NewRecorder()
+			Expect(err).ToNot(HaveOccurred())
+			handler := vmHandler("/tmp", []VolumeInfo{
+				{
+					RawGzURI: "volume0",
+				},
+			}, getBasePath, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			out := strings.Split(resp.Body.String(), "---\n")
+			Expect(out).To(HaveLen(3))
+			verifyCmYaml(out[0])
+			resVm := &virtv1.VirtualMachine{}
+			err = yaml.Unmarshal([]byte(out[1]), resVm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resVm.Name).To(Equal(testVm.Name))
+			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Name).To(Equal("test-dv"))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume0"))
+		})
+
+		It("Should override DVTemplates with new source URI, json", func() {
+			testVm := getTestVm()
 			getExpandedVM = func() *virtv1.VirtualMachine {
 				return testVm
 			}
@@ -489,21 +532,23 @@ var _ = Describe("exportserver", func() {
 				{
 					RawGzURI: "volume0",
 				},
-			})
+			}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
-			out := strings.Split(resp.Body.String(), "---\n")
-			Expect(out).To(HaveLen(3))
-			verifyCm(out[0])
+			list := &v1.List{}
+			err = json.Unmarshal(resp.Body.Bytes(), list)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list.Items).To(HaveLen(2))
+			verifyCmJson(list.Items[0].Raw)
 			resVm := &virtv1.VirtualMachine{}
-			err = yaml.Unmarshal([]byte(out[1]), resVm)
+			err = yaml.Unmarshal(list.Items[1].Raw, resVm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resVm.Name).To(Equal(testVm.Name))
 			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
 			Expect(resVm.Spec.DataVolumeTemplates[0].Name).To(Equal("test-dv"))
 			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
 			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
-			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://internal_base/volume0"))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume0"))
 		})
 
 		It("Should override datavolumes with new source URI", func() {
@@ -535,13 +580,13 @@ var _ = Describe("exportserver", func() {
 						Name:      "test-dv",
 						Namespace: testNamespace,
 					},
-					Spec: v1beta1.DataVolumeSpec{
-						Source: &v1beta1.DataVolumeSource{
-							HTTP: &v1beta1.DataVolumeSourceHTTP{
+					Spec: cdiv1.DataVolumeSpec{
+						Source: &cdiv1.DataVolumeSource{
+							HTTP: &cdiv1.DataVolumeSourceHTTP{
 								URL: "",
 							},
 						},
-						Storage: &v1beta1.StorageSpec{
+						Storage: &cdiv1.StorageSpec{
 							AccessModes: []v1.PersistentVolumeAccessMode{
 								v1.ReadWriteMany,
 							},
@@ -562,19 +607,20 @@ var _ = Describe("exportserver", func() {
 				return testDvs, nil
 			}
 
-			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/internal/manifest?x-kubevirt-export-token=bar", nil)
+			req.Header.Set("Accept", runtime.ContentTypeYAML)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
 			handler := vmHandler("/tmp", []VolumeInfo{
 				{
-					RawGzURI: "volume0",
+					RawGzURI: "test-dv-volume0",
 				},
-			})
+			}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
 			out := strings.Split(resp.Body.String(), "---\n")
 			Expect(out).To(HaveLen(4))
-			verifyCm(out[0])
+			verifyCmYaml(out[0])
 			resVm := &virtv1.VirtualMachine{}
 			err = yaml.Unmarshal([]byte(out[1]), resVm)
 			Expect(err).ToNot(HaveOccurred())
@@ -586,7 +632,7 @@ var _ = Describe("exportserver", func() {
 			Expect(resDv.Name).To(Equal("test-dv"))
 			Expect(resDv.Spec.Source).ToNot(BeNil())
 			Expect(resDv.Spec.Source.HTTP).ToNot(BeNil())
-			Expect(resDv.Spec.Source.HTTP.URL).To(Equal("https://internal_base/volume0"))
+			Expect(resDv.Spec.Source.HTTP.URL).To(Equal("https://base_path/test-dv-volume0"))
 		})
 	})
 
@@ -656,8 +702,9 @@ var _ = Describe("exportserver", func() {
 			Expect(resp.Code).To(BeEquivalentTo(http.StatusInternalServerError))
 		})
 
-		It("Should return secret token as bytes", func() {
+		It("Should return secret token as bytes, yaml", func() {
 			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def/secret?x-kubevirt-export-token=bar", nil)
+			req.Header.Set("Accept", runtime.ContentTypeYAML)
 			resp := httptest.NewRecorder()
 			Expect(err).ToNot(HaveOccurred())
 			handler := secretHandler(tokenGetter)
@@ -666,6 +713,20 @@ var _ = Describe("exportserver", func() {
 			out := strings.Split(resp.Body.String(), "---\n")
 			Expect(out).To(HaveLen(2))
 			verifySecret(out[0])
+		})
+
+		It("Should return secret token as bytes, json", func() {
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def/secret?x-kubevirt-export-token=bar", nil)
+			resp := httptest.NewRecorder()
+			Expect(err).ToNot(HaveOccurred())
+			handler := secretHandler(tokenGetter)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			list := &v1.List{}
+			err = json.Unmarshal(resp.Body.Bytes(), list)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list.Items).To(HaveLen(1))
+			verifySecret(string(list.Items[0].Raw))
 		})
 	})
 })
