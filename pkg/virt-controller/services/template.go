@@ -763,19 +763,10 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:    hotplugDisk,
-					Image:   t.launcherImage,
-					Command: command,
-					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
-						Limits: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("100m"),
-							k8sv1.ResourceMemory: resource.MustParse("80M"),
-						},
-						Requests: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("10m"),
-							k8sv1.ResourceMemory: resource.MustParse("2M"),
-						},
-					},
+					Name:      hotplugDisk,
+					Image:     t.launcherImage,
+					Command:   command,
+					Resources: hotplugContainerResourceRequirementsForVMI(vmi),
 					SecurityContext: &k8sv1.SecurityContext{
 						AllowPrivilegeEscalation: pointer.Bool(false),
 						RunAsNonRoot:             pointer.Bool(true),
@@ -913,19 +904,10 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:    hotplugDisk,
-					Image:   t.launcherImage,
-					Command: command,
-					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
-						Limits: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("100m"),
-							k8sv1.ResourceMemory: resource.MustParse("80M"),
-						},
-						Requests: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("10m"),
-							k8sv1.ResourceMemory: resource.MustParse("2M"),
-						},
-					},
+					Name:      hotplugDisk,
+					Image:     t.launcherImage,
+					Command:   command,
+					Resources: hotplugContainerResourceRequirementsForVMI(vmi),
 					SecurityContext: &k8sv1.SecurityContext{
 						AllowPrivilegeEscalation: pointer.Bool(false),
 						RunAsNonRoot:             pointer.Bool(true),

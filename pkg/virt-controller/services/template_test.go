@@ -3595,6 +3595,72 @@ var _ = Describe("Template", func() {
 			Entry("when volume is a filesystem", false),
 		)
 
+		It("should compute the correct resource req according to desired QoS when rendering hotplug pods", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("1G"),
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+				},
+				Limits: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("1G"),
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+				},
+			}
+			claimMap := map[string]*kubev1.PersistentVolumeClaim{}
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers[0].Resources).To(Equal(kubev1.ResourceRequirements{
+				Limits: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				},
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				},
+			}))
+		})
+
+		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("1G"),
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+				},
+				Limits: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("1G"),
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+				},
+			}
+			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", isBlock, false)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers[0].Resources).To(Equal(kubev1.ResourceRequirements{
+				Limits: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				},
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				},
+			}))
+		},
+			Entry("when volume is a block device", true),
+			Entry("when volume is a filesystem", false),
+		)
+
 		It("Should run as non-root except compute", func() {
 			vmi := newMinimalWithContainerDisk("ranom")
 
