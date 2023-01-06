@@ -22,7 +22,7 @@ source hack/common.sh
 # No need to push manifests if using a single arch
 build_count=$(echo ${BUILD_ARCH//,/ } | wc -w)
 if [ "$build_count" -lt 2 ]; then
-    return 0
+    exit 0
 fi
 
 fail_if_cri_bin_missing
