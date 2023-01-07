@@ -591,7 +591,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, removeMemoryDumpVirtctl)
 		})
 
-		It("Should be able to remove memory dump while memory dump is stuck", func() {
+		It("[test_id:9341]Should be able to remove memory dump while memory dump is stuck", func() {
 			By("create pvc with a non-existing storage-class")
 			memoryDumpVirtctlCreatePVCWithStorgeClass(vm.Name, vm.Namespace, memoryDumpPVCName, "no-exist")
 			By("Wait memory dump in progress")
@@ -699,14 +699,14 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 		})
 
-		It("should create memory dump and download it", func() {
+		It("[test_id:9344]should create memory dump and download it", func() {
 			memoryDumpVirtctlCreateWithDownload(vm.Name, vm.Namespace, memoryDumpPVCName, outputFile)
 			//Check the outputFile was created
 			_, err = os.Stat(outputFile)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should download existing memory dump", func() {
+		It("[test_id:9343]should download existing memory dump", func() {
 			memoryDumpVirtctlCreatePVC(vm.Name, vm.Namespace, memoryDumpPVCName)
 			memoryDumpVirtctlDownload(vm.Name, vm.Namespace, outputFile)
 			//Check the outputFile was created

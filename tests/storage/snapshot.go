@@ -867,7 +867,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					}, 60*time.Second, time.Second).Should(BeTrue())
 				}
 
-				It("should include memory dump in vm snapshot", func() {
+				It("[test_id:8922]should include memory dump in vm snapshot", func() {
 					var vmi *v1.VirtualMachineInstance
 					vm, vmi = createAndStartVM(tests.NewRandomVMWithDataVolumeWithRegistryImport(
 						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling),
