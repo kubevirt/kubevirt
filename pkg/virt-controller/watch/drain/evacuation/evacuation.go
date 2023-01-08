@@ -93,15 +93,21 @@ func NewEvacuationController(
 }
 
 func (c *EvacuationController) addNode(obj interface{}) {
-	c.enqueueNode(obj)
+	if false {
+		c.enqueueNode(obj)
+	}
 }
 
 func (c *EvacuationController) deleteNode(obj interface{}) {
-	c.enqueueNode(obj)
+	if false {
+		c.enqueueNode(obj)
+	}
 }
 
 func (c *EvacuationController) updateNode(_, curr interface{}) {
-	c.enqueueNode(curr)
+	if false {
+		c.enqueueNode(curr)
+	}
 }
 
 func (c *EvacuationController) enqueueNode(obj interface{}) {

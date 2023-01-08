@@ -62,7 +62,7 @@ var _ = Describe("Evacuation", func() {
 	}
 
 	addNode := func(node *v12.Node) {
-		mockQueue.ExpectAdds(1)
+		mockQueue.ExpectAdds(0)
 		nodeSource.Add(node)
 		mockQueue.Wait()
 	}
