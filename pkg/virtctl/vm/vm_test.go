@@ -335,7 +335,7 @@ var _ = Describe("VirtualMachine", func() {
 				Return(vmiInterface).
 				Times(1)
 
-			vmiInterface.EXPECT().GuestOsInfo(vm.Name).Return(guestOSInfo, nil).Times(1)
+			vmiInterface.EXPECT().GuestOsInfo(context.Background(), vm.Name).Return(guestOSInfo, nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("guestosinfo", vm.Name)
 			Expect(cmd.Execute()).To(Succeed())

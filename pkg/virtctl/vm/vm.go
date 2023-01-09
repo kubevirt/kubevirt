@@ -486,7 +486,7 @@ func (o *Command) Run(args []string) error {
 			return fmt.Errorf("Found no migration to cancel for %s", vmiName)
 		}
 	case COMMAND_GUESTOSINFO:
-		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
+		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(context.Background(), vmiName)
 		if err != nil {
 			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
 		}
