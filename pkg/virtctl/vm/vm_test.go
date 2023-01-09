@@ -357,7 +357,7 @@ var _ = Describe("VirtualMachine", func() {
 				Return(vmiInterface).
 				Times(1)
 
-			vmiInterface.EXPECT().FilesystemList(vm.Name).Return(fsList, nil).Times(1)
+			vmiInterface.EXPECT().FilesystemList(context.Background(), vm.Name).Return(fsList, nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("fslist", vm.Name)
 			Expect(cmd.Execute()).To(Succeed())

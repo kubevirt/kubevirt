@@ -1512,7 +1512,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				By("Expecting the Guest VM information")
 				Eventually(func() bool {
-					fsList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).FilesystemList(agentVMI.Name)
+					fsList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).FilesystemList(context.Background(), agentVMI.Name)
 					if err != nil {
 						// invalid request, retry
 						return false

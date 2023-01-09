@@ -248,7 +248,7 @@ type VirtualMachineInstanceInterface interface {
 	SoftReboot(ctx context.Context, name string) error
 	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
-	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
+	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)

@@ -1170,15 +1170,15 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) UserList(arg0, arg1 int
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UserList", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) FilesystemList(name string) (v120.VirtualMachineInstanceFileSystemList, error) {
-	ret := _m.ctrl.Call(_m, "FilesystemList", name)
+func (_m *MockVirtualMachineInstanceInterface) FilesystemList(ctx context.Context, name string) (v120.VirtualMachineInstanceFileSystemList, error) {
+	ret := _m.ctrl.Call(_m, "FilesystemList", ctx, name)
 	ret0, _ := ret[0].(v120.VirtualMachineInstanceFileSystemList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) AddVolume(name string, addVolumeOptions *v120.AddVolumeOptions) error {

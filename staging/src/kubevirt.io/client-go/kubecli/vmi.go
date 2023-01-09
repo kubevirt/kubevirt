@@ -447,10 +447,10 @@ func (v *vmis) UserList(ctx context.Context, name string) (v1.VirtualMachineInst
 	return userList, err
 }
 
-func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error) {
+func (v *vmis) FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error) {
 	fsList := v1.VirtualMachineInstanceFileSystemList{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "filesystemlist")
-	err := v.restClient.Get().AbsPath(uri).Do(context.Background()).Into(&fsList)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&fsList)
 	return fsList, err
 }
 

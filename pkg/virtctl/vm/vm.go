@@ -512,7 +512,7 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_FSLIST:
-		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(vmiName)
+		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(context.Background(), vmiName)
 		if err != nil {
 			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
 		}

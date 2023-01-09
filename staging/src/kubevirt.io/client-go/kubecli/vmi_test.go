@@ -419,7 +419,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "filesystemlist")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, fileSystemList),
 		))
-		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).FilesystemList("testvm")
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).FilesystemList(context.Background(), "testvm")
 
 		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
 		Expect(fetchedInfo).To(Equal(fileSystemList), "fetched info should be the same as passed in")
