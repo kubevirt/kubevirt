@@ -205,7 +205,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 							expectNoErr(err)
 						},
 						func() {
-							_, err := vmiInterface.UserList(vmi.Name)
+							_, err := vmiInterface.UserList(context.Background(), vmi.Name)
 							expectNoErr(err)
 						},
 						func() {

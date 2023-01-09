@@ -499,7 +499,7 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_USERLIST:
-		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(vmiName)
+		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(context.Background(), vmiName)
 		if err != nil {
 			return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
 		}

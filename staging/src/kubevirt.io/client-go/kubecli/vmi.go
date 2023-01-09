@@ -440,10 +440,10 @@ func (v *vmis) GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineI
 	return guestInfo, err
 }
 
-func (v *vmis) UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error) {
+func (v *vmis) UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error) {
 	userList := v1.VirtualMachineInstanceGuestOSUserList{}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "userlist")
-	err := v.restClient.Get().AbsPath(uri).Do(context.Background()).Into(&userList)
+	err := v.restClient.Get().AbsPath(uri).Do(ctx).Into(&userList)
 	return userList, err
 }
 

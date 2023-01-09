@@ -1159,15 +1159,15 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) GuestOsInfo(arg0, arg1 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestOsInfo", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) UserList(name string) (v120.VirtualMachineInstanceGuestOSUserList, error) {
-	ret := _m.ctrl.Call(_m, "UserList", name)
+func (_m *MockVirtualMachineInstanceInterface) UserList(ctx context.Context, name string) (v120.VirtualMachineInstanceGuestOSUserList, error) {
+	ret := _m.ctrl.Call(_m, "UserList", ctx, name)
 	ret0, _ := ret[0].(v120.VirtualMachineInstanceGuestOSUserList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) UserList(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UserList", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) UserList(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UserList", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) FilesystemList(name string) (v120.VirtualMachineInstanceFileSystemList, error) {

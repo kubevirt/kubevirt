@@ -1496,7 +1496,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				By("Expecting the Guest VM information")
 				Eventually(func() bool {
-					userList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).UserList(agentVMI.Name)
+					userList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).UserList(context.Background(), agentVMI.Name)
 					if err != nil {
 						// invalid request, retry
 						return false

@@ -247,7 +247,7 @@ type VirtualMachineInstanceInterface interface {
 	Unfreeze(ctx context.Context, name string) error
 	SoftReboot(ctx context.Context, name string) error
 	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
-	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
+	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error

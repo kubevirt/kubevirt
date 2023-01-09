@@ -379,7 +379,7 @@ var _ = Describe("VirtualMachine", func() {
 				Return(vmiInterface).
 				Times(1)
 
-			vmiInterface.EXPECT().UserList(vm.Name).Return(userList, nil).Times(1)
+			vmiInterface.EXPECT().UserList(context.Background(), vm.Name).Return(userList, nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("userlist", vm.Name)
 			Expect(cmd.Execute()).To(Succeed())
