@@ -234,15 +234,15 @@ type VirtualMachineInstanceInterface interface {
 	Create(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(ctx context.Context, instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)
-	Watch(opts metav1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error)
+	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	USBRedir(vmiName string) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
-	Screenshot(name string, options *v1.ScreenshotOptions) ([]byte, error)
+	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
-	Pause(name string, pauseOptions *v1.PauseOptions) error
-	Unpause(name string, unpauseOptions *v1.UnpauseOptions) error
+	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
+	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
 	Freeze(name string, unfreezeTimeout time.Duration) error
 	Unfreeze(name string) error
 	SoftReboot(name string) error

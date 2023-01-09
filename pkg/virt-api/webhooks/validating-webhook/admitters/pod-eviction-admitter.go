@@ -82,7 +82,8 @@ func (admitter *PodEvictionAdmitter) markVMI(ar *admissionv1.AdmissionReview, vm
 		_, err = admitter.
 			VirtClient.
 			VirtualMachineInstance(ar.Request.Namespace).
-			Patch(vmiName,
+			Patch(context.Background(),
+				vmiName,
 				types.JSONPatchType,
 				[]byte(data),
 				&metav1.PatchOptions{})

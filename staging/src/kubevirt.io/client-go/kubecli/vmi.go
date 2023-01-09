@@ -270,22 +270,22 @@ func (v *vmis) SoftReboot(name string) error {
 	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
 }
 
-func (v *vmis) Pause(name string, pauseOptions *v1.PauseOptions) error {
+func (v *vmis) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error {
 	body, err := json.Marshal(pauseOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vmis) Unpause(name string, unpauseOptions *v1.UnpauseOptions) error {
+func (v *vmis) Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error {
 	body, err := json.Marshal(unpauseOptions)
 	if err != nil {
 		return fmt.Errorf("Cannot Marshal to json: %s", err)
 	}
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
 func (v *vmis) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {
@@ -351,7 +351,7 @@ func (v *vmis) Delete(ctx context.Context, name string, options *k8smetav1.Delet
 		Error()
 }
 
-func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
+func (v *vmis) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
@@ -360,18 +360,18 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, patchOptions 
 		Name(name).
 		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Body(data).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
 
-func (v *vmis) Watch(opts metav1.ListOptions) (watch.Interface, error) {
+func (v *vmis) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	opts.Watch = true
 	return v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Watch(context.Background())
+		Watch(ctx)
 }
 
 // enrichError checks the response body for a k8s Status object and extracts the error from it.
@@ -454,14 +454,14 @@ func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemL
 	return fsList, err
 }
 
-func (v *vmis) Screenshot(name string, screenshotOptions *v1.ScreenshotOptions) ([]byte, error) {
+func (v *vmis) Screenshot(ctx context.Context, name string, screenshotOptions *v1.ScreenshotOptions) ([]byte, error) {
 	moveCursor := "false"
 	if screenshotOptions.MoveCursor == true {
 		moveCursor = "true"
 	}
 
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "vnc/screenshot")
-	res := v.restClient.Get().AbsPath(uri).Param("moveCursor", moveCursor).Do(context.Background())
+	res := v.restClient.Get().AbsPath(uri).Param("moveCursor", moveCursor).Do(ctx)
 	raw, err := res.Raw()
 	if err != nil {
 		return nil, res.Error()
