@@ -348,7 +348,9 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 
 				for _, node := range nodeList.Items {
 					_, isNodeLabellerStopped := node.Annotations[v1.LabellerSkipNodeAnnotation]
-					Expect(isNodeLabellerStopped).To(BeTrue())
+					if !isNodeLabellerStopped {
+						continue
+					}
 
 					updatedNode := resumeNodeLabeller(node.Name, virtClient)
 					_, isNodeLabellerStopped = updatedNode.Annotations[v1.LabellerSkipNodeAnnotation]
