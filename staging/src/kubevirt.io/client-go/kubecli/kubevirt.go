@@ -243,7 +243,7 @@ type VirtualMachineInstanceInterface interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
 	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
-	Freeze(name string, unfreezeTimeout time.Duration) error
+	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
 	Unfreeze(name string) error
 	SoftReboot(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)

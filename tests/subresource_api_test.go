@@ -322,7 +322,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			It("[test_id:7476]Freeze without guest agent", func() {
 				expectedErr := "Internal error occurred"
-				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(vm.Name, 0)
+				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, 0)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			})
@@ -367,7 +367,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			It("[test_id:7479]Freeze Unfreeze should succeed", func() {
 				By("Freezing VMI")
-				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(vm.Name, 0)
+				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, 0)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitVMIFSFreezeStatus("frozen")
@@ -382,7 +382,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			It("[test_id:7480]Multi Freeze Unfreeze calls should succeed", func() {
 				for i := 0; i < 5; i++ {
 					By("Freezing VMI")
-					err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(vm.Name, 0)
+					err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, 0)
 					Expect(err).ToNot(HaveOccurred())
 
 					waitVMIFSFreezeStatus("frozen")
@@ -400,7 +400,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			It("Freeze without Unfreeze should trigger unfreeze after timeout", func() {
 				By("Freezing VMI")
 				unfreezeTimeout := 10 * time.Second
-				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(vm.Name, unfreezeTimeout)
+				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Freeze(context.Background(), vm.Name, unfreezeTimeout)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitVMIFSFreezeStatus("frozen")
