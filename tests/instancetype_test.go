@@ -747,11 +747,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			sourcePVC = libstorage.NewPVC(pvcSourceName, "1Gi", blockStorageClass)
 			sourcePVCVolumeBlockMode := k8sv1.PersistentVolumeBlock
 			sourcePVC.Spec.VolumeMode = &sourcePVCVolumeBlockMode
-			sourcePVC.Annotations = map[string]string{
-				instancetypeapi.DefaultInstancetypeAnnotation:     instancetype.Name,
-				instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
-				instancetypeapi.DefaultPreferenceAnnotation:       preference.Name,
-				instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+			sourcePVC.Labels = map[string]string{
+				instancetypeapi.DefaultInstancetypeLabel:     instancetype.Name,
+				instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
+				instancetypeapi.DefaultPreferenceLabel:       preference.Name,
+				instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
 			}
 			sourcePVC, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), sourcePVC, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -822,10 +822,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "datavolume-",
 						Namespace:    util.NamespaceTestDefault,
 						Annotations: map[string]string{
-							instancetypeapi.DefaultInstancetypeAnnotation:     instancetypeName,
-							instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
-							instancetypeapi.DefaultPreferenceAnnotation:       preferenceName,
-							instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+							instancetypeapi.DefaultInstancetypeLabel:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceLabel:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
 						},
 					},
 					Spec: cdiv1beta1.DataVolumeSpec{
@@ -920,10 +920,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "datasource-",
 						Namespace:    util.NamespaceTestDefault,
 						Annotations: map[string]string{
-							instancetypeapi.DefaultInstancetypeAnnotation:     instancetypeName,
-							instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
-							instancetypeapi.DefaultPreferenceAnnotation:       preferenceName,
-							instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+							instancetypeapi.DefaultInstancetypeLabel:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceLabel:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
 						},
 					},
 					Spec: cdiv1beta1.DataSourceSpec{
@@ -1023,10 +1023,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "datasource-",
 						Namespace:    util.NamespaceTestDefault,
 						Annotations: map[string]string{
-							instancetypeapi.DefaultInstancetypeAnnotation:     instancetypeName,
-							instancetypeapi.DefaultInstancetypeKindAnnotation: instancetypeapi.SingularResourceName,
-							instancetypeapi.DefaultPreferenceAnnotation:       preferenceName,
-							instancetypeapi.DefaultPreferenceKindAnnotation:   instancetypeapi.SingularPreferenceResourceName,
+							instancetypeapi.DefaultInstancetypeLabel:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceLabel:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
 						},
 					},
 					Spec: cdiv1beta1.DataSourceSpec{
