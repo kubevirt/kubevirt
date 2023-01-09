@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -1245,7 +1246,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					pvcSource.Add(&pvcs[i])
 				}
 
-				vmiInterface.EXPECT().Freeze(vm.Name, 0*time.Second).Return(nil)
+				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(nil)
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
@@ -1443,7 +1444,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				if ct != nil {
-					vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+					vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(nil)
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
@@ -1482,7 +1483,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Finalizers = []string{}
 
-				vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(nil)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotContentWorkItem()

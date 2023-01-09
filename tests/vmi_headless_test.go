@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -196,15 +197,15 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 
 					return []func(){
 						func() {
-							_, err := vmiInterface.GuestOsInfo(vmi.Name)
+							_, err := vmiInterface.GuestOsInfo(context.Background(), vmi.Name)
 							expectNoErr(err)
 						},
 						func() {
-							_, err := vmiInterface.FilesystemList(vmi.Name)
+							_, err := vmiInterface.FilesystemList(context.Background(), vmi.Name)
 							expectNoErr(err)
 						},
 						func() {
-							_, err := vmiInterface.UserList(vmi.Name)
+							_, err := vmiInterface.UserList(context.Background(), vmi.Name)
 							expectNoErr(err)
 						},
 						func() {

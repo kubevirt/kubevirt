@@ -243,14 +243,14 @@ type VirtualMachineInstanceInterface interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
 	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
-	Freeze(name string, unfreezeTimeout time.Duration) error
-	Unfreeze(name string) error
-	SoftReboot(name string) error
-	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
-	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
-	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
-	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
-	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
+	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
+	Unfreeze(ctx context.Context, name string) error
+	SoftReboot(ctx context.Context, name string) error
+	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
+	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
+	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
+	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
+	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 }
 

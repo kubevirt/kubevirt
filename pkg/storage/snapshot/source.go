@@ -338,7 +338,7 @@ func (s *vmSnapshotSource) Freeze() error {
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(s.vm.Name, getFailureDeadline(s.snapshot))
+	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
 		return err
@@ -360,7 +360,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
 
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(s.vm.Name)
+	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
 		return err
 	}

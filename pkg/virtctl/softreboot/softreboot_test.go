@@ -1,6 +1,8 @@
 package softreboot_test
 
 import (
+	"context"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +41,7 @@ var _ = Describe("Soft rebooting", func() {
 		vmi := api.NewMinimalVMI(vmiName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().SoftReboot(vmi.Name).Return(nil).Times(1)
+		vmiInterface.EXPECT().SoftReboot(context.Background(), vmi.Name).Return(nil).Times(1)
 
 		cmd := clientcmd.NewVirtctlCommand(softreboot.COMMAND_SOFT_REBOOT, vmiName)
 		Expect(cmd.Execute()).To(Succeed())

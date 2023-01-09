@@ -20,6 +20,7 @@
 package softreboot
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -76,7 +77,7 @@ func (o *SoftReboot) Run(args []string) error {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
-	if err = virtClient.VirtualMachineInstance(namespace).SoftReboot(vmi); err != nil {
+	if err = virtClient.VirtualMachineInstance(namespace).SoftReboot(context.Background(), vmi); err != nil {
 		return fmt.Errorf("Error soft rebooting VirtualMachineInstance %s: %v", vmi, err)
 	}
 

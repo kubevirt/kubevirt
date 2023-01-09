@@ -347,7 +347,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		}
 	}
 	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).AddVolume(vmiName, hotplugRequest)
+		err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 	} else {
 		err = virtClient.VirtualMachine(namespace).AddVolume(vmiName, hotplugRequest)
 	}
@@ -361,7 +361,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	var err error
 	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
 			Name:   volumeName,
 			DryRun: *dryRunOption,
 		})
@@ -486,7 +486,7 @@ func (o *Command) Run(args []string) error {
 			return fmt.Errorf("Found no migration to cancel for %s", vmiName)
 		}
 	case COMMAND_GUESTOSINFO:
-		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(vmiName)
+		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(context.Background(), vmiName)
 		if err != nil {
 			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
 		}
@@ -499,7 +499,7 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_USERLIST:
-		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(vmiName)
+		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(context.Background(), vmiName)
 		if err != nil {
 			return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
 		}
@@ -512,7 +512,7 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("%s\n", string(data))
 		return nil
 	case COMMAND_FSLIST:
-		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(vmiName)
+		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(context.Background(), vmiName)
 		if err != nil {
 			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
 		}

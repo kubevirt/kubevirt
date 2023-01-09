@@ -316,7 +316,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMIPath, "freeze")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Freeze("testvm", 0*time.Second)
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Freeze(context.Background(), "testvm", 0*time.Second)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -333,7 +333,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMIPath, "unfreeze")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Unfreeze("testvm")
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Unfreeze(context.Background(), "testvm")
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -350,7 +350,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMIPath, "softreboot")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SoftReboot("testvm")
+		err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SoftReboot(context.Background(), "testvm")
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
@@ -371,7 +371,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "guestosinfo")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, osInfo),
 		))
-		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).GuestOsInfo("testvm")
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).GuestOsInfo(context.Background(), "testvm")
 
 		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
 		Expect(fetchedInfo).To(Equal(osInfo), "fetched info should be the same as passed in")
@@ -393,7 +393,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "userlist")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, userList),
 		))
-		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).UserList("testvm")
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).UserList(context.Background(), "testvm")
 
 		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
 		Expect(fetchedInfo).To(Equal(userList), "fetched info should be the same as passed in")
@@ -419,7 +419,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "filesystemlist")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, fileSystemList),
 		))
-		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).FilesystemList("testvm")
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).FilesystemList(context.Background(), "testvm")
 
 		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
 		Expect(fetchedInfo).To(Equal(fileSystemList), "fetched info should be the same as passed in")
