@@ -434,7 +434,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
-					launcher := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					launcher, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).ToNot(HaveOccurred())
 					watcher.New(launcher).
 						SinceWatchedObjectResourceVersion().
 						Timeout(60*time.Second).
@@ -463,7 +464,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					}
 					By("Starting a VirtualMachineInstance")
 					createdVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
-					launcher := libvmi.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
+					launcher, err := libvmi.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
+					Expect(err).ToNot(HaveOccurred())
 					// Wait until we see that starting the VirtualMachineInstance is failing
 					By(fmt.Sprintf("Checking that VirtualMachineInstance start failed: starting at %v", time.Now()))
 					ctx, cancel := context.WithCancel(context.Background())

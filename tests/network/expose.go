@@ -407,9 +407,11 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						}, ipFamily == dualIPv6Primary)
 					}
 					if inlcudesIpv6(ipFamily) {
+						launcher, err := libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace())
+						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
-							libvmi.GetPodByVirtualMachineInstance(tcpVM, tcpVM.GetNamespace()),
+							launcher,
 							node,
 							k8sv1.IPv6Protocol)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")
@@ -520,12 +522,13 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				for _, node := range nodes.Items {
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
-
 					var ipv6NodeIP string
 					if inlcudesIpv6(ipFamily) {
+						launcher, err := libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace())
+						Expect(err).ToNot(HaveOccurred())
 						ipv6NodeIP, err = resolveNodeIPAddrByFamily(
 							virtClient,
-							libvmi.GetPodByVirtualMachineInstance(udpVM, udpVM.GetNamespace()),
+							launcher,
 							node,
 							k8sv1.IPv6Protocol)
 						Expect(err).NotTo(HaveOccurred(), "must have been able to resolve an IP address from the node name")

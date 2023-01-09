@@ -90,7 +90,8 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				readyPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				Expect(err).ToNot(HaveOccurred())
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
 				Expect(computeContainer.Resources.Requests.Memory().String()).To(Equal("100M"))
@@ -104,7 +105,8 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				readyPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				Expect(err).ToNot(HaveOccurred())
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
 				Expect(computeContainer.Resources.Requests.Memory().String()).ToNot(Equal("100M"))
@@ -116,10 +118,12 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)
 
-				readyPod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				readyPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+				Expect(err).ToNot(HaveOccurred())
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 
-				normalReadyPod := libvmi.GetPodByVirtualMachineInstance(normalVmi, util.NamespaceTestDefault)
+				normalReadyPod, err := libvmi.GetPodByVirtualMachineInstance(normalVmi, util.NamespaceTestDefault)
+				Expect(err).ToNot(HaveOccurred())
 				normalComputeContainer := tests.GetComputeContainerOfPod(normalReadyPod)
 
 				memDiff := normalComputeContainer.Resources.Requests.Memory()

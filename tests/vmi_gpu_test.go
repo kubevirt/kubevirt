@@ -12,6 +12,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -78,7 +79,11 @@ var _ = Describe("[Serial][sig-compute]GPU", func() {
 			vmi, apiErr := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
-			pod := libvmi.GetPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			By("Waiting for VMI to be scheduled")
+			Eventually(matcher.ThisVMI(vmi)).Should(matcher.BeInPhase(v1.Scheduling))
+
+			pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Status.Phase).To(Equal(k8sv1.PodPending))
 			Expect(pod.Status.Conditions[0].Type).To(Equal(k8sv1.PodScheduled))
 			Expect(strings.Contains(pod.Status.Conditions[0].Message, "Insufficient "+gpuName)).To(BeTrue())
