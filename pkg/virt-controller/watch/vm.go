@@ -626,7 +626,7 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 				continue
 			}
 
-			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, request.AddVolumeOptions); err != nil {
+			if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, request.AddVolumeOptions); err != nil {
 				return err
 			}
 		} else if request.RemoveVolumeOptions != nil {

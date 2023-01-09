@@ -128,7 +128,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	}
 	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
 		Eventually(func() error {
-			return virtClient.VirtualMachineInstance(namespace).AddVolume(name, volumeOptions)
+			return virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), name, volumeOptions)
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 

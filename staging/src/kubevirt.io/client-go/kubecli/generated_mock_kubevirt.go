@@ -1181,14 +1181,14 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0, ar
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0, arg1)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) AddVolume(name string, addVolumeOptions *v120.AddVolumeOptions) error {
-	ret := _m.ctrl.Call(_m, "AddVolume", name, addVolumeOptions)
+func (_m *MockVirtualMachineInstanceInterface) AddVolume(ctx context.Context, name string, addVolumeOptions *v120.AddVolumeOptions) error {
+	ret := _m.ctrl.Call(_m, "AddVolume", ctx, name, addVolumeOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddVolume(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddVolume", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddVolume(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddVolume", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) RemoveVolume(name string, removeVolumeOptions *v120.RemoveVolumeOptions) error {

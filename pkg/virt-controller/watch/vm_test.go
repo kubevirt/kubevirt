@@ -323,7 +323,7 @@ var _ = Describe("VirtualMachine", func() {
 			if isRunning {
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
-				vmiInterface.EXPECT().AddVolume(vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
+				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
 			}
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
