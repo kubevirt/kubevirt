@@ -264,10 +264,10 @@ func (v *vmis) Unfreeze(ctx context.Context, name string) error {
 	return v.restClient.Put().AbsPath(uri).Do(ctx).Error()
 }
 
-func (v *vmis) SoftReboot(name string) error {
+func (v *vmis) SoftReboot(ctx context.Context, name string) error {
 	log.Log.Infof("SoftReboot VMI")
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "softreboot")
-	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Do(ctx).Error()
 }
 
 func (v *vmis) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error {

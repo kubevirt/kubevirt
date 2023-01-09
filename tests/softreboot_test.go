@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -88,7 +89,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(vmi.Name)
+				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitForVMIRebooted(vmi, console.LoginToFedora)
@@ -102,7 +103,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 
-				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(vmi.Name)
+				err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitForVMIRebooted(vmi, console.LoginToCirros)
