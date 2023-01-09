@@ -1444,7 +1444,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				if ct != nil {
-					vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+					vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(nil)
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedVMSnapshot)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
@@ -1483,7 +1483,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Finalizers = []string{}
 
-				vmiInterface.EXPECT().Unfreeze(vm.Name).Return(nil)
+				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(nil)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotContentWorkItem()

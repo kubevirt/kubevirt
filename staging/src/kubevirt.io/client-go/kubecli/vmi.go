@@ -258,10 +258,10 @@ func (v *vmis) Freeze(ctx context.Context, name string, unfreezeTimeout time.Dur
 	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vmis) Unfreeze(name string) error {
+func (v *vmis) Unfreeze(ctx context.Context, name string) error {
 	log.Log.Infof("Unfreeze VMI %s", name)
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unfreeze")
-	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Do(ctx).Error()
 }
 
 func (v *vmis) SoftReboot(name string) error {

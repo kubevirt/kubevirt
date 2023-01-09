@@ -329,7 +329,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			It("[test_id:7477]Unfreeze without guest agent", func() {
 				expectedErr := "Internal error occurred"
-				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(vm.Name)
+				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(context.Background(), vm.Name)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			})
@@ -373,7 +373,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				waitVMIFSFreezeStatus("frozen")
 
 				By("Unfreezing VMI")
-				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(vm.Name)
+				err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(context.Background(), vm.Name)
 				Expect(err).ToNot(HaveOccurred())
 
 				waitVMIFSFreezeStatus("")
@@ -390,7 +390,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 				By("Unfreezing VMI")
 				for i := 0; i < 5; i++ {
-					err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(vm.Name)
+					err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Unfreeze(context.Background(), vm.Name)
 					Expect(err).ToNot(HaveOccurred())
 
 					waitVMIFSFreezeStatus("")
