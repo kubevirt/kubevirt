@@ -361,7 +361,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	var err error
 	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
 			Name:   volumeName,
 			DryRun: *dryRunOption,
 		})

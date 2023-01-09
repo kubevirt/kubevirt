@@ -372,7 +372,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
 				markAsReady(vmi)
 				vmiFeeder.Add(vmi)
-				vmiInterface.EXPECT().RemoveVolume(vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
+				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 			}
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {

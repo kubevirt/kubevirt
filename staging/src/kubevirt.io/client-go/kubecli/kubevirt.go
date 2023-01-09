@@ -250,7 +250,7 @@ type VirtualMachineInstanceInterface interface {
 	UserList(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
 	FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error)
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
-	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
+	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 }
 

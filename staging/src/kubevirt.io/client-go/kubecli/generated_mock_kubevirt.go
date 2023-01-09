@@ -1191,14 +1191,14 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddVolume(arg0, arg1, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddVolume", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) RemoveVolume(name string, removeVolumeOptions *v120.RemoveVolumeOptions) error {
-	ret := _m.ctrl.Call(_m, "RemoveVolume", name, removeVolumeOptions)
+func (_m *MockVirtualMachineInstanceInterface) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v120.RemoveVolumeOptions) error {
+	ret := _m.ctrl.Call(_m, "RemoveVolume", ctx, name, removeVolumeOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveVolume(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveVolume(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveVolume", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v120.VSOCKOptions) (StreamInterface, error) {

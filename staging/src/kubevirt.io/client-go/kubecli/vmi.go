@@ -481,7 +481,7 @@ func (v *vmis) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.
 	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+func (v *vmis) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
 	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
@@ -490,7 +490,7 @@ func (v *vmis) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOpt
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
 func (v *vmis) VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error) {

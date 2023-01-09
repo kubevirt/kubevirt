@@ -189,7 +189,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	removeVolumeVMI := func(name, namespace, volumeName string, dryRun bool) {
 		Eventually(func() error {
-			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(name, &v1.RemoveVolumeOptions{
+			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), name, &v1.RemoveVolumeOptions{
 				Name:   volumeName,
 				DryRun: getDryRunOption(dryRun),
 			})
