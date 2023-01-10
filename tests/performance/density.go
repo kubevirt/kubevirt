@@ -233,10 +233,10 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha2
 		},
 		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 			// FIXME - We don't have a way of expressing resources via instancetypes yet, replace this when we do.
-			CPU: instancetypev1alpha2.CPUInstancetype{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
 				Guest: 1,
 			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
+			Memory: &instancetypev1alpha2.MemoryInstancetype{
 				Guest: resource.MustParse("90Mi"),
 			},
 		},

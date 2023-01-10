@@ -25034,6 +25034,12 @@ func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetypeSpec(
 							Ref:         ref("kubevirt.io/api/instancetype/v1alpha2.MemoryInstancetype"),
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources describes the Compute Resources provided by this instance type. This field is mutually exclusive with CPU and Memory attributes.",
+							Ref:         ref("kubevirt.io/api/core/v1.ResourceRequirements"),
+						},
+					},
 					"gpus": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -25084,11 +25090,10 @@ func schema_kubevirtio_api_instancetype_v1alpha2_VirtualMachineInstancetypeSpec(
 						},
 					},
 				},
-				Required: []string{"cpu", "memory"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/instancetype/v1alpha2.CPUInstancetype", "kubevirt.io/api/instancetype/v1alpha2.MemoryInstancetype"},
+			"kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.LaunchSecurity", "kubevirt.io/api/core/v1.ResourceRequirements", "kubevirt.io/api/instancetype/v1alpha2.CPUInstancetype", "kubevirt.io/api/instancetype/v1alpha2.MemoryInstancetype"},
 	}
 }
 

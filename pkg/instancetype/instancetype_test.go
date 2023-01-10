@@ -133,8 +133,11 @@ var _ = Describe("Instancetype and Preferences", func() {
 						Generation: resourceGeneration,
 					},
 					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
+						CPU: &instancetypev1alpha2.CPUInstancetype{
 							Guest: uint32(2),
+						},
+						Memory: &instancetypev1alpha2.MemoryInstancetype{
+							Guest: resource.MustParse("512Mi"),
 						},
 					},
 				}
@@ -266,7 +269,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						Generation: resourceGeneration,
 					},
 					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
+						CPU: &instancetypev1alpha2.CPUInstancetype{
 							Guest: uint32(2),
 						},
 					},
@@ -736,12 +739,69 @@ var _ = Describe("Instancetype and Preferences", func() {
 			field = k8sfield.NewPath("spec", "template", "spec")
 		})
 
+		Context("Resources.Requests", func() {
+
+			It("should apply to VMI by using both Instancetype.Resources.Requests.CPU and Instancetype.Resources.Requests.Memory", func() {
+				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+					Resources: &v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU:    resource.MustParse("2"),
+							k8sv1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					},
+				}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.Resources.Requests).To(Equal(instancetypeSpec.Resources.Requests))
+			})
+
+			It("should apply to VMI by using both Instancetype.Resources.Requests.CPU and InstanceType.Spec.Memory", func() {
+				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+					Resources: &v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("2"),
+						},
+					},
+					Memory: &instancetypev1alpha2.MemoryInstancetype{
+						Guest: resource.MustParse("512Mi"),
+					},
+				}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeSpec.Memory.Guest.Value()))
+				Expect(vmi.Spec.Domain.Resources.Requests).To(Equal(instancetypeSpec.Resources.Requests))
+			})
+
+			It("should apply to VMI by using both Instancetype.Resources.Requests.Memory and InstanceType.Spec.CPU", func() {
+				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+					Resources: &v1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					},
+					CPU: &instancetypev1alpha2.CPUInstancetype{
+						Guest: uint32(2),
+					},
+				}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.Resources.Requests).To(Equal(instancetypeSpec.Resources.Requests))
+			})
+		})
+
 		Context("instancetype.spec.CPU and preference.spec.CPU", func() {
 
 			BeforeEach(func() {
 
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{
 						Guest:                 uint32(2),
 						Model:                 "host-passthrough",
 						DedicatedCPUPlacement: true,
@@ -832,7 +892,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should return a conflict if vmi.Spec.Domain.CPU already defined", func() {
 
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{
 						Guest: uint32(2),
 					},
 				}
@@ -852,7 +912,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {
 
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{
 						Guest: uint32(2),
 					},
 				}
@@ -872,7 +932,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] already defined", func() {
 
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{
 						Guest: uint32(2),
 					},
 				}
@@ -892,7 +952,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+					Memory: &instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 						Hugepages: &v1.Hugepages{
 							PageSize: "1Gi",
@@ -927,7 +987,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] already defined", func() {
 
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+					Memory: &instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 					},
 				}
@@ -947,7 +1007,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] already defined", func() {
 
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+					Memory: &instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 					},
 				}

@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
+	k8sv1 "k8s.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -29,6 +32,14 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
+			},
+			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 1,
+				},
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
 			},
 		}
 	})
@@ -59,7 +70,7 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 	It("should reject instancetype with dedicatedCPUPlacement", func() {
 		instancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
 				DedicatedCPUPlacement: true,
 			},
 		}
@@ -71,6 +82,64 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 		Expect(response.Result.Details.Causes[0].Message).To(Equal("dedicatedCPUPlacement is not currently supported"))
 	})
+
+	DescribeTable("Instancetype resource.requests",
+		func(spec instancetypev1alpha2.VirtualMachineInstancetypeSpec, expectedMessage string, causeType metav1.CauseType) {
+			instancetypeObj.Spec = spec
+
+			ar := createInstancetypeAdmissionReview(instancetypeObj)
+			response := admitter.Admit(ar)
+
+			Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(causeType))
+			Expect(response.Result.Details.Causes[0].Message).To(Equal(expectedMessage))
+		},
+
+		Entry("should reject when resources.requests.Memory and spec.Memory are both defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 2,
+				},
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
+				Resources: &v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("512Mi"),
+					},
+				},
+			}, "spec.resources.requests.Memory and spec.Memory can not be both defined", metav1.CauseTypeFieldValueDuplicate),
+
+		Entry("should reject when resources.requests.CPU and spec.CPU are both defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 2,
+				},
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
+				Resources: &v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("3"),
+					},
+				},
+			}, "spec.resources.requests.CPU and spec.CPU can not be both defined", metav1.CauseTypeFieldValueDuplicate),
+
+		Entry("should reject when cpu is not defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
+			}, "at least one of spec.resources.requests.CPU or spec.CPU should be defined", metav1.CauseTypeFieldValueRequired),
+
+		Entry("should reject when memory is not defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 2,
+				},
+			}, "at least one of spec.resources.requests.Memory or spec.Memory should be defined", metav1.CauseTypeFieldValueRequired),
+	)
 })
 
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
@@ -86,6 +155,14 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
+			},
+			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 1,
+				},
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
 			},
 		}
 	})
@@ -116,7 +193,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 	It("should reject cluster instancetype with dedicatedCPUPlacement", func() {
 		clusterInstancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
 				DedicatedCPUPlacement: true,
 			},
 		}
@@ -128,6 +205,64 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 		Expect(response.Result.Details.Causes[0].Message).To(Equal("dedicatedCPUPlacement is not currently supported"))
 	})
+
+	DescribeTable("ClusterInstancetype resource.requests",
+		func(spec instancetypev1alpha2.VirtualMachineInstancetypeSpec, expectedMessage string, causeType metav1.CauseType) {
+			clusterInstancetypeObj.Spec = spec
+
+			ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj)
+			response := admitter.Admit(ar)
+
+			Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(causeType))
+			Expect(response.Result.Details.Causes[0].Message).To(Equal(expectedMessage))
+		},
+
+		Entry("should reject when resources.requests.Memory and spec.Memory are both defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 2,
+				},
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
+				Resources: &v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse("512Mi"),
+					},
+				},
+			}, "spec.resources.requests.Memory and spec.Memory can not be both defined", metav1.CauseTypeFieldValueDuplicate),
+
+		Entry("should reject when resources.requests.CPU and spec.CPU are both defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 2,
+				},
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
+				Resources: &v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("3"),
+					},
+				},
+			}, "spec.resources.requests.CPU and spec.CPU can not be both defined", metav1.CauseTypeFieldValueDuplicate),
+
+		Entry("should reject when cpu is not defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				Memory: &instancetypev1alpha2.MemoryInstancetype{
+					Guest: resource.MustParse("128Mi"),
+				},
+			}, "at least one of spec.resources.requests.CPU or spec.CPU should be defined", metav1.CauseTypeFieldValueRequired),
+
+		Entry("should reject when memory is not defined",
+			instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				CPU: &instancetypev1alpha2.CPUInstancetype{
+					Guest: 2,
+				},
+			}, "at least one of spec.resources.requests.Memory or spec.Memory should be defined", metav1.CauseTypeFieldValueRequired),
+	)
 })
 
 func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha2.VirtualMachineInstancetype) *admissionv1.AdmissionReview {

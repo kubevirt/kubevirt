@@ -9,6 +9,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -352,6 +353,8 @@ func (m *methods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetyp
 	var conflicts Conflicts
 
 	if instancetypeSpec != nil {
+		conflicts = append(conflicts, applyResource(field, k8sv1.ResourceCPU, instancetypeSpec, preferenceSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyResource(field, k8sv1.ResourceMemory, instancetypeSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyCpu(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyMemory(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyIOThreadPolicy(field, instancetypeSpec, vmiSpec)...)
@@ -655,17 +658,43 @@ func (m *methods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVo
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }
 
+func checkResourceRequestConflicts(field *k8sfield.Path, resourceType k8sv1.ResourceName, vmiSpec *virtv1.VirtualMachineInstanceSpec, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) Conflicts {
+	if _, hasRequestsResource := vmiSpec.Domain.Resources.Requests[resourceType]; hasRequestsResource {
+		return Conflicts{field.Child("domain", "resources", "requests", string(resourceType))}
+	}
+
+	if _, hasLimits := vmiSpec.Domain.Resources.Limits[resourceType]; hasLimits {
+		return Conflicts{field.Child("domain", "resources", "limits", string(resourceType))}
+	}
+
+	return nil
+}
+
+func applyResource(field *k8sfield.Path, resourceType k8sv1.ResourceName, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+	if conflicts := checkResourceRequestConflicts(field, resourceType, vmiSpec, instancetypeSpec); len(conflicts) > 0 {
+		return conflicts
+	}
+
+	if instancetypeSpec.Resources != nil {
+		if vmiSpec.Domain.Resources.Requests == nil {
+			vmiSpec.Domain.Resources.Requests = make(map[k8sv1.ResourceName]resource.Quantity)
+		}
+
+		if requestedResource, hasRequestedResource := instancetypeSpec.Resources.Requests[resourceType]; hasRequestedResource {
+			vmiSpec.Domain.Resources.Requests[resourceType] = requestedResource
+		}
+	}
+
+	return nil
+}
+
 func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+	if instancetypeSpec.CPU == nil {
+		return nil
+	}
+
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
-	}
-
-	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
-		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU))}
-	}
-
-	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
-		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceCPU))}
 	}
 
 	vmiSpec.Domain.CPU = &virtv1.CPU{
@@ -730,17 +759,12 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 }
 
 func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+	if instancetypeSpec.Memory == nil {
+		return nil
+	}
 
 	if vmiSpec.Domain.Memory != nil {
 		return Conflicts{field.Child("domain", "memory")}
-	}
-
-	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
-		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
-	}
-
-	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
-		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
 	}
 
 	instancetypeMemoryGuest := instancetypeSpec.Memory.Guest.DeepCopy()

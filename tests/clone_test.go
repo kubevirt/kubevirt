@@ -576,10 +576,10 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, func(
 							Namespace:    util.NamespaceTestDefault,
 						},
 						Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha2.CPUInstancetype{
+							CPU: &instancetypev1alpha2.CPUInstancetype{
 								Guest: 1,
 							},
-							Memory: instancetypev1alpha2.MemoryInstancetype{
+							Memory: &instancetypev1alpha2.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},

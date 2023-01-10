@@ -1208,10 +1208,10 @@ func generateCloudConfigString(cloudConfigElement ...string) string {
 
 func GetComputeSmallInstancetypeSpec() instancetypev1alpha2.VirtualMachineInstancetypeSpec {
 	return instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-		CPU: instancetypev1alpha2.CPUInstancetype{
+		CPU: &instancetypev1alpha2.CPUInstancetype{
 			Guest: uint32(1),
 		},
-		Memory: instancetypev1alpha2.MemoryInstancetype{
+		Memory: &instancetypev1alpha2.MemoryInstancetype{
 			Guest: resource.MustParse("128Mi"),
 		},
 	}
@@ -1253,10 +1253,10 @@ func GetVirtualMachineInstancetypeComputeLarge() *instancetypev1alpha2.VirtualMa
 			Name: VirtualMachineInstancetypeComputeLarge,
 		},
 		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
 				Guest: uint32(4),
 			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
+			Memory: &instancetypev1alpha2.MemoryInstancetype{
 				Guest: resource.MustParse("2048Mi"),
 			},
 		},

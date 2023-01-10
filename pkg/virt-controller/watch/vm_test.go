@@ -2816,10 +2816,10 @@ var _ = Describe("VirtualMachine", func() {
 
 				BeforeEach(func() {
 					instancetypeSpec := instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
+						CPU: &instancetypev1alpha2.CPUInstancetype{
 							Guest: uint32(2),
 						},
-						Memory: instancetypev1alpha2.MemoryInstancetype{
+						Memory: &instancetypev1alpha2.MemoryInstancetype{
 							Guest: resource.MustParse("128M"),
 						},
 					}

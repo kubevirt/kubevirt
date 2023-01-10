@@ -2452,7 +2452,7 @@ func createInstancetype() *instancetypev1alpha2.VirtualMachineInstancetype {
 			Generation: 1,
 		},
 		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
 				Guest: uint32(2),
 			},
 		},

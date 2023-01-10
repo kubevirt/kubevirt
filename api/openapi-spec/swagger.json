@@ -21033,10 +21033,6 @@
    "v1alpha2.VirtualMachineInstancetypeSpec": {
     "description": "VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.",
     "type": "object",
-    "required": [
-     "cpu",
-     "memory"
-    ],
     "properties": {
      "cpu": {
       "description": "Required CPU related attributes of the instancetype.",
@@ -21069,6 +21065,10 @@
      "memory": {
       "description": "Required Memory related attributes of the instancetype.",
       "$ref": "#/definitions/v1alpha2.MemoryInstancetype"
+     },
+     "resources": {
+      "description": "Resources describes the Compute Resources provided by this instance type. This field is mutually exclusive with CPU and Memory attributes.",
+      "$ref": "#/definitions/v1.ResourceRequirements"
      }
     }
    },

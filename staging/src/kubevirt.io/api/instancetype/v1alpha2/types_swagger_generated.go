@@ -31,8 +31,9 @@ func (VirtualMachineClusterInstancetypeList) SwaggerDoc() map[string]string {
 func (VirtualMachineInstancetypeSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.",
-		"cpu":             "Required CPU related attributes of the instancetype.",
-		"memory":          "Required Memory related attributes of the instancetype.",
+		"cpu":             "Required CPU related attributes of the instancetype.\n+optional",
+		"memory":          "Required Memory related attributes of the instancetype.\n+optional",
+		"resources":       "Resources describes the Compute Resources provided by this instance type.\nThis field is mutually exclusive with CPU and Memory attributes.\n\n+optional",
 		"gpus":            "Optionally defines any GPU devices associated with the instancetype.\n\n+optional\n+listType=atomic",
 		"hostDevices":     "Optionally defines any HostDevices associated with the instancetype.\n\n+optional\n+listType=atomic",
 		"ioThreadsPolicy": "Optionally defines the IOThreadsPolicy to be used by the instancetype.\n\n+optional",

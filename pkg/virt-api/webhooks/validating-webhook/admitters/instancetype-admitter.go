@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -39,6 +40,16 @@ func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 	}
 
 	causes := validateDedicatedCPUPlacement(&instancetypeObj.Spec)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateInstanceTypeCPU(&instancetypeObj.Spec)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateInstanceTypeMemory(&instancetypeObj.Spec)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -87,6 +98,16 @@ func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *ad
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	causes = validateInstanceTypeCPU(&instancetypeObj.Spec)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateInstanceTypeMemory(&instancetypeObj.Spec)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
@@ -127,6 +148,72 @@ func validateDedicatedCPUPlacement(instancetypeSpec *instancetypev1alpha2.Virtua
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "dedicatedCPUPlacement is not currently supported",
 			Field:   k8sfield.NewPath("spec", "cpu", "dedictatedCPUPlacement").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateInstanceTypeCPU(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
+	if instancetypeSpec == nil {
+		return nil
+	}
+
+	hasRequestedCPU := false
+	if instancetypeSpec.Resources != nil {
+		_, hasRequestedCPU = instancetypeSpec.Resources.Requests[k8sv1.ResourceCPU]
+	}
+
+	if (instancetypeSpec.CPU == nil || instancetypeSpec.CPU.Guest == 0) && !hasRequestedCPU {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "at least one of spec.resources.requests.CPU or spec.CPU should be defined",
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
+		}}
+	}
+
+	if instancetypeSpec.CPU == nil {
+		return nil
+	}
+
+	if instancetypeSpec.CPU.Guest > 0 && hasRequestedCPU {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: "spec.resources.requests.CPU and spec.CPU can not be both defined",
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateInstanceTypeMemory(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
+	if instancetypeSpec == nil {
+		return nil
+	}
+
+	hasRequestedMemory := false
+	if instancetypeSpec.Resources != nil {
+		_, hasRequestedMemory = instancetypeSpec.Resources.Requests[k8sv1.ResourceMemory]
+	}
+
+	if (instancetypeSpec.Memory == nil || instancetypeSpec.Memory.Guest.IsZero()) && !hasRequestedMemory {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "at least one of spec.resources.requests.Memory or spec.Memory should be defined",
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
+		}}
+	}
+
+	if instancetypeSpec.Memory == nil {
+		return nil
+	}
+
+	if !instancetypeSpec.Memory.Guest.IsZero() && hasRequestedMemory {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueDuplicate,
+			Message: "spec.resources.requests.Memory and spec.Memory can not be both defined",
+			Field:   k8sfield.NewPath("spec", "instancetype").String(),
 		}}
 	}
 

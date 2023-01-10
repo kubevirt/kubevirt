@@ -7309,9 +7309,37 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
-      required:
-      - cpu
-      - memory
+        resources:
+          description: Resources describes the Compute Resources provided by this
+            instance type. This field is mutually exclusive with CPU and Memory attributes.
+          properties:
+            limits:
+              additionalProperties:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description: Limits describes the maximum amount of compute resources
+                allowed. Valid resource keys are "memory" and "cpu".
+              type: object
+            overcommitGuestOverhead:
+              description: Don't ask the scheduler to take the guest-management overhead
+                into account. Instead put the overhead only into the container's memory
+                limit. This can lead to crashes if all memory is in use on a node.
+                Defaults to false.
+              type: boolean
+            requests:
+              additionalProperties:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description: Requests is a description of the initial vmi resources.
+                Valid resource keys are "memory" and "cpu".
+              type: object
+          type: object
       type: object
   required:
   - spec
@@ -15492,9 +15520,37 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
-      required:
-      - cpu
-      - memory
+        resources:
+          description: Resources describes the Compute Resources provided by this
+            instance type. This field is mutually exclusive with CPU and Memory attributes.
+          properties:
+            limits:
+              additionalProperties:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description: Limits describes the maximum amount of compute resources
+                allowed. Valid resource keys are "memory" and "cpu".
+              type: object
+            overcommitGuestOverhead:
+              description: Don't ask the scheduler to take the guest-management overhead
+                into account. Instead put the overhead only into the container's memory
+                limit. This can lead to crashes if all memory is in use on a node.
+                Defaults to false.
+              type: boolean
+            requests:
+              additionalProperties:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description: Requests is a description of the initial vmi resources.
+                Valid resource keys are "memory" and "cpu".
+              type: object
+          type: object
       type: object
   required:
   - spec

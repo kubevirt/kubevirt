@@ -64,32 +64,32 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		},
 			Entry("without CPU defined", instancetypev1alpha2.VirtualMachineInstancetype{
 				Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+					Memory: &instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("128M"),
 					},
 				},
 			}),
 			Entry("without CPU.Guest defined", instancetypev1alpha2.VirtualMachineInstancetype{
 				Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{},
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{},
+					Memory: &instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("128M"),
 					},
 				},
 			}),
 			Entry("without Memory defined", instancetypev1alpha2.VirtualMachineInstancetype{
 				Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{
 						Guest: 1,
 					},
 				},
 			}),
 			Entry("without Memory.Guest defined", instancetypev1alpha2.VirtualMachineInstancetype{
 				Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+					CPU: &instancetypev1alpha2.CPUInstancetype{
 						Guest: 1,
 					},
-					Memory: instancetypev1alpha2.MemoryInstancetype{},
+					Memory: &instancetypev1alpha2.MemoryInstancetype{},
 				},
 			}),
 		)
@@ -1070,10 +1070,10 @@ func newVirtualMachineInstancetypeSpec(vmi *v1.VirtualMachineInstance) instancet
 		}
 	}
 	return instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-		CPU: instancetypev1alpha2.CPUInstancetype{
+		CPU: &instancetypev1alpha2.CPUInstancetype{
 			Guest: uint32(1),
 		},
-		Memory: instancetypev1alpha2.MemoryInstancetype{
+		Memory: &instancetypev1alpha2.MemoryInstancetype{
 			Guest: guestMemory,
 		},
 	}

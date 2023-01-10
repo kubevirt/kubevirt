@@ -77,10 +77,18 @@ type VirtualMachineClusterInstancetypeList struct {
 type VirtualMachineInstancetypeSpec struct {
 
 	// Required CPU related attributes of the instancetype.
-	CPU CPUInstancetype `json:"cpu"`
+	// +optional
+	CPU *CPUInstancetype `json:"cpu,omitempty"`
 
 	// Required Memory related attributes of the instancetype.
-	Memory MemoryInstancetype `json:"memory"`
+	// +optional
+	Memory *MemoryInstancetype `json:"memory,omitempty"`
+
+	// Resources describes the Compute Resources provided by this instance type.
+	// This field is mutually exclusive with CPU and Memory attributes.
+	//
+	// +optional
+	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Optionally defines any GPU devices associated with the instancetype.
 	//
