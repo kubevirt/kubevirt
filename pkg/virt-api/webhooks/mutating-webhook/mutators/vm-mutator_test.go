@@ -398,11 +398,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      pvcName,
 					Namespace: vm.Namespace,
-					Annotations: map[string]string{
-						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedNameFromPVC,
-						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKindFromPVC,
-						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedNameFromPVC,
-						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKindFromPVC,
+					Labels: map[string]string{
+						apiinstancetype.DefaultInstancetypeLabel:     defaultInferedNameFromPVC,
+						apiinstancetype.DefaultInstancetypeKindLabel: defaultInferedKindFromPVC,
+						apiinstancetype.DefaultPreferenceLabel:       defaultInferedNameFromPVC,
+						apiinstancetype.DefaultPreferenceKindLabel:   defaultInferedKindFromPVC,
 					},
 				},
 			}
@@ -447,11 +447,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      dsWithAnnotationsName,
 					Namespace: vm.Namespace,
-					Annotations: map[string]string{
-						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedNameFromDS,
-						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKindFromDS,
-						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedNameFromDS,
-						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKindFromDS,
+					Labels: map[string]string{
+						apiinstancetype.DefaultInstancetypeLabel:     defaultInferedNameFromDS,
+						apiinstancetype.DefaultInstancetypeKindLabel: defaultInferedKindFromDS,
+						apiinstancetype.DefaultPreferenceLabel:       defaultInferedNameFromDS,
+						apiinstancetype.DefaultPreferenceKindLabel:   defaultInferedKindFromDS,
 					},
 				},
 				Spec: v1beta1.DataSourceSpec{
@@ -591,18 +591,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			),
 		)
-		DescribeTable("should infer defaults from DataVolume with annotations", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
+		DescribeTable("should infer defaults from DataVolume with labels", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
 			dvWithAnnotations = &v1beta1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithAnnotations",
 					Namespace: vm.Namespace,
-					Annotations: map[string]string{
-						apiinstancetype.DefaultInstancetypeAnnotation:     defaultInferedNameFromDV,
-						apiinstancetype.DefaultInstancetypeKindAnnotation: defaultInferedKindFromDV,
-						apiinstancetype.DefaultPreferenceAnnotation:       defaultInferedNameFromDV,
-						apiinstancetype.DefaultPreferenceKindAnnotation:   defaultInferedKindFromDV,
+					Labels: map[string]string{
+						apiinstancetype.DefaultInstancetypeLabel:     defaultInferedNameFromDV,
+						apiinstancetype.DefaultInstancetypeKindLabel: defaultInferedKindFromDV,
+						apiinstancetype.DefaultPreferenceLabel:       defaultInferedNameFromDV,
+						apiinstancetype.DefaultPreferenceKindLabel:   defaultInferedKindFromDV,
 					},
 				},
 				Spec: v1beta1.DataVolumeSpec{
@@ -1039,41 +1039,41 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			),
 		)
 
-		DescribeTable("should fail to infer defaults from PersistentVolumeClaim without default instance type annotation", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, requiredAnnotation string) {
+		DescribeTable("should fail to infer defaults from PersistentVolumeClaim without default instance type label", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, requiredLabel string) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			pvcWithoutAnnotations := &k8sv1.PersistentVolumeClaim{
+			pvcWithoutLabels := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      "pvcWithoutAnnotations",
+					Name:      "pvcWithoutLabels",
 					Namespace: vm.Namespace,
 				},
 			}
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvcWithoutAnnotations, k8smetav1.CreateOptions{})
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvcWithoutLabels, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcWithoutAnnotations.Name,
+							ClaimName: pvcWithoutLabels.Name,
 						},
 					},
 				},
 			}}
 			resp := admitVM()
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(ContainSubstring("unable to find required %s annotation on the volume", requiredAnnotation))
+			Expect(resp.Result.Message).To(ContainSubstring("unable to find required %s label on the volume", requiredLabel))
 		},
 			Entry("for InstancetypeMatcher",
 				&v1.InstancetypeMatcher{
 					InferFromVolume: inferVolumeName,
-				}, nil, apiinstancetype.DefaultInstancetypeAnnotation,
+				}, nil, apiinstancetype.DefaultInstancetypeLabel,
 			),
 			Entry("for PreferenceMatcher",
 				nil,
 				&v1.PreferenceMatcher{
 					InferFromVolume: inferVolumeName,
-				}, apiinstancetype.DefaultPreferenceAnnotation,
+				}, apiinstancetype.DefaultPreferenceLabel,
 			),
 		)
 
@@ -1084,9 +1084,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "pvcWithoutKindAnnotations",
 					Namespace: vm.Namespace,
-					Annotations: map[string]string{
-						apiinstancetype.DefaultInstancetypeAnnotation: defaultInferedNameFromPVC,
-						apiinstancetype.DefaultPreferenceAnnotation:   defaultInferedNameFromPVC,
+					Labels: map[string]string{
+						apiinstancetype.DefaultInstancetypeLabel: defaultInferedNameFromPVC,
+						apiinstancetype.DefaultPreferenceLabel:   defaultInferedNameFromPVC,
 					},
 				},
 			}
