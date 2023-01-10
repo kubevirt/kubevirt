@@ -50,6 +50,22 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	})
 
+	It("should accept instancetype with dedicatedCPUPlacement", func() {
+		instancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
+				Guest:                 2,
+				DedicatedCPUPlacement: true,
+			},
+			Memory: &instancetypev1alpha2.MemoryInstancetype{
+				Guest: resource.MustParse("256"),
+			},
+		}
+		ar := createInstancetypeAdmissionReview(instancetypeObj)
+		response := admitter.Admit(ar)
+
+		Expect(response.Allowed).To(BeTrue(), "Expect instancetype with dedicatedCPUPlacement to be allowed")
+	})
+
 	It("should reject unsupported version", func() {
 		ar := createInstancetypeAdmissionReview(instancetypeObj)
 		ar.Request.Resource.Version = "unsupportedversion"
@@ -66,21 +82,6 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
-	})
-
-	It("should reject instancetype with dedicatedCPUPlacement", func() {
-		instancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: &instancetypev1alpha2.CPUInstancetype{
-				DedicatedCPUPlacement: true,
-			},
-		}
-		ar := createInstancetypeAdmissionReview(instancetypeObj)
-		response := admitter.Admit(ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expect instancetype to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal("dedicatedCPUPlacement is not currently supported"))
 	})
 
 	DescribeTable("Instancetype resource.requests",
@@ -173,6 +174,22 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	})
 
+	It("should accept cluster instancetype with dedicatedCPUPlacement", func() {
+		clusterInstancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+			CPU: &instancetypev1alpha2.CPUInstancetype{
+				Guest:                 2,
+				DedicatedCPUPlacement: true,
+			},
+			Memory: &instancetypev1alpha2.MemoryInstancetype{
+				Guest: resource.MustParse("256"),
+			},
+		}
+		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj)
+		response := admitter.Admit(ar)
+
+		Expect(response.Allowed).To(BeTrue(), "Expect instancetype with dedicatedCPUPlacement to be allowed")
+	})
+
 	It("should reject unsupported version", func() {
 		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj)
 		ar.Request.Resource.Version = "unsupportedversion"
@@ -189,21 +206,6 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
-	})
-
-	It("should reject cluster instancetype with dedicatedCPUPlacement", func() {
-		clusterInstancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: &instancetypev1alpha2.CPUInstancetype{
-				DedicatedCPUPlacement: true,
-			},
-		}
-		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj)
-		response := admitter.Admit(ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expect instancetype to not be allowed")
-		Expect(response.Result.Details.Causes).To(HaveLen(1))
-		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal("dedicatedCPUPlacement is not currently supported"))
 	})
 
 	DescribeTable("ClusterInstancetype resource.requests",
