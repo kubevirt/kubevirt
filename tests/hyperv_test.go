@@ -262,7 +262,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 					EVMCS: featureState,
 				},
 			}
-			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
