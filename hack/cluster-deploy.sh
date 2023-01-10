@@ -99,11 +99,6 @@ fi
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
-if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ (okd|ocp)-* ]]; then
-    # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
-    _kubectl adm policy add-scc-to-user privileged admin
-fi
-
 # Ensure the KubeVirt CRD is created
 count=0
 until _kubectl get crd kubevirts.kubevirt.io; do
