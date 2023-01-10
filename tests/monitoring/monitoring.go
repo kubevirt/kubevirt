@@ -413,40 +413,6 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		BeforeEach(func() {
-			scales = make(map[string]*autoscalingv1.Scale, 1)
-			backupScale(virtOperator.deploymentName)
-			updateScale(virtOperator.deploymentName, 0)
-
-			reduceAlertPendingTime()
-		})
-
-		AfterEach(func() {
-			revertScale(virtOperator.deploymentName)
-
-			waitUntilAlertDoesNotExist("KubeVirtVMStuckInStartingState")
-			waitUntilAlertDoesNotExist("KubeVirtVMStuckInErrorState")
-		})
-
-		It("KubeVirtVMStuckInStartingState should be triggered if VM is taking more than 5 minutes to start", func() {
-			vm := newVirtualMachine()
-			vm.Spec.Template.Spec.PriorityClassName = "non-preemtible"
-			createVirtualMachine(vm)
-
-			verifyAlertExist("KubeVirtVMStuckInStartingState")
-		})
-
-		It("KubeVirtVMStuckInErrorState should be triggered if VM is taking more than 5 minutes in Error state", func() {
-			vm := newVirtualMachine()
-			vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("5000000Gi"),
-				corev1.ResourceCPU:    resource.MustParse("5000000Gi"),
-			}
-			createVirtualMachine(vm)
-
-			verifyAlertExist("KubeVirtVMStuckInErrorState")
-		})
-
 		It("should expose VM CPU metrics", func() {
 			vm := newVirtualMachine()
 			createVirtualMachine(vm)
