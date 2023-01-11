@@ -697,12 +697,15 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
+		const errFmt = "version %s is expected to end with %s suffix"
 		if !flags.SkipShasumCheck {
-			Expect(strings.HasPrefix(version, "@")).To(BeTrue())
-			originalOperatorVersion = strings.TrimPrefix(version, "@")
+			const prefix = "@"
+			Expect(strings.HasPrefix(version, "@")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
+			originalOperatorVersion = strings.TrimPrefix(version, prefix)
 		} else {
-			Expect(strings.HasPrefix(version, ":")).To(BeTrue())
-			originalOperatorVersion = strings.TrimPrefix(version, ":")
+			const prefix = ":"
+			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
+			originalOperatorVersion = strings.TrimPrefix(version, prefix)
 		}
 
 		if libstorage.HasDataVolumeCRD() {
