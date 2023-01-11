@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -237,7 +239,8 @@ func newWatchEventError(err error) watch.Event {
 }
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
-	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze) {
+	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
+	metadataCache *metadata.Cache) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -268,6 +271,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
 		}
 
+		kubevirtMetadata := metadata.LoadKubevirtMetadata(metadataCache)
 		spec, err := util.GetDomainSpecWithRuntimeInfo(d)
 		if err != nil {
 			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
@@ -276,9 +280,11 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				return
 			}
 		} else {
-			domain.ObjectMeta.UID = spec.Metadata.KubeVirt.UID
+			domain.ObjectMeta.UID = kubevirtMetadata.UID
 		}
+
 		if spec != nil {
+			spec.Metadata.KubeVirt = kubevirtMetadata
 			domain.Spec = *spec
 		}
 
@@ -379,6 +385,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
+	metadataCache *metadata.Cache,
 ) error {
 
 	eventChan := make(chan libvirtEvent, 10)
@@ -409,8 +416,9 @@ func (n *Notifier) StartDomainNotifier(
 		for {
 			select {
 			case event := <-eventChan:
+				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus)
+				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -420,14 +428,33 @@ func (n *Notifier) StartDomainNotifier(
 					}
 				}
 			case agentUpdate := <-agentStore.AgentUpdated:
+				metadataCache.ResetNotification()
 				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus)
+					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
+
+			case <-metadataCache.Listen():
+				domainCache = util.NewDomainFromName(
+					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
+					vmi.UID,
+				)
+				eventCallback(
+					domainConn,
+					domainCache,
+					libvirtEvent{},
+					n,
+					deleteNotificationSent,
+					interfaceStatuses,
+					guestOsInfo,
+					vmi,
+					fsFreezeStatus,
+					metadataCache,
+				)
 			}
 		}
 	}()

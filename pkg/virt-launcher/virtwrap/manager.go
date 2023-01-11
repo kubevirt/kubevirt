@@ -39,6 +39,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 
@@ -54,7 +56,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -81,6 +82,8 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 )
 
 const (
@@ -109,7 +112,7 @@ type DomainManager interface {
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
-	MarkGracefulShutdownVMI(*v1.VirtualMachineInstance) error
+	MarkGracefulShutdownVMI()
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) error
@@ -153,6 +156,8 @@ type LibvirtDomainManager struct {
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
+
+	metadataCache *metadata.Cache
 }
 
 type pausedVMIs struct {
@@ -178,12 +183,12 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache)
 }
 
-func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker) (DomainManager, error) {
+func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:          connection,
 		virtShareDir:     virtShareDir,
@@ -198,11 +203,12 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
+		metadataCache:            metadataCache,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.memoryDumpInProgress = make(chan struct{}, maxConcurrentMemoryDumps)
-	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock)
+	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
 	return &manager, nil
 }
@@ -856,6 +862,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			if err != nil {
 				return nil, err
 			}
+			l.metadataCache.UID.Set(vmi.UID)
+			l.metadataCache.GracePeriod.Set(
+				api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriod(vmi)},
+			)
 			logger.Info("Domain defined.")
 		} else {
 			logger.Reason(err).Error(failedGetDomain)
@@ -1176,7 +1186,10 @@ func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPa
 func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	logger := log.Log.Object(vmi)
 
-	dom, err := l.initializeMemoryDumpMetadata(vmi, dumpPath)
+	l.initializeMemoryDumpMetadata(dumpPath)
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
 	if dom == nil || err != nil {
 		return err
 	}
@@ -1195,96 +1208,41 @@ func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPa
 		logger.Infof("Completed memory dump successfully")
 	}
 
-	l.setMemoryDumpResult(vmi, failed, reason)
+	l.setMemoryDumpResult(failed, reason)
 	return err
 }
 
-func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(vmi *v1.VirtualMachineInstance, dumpPath string) (cli.VirDomain, error) {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		return nil, err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return nil, err
-	}
-
-	memoryDumpMetadata := domainSpec.Metadata.KubeVirt.MemoryDump
-	if memoryDumpMetadata != nil && memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
-		// memory dump still in progress or have just completed
-		return nil, nil
-	}
-
-	now := metav1.Now()
-	domainSpec.Metadata.KubeVirt.MemoryDump = &api.MemoryDumpMetadata{
-		FileName:       filepath.Base(dumpPath),
-		StartTimestamp: &now,
-	}
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return nil, err
-	}
-	return d, nil
-}
-
-func (l *LibvirtDomainManager) setMemoryDumpResultHelper(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain for completed memory dump failed.")
-		return err
-	}
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-
-	memoryDumpMetadata := domainSpec.Metadata.KubeVirt.MemoryDump
-	if memoryDumpMetadata == nil {
-		// nothing to report if memory dump metadata is empty
-		return nil
-	}
-
-	now := metav1.Now()
-	domainSpec.Metadata.KubeVirt.MemoryDump.Completed = true
-	domainSpec.Metadata.KubeVirt.MemoryDump.EndTimestamp = &now
-	if failed {
-		domainSpec.Metadata.KubeVirt.MemoryDump.Failed = true
-		domainSpec.Metadata.KubeVirt.MemoryDump.FailureReason = reason
-	}
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-	return nil
-}
-
-func (l *LibvirtDomainManager) setMemoryDumpResult(vmi *v1.VirtualMachineInstance, failed bool, reason string) {
-	connectionInterval := 10 * time.Second
-	connectionTimeout := 60 * time.Second
-
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		err = l.setMemoryDumpResultHelper(vmi, failed, reason)
-		if err != nil {
-			return false, nil
+func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(dumpPath string) {
+	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
+		if memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
+			// memory dump still in progress or have just completed
+			return
 		}
-		return true, nil
-	})
 
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Unable to post memory dump results to libvirt after multiple tries")
-	}
+		now := metav1.Now()
+		*memoryDumpMetadata = api.MemoryDumpMetadata{
+			FileName:       filepath.Base(dumpPath),
+			StartTimestamp: &now,
+		}
+	})
+	log.Log.V(4).Infof("initialize memory dump metadata: %s", l.metadataCache.MemoryDump.String())
+}
+
+func (l *LibvirtDomainManager) setMemoryDumpResult(failed bool, reason string) {
+	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
+		if !initialized {
+			// nothing to report if memory dump metadata is empty
+			return
+		}
+
+		now := metav1.Now()
+		memoryDumpMetadata.Completed = true
+		memoryDumpMetadata.EndTimestamp = &now
+		memoryDumpMetadata.Failed = failed
+		memoryDumpMetadata.FailureReason = reason
+	})
+	log.Log.V(4).Infof("set memory dump results in metadata: %s", l.metadataCache.MemoryDump.String())
+	return
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
@@ -1482,44 +1440,11 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 	return nil
 }
 
-func (l *LibvirtDomainManager) MarkGracefulShutdownVMI(vmi *v1.VirtualMachineInstance) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain for shutdown failed.")
-		return err
-	}
-
-	defer dom.Free()
-	domainSpec, err := l.getDomainSpec(dom)
-	if err != nil {
-		return err
-	}
-
-	t := true
-
-	if domainSpec.Metadata.KubeVirt.GracePeriod == nil {
-		domainSpec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{
-			MarkedForGracefulShutdown: &t,
-		}
-	} else if domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
-		*domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
-		// already marked, nothing to do
-		return nil
-	} else {
-		domainSpec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown = &t
-	}
-
-	d, err := l.setDomainSpecWithHooks(vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-	return nil
-
+func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
+	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
+		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.Bool(true)
+	})
+	log.Log.V(4).Infof("Marked for graceful shutdown in metadata: %s", l.metadataCache.GracePeriod.String())
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
@@ -1546,12 +1471,6 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		domSpec, err := l.getDomainSpec(dom)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Unable to retrieve domain xml")
-			return err
-		}
-
 		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -1559,16 +1478,13 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 		log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
-		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			now := metav1.Now()
-			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
-			d, err := l.setDomainSpecWithHooks(vmi, domSpec)
-			if err != nil {
-				log.Log.Object(vmi).Reason(err).Error("Unable to update grace period start time on domain xml")
-				return err
+		l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
+			if gracePeriodMetadata.DeletionTimestamp == nil {
+				now := metav1.Now()
+				gracePeriodMetadata.DeletionTimestamp = &now
 			}
-			defer d.Free()
-		}
+		})
+		log.Log.V(4).Infof("Graceful period set in metadata: %s", l.metadataCache.GracePeriod.String())
 	}
 
 	return nil
@@ -1669,6 +1585,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 			}
 			return list, err
 		}
+		spec.Metadata.KubeVirt = metadata.LoadKubevirtMetadata(l.metadataCache)
 		domain.Spec = *spec
 		status, reason, err := dom.GetState()
 		if err != nil {

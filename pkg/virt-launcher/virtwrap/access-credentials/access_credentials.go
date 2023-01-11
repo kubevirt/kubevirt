@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+
 	"github.com/fsnotify/fsnotify"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -38,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -67,14 +68,16 @@ type AccessCredentialManager struct {
 	watcher *fsnotify.Watcher
 
 	domainModifyLock *sync.Mutex
+	metadataCache    *metadata.Cache
 }
 
-func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex) *AccessCredentialManager {
+func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex, metadataCache *metadata.Cache) *AccessCredentialManager {
 	return &AccessCredentialManager{
 		virConn:                    connection,
 		stopCh:                     make(chan struct{}),
 		resyncCheckIntervalSeconds: 15,
 		domainModifyLock:           domainModifyLock,
+		metadataCache:              metadataCache,
 	}
 }
 
@@ -372,50 +375,14 @@ func getSecret(accessCred *v1.AccessCredential) string {
 	return secretName
 }
 
-func (l *AccessCredentialManager) reportAccessCredentialResult(vmi *v1.VirtualMachineInstance, succeeded bool, message string) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		if domainerrors.IsNotFound(err) {
-			return nil
-		} else {
-			log.Log.Reason(err).Error("Getting the domain for completed migration failed.")
-		}
-		return err
+func (l *AccessCredentialManager) reportAccessCredentialResult(succeeded bool, message string) {
+	acMetadata := api.AccessCredentialMetadata{
+		Succeeded: succeeded,
+		Message:   message,
 	}
-	defer dom.Free()
-
-	state, _, err := dom.GetState()
-	if err != nil {
-		return err
-	}
-	domainSpec, err := util.GetDomainSpec(state, dom)
-	if err != nil {
-		return err
-	}
-
-	if domainSpec.Metadata.KubeVirt.AccessCredential == nil ||
-		domainSpec.Metadata.KubeVirt.AccessCredential.Succeeded != succeeded ||
-		domainSpec.Metadata.KubeVirt.AccessCredential.Message != message {
-
-		domainSpec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
-			Succeeded: succeeded,
-			Message:   message,
-		}
-	} else {
-		// nothing to do
-		return nil
-	}
-
-	d, err := util.SetDomainSpecStrWithHooks(l.virConn, vmi, domainSpec)
-	if err != nil {
-		return err
-	}
-	defer d.Free()
-	return err
+	l.metadataCache.AccessCredential.Store(acMetadata)
+	log.Log.V(4).Infof("Access credential set in metadata: %v", acMetadata)
+	return
 }
 
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
@@ -475,7 +442,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 		if err != nil {
 			reload = true
 			reportedErr = true
-			l.reportAccessCredentialResult(vmi, false, "Guest agent is offline")
+			l.reportAccessCredentialResult(false, "Guest agent is offline")
 			continue
 		}
 
@@ -494,7 +461,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reload = true
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered reading secrets file list from base directory %s", secretDir)
-				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered reading access credential secret file list at base directory [%s]: %v", secretDir, err))
+				l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered reading access credential secret file list at base directory [%s]: %v", secretDir, err))
 				continue
 			}
 
@@ -519,7 +486,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 						// if reading failed, reset reload to true so this change will be retried again
 						reload = true
 						reportedErr = true
-						l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
+						l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
 						continue
 					}
 
@@ -543,7 +510,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 						reload = true
 						reportedErr = true
 						logger.Reason(err).Errorf("Error encountered reading secret file %s", filepath.Join(secretDir, file.Name()))
-						l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
+						l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered readding access credential secret file [%s]: %v", filepath.Join(secretDir, file.Name()), err))
 						continue
 					}
 
@@ -573,7 +540,7 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reload = true
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
-				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered writing ssh pub key access credentials for user [%s]: %v", user, err))
+				l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered writing ssh pub key access credentials for user [%s]: %v", user, err))
 				continue
 			}
 		}
@@ -587,12 +554,12 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 				reportedErr = true
 				logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
 
-				l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
+				l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
 				continue
 			}
 		}
 		if !reportedErr {
-			l.reportAccessCredentialResult(vmi, true, "")
+			l.reportAccessCredentialResult(true, "")
 		}
 	}
 }

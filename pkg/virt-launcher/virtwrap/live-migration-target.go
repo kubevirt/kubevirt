@@ -81,6 +81,11 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
 
+	l.metadataCache.UID.Set(vmi.UID)
+	l.metadataCache.GracePeriod.Set(
+		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriod(vmi)},
+	)
+
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {
 		return err

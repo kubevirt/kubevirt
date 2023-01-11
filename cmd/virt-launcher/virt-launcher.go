@@ -29,11 +29,12 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -138,6 +139,7 @@ func startDomainEventMonitoring(
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
+	metadataCache *metadata.Cache,
 ) {
 	go func() {
 		for {
@@ -148,7 +150,7 @@ func startDomainEventMonitoring(
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval, metadataCache)
 	if err != nil {
 		panic(err)
 	}
@@ -406,7 +408,9 @@ func main() {
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator)
+	metadataCache := metadata.NewCache()
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache)
 	if err != nil {
 		panic(err)
 	}
@@ -419,21 +423,8 @@ func main() {
 	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 
 	gracefulShutdownCallback := func() {
-		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
-			err := domainManager.MarkGracefulShutdownVMI(vmi)
-			if err != nil {
-				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
-				return false, err
-			}
-
-			return true, nil
-		})
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
-		} else {
-			log.Log.Object(vmi).Info("Successfully signaled graceful shutdown")
-		}
+		domainManager.MarkGracefulShutdownVMI()
+		log.Log.Object(vmi).Info("Signaled graceful shutdown")
 	}
 
 	finalShutdownCallback := func(pid int) {
@@ -450,7 +441,7 @@ func main() {
 
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval, metadataCache)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

@@ -125,14 +125,12 @@ func (_mr *_MockDomainManagerRecorder) SignalShutdownVMI(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SignalShutdownVMI", arg0)
 }
 
-func (_m *MockDomainManager) MarkGracefulShutdownVMI(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "MarkGracefulShutdownVMI", _param0)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (_m *MockDomainManager) MarkGracefulShutdownVMI() {
+	_m.ctrl.Call(_m, "MarkGracefulShutdownVMI")
 }
 
-func (_mr *_MockDomainManagerRecorder) MarkGracefulShutdownVMI(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarkGracefulShutdownVMI", arg0)
+func (_mr *_MockDomainManagerRecorder) MarkGracefulShutdownVMI() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MarkGracefulShutdownVMI")
 }
 
 func (_m *MockDomainManager) ListAllDomains() ([]*api.Domain, error) {

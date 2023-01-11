@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -61,7 +63,7 @@ var _ = Describe("AccessCredentials", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 
-		manager = NewManager(mockConn, &lock)
+		manager = NewManager(mockConn, &lock, metadata.NewCache())
 		manager.resyncCheckIntervalSeconds = 1
 		tmpDir, err = os.MkdirTemp("", "credential-test")
 		Expect(err).ToNot(HaveOccurred())
