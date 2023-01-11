@@ -78,7 +78,7 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtco
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers) {
-	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer, NamespaceLimitsInformer: informers.NamespaceLimitsInformer})
+	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
