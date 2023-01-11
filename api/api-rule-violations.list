@@ -179,6 +179,8 @@ API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha1,Virt
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha1,VirtualMachineInstancetypeList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha2,VirtualMachineClusterInstancetypeList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha2,VirtualMachineInstancetypeList,Items
+API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha3,VirtualMachineClusterInstancetypeList,Items
+API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha3,VirtualMachineInstancetypeList,Items
 API rule violation: list_type_missing,kubevirt.io/api/pool/v1alpha1,VirtualMachinePoolList,Items
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreList,Items
 API rule violation: list_type_missing,kubevirt.io/api/snapshot/v1alpha1,VirtualMachineRestoreStatus,Conditions
@@ -293,6 +295,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceSt
 API rule violation: names_match,kubevirt.io/api/core/v1,WatchdogDevice,I6300ESB
 API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha1,VirtualMachineInstancetypeSpec,GPUs
 API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha2,VirtualMachineInstancetypeSpec,GPUs
+API rule violation: names_match,kubevirt.io/api/instancetype/v1alpha3,VirtualMachineInstancetypeSpec,GPUs
 API rule violation: names_match,kubevirt.io/api/snapshot/v1alpha1,VolumeRestore,PersistentVolumeClaimName
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,CDISpec,Workloads
 API rule violation: names_match,kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,DataVolumeSourceImageIO,DiskID

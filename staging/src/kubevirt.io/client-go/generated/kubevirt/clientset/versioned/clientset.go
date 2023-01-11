@@ -28,6 +28,7 @@ import (
 	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha3"
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
@@ -39,6 +40,7 @@ type Interface interface {
 	ExportV1alpha1() exportv1alpha1.ExportV1alpha1Interface
 	InstancetypeV1alpha1() instancetypev1alpha1.InstancetypeV1alpha1Interface
 	InstancetypeV1alpha2() instancetypev1alpha2.InstancetypeV1alpha2Interface
+	InstancetypeV1alpha3() instancetypev1alpha3.InstancetypeV1alpha3Interface
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
@@ -52,6 +54,7 @@ type Clientset struct {
 	exportV1alpha1       *exportv1alpha1.ExportV1alpha1Client
 	instancetypeV1alpha1 *instancetypev1alpha1.InstancetypeV1alpha1Client
 	instancetypeV1alpha2 *instancetypev1alpha2.InstancetypeV1alpha2Client
+	instancetypeV1alpha3 *instancetypev1alpha3.InstancetypeV1alpha3Client
 	migrationsV1alpha1   *migrationsv1alpha1.MigrationsV1alpha1Client
 	poolV1alpha1         *poolv1alpha1.PoolV1alpha1Client
 	snapshotV1alpha1     *snapshotv1alpha1.SnapshotV1alpha1Client
@@ -75,6 +78,11 @@ func (c *Clientset) InstancetypeV1alpha1() instancetypev1alpha1.InstancetypeV1al
 // InstancetypeV1alpha2 retrieves the InstancetypeV1alpha2Client
 func (c *Clientset) InstancetypeV1alpha2() instancetypev1alpha2.InstancetypeV1alpha2Interface {
 	return c.instancetypeV1alpha2
+}
+
+// InstancetypeV1alpha3 retrieves the InstancetypeV1alpha3Client
+func (c *Clientset) InstancetypeV1alpha3() instancetypev1alpha3.InstancetypeV1alpha3Interface {
+	return c.instancetypeV1alpha3
 }
 
 // MigrationsV1alpha1 retrieves the MigrationsV1alpha1Client
@@ -129,6 +137,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.instancetypeV1alpha3, err = instancetypev1alpha3.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 	cs.migrationsV1alpha1, err = migrationsv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
@@ -157,6 +169,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.exportV1alpha1 = exportv1alpha1.NewForConfigOrDie(c)
 	cs.instancetypeV1alpha1 = instancetypev1alpha1.NewForConfigOrDie(c)
 	cs.instancetypeV1alpha2 = instancetypev1alpha2.NewForConfigOrDie(c)
+	cs.instancetypeV1alpha3 = instancetypev1alpha3.NewForConfigOrDie(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.NewForConfigOrDie(c)
 	cs.poolV1alpha1 = poolv1alpha1.NewForConfigOrDie(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.NewForConfigOrDie(c)
@@ -172,6 +185,7 @@ func New(c rest.Interface) *Clientset {
 	cs.exportV1alpha1 = exportv1alpha1.New(c)
 	cs.instancetypeV1alpha1 = instancetypev1alpha1.New(c)
 	cs.instancetypeV1alpha2 = instancetypev1alpha2.New(c)
+	cs.instancetypeV1alpha3 = instancetypev1alpha3.New(c)
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
