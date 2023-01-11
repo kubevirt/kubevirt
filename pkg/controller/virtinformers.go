@@ -161,9 +161,6 @@ type KubeInformerFactory interface {
 	// Watches for ControllerRevision objects
 	ControllerRevision() cache.SharedIndexInformer
 
-	// Watches for LimitRange objects
-	LimitRanges() cache.SharedIndexInformer
-
 	// Watches for CDI DataVolume objects
 	DataVolume() cache.SharedIndexInformer
 
@@ -804,14 +801,6 @@ func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer 
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
-func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
-	return f.getInformer("limitrangeInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.CoreV1().RESTClient()
-		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
