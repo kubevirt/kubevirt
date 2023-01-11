@@ -1034,3 +1034,45 @@ Labels
     annotation_name="kubevirt.kubevirt.io/jsonpatch"
     severity=info
 ```
+
+## Tune Kubevirt Rate Limits
+Kubevirt API clients come with a token bucket rate limiter which avoids to congest the kube-apiserver bandwidth.
+The rate limiters are configurable through `burst` and `Query Per Second (QPS)` parameters.
+Whilst the rate limiter may avoid congestion, it may also limit the number of VMs that can be deployed in the cluster.
+Therefore, HCO enables the feature `tuningPolicy` for allowing to tune the rate limiters parameters.
+The `tuningPolicy` field can be set as `annotation`.
+
+> **_Note_:** If no `tuningPolicy` is configured or the `tuningPolicy` feature is not well configured, Kubevirt will use the
+> [default](https://github.com/kubevirt/kubevirt/blob/a3e92eb499636cbab46763fbdd1dbccaca716c29/pkg/virt-config/virt-config.go#L78-L86) rate limiter values.
+
+The `annotation` policy relies on the annotation `hco.kubevirt.io/tuningPolicy` to specify the desired values of `burst` and `QPS` parameters.
+The structure of the annotation is the following one:
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: hco
+metadata:
+  annotations:
+    hco.kubevirt.io/tuningPolicy: '{"qps":100,"burst":200}'
+...
+spec:
+  tuningPolicy: annotation
+```
+
+Where the values of `qps` and `burst` can be replaced by any desired value of `QPS` and `burst`, respectively. 
+For instance, in the above example the `QPS` parameter is set to 100 and the `burst` parameter is set to 200.
+The annotation can be created with the following command:
+
+```bash
+kubectl annotate -n kubevirt-hyperconverged hco kubevirt-hyperconverged hco.kubevirt.io/tuningPolicy='{"qps":100,"burst":200}'
+```
+
+> **_Note_:**  HCO will not configure the rate limiters if both the annotation and the `spec.tuningPolicy` are not populated correctly.
+> Moreover, if `spec.tuningPolicy` is set but the annotation is not present, HCO will reject the changes in the HyperConverged CR.
+> In case that the annotation is defined but the `spec.tuningPolicy` is not set, HCO will ignore the rate limit configurations.
+
+The `tuningPolicy` feature can be enabled using the following patch:
+
+```bash
+kubectl patch -n kubevirt-hyperconverged hco kubevirt-hyperconverged --type=json -p='[{"op": "add", "path": "/spec/tuningPolicy", "value": "annotation"}]'
+```

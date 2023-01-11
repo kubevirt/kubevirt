@@ -2534,6 +2534,82 @@ Version: 1.2.3`)
 			}))
 		})
 
+		Context("Tune KubeVirt rateLimiters", func() {
+
+			var hco *hcov1beta1.HyperConverged
+
+			BeforeEach(func() {
+				hco = commonTestUtils.NewHco()
+			})
+			It("Should be empty by default", func() {
+				kv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(hco.Spec.TuningPolicy).To(BeEmpty())
+				Expect(kv.Spec.Configuration.APIConfiguration).To(BeNil())
+				Expect(kv.Spec.Configuration.ControllerConfiguration).To(BeNil())
+				Expect(kv.Spec.Configuration.WebhookConfiguration).To(BeNil())
+				Expect(kv.Spec.Configuration.HandlerConfiguration).To(BeNil())
+
+			})
+
+			It("Should return error if annotation is not present", func() {
+				hco.Spec.TuningPolicy = hcov1beta1.HyperConvergedAnnotationTuningPolicy
+
+				kv, err := NewKubeVirt(hco)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err).Should(MatchError("tuning policy set but annotation not present or wrong"))
+
+				Expect(kv).To(BeNil())
+
+			})
+			It("Should return error if the annotation is present but the parameters are wrong", func() {
+
+				hco.Spec.TuningPolicy = hcov1beta1.HyperConvergedAnnotationTuningPolicy
+				hco.Annotations = make(map[string]string, 1)
+				//burst is missing
+				hco.Annotations["hco.kubevirt.io/tuningPolicy"] = `{"qps": 100}`
+
+				kv, err := NewKubeVirt(hco)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err).Should(MatchError("burst parameter not found in annotation"))
+				Expect(kv).To(BeNil())
+
+			})
+
+			It("Should return error if the json annotation is corrupted", func() {
+				hco.Spec.TuningPolicy = hcov1beta1.HyperConvergedAnnotationTuningPolicy
+				hco.Annotations = make(map[string]string, 1)
+				// qps field is missing a "
+				hco.Annotations["hco.kubevirt.io/tuningPolicy"] = `{"qps: 100, "burst": 200}`
+
+				kv, err := NewKubeVirt(hco)
+
+				Expect(err).To(HaveOccurred())
+				Expect(kv).To(BeNil())
+			})
+
+			It("Should create the fields and populate them when requested", func() {
+				hco.Spec.TuningPolicy = hcov1beta1.HyperConvergedAnnotationTuningPolicy
+				hco.Annotations = make(map[string]string, 1)
+				hco.Annotations["hco.kubevirt.io/tuningPolicy"] = `{"qps": 100, "burst": 200}`
+
+				kv, err := NewKubeVirt(hco)
+
+				Expect(kv).ToNot(BeNil())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Spec.Configuration.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS).To(Equal(float32(100)))
+				Expect(kv.Spec.Configuration.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst).To(Equal(200))
+				Expect(kv.Spec.Configuration.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS).To(Equal(float32(100)))
+				Expect(kv.Spec.Configuration.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst).To(Equal(200))
+				Expect(kv.Spec.Configuration.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS).To(Equal(float32(100)))
+				Expect(kv.Spec.Configuration.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst).To(Equal(200))
+				Expect(kv.Spec.Configuration.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS).To(Equal(float32(100)))
+				Expect(kv.Spec.Configuration.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst).To(Equal(200))
+			})
+		})
+
 		Context("jsonpath Annotation", func() {
 
 			getClusterInfo := hcoutil.GetClusterInfo

@@ -1,6 +1,7 @@
 package operands
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -183,6 +184,11 @@ type kubevirtHooks struct {
 	cache *kubevirtcorev1.KubeVirt
 }
 
+type rateLimits struct {
+	Qps   float32
+	Burst int
+}
+
 func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
 	if h.cache == nil {
 		kv, err := NewKubeVirt(hc)
@@ -270,6 +276,41 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 	return kv, nil
 }
 
+func hcoTuning2Kv(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
+	var err error
+	if hc.Spec.TuningPolicy == hcov1beta1.HyperConvergedAnnotationTuningPolicy {
+		if annotation, ok := hc.Annotations[common.TuningPolicyAnnotationName]; ok {
+
+			var rates rateLimits
+			err := json.Unmarshal([]byte(annotation), &rates)
+			if err != nil {
+				return nil, err
+			}
+
+			if rates.Qps <= 0 {
+				return nil, fmt.Errorf("qps parameter not found in annotation")
+			}
+			if rates.Burst <= 0 {
+				return nil, fmt.Errorf("burst parameter not found in annotation")
+			}
+
+			return &kubevirtcorev1.ReloadableComponentConfiguration{
+				RestClient: &kubevirtcorev1.RESTClientConfiguration{
+					RateLimiter: &kubevirtcorev1.RateLimiter{
+						TokenBucketRateLimiter: &kubevirtcorev1.TokenBucketRateLimiter{
+							QPS:   rates.Qps,
+							Burst: rates.Burst,
+						},
+					},
+				},
+			}, nil
+		} else {
+			err = fmt.Errorf("tuning policy set but annotation not present or wrong")
+		}
+	}
+	return nil, err
+}
+
 func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpdateStrategy) kubevirtcorev1.KubeVirtWorkloadUpdateStrategy {
 	kvObject := kubevirtcorev1.KubeVirtWorkloadUpdateStrategy{}
 	if hcObject != nil {
@@ -307,6 +348,11 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 
 	obsoleteCPUs, minCPUModel := getObsoleteCPUConfig(hc.Spec.ObsoleteCPUs)
 
+	rateLimiter, err := hcoTuning2Kv(hc)
+	if err != nil {
+		return nil, err
+	}
+
 	config := &kubevirtcorev1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
 		SELinuxLauncherType:    SELinuxLauncherType,
@@ -319,6 +365,10 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		ObsoleteCPUModels:            obsoleteCPUs,
 		MinCPUModel:                  minCPUModel,
 		TLSConfiguration:             hcTLSSecurityProfileToKv(hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)),
+		APIConfiguration:             rateLimiter,
+		WebhookConfiguration:         rateLimiter,
+		ControllerConfiguration:      rateLimiter,
+		HandlerConfiguration:         rateLimiter,
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {

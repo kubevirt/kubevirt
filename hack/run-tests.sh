@@ -53,6 +53,9 @@ KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
 # Check TLS profile on the webhook
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_tlsprofile.sh
 
+# Check tuning policy 
+KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_tuningPolicy.sh
+
 # check if HCO is able to correctly add back a label used as a label selector
 ${KUBECTL_BINARY} label priorityclass kubevirt-cluster-critical app-
 sleep 10
