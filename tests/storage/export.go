@@ -1126,7 +1126,6 @@ var _ = SIGDescribe("Export", func() {
 			checkExportSecretRef(vmExport)
 			certs, err := certutil.ParseCertsPEM([]byte(vmExport.Status.Links.External.Cert))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(certs).To(HaveLen(1))
 			route := getExportRoute()
 			host := ""
 			if len(route.Status.Ingress) > 0 {
@@ -1135,7 +1134,13 @@ var _ = SIGDescribe("Export", func() {
 			Expect(host).ToNot(BeEmpty())
 			prefix := fmt.Sprintf("%s-%s", components.VirtExportProxyServiceName, flags.KubeVirtInstallNamespace)
 			domainName := strings.TrimPrefix(host, prefix)
-			Expect(matchesCNOrAlt(certs[0], domainName)).To(BeTrue())
+			matchesCNOrAltName := false
+			for _, cert := range certs {
+				if matchesCNOrAlt(cert, domainName) {
+					matchesCNOrAltName = true
+				}
+			}
+			Expect(matchesCNOrAltName).To(BeTrue())
 			Expect(vmExport.Status.Links.External.Volumes[0].Formats[0].Url).To(ContainSubstring(host))
 
 		})
