@@ -139,7 +139,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 		patchKvCertConfig                      func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		patchKvCertConfigExpectError           func(name string, certConfig *v1.KubeVirtSelfSignConfiguration)
 		parseDaemonset                         func(string) string
-		parseImage                             func(string, string) (string, string, string)
+		parseImage                             func(string) (string, string, string)
 		parseDeployment                        func(string) (*v12.Deployment, string, string, string, string)
 		parseOperatorImage                     func() (*v12.Deployment, string, string, string, string)
 		patchOperator                          func(*string, *string) bool
@@ -529,40 +529,50 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 			return
 		}
 
-		parseImage = func(name, image string) (registry, imagePrefix, version string) {
-			imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
+		parseImage = func(image string) (registry, imageName, version string) {
+			var getVersion func(matches [][]string) string
+			var imageRegEx *regexp.Regexp
+
+			if strings.Contains(image, "@sha") {
+				imageRegEx = regexp.MustCompile(`^(.+)/(.+)(@sha\d+:)([\da-fA-F]+)$`)
+				getVersion = func(matches [][]string) string { return matches[0][3] + matches[0][4] }
+			} else {
+				imageRegEx = regexp.MustCompile(`^(.+)/(.+)(:.+)$`)
+				getVersion = func(matches [][]string) string { return matches[0][3] }
+			}
+
 			matches := imageRegEx.FindAllStringSubmatch(image, 1)
 			Expect(matches).To(HaveLen(1))
-			Expect(matches[0]).To(HaveLen(4))
 			registry = matches[0][1]
-			imagePrefix = matches[0][2]
-			version = matches[0][3]
+			imageName = matches[0][2]
+			version = getVersion(matches)
+
 			return
 		}
 
-		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imagePrefix, version string) {
+		parseDeployment = func(name string) (deployment *v12.Deployment, image, registry, imageName, version string) {
 			var err error
 			deployment, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			image = deployment.Spec.Template.Spec.Containers[0].Image
-			registry, imagePrefix, version = parseImage(name, image)
+			registry, imageName, version = parseImage(image)
 			return
 		}
 
-		parseOperatorImage = func() (operator *v12.Deployment, image, registry, imagePrefix, version string) {
+		parseOperatorImage = func() (operator *v12.Deployment, image, registry, imageName, version string) {
 			return parseDeployment("virt-operator")
 		}
 
-		patchOperator = func(imagePrefix, version *string) bool {
+		patchOperator = func(newImageName, version *string) bool {
 
 			modified := true
 
 			Eventually(func() error {
 
-				operator, oldImage, registry, oldPrefix, oldVersion := parseOperatorImage()
-				if imagePrefix == nil {
+				operator, oldImage, registry, oldImageName, oldVersion := parseOperatorImage()
+				if newImageName == nil {
 					// keep old prefix
-					imagePrefix = &oldPrefix
+					newImageName = &oldImageName
 				}
 				if version == nil {
 					// keep old version
@@ -571,7 +581,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					newVersion := components.AddVersionSeparatorPrefix(*version)
 					version = &newVersion
 				}
-				newImage := fmt.Sprintf("%s/%svirt-operator%s", registry, *imagePrefix, *version)
+				newImage := fmt.Sprintf("%s/%s%s", registry, *newImageName, *version)
 
 				if oldImage == newImage {
 					modified = false
