@@ -83,13 +83,12 @@ var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
 }
 
 type Informers struct {
-	VMIPresetInformer       cache.SharedIndexInformer
-	NamespaceLimitsInformer cache.SharedIndexInformer
-	VMIInformer             cache.SharedIndexInformer
-	VMRestoreInformer       cache.SharedIndexInformer
-	DataSourceInformer      cache.SharedIndexInformer
-	FlavorInformer          cache.SharedIndexInformer
-	ClusterFlavorInformer   cache.SharedIndexInformer
+	VMIPresetInformer     cache.SharedIndexInformer
+	VMIInformer           cache.SharedIndexInformer
+	VMRestoreInformer     cache.SharedIndexInformer
+	DataSourceInformer    cache.SharedIndexInformer
+	FlavorInformer        cache.SharedIndexInformer
+	ClusterFlavorInformer cache.SharedIndexInformer
 }
 
 func IsKubeVirtServiceAccount(serviceAccount string) bool {

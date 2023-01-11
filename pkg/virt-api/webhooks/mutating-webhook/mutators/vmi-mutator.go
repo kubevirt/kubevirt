@@ -43,9 +43,8 @@ import (
 )
 
 type VMIsMutator struct {
-	ClusterConfig           *virtconfig.ClusterConfig
-	VMIPresetInformer       cache.SharedIndexInformer
-	NamespaceLimitsInformer cache.SharedIndexInformer
+	ClusterConfig     *virtconfig.ClusterConfig
+	VMIPresetInformer cache.SharedIndexInformer
 }
 
 func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -77,9 +76,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 				},
 			}
 		}
-
-		// Apply namespace limits
-		applyNamespaceLimitRangeValues(newVMI, mutator.NamespaceLimitsInformer)
 
 		// Set VMI defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
