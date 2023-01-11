@@ -2044,10 +2044,11 @@ spec:
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
-			_, _, _, oldPrefix, _ := parseOperatorImage()
+			_, _, _, oldImageName, _ := parseOperatorImage()
 
 			By("Update Operator using imagePrefixAlt")
-			patchOperator(&flags.ImagePrefixAlt, nil)
+			newImageName := flags.ImagePrefixAlt + oldImageName
+			patchOperator(&newImageName, nil)
 
 			// should result in kubevirt cr entering updating state
 			By("Wait for Updating Condition")
@@ -2059,13 +2060,13 @@ spec:
 			By("Verifying infrastructure Is Updated")
 			allPodsAreReady(kv)
 
-			By("Verifying deployments have prefix")
+			By("Verifying deployments have correct image name")
 			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
-				_, _, _, prefix, _ := parseDeployment(name)
-				Expect(prefix).To(Equal(flags.ImagePrefixAlt), fmt.Sprintf("%s should have correct image prefix", name))
+				_, _, _, actualImageName, _ := parseDeployment(name)
+				Expect(actualImageName).To(ContainSubstring(flags.ImagePrefixAlt), fmt.Sprintf("%s should have correct image prefix", name))
 			}
-			prefix := parseDaemonset("virt-handler")
-			Expect(prefix).To(Equal(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
+			handlerImageName := parseDaemonset("virt-handler")
+			Expect(handlerImageName).To(ContainSubstring(flags.ImagePrefixAlt), "virt-handler should have correct image prefix")
 
 			By("Verifying VMs are working")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -2077,8 +2078,8 @@ spec:
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
-					_, prefix, _ := parseImage("virt-launcher", container.Image)
-					Expect(prefix).To(Equal(flags.ImagePrefixAlt), "launcher image should have prefix")
+					_, imageName, _ := parseImage(container.Image)
+					Expect(imageName).To(ContainSubstring(flags.ImagePrefixAlt), "launcher image should have prefix")
 				}
 			}
 
@@ -2087,7 +2088,7 @@ spec:
 			Expect(err).ShouldNot(HaveOccurred(), "Delete VMI successfully")
 
 			By("Restore Operator using original imagePrefix ")
-			patchOperator(&oldPrefix, nil)
+			patchOperator(&oldImageName, nil)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
