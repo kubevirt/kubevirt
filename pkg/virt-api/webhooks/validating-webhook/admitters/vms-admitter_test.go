@@ -42,7 +42,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1448,7 +1448,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject if instancetype is not found", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
 				return nil, fmt.Errorf("instancetype not found")
 			}
 
@@ -1460,7 +1460,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject if preference is not found", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachinePreferenceSpec, error) {
 				return nil, fmt.Errorf("preference not found")
 			}
 
@@ -1477,16 +1477,16 @@ var _ = Describe("Validating VM Admitter", func() {
 				path1    = basePath.Child("example", "path")
 				path2    = basePath.Child("domain", "example", "path")
 			)
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha3.VirtualMachineInstancetypeSpec{}, nil
 			}
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha3.VirtualMachineInstancetypeSpec{}, nil
 			}
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1alpha2.VirtualMachinePreferenceSpec{}, nil
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachinePreferenceSpec, error) {
+				return &instancetypev1alpha3.VirtualMachinePreferenceSpec{}, nil
 			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha2.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha2.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha3.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha3.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				return instancetype.Conflicts{path1, path2}
 			}
 
@@ -1505,10 +1505,10 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Allowed).To(BeTrue())
 
 			// Instancetype application sets invalid memory value
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha3.VirtualMachineInstancetypeSpec{}, nil
 			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha2.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha3.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha3.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
 				return nil
 			}
@@ -1523,12 +1523,12 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
 
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha3.VirtualMachineInstancetypeSpec{}, nil
 			}
 
 			// Mock out ApplyToVmiFunc so that it applies some changes to the CPU of the provided VMISpec
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha2.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1alpha3.VirtualMachineInstancetypeSpec, _ *instancetypev1alpha3.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				vmiSpec.Domain.CPU = &v1.CPU{Cores: 1, Threads: 1, Sockets: 1}
 				return nil
 			}

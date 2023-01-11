@@ -48,7 +48,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instanceType "kubevirt.io/api/instancetype/v1alpha2"
+	instanceType "kubevirt.io/api/instancetype/v1alpha3"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 )
 
 func decodeOldObject(data []byte, isPreference bool) (runtime.Object, error) {
@@ -96,42 +96,42 @@ func decodeOldPreferenceRevisionObject(data []byte) (*instancetypev1alpha1.Virtu
 // Manually written conversion functions.
 // TODO: Use conversion-gen to generate conversion functions
 
-func convertInstancetype(source *instancetypev1alpha1.VirtualMachineInstancetype) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
-	// This is a slow conversion based on json serialization. The v1alpha2 is compatible with v1alpha1.
+func convertInstancetype(source *instancetypev1alpha1.VirtualMachineInstancetype) (*instancetypev1alpha3.VirtualMachineInstancetype, error) {
+	// This is a slow conversion based on json serialization. The v1alpha3 is compatible with v1alpha1.
 	jsonBytes, err := json.Marshal(source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshall source object to JSON: %w", err)
 	}
 
-	destination := &instancetypev1alpha2.VirtualMachineInstancetype{}
+	destination := &instancetypev1alpha3.VirtualMachineInstancetype{}
 	err = json.Unmarshal(jsonBytes, destination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshall JSON to VirtualMachineInstancetype: %w", err)
 	}
 
 	destination.TypeMeta = metav1.TypeMeta{
-		APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+		APIVersion: instancetypev1alpha3.SchemeGroupVersion.String(),
 		Kind:       "VirtualMachineInstancetype",
 	}
 
 	return destination, nil
 }
 
-func convertPreference(source *instancetypev1alpha1.VirtualMachinePreference) (*instancetypev1alpha2.VirtualMachinePreference, error) {
-	// This is a slow conversion based on json serialization. The v1alpha2 is compatible with v1alpha1.
+func convertPreference(source *instancetypev1alpha1.VirtualMachinePreference) (*instancetypev1alpha3.VirtualMachinePreference, error) {
+	// This is a slow conversion based on json serialization. The v1alpha3 is compatible with v1alpha1.
 	jsonBytes, err := json.Marshal(source)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshall source object to JSON: %w", err)
 	}
 
-	destination := &instancetypev1alpha2.VirtualMachinePreference{}
+	destination := &instancetypev1alpha3.VirtualMachinePreference{}
 	err = json.Unmarshal(jsonBytes, destination)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshall JSON to VirtualMachinePreference: %w", err)
 	}
 
 	destination.TypeMeta = metav1.TypeMeta{
-		APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+		APIVersion: instancetypev1alpha3.SchemeGroupVersion.String(),
 		Kind:       "VirtualMachinePreference",
 	}
 

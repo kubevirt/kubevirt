@@ -1346,13 +1346,13 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-instancetype.kubevirt.io-v1alpha2",
+     "operationId": "getAPIResources-instancetype.kubevirt.io-v1alpha3",
      "responses": {
       "200": {
        "description": "OK",
@@ -1372,7 +1372,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
     "get": {
      "description": "Get a list of VirtualMachineInstancetype objects.",
      "produces": [
@@ -1451,7 +1451,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetypeList"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetypeList"
        }
       },
       "401": {
@@ -1479,7 +1479,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       {
@@ -1495,19 +1495,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1599,7 +1599,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineInstancetype object.",
      "produces": [
@@ -1628,7 +1628,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1656,7 +1656,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       }
      ],
@@ -1664,13 +1664,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1762,7 +1762,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
        }
       },
       "401": {
@@ -1792,7 +1792,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
     "get": {
      "description": "Get a list of VirtualMachinePreference objects.",
      "produces": [
@@ -1871,7 +1871,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreferenceList"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreferenceList"
        }
       },
       "401": {
@@ -1899,7 +1899,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       {
@@ -1915,19 +1915,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "401": {
@@ -2019,7 +2019,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachinePreference object.",
      "produces": [
@@ -2048,7 +2048,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "401": {
@@ -2076,7 +2076,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       }
      ],
@@ -2084,13 +2084,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "401": {
@@ -2182,7 +2182,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
        }
       },
       "401": {
@@ -2212,7 +2212,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/virtualmachineclusterinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/virtualmachineclusterinstancetypes": {
     "get": {
      "description": "Get a list of VirtualMachineClusterInstancetype objects.",
      "produces": [
@@ -2283,7 +2283,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetypeList"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetypeList"
        }
       },
       "401": {
@@ -2311,7 +2311,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       }
      ],
@@ -2319,19 +2319,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2423,7 +2423,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/virtualmachineclusterinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/virtualmachineclusterinstancetypes/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineClusterInstancetype object.",
      "produces": [
@@ -2452,7 +2452,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2480,7 +2480,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       }
      ],
@@ -2488,13 +2488,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2586,7 +2586,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
        }
       },
       "401": {
@@ -2608,7 +2608,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/virtualmachineclusterpreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/virtualmachineclusterpreferences": {
     "get": {
      "description": "Get a list of VirtualMachineClusterPreference objects.",
      "produces": [
@@ -2679,7 +2679,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreferenceList"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreferenceList"
        }
       },
       "401": {
@@ -2707,7 +2707,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       }
      ],
@@ -2715,19 +2715,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "401": {
@@ -2819,7 +2819,7 @@
      }
     }
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/virtualmachineclusterpreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/virtualmachineclusterpreferences/{name:[a-z0-9][a-z0-9\\-]*}": {
     "get": {
      "description": "Get a VirtualMachineClusterPreference object.",
      "produces": [
@@ -2848,7 +2848,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "401": {
@@ -2876,7 +2876,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       }
      ],
@@ -2884,13 +2884,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "401": {
@@ -2982,7 +2982,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
        }
       },
       "401": {
@@ -3004,7 +3004,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/virtualmachineinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/virtualmachineinstancetypes": {
     "get": {
      "description": "Get a list of all VirtualMachineInstancetype objects.",
      "produces": [
@@ -3017,7 +3017,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetypeList"
+        "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetypeList"
        }
       },
       "401": {
@@ -3087,7 +3087,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/virtualmachinepreferences": {
     "get": {
      "description": "Get a list of all VirtualMachinePreference objects.",
      "produces": [
@@ -3100,7 +3100,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha2.VirtualMachinePreferenceList"
+        "$ref": "#/definitions/v1alpha3.VirtualMachinePreferenceList"
        }
       },
       "401": {
@@ -3170,7 +3170,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancetypes": {
     "get": {
      "description": "Watch a VirtualMachineInstancetype object.",
      "produces": [
@@ -3259,7 +3259,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachinepreferences": {
     "get": {
      "description": "Watch a VirtualMachinePreference object.",
      "produces": [
@@ -3348,7 +3348,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/watch/virtualmachineclusterinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/watch/virtualmachineclusterinstancetypes": {
     "get": {
      "description": "Watch a VirtualMachineClusterInstancetypeList object.",
      "produces": [
@@ -3429,7 +3429,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/watch/virtualmachineclusterpreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/watch/virtualmachineclusterpreferences": {
     "get": {
      "description": "Watch a VirtualMachineClusterPreferenceList object.",
      "produces": [
@@ -3510,7 +3510,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/watch/virtualmachineinstancetypes": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/watch/virtualmachineinstancetypes": {
     "get": {
      "description": "Watch a VirtualMachineInstancetypeList object.",
      "produces": [
@@ -3591,7 +3591,7 @@
      }
     ]
    },
-   "/apis/instancetype.kubevirt.io/v1alpha2/watch/virtualmachinepreferences": {
+   "/apis/instancetype.kubevirt.io/v1alpha3/watch/virtualmachinepreferences": {
     "get": {
      "description": "Watch a VirtualMachinePreferenceList object.",
      "produces": [
@@ -20719,7 +20719,7 @@
      }
     }
    },
-   "v1alpha2.CPUInstancetype": {
+   "v1alpha3.CPUInstancetype": {
     "description": "CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the instancetype.",
     "type": "object",
     "required": [
@@ -20753,7 +20753,7 @@
      }
     }
    },
-   "v1alpha2.CPUPreferences": {
+   "v1alpha3.CPUPreferences": {
     "description": "CPUPreferences contains various optional CPU preferences.",
     "type": "object",
     "properties": {
@@ -20763,7 +20763,7 @@
      }
     }
    },
-   "v1alpha2.ClockPreferences": {
+   "v1alpha3.ClockPreferences": {
     "description": "ClockPreferences contains various optional defaults for Clock.",
     "type": "object",
     "properties": {
@@ -20777,7 +20777,7 @@
      }
     }
    },
-   "v1alpha2.DevicePreferences": {
+   "v1alpha3.DevicePreferences": {
     "description": "DevicePreferences contains various optional Device preferences.",
     "type": "object",
     "properties": {
@@ -20875,7 +20875,7 @@
      }
     }
    },
-   "v1alpha2.FeaturePreferences": {
+   "v1alpha3.FeaturePreferences": {
     "description": "FeaturePreferences contains various optional defaults for Features.",
     "type": "object",
     "properties": {
@@ -20905,7 +20905,7 @@
      }
     }
    },
-   "v1alpha2.FirmwarePreferences": {
+   "v1alpha3.FirmwarePreferences": {
     "description": "FirmwarePreferences contains various optional defaults for Firmware.",
     "type": "object",
     "properties": {
@@ -20927,7 +20927,7 @@
      }
     }
    },
-   "v1alpha2.MachinePreferences": {
+   "v1alpha3.MachinePreferences": {
     "description": "MachinePreferences contains various optional defaults for Machine.",
     "type": "object",
     "properties": {
@@ -20937,7 +20937,7 @@
      }
     }
    },
-   "v1alpha2.MemoryInstancetype": {
+   "v1alpha3.MemoryInstancetype": {
     "description": "MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the instancetype.",
     "type": "object",
     "required": [
@@ -20954,7 +20954,7 @@
      }
     }
    },
-   "v1alpha2.VirtualMachineClusterInstancetype": {
+   "v1alpha3.VirtualMachineClusterInstancetype": {
     "description": "VirtualMachineClusterInstancetype is a cluster scoped version of VirtualMachineInstancetype resource.",
     "type": "object",
     "required": [
@@ -20974,11 +20974,11 @@
      },
      "spec": {
       "description": "Required spec describing the instancetype",
-      "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetypeSpec"
+      "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetypeSpec"
      }
     }
    },
-   "v1alpha2.VirtualMachineClusterInstancetypeList": {
+   "v1alpha3.VirtualMachineClusterInstancetypeList": {
     "description": "VirtualMachineClusterInstancetypeList is a list of VirtualMachineClusterInstancetype resources.",
     "type": "object",
     "required": [
@@ -20992,7 +20992,7 @@
      "items": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha2.VirtualMachineClusterInstancetype"
+       "$ref": "#/definitions/v1alpha3.VirtualMachineClusterInstancetype"
       }
      },
      "kind": {
@@ -21004,7 +21004,7 @@
      }
     }
    },
-   "v1alpha2.VirtualMachineClusterPreference": {
+   "v1alpha3.VirtualMachineClusterPreference": {
     "description": "VirtualMachineClusterPreference is a cluster scoped version of the VirtualMachinePreference resource.",
     "type": "object",
     "required": [
@@ -21024,11 +21024,11 @@
      },
      "spec": {
       "description": "Required spec describing the preferences",
-      "$ref": "#/definitions/v1alpha2.VirtualMachinePreferenceSpec"
+      "$ref": "#/definitions/v1alpha3.VirtualMachinePreferenceSpec"
      }
     }
    },
-   "v1alpha2.VirtualMachineClusterPreferenceList": {
+   "v1alpha3.VirtualMachineClusterPreferenceList": {
     "description": "VirtualMachineClusterPreferenceList is a list of VirtualMachineClusterPreference resources.",
     "type": "object",
     "required": [
@@ -21042,7 +21042,7 @@
      "items": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha2.VirtualMachineClusterPreference"
+       "$ref": "#/definitions/v1alpha3.VirtualMachineClusterPreference"
       },
       "x-kubernetes-list-type": "set"
      },
@@ -21055,7 +21055,7 @@
      }
     }
    },
-   "v1alpha2.VirtualMachineInstancetype": {
+   "v1alpha3.VirtualMachineInstancetype": {
     "description": "VirtualMachineInstancetype resource contains quantitative and resource related VirtualMachine configuration that can be used by multiple VirtualMachine resources.",
     "type": "object",
     "required": [
@@ -21075,11 +21075,11 @@
      },
      "spec": {
       "description": "Required spec describing the instancetype",
-      "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetypeSpec"
+      "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetypeSpec"
      }
     }
    },
-   "v1alpha2.VirtualMachineInstancetypeList": {
+   "v1alpha3.VirtualMachineInstancetypeList": {
     "description": "VirtualMachineInstancetypeList is a list of VirtualMachineInstancetype resources.",
     "type": "object",
     "required": [
@@ -21093,7 +21093,7 @@
      "items": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha2.VirtualMachineInstancetype"
+       "$ref": "#/definitions/v1alpha3.VirtualMachineInstancetype"
       }
      },
      "kind": {
@@ -21105,7 +21105,7 @@
      }
     }
    },
-   "v1alpha2.VirtualMachineInstancetypeSpec": {
+   "v1alpha3.VirtualMachineInstancetypeSpec": {
     "description": "VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.",
     "type": "object",
     "required": [
@@ -21115,7 +21115,7 @@
     "properties": {
      "cpu": {
       "description": "Required CPU related attributes of the instancetype.",
-      "$ref": "#/definitions/v1alpha2.CPUInstancetype"
+      "$ref": "#/definitions/v1alpha3.CPUInstancetype"
      },
      "gpus": {
       "description": "Optionally defines any GPU devices associated with the instancetype.",
@@ -21143,11 +21143,11 @@
      },
      "memory": {
       "description": "Required Memory related attributes of the instancetype.",
-      "$ref": "#/definitions/v1alpha2.MemoryInstancetype"
+      "$ref": "#/definitions/v1alpha3.MemoryInstancetype"
      }
     }
    },
-   "v1alpha2.VirtualMachinePreference": {
+   "v1alpha3.VirtualMachinePreference": {
     "description": "VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.",
     "type": "object",
     "required": [
@@ -21167,11 +21167,11 @@
      },
      "spec": {
       "description": "Required spec describing the preferences",
-      "$ref": "#/definitions/v1alpha2.VirtualMachinePreferenceSpec"
+      "$ref": "#/definitions/v1alpha3.VirtualMachinePreferenceSpec"
      }
     }
    },
-   "v1alpha2.VirtualMachinePreferenceList": {
+   "v1alpha3.VirtualMachinePreferenceList": {
     "description": "VirtualMachinePreferenceList is a list of VirtualMachinePreference resources.",
     "type": "object",
     "required": [
@@ -21185,7 +21185,7 @@
      "items": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha2.VirtualMachinePreference"
+       "$ref": "#/definitions/v1alpha3.VirtualMachinePreference"
       },
       "x-kubernetes-list-type": "set"
      },
@@ -21198,41 +21198,41 @@
      }
     }
    },
-   "v1alpha2.VirtualMachinePreferenceSpec": {
+   "v1alpha3.VirtualMachinePreferenceSpec": {
     "description": "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
     "type": "object",
     "properties": {
      "clock": {
       "description": "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec",
-      "$ref": "#/definitions/v1alpha2.ClockPreferences"
+      "$ref": "#/definitions/v1alpha3.ClockPreferences"
      },
      "cpu": {
       "description": "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec",
-      "$ref": "#/definitions/v1alpha2.CPUPreferences"
+      "$ref": "#/definitions/v1alpha3.CPUPreferences"
      },
      "devices": {
       "description": "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec",
-      "$ref": "#/definitions/v1alpha2.DevicePreferences"
+      "$ref": "#/definitions/v1alpha3.DevicePreferences"
      },
      "features": {
       "description": "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec",
-      "$ref": "#/definitions/v1alpha2.FeaturePreferences"
+      "$ref": "#/definitions/v1alpha3.FeaturePreferences"
      },
      "firmware": {
       "description": "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec",
-      "$ref": "#/definitions/v1alpha2.FirmwarePreferences"
+      "$ref": "#/definitions/v1alpha3.FirmwarePreferences"
      },
      "machine": {
       "description": "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
-      "$ref": "#/definitions/v1alpha2.MachinePreferences"
+      "$ref": "#/definitions/v1alpha3.MachinePreferences"
      },
      "volumes": {
       "description": "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec",
-      "$ref": "#/definitions/v1alpha2.VolumePreferences"
+      "$ref": "#/definitions/v1alpha3.VolumePreferences"
      }
     }
    },
-   "v1alpha2.VolumePreferences": {
+   "v1alpha3.VolumePreferences": {
     "type": "object",
     "properties": {
      "preferredStorageClassName": {

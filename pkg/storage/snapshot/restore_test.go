@@ -25,7 +25,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
@@ -957,10 +957,10 @@ var _ = Describe("Restore controller", func() {
 				originalVM             *v1.VirtualMachine
 				vmSnapshotContent      *snapshotv1.VirtualMachineSnapshotContent
 				restore                *snapshotv1.VirtualMachineRestore
-				instancetypeObj        *instancetypev1alpha2.VirtualMachineInstancetype
+				instancetypeObj        *instancetypev1alpha3.VirtualMachineInstancetype
 				instancetypeSnapshotCR *appsv1.ControllerRevision
 				instancetypeOriginalCR *appsv1.ControllerRevision
-				preferenceObj          *instancetypev1alpha2.VirtualMachinePreference
+				preferenceObj          *instancetypev1alpha3.VirtualMachinePreference
 				preferenceSnapshotCR   *appsv1.ControllerRevision
 				preferenceOriginalCR   *appsv1.ControllerRevision
 			)

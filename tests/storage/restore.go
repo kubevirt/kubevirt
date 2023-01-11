@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -558,8 +558,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		})
 		Context("with instancetype and preferences", func() {
 			var (
-				instancetype *instancetypev1alpha2.VirtualMachineInstancetype
-				preference   *instancetypev1alpha2.VirtualMachinePreference
+				instancetype *instancetypev1alpha3.VirtualMachineInstancetype
+				preference   *instancetypev1alpha3.VirtualMachinePreference
 				snapshot     *snapshotv1.VirtualMachineSnapshot
 				restore      *snapshotv1.VirtualMachineRestore
 			)
@@ -572,16 +572,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Skip("Skiping test, no VolumeSnapshot support")
 				}
 
-				instancetype = &instancetypev1alpha2.VirtualMachineInstancetype{
+				instancetype = &instancetypev1alpha3.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-instancetype-",
 						Namespace:    testsuite.GetTestNamespace(nil),
 					},
-					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
+					Spec: instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha3.CPUInstancetype{
 							Guest: 1,
 						},
-						Memory: instancetypev1alpha2.MemoryInstancetype{
+						Memory: instancetypev1alpha3.MemoryInstancetype{
 							Guest: resource.MustParse("128Mi"),
 						},
 					},
@@ -589,14 +589,14 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				preference = &instancetypev1alpha2.VirtualMachinePreference{
+				preference = &instancetypev1alpha3.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "vm-preference-",
 						Namespace:    testsuite.GetTestNamespace(nil),
 					},
-					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha2.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha2.PreferSockets,
+					Spec: instancetypev1alpha3.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha3.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha3.PreferSockets,
 						},
 					},
 				}

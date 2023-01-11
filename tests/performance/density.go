@@ -38,7 +38,7 @@ import (
 
 	kvv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -226,17 +226,17 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 	}
 }
 
-func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.VirtualMachineInstancetype {
-	instancetype := &instancetypev1alpha2.VirtualMachineInstancetype{
+func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha3.VirtualMachineInstancetype {
+	instancetype := &instancetypev1alpha3.VirtualMachineInstancetype{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "instancetype",
 		},
-		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+		Spec: instancetypev1alpha3.VirtualMachineInstancetypeSpec{
 			// FIXME - We don't have a way of expressing resources via instancetypes yet, replace this when we do.
-			CPU: instancetypev1alpha2.CPUInstancetype{
+			CPU: instancetypev1alpha3.CPUInstancetype{
 				Guest: 1,
 			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
+			Memory: instancetypev1alpha3.MemoryInstancetype{
 				Guest: resource.MustParse("90Mi"),
 			},
 		},
@@ -246,13 +246,13 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha2
 	return instancetype
 }
 
-func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.VirtualMachinePreference {
-	preference := &instancetypev1alpha2.VirtualMachinePreference{
+func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1alpha3.VirtualMachinePreference {
+	preference := &instancetypev1alpha3.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "preference",
 		},
-		Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-			Devices: &instancetypev1alpha2.DevicePreferences{
+		Spec: instancetypev1alpha3.VirtualMachinePreferenceSpec{
+			Devices: &instancetypev1alpha3.DevicePreferences{
 				PreferredDiskBus: kvv1.DiskBusVirtio,
 			},
 		},

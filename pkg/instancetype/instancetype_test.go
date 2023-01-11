@@ -29,9 +29,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha3"
 )
 
 const resourceUID types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
@@ -45,7 +45,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		vmi                              *v1.VirtualMachineInstance
 		virtClient                       *kubecli.MockKubevirtClient
 		vmInterface                      *kubecli.MockVirtualMachineInterface
-		fakeInstancetypeClients          v1alpha2.InstancetypeV1alpha2Interface
+		fakeInstancetypeClients          v1alpha3.InstancetypeV1alpha3Interface
 		k8sClient                        *k8sfake.Clientset
 		instancetypeInformerStore        cache.Store
 		clusterInstancetypeInformerStore cache.Store
@@ -74,18 +74,18 @@ var _ = Describe("Instancetype and Preferences", func() {
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha2()
+		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1alpha3()
 
-		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
+		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha3.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
 
-		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha3.VirtualMachineClusterInstancetype{})
 		clusterInstancetypeInformerStore = clusterInstancetypeInformer.GetStore()
 
-		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha3.VirtualMachinePreference{})
 		preferenceInformerStore = preferenceInformer.GetStore()
 
-		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha3.VirtualMachineClusterPreference{})
 		clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
 
 		controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -143,26 +143,26 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Using global ClusterInstancetype", func() {
-			var clusterInstancetype *instancetypev1alpha2.VirtualMachineClusterInstancetype
-			var fakeClusterInstancetypeClient v1alpha2.VirtualMachineClusterInstancetypeInterface
+			var clusterInstancetype *instancetypev1alpha3.VirtualMachineClusterInstancetype
+			var fakeClusterInstancetypeClient v1alpha3.VirtualMachineClusterInstancetypeInterface
 
 			BeforeEach(func() {
 
 				fakeClusterInstancetypeClient = fakeInstancetypeClients.VirtualMachineClusterInstancetypes()
 				virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeClusterInstancetypeClient).AnyTimes()
 
-				clusterInstancetype = &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+				clusterInstancetype = &instancetypev1alpha3.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "VirtualMachineClusterInstancetype",
-						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1alpha3.SchemeGroupVersion.String(),
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-cluster-instancetype",
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
-					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
+					Spec: instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha3.CPUInstancetype{
 							Guest: uint32(2),
 						},
 					},
@@ -295,18 +295,18 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Using namespaced Instancetype", func() {
-			var f *instancetypev1alpha2.VirtualMachineInstancetype
-			var fakeInstancetypeClient v1alpha2.VirtualMachineInstancetypeInterface
+			var f *instancetypev1alpha3.VirtualMachineInstancetype
+			var fakeInstancetypeClient v1alpha3.VirtualMachineInstancetypeInterface
 
 			BeforeEach(func() {
 
 				fakeInstancetypeClient = fakeInstancetypeClients.VirtualMachineInstancetypes(vm.Namespace)
 				virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
 
-				f = &instancetypev1alpha2.VirtualMachineInstancetype{
+				f = &instancetypev1alpha3.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "VirtualMachineInstancetype",
-						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1alpha3.SchemeGroupVersion.String(),
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-instancetype",
@@ -314,8 +314,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
-					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
+					Spec: instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha3.CPUInstancetype{
 							Guest: uint32(2),
 						},
 					},
@@ -517,23 +517,23 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Using global ClusterPreference", func() {
-			var clusterPreference *instancetypev1alpha2.VirtualMachineClusterPreference
-			var fakeClusterPreferenceClient v1alpha2.VirtualMachineClusterPreferenceInterface
+			var clusterPreference *instancetypev1alpha3.VirtualMachineClusterPreference
+			var fakeClusterPreferenceClient v1alpha3.VirtualMachineClusterPreferenceInterface
 
 			BeforeEach(func() {
 
 				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
-				clusterPreference = &instancetypev1alpha2.VirtualMachineClusterPreference{
+				clusterPreference = &instancetypev1alpha3.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-cluster-preference",
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
-					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha2.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha2.PreferCores,
+					Spec: instancetypev1alpha3.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha3.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha3.PreferCores,
 						},
 					},
 				}
@@ -640,7 +640,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
 				unexpectedPreference := clusterPreference.DeepCopy()
-				unexpectedPreference.Spec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferThreads
+				unexpectedPreference.Spec.CPU.PreferredCPUTopology = instancetypev1alpha3.PreferThreads
 
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
 				Expect(err).ToNot(HaveOccurred())
@@ -653,24 +653,24 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 
 		Context("Using namespaced Preference", func() {
-			var preference *instancetypev1alpha2.VirtualMachinePreference
-			var fakePreferenceClient v1alpha2.VirtualMachinePreferenceInterface
+			var preference *instancetypev1alpha3.VirtualMachinePreference
+			var fakePreferenceClient v1alpha3.VirtualMachinePreferenceInterface
 
 			BeforeEach(func() {
 
 				fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
 				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
 
-				preference = &instancetypev1alpha2.VirtualMachinePreference{
+				preference = &instancetypev1alpha3.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-preference",
 						Namespace:  vm.Namespace,
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
-					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha2.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha2.PreferCores,
+					Spec: instancetypev1alpha3.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha3.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha3.PreferCores,
 						},
 					},
 				}
@@ -776,7 +776,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
 				unexpectedPreference := preference.DeepCopy()
-				unexpectedPreference.Spec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferThreads
+				unexpectedPreference.Spec.CPU.PreferredCPUTopology = instancetypev1alpha3.PreferThreads
 
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
 				Expect(err).ToNot(HaveOccurred())
@@ -831,8 +831,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 	Context("Apply", func() {
 
 		var (
-			instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec
-			preferenceSpec   *instancetypev1alpha2.VirtualMachinePreferenceSpec
+			instancetypeSpec *instancetypev1alpha3.VirtualMachineInstancetypeSpec
+			preferenceSpec   *instancetypev1alpha3.VirtualMachinePreferenceSpec
 			field            *field.Path
 		)
 
@@ -849,8 +849,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			BeforeEach(func() {
 
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha3.CPUInstancetype{
 						Guest:                 uint32(2),
 						Model:                 "host-passthrough",
 						DedicatedCPUPlacement: true,
@@ -863,8 +863,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				}
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1alpha2.CPUPreferences{},
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1alpha3.CPUPreferences{},
 				}
 			})
 
@@ -886,7 +886,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should apply in full with PreferCores selected", func() {
 
-				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferCores
+				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha3.PreferCores
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -904,7 +904,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should apply in full with PreferThreads selected", func() {
 
-				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferThreads
+				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha3.PreferThreads
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -922,7 +922,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should apply in full with PreferSockets selected", func() {
 
-				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferSockets
+				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha3.PreferSockets
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -940,8 +940,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.CPU already defined", func() {
 
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha3.CPUInstancetype{
 						Guest: uint32(2),
 					},
 				}
@@ -960,8 +960,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {
 
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha3.CPUInstancetype{
 						Guest: uint32(2),
 					},
 				}
@@ -980,8 +980,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] already defined", func() {
 
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1alpha2.CPUInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha3.CPUInstancetype{
 						Guest: uint32(2),
 					},
 				}
@@ -1000,8 +1000,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1alpha3.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 						Hugepages: &v1.Hugepages{
 							PageSize: "1Gi",
@@ -1035,8 +1035,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] already defined", func() {
 
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1alpha3.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 					},
 				}
@@ -1055,8 +1055,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] already defined", func() {
 
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1alpha2.MemoryInstancetype{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1alpha3.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
 					},
 				}
@@ -1079,7 +1079,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			BeforeEach(func() {
 				instancetypePolicy = v1.IOThreadsPolicyShared
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
 					IOThreadsPolicy: &instancetypePolicy,
 				}
 			})
@@ -1103,7 +1103,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("instancetype.Spec.LaunchSecurity", func() {
 
 			BeforeEach(func() {
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
 					LaunchSecurity: &v1.LaunchSecurity{
 						SEV: &v1.SEV{},
 					},
@@ -1131,7 +1131,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("instancetype.Spec.GPUs", func() {
 
 			BeforeEach(func() {
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
 					GPUs: []v1.GPU{
 						v1.GPU{
 							Name:       "barfoo",
@@ -1169,7 +1169,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("instancetype.Spec.HostDevices", func() {
 
 			BeforeEach(func() {
-				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+				instancetypeSpec = &instancetypev1alpha3.VirtualMachineInstancetypeSpec{
 					HostDevices: []v1.HostDevice{
 						v1.HostDevice{
 							Name:       "foobar",
@@ -1276,8 +1276,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{}
 
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					Devices: &instancetypev1alpha2.DevicePreferences{
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1alpha3.DevicePreferences{
 						PreferredAutoattachGraphicsDevice:   pointer.Bool(true),
 						PreferredAutoattachMemBalloon:       pointer.Bool(true),
 						PreferredAutoattachPodInterface:     pointer.Bool(true),
@@ -1368,8 +1368,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			BeforeEach(func() {
 				spinLockRetries := uint32(32)
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					Features: &instancetypev1alpha2.FeaturePreferences{
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					Features: &instancetypev1alpha3.FeaturePreferences{
 						PreferredAcpi: &v1.FeatureState{},
 						PreferredApic: &v1.FeatureAPIC{
 							Enabled:        pointer.Bool(true),
@@ -1442,8 +1442,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.Firmware", func() {
 
 			It("should apply BIOS preferences full to VMI", func() {
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					Firmware: &instancetypev1alpha2.FirmwarePreferences{
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1alpha3.FirmwarePreferences{
 						PreferredUseBios:       pointer.Bool(true),
 						PreferredUseBiosSerial: pointer.Bool(true),
 						PreferredUseEfi:        pointer.Bool(false),
@@ -1458,8 +1458,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply SecureBoot preferences full to VMI", func() {
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					Firmware: &instancetypev1alpha2.FirmwarePreferences{
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1alpha3.FirmwarePreferences{
 						PreferredUseBios:       pointer.Bool(false),
 						PreferredUseBiosSerial: pointer.Bool(false),
 						PreferredUseEfi:        pointer.Bool(true),
@@ -1477,8 +1477,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.Machine", func() {
 
 			It("should apply to VMI", func() {
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					Machine: &instancetypev1alpha2.MachinePreferences{
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					Machine: &instancetypev1alpha3.MachinePreferences{
 						PreferredMachineType: "q35-rhel-8.0",
 					},
 				}
@@ -1492,8 +1492,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.Clock", func() {
 
 			It("should apply to VMI", func() {
-				preferenceSpec = &instancetypev1alpha2.VirtualMachinePreferenceSpec{
-					Clock: &instancetypev1alpha2.ClockPreferences{
+				preferenceSpec = &instancetypev1alpha3.VirtualMachinePreferenceSpec{
+					Clock: &instancetypev1alpha3.ClockPreferences{
 						PreferredClockOffset: &v1.ClockOffset{
 							UTC: &v1.ClockOffsetUTC{
 								OffsetSeconds: pointer.Int(30),

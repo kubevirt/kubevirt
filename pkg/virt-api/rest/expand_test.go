@@ -20,7 +20,7 @@ import (
 
 	kubevirtcore "kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
@@ -93,7 +93,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should fail if VM points to nonexistent instancetype", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
 				return nil, fmt.Errorf("instancetype does not exist")
 			}
 
@@ -107,7 +107,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should fail if VM points to nonexistent preference", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachinePreferenceSpec, error) {
 				return nil, fmt.Errorf("preference does not exist")
 			}
 
@@ -121,13 +121,13 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should apply instancetype to VM", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha3.VirtualMachineInstancetypeSpec{}, nil
 			}
 
 			cpu := &v1.CPU{Cores: 2}
 
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1alpha3.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha3.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				vmiSpec.Domain.CPU = cpu
 				return nil
 			}
@@ -147,12 +147,12 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should apply preference to VM", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1alpha2.VirtualMachinePreferenceSpec{}, nil
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachinePreferenceSpec, error) {
+				return &instancetypev1alpha3.VirtualMachinePreferenceSpec{}, nil
 			}
 
 			machineType := "test-machine"
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1alpha3.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha3.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				vmiSpec.Domain.Machine = &v1.Machine{Type: machineType}
 				return nil
 			}
@@ -172,11 +172,11 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should fail, if there is a conflict when applying instancetype", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1alpha2.VirtualMachineInstancetypeSpec{}, nil
+			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1alpha3.VirtualMachineInstancetypeSpec, error) {
+				return &instancetypev1alpha3.VirtualMachineInstancetypeSpec{}, nil
 			}
 
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1alpha3.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha3.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
 				return instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "example", "path")}
 			}
 

@@ -9,7 +9,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
@@ -48,9 +48,9 @@ func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 	}
 }
 
-func getInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+func getInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) (*instancetypev1alpha3.VirtualMachineInstancetype, error) {
 	raw := ar.Request.Object.Raw
-	newInstanceType := instancetypev1alpha2.VirtualMachineInstancetype{}
+	newInstanceType := instancetypev1alpha3.VirtualMachineInstancetype{}
 
 	if err := json.Unmarshal(raw, &newInstanceType); err != nil {
 		return nil, err
@@ -92,9 +92,9 @@ func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *ad
 	}
 }
 
-func getClusterInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+func getClusterInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) (*instancetypev1alpha3.VirtualMachineClusterInstancetype, error) {
 	raw := ar.Request.Object.Raw
-	newInstanceType := instancetypev1alpha2.VirtualMachineClusterInstancetype{}
+	newInstanceType := instancetypev1alpha3.VirtualMachineClusterInstancetype{}
 
 	if err := json.Unmarshal(raw, &newInstanceType); err != nil {
 		return nil, err
@@ -105,8 +105,8 @@ func getClusterInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) 
 
 func validateRequestResource(ar *admissionv1.AdmissionReview, resourceType string) error {
 	instanceTypeResource := metav1.GroupVersionResource{
-		Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
-		Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
+		Group:    instancetypev1alpha3.SchemeGroupVersion.Group,
+		Version:  instancetypev1alpha3.SchemeGroupVersion.Version,
 		Resource: resourceType,
 	}
 
@@ -117,7 +117,7 @@ func validateRequestResource(ar *admissionv1.AdmissionReview, resourceType strin
 	return nil
 }
 
-func validateDedicatedCPUPlacement(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
+func validateDedicatedCPUPlacement(instancetypeSpec *instancetypev1alpha3.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
 	if instancetypeSpec == nil {
 		return nil
 	}

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/yaml"
@@ -247,17 +247,17 @@ func unmarshalVM(bytes []byte) *v1.VirtualMachine {
 	return vm
 }
 
-func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.VirtualMachineInstancetype {
-	instancetype := &instancetypev1alpha2.VirtualMachineInstancetype{
+func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha3.VirtualMachineInstancetype {
+	instancetype := &instancetypev1alpha3.VirtualMachineInstancetype{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-instancetype-",
 			Namespace:    util.NamespaceTestDefault,
 		},
-		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+		Spec: instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1alpha3.CPUInstancetype{
 				Guest: uint32(1),
 			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
+			Memory: instancetypev1alpha3.MemoryInstancetype{
 				Guest: resource.MustParse("128M"),
 			},
 		},
@@ -267,15 +267,15 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1alpha2
 	return instancetype
 }
 
-func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.VirtualMachinePreference {
-	preference := &instancetypev1alpha2.VirtualMachinePreference{
+func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1alpha3.VirtualMachinePreference {
+	preference := &instancetypev1alpha3.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-preference-",
 			Namespace:    util.NamespaceTestDefault,
 		},
-		Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-			CPU: &instancetypev1alpha2.CPUPreferences{
-				PreferredCPUTopology: instancetypev1alpha2.PreferCores,
+		Spec: instancetypev1alpha3.VirtualMachinePreferenceSpec{
+			CPU: &instancetypev1alpha3.CPUPreferences{
+				PreferredCPUTopology: instancetypev1alpha3.PreferCores,
 			},
 		},
 	}

@@ -67,7 +67,7 @@ var _ = Describe("instancetype compatibility", func() {
 	})
 
 	Context("instancetype conversion", func() {
-		It("should convert instancetype from v1alpha1 to v1alpha2", func() {
+		It("should convert instancetype from v1alpha1 to v1alpha3", func() {
 			instancetypeOld := &v1alpha1.VirtualMachineInstancetype{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: v1alpha1.SchemeGroupVersion.String(),
@@ -81,7 +81,7 @@ var _ = Describe("instancetype compatibility", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should convert preference from v1alpha1 to v1alpha2", func() {
+		It("should convert preference from v1alpha1 to v1alpha3", func() {
 			preferenceOld := &v1alpha1.VirtualMachinePreference{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: v1alpha1.SchemeGroupVersion.String(),

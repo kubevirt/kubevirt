@@ -13,19 +13,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1alpha3 "kubevirt.io/api/instancetype/v1alpha3"
 )
 
 var _ = Describe("Validating Instancetype Admitter", func() {
 	var (
 		admitter        *InstancetypeAdmitter
-		instancetypeObj *instancetypev1alpha2.VirtualMachineInstancetype
+		instancetypeObj *instancetypev1alpha3.VirtualMachineInstancetype
 	)
 
 	BeforeEach(func() {
 		admitter = &InstancetypeAdmitter{}
 
-		instancetypeObj = &instancetypev1alpha2.VirtualMachineInstancetype{
+		instancetypeObj = &instancetypev1alpha3.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -58,8 +58,8 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 	})
 
 	It("should reject instancetype with dedicatedCPUPlacement", func() {
-		instancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+		instancetypeObj.Spec = instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1alpha3.CPUInstancetype{
 				DedicatedCPUPlacement: true,
 			},
 		}
@@ -76,13 +76,13 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	var (
 		admitter               *ClusterInstancetypeAdmitter
-		clusterInstancetypeObj *instancetypev1alpha2.VirtualMachineClusterInstancetype
+		clusterInstancetypeObj *instancetypev1alpha3.VirtualMachineClusterInstancetype
 	)
 
 	BeforeEach(func() {
 		admitter = &ClusterInstancetypeAdmitter{}
 
-		clusterInstancetypeObj = &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+		clusterInstancetypeObj = &instancetypev1alpha3.VirtualMachineClusterInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -115,8 +115,8 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	})
 
 	It("should reject cluster instancetype with dedicatedCPUPlacement", func() {
-		clusterInstancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+		clusterInstancetypeObj.Spec = instancetypev1alpha3.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1alpha3.CPUInstancetype{
 				DedicatedCPUPlacement: true,
 			},
 		}
@@ -130,7 +130,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	})
 })
 
-func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha2.VirtualMachineInstancetype) *admissionv1.AdmissionReview {
+func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha3.VirtualMachineInstancetype) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(instancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", instancetype)
 
@@ -138,8 +138,8 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha2.Virtua
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
-				Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
+				Group:    instancetypev1alpha3.SchemeGroupVersion.Group,
+				Version:  instancetypev1alpha3.SchemeGroupVersion.Version,
 				Resource: apiinstancetype.PluralResourceName,
 			},
 			Object: runtime.RawExtension{
@@ -149,7 +149,7 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1alpha2.Virtua
 	}
 }
 
-func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1alpha2.VirtualMachineClusterInstancetype) *admissionv1.AdmissionReview {
+func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1alpha3.VirtualMachineClusterInstancetype) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(clusterInstancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", clusterInstancetype)
 
@@ -157,8 +157,8 @@ func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
-				Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
+				Group:    instancetypev1alpha3.SchemeGroupVersion.Group,
+				Version:  instancetypev1alpha3.SchemeGroupVersion.Version,
 				Resource: apiinstancetype.ClusterPluralResourceName,
 			},
 			Object: runtime.RawExtension{
