@@ -9,28 +9,45 @@ source "${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh"
 #if UNLIMITEDSWAP is set to true - Kubernetes workloads can use as much swap memory as they request, up to the system limit.
 #otherwise Kubernetes workloads can use as much swap memory as they request, up to the system limit by default
 function configure_swap_memory () {
-  if [ "$KUBEVIRT_SWAP_ON" == "true" ] ;then
+    if [ "$KUBEVIRT_SWAP_ON" == "true" ] ;then
+      for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
+          if [ ! -z $KUBEVIRT_SWAP_SIZE_IN_GB  ]; then
+            $ssh node${nodeNum} -- sudo dd if=/dev/zero of=/swapfile count=$KUBEVIRT_SWAP_SIZE_IN_GB bs=1G
+            $ssh node${nodeNum} -- sudo mkswap /swapfile
+          fi
 
-    for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
-        if [ ! -z $KUBEVIRT_SWAP_SIZE_IN_GB  ]; then
-          $ssh node${nodeNum} -- sudo dd if=/dev/zero of=/swapfile count=$KUBEVIRT_SWAP_SIZE_IN_GB bs=1G
-          $ssh node${nodeNum} -- sudo mkswap /swapfile
-        fi
+          $ssh node${nodeNum} -- sudo swapon -a
 
-        $ssh node${nodeNum} -- sudo swapon -a
+          if [ ! -z $KUBEVIRT_SWAPPINESS ]; then
+            $ssh node${nodeNum} -- "sudo /bin/su -c \"echo vm.swappiness = $KUBEVIRT_SWAPPINESS >> /etc/sysctl.conf\""
+            $ssh node${nodeNum} -- sudo sysctl vm.swappiness=$KUBEVIRT_SWAPPINESS
+          fi
 
-        if [ ! -z $KUBEVIRT_SWAPPINESS ]; then
-          $ssh node${nodeNum} -- "sudo /bin/su -c \"echo vm.swappiness = $KUBEVIRT_SWAPPINESS >> /etc/sysctl.conf\""
-          $ssh node${nodeNum} -- sudo sysctl vm.swappiness=$KUBEVIRT_SWAPPINESS
-        fi
+          if [ $KUBEVIRT_UNLIMITEDSWAP == "true" ]; then
+            $ssh node${nodeNum} -- "sudo sed -i ':a;N;\$!ba;s/memorySwap: {}/memorySwap:\n  swapBehavior: UnlimitedSwap/g'  /var/lib/kubelet/config.yaml"
+            $ssh node${nodeNum} -- sudo systemctl restart kubelet
+          fi
+      done
+    fi
+}
 
-        if [ $KUBEVIRT_UNLIMITEDSWAP == "true" ]; then
-          $ssh node${nodeNum} -- "sudo sed -i ':a;N;\$!ba;s/memorySwap: {}/memorySwap:\n  swapBehavior: UnlimitedSwap/g'  /var/lib/kubelet/config.yaml"
-          $ssh node${nodeNum} -- sudo systemctl restart kubelet
-        fi
-  done
-fi
+function configure_ksm_module () {
+    if [ "$KUBEVIRT_KSM_ON" == "true" ] ;then
+      for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
+        $ssh node${nodeNum} -- "echo 1 | sudo tee /sys/kernel/mm/ksm/run >/dev/null"
+          if [ ! -z $KUBEVIRT_KSM_SLEEP_BETWEEN_SCANS_MS ]; then
+            $ssh node${nodeNum} -- "echo ${KUBEVIRT_KSM_SLEEP_BETWEEN_SCANS_MS} | sudo tee /sys/kernel/mm/ksm/sleep_millisecs >/dev/null "
+          fi
+          if [ ! -z $KUBEVIRT_KSM_PAGES_TO_SCAN ]; then
+            $ssh node${nodeNum} -- "echo ${KUBEVIRT_KSM_PAGES_TO_SCAN} | sudo tee /sys/kernel/mm/ksm/pages_to_scan >/dev/null "
+          fi
+      done
+    fi
+}
 
+function configure_memory_overcommitment_behavior () {
+  configure_swap_memory
+  configure_ksm_module
 }
 
 function deploy_cnao() {
@@ -154,7 +171,7 @@ function up() {
     fi
     $kubectl label node -l $label node-role.kubernetes.io/worker=''
 
-    configure_swap_memory
+    configure_memory_overcommitment_behavior
 
     deploy_cnao
     deploy_istio
