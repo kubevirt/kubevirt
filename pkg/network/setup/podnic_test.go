@@ -15,8 +15,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/dhcp"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
-	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -27,22 +25,12 @@ var _ = Describe("podNIC", func() {
 		masqueradeIpv6Cidr = "fd10:0:2::0/120"
 	)
 	var (
-		mockNetwork                *netdriver.MockNetworkHandler
-		baseCacheCreator           tempCacheCreator
-		mockPodNetworkConfigurator *infraconfigurators.MockPodNetworkInfraConfigurator
-		mockDHCPConfigurator       *dhcp.MockConfigurator
-		ctrl                       *gomock.Controller
+		mockNetwork          *netdriver.MockNetworkHandler
+		baseCacheCreator     tempCacheCreator
+		mockDHCPConfigurator *dhcp.MockConfigurator
+		ctrl                 *gomock.Controller
 	)
 
-	newPhase1PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		launcherPID := 1
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, &baseCacheCreator, &launcherPID)
-		if err != nil {
-			return nil, err
-		}
-		podnic.infraConfigurator = mockPodNetworkConfigurator
-		return podnic, nil
-	}
 	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
 		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, &baseCacheCreator, nil)
 		if err != nil {
@@ -56,65 +44,12 @@ var _ = Describe("podNIC", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
-		mockPodNetworkConfigurator = infraconfigurators.NewMockPodNetworkInfraConfigurator(ctrl)
 		mockDHCPConfigurator = dhcp.NewMockConfigurator(ctrl)
 	})
 	AfterEach(func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
-	When("reading networking configuration succeed", func() {
-		var (
-			podnic *podNIC
-			vmi    *v1.VirtualMachineInstance
-		)
-		BeforeEach(func() {
-			mockNetwork.EXPECT().ReadIPAddressesFromLink(namescheme.PrimaryPodInterfaceName).Return("1.2.3.4", "169.254.0.0", nil)
-			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil)
-		})
 
-		BeforeEach(func() {
-			mockPodNetworkConfigurator.EXPECT().DiscoverPodNetworkInterface(namescheme.PrimaryPodInterfaceName)
-			mockPodNetworkConfigurator.EXPECT().GenerateNonRecoverableDHCPConfig().Return(&cache.DHCPConfig{})
-			mockPodNetworkConfigurator.EXPECT().GenerateNonRecoverableDomainIfaceSpec()
-		})
-
-		BeforeEach(func() {
-			domain := NewDomainWithBridgeInterface()
-			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
-
-			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-
-			var err error
-			podnic, err = newPhase1PodNICWithMocks(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-		})
-		Context("and networking preparation fails", func() {
-			BeforeEach(func() {
-				mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface().Return(fmt.Errorf("podnic_test: forcing prepare networking failure"))
-			})
-			It("should return a CriticalNetworkError at phase1", func() {
-				err := podnic.PlugPhase1()
-				Expect(err).To(HaveOccurred(), "SetupPhase1 should return an error")
-
-				_, ok := err.(*neterrors.CriticalNetworkError)
-				Expect(ok).To(BeTrue(), "SetupPhase1 should return an error of type CriticalNetworkError")
-			})
-		})
-		Context("and networking preparation success", func() {
-			BeforeEach(func() {
-				mockPodNetworkConfigurator.EXPECT().PreparePodNetworkInterface()
-			})
-			It("should return no error at phase1 and store pod interface", func() {
-				Expect(podnic.PlugPhase1()).To(Succeed())
-				var podData *cache.PodIfaceCacheData
-				podData, err := cache.ReadPodInterfaceCache(podnic.cacheCreator, string(vmi.UID), "default")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(podData.PodIP).To(Equal("1.2.3.4"))
-				Expect(podData.PodIPs).To(ConsistOf("1.2.3.4", "169.254.0.0"))
-			})
-		})
-	})
 	When("DHCP config is correctly read", func() {
 		var (
 			podnic *podNIC

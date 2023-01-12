@@ -170,20 +170,6 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *podNIC) PlugPhase1() error {
-	configState := NewConfigState(l.cacheCreator, string(l.vmi.UID))
-	return configState.Run(
-		l.podInterfaceName,
-		l.discoverAndStoreCache,
-		func() error {
-			if l.infraConfigurator == nil {
-				return nil
-			}
-			return l.infraConfigurator.PreparePodNetworkInterface()
-		},
-	)
-}
-
 func (l *podNIC) discoverAndStoreCache() error {
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err

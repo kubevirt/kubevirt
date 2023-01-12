@@ -45,40 +45,56 @@ func NewConfigState(cc cacheCreator, vmiUID string) ConfigState {
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c ConfigState) Run(podIfaceName string, discoverFunc func() error, configFunc func() error) error {
-	state, err := c.read(podIfaceName)
-	if err != nil {
-		return err
+func (c ConfigState) Run(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+	var pendingNICs []podNIC
+	for _, nic := range nics {
+		ifaceName := nic.podInterfaceName
+		state, err := c.read(ifaceName)
+		if err != nil {
+			return err
+		}
+
+		switch state {
+		case cache.PodIfaceNetworkPreparationPending:
+			pendingNICs = append(pendingNICs, nic)
+		case cache.PodIfaceNetworkPreparationStarted:
+			return neterrors.CreateCriticalNetworkError(
+				fmt.Errorf("pod interface %s network preparation cannot be restarted", ifaceName),
+			)
+		}
+	}
+	nics = pendingNICs
+
+	for i := range nics {
+		if ferr := discoverFunc(&nics[i]); ferr != nil {
+			return ferr
+		}
 	}
 
-	switch state {
-	case cache.PodIfaceNetworkPreparationStarted:
-		return neterrors.CreateCriticalNetworkError(
-			fmt.Errorf("pod interface %s network preparation cannot be restarted", podIfaceName),
-		)
-	case cache.PodIfaceNetworkPreparationFinished:
-		return nil
-	}
-
-	if ferr := discoverFunc(); ferr != nil {
-		return ferr
-	}
-
-	if werr := c.write(podIfaceName, cache.PodIfaceNetworkPreparationStarted); werr != nil {
-		return fmt.Errorf("failed to mark configuration as started for %s: %v", podIfaceName, werr)
+	for _, nic := range nics {
+		ifaceName := nic.podInterfaceName
+		if werr := c.write(ifaceName, cache.PodIfaceNetworkPreparationStarted); werr != nil {
+			return fmt.Errorf("failed to mark configuration as started for %s: %v", ifaceName, werr)
+		}
 	}
 
 	// The discovery step must be called *before* the configuration step, allowing it to persist/cache the
 	// original pod network status. The configuration step mutates the pod network.
-	if ferr := configFunc(); ferr != nil {
-		log.Log.Reason(err).Errorf("failed to configure pod network: %s", podIfaceName)
-		return neterrors.CreateCriticalNetworkError(ferr)
+	for i := range nics {
+		ifaceName := nics[i].podInterfaceName
+		if ferr := configFunc(&nics[i]); ferr != nil {
+			log.Log.Reason(ferr).Errorf("failed to configure pod network: %s", ifaceName)
+			return neterrors.CreateCriticalNetworkError(ferr)
+		}
 	}
 
-	if werr := c.write(podIfaceName, cache.PodIfaceNetworkPreparationFinished); werr != nil {
-		return neterrors.CreateCriticalNetworkError(
-			fmt.Errorf("failed to mark configuration as finished for %s: %v", podIfaceName, werr),
-		)
+	for _, nic := range nics {
+		ifaceName := nic.podInterfaceName
+		if werr := c.write(ifaceName, cache.PodIfaceNetworkPreparationFinished); werr != nil {
+			return neterrors.CreateCriticalNetworkError(
+				fmt.Errorf("failed to mark configuration as finished for %s: %v", ifaceName, werr),
+			)
+		}
 	}
 	return nil
 }
