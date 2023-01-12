@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = SIGDescribe("[Serial] Passt", Serial, func() {
@@ -53,8 +54,7 @@ var _ = SIGDescribe("[Serial] Passt", Serial, func() {
 	})
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("VirtualMachineInstance with passt binding mechanism", func() {

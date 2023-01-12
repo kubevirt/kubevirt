@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -35,7 +36,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -76,10 +76,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	}
 
 	BeforeEach(func() {
-		var err error
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("With a ConfigMap defined", func() {

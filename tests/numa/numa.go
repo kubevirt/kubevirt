@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -37,9 +38,7 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		checks.SkipTestIfNoCPUManager()
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", func() {

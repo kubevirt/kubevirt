@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,7 +19,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -58,10 +58,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		var err error
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	BeforeEach(func() {

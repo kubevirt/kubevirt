@@ -13,6 +13,7 @@ go_library(
         "//tests/clientcmd:go_default_library",
         "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
         "//tests/libssh:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/libwait:go_default_library",

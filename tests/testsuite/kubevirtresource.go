@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -48,8 +50,7 @@ var (
 )
 
 func AdjustKubeVirtResource() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
 	originalKV = kv.DeepCopy()
@@ -122,8 +123,7 @@ func AdjustKubeVirtResource() {
 
 func waitForSchedulableNodeWithCPUManager() {
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	Eventually(func() bool {
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
 		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
@@ -133,8 +133,7 @@ func waitForSchedulableNodeWithCPUManager() {
 
 func RestoreKubeVirtResource() {
 	if originalKV != nil {
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 		data, err := json.Marshal(originalKV.Spec)
 		Expect(err).ToNot(HaveOccurred())
 		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
@@ -145,8 +144,6 @@ func RestoreKubeVirtResource() {
 
 func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	allowEmulation := false
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
 
 	kv := util.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.DeveloperConfiguration != nil {
@@ -159,8 +156,7 @@ func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 // UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
 func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
 	old, err := json.Marshal(kv)

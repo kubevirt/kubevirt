@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -40,7 +41,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	pool "kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 )
 
 type rightsEntry struct {
@@ -200,8 +200,8 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	BeforeEach(func() {
 		k8sClient = clientcmd.GetK8sCmdClient()
 		clientcmd.SkipIfNoCmd(k8sClient)
-		virtClient, err := kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient := kubevirt.Client()
+		var err error
 		authClient, err = authClientV1.NewForConfig(virtClient.Config())
 		Expect(err).ToNot(HaveOccurred())
 	})

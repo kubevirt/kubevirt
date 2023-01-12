@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,10 +22,7 @@ var _ = Describe("[sig-compute] virt-api scaling", decorators.SigCompute, func()
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		var err error
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 	})
 
 	calcExpectedReplicas := func(nodesCount int) (expectedReplicas int32) {

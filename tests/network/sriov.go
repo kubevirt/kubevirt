@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -84,9 +86,7 @@ var _ = Describe("[Serial]SRIOV", Serial, decorators.SRIOV, func() {
 	}
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		// Check if the hardware supports SRIOV
 		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
@@ -695,11 +695,9 @@ func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string)
 
 // createVMIAndWait creates the received VMI and waits for the guest to load the guest-agent
 func createVMIAndWait(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	virtClient := kubevirt.Client()
 
+	var err error
 	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 	if err != nil {
 		return nil, err
@@ -715,10 +713,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
 	libwait.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	virtClient := kubevirt.Client()
 
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -730,13 +725,10 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 // to assure resources (VF/s) are fully released before reused again on a new VMI.
 // Ref: https://github.com/k8snetworkplumbingwg/sriov-cni/issues/219
 func deleteVMI(vmi *v1.VirtualMachineInstance) error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	virtClient := kubevirt.Client()
 
 	GinkgoWriter.Println("sriov:", vmi.Name, "deletion started")
-	if err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
+	if err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
@@ -756,13 +748,10 @@ func deleteVMI(vmi *v1.VirtualMachineInstance) error {
 func checkDefaultInterfaceInPod(vmi *v1.VirtualMachineInstance) error {
 	vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	virtClient := kubevirt.Client()
 
 	By("checking default interface is present")
-	_, err = exec.ExecuteCommandOnPod(
+	_, err := exec.ExecuteCommandOnPod(
 		virtClient,
 		vmiPod,
 		"compute",
@@ -811,10 +800,7 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 }
 
 func sriovNodeName(sriovResourceName string) (string, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	virtClient := kubevirt.Client()
 
 	sriovNodes := getNodesWithAllocatedResource(virtClient, sriovResourceName)
 	if len(sriovNodes) == 0 {

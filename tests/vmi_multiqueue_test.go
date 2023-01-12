@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -44,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -54,8 +54,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("MultiQueue Behavior", func() {

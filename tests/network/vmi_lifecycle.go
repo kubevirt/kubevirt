@@ -29,7 +29,6 @@ import (
 	expect "github.com/google/goexpect"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,19 +41,18 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		vmi = libvmi.NewAlpine()
 	})
 

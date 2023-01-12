@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,7 +61,6 @@ const (
 )
 
 var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var (
@@ -71,8 +71,7 @@ var _ = Describe("[Serial][sig-compute]Templates", Serial, decorators.SigCompute
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		clientcmd.SkipIfNoCmd("oc")
 		SetDefaultEventuallyTimeout(120 * time.Second)

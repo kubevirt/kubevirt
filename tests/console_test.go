@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +32,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -65,10 +65,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		var err error
-
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {

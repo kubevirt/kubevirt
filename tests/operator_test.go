@@ -80,6 +80,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -162,8 +163,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 	)
 
 	tests.DeprecatedBeforeAll(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util2.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		config, err := kubecli.GetKubevirtClientConfig()
 		util2.PanicOnError(err)
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)

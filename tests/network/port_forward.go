@@ -26,6 +26,8 @@ import (
 	"os/exec"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -53,8 +55,7 @@ var _ = SIGDescribe("Port-forward", func() {
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("VMI With masquerade binding", func() {

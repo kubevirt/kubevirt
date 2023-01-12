@@ -11,6 +11,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
@@ -39,8 +40,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {

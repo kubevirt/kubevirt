@@ -24,23 +24,20 @@ import (
 	"runtime"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("[sig-compute]Version", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Describe("Check that version parameters where loaded by ldflags in build time", func() {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,9 +43,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	)
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 	})
 
 	Context("Instancetype validation", func() {

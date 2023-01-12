@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
@@ -38,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -51,13 +51,11 @@ import (
 
 var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})

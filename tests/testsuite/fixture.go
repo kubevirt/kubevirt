@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -116,8 +117,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 
 	// Wait for schedulable nodes
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	Eventually(func() int {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
@@ -135,8 +135,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 }
 
 func EnsureKubevirtInfra() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	kv := util.GetCurrentKv(virtClient)
 
 	timeout := 180 * time.Second
@@ -182,8 +181,7 @@ func EnsureKubevirtInfra() {
 }
 
 func EnsureKVMPresent() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	if !ShouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
@@ -234,8 +232,7 @@ func WipeTestingInfrastructure() {
 func waitForAllDaemonSetsReady(timeout time.Duration) {
 	checkForDaemonSetsReady := func() []string {
 		dsNotReady := make([]string, 0)
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 
 		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
@@ -253,8 +250,7 @@ func waitForAllDaemonSetsReady(timeout time.Duration) {
 func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
 	checkForPodsToBeReady := func() []string {
 		podsNotReady := make([]string, 0)
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 
 		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
 		util.PanicOnError(err)
@@ -281,8 +277,7 @@ func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 
 func WaitExportProxyReady() {
 	Eventually(func() bool {
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 		d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false

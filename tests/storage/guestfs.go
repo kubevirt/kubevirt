@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -142,9 +144,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 	Context("Run libguestfs on PVCs", func() {
 		var f *fakeAttacher
 		BeforeEach(func() {
-			var err error
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient = kubevirt.Client()
 			// TODO: Always setGroup to true until we have the ability to control how virtctl guestfs is run
 			setGroup = true
 			testGroup = "2000"
@@ -206,9 +206,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", func() {
 	Context("Run libguestfs on PVCs with root", func() {
 		var f *fakeAttacher
 		BeforeEach(func() {
-			var err error
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient = kubevirt.Client()
 			setGroup = false
 			f = createFakeAttacher()
 		})

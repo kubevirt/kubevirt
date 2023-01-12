@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -48,8 +48,7 @@ func Has2MiHugepages(node *v1.Node) bool {
 }
 
 func HasFeature(feature string) bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	featureGates := []string{}
 	kv := util.GetCurrentKv(virtClient)
@@ -86,8 +85,7 @@ func HasLiveMigration() bool {
 
 func HasAtLeastTwoNodes() bool {
 	var nodes *v1.NodeList
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	gomega.Eventually(func() []v1.Node {
 		nodes = libnode.GetAllSchedulableNodes(virtClient)
@@ -98,8 +96,7 @@ func HasAtLeastTwoNodes() bool {
 }
 
 func IsOpenShift() bool {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	isOpenShift, err := cluster.IsOnOpenShift(virtClient)
 	if err != nil {

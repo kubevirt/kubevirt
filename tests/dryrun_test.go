@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -54,8 +55,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	var restClient *rest.RESTClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		restClient = virtClient.RestClient()
 	})
 

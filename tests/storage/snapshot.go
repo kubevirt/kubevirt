@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -41,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -214,8 +214,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	AfterEach(func() {
@@ -396,10 +395,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				for _, c := range strings.Split(command, ",") {
 					commandSlice = append(commandSlice, strings.Trim(c, "\" "))
 				}
-				virtClient, err := kubecli.GetKubevirtClient()
-				if err != nil {
-					return "", "", err
-				}
+				virtClient := kubevirt.Client()
 				return exec.ExecuteCommandOnPodWithResults(virtClient, pod, pod.Annotations[annoContainer], commandSlice)
 			}
 

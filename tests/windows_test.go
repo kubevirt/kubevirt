@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -72,9 +73,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 
 	BeforeEach(func() {
 		const OSWindows = "windows"
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
 		windowsVMI = tests.NewRandomVMI()

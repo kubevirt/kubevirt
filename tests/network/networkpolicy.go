@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,9 +39,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 		serverVMILabels map[string]string
 	)
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred(), "should succeed retrieving the kubevirt client")
+		virtClient = kubevirt.Client()
 
 		checks.SkipIfUseFlannel(virtClient)
 		skipNetworkPolicyRunningOnKindInfra()
@@ -330,10 +330,10 @@ func createNetworkPolicy(namespace, name string, labelSelector metav1.LabelSelec
 		},
 	}
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 
 	By(fmt.Sprintf("Create networkpolicy %s/%s", policy.Namespace, policy.Name))
+	var err error
 	policy, err = virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Create(context.Background(), policy, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("should succeed creating network policy %s/%s", policy.Namespace, policy.Name))
 	return policy
@@ -344,8 +344,7 @@ func waitForNetworkPolicyDeletion(policy *networkv1.NetworkPolicy) {
 		return
 	}
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 
 	ExpectWithOffset(1, virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
 	EventuallyWithOffset(1, func() error {

@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -53,8 +55,7 @@ import (
 var SchedulableNode = ""
 
 func CleanNodes() {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 
 	clusterDrainKey := GetNodeDrainKey()
 
@@ -109,8 +110,7 @@ func CleanNodes() {
 }
 
 func GetNodeDrainKey() string {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.MigrationConfiguration != nil && kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey != nil {
@@ -184,8 +184,7 @@ func addRemoveLabelAnnotationHelper(nodeName, key, value string, mapType mapType
 	Expect(fetchMap).ToNot(BeNil())
 	Expect(mutateMap).ToNot(BeNil())
 
-	virtCli, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	virtCli := kubevirt.Client()
 
 	var nodeToReturn *k8sv1.Node
 	EventuallyWithOffset(2, func() error {
@@ -242,8 +241,7 @@ func RemoveAnnotationFromNode(nodeName string, key string) *k8sv1.Node {
 }
 
 func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 	node, err := virtCli.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -266,8 +264,7 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 }
 
 func GetNodesWithKVM() []*k8sv1.Node {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
@@ -320,8 +317,7 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 }
 
 func GetArch() string {
-	virtCli, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtCli := kubevirt.Client()
 	nodes := GetAllSchedulableNodes(virtCli).Items
 	Expect(nodes).ToNot(BeEmpty(), "There should be some node")
 	return nodes[0].Status.NodeInfo.Architecture

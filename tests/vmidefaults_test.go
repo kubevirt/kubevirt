@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -50,8 +51,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("Disk defaults", func() {

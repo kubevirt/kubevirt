@@ -30,6 +30,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -115,8 +117,7 @@ var _ = SIGDescribe("Export", func() {
 	var qemuGid = int64(107)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		testsuite.WaitExportProxyReady()
 	})

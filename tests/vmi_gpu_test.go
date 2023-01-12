@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -61,12 +62,10 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string) {
 }
 
 var _ = Describe("[Serial][sig-compute]GPU", Serial, decorators.GPU, decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("with ephemeral disk", func() {

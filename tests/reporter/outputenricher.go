@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/config"
@@ -79,11 +80,8 @@ func (j *capturedOutputEnricher) SuiteDidEnd(summary *types.SuiteSummary) {
 	}
 }
 func (j *capturedOutputEnricher) collect(duration time.Duration) string {
-	virtCli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
-		return ""
-	}
+	virtCli := kubevirt.Client()
+
 	duration += 5 * time.Second
 	since := time.Now().Add(-duration)
 

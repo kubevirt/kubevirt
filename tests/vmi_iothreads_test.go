@@ -30,9 +30,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/tests/util"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,15 +48,13 @@ import (
 )
 
 var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
 	dedicated := true
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})

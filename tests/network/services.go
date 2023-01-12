@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -122,9 +124,7 @@ var _ = SIGDescribe("Services", func() {
 	}
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
+		virtClient = kubevirt.Client()
 	})
 
 	Context("bridge interface binding", func() {

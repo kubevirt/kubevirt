@@ -33,8 +33,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -55,8 +55,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 	restartOnError := v1.RunStrategyRerunOnFailure
 
 	BeforeEach(func() {
-		virtCli, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtCli = kubevirt.Client()
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization", func() {

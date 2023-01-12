@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -102,8 +103,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 		err              error
 	)
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		if aggregatorClient == nil {
 			config, err := kubecli.GetKubevirtClientConfig()
@@ -1721,8 +1721,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 })
 
 func getLeader() string {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	controllerEndpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
 	util.PanicOnError(err)

@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,8 +50,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 	})

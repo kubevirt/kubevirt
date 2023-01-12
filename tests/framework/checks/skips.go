@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"github.com/onsi/gomega"
@@ -29,8 +31,7 @@ func SkipTestIfNoCPUManager() {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
 	}
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
@@ -52,8 +53,7 @@ func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
 		ginkgo.Skip("the CPUManager feature gate is not enabled.")
 	}
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	found := 0
@@ -74,8 +74,7 @@ func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
 }
 
 func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	found := 0
@@ -102,8 +101,7 @@ func SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(nodeCount int) {
 
 func SkipTestIfNotRealtimeCapable() {
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
@@ -116,8 +114,7 @@ func SkipTestIfNotRealtimeCapable() {
 }
 
 func SkipTestIfNotSEVCapable() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
@@ -208,8 +205,7 @@ func SkipIfOpenShift(message string) {
 }
 
 func SkipIfOpenShift4(message string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	if t, err := cluster.IsOnOpenShift(virtClient); err != nil {
 		util.PanicOnError(err)

@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +48,6 @@ import (
 
 var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, decorators.SigOperator, func() {
 
-	var err error
 	var originalKV *v1.KubeVirt
 	var virtCli kubecli.KubevirtClient
 	var dsInformer cache.SharedIndexInformer
@@ -64,8 +64,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 			Skip("this test requires at least 2 nodes")
 		}
 
-		virtCli, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtCli = kubevirt.Client()
 
 		originalKV = util.GetCurrentKv(virtCli).DeepCopy()
 

@@ -19,6 +19,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -69,12 +70,11 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	}
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 		// Disable SSH_AGENT to not influence test results
 		Expect(os.Setenv("SSH_AUTH_SOCK", "/dev/null")).To(Succeed())
 		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
+		var err error
 		var priv *ecdsa.PrivateKey
 		priv, pub, err = libssh.NewKeyPair()
 		Expect(err).ToNot(HaveOccurred())

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -49,9 +51,7 @@ var _ = SIGDescribe("Infosource", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		var err error
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).NotTo(HaveOccurred(), "Should successfully initialize an API client")
+		virtClient = kubevirt.Client()
 	})
 
 	Context("VMI with 3 interfaces", func() {

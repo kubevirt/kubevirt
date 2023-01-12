@@ -30,6 +30,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -60,8 +61,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	const cirrosStartupTimeout = 90
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 	})
 
 	Context("A valid VMI", func() {

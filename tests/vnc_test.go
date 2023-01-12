@@ -39,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo/v2"
@@ -54,6 +53,7 @@ import (
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -65,8 +65,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			util.PanicOnError(err)
+			virtClient = kubevirt.Client()
 
 			vmi = tests.NewRandomVMI()
 			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()).To(Succeed())

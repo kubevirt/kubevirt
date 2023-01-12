@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtsnapshot "kubevirt.io/api/snapshot"
 	"kubevirt.io/api/snapshot/v1alpha1"
@@ -47,8 +48,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		EnableFeatureGate(virtconfig.SnapshotGate)
 

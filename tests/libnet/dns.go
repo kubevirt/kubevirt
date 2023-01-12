@@ -23,9 +23,9 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"kubevirt.io/client-go/kubecli"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/flags"
 )
@@ -43,10 +43,7 @@ func SearchDomains() []string {
 // ClusterDNSServiceIP returns the cluster IP address of the DNS service.
 // Attempts first to detect the DNS service on a k8s cluster and if not found on an openshift cluster.
 func ClusterDNSServiceIP() (string, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return "", err
-	}
+	virtClient := kubevirt.Client()
 
 	service, err := virtClient.CoreV1().Services(flags.DNSServiceNamespace).Get(
 		context.Background(), flags.DNSServiceName, metav1.GetOptions{},

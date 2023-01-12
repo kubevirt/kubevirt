@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -262,8 +263,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	}
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
+		virtClient = kubevirt.Client()
 		migrationBandwidthLimit = resource.MustParse("1Ki")
 	})
 
@@ -4111,8 +4111,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			// However, we need to be sig-something or we'll fail the check, even if we don't run on any sig- lane.
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient = kubevirt.Client()
 
 			By("getting the list of worker nodes that have cpumanager enabled")
 			nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
@@ -4226,8 +4225,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	Context("[Serial]with a dedicated migration network", Serial, func() {
 		BeforeEach(func() {
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
+			virtClient = kubevirt.Client()
 
 			By("Creating the Network Attachment Definition")
 			nad := tests.GenerateMigrationCNINetworkAttachmentDefinition()

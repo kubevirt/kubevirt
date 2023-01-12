@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"kubevirt.io/client-go/log"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -85,8 +87,7 @@ var _ = SIGDescribe("Memory dump", func() {
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 		memoryDumpPVCName = "fs-pvc" + rand.String(5)
 		memoryDumpPVCName2 = "fs-pvc2" + rand.String(5)
 	})

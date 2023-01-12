@@ -34,12 +34,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
 var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 
-	var err error
 	var virtClient kubecli.KubevirtClient
 
 	var (
@@ -47,8 +47,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 	)
 
 	BeforeEach(func() {
-		virtClient, err = kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient = kubevirt.Client()
 
 		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})
