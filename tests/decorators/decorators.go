@@ -22,4 +22,6 @@ var (
 	VGPU                 = []interface{}{Label("VGPU")}
 	SRIOV                = []interface{}{Label("SRIOV")}
 	NonRoot              = []interface{}{Label("verify-non-root")}
+	NativeSsh            = []interface{}{Label("native-ssh")}
+	ExcludeNativeSsh     = []interface{}{Label("exclude-native-ssh")}
 )
