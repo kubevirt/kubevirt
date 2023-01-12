@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -261,6 +262,29 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						vmNetworkConfigurator.handler,
 					),
 				}))
+			})
+
+			It("should not process SR-IOV networks", func() {
+				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
+				const networkName = "sriov"
+				vmi.Spec.Networks = []v1.Network{{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "sriov-nad"},
+					},
+				}}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+					Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+				}}
+
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
+				nics, err := vmNetworkConfigurator.getPhase1NICs(pointer.P(0), vmi.Spec.Networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nics).To(BeEmpty())
+
+				nics, err = vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nics).To(BeEmpty())
 			})
 		})
 	})

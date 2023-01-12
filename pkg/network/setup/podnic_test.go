@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -171,48 +170,6 @@ var _ = Describe("podNIC", func() {
 				Expect(podnic.PlugPhase2(domain)).To(Succeed())
 			})
 
-		})
-	})
-	When("interface binding is SRIOV", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-		)
-		BeforeEach(func() {
-
-			vmi = api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
-			}}
-		})
-		Context("phase1", func() {
-			var (
-				podnic *podNIC
-				err    error
-			)
-			BeforeEach(func() {
-				podnic, err = newPhase1PodNICWithMocks(vmi)
-				Expect(err).ToNot(HaveOccurred())
-			})
-			It("should not crash", func() {
-				Expect(podnic.PlugPhase1()).To(Succeed())
-			})
-		})
-		Context("phase2", func() {
-			var (
-				podnic *podNIC
-				err    error
-			)
-			BeforeEach(func() {
-				podnic, err = newPhase2PodNICWithMocks(vmi)
-				Expect(err).ToNot(HaveOccurred())
-			})
-			It("should not crash", func() {
-				Expect(podnic.PlugPhase2(&api.Domain{})).To(Succeed())
-			})
 		})
 	})
 })
