@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -630,9 +631,17 @@ func (t *vmRestoreTarget) getVirtualMachineSnapshot(namespace, name string) (*sn
 	return obj.(*snapshotv1.VirtualMachineSnapshot), nil
 }
 
-func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine, isPreference bool) (*appsv1.ControllerRevision, error) {
+	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
+	if err != nil {
+		return nil, err
+	}
+
 	// Switch the snapshot and vm names for the restored CR name
 	restoredCRName := strings.Replace(vmSnapshotRevisionName, vmSnapshotName, vm.Name, 1)
+	restoredCR := snapshotCR.DeepCopy()
+	restoredCR.ObjectMeta.Reset()
+	restoredCR.Name = restoredCRName
 
 	// If the target VirtualMachine already exists it's likely that the original ControllerRevision is already present.
 	// Check that here by attempting to lookup the CR using the generated restoredCRName.
@@ -643,19 +652,22 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 			return nil, err
 		}
 		if existingCR != nil {
-			// TODO - Check the contents of the existing CR here against that of the snapshot CR
-			return existingCR, nil
+			// Ensure that the existing CR contains the expected data from the snapshot before returning it
+			equal, err := instancetype.CompareRevisions(snapshotCR, existingCR, isPreference)
+			if err != nil {
+				return nil, err
+			}
+			if equal {
+				return existingCR, nil
+			}
+			// Otherwise as CRs are immutable delete the existing CR so we can restore the version from the snapshot below
+			if err := t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), existingCR.Name, metav1.DeleteOptions{}); err != nil {
+				return nil, err
+			}
+			// As the VirtualMachine already exists here we can also populate the OwnerReference, avoiding the need to do so later during claimInstancetypeControllerRevisionOwnership
+			restoredCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vm, kubevirtv1.VirtualMachineGroupVersionKind)}
 		}
 	}
-
-	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
-	if err != nil {
-		return nil, err
-	}
-
-	restoredCR := snapshotCR.DeepCopy()
-	restoredCR.ObjectMeta.Reset()
-	restoredCR.Name = restoredCRName
 
 	restoredCR, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
 	// This might not be our first time through the reconcile loop so accommodate previous calls to restoreInstancetypeControllerRevision by ignoring unexpected existing CRs for now.
@@ -669,7 +681,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 
 func (t *vmRestoreTarget) restoreInstancetypeControllerRevisions(vm *kubevirtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Instancetype.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
+		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Instancetype.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm, false)
 		if err != nil {
 			return err
 		}
@@ -677,7 +689,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevisions(vm *kubevirtv1.
 	}
 
 	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Preference.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
+		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Preference.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm, true)
 		if err != nil {
 			return err
 		}

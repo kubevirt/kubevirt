@@ -2540,3 +2540,15 @@ func expectControllerRevisionUpdate(client *k8sfake.Clientset, expectedCR *appsv
 		return true, update.GetObject(), nil
 	})
 }
+
+func expectControllerRevisionDelete(client *k8sfake.Clientset, expectedCRName string) {
+	client.Fake.PrependReactor("delete", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		delete, ok := action.(testing.DeleteAction)
+		Expect(ok).To(BeTrue())
+
+		name := delete.GetName()
+		Expect(name).To(Equal(expectedCRName))
+
+		return true, nil, nil
+	})
+}

@@ -1271,6 +1271,46 @@ var _ = Describe("Restore controller", func() {
 					}, getPreferenceOriginalCR,
 				),
 			)
+
+			It("Should recreate existing CR if it contains different data to the Snapshot CR", func() {
+				// Take a copy of the original CR used by the tests, we expect to see an attempt to recreate later
+				instancetypeOriginalCRCopy := instancetypeOriginalCR.DeepCopy()
+
+				// Modify the original CR so it differs from the already generated instancetypeSnapshotCR
+				instancetypeObj.Spec.CPU.Guest = uint32(5)
+				instancetypeOriginalCR, err := instancetype.CreateControllerRevision(originalVM, instancetypeObj)
+				Expect(err).ToNot(HaveOccurred())
+				crSource.Modify(instancetypeOriginalCR)
+
+				originalVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeObj.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeOriginalCR.Name,
+				}
+				vmSource.Add(originalVM)
+
+				vmSnapshotContent.Spec.Source.VirtualMachine.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeObj.Name,
+					Kind:         instancetypeapi.SingularResourceName,
+					RevisionName: instancetypeSnapshotCR.Name,
+				}
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				// We expect an attempt to be made to create the original CR, this should raise an already exists
+				// error before we check the contents against the snapshot CR
+				expectCreateControllerRevisionAlreadyExists(k8sClient, instancetypeOriginalCRCopy)
+
+				// We expect the original CR to be deleted and recreated with the correct data
+				expectControllerRevisionDelete(k8sClient, instancetypeOriginalCR.Name)
+				expectControllerRevisionCreate(k8sClient, instancetypeOriginalCRCopy)
+
+				expectUpdateVMRestoreInProgress(originalVM)
+				expectUpdateVMRestored(originalVM)
+				expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
+
+				addVirtualMachineRestore(restore)
+				controller.processVMRestoreWorkItem()
+			})
 		})
 	})
 })
