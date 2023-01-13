@@ -23,6 +23,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 
@@ -274,7 +278,64 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			}
 		})
 	})
+	Context("Disabling the custom SELinux policy", func() {
+		var policyRemoved = false
+		AfterEach(func() {
+			if policyRemoved {
+				By("Re-installing custom SELinux policy on all nodes")
+				err = runOnAllNodes(virtClient, []string{"cp", "/var/run/kubevirt/virt_launcher.cil", "/proc/1/root/tmp/"}, "")
+				Expect(err).ToNot(HaveOccurred())
+				err = runOnAllNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-i", "/tmp/virt_launcher.cil"}, "")
+				Expect(err).ToNot(HaveOccurred())
+				err = runOnAllNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			By("Re-enabling the custom policy by removing the corresponding feature gate")
+			tests.DisableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
+		})
+
+		It("Should prevent virt-handler from installing the custom policy", func() {
+			By("Removing custom SELinux policy from all nodes")
+			err = runOnAllNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-r", "virt_launcher"}, "")
+			Expect(err).ToNot(HaveOccurred())
+			policyRemoved = true
+
+			By("Disabling the custom policy by adding the corresponding feature gate")
+			tests.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
+
+			By("Ensuring the custom SELinux policy is absent from all nodes")
+			Consistently(func() error {
+				return runOnAllNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-l"}, "virt_launcher")
+			}, 30*time.Second, 10*time.Second).Should(BeNil())
+		})
+	})
 })
+
+func runOnAllNodes(virtClient kubecli.KubevirtClient, command []string, forbiddenString string) error {
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes.Items {
+		pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
+		if err != nil {
+			return err
+		}
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, components.VirtHandlerName, command)
+		if err != nil {
+			_, _ = GinkgoWriter.Write([]byte(stderr))
+			return err
+		}
+		if forbiddenString != "" {
+			if strings.Contains(stdout, forbiddenString) {
+				return fmt.Errorf("found unexpected %s on node %s", forbiddenString, node.Name)
+			}
+		}
+	}
+
+	return nil
+}
 
 func isLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	switch capability {
