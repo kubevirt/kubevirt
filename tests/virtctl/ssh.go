@@ -41,22 +41,29 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 			vmiName)()).To(Succeed())
 	}
 
-	cmdLocal := func(vmiName string) {
-		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl",
-			"ssh",
-			"--local-ssh=true",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "root",
-			"--identity-file", keyFile,
-			"-t", "-o StrictHostKeyChecking=no",
-			"-t", "-o UserKnownHostsFile=/dev/null",
-			"--command", "true",
-			vmiName)
-		Expect(err).ToNot(HaveOccurred())
+	cmdLocal := func(appendLocalSSH bool) func(vmiName string) {
+		return func(vmiName string) {
+			args := []string{
+				"ssh",
+				"--namespace", util.NamespaceTestDefault,
+				"--username", "root",
+				"--identity-file", keyFile,
+				"-t", "-o StrictHostKeyChecking=no",
+				"-t", "-o UserKnownHostsFile=/dev/null",
+				"--command", "true",
+			}
+			if appendLocalSSH {
+				args = append(args, "--local-ssh=true")
+			}
+			args = append(args, vmiName)
 
-		out, err := cmd.CombinedOutput()
-		Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
-		Expect(out).ToNot(BeEmpty())
+			_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
+			Expect(err).ToNot(HaveOccurred())
+
+			out, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
+			Expect(out).ToNot(BeEmpty())
+		}
 	}
 
 	BeforeEach(func() {
@@ -83,7 +90,16 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		By("ssh into the VM")
 		cmdFn(vmi.Name)
 	},
-		Entry("using the native ssh method", cmdNative),
-		Entry("using the local ssh method", cmdLocal),
+		Entry("using the native ssh method", decorators.NativeSsh, cmdNative),
+		Entry("using the local ssh method with --local-ssh flag", decorators.NativeSsh, cmdLocal(true)),
+		Entry("using the local ssh method without --local-ssh flag", decorators.ExcludeNativeSsh, cmdLocal(false)),
 	)
+
+	It("local-ssh flag should be unavailable in virtctl binary", decorators.ExcludeNativeSsh, func() {
+		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")
+		Expect(err).ToNot(HaveOccurred())
+		out, err := cmd.CombinedOutput()
+		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
+		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
+	})
 })

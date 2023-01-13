@@ -373,7 +373,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
     label_filter='(sig-compute-migrations && !(GPU,VGPU))'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,exclude-native-ssh))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then

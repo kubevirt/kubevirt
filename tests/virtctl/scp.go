@@ -13,13 +13,12 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
 
-	"kubevirt.io/kubevirt/tests/libssh"
-
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/util"
@@ -33,6 +32,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	copyNative := func(src, dst string, recursive bool) {
 		args := []string{
 			"scp",
+			"--local-ssh=false",
 			"--namespace", util.NamespaceTestDefault,
 			"--username", "root",
 			"--identity-file", keyFile,
@@ -46,27 +46,31 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	}
 
-	copyLocal := func(src, dst string, recursive bool) {
-		args := []string{
-			"scp",
-			"--local-ssh=true",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", "root",
-			"--identity-file", keyFile,
-			"-t", "-o StrictHostKeyChecking=no",
-			"-t", "-o UserKnownHostsFile=/dev/null",
-		}
-		if recursive {
-			args = append(args, "--recursive")
-		}
-		args = append(args, src, dst)
+	copyLocal := func(appendLocalSSH bool) func(src, dst string, recursive bool) {
+		return func(src, dst string, recursive bool) {
+			args := []string{
+				"scp",
+				"--namespace", util.NamespaceTestDefault,
+				"--username", "root",
+				"--identity-file", keyFile,
+				"-t", "-o StrictHostKeyChecking=no",
+				"-t", "-o UserKnownHostsFile=/dev/null",
+			}
+			if appendLocalSSH {
+				args = append(args, "--local-ssh=true")
+			}
+			if recursive {
+				args = append(args, "--recursive")
+			}
+			args = append(args, src, dst)
 
-		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
-		Expect(err).ToNot(HaveOccurred())
+			_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
+			Expect(err).ToNot(HaveOccurred())
 
-		out, err := cmd.CombinedOutput()
-		Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
-		Expect(out).ToNot(BeEmpty())
+			out, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
+			Expect(out).ToNot(BeEmpty())
+		}
 	}
 
 	BeforeEach(func() {
@@ -100,8 +104,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
 	},
-		Entry("using the native scp method", copyNative),
-		Entry("using the local scp method", copyLocal),
+		Entry("using the native scp method", decorators.NativeSsh, copyNative),
+		Entry("using the local scp method with --local-ssh flag", decorators.NativeSsh, copyLocal(true)),
+		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
 	)
 
 	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
@@ -131,9 +136,18 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
 	},
-		Entry("using the native scp method", copyNative),
-		Entry("using the local scp method", copyLocal),
+		Entry("using the native scp method", decorators.NativeSsh, copyNative),
+		Entry("using the local scp method with --local-ssh flag", decorators.NativeSsh, copyLocal(true)),
+		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
 	)
+
+	It("local-ssh flag should be unavailable in virtctl binary", decorators.ExcludeNativeSsh, func() {
+		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
+		Expect(err).ToNot(HaveOccurred())
+		out, err := cmd.CombinedOutput()
+		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
+		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
+	})
 })
 
 func compareFile(file1 string, file2 string) {
