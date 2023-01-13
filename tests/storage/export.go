@@ -114,7 +114,7 @@ var (
 	})
 )
 
-var _ = SIGDescribe("Export", func() {
+var _ = FSIGDescribe("Export", func() {
 	var err error
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
@@ -1541,7 +1541,7 @@ var _ = SIGDescribe("Export", func() {
 
 	checkWithYamlOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine) {
 		By("Getting export VM definition yaml")
-		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
+		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.Manifests[exportv1.AllManifests], token.Data["token"])
 		command := []string{
 			"curl",
 			"--header",
@@ -1569,7 +1569,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
 		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = resVM.Spec.DataVolumeTemplates[0].Name
 		By("Getting token secret header")
-		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.CDIHeaderSecretUrl, token.Data["token"])
+		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.Manifests[exportv1.AuthHeader], token.Data["token"])
 		command = []string{
 			"curl",
 			"--header",
@@ -1601,7 +1601,7 @@ var _ = SIGDescribe("Export", func() {
 
 	checkWithJsonOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine) {
 		By("Getting export VM definition yaml")
-		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
+		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.Manifests[exportv1.AllManifests], token.Data["token"])
 		command := []string{
 			"curl",
 			"--cacert",
@@ -1632,7 +1632,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
 		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = resVM.Spec.DataVolumeTemplates[0].Name
 		By("Getting token secret header")
-		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.CDIHeaderSecretUrl, token.Data["token"])
+		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.Manifests[exportv1.AuthHeader], token.Data["token"])
 		command = []string{
 			"curl",
 			"--header",
@@ -1682,8 +1682,8 @@ var _ = SIGDescribe("Export", func() {
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
-		Expect(export.Status.Links.Internal.CDIHeaderSecretUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(export.Status.Links.Internal.Manifests[exportv1.AllManifests]).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(export.Status.Links.Internal.Manifests[exportv1.AuthHeader]).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
 		Expect(err).ToNot(HaveOccurred())
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
@@ -1713,8 +1713,8 @@ var _ = SIGDescribe("Export", func() {
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
-		Expect(export.Status.Links.Internal.CDIHeaderSecretUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(export.Status.Links.Internal.Manifests[exportv1.AllManifests]).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(export.Status.Links.Internal.Manifests[exportv1.AuthHeader]).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
 		Expect(err).ToNot(HaveOccurred())
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
@@ -1792,15 +1792,15 @@ var _ = SIGDescribe("Export", func() {
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(export.Status.Links.Internal.DefinitionUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
-		Expect(export.Status.Links.Internal.CDIHeaderSecretUrl).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
+		Expect(export.Status.Links.Internal.Manifests[exportv1.AllManifests]).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
+		Expect(export.Status.Links.Internal.Manifests[exportv1.AuthHeader]).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
 		Expect(err).ToNot(HaveOccurred())
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
 		pod = tests.RunPod(pod)
 		By("Getting export VM definition yaml")
-		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.DefinitionUrl, token.Data["token"])
+		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.Manifests[exportv1.AllManifests], token.Data["token"])
 		command := []string{
 			"curl",
 			"--header",
@@ -1842,7 +1842,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(blankDv.Spec.PVC.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
 
 		By("Getting token secret header")
-		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.CDIHeaderSecretUrl, token.Data["token"])
+		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", export.Status.Links.Internal.Manifests[exportv1.AuthHeader], token.Data["token"])
 		command = []string{
 			"curl",
 			"--header",

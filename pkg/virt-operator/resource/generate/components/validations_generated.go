@@ -7902,17 +7902,15 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
-                cdiHeaderSecretUrl:
-                  description: CDIHeaderSecretUrl returns a Containerized Data Importer
-                    compatible secret
-                  type: string
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
-                definitionUrl:
-                  description: DefinitionUrl is the url that contains the VM definition
-                    in either JSON or YAML format
-                  type: string
+                manifests:
+                  additionalProperties:
+                    type: string
+                  description: Manifests is a list of available manifests for the
+                    export
+                  type: object
                 volumes:
                   description: Volumes is a list of available volumes to export
                   items:
@@ -7957,17 +7955,15 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
-                cdiHeaderSecretUrl:
-                  description: CDIHeaderSecretUrl returns a Containerized Data Importer
-                    compatible secret
-                  type: string
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
-                definitionUrl:
-                  description: DefinitionUrl is the url that contains the VM definition
-                    in either JSON or YAML format
-                  type: string
+                manifests:
+                  additionalProperties:
+                    type: string
+                  description: Manifests is a list of available manifests for the
+                    export
+                  type: object
                 volumes:
                   description: Volumes is a list of available volumes to export
                   items:

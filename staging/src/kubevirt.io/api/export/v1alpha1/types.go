@@ -126,15 +126,24 @@ type VirtualMachineExportLink struct {
 	// +listType=map
 	// +listMapKey=name
 	// +optional
-	Volumes []VirtualMachineExportVolume `json:"volumes"`
+	Volumes []VirtualMachineExportVolume `json:"volumes,omitempty"`
 
-	// DefinitionUrl is the url that contains the VM definition in either JSON or YAML format
+	// Manifests is a list of available manifests for the export
 	// +optional
-	DefinitionUrl string `json:"definitionUrl,omitempty"`
-
-	// CDIHeaderSecretUrl returns a Containerized Data Importer compatible secret
-	CDIHeaderSecretUrl string `json:"cdiHeaderSecretUrl,omitempty"`
+	Manifests VirtualMachineExportManifest `json:"manifests,omitempty"`
 }
+
+// VirtualMachineExportManifest contains the type and URL of the exported manifest
+type VirtualMachineExportManifest map[ExportManifestType]string
+
+type ExportManifestType string
+
+const (
+	// AllManifests returns all manifests except for the token secret
+	AllManifests ExportManifestType = "all"
+	// AuthHeader returns a CDI compatible secret containing the token as an Auth header
+	AuthHeader ExportManifestType = "auth-header-secret"
+)
 
 // VirtualMachineExportVolume contains the name and available formats for the exported volume
 type VirtualMachineExportVolume struct {

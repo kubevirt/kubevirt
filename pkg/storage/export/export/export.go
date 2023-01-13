@@ -1329,9 +1329,12 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	// Clear status
 	expandedVm.Status = virtv1.VirtualMachineStatus{}
 	expandedVm.ManagedFields = nil
-	expandedVm.ObjectMeta.SetCreationTimestamp(metav1.Time{})
-	expandedVm.ObjectMeta.SetUID("")
-	expandedVm.ObjectMeta.SetResourceVersion("")
+	cleanedObjectMeta := metav1.ObjectMeta{}
+	cleanedObjectMeta.Name = expandedVm.ObjectMeta.Name
+	cleanedObjectMeta.Namespace = expandedVm.ObjectMeta.Namespace
+	cleanedObjectMeta.Labels = expandedVm.ObjectMeta.Labels
+	cleanedObjectMeta.Annotations = expandedVm.Annotations
+	expandedVm.ObjectMeta = cleanedObjectMeta
 
 	// Update dvTemplates if exists
 	expandedVm = ctrl.updateHttpSourceDataVolumeTemplate(vm)

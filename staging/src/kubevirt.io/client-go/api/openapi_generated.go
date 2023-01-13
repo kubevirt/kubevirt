@@ -23106,18 +23106,19 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 							},
 						},
 					},
-					"definitionUrl": {
+					"manifests": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DefinitionUrl is the url that contains the VM definition in either JSON or YAML format",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"cdiHeaderSecretUrl": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CDIHeaderSecretUrl returns a Containerized Data Importer compatible secret",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "Manifests is a list of available manifests for the export",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},
