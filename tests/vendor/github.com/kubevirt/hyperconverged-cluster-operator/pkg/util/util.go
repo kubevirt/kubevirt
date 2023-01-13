@@ -257,6 +257,15 @@ func AddCrToTheRelatedObjectList(relatedObjects *[]corev1.ObjectReference, found
 		if err != nil {
 			return false, err
 		}
+		// Eventually remove outdated reference with a different APIVersion
+		for _, ref := range *relatedObjects {
+			if ref.Kind == objectRef.Kind && ref.Namespace == objectRef.Namespace && ref.Name == objectRef.Name && ref.APIVersion != objectRef.APIVersion {
+				err = objectreferencesv1.RemoveObjectReference(relatedObjects, ref)
+				if err != nil {
+					return false, err
+				}
+			}
+		}
 		return true, nil
 	}
 

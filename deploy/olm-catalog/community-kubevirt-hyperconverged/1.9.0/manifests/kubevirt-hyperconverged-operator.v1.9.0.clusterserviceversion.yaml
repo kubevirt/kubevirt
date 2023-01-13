@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.9.0-unstable
-    createdAt: "2023-01-04 15:04:11"
+    createdAt: "2023-01-13 05:13:36"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2591,7 +2591,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.55.2
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.83.1
+                  value: v0.84.0
                 - name: SSP_VERSION
                   value: v0.16.2
                 - name: TTO_VERSION
@@ -2792,7 +2792,7 @@ spec:
                 - name: LINUX_BRIDGE_MARKER_IMAGE
                   value: quay.io/kubevirt/bridge-marker@sha256:5d24c6d1ecb0556896b7b81c7e5260b54173858425777b7a84df8a706c07e6d2
                 - name: OVS_CNI_IMAGE
-                  value: quay.io/kubevirt/ovs-cni-plugin@sha256:b9a56053b3469b02d96814cc2d67d35a81650db9dae9c2188011a986e3743aa4
+                  value: quay.io/kubevirt/ovs-cni-plugin@sha256:5f7290e2294255ab2547c3b4bf48cc2d75531ec5a43e600366e9b2719bef983f
                 - name: KUBEMACPOOL_IMAGE
                   value: quay.io/kubevirt/kubemacpool@sha256:0cc5ad824fc163d6dea5e9bd872467c691eaa9a88944008b5d746495b2a72214
                 - name: MACVTAP_CNI_IMAGE
@@ -2804,11 +2804,11 @@ spec:
                 - name: CORE_DNS_IMAGE
                   value: k8s.gcr.io/coredns/coredns@sha256:5b6ec0d6de9baaf3e92d0f66cd96a25b9edbce8716f5f15dcd1a616b3abd590e
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:bf06c464c68eba0c912259c7fc04dbc0e9f20255dbfc56487124bcbaa79da6d6
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:6b227c4ac58059fcad8d02cf229bc425f998382ad66af149e2691cd1167e3631
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.83.1
+                  value: v0.84.0
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -2826,7 +2826,7 @@ spec:
                   value: openshift-monitoring
                 - name: MONITORING_SERVICE_ACCOUNT
                   value: prometheus-k8s
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:bf06c464c68eba0c912259c7fc04dbc0e9f20255dbfc56487124bcbaa79da6d6
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:6b227c4ac58059fcad8d02cf229bc425f998382ad66af149e2691cd1167e3631
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources:
@@ -3724,7 +3724,7 @@ spec:
     name: cdi-uploadproxy
   - image: quay.io/kubevirt/cdi-uploadserver@sha256:a4333ccd149390661d1e997088c775210e68ee829d7f11f3e30bd1d78dcc7bc4
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:bf06c464c68eba0c912259c7fc04dbc0e9f20255dbfc56487124bcbaa79da6d6
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:6b227c4ac58059fcad8d02cf229bc425f998382ad66af149e2691cd1167e3631
     name: cluster-network-addons-operator
   - image: quay.io/kubevirt/cni-default-plugins@sha256:c0d14ab010f44bf733aff02b77eb4b5a0ce38fd0c4918a7ecf6941a7bebd72df
     name: cni-default-plugins
@@ -3764,7 +3764,7 @@ spec:
     name: multus-dynamic-networks-controller
   - image: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
     name: origin-kube-rbac-proxy
-  - image: quay.io/kubevirt/ovs-cni-plugin@sha256:b9a56053b3469b02d96814cc2d67d35a81650db9dae9c2188011a986e3743aa4
+  - image: quay.io/kubevirt/ovs-cni-plugin@sha256:5f7290e2294255ab2547c3b4bf48cc2d75531ec5a43e600366e9b2719bef983f
     name: ovs-cni-plugin
   - image: quay.io/kubevirt/ssp-operator@sha256:d94f38087856d98f847010cfa0b5f4ef80de64ef1098dd27d4998595e10fe1c1
     name: ssp-operator

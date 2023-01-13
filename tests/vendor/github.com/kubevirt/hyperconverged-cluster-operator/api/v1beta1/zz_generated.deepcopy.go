@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright 2023 Red Hat, Inc.
  *
  */
 
@@ -498,6 +498,16 @@ func (in *LiveMigrationConfigurations) DeepCopyInto(out *LiveMigrationConfigurat
 	if in.Network != nil {
 		in, out := &in.Network, &out.Network
 		*out = new(string)
+		**out = **in
+	}
+	if in.AllowAutoConverge != nil {
+		in, out := &in.AllowAutoConverge, &out.AllowAutoConverge
+		*out = new(bool)
+		**out = **in
+	}
+	if in.AllowPostCopy != nil {
+		in, out := &in.AllowPostCopy, &out.AllowPostCopy
+		*out = new(bool)
 		**out = **in
 	}
 	return
