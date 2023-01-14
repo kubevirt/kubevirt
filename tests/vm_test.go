@@ -689,53 +689,46 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("should delete old vm revision and create new one when restarting vm", func() {
 			By("Starting the VM")
-			newVM := newVirtualMachine(true)
+			vm := newVirtualMachine(true)
 
-			var vmi *v1.VirtualMachineInstance
-			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return false
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Phase == v1.Running
-			}, 240*time.Second, 1*time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(matcher.BeRunning())
+			vmi, err := matcher.ThisVMIWith(vm.Namespace, vm.Name)()
+			Expect(err).ToNot(HaveOccurred())
 
-			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
+			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 			oldVMRevisionName := expectedVMRevisionName
 
 			By("Stopping the VM")
-			newVM = stopVM(newVM)
+			vm = stopVM(vm)
 
-			By("Updating the VM template spec")
-			newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &k8smetav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			updatedVM := vm
+			Eventually(func() error {
+				updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			updatedVM := newVM.DeepCopy()
-			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse("4096Ki"),
-			}
-			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
-			Expect(err).ToNot(HaveOccurred())
+				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("4096Ki"),
+				}
+				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				return err
+			}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 			By("Starting the VM after update")
-			newVM = startVM(updatedVM)
-			vmCpy := newVM.DeepCopy()
+			vm = startVM(updatedVM)
+			vmCpy := vm.DeepCopy()
 			vmCpy.Status = v1.VirtualMachineStatus{}
-			Eventually(func() bool {
-				vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Phase == v1.Running
-			}, 240*time.Second, 1*time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(matcher.BeRunning())
+			vmi, err = matcher.ThisVMIWith(vm.Namespace, vm.Name)()
+			Expect(err).ToNot(HaveOccurred())
 
-			expectedVMRevisionName = fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
+			expectedVMRevisionName = fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
-			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), oldVMRevisionName, k8smetav1.GetOptions{})
+			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldVMRevisionName, k8smetav1.GetOptions{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 
-			cr, err = virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
+			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(4)))
 			vmRevision := &v1.VirtualMachine{}
