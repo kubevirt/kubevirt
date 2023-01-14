@@ -1591,19 +1591,10 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:    hotplugDisk,
-					Image:   t.launcherImage,
-					Command: command,
-					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
-						Limits: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("100m"),
-							k8sv1.ResourceMemory: resource.MustParse("80M"),
-						},
-						Requests: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("10m"),
-							k8sv1.ResourceMemory: resource.MustParse("2M"),
-						},
-					},
+					Name:      hotplugDisk,
+					Image:     t.launcherImage,
+					Command:   command,
+					Resources: hotplugContainerResourceRequirementsForVMI(vmi),
 					SecurityContext: &k8sv1.SecurityContext{
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							Level: "s0",
@@ -1695,7 +1686,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	return pod, nil
 }
 
-func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, _ *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
@@ -1731,19 +1722,10 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
-					Name:    hotplugDisk,
-					Image:   t.launcherImage,
-					Command: command,
-					Resources: k8sv1.ResourceRequirements{ //Took the request and limits from containerDisk init container.
-						Limits: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("100m"),
-							k8sv1.ResourceMemory: resource.MustParse("80M"),
-						},
-						Requests: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceCPU:    resource.MustParse("10m"),
-							k8sv1.ResourceMemory: resource.MustParse("2M"),
-						},
-					},
+					Name:      hotplugDisk,
+					Image:     t.launcherImage,
+					Command:   command,
+					Resources: hotplugContainerResourceRequirementsForVMI(vmi),
 					SecurityContext: &k8sv1.SecurityContext{
 						SELinuxOptions: &k8sv1.SELinuxOptions{
 							Level: "s0",
@@ -2277,4 +2259,32 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return keepLauncherAfterFailure
+}
+
+func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		return k8sv1.ResourceRequirements{
+			Limits:   hotplugContainerMinimalLimits(),
+			Requests: hotplugContainerMinimalLimits(),
+		}
+	} else {
+		return k8sv1.ResourceRequirements{
+			Limits:   hotplugContainerMinimalLimits(),
+			Requests: hotplugContainerMinimalRequests(),
+		}
+	}
+}
+
+func hotplugContainerMinimalLimits() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("100m"),
+		k8sv1.ResourceMemory: resource.MustParse("80M"),
+	}
+}
+
+func hotplugContainerMinimalRequests() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("10m"),
+		k8sv1.ResourceMemory: resource.MustParse("2M"),
+	}
 }
