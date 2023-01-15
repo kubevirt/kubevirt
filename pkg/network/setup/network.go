@@ -31,11 +31,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+type setuper interface {
+	Setup() error
+}
+
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheCreator cacheCreator
 	launcherPid  *int
+	netSetup     setuper
 }
 
 type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
@@ -50,6 +55,12 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 		opt(v)
 	}
 	return v
+}
+
+func WithNetSetup(netSetup setuper) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.netSetup = netSetup
+	}
 }
 
 func WithNetUtilsHandler(h netdriver.NetworkHandler) vmNetConfiguratorOption {
@@ -112,12 +123,8 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 		func(nic *podNIC) error {
 			return nic.discoverAndStoreCache()
 		},
-		func(nic *podNIC) error {
-			if nic.infraConfigurator == nil {
-				return nil
-			}
-			return nic.infraConfigurator.PreparePodNetworkInterface()
-		})
+		n.netSetup.Setup,
+	)
 	if err != nil {
 		return fmt.Errorf("failed setup pod network phase1: %w", err)
 	}

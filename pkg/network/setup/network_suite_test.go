@@ -120,7 +120,7 @@ func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func([]v1.Network) ([]string,
 	return nil
 }
 
-func (c *ConfigStateStub) Run(_ []podNIC, _ func([]podNIC) ([]podNIC, error), _ func(*podNIC) error, _ func(*podNIC) error) error {
+func (c *ConfigStateStub) Run(_ []podNIC, _ func([]podNIC) ([]podNIC, error), _ func(*podNIC) error, _ func() error) error {
 	c.RunWasExecuted = true
 	return nil
 }

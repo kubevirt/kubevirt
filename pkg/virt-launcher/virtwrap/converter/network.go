@@ -197,7 +197,14 @@ func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Doma
 }
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
-	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) || ifaceType != v1.VirtIO {
+	if ifaceType != v1.VirtIO {
+		return 0
+	}
+	return NetworkQueuesCapacity(vmi)
+}
+
+func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
+	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) {
 		return 0
 	}
 

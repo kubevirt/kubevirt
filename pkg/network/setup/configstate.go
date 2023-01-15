@@ -54,7 +54,7 @@ func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigS
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func() error) error {
 	var pendingNICs []podNIC
 	for _, nic := range nics {
 		state, err := c.cache.Read(nic.vmiSpecNetwork.Name)
@@ -83,12 +83,15 @@ func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, er
 		if preErr != nil {
 			return preErr
 		}
+		if len(nics) == 0 {
+			return nil
+		}
 		return c.plug(nics, discoverFunc, configFunc)
 	})
 	return err
 }
 
-func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func() error) error {
 	for i := range nics {
 		if ferr := discoverFunc(&nics[i]); ferr != nil {
 			return ferr
@@ -103,11 +106,9 @@ func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, conf
 
 	// The discovery step must be called *before* the configuration step, allowing it to persist/cache the
 	// original pod network status. The configuration step mutates the pod network.
-	for i := range nics {
-		if ferr := configFunc(&nics[i]); ferr != nil {
-			log.Log.Reason(ferr).Errorf("failed to configure pod network: %s", nics[i].vmiSpecNetwork.Name)
-			return neterrors.CreateCriticalNetworkError(ferr)
-		}
+	if ferr := configFunc(); ferr != nil {
+		log.Log.Reason(ferr).Errorf("failed to configure pod network")
+		return neterrors.CreateCriticalNetworkError(ferr)
 	}
 
 	for _, nic := range nics {
