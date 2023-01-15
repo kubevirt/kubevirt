@@ -631,7 +631,8 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	templatePod.Spec.Hostname = ""
 
 	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
-	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
+	cpu := vmi.Spec.Domain.CPU
+	if (cpu != nil && cpu.Model == virtv1.CPUModeHostModel) || vmi.Status.PrefferedModel == virtv1.CPUModeHostModel {
 		node, err := c.getNodeForVMI(vmi)
 
 		if err != nil {
@@ -642,6 +643,8 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		if err != nil {
 			return err
 		}
+	} else if cpu != nil && cpu.Model == virtv1.CPUBestMatchModel {
+		templatePod.Spec.NodeSelector[virtv1.CPUModelLabel+vmi.Status.PrefferedModel] = "true"
 	}
 
 	// This is used by the functional test to simulate failures
