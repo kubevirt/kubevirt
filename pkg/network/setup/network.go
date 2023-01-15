@@ -38,17 +38,30 @@ type VMNetworkConfigurator struct {
 	launcherPid  *int
 }
 
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPid *int) *VMNetworkConfigurator {
-	return &VMNetworkConfigurator{
+type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
+
+func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator, opts ...vmNetConfiguratorOption) *VMNetworkConfigurator {
+	v := &VMNetworkConfigurator{
 		vmi:          vmi,
-		handler:      handler,
+		handler:      &netdriver.NetworkUtilsHandler{},
 		cacheCreator: cacheCreator,
-		launcherPid:  launcherPid,
+	}
+	for _, opt := range opts {
+		opt(v)
+	}
+	return v
+}
+
+func WithNetUtilsHandler(h netdriver.NetworkHandler) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.handler = h
 	}
 }
 
-func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator, launcherPid *int) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator, launcherPid)
+func WithLauncherPid(pid int) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.launcherPid = &pid
+	}
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Network) ([]podNIC, error) {

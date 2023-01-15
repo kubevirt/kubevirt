@@ -79,7 +79,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
 
 	c.configStateMutex.RLock()
 	configState, ok := c.configState[string(vmi.UID)]
@@ -157,6 +157,6 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (c *NetConf) hotUnplugInterfaces(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor, launcherPid int) error {
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
 	return netConfigurator.UnplugPodNetworksPhase1(vmi, networks, configState)
 }
