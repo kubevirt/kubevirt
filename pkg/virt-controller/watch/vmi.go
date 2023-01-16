@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	watch "kubevirt.io/kubevirt/pkg/virt-controller/watch/dynamic-cpu-model-matcher"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -133,6 +135,7 @@ func NewVMIController(templateService services.TemplateService,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	nodeStore cache.Store,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer,
@@ -151,6 +154,7 @@ func NewVMIController(templateService services.TemplateService,
 		vmInformer:         vmInformer,
 		podInformer:        podInformer,
 		pvcInformer:        pvcInformer,
+		dcmm:               watch.NewDynamicCpuModelMatcher(nodeStore),
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -223,6 +227,7 @@ type VMIController struct {
 	dataVolumeInformer cache.SharedIndexInformer
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
+	dcmm               *watch.DynamicCpuModelMatcher
 	clusterConfig      *virtconfig.ClusterConfig
 	namespaceStore     cache.Store
 	onOpenshift        bool
@@ -549,6 +554,14 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				}
 				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
 				vmiCopy.Status.NodeName = pod.Spec.NodeName
+				if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model == virtv1.CPUBestMatchModel && vmi.Status.PrefferedModel == "" {
+					preferredModel, err := c.dcmm.GetBestMatchModelForInitialNode(pod.Spec.NodeName, vmi)
+					if err != nil {
+						log.Log.Error(err.Error())
+						preferredModel = virtv1.DefaultCPUModel
+					}
+					vmiCopy.Status.PrefferedModel = preferredModel
+				}
 
 				// Set the VMI migration transport now before the VMI can be migrated
 				// This status field is needed to support the migration of legacy virt-launchers

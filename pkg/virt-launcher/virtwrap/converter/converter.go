@@ -1644,6 +1644,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if vmi.Spec.Domain.CPU.Model != "" {
 			if vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
 				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
+			} else if vmi.Spec.Domain.CPU.Model == v1.CPUBestMatchModel && vmi.Status.PrefferedModel == v1.CPUModeHostModel {
+				domain.Spec.CPU.Mode = vmi.Status.PrefferedModel
+			} else if vmi.Spec.Domain.CPU.Model == v1.CPUBestMatchModel {
+				domain.Spec.CPU.Mode = "custom"
+				domain.Spec.CPU.Model = vmi.Status.PrefferedModel
 			} else {
 				domain.Spec.CPU.Mode = "custom"
 				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model

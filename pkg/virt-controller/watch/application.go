@@ -600,6 +600,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.nodeInformer.GetStore(),
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.dataVolumeInformer,

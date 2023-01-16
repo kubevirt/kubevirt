@@ -593,11 +593,14 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
 
-	if modelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
-		opts = append(
-			opts,
-			WithModelAndFeatureLabels(modelLabel, CPUFeatureLabelsFromCPUFeatures(vmi)...),
-		)
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model != v1.CPUBestMatchModel {
+		modelLabel, err := CPUModelLabelFromCPUModel(vmi)
+		if err == nil {
+			opts = append(
+				opts,
+				WithModelAndFeatureLabels(modelLabel, CPUFeatureLabelsFromCPUFeatures(vmi)...),
+			)
+		}
 	}
 
 	if topology.IsManualTSCFrequencyRequired(vmi) {
