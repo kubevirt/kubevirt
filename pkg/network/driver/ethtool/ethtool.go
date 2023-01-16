@@ -39,7 +39,7 @@ const (
 )
 
 func (e Ethtool) TXChecksumOff(name string) error {
-	return EthtoolTXOff(name)
+	return ethtoolTXOff(name)
 }
 
 func (e Ethtool) ReadTXChecksum(name string) (bool, error) {
@@ -67,7 +67,7 @@ func ioctlEthtool(fd int, argp uintptr) error {
 }
 
 // Disable TX checksum offload on specified interface
-func EthtoolTXOff(name string) error {
+func ethtoolTXOff(name string) error {
 	if len(name)+1 > IFNAMSIZ {
 		return fmt.Errorf("name too long")
 	}
