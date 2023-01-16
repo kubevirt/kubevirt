@@ -21,6 +21,15 @@ package vmispec
 
 import v1 "kubevirt.io/api/core/v1"
 
+func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
+	for i := range networks {
+		if networks[i].Name == name {
+			return &networks[i]
+		}
+	}
+	return nil
+}
+
 func LookupPodNetwork(networks []v1.Network) *v1.Network {
 	for _, network := range networks {
 		if network.Pod != nil {
