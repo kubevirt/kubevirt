@@ -20245,6 +20245,10 @@
       "description": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
       "type": "string"
      },
+     "readyReplicas": {
+      "type": "integer",
+      "format": "int32"
+     },
      "replicas": {
       "type": "integer",
       "format": "int32"

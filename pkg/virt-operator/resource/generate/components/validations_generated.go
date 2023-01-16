@@ -19373,6 +19373,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Canonical form of the label selector for HPA which consumes
             it through the scale subresource.
           type: string
+        readyReplicas:
+          format: int32
+          type: integer
         replicas:
           format: int32
           type: integer

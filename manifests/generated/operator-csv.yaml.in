@@ -603,6 +603,8 @@ spec:
           resources:
           - virtualmachinepools
           - virtualmachinepools/finalizers
+          - virtualmachinepools/status
+          - virtualmachinepools/scale
           verbs:
           - watch
           - list
