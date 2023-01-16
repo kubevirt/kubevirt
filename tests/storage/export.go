@@ -1846,6 +1846,12 @@ var _ = SIGDescribe("Export", func() {
 				Expect(snapshot).ToNot(BeNil())
 				defer deleteSnapshot(snapshot)
 
+				// We create the vmexport object in advance to get the volume name
+				export := createRunningVMSnapshotExport(snapshot)
+				Expect(export).ToNot(BeNil())
+				checkExportSecretRef(export)
+				vmeName = export.Name
+
 				// Run vmexport
 				By("Running vmexport command")
 				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
@@ -1853,7 +1859,7 @@ var _ = SIGDescribe("Export", func() {
 					vmeName,
 					"--snapshot", snapshot.Name,
 					"--output", outputFile,
-					"--volume", snapshot.Name,
+					"--volume", export.Status.Links.External.Volumes[0].Name,
 					"--insecure",
 					"--namespace", util.NamespaceTestDefault)
 
