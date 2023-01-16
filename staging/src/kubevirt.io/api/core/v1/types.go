@@ -269,6 +269,10 @@ type VirtualMachineInstanceStatus struct {
 	// SELinuxContext is the actual SELinux context of the virt-launcher pod
 	// +optional
 	SelinuxContext string `json:"selinuxContext,omitempty"`
+
+	// prefferedModel is the best match cpuModel for the initial node
+	// +optional
+	PrefferedModel string `json:"prefferedModel,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC

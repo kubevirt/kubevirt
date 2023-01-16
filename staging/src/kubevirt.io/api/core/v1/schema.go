@@ -34,6 +34,7 @@ const (
 	IOThreadsPolicyAuto    IOThreadsPolicy = "auto"
 	CPUModeHostPassthrough                 = "host-passthrough"
 	CPUModeHostModel                       = "host-model"
+	CPUBestMatchModel                      = "best-match-model"
 	DefaultCPUModel                        = CPUModeHostModel
 )
 

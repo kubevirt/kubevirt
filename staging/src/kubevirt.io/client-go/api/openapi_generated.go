@@ -22255,6 +22255,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Format:      "",
 						},
 					},
+					"prefferedModel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "prefferedModel is the best match cpuModel for the initial node",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

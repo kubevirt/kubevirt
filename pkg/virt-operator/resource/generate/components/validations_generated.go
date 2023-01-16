@@ -11115,6 +11115,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        prefferedModel:
+          description: prefferedModel is the best match cpuModel for the initial node
+          type: string
         qosClass:
           description: 'The Quality of Service (QOS) classification assigned to the
             virtual machine instance based on resource requirements See PodQOSClass
