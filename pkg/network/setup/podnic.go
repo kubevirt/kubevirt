@@ -33,7 +33,6 @@ import (
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	"kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -178,18 +177,20 @@ func (l *podNIC) PlugPhase1() error {
 		return nil
 	}
 
-	state, err := l.state()
-	if err != nil {
-		return err
-	}
+	configState := NewConfigState(l.cacheCreator, string(l.vmi.UID))
+	return configState.Run(
+		l.podInterfaceName,
+		l.discoverAndStoreCache,
+		func() error {
+			if l.infraConfigurator == nil {
+				return nil
+			}
+			return l.infraConfigurator.PreparePodNetworkInterface()
+		},
+	)
+}
 
-	switch state {
-	case cache.PodIfaceNetworkPreparationStarted:
-		return errors.CreateCriticalNetworkError(fmt.Errorf("pod interface %s network preparation cannot be resumed", l.podInterfaceName))
-	case cache.PodIfaceNetworkPreparationFinished:
-		return nil
-	}
-
+func (l *podNIC) discoverAndStoreCache() error {
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err
 	}
@@ -205,7 +206,7 @@ func (l *podNIC) PlugPhase1() error {
 	dhcpConfig := l.infraConfigurator.GenerateNonRecoverableDHCPConfig()
 	if dhcpConfig != nil {
 		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
-		err = cache.WriteDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.podInterfaceName, dhcpConfig)
+		err := cache.WriteDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.podInterfaceName, dhcpConfig)
 		if err != nil {
 			return fmt.Errorf("failed to save DHCP configuration: %w", err)
 		}
@@ -218,24 +219,6 @@ func (l *podNIC) PlugPhase1() error {
 			return fmt.Errorf("failed to save libvirt domain interface: %w", err)
 		}
 	}
-
-	if err := l.setState(cache.PodIfaceNetworkPreparationStarted); err != nil {
-		return fmt.Errorf("failed setting state to PodIfaceNetworkPreparationStarted: %w", err)
-	}
-
-	// preparePodNetworkInterface must be called *after* the Generate
-	// methods since it mutates the pod interface from which those
-	// generator methods get their info from.
-	if err := l.infraConfigurator.PreparePodNetworkInterface(); err != nil {
-		log.Log.Reason(err).Error("failed to prepare pod networking")
-		return errors.CreateCriticalNetworkError(err)
-	}
-
-	if err := l.setState(cache.PodIfaceNetworkPreparationFinished); err != nil {
-		log.Log.Reason(err).Error("failed setting state to PodIfaceNetworkPreparationFinished")
-		return errors.CreateCriticalNetworkError(err)
-	}
-
 	return nil
 }
 
@@ -333,38 +316,6 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return cache.WriteDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name, &domainIface)
-}
-
-func (l *podNIC) setState(state cache.PodIfaceState) error {
-	var podIfaceCacheData *cache.PodIfaceCacheData
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name)
-	if err != nil && !goerrors.Is(err, os.ErrNotExist) {
-		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache, %s", err.Error())
-		return err
-	}
-	if goerrors.Is(err, os.ErrNotExist) {
-		podIfaceCacheData = &cache.PodIfaceCacheData{}
-	}
-	podIfaceCacheData.State = state
-	err = cache.WritePodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name, podIfaceCacheData)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod interface network state to cache, %s", err.Error())
-		return err
-	}
-	return nil
-}
-
-func (l *podNIC) state() (cache.PodIfaceState, error) {
-	var podIfaceCacheData *cache.PodIfaceCacheData
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name)
-	if err != nil {
-		if goerrors.Is(err, os.ErrNotExist) {
-			return defaultState, nil
-		}
-		log.Log.Reason(err).Errorf("failed to read pod interface network state from cache %s", err.Error())
-		return defaultState, err
-	}
-	return podIfaceCacheData.State, nil
 }
 
 func generateInPodBridgeInterfaceName(podInterfaceName string) string {
