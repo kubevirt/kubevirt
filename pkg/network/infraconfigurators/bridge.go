@@ -50,33 +50,24 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 	}
 	b.podNicLink = link
 
-	b.ipamEnabled = false
-
-	addrList, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
+	b.podIfaceIP, err = b.discoverPodIP(netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", podIfaceName)
 		return err
 	}
-	if len(addrList) > 0 {
-		b.podIfaceIP = &addrList[0]
-		b.ipamEnabled = true
+	if b.podIfaceIP != nil {
 		if err := b.learnInterfaceRoutes(); err != nil {
 			return err
 		}
 	}
 
-	addrV6List, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V6)
+	b.podIfaceIPv6, err = b.discoverPodIP(netlink.FAMILY_V6)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ipv6 address for %s", podIfaceName)
 		return err
 	}
-	for _, addr := range addrV6List {
-		if addr.IP.IsGlobalUnicast() {
-			b.podIfaceIPv6 = &addr
-			b.ipamEnabled = true
-			break
-		}
-	}
+
+	b.ipamEnabled = (b.podIfaceIP != nil) || (b.podIfaceIPv6 != nil)
 
 	b.bridgeInterfaceName = virtnetlink.GenerateBridgeName(podIfaceName)
 	b.tapDeviceName = virtnetlink.GenerateTapDeviceName(podIfaceName)
@@ -132,8 +123,7 @@ func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
 	if b.ipamEnabled {
 		// Remove IP from POD interface
 		if b.podIfaceIP != nil {
-			err := b.handler.AddrDel(b.podNicLink, b.podIfaceIP)
-			if err != nil {
+			if err := b.handler.AddrDel(b.podNicLink, b.podIfaceIP); err != nil {
 				log.Log.Reason(err).Errorf("failed to delete v4 address for interface: %s", b.podNicLink.Attrs().Name)
 				return err
 			}
@@ -187,6 +177,20 @@ func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *
 	return &api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
 	}
+}
+
+func (b *BridgePodNetworkConfigurator) discoverPodIP(family int) (*netlink.Addr, error) {
+	addrList, err := b.handler.AddrList(b.podNicLink, family)
+	if err != nil {
+		return nil, err
+	}
+	for _, addr := range addrList {
+		// For IPv6, we need to ignore the auto-assigned link-local address.
+		if family != netlink.FAMILY_V6 || addr.IP.IsGlobalUnicast() {
+			return &addr, nil
+		}
+	}
+	return nil, nil
 }
 
 func (b *BridgePodNetworkConfigurator) learnInterfaceRoutes() error {
@@ -293,15 +297,13 @@ func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
 	// Since the dummy is not connected to anything, it should not affect networking
 	// Replace will add if ip doesn't exist or modify the ip
 	if b.podIfaceIP != nil {
-		err = b.handler.AddrReplace(dummy, b.podIfaceIP)
-		if err != nil {
+		if err = b.handler.AddrReplace(dummy, b.podIfaceIP); err != nil {
 			log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
 			return err
 		}
 	}
 	if b.podIfaceIPv6 != nil {
-		err = b.handler.AddrReplace(dummy, b.podIfaceIPv6)
-		if err != nil {
+		if err = b.handler.AddrReplace(dummy, b.podIfaceIPv6); err != nil {
 			log.Log.Reason(err).Errorf("failed to replace original IPv6 address to dummy interface: %s", originalPodInterfaceName)
 			return err
 		}

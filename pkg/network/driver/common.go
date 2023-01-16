@@ -147,8 +147,7 @@ func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpv6FlushAddrOnDown() error {
-	err := sysctl.New().SetSysctl(sysctl.Ipv6KeepAddrOnDown, "-1")
-	return err
+	return sysctl.New().SetSysctl(sysctl.Ipv6KeepAddrOnDown, "-1")
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpForwarding(ipVersion IPVersion) error {

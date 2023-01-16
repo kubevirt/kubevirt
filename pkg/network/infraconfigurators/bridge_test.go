@@ -884,8 +884,9 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					MAC:          mac,
 					IPv6:         podIP,
 				}
-				Expect(createBridgeConfiguratorWithIPAM(
-					mac, podIP).GenerateNonRecoverableDHCPConfig()).To(Equal(&expectedDhcpConfig))
+				Expect(
+					createBridgeConfiguratorWithIPAM(mac, podIP).GenerateNonRecoverableDHCPConfig(),
+				).To(Equal(&expectedDhcpConfig))
 			})
 		})
 	})
