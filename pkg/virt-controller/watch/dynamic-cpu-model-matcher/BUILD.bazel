@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["dynamic_cpu_model_matcher.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/dynamic-cpu-model-matcher",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-controller/watch/topology:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/component-helpers/scheduling/corev1/nodeaffinity:go_default_library",
+    ],
+)
