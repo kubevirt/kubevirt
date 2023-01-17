@@ -57,6 +57,7 @@ import (
 	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/configuration"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 	"kubevirt.io/kubevirt/pkg/service"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
@@ -300,6 +301,7 @@ func Execute() {
 	)
 
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldUpdateConfigurationMetrics)
 
 	app.Run()
 }
@@ -458,4 +460,9 @@ func (app *VirtOperatorApp) shouldChangeLogVerbosity() {
 	} else {
 		log.Log.V(2).Infof("set log verbosity to %d", verbosity)
 	}
+}
+
+func (app *VirtOperatorApp) shouldUpdateConfigurationMetrics() {
+	emulationEnabled := app.clusterConfig.GetDeveloperConfigurationUseEmulation()
+	configuration.SetEmulationEnabledMetric(emulationEnabled)
 }

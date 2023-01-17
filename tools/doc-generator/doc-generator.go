@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	_ "kubevirt.io/kubevirt/pkg/monitoring/configuration"
 	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/virt-controller/watch"
 )

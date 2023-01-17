@@ -359,3 +359,14 @@ func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 func (c *ClusterConfig) GetClusterCPUArch() string {
 	return c.cpuArch
 }
+
+// GetDeveloperConfigurationUseEmulation return the UseEmulation value in DeveloperConfiguration
+func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
+	config := c.GetConfig()
+
+	if config.DeveloperConfiguration != nil {
+		return config.DeveloperConfiguration.UseEmulation
+	}
+
+	return false
+}
