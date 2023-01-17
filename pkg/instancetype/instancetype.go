@@ -16,7 +16,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -70,7 +69,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 	}
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
-		return nil, fmt.Errorf("Unexpected object format returned from GenerateKubeVirtGroupVersionKind")
+		return nil, fmt.Errorf("unexpected object format returned from GenerateKubeVirtGroupVersionKind")
 	}
 
 	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), metaObj.GetUID(), metaObj.GetGeneration())
@@ -677,7 +676,7 @@ func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine
 	if err != nil {
 		return nil, err
 	}
-	return &v1.InstancetypeMatcher{
+	return &virtv1.InstancetypeMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
 	}, nil
@@ -691,7 +690,7 @@ func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) 
 	if err != nil {
 		return nil, err
 	}
-	return &v1.PreferenceMatcher{
+	return &virtv1.PreferenceMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
 	}, nil
@@ -941,7 +940,7 @@ func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.Virt
 		return Conflicts{field.Child("domain", "devices", "gpus")}
 	}
 
-	vmiSpec.Domain.Devices.GPUs = make([]v1.GPU, len(instancetypeSpec.GPUs))
+	vmiSpec.Domain.Devices.GPUs = make([]virtv1.GPU, len(instancetypeSpec.GPUs))
 	copy(vmiSpec.Domain.Devices.GPUs, instancetypeSpec.GPUs)
 
 	return nil
@@ -957,7 +956,7 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alph
 		return Conflicts{field.Child("domain", "devices", "hostDevices")}
 	}
 
-	vmiSpec.Domain.Devices.HostDevices = make([]v1.HostDevice, len(instancetypeSpec.HostDevices))
+	vmiSpec.Domain.Devices.HostDevices = make([]virtv1.HostDevice, len(instancetypeSpec.HostDevices))
 	copy(vmiSpec.Domain.Devices.HostDevices, instancetypeSpec.HostDevices)
 
 	return nil
@@ -1100,7 +1099,7 @@ func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachine
 	}
 
 	if vmiSpec.Domain.Features == nil {
-		vmiSpec.Domain.Features = &v1.Features{}
+		vmiSpec.Domain.Features = &virtv1.Features{}
 	}
 
 	// FIXME vmiSpec.Domain.Features.ACPI isn't a FeatureState pointer so just overwrite if we have a preference for now.
@@ -1133,7 +1132,7 @@ func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachine
 func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 
 	if vmiSpec.Domain.Features.Hyperv == nil {
-		vmiSpec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
 	}
 
 	// TODO clean this up with reflection?
@@ -1201,15 +1200,15 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachin
 	}
 
 	if vmiSpec.Domain.Firmware == nil {
-		vmiSpec.Domain.Firmware = &v1.Firmware{}
+		vmiSpec.Domain.Firmware = &virtv1.Firmware{}
 	}
 
 	if vmiSpec.Domain.Firmware.Bootloader == nil {
-		vmiSpec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		vmiSpec.Domain.Firmware.Bootloader = &virtv1.Bootloader{}
 	}
 
 	if preferenceSpec.Firmware.PreferredUseBios != nil && *preferenceSpec.Firmware.PreferredUseBios && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil && vmiSpec.Domain.Firmware.Bootloader.EFI == nil {
-		vmiSpec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
+		vmiSpec.Domain.Firmware.Bootloader.BIOS = &virtv1.BIOS{}
 	}
 
 	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil {
@@ -1217,7 +1216,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachin
 	}
 
 	if preferenceSpec.Firmware.PreferredUseEfi != nil && *preferenceSpec.Firmware.PreferredUseEfi && vmiSpec.Domain.Firmware.Bootloader.EFI == nil && vmiSpec.Domain.Firmware.Bootloader.BIOS == nil {
-		vmiSpec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		vmiSpec.Domain.Firmware.Bootloader.EFI = &virtv1.EFI{}
 	}
 
 	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && vmiSpec.Domain.Firmware.Bootloader.EFI != nil {
@@ -1232,7 +1231,7 @@ func applyMachinePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachine
 	}
 
 	if vmiSpec.Domain.Machine == nil {
-		vmiSpec.Domain.Machine = &v1.Machine{}
+		vmiSpec.Domain.Machine = &virtv1.Machine{}
 	}
 
 	if preferenceSpec.Machine.PreferredMachineType != "" && vmiSpec.Domain.Machine.Type == "" {
@@ -1246,7 +1245,7 @@ func applyClockPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePr
 	}
 
 	if vmiSpec.Domain.Clock == nil {
-		vmiSpec.Domain.Clock = &v1.Clock{}
+		vmiSpec.Domain.Clock = &virtv1.Clock{}
 	}
 
 	// We don't want to allow a partial overwrite here as that could lead to some unexpected behaviour for users so only replace when nothing is set
