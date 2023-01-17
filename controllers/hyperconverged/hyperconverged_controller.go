@@ -192,6 +192,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 			&routev1.Route{},
 			&consolev1.ConsoleCLIDownload{},
 			&consolev1.ConsoleQuickStart{},
+			&consolev1.ConsolePlugin{},
 			&imagev1.ImageStream{},
 			&corev1.Namespace{},
 			&appsv1.Deployment{},
