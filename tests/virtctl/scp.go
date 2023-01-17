@@ -30,6 +30,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 	copyNative := func(user, src, dst string, recursive bool) {
 		args := []string{
 			"scp",
+			"--local-ssh=false",
 			"--namespace", util.NamespaceTestDefault,
 			"--username", user,
 			"--identity-file", keyFile,
@@ -43,27 +44,31 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	}
 
-	copyLocal := func(user, src, dst string, recursive bool) {
-		args := []string{
-			"scp",
-			"--local-ssh=true",
-			"--namespace", util.NamespaceTestDefault,
-			"--username", user,
-			"--identity-file", keyFile,
-			"-t", "-o StrictHostKeyChecking=no",
-			"-t", "-o UserKnownHostsFile=/dev/null",
-		}
-		if recursive {
-			args = append(args, "--recursive")
-		}
-		args = append(args, src, dst)
+	copyLocal := func(appendLocalSSH bool) func(user, src, dst string, recursive bool) {
+		return func(user, src, dst string, recursive bool) {
+			args := []string{
+				"scp",
+				"--namespace", util.NamespaceTestDefault,
+				"--username", user,
+				"--identity-file", keyFile,
+				"-t", "-o StrictHostKeyChecking=no",
+				"-t", "-o UserKnownHostsFile=/dev/null",
+			}
+			if appendLocalSSH {
+				args = append(args, "--local-ssh=true")
+			}
+			if recursive {
+				args = append(args, "--recursive")
+			}
+			args = append(args, src, dst)
 
-		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
-		Expect(err).ToNot(HaveOccurred())
+			_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", args...)
+			Expect(err).ToNot(HaveOccurred())
 
-		out, err := cmd.CombinedOutput()
-		Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
-		Expect(out).ToNot(BeEmpty())
+			out, err := cmd.CombinedOutput()
+			Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
+			Expect(out).ToNot(BeEmpty())
+		}
 	}
 
 	BeforeEach(func() {
@@ -99,7 +104,8 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		compareFile(keyFile, copyBackFile)
 	},
 		Entry("using the native scp method", copyNative),
-		Entry("using the local scp method", copyLocal),
+		Entry("using the local scp method with --local-ssh flag", copyLocal(true)),
+		Entry("using the local scp method without --local-ssh flag", copyLocal(false)),
 	)
 
 	DescribeTable("should copy a local directory back and forth", func(copyFn copyFunction) {
@@ -130,8 +136,17 @@ var _ = Describe("[sig-compute][virtctl]SCP", func() {
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
 	},
 		Entry("using the native scp method", copyNative),
-		Entry("using the local scp method", copyLocal),
+		Entry("using the local scp method with --local-ssh flag", copyLocal(true)),
+		Entry("using the local scp method without --local-ssh flag", copyLocal(false)),
 	)
+
+	It("local-ssh flag should be unavailable in virtctl binary", func() {
+		_, cmd, err := clientcmd.CreateCommandWithNS(util.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
+		Expect(err).ToNot(HaveOccurred())
+		out, err := cmd.CombinedOutput()
+		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
+		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
+	})
 })
 
 func renderUserDataWithKey(user string, key ssh.PublicKey) string {
