@@ -399,7 +399,7 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1
 	}
 
 	if len(vm.Spec.Preference.RevisionName) > 0 {
-		return m.getPreferenceSpecRevision(types.NamespacedName{
+		return m.findPreferenceSpecRevision(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Spec.Preference.RevisionName,
 		})
@@ -425,7 +425,7 @@ func (m *methods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1
 	}
 }
 
-func (m *methods) getPreferenceSpecRevision(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+func (m *methods) findPreferenceSpecRevision(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
 	var (
 		err      error
 		revision *appsv1.ControllerRevision
@@ -554,7 +554,7 @@ func (m *methods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetype
 	}
 
 	if len(vm.Spec.Instancetype.RevisionName) > 0 {
-		return m.getInstancetypeSpecRevision(types.NamespacedName{
+		return m.findInstancetypeSpecRevision(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Spec.Instancetype.RevisionName,
 		})
@@ -580,7 +580,7 @@ func (m *methods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetype
 	}
 }
 
-func (m *methods) getInstancetypeSpecRevision(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+func (m *methods) findInstancetypeSpecRevision(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
 	var (
 		err      error
 		revision *appsv1.ControllerRevision
