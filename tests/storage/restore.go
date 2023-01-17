@@ -246,6 +246,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		}
 	}
 
+	createRestoreDefWithMacAddressPatch := func(sourceVM *v1.VirtualMachine, vmName string, snapshotName string) *snapshotv1.VirtualMachineRestore {
+		r := createRestoreDef(vmName, snapshotName)
+		if vmName != sourceVM.Name {
+			r.Spec.Patches = []string{
+				getMacAddressCloningPatch(sourceVM),
+			}
+		}
+
+		return r
+	}
+
 	Context("With simple VM", func() {
 		var vm *v1.VirtualMachine
 
@@ -643,7 +654,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By("Creating a VirtualMachineRestore")
 				restoreVMName := vm.Name + "-new"
-				restore = createRestoreDef(restoreVMName, snapshot.Name)
+				restore = createRestoreDefWithMacAddressPatch(vm, restoreVMName, snapshot.Name)
 
 				restore, err = virtClient.VirtualMachineRestore(testsuite.GetTestNamespace(nil)).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -857,17 +868,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				return fmt.Sprintf(firmwareUUIDCloningPatchPattern, "")
 			}
 
-			createRestoreDef := func(vmName string, snapshotName string) *snapshotv1.VirtualMachineRestore {
-				r := createRestoreDef(vmName, snapshotName)
-				if vmName != vm.Name {
-					r.Spec.Patches = []string{
-						getMacAddressCloningPatch(vm),
-					}
-				}
-
-				return r
-			}
-
 			getTargetVMName := func(restoreToNewVM bool, newVmName string) string {
 				if restoreToNewVM {
 					return newVmName
@@ -926,7 +926,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm = tests.StopVirtualMachine(vm)
 
 				By("Restoring VM")
-				restore = createRestoreDef(targetVMName, snapshot.Name)
+				restore = createRestoreDefWithMacAddressPatch(vm, targetVMName, snapshot.Name)
 				if vm.Spec.Template.Spec.Domain.Firmware != nil {
 					restore.Spec.Patches = append(restore.Spec.Patches, getFirmwareUUIDCloningPatch(vm))
 				}
@@ -1062,7 +1062,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				snapshot = createSnapshot(vm)
 				for i := 0; i < 2; i++ {
 					By(fmt.Sprintf("Restoring VM iteration %d", i))
-					restore = createRestoreDef(vm.Name, snapshot.Name)
+					restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
 					restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
@@ -1365,7 +1365,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 
-				restore := createRestoreDef(vm.Name, snapshot.Name)
+				restore := createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
 
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1547,7 +1547,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				newVM = tests.StopVirtualMachine(newVM)
 
 				By("Restoring VM")
-				restore = createRestoreDef(newVM.Name, snapshot.Name)
+				restore = createRestoreDefWithMacAddressPatch(vm, newVM.Name, snapshot.Name)
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
@@ -1578,7 +1578,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				newVM = tests.StopVirtualMachine(targetVM)
 
 				By("Restoring cloned VM")
-				restore = createRestoreDef(newVM.Name, snapshot.Name)
+				restore = createRestoreDefWithMacAddressPatch(vm, newVM.Name, snapshot.Name)
 				restore, err = virtClient.VirtualMachineRestore(targetVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				restore = waitRestoreComplete(restore, newVM.Name, &newVM.UID)
