@@ -78,9 +78,15 @@ func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, e
 	exportLink := &exportv1.VirtualMachineExportLink{
 		Volumes: []exportv1.VirtualMachineExportVolume{},
 		Cert:    cert,
-		Manifests: exportv1.VirtualMachineExportManifest{
-			exportv1.AllManifests: scheme + path.Join(hostAndBase, linkType, manifestsPath),
-			exportv1.AuthHeader:   scheme + path.Join(hostAndBase, linkType, secretManifestPath),
+		Manifests: []exportv1.VirtualMachineExportManifest{
+			{
+				Type: exportv1.AllManifests,
+				Url:  scheme + path.Join(hostAndBase, linkType, manifestsPath),
+			},
+			{
+				Type: exportv1.AuthHeader,
+				Url:  scheme + path.Join(hostAndBase, linkType, secretManifestPath),
+			},
 		},
 	}
 	for _, pvc := range pvcs {

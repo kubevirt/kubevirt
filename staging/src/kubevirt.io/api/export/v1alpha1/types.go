@@ -129,12 +129,20 @@ type VirtualMachineExportLink struct {
 	Volumes []VirtualMachineExportVolume `json:"volumes,omitempty"`
 
 	// Manifests is a list of available manifests for the export
+	// +listType=map
+	// +listMapKey=type
 	// +optional
-	Manifests VirtualMachineExportManifest `json:"manifests,omitempty"`
+	Manifests []VirtualMachineExportManifest `json:"manifests,omitempty"`
 }
 
 // VirtualMachineExportManifest contains the type and URL of the exported manifest
-type VirtualMachineExportManifest map[ExportManifestType]string
+type VirtualMachineExportManifest struct {
+	// Type is the type of manifest returned
+	Type ExportManifestType `json:"type"`
+
+	// Url is the url of the endpoint that returns the manifest
+	Url string `json:"url"`
+}
 
 type ExportManifestType string
 

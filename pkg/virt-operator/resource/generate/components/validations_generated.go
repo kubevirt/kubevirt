@@ -7906,11 +7906,27 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Cert is the public CA certificate base64 encoded
                   type: string
                 manifests:
-                  additionalProperties:
-                    type: string
                   description: Manifests is a list of available manifests for the
                     export
-                  type: object
+                  items:
+                    description: VirtualMachineExportManifest contains the type and
+                      URL of the exported manifest
+                    properties:
+                      type:
+                        description: Type is the type of manifest returned
+                        type: string
+                      url:
+                        description: Url is the url of the endpoint that returns the
+                          manifest
+                        type: string
+                    required:
+                    - type
+                    - url
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - type
+                  x-kubernetes-list-type: map
                 volumes:
                   description: Volumes is a list of available volumes to export
                   items:
@@ -7959,11 +7975,27 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Cert is the public CA certificate base64 encoded
                   type: string
                 manifests:
-                  additionalProperties:
-                    type: string
                   description: Manifests is a list of available manifests for the
                     export
-                  type: object
+                  items:
+                    description: VirtualMachineExportManifest contains the type and
+                      URL of the exported manifest
+                    properties:
+                      type:
+                        description: Type is the type of manifest returned
+                        type: string
+                      url:
+                        description: Url is the url of the endpoint that returns the
+                          manifest
+                        type: string
+                    required:
+                    - type
+                    - url
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - type
+                  x-kubernetes-list-type: map
                 volumes:
                   description: Volumes is a list of available volumes to export
                   items:
