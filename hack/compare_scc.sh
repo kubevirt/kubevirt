@@ -36,7 +36,7 @@ function dump_sccs_before(){
 }
 
 function dump_sccs_after(){
-    if [ "${CMD}" == "oc" ]; then
+    if [ "${CMD}" == "oc" ] && [ "${KUBEVIRT_PROVIDER}" != "external" ]; then
         for f in _out/scc/*${SCC_BEFORE_SUFFIX}; do
            SCCNAME=$(basename --suffix=${SCC_BEFORE_SUFFIX} "$f")
            echo -e "\n--- SCC ${SCCNAME} ---"

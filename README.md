@@ -208,3 +208,14 @@ For example:
 ```bash
 $ ./cluster/kubectl.sh get pods --all-namespaces
 ```
+
+## Deploying HCO on top of external provider
+
+In order to use HCO on top of external provider, i.e CRC, use:
+```
+export KUBEVIRT_PROVIDER=external
+export IMAGE_REGISTRY=<container image repository, such as quay.io, default: quay.io>
+export REGISTRY_NAMESPACE=<your org under IMAGE_REGISTRY, i.e your_name if you use quay.io/your_name, default: kubevirt>
+make cluster-sync
+```
+`oc` binary should exists, and the cluster should be reachable via `oc` commands.

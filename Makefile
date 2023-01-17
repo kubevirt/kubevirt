@@ -130,7 +130,7 @@ cluster-down:
 	./cluster/down.sh
 
 cluster-sync:
-	./cluster/sync.sh
+	IMAGE_REGISTRY=$(IMAGE_REGISTRY) REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) ./cluster/sync.sh
 
 cluster-clean:
 	CMD="./cluster/kubectl.sh" ./hack/clean.sh
