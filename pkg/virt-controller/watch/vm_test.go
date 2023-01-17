@@ -2914,14 +2914,14 @@ var _ = Describe("VirtualMachine", func() {
 				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-				controller.instancetypeMethods = instancetype.NewMethods(
-					instancetypeInformerStore,
-					clusterInstancetypeInformerStore,
-					preferenceInformerStore,
-					clusterPreferenceInformerStore,
-					controllerrevisionInformerStore,
-					virtClient,
-				)
+				controller.instancetypeMethods = &instancetype.InstancetypeMethods{
+					InstancetypeStore:        instancetypeInformerStore,
+					ClusterInstancetypeStore: clusterInstancetypeInformerStore,
+					PreferenceStore:          preferenceInformerStore,
+					ClusterPreferenceStore:   clusterPreferenceInformerStore,
+					ControllerRevisionStore:  controllerrevisionInformerStore,
+					Clientset:                virtClient,
+				}
 			})
 
 			Context("instancetype", func() {

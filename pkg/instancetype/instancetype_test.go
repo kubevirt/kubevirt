@@ -91,14 +91,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 		controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-		instancetypeMethods = instancetype.NewMethods(
-			instancetypeInformerStore,
-			clusterInstancetypeInformerStore,
-			preferenceInformerStore,
-			clusterPreferenceInformerStore,
-			controllerrevisionInformerStore,
-			virtClient,
-		)
+		instancetypeMethods = &instancetype.InstancetypeMethods{
+			InstancetypeStore:        instancetypeInformerStore,
+			ClusterInstancetypeStore: clusterInstancetypeInformerStore,
+			PreferenceStore:          preferenceInformerStore,
+			ClusterPreferenceStore:   clusterInstancetypeInformerStore,
+			ControllerRevisionStore:  controllerrevisionInformerStore,
+			Clientset:                virtClient,
+		}
 
 		vm = kubecli.NewMinimalVM("testvm")
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
@@ -197,7 +197,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected instancetype using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 
 				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -349,7 +349,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected instancetype using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 
 				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -566,7 +566,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected preference using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 
 				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -703,7 +703,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected preference using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 
 				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
