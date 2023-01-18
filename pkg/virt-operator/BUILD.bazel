@@ -59,6 +59,7 @@ go_test(
     name = "go_default_test",
     timeout = "long",
     srcs = [
+        "application_test.go",
         "kubevirt_test.go",
         "virt_operator_suite_test.go",
     ],

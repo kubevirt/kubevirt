@@ -119,10 +119,19 @@ func isDataSourceCrd(crd *extv1.CustomResourceDefinition) bool {
 	return crd.Spec.Names.Kind == "DataSource"
 }
 
+func isServiceMonitor(crd *extv1.CustomResourceDefinition) bool {
+	return crd.Spec.Names.Kind == "ServiceMonitor"
+}
+
+func isPrometheusRules(crd *extv1.CustomResourceDefinition) bool {
+	return crd.Spec.Names.Kind == "PrometheusRule"
+}
+
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
 	crd := obj.(*extv1.CustomResourceDefinition)
-	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) {
+	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) &&
+		!isServiceMonitor(crd) && !isPrometheusRules(crd) {
 		return
 	}
 
@@ -372,6 +381,36 @@ func (c *ClusterConfig) HasDataVolumeAPI() bool {
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			if isDataVolumeCrd(crd) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *ClusterConfig) HasServiceMonitorAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isServiceMonitor(crd) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *ClusterConfig) HasPrometheusRuleAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isPrometheusRules(crd) {
 				return true
 			}
 		}
