@@ -478,6 +478,23 @@ func filterDeletingVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	return filtered
 }
 
+// filterReadyVMs takes a list of VMs and returns all VMs which are in ready state.
+func (c *PoolController) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+	return filterVMs(vms, func(vm *virtv1.VirtualMachine) bool {
+		return controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(k8score.PodReady), k8score.ConditionTrue)
+	})
+}
+
+func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) bool) []*virtv1.VirtualMachine {
+	filtered := []*virtv1.VirtualMachine{}
+	for _, vm := range vms {
+		if f(vm) {
+			filtered = append(filtered, vm)
+		}
+	}
+	return filtered
+}
+
 func (c *PoolController) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
 
 	poolKey, err := controller.KeyFunc(pool)
@@ -1219,11 +1236,8 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 	}
 
 	pool.Status.Replicas = int32(len(vms))
-	pool.Status.ReadyReplicas = 0
-	for _, vm := range vms {
-		if vm.Status.Ready {
-			pool.Status.ReadyReplicas++
-		}
+	if pool.Status.Replicas != pool.Status.ReadyReplicas {
+		pool.Status.ReadyReplicas = int32(len(c.filterReadyVMs(vms)))
 	}
 
 	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) {
