@@ -1236,11 +1236,9 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 	}
 
 	pool.Status.Replicas = int32(len(vms))
-	if pool.Status.Replicas != pool.Status.ReadyReplicas {
-		pool.Status.ReadyReplicas = int32(len(c.filterReadyVMs(vms)))
-	}
+	pool.Status.ReadyReplicas = int32(len(c.filterReadyVMs(vms)))
 
-	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) {
+	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) || pool.Status.Replicas != pool.Status.ReadyReplicas {
 		err := c.statusUpdater.UpdateStatus(pool)
 		if err != nil {
 			return err
