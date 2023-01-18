@@ -178,23 +178,28 @@ type VMExportController struct {
 
 	TemplateService services.TemplateService
 
-	VMExportInformer          cache.SharedIndexInformer
-	PVCInformer               cache.SharedIndexInformer
-	VMSnapshotInformer        cache.SharedIndexInformer
-	VMSnapshotContentInformer cache.SharedIndexInformer
-	PodInformer               cache.SharedIndexInformer
-	DataVolumeInformer        cache.SharedIndexInformer
-	ConfigMapInformer         cache.SharedIndexInformer
-	ServiceInformer           cache.SharedIndexInformer
-	VMInformer                cache.SharedIndexInformer
-	VMIInformer               cache.SharedIndexInformer
-	RouteConfigMapInformer    cache.SharedInformer
-	RouteCache                cache.Store
-	IngressCache              cache.Store
-	SecretInformer            cache.SharedIndexInformer
-	CRDInformer               cache.SharedIndexInformer
-	KubeVirtInformer          cache.SharedIndexInformer
-	VolumeSnapshotProvider    snapshot.VolumeSnapshotProvider
+	VMExportInformer            cache.SharedIndexInformer
+	PVCInformer                 cache.SharedIndexInformer
+	VMSnapshotInformer          cache.SharedIndexInformer
+	VMSnapshotContentInformer   cache.SharedIndexInformer
+	PodInformer                 cache.SharedIndexInformer
+	DataVolumeInformer          cache.SharedIndexInformer
+	ConfigMapInformer           cache.SharedIndexInformer
+	ServiceInformer             cache.SharedIndexInformer
+	VMInformer                  cache.SharedIndexInformer
+	VMIInformer                 cache.SharedIndexInformer
+	RouteConfigMapInformer      cache.SharedInformer
+	RouteCache                  cache.Store
+	IngressCache                cache.Store
+	SecretInformer              cache.SharedIndexInformer
+	CRDInformer                 cache.SharedIndexInformer
+	KubeVirtInformer            cache.SharedIndexInformer
+	VolumeSnapshotProvider      snapshot.VolumeSnapshotProvider
+	InstancetypeInformer        cache.SharedIndexInformer
+	ClusterInstancetypeInformer cache.SharedIndexInformer
+	PreferenceInformer          cache.SharedIndexInformer
+	ClusterPreferenceInformer   cache.SharedIndexInformer
+	ControllerRevisionInformer  cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
@@ -293,7 +298,14 @@ func (ctrl *VMExportController) Init() {
 			UpdateFunc: ctrl.handleKubeVirt,
 		},
 	)
-	ctrl.instancetypeMethods = instancetype.NewMethods(ctrl.Client)
+	ctrl.instancetypeMethods = instancetype.NewMethods(
+		ctrl.InstancetypeInformer.GetStore(),
+		ctrl.ClusterInstancetypeInformer.GetStore(),
+		ctrl.PreferenceInformer.GetStore(),
+		ctrl.ClusterPreferenceInformer.GetStore(),
+		ctrl.ControllerRevisionInformer.GetStore(),
+		ctrl.Client,
+	)
 
 	initCert(ctrl)
 }
@@ -322,6 +334,11 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.VMIInformer.HasSynced,
 		ctrl.CRDInformer.HasSynced,
 		ctrl.KubeVirtInformer.HasSynced,
+		ctrl.InstancetypeInformer.HasSynced,
+		ctrl.ClusterInstancetypeInformer.HasSynced,
+		ctrl.PreferenceInformer.HasSynced,
+		ctrl.ClusterPreferenceInformer.HasSynced,
+		ctrl.ControllerRevisionInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
