@@ -1010,6 +1010,7 @@ rules:
   - subresources.kubevirt.io
   resources:
   - expand-vm-spec
+  - virtualmachineinstances/portforward
   verbs:
   - update
 - apiGroups:

@@ -474,6 +474,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"expand-vm-spec",
+					"virtualmachineinstances/portforward",
 				},
 				Verbs: []string{
 					"update",
