@@ -29,6 +29,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 
@@ -141,6 +142,10 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
+
+	// Remember whether we have already installed the custom SELinux policy or not
+	customSELinuxPolicyInstalled bool
+	semoduleLock                 sync.Mutex
 
 	caConfigMapName    string
 	clientCertFilePath string
@@ -303,6 +308,7 @@ func (app *virtHandlerApp) Run() {
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
 
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
@@ -392,13 +398,6 @@ func (app *virtHandlerApp) Run() {
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
-		log.DefaultLogger().Infof("SELinux is reported as '%s'", se.Mode())
-		// Install KubeVirt's virt-launcher policy
-		err = se.InstallPolicy("/var/run/kubevirt")
-		if err != nil {
-			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
-		}
-
 		// relabel tun device
 		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
 
@@ -480,6 +479,15 @@ func (app *virtHandlerApp) Run() {
 	}
 }
 
+func (app *virtHandlerApp) installCustomSELinuxPolicy(se selinux.SELinux) {
+	// Install KubeVirt's virt-launcher policy
+	err := se.InstallPolicy("/var/run/kubevirt")
+	if err != nil {
+		panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
+	}
+	app.customSELinuxPolicyInstalled = true
+}
+
 // Update virt-handler log verbosity on relevant config changes
 func (app *virtHandlerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
@@ -494,6 +502,21 @@ func (app *virtHandlerApp) shouldChangeRateLimiter() {
 	burst := config.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
 	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
+}
+
+// Install the SELinux policy when the feature gate that disables it gets removed
+func (app *virtHandlerApp) shouldInstallSELinuxPolicy() {
+	app.semoduleLock.Lock()
+	defer app.semoduleLock.Unlock()
+	if app.customSELinuxPolicyInstalled {
+		return
+	}
+	if !app.clusterConfig.CustomSELinuxPolicyDisabled() {
+		se, exists, err := selinux.NewSELinux()
+		if err == nil && exists {
+			app.installCustomSELinuxPolicy(se)
+		}
+	}
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
