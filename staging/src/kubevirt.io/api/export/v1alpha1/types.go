@@ -126,8 +126,32 @@ type VirtualMachineExportLink struct {
 	// +listType=map
 	// +listMapKey=name
 	// +optional
-	Volumes []VirtualMachineExportVolume `json:"volumes"`
+	Volumes []VirtualMachineExportVolume `json:"volumes,omitempty"`
+
+	// Manifests is a list of available manifests for the export
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Manifests []VirtualMachineExportManifest `json:"manifests,omitempty"`
 }
+
+// VirtualMachineExportManifest contains the type and URL of the exported manifest
+type VirtualMachineExportManifest struct {
+	// Type is the type of manifest returned
+	Type ExportManifestType `json:"type"`
+
+	// Url is the url of the endpoint that returns the manifest
+	Url string `json:"url"`
+}
+
+type ExportManifestType string
+
+const (
+	// AllManifests returns all manifests except for the token secret
+	AllManifests ExportManifestType = "all"
+	// AuthHeader returns a CDI compatible secret containing the token as an Auth header
+	AuthHeader ExportManifestType = "auth-header-secret"
+)
 
 // VirtualMachineExportVolume contains the name and available formats for the exported volume
 type VirtualMachineExportVolume struct {

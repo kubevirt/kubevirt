@@ -524,7 +524,7 @@ var _ = Describe("VMSnapshot source", func() {
 
 	It("Should update status with correct links from snapshot with kubevirt content type", func() {
 		testVMExport := createSnapshotVMExport()
-		restoreName := fmt.Sprintf("%s-%s", testVMExport.Name, testVolumesnapshotName)
+		restoreName := testVolumesnapshotName
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
@@ -575,7 +575,7 @@ var _ = Describe("VMSnapshot source", func() {
 
 	It("Should update status with correct links from snapshot with other content type", func() {
 		testVMExport := createSnapshotVMExport()
-		restoreName := fmt.Sprintf("%s-%s", testVMExport.Name, testVolumesnapshotName)
+		restoreName := testVolumesnapshotName
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())

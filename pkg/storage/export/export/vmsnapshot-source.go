@@ -22,6 +22,7 @@ package export
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 			isPopulated:      false,
 			availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
 	}
-	if vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
+	if vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
 		pvcs, restoreableSnapshots, err := ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
 		if err != nil {
 			return &sourceVolumes{}, err
@@ -185,6 +186,11 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
 	vmExportCopy := vmExport.DeepCopy()
 
+	// Change the names of the returned pvcs by removing the prefix we used to create the PVCs, this matches
+	// the volumes of the source VM
+	for _, pvc := range sourceVolumes.volumes {
+		pvc.Name = strings.TrimPrefix(pvc.Name, fmt.Sprintf("%s-", vmExport.Name))
+	}
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes); err != nil {
 		return 0, err
 	}
@@ -199,6 +205,18 @@ func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1
 	return 0, nil
 }
 
+func (ctrl *VMExportController) getVmNameFromVmSnapshot(vmExport *exportv1.VirtualMachineExport) string {
+	if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
+		if vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExport.Namespace, vmExport.Spec.Source.Name); err != nil {
+			log.Log.V(3).Infof("Error getting snapshot %v", err)
+			return ""
+		} else if exists {
+			return vmSnapshot.Spec.Source.Name
+		}
+	}
+	return ""
+}
+
 func (ctrl *VMExportController) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim, availableMessage string) error {
 	vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExportCopy.Namespace, vmExportCopy.Spec.Source.Name)
 	if err != nil {
@@ -209,7 +227,7 @@ func (ctrl *VMExportController) updateVMSnapshotExportStatusConditions(vmExportC
 		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, initializingReason, ""))
 		return nil
 	}
-	if vmSnapshot.Status.VirtualMachineSnapshotContentName != nil && *vmSnapshot.Status.VirtualMachineSnapshotContentName != "" {
+	if vmSnapshot.Status != nil && vmSnapshot.Status.VirtualMachineSnapshotContentName != nil && *vmSnapshot.Status.VirtualMachineSnapshotContentName != "" {
 		content, exists, err := ctrl.getVmSnapshotContent(vmSnapshot.Namespace, *vmSnapshot.Status.VirtualMachineSnapshotContentName)
 		if err != nil {
 			return err

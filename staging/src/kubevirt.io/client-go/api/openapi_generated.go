@@ -509,6 +509,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink":                                   schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks":                                  schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportList":                                   schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref),
+		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest":                               schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec":                                   schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus":                                 schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref),
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume":                                 schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref),
@@ -23106,12 +23107,33 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 							},
 						},
 					},
+					"manifests": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Manifests is a list of available manifests for the export",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"cert"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume"},
+			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume"},
 	}
 }
 
@@ -23189,6 +23211,34 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.R
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/export/v1alpha1.VirtualMachineExport"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportManifest contains the type and URL of the exported manifest",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is the type of manifest returned",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Url is the url of the endpoint that returns the manifest",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "url"},
+			},
+		},
 	}
 }
 
