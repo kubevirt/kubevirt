@@ -15,6 +15,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
+	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
@@ -105,6 +106,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		imageupload.NewImageUploadCommand(clientConfig),
 		guestfs.NewGuestfsShellCommand(clientConfig),
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
+		create.NewCommand(),
 		optionsCmd,
 	)
 	return rootCmd, clientConfig
