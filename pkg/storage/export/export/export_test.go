@@ -62,6 +62,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -329,7 +330,25 @@ var _ = Describe("Export controller", func() {
 		return generateCertFromTime("working cert", &before, &after)
 	}
 
+	var expectedFuturePemAll = generateFutureCert()
+	var expectedExpiredPemAll = generateExpiredCert()
+
+	generateExpectedPem := func(allPem string) string {
+		now := time.Now()
+		pemOut := strings.Builder{}
+		certs, err := cert.ParseCertsPEM([]byte(allPem))
+		Expect(err).ToNot(HaveOccurred())
+		for _, cert := range certs {
+			if cert.NotAfter.After(now) && cert.NotBefore.Before(now) {
+				pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+			}
+		}
+		return strings.TrimSpace(pemOut.String())
+	}
+
 	var expectedPem = generateExpectedCert()
+	var expectedFuturePem = generateExpectedPem(expectedFuturePemAll)
+	var expectedExpiredPem = generateExpectedPem(expectedExpiredPemAll)
 
 	generateOverlappingCert := func() string {
 		before := time.Now().AddDate(0, 0, -3)
@@ -352,24 +371,28 @@ var _ = Describe("Export controller", func() {
 		return strings.TrimSpace(pemOut.String()) + "\n" + expectedPem
 	}
 
-	createRouteConfigMapFromFunc := func(certFunc func() string) *k8sv1.ConfigMap {
+	createRouteConfigMapFromString := func(ca string) *k8sv1.ConfigMap {
 		return &k8sv1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      routeCAConfigMapName,
 				Namespace: controller.KubevirtNamespace,
 			},
 			Data: map[string]string{
-				routeCaKey: certFunc(),
+				routeCaKey: ca,
 			},
 		}
 	}
 
+	createRouteConfigMapFromFunc := func(certFunc func() string) *k8sv1.ConfigMap {
+		return createRouteConfigMapFromString(certFunc())
+	}
+
 	createFutureRouteConfigMap := func() *k8sv1.ConfigMap {
-		return createRouteConfigMapFromFunc(generateFutureCert)
+		return createRouteConfigMapFromString(expectedFuturePemAll)
 	}
 
 	createExpiredRouteConfigMap := func() *k8sv1.ConfigMap {
-		return createRouteConfigMapFromFunc(generateExpiredCert)
+		return createRouteConfigMapFromString(expectedExpiredPem)
 	}
 
 	createOverlappingRouteConfigMap := func() *k8sv1.ConfigMap {
@@ -1054,8 +1077,8 @@ var _ = Describe("Export controller", func() {
 		Entry("route with service and host", createRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
 		Entry("route with different service and host", createRouteConfigMap, routeToHostAndService("other-service"), "", ""),
 		Entry("route with service and no ingress", createRouteConfigMap, routeToHostAndNoIngress(), "", ""),
-		Entry("should not find route cert if in future", createFutureRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", ""),
-		Entry("should not find route cert if expired", createExpiredRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", ""),
+		Entry("should not find route cert if in future", createFutureRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedFuturePem),
+		Entry("should not find route cert if expired", createExpiredRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedExpiredPem),
 		Entry("should find correct route cert if overlapping exists", createOverlappingRouteConfigMap, routeToHostAndService(components.VirtExportProxyServiceName), "virt-exportproxy-kubevirt.apps-crc.testing", expectedPem),
 	)
 
