@@ -22,7 +22,9 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -70,6 +72,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	var err error
 	var virtClient kubecli.KubevirtClient
+	var newVM *v1.VirtualMachine
+	var file *os.File
 
 	runStrategyAlways := v1.RunStrategyAlways
 	runStrategyHalted := v1.RunStrategyHalted
@@ -1778,6 +1782,109 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Entry("[test_id:7164]VMI launcher pod should fail", "false"),
 					Entry("[test_id:6993]VMI launcher pod compute container should keep running", "true"),
 				)
+			})
+
+			Context("Using expand command", func() {
+				BeforeEach(func() {
+					newVM = newVirtualMachine(true)
+				})
+
+				It("should fail without arguments", func() {
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND)
+					err = expandCommand()
+
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(MatchError("error invalid arguments - VirtualMachine name or file must be provided"))
+				})
+
+				It("should expand vm", func() {
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--namespace", newVM.Namespace, "--vm", newVM.Name)
+					Expect(expandCommand()).To(Succeed())
+				})
+
+				It("should fail with non existing vm", func() {
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--vm", "non-existing-vm")
+
+					err := expandCommand()
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: virtualmachine.kubevirt.io \"non-existing-vm\" not found"))
+				})
+
+				DescribeTable("should expand vm with", func(formatName string) {
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--namespace", newVM.Namespace, "--output", formatName, "--vm", newVM.Name)
+					Expect(expandCommand()).To(Succeed())
+				},
+					Entry("supported format output json", vm.JSON),
+					Entry("supported format output yaml", vm.YAML),
+				)
+
+				It("should fail with unsupported output format", func() {
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--namespace", newVM.Namespace, "--output", "fakeJson", "--vm", newVM.Name)
+					err := expandCommand()
+
+					fmt.Printf("%+v\n", err.Error())
+
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(MatchError("error not supported output format defined: fakeJson"))
+				})
+			})
+
+			Context("Using expand command with file input", func() {
+				const (
+					invalidVmSpec = `apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  annotations: {}
+  labels: {}
+  name: testvm
+spec: {}
+`
+					vmSpec = `apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: testvm
+spec:
+  runStrategy: Always
+  template:
+    spec:
+      domain:
+        devices: {}
+        machine:
+          type: q35
+        resources: {}
+        volumes:
+status:
+`
+				)
+
+				BeforeEach(func() {
+					file, err = ioutil.TempFile("", "file-*")
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("should expand vm defined in file", func() {
+					Expect(os.WriteFile(file.Name(), []byte(vmSpec), 0777)).To(Succeed())
+
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--file", file.Name())
+					Expect(expandCommand()).To(Succeed())
+				})
+
+				It("should fail expanding invalid vm defined in file", func() {
+					Expect(os.WriteFile(file.Name(), []byte(invalidVmSpec), 0777)).To(Succeed())
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--file", file.Name())
+
+					err := expandCommand()
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(MatchError("error expanding VirtualMachine - testvm in namespace - default: Object is not a valid VirtualMachine"))
+				})
+
+				It("should fail expanding vm when input file does not exist", func() {
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(vm.COMMAND_EXPAND, "--file", "invalid/path")
+
+					err := expandCommand()
+					Expect(err).To(HaveOccurred())
+					Expect(err).Should(MatchError("error reading file open invalid/path: no such file or directory"))
+				})
 			})
 		})
 	})

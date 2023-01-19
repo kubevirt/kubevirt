@@ -23,16 +23,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "kubevirt.io/api/core/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/yaml"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -49,21 +50,32 @@ const (
 	COMMAND_FSLIST         = "fslist"
 	COMMAND_ADDVOLUME      = "addvolume"
 	COMMAND_REMOVEVOLUME   = "removevolume"
+	COMMAND_EXPAND         = "expand"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
-	dryRunArg      = "dry-run"
-	pausedArg      = "paused"
-	forceArg       = "force"
-	gracePeriodArg = "grace-period"
-	serialArg      = "serial"
-	persistArg     = "persist"
-	cacheArg       = "cache"
+	dryRunArg            = "dry-run"
+	pausedArg            = "paused"
+	forceArg             = "force"
+	gracePeriodArg       = "grace-period"
+	serialArg            = "serial"
+	persistArg           = "persist"
+	cacheArg             = "cache"
+	vmArg                = "vm"
+	filePathArg          = "file"
+	filePathArgShort     = "f"
+	outputFormatArg      = "output"
+	outputFormatArgShort = "o"
+
+	YAML = "yaml"
+	JSON = "json"
 )
 
 var (
+	vmiName      string
+	vmName       string
 	forceRestart bool
 	gracePeriod  int64
 	volumeName   string
@@ -72,6 +84,8 @@ var (
 	startPaused  bool
 	dryRun       bool
 	cache        string
+	filePath     string
+	outputFormat string
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -245,6 +259,25 @@ func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	return cmd
 }
 
+func NewExpandCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "expand (VM)",
+		Short:   "Return the VirtualMachine object with expanded instancetype and preference.",
+		Example: usageExpand(),
+		Args:    cobra.MatchAll(cobra.ExactArgs(0), expandArgs()),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_EXPAND, clientConfig: clientConfig, cmd: cmd}
+			return c.Run(args)
+		},
+	}
+	cmd.Flags().StringVar(&vmName, vmArg, "", "Specify VirtualMachine name that should be expanded. Mutually exclusive with \"--file\" flag.")
+	cmd.Flags().StringVarP(&filePath, filePathArg, filePathArgShort, "", "If present, the Virtual Machine spec in provided file will be expanded. Mutually exclusive with \"--vm\" flag.")
+	cmd.Flags().StringVarP(&outputFormat, outputFormatArg, outputFormatArgShort, YAML, "Specify a format that will be used to display output.")
+	cmd.MarkFlagsMutuallyExclusive(filePathArg, vmArg)
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
 	//Check if data volume exists.
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
@@ -275,6 +308,7 @@ func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.
 type Command struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
+	cmd          *cobra.Command
 }
 
 func usage(cmd string) string {
@@ -289,8 +323,20 @@ func usage(cmd string) string {
 	return usage
 }
 
+func usageExpand() string {
+	return `  #Expand a virtual machine called 'myvm'.
+  {{ProgramName}} expand --vm myvm
+  
+  # Expand a virtual machine from file called myvm.yaml.
+  {{ProgramName}} expand --file myvm.yaml
+
+  # Expand a virtual machine called myvm and display output in json format.
+  {{ProgramName}} expand --vm myvm --output json
+  `
+}
+
 func usageAddVolume() string {
-	usage := `  #Dynamically attach a volume to a running VM.
+	return `  #Dynamically attach a volume to a running VM.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
 
   #Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
@@ -302,17 +348,15 @@ func usageAddVolume() string {
   #Dynamically attach a volume with 'none' cache attribute to a running VM.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --cache=none
   `
-	return usage
 }
 
 func usageRemoveVolume() string {
-	usage := `  #Remove volume that was dynamically attached to a running VM.
+	return `  #Remove volume that was dynamically attached to a running VM.
   {{ProgramName}} removevolume fedora-dv --volume-name=example-dv
 
   #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
   {{ProgramName}} removevolume fedora-dv --volume-name=example-dv --persist
   `
-	return usage
 }
 
 func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
@@ -389,9 +433,88 @@ func getDryRunOption(dryRun bool) []string {
 	return nil
 }
 
-func (o *Command) Run(args []string) error {
+func expandArgs() cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if filePath == "" && vmName == "" {
+			return fmt.Errorf("error invalid arguments - VirtualMachine name or file must be provided")
+		}
 
-	vmiName := args[0]
+		if outputFormat != YAML && outputFormat != JSON {
+			return fmt.Errorf("error not supported output format defined: %s", outputFormat)
+		}
+
+		return nil
+	}
+}
+
+func readVMFromFile(filePath string) (*v1.VirtualMachine, error) {
+	vm := &v1.VirtualMachine{}
+
+	readFile, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file %+w", err)
+	}
+
+	err = yaml.Unmarshal(readFile, vm)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding VirtualMachine %+w", err)
+	}
+
+	return vm, nil
+}
+
+func applyOutputFormat(outputFormat string, expandedVm *v1.VirtualMachine) (string, error) {
+	var formatedOutput []byte
+	var err error
+
+	switch outputFormat {
+	case JSON:
+		formatedOutput, err = json.MarshalIndent(expandedVm, "", " ")
+	case YAML:
+		formatedOutput, err = yaml.Marshal(expandedVm)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(formatedOutput), nil
+}
+
+func expandVirtualMachine(namespace string, virtClient kubecli.KubevirtClient, o *Command) error {
+	var expandedVm *v1.VirtualMachine
+	var err error
+
+	if vmName != "" {
+		expandedVm, err = virtClient.VirtualMachine(namespace).GetWithExpandedSpec(vmName)
+		if err != nil {
+			return fmt.Errorf("error expanding VirtualMachine - %s in namespace - %s: %w", vmName, namespace, err)
+		}
+	} else {
+		vm, err := readVMFromFile(filePath)
+		if err != nil {
+			return err
+		}
+
+		expandedVm, err = virtClient.ExpandSpec(namespace).ForVirtualMachine(vm)
+		if err != nil {
+			return fmt.Errorf("error expanding VirtualMachine - %s in namespace - %s: %w", vm.Name, namespace, err)
+		}
+	}
+
+	output, err := applyOutputFormat(outputFormat, expandedVm)
+	if err != nil {
+		return err
+	}
+
+	o.cmd.Print(output)
+	return nil
+}
+
+func (o *Command) Run(args []string) error {
+	if len(args) != 0 {
+		vmiName = args[0]
+	}
 
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
@@ -528,6 +651,8 @@ func (o *Command) Run(args []string) error {
 		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_REMOVEVOLUME:
 		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
+	case COMMAND_EXPAND:
+		return expandVirtualMachine(namespace, virtClient, o)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
