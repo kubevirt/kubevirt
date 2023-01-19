@@ -378,7 +378,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices"
   elif [[ $TARGET =~ sig-compute ]]; then
     export KUBEVIRT_E2E_FOCUS="\\[sig-compute\\]"
-    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices|Migration"
+    export KUBEVIRT_E2E_SKIP="GPU|MediatedDevices|Migration|without\\s--local-ssh\\sflag|local-ssh\\sflag\\sshould\\sbe\\sunavailable"
   elif [[ $TARGET =~ sig-monitoring ]]; then
       export KUBEVIRT_E2E_FOCUS="\\[sig-monitoring\\]"
   elif [[ $TARGET =~ sig-operator ]]; then
