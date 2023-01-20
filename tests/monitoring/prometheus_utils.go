@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os/exec"
-	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -19,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -205,19 +205,26 @@ func doHttpRequest(url string, endpoint string, token string) *http.Response {
 func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) string {
 	var token string
 	Eventually(func() bool {
-		var secretName string
-		sa, err := cli.CoreV1().ServiceAccounts(monitoringNs).Get(context.TODO(), "prometheus-k8s", metav1.GetOptions{})
-		if err != nil {
-			return false
-		}
-		for _, secret := range sa.Secrets {
-			if strings.HasPrefix(secret.Name, "prometheus-k8s-token") {
-				secretName = secret.Name
-			}
-		}
+		secretName := fmt.Sprintf("prometheus-k8s-%s-token", monitoringNs)
 		secret, err := cli.CoreV1().Secrets(monitoringNs).Get(context.TODO(), secretName, metav1.GetOptions{})
 		if err != nil {
-			return false
+			secretToken := k8sv1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: secretName,
+					Annotations: map[string]string{
+						"kubernetes.io/service-account.name": "prometheus-k8s",
+					},
+				},
+				Type: k8sv1.SecretTypeServiceAccountToken,
+			}
+			_, err := cli.CoreV1().Secrets(monitoringNs).Create(context.Background(), &secretToken, metav1.CreateOptions{})
+			if err != nil {
+				return false
+			}
+			secret, err = cli.CoreV1().Secrets(monitoringNs).Get(context.TODO(), secretName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
 		}
 		if _, ok := secret.Data["token"]; !ok {
 			return false
