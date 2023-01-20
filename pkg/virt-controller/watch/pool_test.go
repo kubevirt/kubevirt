@@ -265,6 +265,7 @@ var _ = Describe("Pool", func() {
 		It("should update VM when VM template changes, but not VMI unless VMI template changes", func() {
 			pool, vm := DefaultPool(1)
 			pool.Status.Replicas = 1
+			pool.Status.ReadyReplicas = 1
 			poolRevision := createPoolRevision(pool)
 
 			pool.Generation = 123
@@ -288,6 +289,8 @@ var _ = Describe("Pool", func() {
 				BlockOwnerDeletion: &t,
 			}}
 
+			markVmAsReady(vm)
+			markAsReady(vmi)
 			addPool(pool)
 			addVM(vm)
 			addCR(poolRevision)
@@ -323,6 +326,7 @@ var _ = Describe("Pool", func() {
 		It("should update VM and VMI with both VM and VMI template change", func() {
 			pool, vm := DefaultPool(1)
 			pool.Status.Replicas = 1
+			pool.Status.ReadyReplicas = 1
 
 			oldPoolRevision := createPoolRevision(pool)
 
@@ -334,6 +338,7 @@ var _ = Describe("Pool", func() {
 
 			vm = injectPoolRevisionLabelsIntoVM(vm, newPoolRevision.Name)
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			markVmAsReady(vm)
 
 			vmi := api.NewMinimalVMI(vm.Name)
 			vmi.Spec = vm.Spec.Template.Spec
@@ -372,8 +377,10 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
+			markVmAsReady(vm)
 
 			pool.Status.Replicas = 1
+			pool.Status.ReadyReplicas = 1
 			addPool(pool)
 			addVM(vm)
 			addCR(poolRevision)
@@ -387,11 +394,13 @@ var _ = Describe("Pool", func() {
 
 			poolRevision := createPoolRevision(pool)
 			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
+			markVmAsReady(vm)
 
 			oldPoolRevision := poolRevision.DeepCopy()
 			oldPoolRevision.Name = "madeup"
 
 			pool.Status.Replicas = 1
+			pool.Status.ReadyReplicas = 1
 			addPool(pool)
 			addVM(vm)
 			addCR(poolRevision)
