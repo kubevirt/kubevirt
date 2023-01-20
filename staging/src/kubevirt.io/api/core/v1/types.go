@@ -1178,6 +1178,8 @@ type VirtualMachineInstanceMigrationStatus struct {
 	// +listType=atomic
 	// +optional
 	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
+	// Represents the status of a live migration
+	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.

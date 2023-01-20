@@ -204,10 +204,10 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime*2)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime*2)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationUID)
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			confirmMigrationMode(vmi, virtv1.MigrationPostCopy)
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
