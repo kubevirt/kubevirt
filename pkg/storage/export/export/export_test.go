@@ -19,7 +19,6 @@
 package export
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -34,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	routev1 "github.com/openshift/api/route/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -58,7 +58,6 @@ import (
 
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
-	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
@@ -94,34 +93,39 @@ var (
 
 var _ = Describe("Export controller", func() {
 	var (
-		ctrl                       *gomock.Controller
-		controller                 *VMExportController
-		recorder                   *record.FakeRecorder
-		pvcInformer                cache.SharedIndexInformer
-		podInformer                cache.SharedIndexInformer
-		cmInformer                 cache.SharedIndexInformer
-		vmExportInformer           cache.SharedIndexInformer
-		vmExportSource             *framework.FakeControllerSource
-		serviceInformer            cache.SharedIndexInformer
-		dvInformer                 cache.SharedIndexInformer
-		vmSnapshotInformer         cache.SharedIndexInformer
-		vmSnapshotContentInformer  cache.SharedIndexInformer
-		secretInformer             cache.SharedIndexInformer
-		vmInformer                 cache.SharedIndexInformer
-		vmiInformer                cache.SharedIndexInformer
-		kvInformer                 cache.SharedIndexInformer
-		crdInformer                cache.SharedIndexInformer
-		k8sClient                  *k8sfake.Clientset
-		virtClient                 *kubecli.MockKubevirtClient
-		vmExportClient             *kubevirtfake.Clientset
-		fakeVolumeSnapshotProvider *MockVolumeSnapshotProvider
-		mockVMExportQueue          *testutils.MockWorkQueue
-		routeCache                 cache.Store
-		ingressCache               cache.Store
-		certDir                    string
-		certFilePath               string
-		keyFilePath                string
-		stop                       chan struct{}
+		ctrl                        *gomock.Controller
+		controller                  *VMExportController
+		recorder                    *record.FakeRecorder
+		pvcInformer                 cache.SharedIndexInformer
+		podInformer                 cache.SharedIndexInformer
+		cmInformer                  cache.SharedIndexInformer
+		vmExportInformer            cache.SharedIndexInformer
+		vmExportSource              *framework.FakeControllerSource
+		serviceInformer             cache.SharedIndexInformer
+		dvInformer                  cache.SharedIndexInformer
+		vmSnapshotInformer          cache.SharedIndexInformer
+		vmSnapshotContentInformer   cache.SharedIndexInformer
+		secretInformer              cache.SharedIndexInformer
+		vmInformer                  cache.SharedIndexInformer
+		vmiInformer                 cache.SharedIndexInformer
+		kvInformer                  cache.SharedIndexInformer
+		crdInformer                 cache.SharedIndexInformer
+		instancetypeInformer        cache.SharedIndexInformer
+		clusterInstancetypeInformer cache.SharedIndexInformer
+		preferenceInformer          cache.SharedIndexInformer
+		clusterPreferenceInformer   cache.SharedIndexInformer
+		controllerRevisionInformer  cache.SharedIndexInformer
+		k8sClient                   *k8sfake.Clientset
+		virtClient                  *kubecli.MockKubevirtClient
+		vmExportClient              *kubevirtfake.Clientset
+		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
+		mockVMExportQueue           *testutils.MockWorkQueue
+		routeCache                  cache.Store
+		ingressCache                cache.Store
+		certDir                     string
+		certFilePath                string
+		keyFilePath                 string
+		stop                        chan struct{}
 	)
 
 	syncCaches := func(stop chan struct{}) {
@@ -138,6 +142,11 @@ var _ = Describe("Export controller", func() {
 		go vmiInformer.Run(stop)
 		go crdInformer.Run(stop)
 		go kvInformer.Run(stop)
+		go instancetypeInformer.Run(stop)
+		go clusterInstancetypeInformer.Run(stop)
+		go preferenceInformer.Run(stop)
+		go clusterPreferenceInformer.Run(stop)
+		go controllerRevisionInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(
 			stop,
 			vmExportInformer.HasSynced,
@@ -153,6 +162,11 @@ var _ = Describe("Export controller", func() {
 			vmiInformer.HasSynced,
 			crdInformer.HasSynced,
 			kvInformer.HasSynced,
+			instancetypeInformer.HasSynced,
+			clusterInstancetypeInformer.HasSynced,
+			preferenceInformer.HasSynced,
+			clusterPreferenceInformer.HasSynced,
+			controllerRevisionInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -183,6 +197,11 @@ var _ = Describe("Export controller", func() {
 		secretInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		kvInformer, _ = testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
 		crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+		instancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
+		clusterInstancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
@@ -197,28 +216,33 @@ var _ = Describe("Export controller", func() {
 			Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
-			Client:                    virtClient,
-			Recorder:                  recorder,
-			PVCInformer:               pvcInformer,
-			PodInformer:               podInformer,
-			ConfigMapInformer:         cmInformer,
-			VMExportInformer:          vmExportInformer,
-			ServiceInformer:           serviceInformer,
-			DataVolumeInformer:        dvInformer,
-			KubevirtNamespace:         "kubevirt",
-			TemplateService:           services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
-			caCertManager:             bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
-			RouteCache:                routeCache,
-			IngressCache:              ingressCache,
-			RouteConfigMapInformer:    cmInformer,
-			SecretInformer:            secretInformer,
-			VMSnapshotInformer:        vmSnapshotInformer,
-			VMSnapshotContentInformer: vmSnapshotContentInformer,
-			VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
-			VMInformer:                vmInformer,
-			VMIInformer:               vmiInformer,
-			CRDInformer:               crdInformer,
-			KubeVirtInformer:          kvInformer,
+			Client:                      virtClient,
+			Recorder:                    recorder,
+			PVCInformer:                 pvcInformer,
+			PodInformer:                 podInformer,
+			ConfigMapInformer:           cmInformer,
+			VMExportInformer:            vmExportInformer,
+			ServiceInformer:             serviceInformer,
+			DataVolumeInformer:          dvInformer,
+			KubevirtNamespace:           "kubevirt",
+			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
+			RouteCache:                  routeCache,
+			IngressCache:                ingressCache,
+			RouteConfigMapInformer:      cmInformer,
+			SecretInformer:              secretInformer,
+			VMSnapshotInformer:          vmSnapshotInformer,
+			VMSnapshotContentInformer:   vmSnapshotContentInformer,
+			VolumeSnapshotProvider:      fakeVolumeSnapshotProvider,
+			VMInformer:                  vmInformer,
+			VMIInformer:                 vmiInformer,
+			CRDInformer:                 crdInformer,
+			KubeVirtInformer:            kvInformer,
+			InstancetypeInformer:        instancetypeInformer,
+			ClusterInstancetypeInformer: clusterInstancetypeInformer,
+			PreferenceInformer:          preferenceInformer,
+			ClusterPreferenceInformer:   clusterPreferenceInformer,
+			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			go controller.caCertManager.Start()
@@ -1164,7 +1188,7 @@ var _ = Describe("Export controller", func() {
 		vm := createVM()
 		testInstanceType := &instancetypev1alpha2.VirtualMachineInstancetype{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       "VirtualMachineInstancetype",
+				Kind:       apiinstancetype.SingularResourceName,
 				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -1177,10 +1201,7 @@ var _ = Describe("Export controller", func() {
 				},
 			},
 		}
-		fakeInstancetypeClient := fakeclientset.NewSimpleClientset().InstancetypeV1alpha2().VirtualMachineInstancetypes(vm.Namespace)
-		virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
-		_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), testInstanceType, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(instancetypeInformer.GetStore().Add(testInstanceType)).To(Succeed())
 
 		res, err := controller.expandVirtualMachine(vm)
 		Expect(err).ToNot(HaveOccurred())
@@ -1197,7 +1218,7 @@ var _ = Describe("Export controller", func() {
 		}
 		testInstanceType := &instancetypev1alpha2.VirtualMachineInstancetype{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       "VirtualMachineInstancetype",
+				Kind:       apiinstancetype.SingularResourceName,
 				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -1210,12 +1231,9 @@ var _ = Describe("Export controller", func() {
 				},
 			},
 		}
-		fakeInstancetypeClient := fakeclientset.NewSimpleClientset().InstancetypeV1alpha2().VirtualMachineInstancetypes(vm.Namespace)
-		virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
-		_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), testInstanceType, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Expect(instancetypeInformer.GetStore().Add(testInstanceType)).To(Succeed())
 
-		_, err = controller.expandVirtualMachine(vm)
+		_, err := controller.expandVirtualMachine(vm)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("cannot expand instancetype to VM, due to 1 conflicts"))
 	})

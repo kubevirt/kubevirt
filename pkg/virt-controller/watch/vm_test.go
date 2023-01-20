@@ -2780,6 +2780,12 @@ var _ = Describe("VirtualMachine", func() {
 				fakeClusterInstancetypeClient v1alpha2.VirtualMachineClusterInstancetypeInterface
 				fakePreferenceClient          v1alpha2.VirtualMachinePreferenceInterface
 				fakeClusterPreferenceClient   v1alpha2.VirtualMachineClusterPreferenceInterface
+
+				instancetypeInformerStore        cache.Store
+				clusterInstancetypeInformerStore cache.Store
+				preferenceInformerStore          cache.Store
+				clusterPreferenceInformerStore   cache.Store
+				controllerrevisionInformerStore  cache.Store
 			)
 
 			BeforeEach(func() {
@@ -2805,7 +2811,29 @@ var _ = Describe("VirtualMachine", func() {
 				k8sClient = k8sfake.NewSimpleClientset()
 				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-				controller.instancetypeMethods = instancetype.NewMethods(virtClient)
+				instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
+				instancetypeInformerStore = instancetypeInformer.GetStore()
+
+				clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
+				clusterInstancetypeInformerStore = clusterInstancetypeInformer.GetStore()
+
+				preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
+				preferenceInformerStore = preferenceInformer.GetStore()
+
+				clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+				clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
+
+				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
+
+				controller.instancetypeMethods = instancetype.NewMethods(
+					instancetypeInformerStore,
+					clusterInstancetypeInformerStore,
+					preferenceInformerStore,
+					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
+					virtClient,
+				)
 			})
 
 			Context("instancetype", func() {
@@ -2835,6 +2863,9 @@ var _ = Describe("VirtualMachine", func() {
 					_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), instancetypeObj, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
+					err = instancetypeInformerStore.Add(instancetypeObj)
+					Expect(err).NotTo(HaveOccurred())
+
 					clusterInstancetypeObj = &instancetypev1alpha2.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "clusterInstancetype",
@@ -2844,6 +2875,9 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: instancetypeSpec,
 					}
 					_, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					err = clusterInstancetypeInformerStore.Add(clusterInstancetypeObj)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -3228,6 +3262,9 @@ var _ = Describe("VirtualMachine", func() {
 					_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
+					err = preferenceInformerStore.Add(preference)
+					Expect(err).NotTo(HaveOccurred())
+
 					clusterPreference = &instancetypev1alpha2.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "clusterPreference",
@@ -3237,6 +3274,9 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: preferenceSpec,
 					}
 					_, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					err = clusterPreferenceInformerStore.Add(clusterPreference)
 					Expect(err).NotTo(HaveOccurred())
 				})
 

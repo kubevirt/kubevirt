@@ -208,6 +208,11 @@ type VirtControllerApp struct {
 	vmCloneInformer   cache.SharedIndexInformer
 	vmCloneController *clone.VMCloneController
 
+	instancetypeInformer        cache.SharedIndexInformer
+	clusterInstancetypeInformer cache.SharedIndexInformer
+	preferenceInformer          cache.SharedIndexInformer
+	clusterPreferenceInformer   cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
@@ -409,6 +414,11 @@ func Execute() {
 	app.migrationPolicyInformer = app.informerFactory.MigrationPolicy()
 
 	app.vmCloneInformer = app.informerFactory.VirtualMachineClone()
+
+	app.instancetypeInformer = app.informerFactory.VirtualMachineInstancetype()
+	app.clusterInstancetypeInformer = app.informerFactory.VirtualMachineClusterInstancetype()
+	app.preferenceInformer = app.informerFactory.VirtualMachinePreference()
+	app.clusterPreferenceInformer = app.informerFactory.VirtualMachineClusterPreference()
 
 	app.onOpenshift = onOpenShift
 
@@ -641,13 +651,22 @@ func (vca *VirtControllerApp) initPool() {
 func (vca *VirtControllerApp) initVirtualMachines() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
+	instancetypeMethods := instancetype.NewMethods(
+		vca.instancetypeInformer.GetStore(),
+		vca.clusterInstancetypeInformer.GetStore(),
+		vca.preferenceInformer.GetStore(),
+		vca.clusterPreferenceInformer.GetStore(),
+		vca.controllerRevisionInformer.GetStore(),
+		vca.clientSet,
+	)
+
 	vca.vmController = NewVMController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		instancetype.NewMethods(vca.clientSet),
+		instancetypeMethods,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)
@@ -735,27 +754,32 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
-		TemplateService:           vca.templateService,
-		Client:                    vca.clientSet,
-		VMExportInformer:          vca.vmExportInformer,
-		PVCInformer:               vca.persistentVolumeClaimInformer,
-		PodInformer:               vca.allPodInformer,
-		DataVolumeInformer:        vca.dataVolumeInformer,
-		ServiceInformer:           vca.exportServiceInformer,
-		Recorder:                  recorder,
-		ConfigMapInformer:         vca.caExportConfigMapInformer,
-		IngressCache:              vca.ingressCache,
-		RouteCache:                vca.routeCache,
-		KubevirtNamespace:         vca.kubevirtNamespace,
-		RouteConfigMapInformer:    vca.exportRouteConfigMapInformer,
-		SecretInformer:            vca.unmanagedSecretInformer,
-		VolumeSnapshotProvider:    vca.snapshotController,
-		VMSnapshotInformer:        vca.vmSnapshotInformer,
-		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
-		VMInformer:                vca.vmInformer,
-		VMIInformer:               vca.vmiInformer,
-		CRDInformer:               vca.crdInformer,
-		KubeVirtInformer:          vca.kubeVirtInformer,
+		TemplateService:             vca.templateService,
+		Client:                      vca.clientSet,
+		VMExportInformer:            vca.vmExportInformer,
+		PVCInformer:                 vca.persistentVolumeClaimInformer,
+		PodInformer:                 vca.allPodInformer,
+		DataVolumeInformer:          vca.dataVolumeInformer,
+		ServiceInformer:             vca.exportServiceInformer,
+		Recorder:                    recorder,
+		ConfigMapInformer:           vca.caExportConfigMapInformer,
+		IngressCache:                vca.ingressCache,
+		RouteCache:                  vca.routeCache,
+		KubevirtNamespace:           vca.kubevirtNamespace,
+		RouteConfigMapInformer:      vca.exportRouteConfigMapInformer,
+		SecretInformer:              vca.unmanagedSecretInformer,
+		VolumeSnapshotProvider:      vca.snapshotController,
+		VMSnapshotInformer:          vca.vmSnapshotInformer,
+		VMSnapshotContentInformer:   vca.vmSnapshotContentInformer,
+		VMInformer:                  vca.vmInformer,
+		VMIInformer:                 vca.vmiInformer,
+		CRDInformer:                 vca.crdInformer,
+		KubeVirtInformer:            vca.kubeVirtInformer,
+		InstancetypeInformer:        vca.instancetypeInformer,
+		ClusterInstancetypeInformer: vca.clusterInstancetypeInformer,
+		PreferenceInformer:          vca.preferenceInformer,
+		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
+		ControllerRevisionInformer:  vca.controllerRevisionInformer,
 	}
 	vca.exportController.Init()
 }
