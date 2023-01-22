@@ -44,9 +44,8 @@ import (
 )
 
 type VMIsMutator struct {
-	ClusterConfig           *virtconfig.ClusterConfig
-	VMIPresetInformer       cache.SharedIndexInformer
-	NamespaceLimitsInformer cache.SharedIndexInformer
+	ClusterConfig     *virtconfig.ClusterConfig
+	VMIPresetInformer cache.SharedIndexInformer
 }
 
 const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
@@ -80,11 +79,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 				},
 			}
 		}
-
-		namespace := ar.Request.Namespace
-
-		// Apply namespace limits
-		applyNamespaceLimitRangeValues(newVMI, mutator.NamespaceLimitsInformer, namespace)
 
 		// Set VMI defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
