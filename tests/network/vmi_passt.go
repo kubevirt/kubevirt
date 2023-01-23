@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	expect "github.com/google/goexpect"
@@ -45,12 +47,12 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[Serial] Passt", Serial, func() {
+var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.PasstGate)
+		Expect(checks.HasFeature(virtconfig.PasstGate)).To(BeTrue())
 	})
 
 	BeforeEach(func() {

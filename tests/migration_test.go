@@ -921,7 +921,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 			})
 
-			It("[test_id:6842]should migrate with TSC frequency set", func() {
+			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
@@ -4341,7 +4341,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 90*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("tsc frequency topology hints are expected to exist for vmi %s", vmi.Name))
 			}
 
-			It("invtsc feature exists", func() {
+			It("invtsc feature exists", decorators.Invtsc, func() {
 				vmi := libvmi.New(
 					libvmi.WithResourceMemory("1Mi"),
 					libvmi.WithCPUFeature("invtsc", "require"),
@@ -4351,7 +4351,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				expectTopologyHintsToBeSet(vmi)
 			})
 
-			It("HyperV reenlightenment is enabled", func() {
+			It("HyperV reenlightenment is enabled", decorators.Reenlightenment, func() {
 				vmi := libvmi.New()
 				vmi.Spec = getWindowsVMISpec()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}

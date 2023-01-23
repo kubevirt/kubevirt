@@ -24,4 +24,7 @@ var (
 	NonRoot              = []interface{}{Label("verify-non-root")}
 	NativeSsh            = []interface{}{Label("native-ssh")}
 	ExcludeNativeSsh     = []interface{}{Label("exclude-native-ssh")}
+	Reenlightenment      = []interface{}{Label("Reenlightenment")}
+	Invtsc               = []interface{}{Label("Invtsc")}
+	PasstGate            = []interface{}{Label("PasstGate")}
 )

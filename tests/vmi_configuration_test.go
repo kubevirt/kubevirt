@@ -1226,7 +1226,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Entry("[Serial][test_id:1671]hugepages-2Mi", Serial, "2Mi", "64Mi", "None", nil, nil),
 				Entry("[Serial][test_id:1672]hugepages-1Gi", Serial, "1Gi", "1Gi", "None", nil, nil),
 				Entry("[Serial][test_id:1672]hugepages-2Mi with guest memory set explicitly", Serial, "2Mi", "70Mi", "64Mi", nil, nil),
-				Entry("[Serial]hugepages-2Mi with passt enabled", Serial, "2Mi", "64Mi", "None",
+				Entry("[Serial]hugepages-2Mi with passt enabled", decorators.PasstGate, Serial, "2Mi", "64Mi", "None",
 					libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
 			)
 
@@ -1582,11 +1582,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				return false
 			}
-			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", func() {
+			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", decorators.Invtsc, func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				if !featureSupportedInAtLeastOneNode(nodes, "invtsc") {
-					Skip("To run this test at least one node should support invtsc feature")
-				}
+				Expect(featureSupportedInAtLeastOneNode(nodes, "invtsc")).To(BeTrue(), "To run this test at least one node should support invtsc feature")
 				vmi := libvmi.NewCirros()
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
