@@ -117,6 +117,11 @@ function copy_istio_cni_conf_files() {
 
 function deploy_cdi() {
     if [ "$KUBEVIRT_DEPLOY_CDI" == "true" ]; then
+
+        if [ "${KUBEVIRT_DEPLOY_CDI_LATEST}" == "true" ]; then
+            $ssh node01 -- 'sudo sed --regexp-extended -i s/v[0-9]+\.[0-9]+\.[0-9]+/latest/g /opt/cdi-*-operator.yaml'            
+        fi
+
         $kubectl create -f /opt/cdi-*-operator.yaml
         $kubectl create -f /opt/cdi-*-cr.yaml
     fi
