@@ -415,6 +415,10 @@ func (v *VirtualMachineInstance) IsCPUDedicated() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
 }
 
+func (v *VirtualMachineInstance) IsIsolated() bool {
+	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.IsolateEmulatorThread
+}
+
 func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
 	return v.Spec.Domain.Firmware != nil && v.Spec.Domain.Firmware.Bootloader != nil &&
 		v.Spec.Domain.Firmware.Bootloader.EFI != nil

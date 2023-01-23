@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
@@ -127,6 +129,8 @@ const (
 )
 
 const customSELinuxType = "virt_launcher.process"
+
+const DedicatedCpusContainerName = "dedicated-cpus"
 
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, migrationConfiguration *v1.MigrationConfiguration) (*k8sv1.Pod, error)
@@ -473,6 +477,28 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 				WithVolumeMounts(sidecarHookVolumeMount()),
 				WithArgs(requestedHookSidecar.Args),
 			).Render(requestedHookSidecar.Command))
+	}
+
+	if vmi.IsCPUDedicated() {
+		resourceOptions := []ResourceRendererOption{
+			WithEphemeralStorageRequest(),
+			WithMemoryOverhead(vmi.Spec.Domain.Resources, getVcpusOverhead(vmi)),
+			WithCPUPinning(vmi.Spec.Domain.CPU),
+		}
+
+		if cgroups.IsCgroup2UnifiedMode() && !vmi.IsIsolated() {
+			resourceOptions = append(resourceOptions, WithExtraCpus(1))
+		}
+
+		vmiResources := vmi.Spec.Domain.Resources
+		containers = append(containers,
+			k8sv1.Container{
+				Name:            DedicatedCpusContainerName,
+				Image:           t.dedicatedCpuImage,
+				ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
+				Resources:       NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, resourceOptions...).ResourceRequirements(),
+			},
+		)
 	}
 
 	podAnnotations, err := generatePodAnnotations(vmi)
@@ -1312,11 +1338,11 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 
 func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
+	alwaysTrue := func(_ *v1.VirtualMachineInstance) bool { return true }
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
-			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
+			NewVMIResourceRule(alwaysTrue, WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
@@ -1325,6 +1351,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(util.IsGPUVMI, WithGPUs(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithGuaranteedQos()),
 		},
 	}
 }

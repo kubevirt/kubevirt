@@ -24,6 +24,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -1494,6 +1497,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
 			})
 			It("should allocate 1 more cpu when isolateEmulatorThread requested", func() {
+				const coresRequestedByVmi = 2
+
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1507,7 +1512,7 @@ var _ = Describe("Template", func() {
 								DisableHotplug: true,
 							},
 							CPU: &v1.CPU{
-								Cores:                 2,
+								Cores:                 coresRequestedByVmi,
 								DedicatedCPUPlacement: true,
 								IsolateEmulatorThread: true,
 							},
@@ -1517,8 +1522,11 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				cpu := resource.MustParse("3")
-				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
+
+				dedicatedCpusContainer := getDedicatedCpuContainer(pod)
+
+				expectedCpu := resource.MustParse(fmt.Sprintf("%d", coresRequestedByVmi+1))
+				Expect(dedicatedCpusContainer.Resources.Limits.Cpu().Cmp(expectedCpu)).To(BeZero())
 			})
 			It("should add node affinity to pod", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -3705,6 +3713,7 @@ var _ = Describe("Template", func() {
 					IsolateEmulatorThread: true,
 					Realtime:              &v1.Realtime{},
 				}
+				vmi.UID = "bb65b771-51b4-4b73-a35e-4d9ccac5fb5a"
 
 				pod, err := svc.RenderLaunchManifest(vmi)
 				arch := config.GetClusterCPUArch()
@@ -3713,6 +3722,54 @@ var _ = Describe("Template", func() {
 				expectedMemory.Add(*GetMemoryOverhead(vmi, arch))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
+			})
+		})
+
+		Context("with dedicated CPUs", func() {
+
+			BeforeEach(func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+			})
+
+			getVmiWithDedicatedCpus := func() *v1.VirtualMachineInstance {
+				vmi := newMinimalWithContainerDisk("testvmi")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 2,
+					DedicatedCPUPlacement: true,
+				}
+				vmi.UID = "bb65b771-51b4-4b73-a35e-4d9ccac5fb5a"
+
+				return vmi
+			}
+
+			It("should render a dedicated cpu container", func() {
+				vmi := getVmiWithDedicatedCpus()
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				dedicatedCpusContainer := getDedicatedCpuContainer(pod)
+
+				By("Ensuring dedicated-cpu container is of QoS guaranteed")
+				// for more info on what defines guaranteed QoS: https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/
+				cpuRequest, exists := dedicatedCpusContainer.Resources.Requests[kubev1.ResourceCPU]
+				if exists {
+					Expect(dedicatedCpusContainer.Resources.Limits).To(Or(Not(HaveKey(kubev1.ResourceCPU)), HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest)))
+				}
+
+				memoryRequest, exists := dedicatedCpusContainer.Resources.Requests[kubev1.ResourceMemory]
+				if exists {
+					Expect(dedicatedCpusContainer.Resources.Limits).To(Or(Not(HaveKey(kubev1.ResourceMemory)), HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest)))
+				}
+
+				By("Ensuring right number of CPUs is allocated")
+				expectedCpuAmount, err := strconv.Atoi(dedicatedCpusContainer.Resources.Limits.Cpu().String())
+				Expect(err).ToNot(HaveOccurred(), "cpu amount is not an integer")
+				if cgroups.IsCgroup2UnifiedMode() {
+					// Another CPU is allocated for v2
+					expectedCpuAmount--
+				}
+				Expect(expectedCpuAmount).To(Equal(int(hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU))))
 			})
 		})
 
@@ -3985,4 +4042,18 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	Expect(failMsg).To(Equal(""))
 
 	return timeoutString
+}
+
+func getDedicatedCpuContainer(pod *kubev1.Pod) *kubev1.Container {
+	var dedicatedCpusContainer *kubev1.Container
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name == DedicatedCpusContainerName {
+			dedicatedCpusContainer = &container
+			break
+		}
+	}
+	Expect(dedicatedCpusContainer).ToNot(BeNil())
+
+	return dedicatedCpusContainer
 }

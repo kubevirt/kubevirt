@@ -123,6 +123,26 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOp
 	}
 }
 
+func WithGuaranteedQos() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		if renderer.calculatedRequests[k8sv1.ResourceMemory] != renderer.calculatedLimits[k8sv1.ResourceMemory] {
+			renderer.calculatedLimits[k8sv1.ResourceMemory] = renderer.calculatedRequests[k8sv1.ResourceMemory]
+		}
+
+		if renderer.calculatedRequests[k8sv1.ResourceCPU] != renderer.calculatedLimits[k8sv1.ResourceCPU] {
+			renderer.calculatedLimits[k8sv1.ResourceCPU] = renderer.calculatedRequests[k8sv1.ResourceCPU]
+		}
+
+		if renderer.vmRequests[k8sv1.ResourceMemory] != renderer.vmLimits[k8sv1.ResourceMemory] {
+			renderer.vmLimits[k8sv1.ResourceMemory] = renderer.vmRequests[k8sv1.ResourceMemory]
+		}
+
+		if renderer.vmRequests[k8sv1.ResourceCPU] != renderer.vmLimits[k8sv1.ResourceCPU] {
+			renderer.vmLimits[k8sv1.ResourceCPU] = renderer.vmRequests[k8sv1.ResourceCPU]
+		}
+	}
+}
+
 func WithHugePages(vmMemory *v1.Memory, memoryOverhead *resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
@@ -196,14 +216,27 @@ func WithCPUPinning(cpu *v1.CPU) ResourceRendererOption {
 
 		// allocate 1 more pcpu if IsolateEmulatorThread request
 		if cpu.IsolateEmulatorThread {
-			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
-			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
-			limits.Add(*emulatorThreadCPU)
-			renderer.calculatedLimits[k8sv1.ResourceCPU] = limits
-			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCPU)
-				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
-			}
+			extraCpuOption := WithExtraCpus(1)
+			extraCpuOption(renderer)
+		}
+
+		renderer.vmLimits[k8sv1.ResourceMemory] = *renderer.vmRequests.Memory()
+	}
+}
+
+func WithExtraCpus(extraCpus int) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		if extraCpus <= 0 {
+			return
+		}
+
+		extraCpusQuantity := resource.NewQuantity(int64(extraCpus), resource.BinarySI)
+		limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
+		limits.Add(*extraCpusQuantity)
+		renderer.calculatedLimits[k8sv1.ResourceCPU] = limits
+		if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+			cpuRequest.Add(*extraCpusQuantity)
+			renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
 		}
 
 		renderer.vmLimits[k8sv1.ResourceMemory] = *renderer.vmRequests.Memory()
@@ -270,6 +303,13 @@ func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 //
 //	and is still not 100% accurate
 func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
+	overhead := getComputeOverhead(vmi, cpuArch)
+	overhead.Add(*getVcpusOverhead(vmi))
+
+	return overhead
+}
+
+func getComputeOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
@@ -288,32 +328,6 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	overhead.Add(resource.MustParse(VirtlogdOverhead))
 	overhead.Add(resource.MustParse(VirtqemudOverhead))
 	overhead.Add(resource.MustParse(QemuOverhead))
-
-	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
-	// overhead per vcpu in MiB
-	coresMemory := resource.MustParse("8Mi")
-	var vcpus int64
-	if domain.CPU != nil {
-		vcpus = hardware.GetNumberOfVCPUs(domain.CPU)
-	} else {
-		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
-		// However, this wasn't always the case.
-		// In case when the guest topology isn't set, take value from resources request or limits.
-		resources := vmi.Spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuLimit.Value()
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuRequests.Value()
-		}
-	}
-
-	// if neither CPU topology nor request or limits provided, set vcpus to 1
-	if vcpus < 1 {
-		vcpus = 1
-	}
-	value := coresMemory.Value() * vcpus
-	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
-	overhead.Add(coresMemory)
 
 	// static overhead for IOThread
 	overhead.Add(resource.MustParse("8Mi"))
@@ -366,6 +380,37 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	}
 
 	return overhead
+}
+
+func getVcpusOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	domain := vmi.Spec.Domain
+
+	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
+	// overhead per vcpu in MiB
+	coresMemory := resource.MustParse("8Mi")
+	var vcpus int64
+	if domain.CPU != nil {
+		vcpus = hardware.GetNumberOfVCPUs(domain.CPU)
+	} else {
+		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
+		// However, this wasn't always the case.
+		// In case when the guest topology isn't set, take value from resources request or limits.
+		resources := vmi.Spec.Domain.Resources
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuLimit.Value()
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuRequests.Value()
+		}
+	}
+
+	// if neither CPU topology nor request or limits provided, set vcpus to 1
+	if vcpus < 1 {
+		vcpus = 1
+	}
+	value := coresMemory.Value() * vcpus
+	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
+
+	return &coresMemory
 }
 
 // Request a resource by name. This function bumps the number of resources,
