@@ -46,6 +46,6 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func flagErr(flagName, format string, a ...any) error {
+func flagErr(flagName, format string, a ...interface{}) error {
 	return fmt.Errorf("failed to parse \"--%s\" flag: %w", flagName, fmt.Errorf(format, a...))
 }
