@@ -46,8 +46,8 @@ func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift 
 	}
 
 	whHandler := validator.NewWebhookHandler(logger, mgr.GetClient(), operatorNsEnv, isOpenshift, hcoTlsSecurityProfile)
-
 	nsMutator := mutator.NewNsMutator(mgr.GetClient(), operatorNsEnv)
+	virtLauncherMutator := mutator.NewVirtLauncherMutator(mgr.GetClient(), operatorNsEnv)
 
 	// Make sure the certificates are mounted, this should be handled by the OLM
 	webhookCertDir := GetWebhookCertDir()
@@ -72,6 +72,7 @@ func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift 
 	srv.TLSOpts = []func(*tls.Config){whHandler.MutateTLSConfig}
 
 	srv.Register(hcoutil.HCONSWebhookPath, &webhook.Admission{Handler: nsMutator})
+	srv.Register(hcoutil.HCOVirtLauncherWebhookPath, &webhook.Admission{Handler: virtLauncherMutator})
 	srv.Register(hcoutil.HCOWebhookPath, &webhook.Admission{Handler: whHandler})
 
 	return nil

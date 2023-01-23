@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	ResourceInvalidNamespace = "an-arbitrary-namespace"
+	ResourceInvalidNamespace = "an-arbitrary-hcoNamespace"
 	HcoValidNamespace        = "kubevirt-hyperconverged"
 )
 
@@ -59,7 +59,7 @@ var _ = Describe("webhooks mutator", func() {
 	codecFactory := serializer.NewCodecFactory(s)
 	corev1Codec := codecFactory.LegacyCodec(corev1.SchemeGroupVersion)
 
-	Context("Check mutating webhook for namespace deletion", func() {
+	Context("Check mutating webhook for hcoNamespace deletion", func() {
 		BeforeEach(func() {
 			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(Succeed())
 		})
@@ -79,7 +79,7 @@ var _ = Describe("webhooks mutator", func() {
 			},
 		}
 
-		It("should allow the delete of the namespace if Hyperconverged CR doesn't exist", func() {
+		It("should allow the delete of the hcoNamespace if Hyperconverged CR doesn't exist", func() {
 			cli := commonTestUtils.InitClient(nil)
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Delete, ns, corev1Codec)}
@@ -88,7 +88,7 @@ var _ = Describe("webhooks mutator", func() {
 			Expect(res.Allowed).To(BeTrue())
 		})
 
-		It("should not allow the delete of the namespace if Hyperconverged CR exists", func() {
+		It("should not allow the delete of the hcoNamespace if Hyperconverged CR exists", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Delete, ns, corev1Codec)}
@@ -106,7 +106,7 @@ var _ = Describe("webhooks mutator", func() {
 			Expect(res.Allowed).To(BeFalse())
 		})
 
-		It("should not allow the delete of the namespace if failed to get Hyperconverged CR", func() {
+		It("should not allow the delete of the hcoNamespace if failed to get Hyperconverged CR", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{cr})
 
 			cli.InitiateGetErrors(func(key client.ObjectKey) error {

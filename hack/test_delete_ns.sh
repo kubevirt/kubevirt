@@ -38,7 +38,7 @@ function test_delete_ns(){
           DELETE_ERROR_TEXT="$(${CMD} delete namespace kubevirt-hyperconverged 2>&1 || true)"
         fi
 
-        echo "${DELETE_ERROR_TEXT}" | grep "denied the request: HyperConverged CR is still present, please remove it before deleting the containing namespace"
+        echo "${DELETE_ERROR_TEXT}" | grep "denied the request: HyperConverged CR is still present, please remove it before deleting the containing hcoNamespace"
 
         echo "kubevirt-hyperconverged namespace should be still there"
         ${CMD} get namespace kubevirt-hyperconverged -o yaml

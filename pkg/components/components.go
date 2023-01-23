@@ -472,7 +472,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("", stringListToSlice("services")),
 		{
 			APIGroups: emptyAPIGroup,
-			Resources: stringListToSlice("pods"),
+			Resources: stringListToSlice("pods", "resourcequotas"),
 			Verbs:     stringListToSlice("get", "list", "watch"),
 		},
 		{
@@ -784,7 +784,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 	mutatingWebhookSideEffects := admissionregistrationv1.SideEffectClassNoneOnDryRun
 	mutatingWebhookPath := util.HCONSWebhookPath
 
-	mutatingWebhook := csvv1alpha1.WebhookDescription{
+	mutatingNamespaceWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoMutatingWebhookNS,
 		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
 		DeploymentName:          hcoWhDeploymentName,
@@ -809,6 +809,33 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			},
 		},
 		WebhookPath: &mutatingWebhookPath,
+	}
+
+	mutatingVirtLauncherWebhook := csvv1alpha1.WebhookDescription{
+		GenerateName:            util.HcoMutatingWebhookVirtLauncher,
+		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
+		DeploymentName:          hcoWhDeploymentName,
+		ContainerPort:           util.WebhookPort,
+		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
+		SideEffects:             &mutatingWebhookSideEffects,
+		FailurePolicy:           &failurePolicy,
+		TimeoutSeconds:          &webhookTimeout,
+		ObjectSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"kubevirt.io": "virt-launcher"},
+		},
+		Rules: []admissionregistrationv1.RuleWithOperations{
+			{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+				},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: stringListToSlice("v1"),
+					Resources:   stringListToSlice("pods"),
+				},
+			},
+		},
+		WebhookPath: pointer.String(util.HCOVirtLauncherWebhookPath),
 	}
 
 	return &csvv1alpha1.ClusterServiceVersion{
@@ -900,7 +927,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
 			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
-			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, mutatingWebhook},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, mutatingNamespaceWebhook, mutatingVirtLauncherWebhook},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{
