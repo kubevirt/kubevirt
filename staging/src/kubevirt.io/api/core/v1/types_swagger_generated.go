@@ -693,6 +693,23 @@ func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (CustomProfile) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (VirtualMachineInstanceProfile) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"customProfile": "CustomProfile allows to request arbitrary profile for virt-launcher",
+	}
+}
+
+func (SeccompConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                              "SeccompConfiguration holds Seccomp configuration for Kubevirt components",
+		"virtualMachineInstanceProfile": "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none",
+	}
+}
+
 func (TLSConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "TLSConfiguration holds TLS options",

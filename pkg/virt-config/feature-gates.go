@@ -57,6 +57,9 @@ const (
 	PSASeccompAllowsUserfaultfd = "PSASeccompAllowsUserfaultfd"
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
+	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
+	// user can tell Kubevirt to use it
+	KubevirtSeccompProfile = "KubevirtSeccompProfile"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -194,4 +197,8 @@ func (config *ClusterConfig) PSASeccompAllowsUserfaultfd() bool {
 
 func (config *ClusterConfig) CustomSELinuxPolicyDisabled() bool {
 	return config.isFeatureGateEnabled(DisableCustomSELinuxPolicy)
+}
+
+func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
+	return config.isFeatureGateEnabled(KubevirtSeccompProfile)
 }

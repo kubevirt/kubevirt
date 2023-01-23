@@ -17,7 +17,7 @@ go_library(
     importpath = "golang.org/x/crypto/chacha20",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/golang.org/x/crypto/internal/subtle:go_default_library",
+        "//vendor/golang.org/x/crypto/internal/alias:go_default_library",
     ] + select({
         "@io_bazel_rules_go//go/platform:s390x": [
             "//vendor/golang.org/x/sys/cpu:go_default_library",

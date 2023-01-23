@@ -326,6 +326,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ConfigMapVolumeSource":                                              schema_kubevirtio_api_core_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ContainerDiskSource":                                                schema_kubevirtio_api_core_v1_ContainerDiskSource(ref),
 		"kubevirt.io/api/core/v1.CustomBlockSize":                                                    schema_kubevirtio_api_core_v1_CustomBlockSize(ref),
+		"kubevirt.io/api/core/v1.CustomProfile":                                                      schema_kubevirtio_api_core_v1_CustomProfile(ref),
 		"kubevirt.io/api/core/v1.CustomizeComponents":                                                schema_kubevirtio_api_core_v1_CustomizeComponents(ref),
 		"kubevirt.io/api/core/v1.CustomizeComponentsPatch":                                           schema_kubevirtio_api_core_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/api/core/v1.DHCPOptions":                                                        schema_kubevirtio_api_core_v1_DHCPOptions(ref),
@@ -439,6 +440,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialPropagationMethod":                      schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
 		"kubevirt.io/api/core/v1.SSHPublicKeyAccessCredentialSource":                                 schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref),
 		"kubevirt.io/api/core/v1.ScreenshotOptions":                                                  schema_kubevirtio_api_core_v1_ScreenshotOptions(ref),
+		"kubevirt.io/api/core/v1.SeccompConfiguration":                                               schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		"kubevirt.io/api/core/v1.SecretVolumeSource":                                                 schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ServiceAccountVolumeSource":                                         schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/api/core/v1.SoundDevice":                                                        schema_kubevirtio_api_core_v1_SoundDevice(ref),
@@ -483,6 +485,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstancePreset":                                       schema_kubevirtio_api_core_v1_VirtualMachineInstancePreset(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstancePresetList":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstancePresetSpec":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetSpec(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceProfile":                                      schema_kubevirtio_api_core_v1_VirtualMachineInstanceProfile(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSet":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSet(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSetCondition":                          schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSetList":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetList(ref),
@@ -15300,6 +15303,30 @@ func schema_kubevirtio_api_core_v1_CustomBlockSize(ref common.ReferenceCallback)
 	}
 }
 
+func schema_kubevirtio_api_core_v1_CustomProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"localhostProfile": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"runtimeDefaultProfile": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_CustomizeComponents(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17735,11 +17762,16 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref: ref("kubevirt.io/api/core/v1.TLSConfiguration"),
 						},
 					},
+					"seccompConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.SeccompConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.TLSConfiguration"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.TLSConfiguration"},
 	}
 }
 
@@ -19751,6 +19783,27 @@ func schema_kubevirtio_api_core_v1_ScreenshotOptions(ref common.ReferenceCallbac
 	}
 }
 
+func schema_kubevirtio_api_core_v1_SeccompConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SeccompConfiguration holds Seccomp configuration for Kubevirt components",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineInstanceProfile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceProfile"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.VirtualMachineInstanceProfile"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_SecretVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21558,6 +21611,26 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetSpec(ref common.R
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.DomainSpec"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"customProfile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CustomProfile allows to request arbitrary profile for virt-launcher",
+							Ref:         ref("kubevirt.io/api/core/v1.CustomProfile"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.CustomProfile"},
 	}
 }
 

@@ -6,7 +6,6 @@ go_library(
         "name.go",
         "pointer_unsafe.go",
         "sort.go",
-        "zero.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/google/go-cmp/cmp/internal/value",
     importpath = "github.com/google/go-cmp/cmp/internal/value",

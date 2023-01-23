@@ -265,6 +265,12 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 	// PostCopy needs the userfaultfd syscall which can be restricted in the RuntimeDefault seccomp profile
 	if migrationConfiguration.AllowPostCopy != nil && *migrationConfiguration.AllowPostCopy &&
 		!t.clusterConfig.PSASeccompAllowsUserfaultfd() {
+		if podManifest.Spec.SecurityContext == nil {
+			podManifest.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+		}
+		if podManifest.Spec.SecurityContext.SeccompProfile == nil {
+			podManifest.Spec.SecurityContext.SeccompProfile = &k8sv1.SeccompProfile{}
+		}
 		podManifest.Spec.SecurityContext.SeccompProfile.Type = k8sv1.SeccompProfileTypeUnconfined
 	}
 	return podManifest, err
@@ -288,7 +294,7 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	return fmt.Sprintf("%ds", timeout)
 }
 
-func computeSecurityContext(vmi *v1.VirtualMachineInstance) *k8sv1.PodSecurityContext {
+func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.SeccompProfile) *k8sv1.PodSecurityContext {
 	psc := &k8sv1.PodSecurityContext{}
 
 	if util.IsNonRootVMI(vmi) {
@@ -296,22 +302,12 @@ func computeSecurityContext(vmi *v1.VirtualMachineInstance) *k8sv1.PodSecurityCo
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
 		psc.RunAsNonRoot = pointer.Bool(true)
-		psc.SeccompProfile = &k8sv1.SeccompProfile{
-			Type: k8sv1.SeccompProfileTypeRuntimeDefault,
-		}
 	} else {
 		rootUser := int64(util.RootUser)
 		psc.RunAsUser = &rootUser
-		psc.SeccompProfile = &k8sv1.SeccompProfile{
-			Type: k8sv1.SeccompProfileTypeUnconfined,
-		}
 	}
+	psc.SeccompProfile = seccomp
 
-	if util.IsPasstVMI(vmi) || util.IsVMIVirtiofsEnabled(vmi) {
-		psc.SeccompProfile = &k8sv1.SeccompProfile{
-			Type: k8sv1.SeccompProfileTypeUnconfined,
-		}
-	}
 	return psc
 }
 
@@ -506,6 +502,24 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	hostName := dns.SanitizeHostname(vmi)
 	enableServiceLinks := false
+
+	var podSeccompProfile *k8sv1.SeccompProfile = nil
+	if seccompConf := t.clusterConfig.GetConfig().SeccompConfiguration; seccompConf != nil && seccompConf.VirtualMachineInstanceProfile != nil {
+		vmProfile := seccompConf.VirtualMachineInstanceProfile
+		if customProfile := vmProfile.CustomProfile; customProfile != nil {
+			if customProfile.LocalhostProfile != nil {
+				podSeccompProfile = &k8sv1.SeccompProfile{
+					Type:             k8sv1.SeccompProfileTypeLocalhost,
+					LocalhostProfile: customProfile.LocalhostProfile,
+				}
+			} else if customProfile.RuntimeDefaultProfile {
+				podSeccompProfile = &k8sv1.SeccompProfile{
+					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+				}
+			}
+		}
+
+	}
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -518,7 +532,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		Spec: k8sv1.PodSpec{
 			Hostname:                      hostName,
 			Subdomain:                     vmi.Spec.Subdomain,
-			SecurityContext:               computeSecurityContext(vmi),
+			SecurityContext:               computePodSecurityContext(vmi, podSeccompProfile),
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,

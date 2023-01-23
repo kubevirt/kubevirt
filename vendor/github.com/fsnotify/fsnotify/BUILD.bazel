@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "fen.go",
         "fsnotify.go",
+        "fsnotify_unsupported.go",
         "inotify.go",
         "inotify_poller.go",
         "kqueue.go",

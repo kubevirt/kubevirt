@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["seccomp.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/seccomp",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/containers/common/pkg/seccomp:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "seccomp_suite_test.go",
+        "seccomp_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

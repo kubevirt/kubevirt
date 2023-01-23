@@ -23,6 +23,8 @@ go_library(
         "cpu_mips64x.go",
         "cpu_mipsx.go",
         "cpu_netbsd_arm64.go",
+        "cpu_openbsd_arm64.go",
+        "cpu_openbsd_arm64.s",
         "cpu_other_arm.go",
         "cpu_other_arm64.go",
         "cpu_ppc64x.go",

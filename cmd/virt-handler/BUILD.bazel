@@ -31,6 +31,7 @@ go_library(
         "//pkg/virt-handler/node-labeller:go_default_library",
         "//pkg/virt-handler/node-labeller/api:go_default_library",
         "//pkg/virt-handler/rest:go_default_library",
+        "//pkg/virt-handler/seccomp:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-handler/vsock:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
