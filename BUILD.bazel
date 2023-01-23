@@ -219,6 +219,7 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)virt-handler:$(container_tag)": "//cmd/virt-handler:virt-handler-image",
         "$(container_prefix)/$(image_prefix)virt-launcher:$(container_tag)": "//cmd/virt-launcher:virt-launcher-image",
         "$(container_prefix)/$(image_prefix)virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
+        "$(container_prefix)/$(image_prefix)dedicated-cpu-container:$(container_tag)": "//cmd/dedicated-cpu-container:dedicated-cpu-container-image",
     },
 )
 
@@ -310,6 +311,15 @@ container_push(
     image = "//cmd/virt-exportproxy:virt-exportproxy-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)virt-exportproxy",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-dedicated-cpu-container",
+    format = "Docker",
+    image = "//cmd/dedicated-cpu-container:dedicated-cpu-container-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)dedicated-cpu-container",
     tag = "$(container_tag)",
 )
 

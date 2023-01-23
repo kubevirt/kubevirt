@@ -143,6 +143,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	exporterImage              string
+	dedicatedCpuImage          string
 	launcherQemuTimeout        int
 	virtShareDir               string
 	virtLibDir                 string
@@ -1116,7 +1117,8 @@ func NewTemplateService(launcherImage string,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
-	exporterImage string) TemplateService {
+	exporterImage string,
+	dedicatedCpuImage string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
@@ -1133,7 +1135,7 @@ func NewTemplateService(launcherImage string,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
-		exporterImage:              exporterImage,
+		dedicatedCpuImage:          dedicatedCpuImage,
 	}
 
 	return &svc

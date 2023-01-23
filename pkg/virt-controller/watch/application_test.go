@@ -117,7 +117,7 @@ var _ = Describe("Application", func() {
 		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
 		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", "i"),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -142,7 +142,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config)
-		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", "i"),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -186,7 +186,7 @@ var _ = Describe("Application", func() {
 		app.restoreController.Init()
 		app.exportController = &export.VMExportController{
 			Client:                    virtClient,
-			TemplateService:           services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			TemplateService:           services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", "i"),
 			VMExportInformer:          vmExportInformer,
 			PVCInformer:               pvcInformer,
 			PodInformer:               podInformer,

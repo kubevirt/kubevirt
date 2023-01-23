@@ -141,7 +141,7 @@ var _ = Describe("VMSnapshot source", func() {
 			ServiceInformer:           serviceInformer,
 			DataVolumeInformer:        dvInformer,
 			KubevirtNamespace:         "kubevirt",
-			TemplateService:           services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			TemplateService:           services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", "i"),
 			caCertManager:             bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 			RouteCache:                routeCache,
 			IngressCache:              ingressCache,

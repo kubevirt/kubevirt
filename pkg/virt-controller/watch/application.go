@@ -96,6 +96,7 @@ const (
 
 	launcherImage       = "virt-launcher"
 	exporterImage       = "virt-exportserver"
+	dedicatedCpuImage   = "dedicated-cpu-container"
 	launcherQemuTimeout = 240
 
 	imagePullSecret = ""
@@ -212,6 +213,7 @@ type VirtControllerApp struct {
 
 	launcherImage              string
 	exporterImage              string
+	dedicatedCpuImage          string
 	launcherQemuTimeout        int
 	imagePullSecret            string
 	virtShareDir               string
@@ -581,6 +583,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		vca.launcherSubGid,
 		vca.exporterImage,
+		vca.dedicatedCpuImage,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
@@ -802,6 +805,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.exporterImage, "exporter-image", exporterImage,
 		"Container for exporting VMs and VM images")
+
+	flag.StringVar(&vca.dedicatedCpuImage, "dedicated-cpu-container-image", dedicatedCpuImage,
+		"Container for dedicated CPUs")
 
 	flag.IntVar(&vca.launcherQemuTimeout, "launcher-qemu-timeout", launcherQemuTimeout,
 		"Amount of time to wait for qemu")

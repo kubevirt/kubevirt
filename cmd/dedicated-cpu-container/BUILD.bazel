@@ -1,0 +1,50 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["dedicated-cpu-container.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/dedicated-cpu-container",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/util:go_default_library",
+        "//pkg/util/net/grpc:go_default_library",
+        "//pkg/virt-handler/cmd-client:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "dedicated-cpu-container",
+    embed = [":go_default_library"],
+    static = "on",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
+    name = "dedicated-cpu-container-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/usr/bin/",
+    entrypoint = ["/usr/bin/dedicated-cpu-container"],
+    files = [":dedicated-cpu-container"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)

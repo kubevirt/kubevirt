@@ -120,6 +120,7 @@ var _ = Describe("Template", func() {
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
+				"dedicated-cpu-image",
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
