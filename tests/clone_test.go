@@ -442,7 +442,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					expectEqualAnnotations(targetVM, sourceVM)
 				})
 
-				It("[QUARANTINE] should strip firmware UUID", func() {
+				It("should strip firmware UUID", func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
 					sourceVM = createVM(

@@ -338,7 +338,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
-			It("[QUARANTINE] should accurately report DataVolume provisioning", func() {
+			It("should accurately report DataVolume provisioning", func() {
 				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 				if err != nil {
 					Skip("no snapshot storage class configured")
