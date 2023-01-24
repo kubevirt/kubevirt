@@ -865,9 +865,6 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 						Name:       volume.Name,
 						DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),
 					})
-					pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
-						RunAsUser: &[]int64{0}[0],
-					}
 				} else {
 					pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 						Name:      volume.Name,
