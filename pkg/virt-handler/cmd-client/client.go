@@ -227,11 +227,15 @@ func MarkSocketUnresponsive(socket string) error {
 }
 
 func SocketDirectoryOnHost(podUID string) string {
-	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+	return filepath.Join("/", podsBaseDir, string(podUID), "volumes/kubernetes.io~empty-dir/sockets")
 }
 
 func SocketFilePathOnHost(podUID string) string {
-	return fmt.Sprintf("%s/%s", SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName)
+	return filepath.Join(SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName)
+}
+
+func SocketFilePathOnHostWithName(podUID, socketName string) string {
+	return filepath.Join(SocketDirectoryOnHost(podUID), socketName)
 }
 
 // gets the cmd socket for a VMI
@@ -255,7 +259,11 @@ func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 
 // gets the cmd socket for a VMI
 func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
-	if string(vmi.UID) != "" {
+	return FindSocketOnHostWithSocketName(vmi, StandardLauncherSocketFileName, true)
+}
+
+func FindSocketOnHostWithSocketName(vmi *v1.VirtualMachineInstance, socketName string, searchLegacySocket bool) (string, error) {
+	if searchLegacySocket && string(vmi.UID) != "" {
 		legacySockFile := string(vmi.UID) + "_sock"
 		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)
 		exists, _ := diskutils.FileExists(legacySock)
@@ -272,7 +280,7 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	// running on this node will not have a kubelet pods directory,
 	// so it will not be found.
 	for podUID := range vmi.Status.ActivePods {
-		socket := SocketFilePathOnHost(string(podUID))
+		socket := SocketFilePathOnHostWithName(string(podUID), socketName)
 		exists, _ := diskutils.FileExists(socket)
 		if exists {
 			foundSocket = socket
@@ -283,10 +291,10 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 	if socketsFound == 1 {
 		return foundSocket, nil
 	} else if socketsFound > 1 {
-		return "", fmt.Errorf("Found multiple sockets for vmi %s/%s. waiting for only one to exist", vmi.Namespace, vmi.Name)
+		return "", fmt.Errorf("found multiple \"%s\" sockets for vmi %s/%s. waiting for only one to exist", socketName, vmi.Namespace, vmi.Name)
 	}
 
-	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+	return "", fmt.Errorf("no command socket \"%s\" found for vmi %s", socketName, vmi.UID)
 }
 
 func SocketOnGuest() string {

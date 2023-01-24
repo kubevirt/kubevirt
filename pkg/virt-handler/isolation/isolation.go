@@ -49,6 +49,8 @@ type IsolationResult interface {
 	Pid() int
 	// parent process ID
 	PPid() int
+	// Dedicated CPU container's PID
+	DedocatedCpuContainerPid() (pid int, exists bool)
 	// full path to the process namespace
 	PIDNamespace() string
 	// full path to the process root mount
@@ -62,12 +64,17 @@ type IsolationResult interface {
 }
 
 type RealIsolationResult struct {
-	pid  int
-	ppid int
+	pid                      int
+	ppid                     int
+	dedicatedCpuContainerPid int
 }
 
 func NewIsolationResult(pid, ppid int) IsolationResult {
 	return &RealIsolationResult{pid: pid, ppid: ppid}
+}
+
+func NewIsolationResultWithDedicatedCpuPid(pid, ppid, dedicatedCpuPid int) IsolationResult {
+	return &RealIsolationResult{pid: pid, ppid: ppid, dedicatedCpuContainerPid: dedicatedCpuPid}
 }
 
 func (r *RealIsolationResult) PIDNamespace() string {
@@ -145,6 +152,14 @@ func (r *RealIsolationResult) Pid() int {
 
 func (r *RealIsolationResult) PPid() int {
 	return r.ppid
+}
+
+func (r *RealIsolationResult) DedocatedCpuContainerPid() (pid int, exists bool) {
+	if r.dedicatedCpuContainerPid == 0 {
+		return 0, false
+	}
+
+	return r.dedicatedCpuContainerPid, true
 }
 
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID

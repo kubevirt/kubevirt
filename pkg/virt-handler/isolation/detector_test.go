@@ -43,10 +43,9 @@ var _ = Describe("Isolation Detector", func() {
 
 	Context("With an existing socket", func() {
 
-		var socket net.Listener
 		var tmpDir string
 		var podUID string
-		var finished chan struct{} = nil
+		var stop func()
 
 		podUID = "pid-uid-1234"
 		vm := api.NewMinimalVMIWithNS("default", "testvm")
@@ -58,6 +57,34 @@ var _ = Describe("Isolation Detector", func() {
 		}
 		vm.Status.NodeName = "myhost"
 
+		createListeningSocket := func(socketPath string) (stop func()) {
+			err := os.MkdirAll(filepath.Dir(socketPath), os.ModePerm)
+			Expect(err).ToNot(HaveOccurred())
+
+			socket, err := net.Listen("unix", socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			stopCh := make(chan struct{})
+			go func() {
+				for {
+					conn, err := socket.Accept()
+					if err != nil {
+						close(stopCh)
+						// closes when socket listener is closed
+						return
+					}
+					conn.Close()
+				}
+			}()
+
+			return func() {
+				socket.Close()
+				if stopCh != nil {
+					<-stopCh
+				}
+			}
+		}
+
 		BeforeEach(func() {
 			var err error
 			tmpDir, err = os.MkdirTemp("", "kubevirt")
@@ -66,31 +93,13 @@ var _ = Describe("Isolation Detector", func() {
 			cmdclient.SetLegacyBaseDir(tmpDir)
 			cmdclient.SetPodsBaseDir(tmpDir)
 
-			os.MkdirAll(filepath.Join(tmpDir, "sockets/"), os.ModePerm)
-			socketFile := cmdclient.SocketFilePathOnHost(podUID)
-			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
-			socket, err = net.Listen("unix", socketFile)
-			Expect(err).ToNot(HaveOccurred())
-			finished = make(chan struct{})
-			go func() {
-				for {
-					conn, err := socket.Accept()
-					if err != nil {
-						close(finished)
-						// closes when socket listener is closed
-						return
-					}
-					conn.Close()
-				}
-			}()
+			socketPath := cmdclient.SocketFilePathOnHost(podUID)
+			stop = createListeningSocket(socketPath)
 		})
 
 		AfterEach(func() {
-			socket.Close()
+			stop()
 			os.RemoveAll(tmpDir)
-			if finished != nil {
-				<-finished
-			}
 		})
 
 		It("Should detect the PID of the test suite", func() {
@@ -117,6 +126,43 @@ var _ = Describe("Isolation Detector", func() {
 			root, err := result.MountRoot()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeAbsolute(root.Raw())).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
+		})
+
+		Context("dedicated cpu container socket", func() {
+			var stop func()
+
+			BeforeEach(func() {
+				vm.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+
+				socketPath := cmdclient.SocketFilePathOnHostWithName(podUID, cmdclient.DedicatedCpuContainerSocketName)
+				stop = createListeningSocket(socketPath)
+			})
+
+			AfterEach(func() {
+				stop()
+			})
+
+			It("should detect the dedicated cpu container PID", func() {
+				result, err := NewSocketBasedIsolationDetector(tmpDir).Detect(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				pid, exists := result.DedocatedCpuContainerPid()
+				Expect(exists).To(BeTrue())
+				Expect(pid).ToNot(BeZero())
+			})
+
+			DescribeTable("should report pid doesn't exist if vmi is not with dedicated CPUs", func(cpu *v1.CPU) {
+				vm.Spec.Domain.CPU = cpu
+				result, err := NewSocketBasedIsolationDetector(tmpDir).Detect(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				pid, exists := result.DedocatedCpuContainerPid()
+				Expect(exists).To(BeFalse())
+				Expect(pid).To(BeZero())
+			},
+				Entry("DedicatedCPUPlacement == false", &v1.CPU{DedicatedCPUPlacement: false}),
+				Entry("nil CPU", nil),
+			)
 		})
 	})
 })

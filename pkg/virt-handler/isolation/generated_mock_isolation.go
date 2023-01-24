@@ -52,6 +52,17 @@ func (_mr *_MockIsolationResultRecorder) PPid() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PPid")
 }
 
+func (_m *MockIsolationResult) DedocatedCpuContainerPid() (int, bool) {
+	ret := _m.ctrl.Call(_m, "DedocatedCpuContainerPid")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockIsolationResultRecorder) DedocatedCpuContainerPid() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DedocatedCpuContainerPid")
+}
+
 func (_m *MockIsolationResult) PIDNamespace() string {
 	ret := _m.ctrl.Call(_m, "PIDNamespace")
 	ret0, _ := ret[0].(string)
