@@ -68,18 +68,7 @@ spec:
 ...
 ```
 
-- ("kubevirt.io", "VirtualMachineInstancetype", "ns1", "small")
-
-```yaml
-...
-spec:
-  instancetype:
-    kind: VirtualMachineClusterInstancetype
-    name: csmall
-...
-```
-
-- ("kubevirt.io", "VirtualMachineClusterInstancetype", "", "csmall")
+- ("instancetype.kubevirt.io", "VirtualMachineInstancetype", "ns1", "small")
 
 #### spec.preference
 
@@ -92,18 +81,7 @@ spec:
 ...
 ```
 
-- ("kubevirt.io", "VirtualMachineClusterPreference", "ns1", "windows")
-
-```yaml
-...
-spec:
-  preference:
-    kind: VirtualMachineClusterPreference
-    name: cwindows
-...
-```
-
-- ("kubevirt.io", "VirtualMachineClusterPreference", "", "cwindows")
+- ("instancetype.kubevirt.io", "VirtualMachinePreference", "ns1", "windows")
 
 #### spec.template
 
@@ -124,17 +102,6 @@ metadata:
 - ("", "Pod", "ns1", "virt-launcher-vmi1-XXXXX") \*
 
 \* Each VirtualMachineInstance has a corresponding uniquely named Pod.  The backup process can look up the name of this pod by using the `kubevirt.io/created-by=<UID of VirtualMachineInstance>` label selector.
-
-#### spec.priorityClassName
-
-```yaml
-...
-spec:
-  priorityClassName: pc1
-...
-```
-
-- ("scheduling.k8s.io", "PriorityClass", "", "pc1")
 
 #### spec.volumes[\*].persistentVolumeClaim
 
@@ -188,7 +155,7 @@ spec:
   volumes:
   - name: v1
     secret:
-      name: s1
+      secretName: s1
 ...
 ```
 
@@ -221,20 +188,6 @@ spec:
 ```
 
 - ("", "PersistentVolumeClaim", "ns1", "pvc1")
-
-#### spec.networks[\*].multus
-
-```yaml
-...
-spec:
-  networks:
-  - name: ovs-net
-    multus:
-      networkName: ovs-vlan-100
-...
-```
-
-- ("k8s.cni.cncf.io", "NetworkAttachmentDefinition", "ns1", "ovs-vlan-100")
 
 #### spec.accessCredentials[\*].sshPublicKey
 
