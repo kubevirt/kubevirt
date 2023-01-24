@@ -131,6 +131,8 @@ spec:
                             type: object
                         type: object
                     type: object
+                  appArmorLauncherProfile:
+                    type: string
                   architectureConfiguration:
                     properties:
                       amd64:
@@ -3119,6 +3121,8 @@ spec:
                             type: object
                         type: object
                     type: object
+                  appArmorLauncherProfile:
+                    type: string
                   architectureConfiguration:
                     properties:
                       amd64:

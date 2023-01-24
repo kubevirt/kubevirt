@@ -2306,6 +2306,8 @@ type KubeVirtConfiguration struct {
 	DefaultRuntimeClass       string                  `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig              *SMBiosConfiguration    `json:"smbios,omitempty"`
 	ArchitectureConfiguration *ArchConfiguration      `json:"architectureConfiguration,omitempty"`
+	AppArmorLauncherProfile   string                  `json:"appArmorLauncherProfile,omitempty"`
+
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
 	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
 	// field is set it overrides the cluster level one.

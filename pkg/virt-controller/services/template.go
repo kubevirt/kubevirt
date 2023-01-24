@@ -480,6 +480,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
+	// If AppArmorProfile was specified, add that to the compute container.
+	apparmorLauncherProfile := t.clusterConfig.GetAppArmorLauncherProfile()
+	if apparmorLauncherProfile != "" {
+		podAnnotations["container.apparmor.security.beta.kubernetes.io/compute"] = apparmorLauncherProfile
+	}
+
 	var initContainers []k8sv1.Container
 
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {

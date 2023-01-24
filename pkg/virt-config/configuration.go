@@ -218,6 +218,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			PermitBridgeInterfaceOnPodNetwork: pointer.BoolPtr(DefaultPermitBridgeInterfaceOnPodNetwork),
 		},
 		SMBIOSConfig:                SmbiosDefaultConfig,
+		AppArmorLauncherProfile:     DefaultAppArmorLauncherProfile,
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
 		OVMFPath:                    DefaultOVMFPath,

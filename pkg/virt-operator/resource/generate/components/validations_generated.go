@@ -742,6 +742,8 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                   type: object
               type: object
+            appArmorLauncherProfile:
+              type: string
             architectureConfiguration:
               properties:
                 amd64:
