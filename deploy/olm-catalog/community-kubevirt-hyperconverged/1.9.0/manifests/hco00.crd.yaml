@@ -1899,6 +1899,10 @@ spec:
                         type: array
                     type: object
                 type: object
+              kubeSecondaryDNSNameServerIP:
+                description: KubeSecondaryDNSNameServerIP defines name server IP used
+                  by KubeSecondaryDNS
+                type: string
               liveMigrationConfig:
                 default:
                   allowAutoConverge: false

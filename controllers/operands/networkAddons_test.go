@@ -540,9 +540,11 @@ var _ = Describe("CNA Operand", func() {
 				existingCNAO.Spec.KubeSecondaryDNS = &networkaddonsshared.KubeSecondaryDNS{}
 			}
 
+			kubeSecondaryDNSNameServerIP := "127.0.0.1"
 			if o.setFeatureGate {
 				deployKubeSecondaryDNS := o.featureGateValue
 				hco.Spec.FeatureGates.DeployKubeSecondaryDNS = &deployKubeSecondaryDNS
+				hco.Spec.KubeSecondaryDNSNameServerIP = &kubeSecondaryDNSNameServerIP
 			}
 
 			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCNAO})
@@ -562,6 +564,8 @@ var _ = Describe("CNA Operand", func() {
 				Expect(foundCNAO.Spec.KubeSecondaryDNS).ToNot(BeNil(), "KSD spec should be added")
 				Expect(foundCNAO.Spec.KubeSecondaryDNS.Domain).To(Equal(o.expectedBaseDomain),
 					"Expected domain should be set on KSD spec")
+				Expect(foundCNAO.Spec.KubeSecondaryDNS.NameServerIP).To(Equal(kubeSecondaryDNSNameServerIP),
+					"Expected NameServerIP should be set on KSD spec")
 			} else {
 				Expect(foundCNAO.Spec.KubeSecondaryDNS).To(BeNil(), "KSD spec should not be added")
 			}

@@ -636,6 +636,22 @@ spec:
       - "private-registry-example-2:5000"
       ...
 ```
+
+## KubeSecondaryDNS Name Server IP
+In order to set KSD's NameServerIP, set it on HyperConverged CR under spec.kubeSecondaryDNSNameServerIP field.
+Default: empty string. Value is a string representation of IPv4 (i.e "127.0.0.1").
+For more info see [deployKubeSecondaryDNS Feature Gate](#deploykubesecondarydns-feature-gate).
+
+### KubeSecondaryDNS Name Server IP example
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  kubeSecondaryDNSNameServerIP: "127.0.0.1"
+```
+
 ## Modify common golden images
 Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it is possible to modify them, if needed.
 
