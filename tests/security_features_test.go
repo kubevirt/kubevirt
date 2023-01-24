@@ -283,11 +283,11 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 		AfterEach(func() {
 			if policyRemoved {
 				By("Re-installing custom SELinux policy on all nodes")
-				err = runOnAllNodes(virtClient, []string{"cp", "/var/run/kubevirt/virt_launcher.cil", "/proc/1/root/tmp/"}, "")
+				err = runOnAllSchedulableNodes(virtClient, []string{"cp", "/var/run/kubevirt/virt_launcher.cil", "/proc/1/root/tmp/"}, "")
 				Expect(err).ToNot(HaveOccurred())
-				err = runOnAllNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-i", "/tmp/virt_launcher.cil"}, "")
+				err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-i", "/tmp/virt_launcher.cil"}, "")
 				Expect(err).ToNot(HaveOccurred())
-				err = runOnAllNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
+				err = runOnAllSchedulableNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
 				Expect(err).ToNot(HaveOccurred())
 			}
 
@@ -297,7 +297,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 
 		It("Should prevent virt-handler from installing the custom policy", func() {
 			By("Removing custom SELinux policy from all nodes")
-			err = runOnAllNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-r", "virt_launcher"}, "")
+			err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-r", "virt_launcher"}, "")
 			Expect(err).ToNot(HaveOccurred())
 			policyRemoved = true
 
@@ -306,17 +306,14 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 
 			By("Ensuring the custom SELinux policy is absent from all nodes")
 			Consistently(func() error {
-				return runOnAllNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-l"}, "virt_launcher")
+				return runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-l"}, "virt_launcher")
 			}, 30*time.Second, 10*time.Second).Should(BeNil())
 		})
 	})
 })
 
-func runOnAllNodes(virtClient kubecli.KubevirtClient, command []string, forbiddenString string) error {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
+func runOnAllSchedulableNodes(virtClient kubecli.KubevirtClient, command []string, forbiddenString string) error {
+	nodes := libnode.GetAllSchedulableNodes(virtClient)
 	for _, node := range nodes.Items {
 		pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
 		if err != nil {
