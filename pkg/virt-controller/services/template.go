@@ -471,7 +471,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 				sidecarContainerName(i), vmi, sidecarResources(vmi, t.clusterConfig), requestedHookSidecar, userId).Render(requestedHookSidecar.Command))
 	}
 
-	podAnnotations, err := generatePodAnnotations(vmi)
+	podAnnotations, err := generatePodAnnotations(vmi, t.clusterConfig.GetAppArmorLauncherProfile())
 	if err != nil {
 		return nil, err
 	}
@@ -1243,7 +1243,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
-func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+func generatePodAnnotations(vmi *v1.VirtualMachineInstance, appArmorLauncherProfile string) (map[string]string, error) {
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
@@ -1286,6 +1286,12 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
+
+	// If AppArmorProfile was specified, add that to the compute container.
+	if appArmorLauncherProfile != "" {
+		annotationsSet[k8sv1.AppArmorBetaContainerAnnotationKeyPrefix] = appArmorLauncherProfile
+	}
+
 	return annotationsSet, nil
 }
 

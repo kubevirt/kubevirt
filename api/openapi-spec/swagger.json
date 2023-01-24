@@ -17522,6 +17522,9 @@
      "apiConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },
+     "appArmorLauncherProfile": {
+      "type": "string"
+     },
      "architectureConfiguration": {
       "$ref": "#/definitions/v1.ArchConfiguration"
      },

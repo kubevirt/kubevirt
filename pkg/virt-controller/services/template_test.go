@@ -4345,6 +4345,31 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 		})
 	})
+
+	Context("AppArmorProfile", func() {
+		It("should set the correct annotation when profile is present", func() {
+			config, kvInformer, svc = configFactory(defaultArch)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.AppArmorLauncherProfile = "test_launcher_profile"
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := api.NewMinimalVMI("fake-vmi")
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Annotations).Should(HaveKeyWithValue(k8sv1.AppArmorBetaContainerAnnotationKeyPrefix, "test_launcher_profile"))
+		})
+
+		It("should not set the annotation when the profile is not specified", func() {
+			config, kvInformer, svc = configFactory(defaultArch)
+
+			vmi := api.NewMinimalVMI("fake-vmi")
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Annotations).Should(Not(HaveKey(k8sv1.AppArmorBetaContainerAnnotationKeyPrefix)))
+		})
+	})
 })
 
 var _ = Describe("getResourceNameForNetwork", func() {

@@ -66,6 +66,7 @@ const (
 	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
 	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
+	DefaultAppArmorLauncherProfile                  = ""
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
 	DefaultDiskVerificationMemoryLimitMBytes        = 2000
@@ -239,6 +240,10 @@ func (c *ClusterConfig) GetSELinuxLauncherType() string {
 
 func (c *ClusterConfig) GetDefaultRuntimeClass() string {
 	return c.GetConfig().DefaultRuntimeClass
+}
+
+func (c *ClusterConfig) GetAppArmorLauncherProfile() string {
+	return c.GetConfig().AppArmorLauncherProfile
 }
 
 func (c *ClusterConfig) GetSupportedAgentVersions() []string {
