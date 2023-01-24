@@ -565,7 +565,6 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 }
 
 func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
@@ -663,6 +662,14 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		// clean the evacuation node name since have already migrated to a new node
 		vmi.Status.EvacuationNodeName = ""
 		vmi.Status.MigrationState.Completed = true
+		// add a VMI condition to tell the target that it is time to run post-migration operations
+		newCondition := v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstanceFinalizeMigration,
+			LastTransitionTime: metav1.Now(),
+			Status:             "",
+			Message:            "",
+		}
+		vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
 		// update the vmi migrationTransport to indicate that next migration should use unix URI
 		// new workloads will set the migrationTransport on their creation, however, legacy workloads
 		// can make the switch only after the first migration
@@ -690,7 +697,6 @@ type NetworkStatus struct {
 }
 
 func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domainExists bool) error {
-
 	vmiCopy := vmi.DeepCopy()
 
 	if migrations.MigrationFailed(vmi) {
@@ -698,12 +704,11 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		return nil
 	}
 
-	// Handle post migration
+	// Handle migration target creation
 	if domainExists && vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.TargetNodeDomainDetected {
-		// record that we've see the domain populated on the target's node
+		// record that we've seen the domain populated on the target's node
 		log.Log.Object(vmi).Info("The target node received the migrated domain")
 		vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
-		d.finalizeMigration(vmi)
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -921,8 +926,7 @@ func (d *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 }
 
 func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
-
-	// Cacluate whether the VM is migratable
+	// Calcuate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
@@ -943,6 +947,13 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	evictable := migrations.VMIMigratableOnEviction(d.clusterConfig, vmi)
 	if evictable && liveMigrationCondition.Status == k8sv1.ConditionFalse {
 		d.recorder.Eventf(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "EvictionStrategy is set but vmi is not migratable; %s", liveMigrationCondition.Message)
+	}
+
+	if condManager.HasCondition(vmi, v1.VirtualMachineInstanceFinalizeMigration) {
+		err := d.finalizeMigration(vmi)
+		if err == nil {
+			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceFinalizeMigration)
+		}
 	}
 }
 
@@ -1564,7 +1575,7 @@ func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(vmi *v1.Vi
 	return nil
 }
 
-func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachineInstance, vmiExists bool, domain *api.Domain) error {
+func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
 	// set to true when preparation of migration target should be aborted.
 	shouldAbort := false
@@ -1573,11 +1584,11 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 	// set true when the current migration target has exitted and needs to be cleaned up.
 	shouldCleanUp := false
 
-	if vmiExists && vmi.IsRunning() {
+	if vmi.IsRunning() {
 		shouldUpdate = true
 	}
 
-	if !vmiExists || vmi.DeletionTimestamp != nil {
+	if vmi.DeletionTimestamp != nil {
 		shouldAbort = true
 	} else if vmi.IsFinal() {
 		shouldAbort = true
@@ -1703,7 +1714,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		domain.Status.Status != api.Crashed &&
 		domain.Status.Status != ""
 
-	domainMigrated := domainExists && domainMigrated(domain)
+	domainMigratedAway := domainExists && domainMigrated(domain)
 
 	gracefulShutdown, err := d.hasGracefulShutdownTrigger(vmi, domain)
 	if err != nil {
@@ -1788,7 +1799,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	//
 	// Special logic for domains migrated from a source node.
 	// Don't delete/destroy domain until the handoff occurs.
-	if domainMigrated {
+	if domainMigratedAway {
 		// only allow the sync to occur on the domain once we've done
 		// the node handoff. Otherwise we potentially lose the fact that
 		// the domain migrated because we'll attempt to delete the locally
@@ -1933,7 +1944,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		// a different execute path. The target execute path prepares
 		// the local environment for the migration, but does not
 		// start the VMI
-		return d.migrationTargetExecute(vmi, vmiExists, domain)
+		return d.migrationTargetExecute(vmi, domain)
 	} else if vmiExists && d.isOrphanedMigrationSource(vmi) {
 		// 3. POST-MIGRATION SOURCE CLEANUP
 		//
@@ -3102,6 +3113,8 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
+
+	log.Log.Object(vmi).Info("migration finalized")
 
 	return nil
 }
