@@ -467,6 +467,10 @@ const (
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsMigratable VirtualMachineInstanceConditionType = "LiveMigratable"
+
+	// Indicates that a migration just finished and the target should run the post migration finalizer
+	VirtualMachineInstanceFinalizeMigration VirtualMachineInstanceConditionType = "FinalizeMigration"
+
 	// Reason means that VMI is not live migratioable because of it's disks collection
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's network interfaces collection
