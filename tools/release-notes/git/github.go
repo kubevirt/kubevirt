@@ -41,9 +41,9 @@ func initClient(token string) *github.Client {
 	return github.NewClient(tc)
 }
 
-func (g *gh) getReleaseNote(number int) (string, error) {
-	log.Printf("Searching for `%s` release note for PR #%d", g.name, number)
-	pr, _, err := g.githubClient.PullRequests.Get(context.Background(), "kubevirt", g.name, number)
+func (g *gh) getReleaseNote(prNumber int) (string, error) {
+	log.Printf("Searching for `%s` release note for PR #%d", g.name, prNumber)
+	pr, _, err := g.githubClient.PullRequests.Get(context.Background(), "kubevirt", g.name, prNumber)
 	if err != nil {
 		return "", err
 	}
@@ -63,7 +63,7 @@ func (g *gh) getReleaseNote(number int) (string, error) {
 	for i, line := range body {
 		note, err := parseReleaseNote(i, line, body)
 		if err == nil {
-			note = fmt.Sprintf("[PR #%d][%s] %s", number, *pr.User.Login, note)
+			note = fmt.Sprintf("[PR [#%d](https://github.com/%s/%s/pull/%d)][[%s](https://github.com/%s)] %s", prNumber, g.owner, g.name, prNumber, *pr.User.Login, *pr.User.Login, note)
 			return note, nil
 		}
 	}
