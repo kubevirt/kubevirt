@@ -128,6 +128,7 @@ var _ = Describe("Application", func() {
 			vmInformer,
 			podInformer,
 			pvcInformer,
+			nodeInformer.GetStore(),
 			recorder,
 			virtClient,
 			dataVolumeInformer,

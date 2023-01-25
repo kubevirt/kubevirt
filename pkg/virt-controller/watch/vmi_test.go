@@ -82,6 +82,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
+	var nodeInformer cache.SharedIndexInformer
 	var namespaceStore cache.Store
 
 	var dataVolumeSource *framework.FakeControllerSource
@@ -222,6 +223,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		go vmInformer.Run(stop)
 		go podInformer.Run(stop)
 		go pvcInformer.Run(stop)
+		go nodeInformer.Run(stop)
 
 		go dataVolumeInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
@@ -229,6 +231,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmInformer.HasSynced,
 			podInformer.HasSynced,
 			pvcInformer.HasSynced,
+			nodeInformer.HasSynced,
 			dataVolumeInformer.HasSynced)).To(BeTrue())
 	}
 
@@ -252,6 +255,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		namespaceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
@@ -261,6 +265,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmInformer,
 			podInformer,
 			pvcInformer,
+			nodeInformer.GetStore(),
 			recorder,
 			virtClient,
 			dataVolumeInformer,
