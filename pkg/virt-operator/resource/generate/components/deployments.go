@@ -405,6 +405,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	if exporterImage == "" {
 		exporterImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-exportserver", AddVersionSeparatorPrefix(exportServerVersion))
 	}
+	dedicatedCpuContainerImage := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "dedicated-cpu-container", AddVersionSeparatorPrefix(exportServerVersion))
 
 	pod := &deployment.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.ControllerServiceAccountName
@@ -422,6 +423,8 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 		launcherImage,
 		"--exporter-image",
 		exporterImage,
+		"--dedicated-cpu-container-image",
+		dedicatedCpuContainerImage,
 		portName,
 		"8443",
 		"-v",
