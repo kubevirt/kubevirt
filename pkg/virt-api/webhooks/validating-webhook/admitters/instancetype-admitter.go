@@ -39,6 +39,7 @@ func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 	}
 
 	causes := validateDedicatedCPUPlacement(&instancetypeObj.Spec)
+	causes = append(causes, validateGuestMappingPassthrough(&instancetypeObj.Spec)...)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -83,6 +84,7 @@ func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *ad
 	}
 
 	causes := validateDedicatedCPUPlacement(&instancetypeObj.Spec)
+	causes = append(causes, validateGuestMappingPassthrough(&instancetypeObj.Spec)...)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -114,6 +116,20 @@ func validateRequestResource(ar *admissionv1.AdmissionReview, resourceType strin
 		return fmt.Errorf("expected '%s' got '%s'", &instanceTypeResource, ar.Request.Resource)
 	}
 
+	return nil
+}
+
+func validateGuestMappingPassthrough(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
+	if instancetypeSpec == nil {
+		return nil
+	}
+	if instancetypeSpec.CPU.NUMA != nil && instancetypeSpec.CPU.NUMA.GuestMappingPassthrough != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "guestMappingPassthrough is not currently supported",
+			Field:   k8sfield.NewPath("spec", "cpu", "numa", "guestMappingPassthrough").String(),
+		}}
+	}
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -70,6 +71,23 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 		Expect(response.Result.Details.Causes[0].Message).To(Equal("dedicatedCPUPlacement is not currently supported"))
+	})
+
+	It("should reject instancetype with guestMappingPassthrough", func() {
+		instancetypeObj.Spec = instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1alpha2.CPUInstancetype{
+				NUMA: &v1.NUMA{
+					GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+				},
+			},
+		}
+		ar := createInstancetypeAdmissionReview(instancetypeObj)
+		response := admitter.Admit(ar)
+
+		Expect(response.Allowed).To(BeFalse(), "Expect instancetype to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("guestMappingPassthrough is not currently supported"))
 	})
 })
 
