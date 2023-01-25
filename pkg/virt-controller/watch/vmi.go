@@ -356,12 +356,18 @@ func (c *VMIController) execute(key string) error {
 func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	var patchOps []string
 	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist {
 			patchOp, err := prepareAnnotationsPatchAddOp(key, newValue)
 			if err != nil {
 				return nil, err
 			}
 			patchOps = append(patchOps, patchOp)
+		} else if keyExist && podAnnotationValue != newValue {
+			replacePatchOps, err := prepareAnnotationsPatchTestAndReplaceOp(key, podAnnotationValue, newValue)
+			if err != nil {
+				return nil, err
+			}
+			patchOps = append(patchOps, replacePatchOps...)
 		}
 	}
 	var patchedPod *k8sv1.Pod
@@ -668,6 +674,25 @@ func prepareAnnotationsPatchAddOp(key, value string) (string, error) {
 	key = patch.EscapeJSONPointer(key)
 	return fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": %s }`, key, string(valueBytes)), nil
 
+}
+
+func prepareAnnotationsPatchTestAndReplaceOp(key, oldValue string, newValue string) ([]string, error) {
+	valueBytes, err := json.Marshal(newValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare new annotation patchOp for key %s: %v", key, err)
+	}
+
+	oldValueBytes, err := json.Marshal(oldValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare new annotation patchOp for key %s: %v", key, err)
+	}
+
+	key = patch.EscapeJSONPointer(key)
+	safeReplaceOps := []string{
+		fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations/%s", "value": %s }`, key, string(oldValueBytes)),
+		fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations/%s", "value": %s }`, key, string(valueBytes)),
+	}
+	return safeReplaceOps, nil
 }
 
 func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
