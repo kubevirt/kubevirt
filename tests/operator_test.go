@@ -1979,18 +1979,20 @@ spec:
 				sanityCheckDeploymentsExist()
 
 				By("setting the right uninstall strategy")
-				kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
-				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
+					_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+					return err
+				}, 60*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 				By("creating a simple VMI")
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros)))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting KubeVirt object")
-				err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
+				err = virtClient.KubeVirt(originalKv.Namespace).Delete(originalKv.Name, &metav1.DeleteOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("there are still Virtual Machine Instances present"))
 			})
