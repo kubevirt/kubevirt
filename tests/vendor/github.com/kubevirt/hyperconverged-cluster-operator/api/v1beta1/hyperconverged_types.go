@@ -165,6 +165,10 @@ type HyperConvergedSpec struct {
 	// be deployed.
 	// +optional
 	TektonPipelinesNamespace *string `json:"tektonPipelinesNamespace,omitempty"`
+
+	// KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS
+	// +optional
+	KubeSecondaryDNSNameServerIP *string `json:"kubeSecondaryDNSNameServerIP,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.

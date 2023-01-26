@@ -454,6 +454,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 							Format:      "",
 						},
 					},
+					"kubeSecondaryDNSNameServerIP": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

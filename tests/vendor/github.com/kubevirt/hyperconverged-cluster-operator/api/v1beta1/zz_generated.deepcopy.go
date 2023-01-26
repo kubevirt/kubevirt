@@ -383,6 +383,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.KubeSecondaryDNSNameServerIP != nil {
+		in, out := &in.KubeSecondaryDNSNameServerIP, &out.KubeSecondaryDNSNameServerIP
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
