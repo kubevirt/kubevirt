@@ -107,7 +107,7 @@ var istioTests = func(vmType VmType) {
 	BeforeEach(func() {
 		namespace = testsuite.GetTestNamespace(nil)
 		if vmType == Passt {
-			checks.SkipTestIfNoFeatureGate(virtconfig.PasstGate)
+			Expect(checks.HasFeature(virtconfig.PasstGate)).To(BeTrue())
 			namespace = testsuite.NamespacePrivileged
 		}
 	})
@@ -484,7 +484,7 @@ var istioTestsWithPasstBinding = func() {
 
 var _ = SIGDescribe("[Serial] Istio with masquerade binding", Serial, istioTestsWithMasqueradeBinding)
 
-var _ = SIGDescribe("[Serial] Istio with passt binding", Serial, istioTestsWithPasstBinding)
+var _ = SIGDescribe("[Serial] Istio with passt binding", decorators.PasstGate, Serial, istioTestsWithPasstBinding)
 
 func istioServiceMeshDeployed() bool {
 	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
