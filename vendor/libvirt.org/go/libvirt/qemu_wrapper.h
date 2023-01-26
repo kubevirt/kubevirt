@@ -74,5 +74,16 @@ virDomainQemuMonitorCommandWrapper(virDomainPtr domain,
                                    unsigned int flags,
                                    virErrorPtr err);
 
+int
+virDomainQemuMonitorCommandWithFilesWrapper(virDomainPtr domain,
+					    const char *cmd,
+					    unsigned int ninfiles,
+					    int *infiles,
+					    unsigned int *noutfiles,
+					    int **outfiles,
+					    char **result,
+					    unsigned int flags,
+					    virErrorPtr err);
+
 
 #endif /* LIBVIRT_GO_DOMAIN_EVENTS_WRAPPER_H__ */

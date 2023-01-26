@@ -83,4 +83,16 @@ struct _virNetworkDHCPLease {
 };
 #endif
 
+/* 7.7.0 */
+
+#ifndef VIR_NETWORK_DEFINE_VALIDATE
+#define VIR_NETWORK_DEFINE_VALIDATE 1 << 0
+#endif
+
+/* 7.8.0 */
+
+#ifndef VIR_NETWORK_CREATE_VALIDATE
+#define VIR_NETWORK_CREATE_VALIDATE 1 << 0
+#endif
+
 #endif /* LIBVIRT_GO_NETWORK_COMPAT_H__ */

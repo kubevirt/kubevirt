@@ -44,6 +44,23 @@ virDomainAbortJobWrapper(virDomainPtr domain,
 
 
 int
+virDomainAbortJobFlagsWrapper(virDomainPtr domain,
+                              unsigned int flags,
+                              virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 8005000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainAbortJobFlags(domain, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+int
 virDomainAddIOThreadWrapper(virDomainPtr domain,
                             unsigned int iothread_id,
                             unsigned int flags,
@@ -782,6 +799,25 @@ virDomainGetLaunchSecurityInfoWrapper(virDomainPtr domain,
     assert(0); // Caller should have checked version
 #else
     int ret = virDomainGetLaunchSecurityInfo(domain, params, nparams, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+int
+virDomainSetLaunchSecurityStateWrapper(virDomainPtr domain,
+                                       virTypedParameterPtr params,
+                                       int nparams,
+                                       unsigned int flags,
+                                       virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 8000000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainSetLaunchSecurityState(domain, params, nparams, flags);
     if (ret < 0) {
         virCopyLastError(err);
     }
@@ -1781,6 +1817,25 @@ virDomainSaveFlagsWrapper(virDomainPtr domain,
         virCopyLastError(err);
     }
     return ret;
+}
+
+
+int
+virDomainSaveParamsWrapper(virDomainPtr domain,
+                           virTypedParameterPtr params,
+                           int nparams,
+                           unsigned int flags,
+                           virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 8004000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainSaveParams(domain, params, nparams, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
 }
 
 

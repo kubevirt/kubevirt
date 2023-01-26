@@ -225,6 +225,14 @@ type DomainEventMemoryFailure struct {
 
 type DomainEventMemoryFailureCallback func(c *Connect, d *Domain, event *DomainEventMemoryFailure)
 
+type DomainEventMemoryDeviceSizeChange struct {
+	Alias string
+	Size  uint64
+	Flags uint
+}
+
+type DomainEventMemoryDeviceSizeChangeCallback func(c *Connect, d *Domain, event *DomainEventMemoryDeviceSizeChange)
+
 //export domainEventLifecycleCallback
 func domainEventLifecycleCallback(c C.virConnectPtr, d C.virDomainPtr,
 	event int, detail int,
@@ -984,6 +992,24 @@ func domainEventMemoryFailureCallback(c C.virConnectPtr, d C.virDomainPtr, recip
 
 }
 
+//export domainEventMemoryDeviceSizeChangeCallback
+func domainEventMemoryDeviceSizeChangeCallback(c C.virConnectPtr, d C.virDomainPtr, alias *C.char, size C.ulonglong, goCallbackId int) {
+	domain := &Domain{ptr: d}
+	connection := &Connect{ptr: c}
+
+	eventDetails := &DomainEventMemoryDeviceSizeChange{
+		Alias: C.GoString(alias),
+		Size:  uint64(size),
+	}
+	callbackFunc := getCallbackId(goCallbackId)
+	callback, ok := callbackFunc.(DomainEventMemoryDeviceSizeChangeCallback)
+	if !ok {
+		panic("Inappropriate callback type called")
+	}
+	callback(connection, domain, eventDetails)
+
+}
+
 func (c *Connect) DomainEventLifecycleRegister(dom *Domain, callback DomainEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 
@@ -1495,6 +1521,26 @@ func (c *Connect) DomainEventMemoryFailureRegister(dom *Domain, callback DomainE
 	var err C.virError
 	ret := C.virConnectDomainEventRegisterAnyWrapper(c.ptr, cdom,
 		C.VIR_DOMAIN_EVENT_ID_MEMORY_FAILURE,
+		C.virConnectDomainEventGenericCallback(callbackPtr),
+		C.long(goCallBackId), &err)
+	if ret == -1 {
+		freeCallbackId(goCallBackId)
+		return 0, makeError(&err)
+	}
+	return int(ret), nil
+}
+
+func (c *Connect) DomainEventMemoryDeviceSizeChangeRegister(dom *Domain, callback DomainEventMemoryDeviceSizeChangeCallback) (int, error) {
+	goCallBackId := registerCallbackId(callback)
+
+	callbackPtr := unsafe.Pointer(C.domainEventMemoryDeviceSizeChangeCallbackHelper)
+	var cdom C.virDomainPtr
+	if dom != nil {
+		cdom = dom.ptr
+	}
+	var err C.virError
+	ret := C.virConnectDomainEventRegisterAnyWrapper(c.ptr, cdom,
+		C.VIR_DOMAIN_EVENT_ID_MEMORY_DEVICE_SIZE_CHANGE,
 		C.virConnectDomainEventGenericCallback(callbackPtr),
 		C.long(goCallBackId), &err)
 	if ret == -1 {

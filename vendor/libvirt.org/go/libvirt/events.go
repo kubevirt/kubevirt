@@ -30,6 +30,7 @@ package libvirt
 #cgo pkg-config: libvirt
 #include <stdint.h>
 #include "events_wrapper.h"
+#include "connect_wrapper.h"
 */
 import "C"
 
@@ -43,9 +44,14 @@ const (
 )
 
 // See also https://libvirt.org/html/libvirt-libvirt-event.html#virEventRegisterDefaultImpl
+//
+// Note that registering an event loop implementation must be
+// done before creating any Connect object instance
 func EventRegisterDefaultImpl() error {
 	var err C.virError
-	C.virInitialize()
+	if C.virInitializeWrapper(&err) < 0 {
+		return makeError(&err)
+	}
 	if i := int(C.virEventRegisterDefaultImplWrapper(&err)); i != 0 {
 		return makeError(&err)
 	}
@@ -187,10 +193,17 @@ type EventLoop interface {
 var eventLoopImpl EventLoop
 
 // See also https://libvirt.org/html/libvirt-libvirt-event.html#virEventRegisterImpl
-func EventRegisterImpl(impl EventLoop) {
+//
+// Note that registering an event loop implementation must be
+// done before creating any Connect object instance
+func EventRegisterImpl(impl EventLoop) error {
+	var err C.virError
 	eventLoopImpl = impl
-	C.virInitialize()
+	if C.virInitializeWrapper(&err) < 0 {
+		return makeError(&err)
+	}
 	C.virEventRegisterImplWrapper()
+	return nil
 }
 
 //export eventAddHandleFunc

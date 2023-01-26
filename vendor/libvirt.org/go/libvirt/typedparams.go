@@ -71,6 +71,8 @@ func typedParamsUnpack(cparams *C.virTypedParameter, cnparams C.int, infomap map
 					*value.sl = append(*value.sl, C.GoString(cs))
 					*value.set = true
 					count++
+				} else if ret < 0 {
+					break
 				}
 			}
 		} else {
@@ -125,6 +127,9 @@ func typedParamsUnpack(cparams *C.virTypedParameter, cnparams C.int, infomap map
 				*value.set = true
 				count++
 			}
+		}
+		if ret < 0 {
+			return count, makeError(&err)
 		}
 	}
 

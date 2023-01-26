@@ -37,6 +37,11 @@ virDomainAbortJobWrapper(virDomainPtr domain,
                          virErrorPtr err);
 
 int
+virDomainAbortJobFlagsWrapper(virDomainPtr domain,
+                              unsigned int flags,
+                              virErrorPtr err);
+
+int
 virDomainAddIOThreadWrapper(virDomainPtr domain,
                             unsigned int iothread_id,
                             unsigned int flags,
@@ -346,6 +351,13 @@ virDomainGetLaunchSecurityInfoWrapper(virDomainPtr domain,
                                       int *nparams,
                                       unsigned int flags,
                                       virErrorPtr err);
+
+int
+virDomainSetLaunchSecurityStateWrapper(virDomainPtr domain,
+				       virTypedParameterPtr params,
+				       int nparams,
+				       unsigned int flags,
+				       virErrorPtr err);
 
 unsigned long
 virDomainGetMaxMemoryWrapper(virDomainPtr domain,
@@ -756,6 +768,13 @@ virDomainSaveFlagsWrapper(virDomainPtr domain,
                           const char *dxml,
                           unsigned int flags,
                           virErrorPtr err);
+
+int
+virDomainSaveParamsWrapper(virDomainPtr domain,
+                           virTypedParameterPtr params,
+                           int nparams,
+                           unsigned int flags,
+                           virErrorPtr err);
 
 char *
 virDomainScreenshotWrapper(virDomainPtr domain,

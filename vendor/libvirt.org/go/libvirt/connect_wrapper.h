@@ -31,6 +31,9 @@
 #include <libvirt/virterror.h>
 #include "connect_compat.h"
 
+int
+virInitializeWrapper(virErrorPtr err);
+
 void
 closeCallbackHelper(virConnectPtr conn,
                     int reason,
@@ -430,6 +433,13 @@ virDomainRestoreFlagsWrapper(virConnectPtr conn,
                              virErrorPtr err);
 
 int
+virDomainRestoreParamsWrapper(virConnectPtr conn,
+                              virTypedParameterPtr params,
+                              int nparams,
+                              unsigned int flags,
+                              virErrorPtr err);
+
+int
 virDomainSaveImageDefineXMLWrapper(virConnectPtr conn,
                                    const char *file,
                                    const char *dxml,
@@ -499,6 +509,12 @@ virNWFilterDefineXMLWrapper(virConnectPtr conn,
                             virErrorPtr err);
 
 virNWFilterPtr
+virNWFilterDefineXMLFlagsWrapper(virConnectPtr conn,
+                                 const char *xmlDesc,
+                                 unsigned int flags,
+                                 virErrorPtr err);
+
+virNWFilterPtr
 virNWFilterLookupByNameWrapper(virConnectPtr conn,
                                const char *name,
                                virErrorPtr err);
@@ -519,9 +535,21 @@ virNetworkCreateXMLWrapper(virConnectPtr conn,
                            virErrorPtr err);
 
 virNetworkPtr
+virNetworkCreateXMLFlagsWrapper(virConnectPtr conn,
+				const char *xmlDesc,
+				unsigned int flags,
+				virErrorPtr err);
+
+virNetworkPtr
 virNetworkDefineXMLWrapper(virConnectPtr conn,
                            const char *xml,
                            virErrorPtr err);
+
+virNetworkPtr
+virNetworkDefineXMLFlagsWrapper(virConnectPtr conn,
+                                const char *xml,
+                                unsigned int flags,
+                                virErrorPtr err);
 
 virNetworkPtr
 virNetworkLookupByNameWrapper(virConnectPtr conn,

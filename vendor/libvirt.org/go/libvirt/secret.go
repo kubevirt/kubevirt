@@ -48,6 +48,12 @@ const (
 	SECRET_USAGE_TYPE_VTPM   = SecretUsageType(C.VIR_SECRET_USAGE_TYPE_VTPM)
 )
 
+type SecretDefineFlags uint
+
+const (
+	SECRET_DEFINE_VALIDATE = SecretDefineFlags(C.VIR_SECRET_DEFINE_VALIDATE)
+)
+
 type SecretEventLifecycleType int
 
 const (

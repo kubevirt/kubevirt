@@ -19,47 +19,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * Copyright (C) 2018 Red Hat, Inc.
+ * Copyright (C) 2021 Red Hat, Inc.
  *
  */
 
-#ifndef LIBVIRT_GO_NWFILTER_WRAPPER_H__
-#define LIBVIRT_GO_NWFILTER_WRAPPER_H__
+#ifndef LIBVIRT_GO_NWFILTER_COMPAT_H__
+#define LIBVIRT_GO_NWFILTER_COMPAT_H__
 
-#include <libvirt/libvirt.h>
-#include <libvirt/virterror.h>
-#include "nwfilter_compat.h"
+/* 7.7.0 */
 
-int
-virNWFilterFreeWrapper(virNWFilterPtr nwfilter,
-                       virErrorPtr err);
+#ifndef VIR_NWFILTER_DEFINE_VALIDATE
+#define VIR_NWFILTER_DEFINE_VALIDATE 1 << 0
+#endif
 
-const char *
-virNWFilterGetNameWrapper(virNWFilterPtr nwfilter,
-                          virErrorPtr err);
-
-int
-virNWFilterGetUUIDWrapper(virNWFilterPtr nwfilter,
-                          unsigned char *uuid,
-                          virErrorPtr err);
-
-int
-virNWFilterGetUUIDStringWrapper(virNWFilterPtr nwfilter,
-                                char *buf,
-                                virErrorPtr err);
-
-char *
-virNWFilterGetXMLDescWrapper(virNWFilterPtr nwfilter,
-                             unsigned int flags,
-                             virErrorPtr err);
-
-int
-virNWFilterRefWrapper(virNWFilterPtr nwfilter,
-                      virErrorPtr err);
-
-int
-virNWFilterUndefineWrapper(virNWFilterPtr nwfilter,
-                           virErrorPtr err);
-
-
-#endif /* LIBVIRT_GO_NWFILTER_WRAPPER_H__ */
+#endif /* LIBVIRT_GO_NWFILTER_COMPAT_H__ */

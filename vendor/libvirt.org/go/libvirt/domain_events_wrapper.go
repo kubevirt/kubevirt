@@ -236,6 +236,16 @@ void domainEventMemoryFailureCallbackHelper(virConnectPtr conn,
     domainEventMemoryFailureCallback(conn, dom, recipient, action, flags, (int)(intptr_t)opaque);
 }
 
+extern void domainEventMemoryDeviceSizeChangeCallback(virConnectPtr, virDomainPtr, const char *, unsigned long long, int);
+void domainEventMemoryDeviceSizeChangeCallbackHelper(virConnectPtr conn,
+						virDomainPtr dom,
+						const char *alias,
+						unsigned long long size,
+						void *opaque)
+{
+  domainEventMemoryDeviceSizeChangeCallback(conn, dom, alias, size, (int)(intptr_t)opaque);
+}
+
 int
 virConnectDomainEventRegisterAnyWrapper(virConnectPtr c,
                                         virDomainPtr d,

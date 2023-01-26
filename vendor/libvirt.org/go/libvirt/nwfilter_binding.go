@@ -40,6 +40,12 @@ type NWFilterBinding struct {
 	ptr C.virNWFilterBindingPtr
 }
 
+type NWFilterBindingCreateFlags uint
+
+const (
+	NWFILTER_BINDING_CREATE_VALIDATE = NetworkPortCreateFlags(C.VIR_NWFILTER_BINDING_CREATE_VALIDATE)
+)
+
 // See also https://libvirt.org/html/libvirt-libvirt-nwfilter.html#virNWFilterBindingFree
 func (f *NWFilterBinding) Free() error {
 	if C.LIBVIR_VERSION_NUMBER < 4005000 {

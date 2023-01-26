@@ -33,6 +33,17 @@ package libvirt
 #include "connect_wrapper.h"
 #include "callbacks_wrapper.h"
 
+int
+virInitializeWrapper(virErrorPtr err)
+{
+    int ret = virInitialize();
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+}
+
+
 extern void closeCallback(virConnectPtr, int, long);
 void closeCallbackHelper(virConnectPtr conn, int reason, void *opaque)
 {
@@ -1031,6 +1042,25 @@ virDomainRestoreFlagsWrapper(virConnectPtr conn,
 
 
 int
+virDomainRestoreParamsWrapper(virConnectPtr conn,
+                              virTypedParameterPtr params,
+                              int nparams,
+                              unsigned int flags,
+                              virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 8004000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainRestoreParams(conn, params, nparams, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+int
 virDomainSaveImageDefineXMLWrapper(virConnectPtr conn,
                                    const char *file,
                                    const char *dxml,
@@ -1210,6 +1240,23 @@ virNWFilterDefineXMLWrapper(virConnectPtr conn,
     return ret;
 }
 
+virNWFilterPtr
+virNWFilterDefineXMLFlagsWrapper(virConnectPtr conn,
+                                 const char *xmlDesc,
+                                 unsigned int flags,
+                                 virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 7007000
+    assert(0); // Caller should have checked version
+#else
+    virNWFilterPtr ret = virNWFilterDefineXMLFlags(conn, xmlDesc, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
 
 virNWFilterPtr
 virNWFilterLookupByNameWrapper(virConnectPtr conn,
@@ -1264,6 +1311,24 @@ virNetworkCreateXMLWrapper(virConnectPtr conn,
 
 
 virNetworkPtr
+virNetworkCreateXMLFlagsWrapper(virConnectPtr conn,
+                                const char *xmlDesc,
+                                unsigned int flags,
+                                virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 7008000
+    assert(0); // Caller should have checked version
+#else
+    virNetworkPtr ret = virNetworkCreateXMLFlags(conn, xmlDesc, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+virNetworkPtr
 virNetworkDefineXMLWrapper(virConnectPtr conn,
                            const char *xml,
                            virErrorPtr err)
@@ -1273,6 +1338,24 @@ virNetworkDefineXMLWrapper(virConnectPtr conn,
         virCopyLastError(err);
     }
     return ret;
+}
+
+
+virNetworkPtr
+virNetworkDefineXMLFlagsWrapper(virConnectPtr conn,
+                                const char *xml,
+                                unsigned int flags,
+                                virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 7007000
+    assert(0); // Caller should have checked version
+#else
+    virNetworkPtr ret = virNetworkDefineXMLFlags(conn, xml, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
 }
 
 

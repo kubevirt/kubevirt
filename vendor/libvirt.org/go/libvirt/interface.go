@@ -43,6 +43,12 @@ const (
 	INTERFACE_XML_INACTIVE = InterfaceXMLFlags(C.VIR_INTERFACE_XML_INACTIVE)
 )
 
+type InterfaceDefineFlags uint
+
+const (
+	INTERFACE_DEFINE_VALIDATE = InterfaceDefineFlags(C.VIR_INTERFACE_DEFINE_VALIDATE)
+)
+
 type Interface struct {
 	ptr C.virInterfacePtr
 }

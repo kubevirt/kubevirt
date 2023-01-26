@@ -64,4 +64,11 @@ typedef struct _virNetworkPort *virNetworkPortPtr;
 #define VIR_NETWORK_PORT_BANDWIDTH_OUT_BURST "outbound.burst"
 #endif
 
+/* 7.8.0 */
+
+#ifndef VIR_NETWORK_PORT_CREATE_VALIDATE
+#define VIR_NETWORK_PORT_CREATE_VALIDATE (1 << 1)
+#endif
+
+
 #endif /* LIBVIRT_GO_NETWORK_PORT_COMPAT_H__ */

@@ -44,7 +44,6 @@ import (
 
 func init() {
 	C.virSetErrorFunc(nil, (C.virErrorFunc)(C.ignoreErrorFunc))
-	C.virInitialize()
 }
 
 type ErrorLevel int
