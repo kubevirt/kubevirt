@@ -1178,6 +1178,8 @@ type VirtualMachineInstanceMigrationStatus struct {
 	// +listType=atomic
 	// +optional
 	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
+	// Represents the status of a live migration
+	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -2223,6 +2225,7 @@ type KubeVirtConfiguration struct {
 	ControllerConfiguration        *ReloadableComponentConfiguration `json:"controllerConfiguration,omitempty"`
 	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
 	TLSConfiguration               *TLSConfiguration                 `json:"tlsConfiguration,omitempty"`
+	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
 }
 
 type SMBiosConfiguration struct {
@@ -2245,6 +2248,22 @@ const (
 	// VersionTLS13 is version 1.3 of the TLS security protocol.
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
+
+type CustomProfile struct {
+	LocalhostProfile      *string `json:"localhostProfile,omitempty"`
+	RuntimeDefaultProfile bool    `json:"runtimeDefaultProfile,omitempty"`
+}
+
+type VirtualMachineInstanceProfile struct {
+	// CustomProfile allows to request arbitrary profile for virt-launcher
+	CustomProfile *CustomProfile `json:"customProfile,omitempty"`
+}
+
+// SeccompConfiguration holds Seccomp configuration for Kubevirt components
+type SeccompConfiguration struct {
+	// VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none
+	VirtualMachineInstanceProfile *VirtualMachineInstanceProfile `json:"virtualMachineInstanceProfile,omitempty"`
+}
 
 // TLSConfiguration holds TLS options
 type TLSConfiguration struct {

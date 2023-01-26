@@ -40,6 +40,10 @@ require (
 	sigs.k8s.io/controller-tools v0.10.0
 )
 
+// TODO: move to the next v0.59.0 as soon as it is available
+// and remove this!!!
+replace kubevirt.io/api => kubevirt.io/api v0.0.0-20230123193700-4f4f713a0b5b
+
 require (
 	cloud.google.com/go/compute v1.12.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.1 // indirect

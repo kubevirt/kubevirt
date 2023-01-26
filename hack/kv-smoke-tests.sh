@@ -13,6 +13,8 @@ BIN_DIR="$(pwd)/_out" && mkdir -p "${BIN_DIR}"
 export BIN_DIR
 
 TESTS_BINARY="$BIN_DIR/kv_smoke_tests.test"
+# TODO: remove this once we can consume a properly tagged v0.59.0
+KUBEVIRT_VERSION="v0.59.0-alpha.2"
 curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
 chmod +x "$TESTS_BINARY"
 

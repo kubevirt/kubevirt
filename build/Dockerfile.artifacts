@@ -12,7 +12,9 @@ USER 1001
 
 ARG download_url=https://github.com/kubevirt/kubevirt/releases/download
 
-RUN eval $(cat /tmp/config  |grep KUBEVIRT_VERSION=) && \
+# TODO: remove this once we can consume a properly tagged v0.59.0
+# RUN eval $(cat /tmp/config  |grep KUBEVIRT_VERSION=) && \
+RUN KUBEVIRT_VERSION="v0.59.0-alpha.2" && \
     echo "KUBEVIRT_VERSION: $KUBEVIRT_VERSION" && \
     curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-linux-amd64" && \
     mkdir -p ./amd64/linux && tar -zhcf ./amd64/linux/virtctl.tar.gz virtctl && rm virtctl && \

@@ -281,6 +281,7 @@ func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                          "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
 		"phaseTransitionTimestamps": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
+		"migrationState":            "Represents the status of a live migration",
 	}
 }
 
@@ -690,6 +691,23 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 
 func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (CustomProfile) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (VirtualMachineInstanceProfile) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"customProfile": "CustomProfile allows to request arbitrary profile for virt-launcher",
+	}
+}
+
+func (SeccompConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                              "SeccompConfiguration holds Seccomp configuration for Kubevirt components",
+		"virtualMachineInstanceProfile": "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none",
+	}
 }
 
 func (TLSConfiguration) SwaggerDoc() map[string]string {
