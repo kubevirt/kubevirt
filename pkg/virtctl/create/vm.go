@@ -51,6 +51,8 @@ const (
 	BlankVolumeFlag            = "volume-blank"
 	CloudInitUserDataFlag      = "cloud-init-user-data"
 	CloudInitNetworkDataFlag   = "cloud-init-network-data"
+	InferInstancetypeFlag      = "infer-instancetype"
+	InferPreferenceFlag        = "infer-preference"
 
 	cloudInitDisk = "cloudinitdisk"
 )
@@ -68,6 +70,8 @@ type createVM struct {
 	pvcVolumes             []string
 	cloudInitUserData      string
 	cloudInitNetworkData   string
+	inferInstancetype      bool
+	inferPreference        bool
 }
 
 type cloneVolume struct {
@@ -96,7 +100,9 @@ type optionFn func(*createVM, *v1.VirtualMachine) error
 var optFns = map[string]optionFn{
 	RunStrategyFlag:          withRunStrategy,
 	InstancetypeFlag:         withInstancetype,
+	InferInstancetypeFlag:    withInferredInstancetype,
 	PreferenceFlag:           withPreference,
+	InferPreferenceFlag:      withInferredPreference,
 	ContainerdiskVolumeFlag:  withContainerdiskVolume,
 	DataSourceVolumeFlag:     withDataSourceVolume,
 	ClonePvcVolumeFlag:       withClonePvcVolume,
@@ -106,6 +112,9 @@ var optFns = map[string]optionFn{
 	CloudInitNetworkDataFlag: withCloudInitNetworkData,
 }
 
+// Until a param to control the boot order is introduced volumes have the following fixed boot order:
+// Containerdisk > DataSource > Clone PVC > PVC
+// This is controlled by the order in which flags are processed.
 var flags = []string{
 	RunStrategyFlag,
 	InstancetypeFlag,
@@ -117,6 +126,8 @@ var flags = []string{
 	BlankVolumeFlag,
 	CloudInitUserDataFlag,
 	CloudInitNetworkDataFlag,
+	InferInstancetypeFlag,
+	InferPreferenceFlag,
 }
 
 var runStrategies = []string{
@@ -132,6 +143,7 @@ func NewVirtualMachineCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     VM,
 		Short:   "Create a VirtualMachine manifest.",
+		Long:    "Create a VirtualMachine manifest.\n\nPlease note that volumes currently have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
 		Example: c.usage(),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return c.run(cmd)
@@ -143,7 +155,12 @@ func NewVirtualMachineCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&c.terminationGracePeriod, TerminationGracePeriodFlag, c.terminationGracePeriod, "Specify the termination grace period of the VM.")
 
 	cmd.Flags().StringVar(&c.instancetype, InstancetypeFlag, c.instancetype, "Specify the Instance Type of the VM.")
+	cmd.Flags().BoolVar(&c.inferInstancetype, InferInstancetypeFlag, c.inferInstancetype, "Specify that the Instance Type of the VM is inferred from the booted volume.")
+	cmd.MarkFlagsMutuallyExclusive(InstancetypeFlag, InferInstancetypeFlag)
+
 	cmd.Flags().StringVar(&c.preference, PreferenceFlag, c.preference, "Specify the Preference of the VM.")
+	cmd.Flags().BoolVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference, "Specify that the Preference of the VM is inferred from the booted volume.")
+	cmd.MarkFlagsMutuallyExclusive(PreferenceFlag, InferPreferenceFlag)
 
 	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(containerdiskVolume{})))
 	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(cloneVolume{})))
@@ -200,16 +217,16 @@ func (c *createVM) run(cmd *cobra.Command) error {
 func (c *createVM) usage() string {
 	return `  # Create a manifest for a VirtualMachine with a random name:
   {{ProgramName}} create vm
-    
+
   # Create a manifest for a VirtualMachine with a specified name and RunStrategy Always
   {{ProgramName}} create vm --name=my-vm --run-strategy=Always
-  
+
   # Create a manifest for a VirtualMachine with a specified VirtualMachineClusterInstancetype
   {{ProgramName}} create vm --instancetype=my-instancetype
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineInstancetype (namespaced)
   {{ProgramName}} create vm --instancetype=virtualmachineinstancetype/my-instancetype
-  
+
   # Create a manifest for a VirtualMachine with a specified VirtualMachineClusterPreference
   {{ProgramName}} create vm --preference=my-preference
 
@@ -221,6 +238,9 @@ func (c *createVM) usage() string {
 
   # Create a manifest for a VirtualMachine with a cloned DataSource in namespace and specified size
   {{ProgramName}} create vm --volume-datasource=src:my-ns/my-ds,size:50Gi
+
+  # Create a manifest for a VirtualMachine with a cloned DataSource and inferred instancetype and preference
+  {{ProgramName}} create vm --volume-datasource=src:my-annotated-ds --infer-instancetype --infer-preference
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned PVC
   {{ProgramName}} create vm --volume-clone-pvc=my-ns/my-pvc
@@ -293,6 +313,21 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
+func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
+	if len(vm.Spec.Template.Spec.Volumes) < 1 {
+		return flagErr(InferInstancetypeFlag, "at least one volume is needed to infer instancetype")
+	}
+
+	// TODO Expand this in the future to take a string containing the volume name to infer
+	// the instancetype from. For now this is inferring the instancetype from the first volume
+	// in the VM spec.
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		InferFromVolume: vm.Spec.Template.Spec.Volumes[0].Name,
+	}
+
+	return nil
+}
+
 func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	kind, name, err := splitPrefixedName(c.preference)
 	if err != nil {
@@ -307,6 +342,21 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	vm.Spec.Preference = &v1.PreferenceMatcher{
 		Name: name,
 		Kind: kind,
+	}
+
+	return nil
+}
+
+func withInferredPreference(c *createVM, vm *v1.VirtualMachine) error {
+	if len(vm.Spec.Template.Spec.Volumes) < 1 {
+		return flagErr(InferPreferenceFlag, "at least one volume is needed to infer preference")
+	}
+
+	// TODO Expand this in the future to take a string containing the volume name to infer
+	// the preference from. For now this is inferring the preference from the first volume
+	// in the VM spec.
+	vm.Spec.Preference = &v1.PreferenceMatcher{
+		InferFromVolume: vm.Spec.Template.Spec.Volumes[0].Name,
 	}
 
 	return nil

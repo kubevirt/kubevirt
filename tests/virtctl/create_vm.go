@@ -154,6 +154,81 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
 		})
+
+		It("Complex example with inferred instancetype and preference", func() {
+			const runStrategy = v1.RunStrategyManual
+			const terminationGracePeriod int64 = 123
+			const blankSize = "10Gi"
+			vmName := "vm-" + rand.String(5)
+			instancetype := createInstancetype(virtClient)
+			preference := createPreference(virtClient)
+			pvc := createAnnotatedSourcePVC(virtClient, instancetype.Name, preference.Name)
+			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
+
+			out, err := runCmd(
+				setFlag(NameFlag, vmName),
+				setFlag(RunStrategyFlag, string(runStrategy)),
+				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
+				setFlag(InferInstancetypeFlag, "true"),
+				setFlag(InferPreferenceFlag, "true"),
+				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s", pvc.Namespace, pvc.Name)),
+				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
+				setFlag(CloudInitUserDataFlag, userDataB64),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Name).To(Equal(vmName))
+
+			Expect(vm.Spec.Running).To(BeNil())
+			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+
+			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
+
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
+			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
+
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
+			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+
+			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(2))
+
+			dvtPvcName := fmt.Sprintf("%s-pvc-%s", vmName, pvc.Name)
+			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtPvcName))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
+
+			dvtBlankName := fmt.Sprintf("%s-blank-0", vmName)
+			Expect(vm.Spec.DataVolumeTemplates[1].Name).To(Equal(dvtBlankName))
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.Blank).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(3))
+
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtPvcName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
+
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtBlankName))
+			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtBlankName))
+
+			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal("cloudinitdisk"))
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
+
+			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(decoded)).To(Equal(cloudInitUserData))
+		})
 	})
 })
 
@@ -221,4 +296,17 @@ func createDataSource(virtClient kubecli.KubevirtClient) *v1beta1.DataSource {
 	dataSource, err := virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return dataSource
+}
+
+func createAnnotatedSourcePVC(virtClient kubecli.KubevirtClient, instancetypeName, preferenceName string) *k8sv1.PersistentVolumeClaim {
+	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M")
+	pvc.Labels = map[string]string{
+		apiinstancetype.DefaultInstancetypeLabel:     instancetypeName,
+		apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
+		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
+		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
+	}
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return pvc
 }

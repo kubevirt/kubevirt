@@ -101,6 +101,16 @@ var _ = Describe("create vm", func() {
 			Entry("Explicit namespaced", "virtualmachineinstancetype/my-instancetype", "my-instancetype", instancetypeapi.SingularResourceName),
 		)
 
+		It("VM with inferred instancetype", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds"),
+				setFlag(InferInstancetypeFlag, "true"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
+		})
+
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
 			out, err := runCmd(setFlag(PreferenceFlag, flag))
 			Expect(err).ToNot(HaveOccurred())
@@ -113,6 +123,16 @@ var _ = Describe("create vm", func() {
 			Entry("Explicit cluster-wide", "virtualmachineclusterpreference/my-clusterpreference", "my-clusterpreference", instancetypeapi.ClusterSingularPreferenceResourceName),
 			Entry("Explicit namespaced", "virtualmachinepreference/my-preference", "my-preference", instancetypeapi.SingularPreferenceResourceName),
 		)
+
+		It("VM with inferred preference", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds"),
+				setFlag(InferPreferenceFlag, "true"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
+		})
 
 		DescribeTable("VM with specified containerdisk", func(containerdisk, volName, params string) {
 			out, err := runCmd(setFlag(ContainerdiskVolumeFlag, params))
@@ -394,6 +414,23 @@ var _ = Describe("create vm", func() {
 			Entry("Empty name", "virtualmachineinstancetype/", "failed to parse \"--instancetype\" flag: name cannot be empty"),
 		)
 
+		It("InferInstancetypeFlag needs at least one volume", func() {
+			out, err := runCmd(setFlag(InferInstancetypeFlag, "true"))
+
+			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: at least one volume is needed to infer instancetype"))
+			Expect(out).To(BeEmpty())
+		})
+
+		It("InstancetypeFlag and InferInstancetypeFlag are mutually exclusive", func() {
+			out, err := runCmd(
+				setFlag(InstancetypeFlag, "my-instancetype"),
+				setFlag(InferInstancetypeFlag, "true"),
+			)
+
+			Expect(err).To(MatchError("if any flags in the group [instancetype infer-instancetype] are set none of the others can be; [infer-instancetype instancetype] were all set"))
+			Expect(out).To(BeEmpty())
+		})
+
 		DescribeTable("Invalid arguments to PreferenceFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(PreferenceFlag, flag))
 
@@ -404,6 +441,23 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid argument count", "virtualmachinepreference/my-preference/madethisup", "failed to parse \"--preference\" flag: invalid count 3 of slashes in prefix/name"),
 			Entry("Empty name", "virtualmachinepreference/", "failed to parse \"--preference\" flag: name cannot be empty"),
 		)
+
+		It("InferPreferenceFlag needs at least one volume", func() {
+			out, err := runCmd(setFlag(InferPreferenceFlag, "true"))
+
+			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: at least one volume is needed to infer preference"))
+			Expect(out).To(BeEmpty())
+		})
+
+		It("PreferenceFlag and InferPreferenceFlag are mutually exclusive", func() {
+			out, err := runCmd(
+				setFlag(PreferenceFlag, "my-preference"),
+				setFlag(InferPreferenceFlag, "true"),
+			)
+
+			Expect(err).To(MatchError("if any flags in the group [preference infer-preference] are set none of the others can be; [infer-preference preference] were all set"))
+			Expect(out).To(BeEmpty())
+		})
 
 		DescribeTable("Invalid arguments to DataSourceVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(DataSourceVolumeFlag, flag))
