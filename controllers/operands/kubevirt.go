@@ -28,10 +28,6 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
-const (
-	SELinuxLauncherType = "virt_launcher.process"
-)
-
 // env vars
 const (
 	kvmEmulationEnvName = "KVM_EMULATION"
@@ -96,6 +92,9 @@ const (
 
 	// Export VMs to outside of the cluster
 	kvVMExportGate = "VMExport"
+
+	// Disable the installation and usage of the custom SELinux policy
+	kvDisableCustomSELinuxPolicyGate = "DisableCustomSELinuxPolicy"
 )
 
 var (
@@ -112,6 +111,7 @@ var (
 		kvDownwardMetricsGate,
 		kvNUMA,
 		kvVMExportGate,
+		kvDisableCustomSELinuxPolicyGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
@@ -355,7 +355,6 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 
 	config := &kubevirtcorev1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
-		SELinuxLauncherType:    SELinuxLauncherType,
 		NetworkConfiguration: &kubevirtcorev1.NetworkConfiguration{
 			NetworkInterface: string(kubevirtcorev1.MasqueradeInterface),
 		},
