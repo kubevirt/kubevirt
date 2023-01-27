@@ -151,6 +151,11 @@ func (in *AlertmanagerEndpoints) DeepCopyInto(out *AlertmanagerEndpoints) {
 		*out = new(TLSConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.BasicAuth != nil {
+		in, out := &in.BasicAuth, &out.BasicAuth
+		*out = new(BasicAuth)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Authorization != nil {
 		in, out := &in.Authorization, &out.Authorization
 		*out = new(SafeAuthorization)
@@ -722,6 +727,11 @@ func (in *CommonPrometheusFields) DeepCopyInto(out *CommonPrometheusFields) {
 	if in.ExcludedFromEnforcement != nil {
 		in, out := &in.ExcludedFromEnforcement, &out.ExcludedFromEnforcement
 		*out = make([]ObjectReference, len(*in))
+		copy(*out, *in)
+	}
+	if in.PodTargetLabels != nil {
+		in, out := &in.PodTargetLabels, &out.PodTargetLabels
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 }

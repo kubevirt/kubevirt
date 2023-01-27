@@ -29,11 +29,11 @@ import (
 // when create/update/delete events occur. These metrics contain the following
 // information on resource.
 //
-//		resource_created_at_seconds{"name", "namespace", "group", "version", "kind"}
+//	resource_created_at_seconds{"name", "namespace", "group", "version", "kind"}
 //
 // To call the handler use:
 //
-//		&handler.InstrumentedEnqueueRequestForObject{}
+//	&handler.InstrumentedEnqueueRequestForObject{}
 type InstrumentedEnqueueRequestForObject struct {
 	handler.EnqueueRequestForObject
 }

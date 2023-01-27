@@ -226,6 +226,7 @@ Type manipulation helpers:
 Function helpers:
 
 - [Partial](#partial)
+- [Partial2 -> Partial5](#partial2---partial5)
 
 Concurrency helpers:
 
@@ -236,6 +237,7 @@ Concurrency helpers:
 - [Debounce](#debounce)
 - [Synchronize](#synchronize)
 - [Async](#async)
+- [Transaction](#transaction)
 
 Error handling:
 
@@ -2274,6 +2276,21 @@ f(42)
 // 47
 ```
 
+### Partial2 -> Partial5
+
+Returns new function that, when called, has its first argument set to the provided value.
+
+```go
+add := func(x, y, z int) int { return x + y + z }
+f := lo.Partial2(add, 42)
+
+f(10, 5)
+// 57
+
+f(42, -4)
+// 80
+```
+
 ### Attempt
 
 Invokes a function N times until it returns valid output. Returning either the caught error or nil. When first argument is less than `1`, the function runs until a successful response is returned.
@@ -2344,7 +2361,7 @@ Invokes a function N times until it returns valid output. Returning either the c
 When first argument is less than `1`, the function runs until a successful response is returned.
 
 ```go
-count1, err1 := AttemptWhile(5, func(i int) (error, bool) {
+count1, err1 := lo.AttemptWhile(5, func(i int) (error, bool) {
     err := doMockedHTTPRequest(i)
     if err != nil {
         if errors.Is(err, ErrBadRequest) { // lets assume ErrBadRequest is a critical error that needs to terminate the invoke
@@ -2360,7 +2377,7 @@ count1, err1 := AttemptWhile(5, func(i int) (error, bool) {
 
 For more advanced retry strategies (delay, exponential backoff...), please take a look on [cenkalti/backoff](https://github.com/cenkalti/backoff).
 
-[play](https://go.dev/play/p/M2wVq24PaZM)
+[[play](https://go.dev/play/p/M2wVq24PaZM)]
 
 ### AttemptWhileWithDelay
 
@@ -2369,7 +2386,7 @@ Invokes a function N times until it returns valid output, with a pause between e
 When first argument is less than `1`, the function runs until a successful response is returned.
 
 ```go
-count1, time1, err1 := AttemptWhileWithDelay(5, time.Millisecond, func(i int, d time.Duration) (error, bool) {
+count1, time1, err1 := lo.AttemptWhileWithDelay(5, time.Millisecond, func(i int, d time.Duration) (error, bool) {
     err := doMockedHTTPRequest(i)
     if err != nil {
         if errors.Is(err, ErrBadRequest) { // lets assume ErrBadRequest is a critical error that needs to terminate the invoke
@@ -2385,7 +2402,7 @@ count1, time1, err1 := AttemptWhileWithDelay(5, time.Millisecond, func(i int, d 
 
 For more advanced retry strategies (delay, exponential backoff...), please take a look on [cenkalti/backoff](https://github.com/cenkalti/backoff).
 
-[play](https://go.dev/play/p/LPsWgf1ilBO)
+[[play](https://go.dev/play/p/cfcmhvLO-nv)]
 
 ### Debounce
 
@@ -2464,6 +2481,58 @@ ch := lo.Async2(func() (int, string) {
   return 42, "Hello"
 })
 // chan lo.Tuple2[int, string] ({42, "Hello"})
+```
+
+### Transaction
+
+Implements a Saga pattern.
+
+```go
+transaction := NewTransaction[int]().
+    Then(
+        func(state int) (int, error) {
+            fmt.Println("step 1")
+            return state + 10, nil
+        },
+        func(state int) int {
+            fmt.Println("rollback 1")
+            return state - 10
+        },
+    ).
+    Then(
+        func(state int) (int, error) {
+            fmt.Println("step 2")
+            return state + 15, nil
+        },
+        func(state int) int {
+            fmt.Println("rollback 2")
+            return state - 15
+        },
+    ).
+    Then(
+        func(state int) (int, error) {
+            fmt.Println("step 3")
+
+            if true {
+                return state, fmt.Errorf("error")
+            }
+
+            return state + 42, nil
+        },
+        func(state int) int {
+            fmt.Println("rollback 3")
+            return state - 42
+        },
+    )
+
+_, _ = transaction.Process(-5)
+
+// Output:
+// step 1
+// step 2
+// step 3
+// rollback 2
+// rollback 1
 ```
 
 ### Validate

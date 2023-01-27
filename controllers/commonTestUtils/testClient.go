@@ -96,6 +96,10 @@ func (c *HcoTestClient) Status() client.StatusWriter {
 	return c.sw
 }
 
+func (c *HcoTestClient) SubResource(subResource string) client.SubResourceClient {
+	return c.client.SubResource(subResource)
+}
+
 func (c *HcoTestClient) InitiateDeleteErrors(f FakeWriteErrorGenerator) {
 	c.deleteError = f
 }
@@ -121,18 +125,25 @@ func (c *HcoTestClient) RESTMapper() meta.RESTMapper {
 }
 
 type HcoTestStatusWriter struct {
-	client client.Client
+	client client.SubResourceWriter
 	errors TestErrors
 }
 
-func (sw *HcoTestStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.UpdateOption) error {
+func (sw *HcoTestStatusWriter) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
+	if ok, err := sw.errors.GetNextError(); ok {
+		return err
+	}
+	return sw.client.Create(ctx, obj, subResource, opts...)
+}
+
+func (sw *HcoTestStatusWriter) Update(ctx context.Context, obj client.Object, opts ...client.SubResourceUpdateOption) error {
 	if ok, err := sw.errors.GetNextError(); ok {
 		return err
 	}
 	return sw.client.Update(ctx, obj, opts...)
 }
 
-func (sw *HcoTestStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+func (sw *HcoTestStatusWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	if ok, err := sw.errors.GetNextError(); ok {
 		return err
 	}
@@ -163,5 +174,5 @@ func InitClient(clientObjects []runtime.Object) *HcoTestClient {
 		WithScheme(GetScheme()).
 		Build()
 
-	return &HcoTestClient{client: cl, sw: &HcoTestStatusWriter{client: cl}}
+	return &HcoTestClient{client: cl, sw: &HcoTestStatusWriter{client: cl.Status()}}
 }

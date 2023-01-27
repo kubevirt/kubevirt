@@ -16,7 +16,6 @@ package utils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -26,7 +25,7 @@ import (
 var ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
 
 var readSAFile = func() ([]byte, error) {
-	return ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	return os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 }
 
 // GetOperatorNamespace returns the namespace the operator should be running in from
