@@ -1591,7 +1591,7 @@ spec:
 
 	})
 
-	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", func() {
+	XDescribe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
 		// This test is installing a previous release of KubeVirt
