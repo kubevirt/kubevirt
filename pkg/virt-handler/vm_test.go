@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -34,9 +35,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
-
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 
@@ -1969,7 +1967,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
-
 			vmiUpdated := vmi.DeepCopy()
 			vmiUpdated.Status.MigrationState.Completed = true
 			vmiUpdated.Status.MigrationTransport = v1.MigrationTransportUnix
@@ -1978,13 +1975,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.NodeName = "othernode"
 			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
 			vmiUpdated.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-			vmiInterface.EXPECT().Update(context.Background(), vmiUpdated)
-
+			vmiUpdated.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:               v1.VirtualMachineInstanceFinalizeMigration,
+				LastTransitionTime: metav1.Now(),
+				Status:             "",
+				Message:            "",
+			}}
+			// Match the VMI ignoring conditions, then match the conditions ignoring time
+			vmiInterface.EXPECT().Update(context.Background(), NewVMIMatcherIgnoreCondTimestamps(*vmiUpdated))
 			controller.Execute()
 			testutils.ExpectEvent(recorder, "The VirtualMachineInstance migrated to node")
 		})
 
-		It("should apply post-migration operations on guest VM after migration completed", func() {
+		It("should detect target domain of ongoing migration", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -2017,8 +2020,70 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated := vmi.DeepCopy()
 			vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().FinalizeVirtualMachineMigration(vmi)
 			vmiInterface.EXPECT().Update(context.Background(), vmiUpdated)
+
+			controller.Execute()
+		})
+
+		It("should apply post-migration operations on guest VM after migration completed", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+			now := metav1.Now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:               host,
+				TargetNodeAddress:        "127.0.0.1:12345",
+				SourceNode:               "othernode",
+				MigrationUID:             "123",
+				TargetNodeDomainDetected: true,
+				StartTimestamp:           &pastTime,
+				EndTimestamp:             &now,
+				Completed:                true,
+				Failed:                   false,
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:               v1.VirtualMachineInstanceFinalizeMigration,
+				LastTransitionTime: metav1.Now(),
+				Status:             "",
+				Message:            "",
+			})
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+				UID:            "123",
+				StartTimestamp: &pastTime,
+				EndTimestamp:   &now,
+				Completed:      true,
+				Failed:         false,
+			}
+
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			vmiUpdated := vmi.DeepCopy()
+			vmiUpdated.Status.Conditions = append(vmiUpdated.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceIsMigratable,
+				Status: k8sv1.ConditionTrue,
+			})
+			vmiUpdated.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{}
+			vmiUpdated.Status.MigrationMethod = v1.LiveMigration
+			client.EXPECT().Ping().AnyTimes()
+			client.EXPECT().FinalizeVirtualMachineMigration(NewVMIMatcherIgnoreCondTimestamps(*vmiUpdated))
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			// The VMI should get updated with "FinalizeMigration" removed, leaving only "LiveMigratable"
+			vmiUpdated.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:   v1.VirtualMachineInstanceIsMigratable,
+				Status: k8sv1.ConditionTrue,
+			}}
+			vmiInterface.EXPECT().Update(context.Background(), NewVMIMatcherIgnoreCondTimestamps(*vmiUpdated))
 
 			controller.Execute()
 		})
@@ -3176,6 +3241,38 @@ func (m *vmiCondMatcher) String() string {
 	return "conditions matches on vmis"
 }
 
+type vmiNoCondMatcher struct {
+	vmi v1.VirtualMachineInstance
+}
+
+func NewVMINoCondMatcher(vmi v1.VirtualMachineInstance) gomock.Matcher {
+	return &vmiNoCondMatcher{vmi}
+}
+
+func (m *vmiNoCondMatcher) Matches(x interface{}) bool {
+	vmi, ok := x.(*v1.VirtualMachineInstance)
+	if !ok {
+		return false
+	}
+
+	m.vmi.Status.Conditions = vmi.Status.Conditions
+
+	// Only useful to debug failures
+	Expect(*vmi).To(Equal(m.vmi))
+
+	return reflect.DeepEqual(*vmi, m.vmi)
+}
+
+func (m *vmiNoCondMatcher) String() string {
+	return "vmis match ignoring conditions"
+}
+
+// NewVMIMatcherIgnoreCondTimestamps combines the matcher that ignores conditions,
+// and the matcher that knows how to compare condiditions (by ignoring the unpredictible timestamps).
+func NewVMIMatcherIgnoreCondTimestamps(vmi v1.VirtualMachineInstance) gomock.Matcher {
+	return gomock.All(NewVMINoCondMatcher(vmi), NewVMICondMatcher(vmi))
+}
+
 func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
 
 	if vmi.Status.ActivePods != nil {
@@ -3207,12 +3304,6 @@ func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Vi
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
-}
-
-func addNode(client *fake.Clientset, node *k8sv1.Node) {
-	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-		return true, node, nil
-	})
 }
 
 type netConfStub struct {
