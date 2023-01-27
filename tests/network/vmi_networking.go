@@ -213,15 +213,18 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 
 		Context("with propagated IP from a pod", func() {
-			BeforeEach(func() {
+
+			DescribeTable("should be able to reach", func(op k8sv1.NodeSelectorOperator, hostNetwork bool) {
+				namespace := testsuite.GetTestNamespace(nil)
+				if hostNetwork {
+					namespace = testsuite.NamespacePrivileged
+				}
+
 				inboundVMI = libvmi.NewCirros()
-				inboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), inboundVMI)
+				inboundVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), inboundVMI)
 				Expect(err).ToNot(HaveOccurred())
 				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
 				tests.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
-			})
-
-			DescribeTable("should be able to reach", func(op k8sv1.NodeSelectorOperator, hostNetwork bool) {
 
 				ip := inboundVMI.Status.Interfaces[0].IP
 
