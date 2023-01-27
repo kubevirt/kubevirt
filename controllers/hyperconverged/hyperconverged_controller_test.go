@@ -214,6 +214,7 @@ var _ = Describe("HyperconvergedController", func() {
 					"WithHostPassthroughCPU",
 					"VMExport",
 					"DisableCustomSELinuxPolicy",
+					"KubevirtSeccompProfile",
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}
@@ -223,6 +224,13 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(expectedFeatureGates)))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(expectedFeatureGates))
+
+				// Ensure the KubeVirt seccomp profile is set
+				Expect(kv.Spec.Configuration.SeccompConfiguration).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile.CustomProfile).ToNot(BeNil())
+				Expect(kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile.CustomProfile.RuntimeDefaultProfile).To(BeFalse())
+				Expect(*kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile.CustomProfile.LocalhostProfile).To(Equal("kubevirt/kubevirt.json"))
 
 				res, err = r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())

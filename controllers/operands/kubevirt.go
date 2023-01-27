@@ -95,6 +95,9 @@ const (
 
 	// Disable the installation and usage of the custom SELinux policy
 	kvDisableCustomSELinuxPolicyGate = "DisableCustomSELinuxPolicy"
+
+	// Enable the installation of the KubeVirt seccomp profile
+	kvKubevirtSeccompProfile = "KubevirtSeccompProfile"
 )
 
 var (
@@ -112,6 +115,7 @@ var (
 		kvNUMA,
 		kvVMExportGate,
 		kvDisableCustomSELinuxPolicyGate,
+		kvKubevirtSeccompProfile,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
@@ -353,6 +357,8 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		return nil, err
 	}
 
+	seccompConfig := getKVSeccompConfig()
+
 	config := &kubevirtcorev1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
 		NetworkConfiguration: &kubevirtcorev1.NetworkConfiguration{
@@ -368,6 +374,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		WebhookConfiguration:         rateLimiter,
 		ControllerConfiguration:      rateLimiter,
 		HandlerConfiguration:         rateLimiter,
+		SeccompConfiguration:         seccompConfig,
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
@@ -566,6 +573,18 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperCon
 	}
 
 	return devConf, nil
+}
+
+// Static for now, could be configured in the HCO CR in the future
+func getKVSeccompConfig() *kubevirtcorev1.SeccompConfiguration {
+	kubevirtProfile := "kubevirt/kubevirt.json"
+	return &kubevirtcorev1.SeccompConfiguration{
+		VirtualMachineInstanceProfile: &kubevirtcorev1.VirtualMachineInstanceProfile{
+			CustomProfile: &kubevirtcorev1.CustomProfile{
+				LocalhostProfile: &kubevirtProfile,
+			},
+		},
+	}
 }
 
 func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kubevirtcorev1.KubeVirt {
