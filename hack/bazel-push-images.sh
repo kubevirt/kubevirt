@@ -51,6 +51,7 @@ default_targets="
     winrmcli
     sidecar-shim
     network-slirp-binding
+    debug-toolkit
 "
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})

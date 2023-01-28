@@ -193,6 +193,7 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
+        "$(container_prefix)/$(image_prefix)debug-toolkit:$(container_tag)": "//cmd/sidecars/qemu-args:debug-toolkit-image",
         # container-disk images
         "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
@@ -336,6 +337,15 @@ container_push(
     image = "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)network-slirp-binding",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-debug-toolkit",
+    format = "Docker",
+    image = "//cmd/sidecars/qemu-args:debug-toolkit-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)debug-toolkit",
     tag = "$(container_tag)",
 )
 

@@ -7,6 +7,7 @@ binaries_and_docker_images="
     cmd/sidecars
     cmd/sidecars/smbios
     cmd/sidecars/cloudinit
+    cmd/sidecars/qemu-args
 "
 
 binaries="
