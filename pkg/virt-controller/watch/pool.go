@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -47,6 +49,7 @@ type PoolController struct {
 	recorder         record.EventRecorder
 	expectations     *controller.UIDTrackingControllerExpectations
 	burstReplicas    uint
+	statusUpdater    *status.VMPStatusUpdater
 }
 
 const (
@@ -86,6 +89,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		recorder:         recorder,
 		expectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		burstReplicas:    burstReplicas,
+		statusUpdater:    status.NewVMPStatusUpdater(clientset),
 	}
 
 	c.poolInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -468,6 +472,23 @@ func filterDeletingVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
 	filtered := []*virtv1.VirtualMachine{}
 	for _, vm := range vms {
 		if vm.DeletionTimestamp == nil {
+			filtered = append(filtered, vm)
+		}
+	}
+	return filtered
+}
+
+// filterReadyVMs takes a list of VMs and returns all VMs which are in ready state.
+func (c *PoolController) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+	return filterVMs(vms, func(vm *virtv1.VirtualMachine) bool {
+		return controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(k8score.PodReady), k8score.ConditionTrue)
+	})
+}
+
+func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) bool) []*virtv1.VirtualMachine {
+	filtered := []*virtv1.VirtualMachine{}
+	for _, vm := range vms {
+		if f(vm) {
 			filtered = append(filtered, vm)
 		}
 	}
@@ -1215,9 +1236,10 @@ func (c *PoolController) updateStatus(origPool *poolv1.VirtualMachinePool, vms [
 	}
 
 	pool.Status.Replicas = int32(len(vms))
+	pool.Status.ReadyReplicas = int32(len(c.filterReadyVMs(vms)))
 
-	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) {
-		_, err := c.clientset.VirtualMachinePool(pool.Namespace).Update(context.Background(), pool, metav1.UpdateOptions{})
+	if !equality.Semantic.DeepEqual(pool.Status, origPool.Status) || pool.Status.Replicas != pool.Status.ReadyReplicas {
+		err := c.statusUpdater.UpdateStatus(pool)
 		if err != nil {
 			return err
 		}

@@ -25774,6 +25774,12 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolStatus(ref common.Ref
 							Format: "int32",
 						},
 					},
+					"readyReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 					"conditions": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
