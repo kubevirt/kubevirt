@@ -3517,14 +3517,14 @@ func False() *bool {
 // it needs to run the mutate function before verifying converter
 func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterContext) {
 	if arch == "arm64" {
-		webhooks.SetVirtualMachineInstanceArm64Defaults(vmi)
-		// bootloader has been initialized in webhooks.SetVirtualMachineInstanceArm64Defaults,
+		webhooks.SetArm64Defaults(&vmi.Spec)
+		// bootloader has been initialized in webhooks.SetArm64Defaults,
 		// c.EFIConfiguration.SecureLoader is needed in the converter.Convert_v1_VirtualMachineInstance_To_api_Domain.
 		c.EFIConfiguration = &EFIConfiguration{
 			SecureLoader: false,
 		}
 
 	} else {
-		webhooks.SetVirtualMachineInstanceAmd64Defaults(vmi)
+		webhooks.SetAmd64Defaults(&vmi.Spec)
 	}
 }

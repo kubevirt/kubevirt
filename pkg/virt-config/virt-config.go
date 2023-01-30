@@ -169,32 +169,32 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
 }
 
-func (c *ClusterConfig) SetVMIDefaultNetworkInterface(vmi *v1.VirtualMachineInstance) error {
-	autoAttach := vmi.Spec.Domain.Devices.AutoattachPodInterface
+func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
+	autoAttach := spec.Domain.Devices.AutoattachPodInterface
 	if autoAttach != nil && *autoAttach == false {
 		return nil
 	}
 
 	// Override only when nothing is specified
-	if len(vmi.Spec.Networks) == 0 && len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
+	if len(spec.Networks) == 0 && len(spec.Domain.Devices.Interfaces) == 0 {
 		iface := v1.NetworkInterfaceType(c.GetDefaultNetworkInterface())
 		switch iface {
 		case v1.BridgeInterface:
 			if !c.IsBridgeInterfaceOnPodNetworkEnabled() {
 				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
 			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		case v1.MasqueradeInterface:
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 		case v1.SlirpInterface:
 			if !c.IsSlirpInterfaceEnabled() {
 				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
 			}
 			defaultIface := v1.DefaultSlirpNetworkInterface()
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+			spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
 		}
 
-		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	}
 	return nil
 }

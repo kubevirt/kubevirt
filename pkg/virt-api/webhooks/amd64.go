@@ -24,15 +24,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-// setDefaultDisksBus set default Disks Bus
-func setAmd64DefaultDisksBus(vmi *v1.VirtualMachineInstance) {
+func setDefaultAmd64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 	// Setting SATA as the default bus since it is typically supported out of the box by
 	// guest operating systems (we support only q35 and therefore IDE is not supported)
 	// TODO: consider making this OS-specific (VIRTIO for linux, SATA for others)
 	bus := v1.DiskBusSATA
 
-	for i := range vmi.Spec.Domain.Devices.Disks {
-		disk := &vmi.Spec.Domain.Devices.Disks[i].DiskDevice
+	for i := range spec.Domain.Devices.Disks {
+		disk := &spec.Domain.Devices.Disks[i].DiskDevice
 
 		if disk.Disk != nil && disk.Disk.Bus == "" {
 			disk.Disk.Bus = bus
@@ -46,7 +45,7 @@ func setAmd64DefaultDisksBus(vmi *v1.VirtualMachineInstance) {
 	}
 }
 
-// SetVirtualMachineInstanceAmd64Defaults is mutating function for mutating-webhook
-func SetVirtualMachineInstanceAmd64Defaults(vmi *v1.VirtualMachineInstance) {
-	setAmd64DefaultDisksBus(vmi)
+// SetAmd64Defaults is mutating function for mutating-webhook
+func SetAmd64Defaults(spec *v1.VirtualMachineInstanceSpec) {
+	setDefaultAmd64DisksBus(spec)
 }
