@@ -191,10 +191,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 
 		resp := admitVm(vmsAdmitter, vm)
-		// FIXME - This is bug #9102, the request should be accepted with guest visible memory taken into account
-		Expect(resp.Allowed).To(BeFalse())
-		Expect(resp.Result.Details.Causes).To(HaveLen(1))
-		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.resources.requests.memory"))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
