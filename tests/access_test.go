@@ -345,6 +345,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachineinstances", "softreboot",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("view", "default")),
+			Entry("on vmi portforward",
+				"virtualmachineinstances", "portforward",
+				allowGetFor("admin", "edit"),
+				denyAllFor("view", "default")),
 		)
 	})
 

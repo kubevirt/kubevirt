@@ -140,6 +140,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -268,6 +269,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
