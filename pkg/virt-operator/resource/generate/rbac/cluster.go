@@ -171,6 +171,17 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					GroupNameSubresources,
 				},
 				Resources: []string{
+					"virtualmachines/portforward",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameSubresources,
+				},
+				Resources: []string{
 					"virtualmachines/start",
 					"virtualmachines/stop",
 					"virtualmachines/restart",
@@ -293,6 +304,17 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameSubresources,
+				},
+				Resources: []string{
+					"virtualmachines/portforward",
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 			{

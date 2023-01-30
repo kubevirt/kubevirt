@@ -765,6 +765,12 @@ spec:
         - apiGroups:
           - subresources.kubevirt.io
           resources:
+          - virtualmachines/portforward
+          verbs:
+          - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachines/start
           - virtualmachines/stop
           - virtualmachines/restart
@@ -863,6 +869,12 @@ spec:
           - virtualmachineinstances/softreboot
           verbs:
           - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/portforward
+          verbs:
+          - get
         - apiGroups:
           - subresources.kubevirt.io
           resources:
