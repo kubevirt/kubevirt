@@ -105,36 +105,36 @@ func ValidateVirtualMachineInstanceArm64Setting(field *k8sfield.Path, spec *v1.V
 }
 
 // setDefaultCPUModel set default cpu model to host-passthrough
-func setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.CPU == nil {
-		vmi.Spec.Domain.CPU = &v1.CPU{}
+func setDefaultArm64CPUModel(spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.CPU == nil {
+		spec.Domain.CPU = &v1.CPU{}
 	}
 
-	if vmi.Spec.Domain.CPU.Model == "" {
-		vmi.Spec.Domain.CPU.Model = defaultCPUModel
+	if spec.Domain.CPU.Model == "" {
+		spec.Domain.CPU.Model = defaultCPUModel
 	}
 }
 
 // setDefaultBootloader set default bootloader to uefi boot
-func setDefaultBootloader(vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Firmware == nil || vmi.Spec.Domain.Firmware.Bootloader == nil {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+func setDefaultArm64Bootloader(spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Firmware == nil || spec.Domain.Firmware.Bootloader == nil {
+		if spec.Domain.Firmware == nil {
+			spec.Domain.Firmware = &v1.Firmware{}
 		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		if spec.Domain.Firmware.Bootloader == nil {
+			spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
 		}
-		vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
-		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = &_false
+		spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		spec.Domain.Firmware.Bootloader.EFI.SecureBoot = &_false
 	}
 }
 
 // setDefaultDisksBus set default Disks Bus, because sata is not supported by qemu-kvm of Arm64
-func setDefaultDisksBus(vmi *v1.VirtualMachineInstance) {
+func setDefaultArm64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 	bus := v1.DiskBusVirtio
 
-	for i := range vmi.Spec.Domain.Devices.Disks {
-		disk := &vmi.Spec.Domain.Devices.Disks[i].DiskDevice
+	for i := range spec.Domain.Devices.Disks {
+		disk := &spec.Domain.Devices.Disks[i].DiskDevice
 
 		if disk.Disk != nil && disk.Disk.Bus == "" {
 			disk.Disk.Bus = bus
@@ -149,9 +149,9 @@ func setDefaultDisksBus(vmi *v1.VirtualMachineInstance) {
 
 }
 
-// SetVirtualMachineInstanceArm64Defaults is mutating function for mutating-webhook
-func SetVirtualMachineInstanceArm64Defaults(vmi *v1.VirtualMachineInstance) {
-	setDefaultCPUModel(vmi)
-	setDefaultBootloader(vmi)
-	setDefaultDisksBus(vmi)
+// SetArm64Defaults is mutating function for mutating-webhook
+func SetArm64Defaults(spec *v1.VirtualMachineInstanceSpec) {
+	setDefaultArm64CPUModel(spec)
+	setDefaultArm64Bootloader(spec)
+	setDefaultArm64DisksBus(spec)
 }

@@ -27,9 +27,7 @@ import (
 	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
@@ -80,40 +78,12 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			}
 		}
 
-		// Set VMI defaults
+		// Set VirtualMachineInstance defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		mutator.setDefaultMachineType(newVMI)
-		mutator.setDefaultResourceRequests(newVMI)
-		mutator.setDefaultGuestCPUTopology(newVMI)
-		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
-		err = mutator.ClusterConfig.SetVMIDefaultNetworkInterface(newVMI)
-		if err != nil {
+		if err = webhooks.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		util.SetDefaultVolumeDisk(newVMI)
-		v1.SetObjectDefaults_VirtualMachineInstance(newVMI)
 
-		// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
-		// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
-		log.Log.V(4).Info("Set HyperV dependencies")
-		err = webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(newVMI)
-		if err != nil {
-			// HyperV is a special case. If our best-effort attempt fails, we should leave
-			// rejection to be performed later on in the validating webhook, and continue here.
-			// Please note this means that partial changes may have been performed.
-			// This is OK since each dependency must be atomic and independent (in ACID sense),
-			// so the VMI configuration is still legal.
-			log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
-		}
-
-		// Do some CPU arch specific setting.
-		if webhooks.IsARM64() {
-			log.Log.V(4).Info("Apply Arm64 specific setting")
-			webhooks.SetVirtualMachineInstanceArm64Defaults(newVMI)
-		} else {
-			webhooks.SetVirtualMachineInstanceAmd64Defaults(newVMI)
-			mutator.setDefaultCPUModel(newVMI)
-		}
 		if newVMI.IsRealtimeEnabled() {
 			log.Log.V(4).Info("Add realtime node label selector")
 			addNodeSelector(newVMI, v1.RealtimeLabel)
@@ -201,129 +171,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
 	}
-}
-
-func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
-	// create cpu topology struct
-	if vmi.Spec.Domain.CPU == nil {
-		vmi.Spec.Domain.CPU = &v1.CPU{}
-	}
-
-	// if vmi doesn't have cpu model set
-	if vmi.Spec.Domain.CPU.Model == "" {
-		if clusterConfigCPUModel := mutator.ClusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
-			//set is as vmi cpu model
-			vmi.Spec.Domain.CPU.Model = clusterConfigCPUModel
-		} else {
-			vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
-		}
-	}
-}
-
-func (mutator *VMIsMutator) setDefaultGuestCPUTopology(vmi *v1.VirtualMachineInstance) {
-	cores := uint32(1)
-	threads := uint32(1)
-	sockets := uint32(1)
-	vmiCPU := vmi.Spec.Domain.CPU
-	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
-		// create cpu topology struct
-		if vmi.Spec.Domain.CPU == nil {
-			vmi.Spec.Domain.CPU = &v1.CPU{}
-		}
-		//if cores, sockets, threads are not set, take value from domain resources request or limits and
-		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
-		resources := vmi.Spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuLimit.Value())
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuRequests.Value())
-		}
-
-		vmi.Spec.Domain.CPU.Sockets = sockets
-		vmi.Spec.Domain.CPU.Cores = cores
-		vmi.Spec.Domain.CPU.Threads = threads
-	}
-}
-
-func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance) {
-	machineType := mutator.ClusterConfig.GetMachineType()
-
-	if machine := vmi.Spec.Domain.Machine; machine != nil {
-		if machine.Type == "" {
-			machine.Type = machineType
-		}
-	} else {
-		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
-	}
-}
-
-func (mutator *VMIsMutator) setDefaultPullPoliciesOnContainerDisks(vmi *v1.VirtualMachineInstance) {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullPolicy == "" {
-			if strings.HasSuffix(volume.ContainerDisk.Image, ":latest") || !strings.ContainsAny(volume.ContainerDisk.Image, ":@") {
-				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullAlways
-			} else {
-				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullIfNotPresent
-			}
-		}
-	}
-}
-
-func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
-
-	resources := &vmi.Spec.Domain.Resources
-
-	if !resources.Limits.Cpu().IsZero() && resources.Requests.Cpu().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
-		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
-	}
-
-	if !resources.Limits.Memory().IsZero() && resources.Requests.Memory().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
-		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
-	}
-
-	if _, exists := resources.Requests[k8sv1.ResourceMemory]; !exists {
-		var memory *resource.Quantity
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			memory = vmi.Spec.Domain.Memory.Guest
-		}
-		if memory == nil && vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-			if hugepagesSize, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize); err == nil {
-				memory = &hugepagesSize
-			}
-		}
-		if memory != nil && memory.Value() > 0 {
-			if resources.Requests == nil {
-				resources.Requests = k8sv1.ResourceList{}
-			}
-			overcommit := mutator.ClusterConfig.GetMemoryOvercommit()
-			if overcommit == 100 {
-				resources.Requests[k8sv1.ResourceMemory] = *memory
-			} else {
-				value := (memory.Value() * int64(100)) / int64(overcommit)
-				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
-			}
-			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-			log.Log.Object(vmi).V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
-		}
-	}
-	if cpuRequest := mutator.ClusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {
-		if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
-			if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
-				return
-			}
-			if resources.Requests == nil {
-				resources.Requests = k8sv1.ResourceList{}
-			}
-			resources.Requests[k8sv1.ResourceCPU] = *cpuRequest
-		}
-	}
-
 }
 
 func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
