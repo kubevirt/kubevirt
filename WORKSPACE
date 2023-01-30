@@ -256,14 +256,14 @@ go_repository(
 )
 
 # override rules_docker issue with this dependency
-# rules_docker 0.16 uses 0.1.4, bit since there the checksum changed, which is very weird, going with 0.1.4.1 to
+# rules_docker 0.16 uses 0.1.4, bit since there the checksum changed, which is very weird, going with 0.1.4 release tag
 go_repository(
     name = "com_github_google_go_containerregistry",
     importpath = "github.com/google/go-containerregistry",
-    sha256 = "bc0136a33f9c1e4578a700f7afcdaa1241cfff997d6bba695c710d24c5ae26bd",
+    sha256 = "90a71507bf1e3ae08f29562bc75ea427a7ebd167cd805234db057eb8f10f9137",
     strip_prefix = "google-go-containerregistry-efb2d62",
     type = "tar.gz",
-    urls = ["https://api.github.com/repos/google/go-containerregistry/tarball/efb2d62d93a7705315b841d0544cb5b13565ff2a"],  # v0.1.4.1
+    urls = ["https://github.com/google/go-containerregistry/archive/refs/tags/v0.4.1.tar.gz"],
 )
 
 # bazel docker rules
