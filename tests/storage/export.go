@@ -1351,7 +1351,7 @@ var _ = SIGDescribe("Export", func() {
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
 		checkExportSecretRef(export)
-		restoreName := vm.Spec.Template.Spec.Volumes[0].DataVolume.Name
+		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		verifyKubevirtInternal(export, export.Name, export.Namespace, restoreName)
 	})
 
@@ -1427,9 +1427,9 @@ var _ = SIGDescribe("Export", func() {
 		Expect(export).ToNot(BeNil())
 		checkVMNameInStatus(vm.Name, export)
 		checkExportSecretRef(export)
-		restoreName := vm.Spec.Template.Spec.Volumes[0].DataVolume.Name
+		restoreName := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		// [1] is the cloud init
-		restoreName2 := vm.Spec.Template.Spec.Volumes[2].DataVolume.Name
+		restoreName2 := fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[2].DataVolume.Name)
 		verifyMultiKubevirtInternal(export, export.Name, export.Namespace, restoreName, restoreName2)
 	})
 
@@ -1753,7 +1753,7 @@ var _ = SIGDescribe("Export", func() {
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
 		export = waitForReadyExport(export)
-		verifyKubevirtInternal(export, export.Name, export.Namespace, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)
+		verifyKubevirtInternal(export, export.Name, export.Namespace, fmt.Sprintf("%s-%s", export.Name, vm.Spec.Template.Spec.Volumes[0].DataVolume.Name))
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())

@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/build/naming"
@@ -1121,7 +1122,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		if exporterPod.Status.Phase == corev1.PodRunning {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionTrue, podReadyReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Ready
-			vmExportCopy.Status.Links.Internal, err = ctrl.getInteralLinks(sourceVolumes.volumes, exporterPod, service)
+			vmExportCopy.Status.Links.Internal, err = ctrl.getInteralLinks(sourceVolumes.volumes, exporterPod, service, vmExport)
 			if err != nil {
 				return err
 			}
@@ -1408,4 +1409,13 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 		}
 	}
 	return nil
+}
+
+func (ctrl *VMExportController) getExportVolumeName(pvc *corev1.PersistentVolumeClaim, vmExport *exportv1.VirtualMachineExport) string {
+	// When exporting snapshots, we change the name of the
+	// restore PVC to match the volume name of the source VM
+	if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
+		return strings.TrimPrefix(pvc.Name, fmt.Sprintf("%s-", vmExport.Name))
+	}
+	return pvc.Name
 }
