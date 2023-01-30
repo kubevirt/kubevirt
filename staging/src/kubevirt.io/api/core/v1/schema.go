@@ -1176,6 +1176,11 @@ type Interface struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If specified, the ACPI index is used to provide network interface device naming, that is stable across changes
+	// in PCI addresses assigned to the device.
+	// This value is required to be unique across all devices and be between 1 and (16*1024-1).
+	// +optional
+	ACPIIndex int `json:"acpiIndex,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.

@@ -5232,6 +5232,13 @@ var CRDsValidation map[string]string = map[string]string{
                             are added to the vmi.
                           items:
                             properties:
+                              acpiIndex:
+                                description: If specified, the ACPI index is used
+                                  to provide network interface device naming, that
+                                  is stable across changes in PCI addresses assigned
+                                  to the device. This value is required to be unique
+                                  across all devices and be between 1 and (16*1024-1).
+                                type: integer
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used
                                   to determine ordering of boot devices. Lower values
@@ -9453,6 +9460,12 @@ var CRDsValidation map[string]string = map[string]string{
                     to the vmi.
                   items:
                     properties:
+                      acpiIndex:
+                        description: If specified, the ACPI index is used to provide
+                          network interface device naming, that is stable across changes
+                          in PCI addresses assigned to the device. This value is required
+                          to be unique across all devices and be between 1 and (16*1024-1).
+                        type: integer
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine
                           ordering of boot devices. Lower values take precedence.
@@ -11948,6 +11961,12 @@ var CRDsValidation map[string]string = map[string]string{
                     to the vmi.
                   items:
                     properties:
+                      acpiIndex:
+                        description: If specified, the ACPI index is used to provide
+                          network interface device naming, that is stable across changes
+                          in PCI addresses assigned to the device. This value is required
+                          to be unique across all devices and be between 1 and (16*1024-1).
+                        type: integer
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine
                           ordering of boot devices. Lower values take precedence.
@@ -14040,6 +14059,13 @@ var CRDsValidation map[string]string = map[string]string{
                             are added to the vmi.
                           items:
                             properties:
+                              acpiIndex:
+                                description: If specified, the ACPI index is used
+                                  to provide network interface device naming, that
+                                  is stable across changes in PCI addresses assigned
+                                  to the device. This value is required to be unique
+                                  across all devices and be between 1 and (16*1024-1).
+                                type: integer
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used
                                   to determine ordering of boot devices. Lower values
@@ -18004,6 +18030,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     which are added to the vmi.
                                   items:
                                     properties:
+                                      acpiIndex:
+                                        description: If specified, the ACPI index
+                                          is used to provide network interface device
+                                          naming, that is stable across changes in
+                                          PCI addresses assigned to the device. This
+                                          value is required to be unique across all
+                                          devices and be between 1 and (16*1024-1).
+                                        type: integer
                                       bootOrder:
                                         description: BootOrder is an integer value
                                           > 0, used to determine ordering of boot
@@ -22700,6 +22734,15 @@ var CRDsValidation map[string]string = map[string]string{
                                         which are added to the vmi.
                                       items:
                                         properties:
+                                          acpiIndex:
+                                            description: If specified, the ACPI index
+                                              is used to provide network interface
+                                              device naming, that is stable across
+                                              changes in PCI addresses assigned to
+                                              the device. This value is required to
+                                              be unique across all devices and be
+                                              between 1 and (16*1024-1).
+                                            type: integer
                                           bootOrder:
                                             description: BootOrder is an integer value
                                               > 0, used to determine ordering of boot
