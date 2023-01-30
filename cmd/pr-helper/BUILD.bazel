@@ -1,0 +1,43 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "multipath",
+    srcs = [":multipath.conf"],
+    mode = "0600",
+    package_dir = "/etc",
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = [
+        "//:get-version",
+    ],
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            ":multipath",
+            "//rpm:pr-helper_aarch64",
+        ],
+        "//conditions:default": [
+            ":multipath",
+            "//rpm:pr-helper_x86_64",
+        ],
+    }),
+)
+
+container_image(
+    name = "pr-helper",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/",
+    entrypoint = ["/usr/bin/qemu-pr-helper"],
+    visibility = ["//visibility:public"],
+)
