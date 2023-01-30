@@ -141,6 +141,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
 					"virtualmachineinstances/vnc/screenshot",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -161,7 +162,6 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
-					"virtualmachineinstances/portforward",
 				},
 				Verbs: []string{
 					"update",
@@ -296,6 +296,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
 					"virtualmachineinstances/vnc/screenshot",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -316,7 +317,6 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
-					"virtualmachineinstances/portforward",
 				},
 				Verbs: []string{
 					"update",
