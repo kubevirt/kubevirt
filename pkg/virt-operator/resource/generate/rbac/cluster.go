@@ -173,6 +173,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachines/expand-spec",
+					"virtualmachines/portforward",
 				},
 				Verbs: []string{
 					"get",
@@ -328,6 +329,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachines/expand-spec",
+					"virtualmachines/portforward",
 				},
 				Verbs: []string{
 					"get",
