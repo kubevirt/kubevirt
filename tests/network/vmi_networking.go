@@ -487,7 +487,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\n"},
+				&expect.BSnd{S: "ls /sys/bus/pci/devices/" + expectedPciAddress + "/virtio0/net\n"},
 				&expect.BExp{R: "eth0"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
@@ -497,7 +497,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By("checking eth0 Pci address")
 			testVMI := libvmi.NewAlpine()
 			tests.AddExplicitPodNetworkInterface(testVMI)
-			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:00.1"
+			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:01:00.0"
 			testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI)
 			Expect(err).ToNot(HaveOccurred())
 
