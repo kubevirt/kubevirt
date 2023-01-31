@@ -218,7 +218,6 @@ go_library(
         "ztypes_freebsd_amd64.go",
         "ztypes_freebsd_arm.go",
         "ztypes_freebsd_arm64.go",
-        "ztypes_illumos_amd64.go",
         "ztypes_linux.go",
         "ztypes_linux_386.go",
         "ztypes_linux_amd64.go",

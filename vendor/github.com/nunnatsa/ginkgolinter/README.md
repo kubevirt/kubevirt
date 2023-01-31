@@ -21,6 +21,28 @@ ginkgolinter [-fix] ./...
 Use the `-fix` flag to apply the fix suggestions to the source code.
 
 ## Linter Checks
+The linter checks the gomega assertions in golang test code. Gomega may be used together with ginkgo tests, For example:
+```go
+It("should test something", func() { // It is ginkgo test case function
+	Expect("abcd").To(HaveLen(4), "the string should have a length of 4") // Expect is the gomega assertion
+})
+```
+or within a classic golang test code, like this:
+```go
+func TestWithGomega(t *testing.T) {
+	g := NewWithT(t)
+	g.Expect("abcd").To(HaveLen(4), "the string should have a length of 4")
+}
+```
+
+In some cases, the gomega will be passed as a variable to function by ginkgo, for example:
+```go
+Eventually(func(g Gomega) error {
+	g.Expect("abcd").To(HaveLen(4), "the string should have a length of 4")
+	return nil
+}).Should(Succeed())
+```
+
 The linter checks the `Expect`, `ExpectWithOffset` and the `Ω` "actual" functions, with the `Should`, `ShouldNot`, `To`, `ToNot` and `NotTo` assertion functions.
 
 It also supports the embedded `Not()` matcher
@@ -78,6 +100,20 @@ It also supports the embedded `Not()` matcher; e.g.
 Or even (double negative):
 
 `Ω(x != nil).Should(Not(BeTrue()))` => `Ω(x).Should(BeNil())`
+
+### Wrong boolean Assertion
+The linter finds assertion using the `Equal` method, with the values of to `true` or `false`, instead
+of using the existing `BeTrue()` or `BeFalse()` matcher.
+
+There are several wrong patterns:
+
+```go
+Expect(x).To(Equal(true)) // should be: Expect(x).To(BeTrue())
+Expect(x).To(Equal(false)) // should be: Expect(x).To(BeFalse())
+```
+It also supports the embedded `Not()` matcher; e.g.
+
+`Ω(x).Should(Not(Equal(True)))` => `Ω(x).ShouldNot(BeBeTrue())`
 
 ### Wrong Error Assertion
 The linter finds assertion of errors compared with nil, or to be equal nil, or to be nil. The linter suggests to use `Succeed` for functions or `HaveOccurred` for error values..
