@@ -1052,6 +1052,81 @@ func addVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string)
 	return request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name
 }
 
+func volumeHotpluggable(volume v1.Volume) bool {
+	if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+		return true
+	}
+
+	if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
+		return true
+	}
+
+	return false
+}
+
+func volumeNameExists(volume v1.Volume, volumeName string) bool {
+	if volume.Name == volumeName {
+		return true
+	}
+
+	return false
+}
+
+func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
+	if volumeSource.DataVolume != nil {
+		return volumeSource.DataVolume.Name
+	}
+	if volumeSource.PersistentVolumeClaim != nil {
+		return volumeSource.PersistentVolumeClaim.ClaimName
+	}
+	return ""
+}
+
+func volumeSourceExists(volume v1.Volume, volumeName string) bool {
+	if volume.DataVolume != nil && volume.DataVolume.Name == volumeName {
+		return true
+	}
+
+	if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName {
+		return true
+	}
+	return false
+}
+
+func volumeExists(volume v1.Volume, volumeName string) bool {
+	if volumeNameExists(volume, volumeName) {
+		return true
+	}
+	return volumeSourceExists(volume, volumeName)
+}
+
+func verifyVolumeOption(volumes []v1.Volume, volumeRequest *v1.VirtualMachineVolumeRequest) error {
+	foundRemoveVol := false
+	for _, volume := range volumes {
+		if volumeRequest.AddVolumeOptions != nil {
+			volSourceName := volumeSourceName(volumeRequest.AddVolumeOptions.VolumeSource)
+			if volumeNameExists(volume, volumeRequest.AddVolumeOptions.Name) {
+				return fmt.Errorf("Unable to add volume [%s] because volume with that name already exists", volumeRequest.AddVolumeOptions.Name)
+			}
+			if volumeSourceExists(volume, volSourceName) {
+				return fmt.Errorf("Unable to add volume source [%s] because it already exists", volSourceName)
+			}
+		} else if volumeRequest.RemoveVolumeOptions != nil && volumeExists(volume, volumeRequest.RemoveVolumeOptions.Name) {
+			if !volumeHotpluggable(volume) {
+				return fmt.Errorf("Unable to remove volume [%s] because it is not hotpluggable", volume.Name)
+			}
+			foundRemoveVol = true
+			break
+		}
+	}
+
+	if volumeRequest.RemoveVolumeOptions != nil && !foundRemoveVol {
+		return fmt.Errorf("Unable to remove volume [%s] because it does not exist", volumeRequest.RemoveVolumeOptions.Name)
+	}
+
+	return nil
+}
+
 func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest *v1.VirtualMachineVolumeRequest) (string, error) {
 
 	volumeVerb := "add"
@@ -1063,19 +1138,6 @@ func generateVMIVolumeRequestPatch(vmi *v1.VirtualMachineInstance, volumeRequest
 
 	if len(vmi.Spec.Domain.Devices.Disks) > 0 {
 		diskVerb = "replace"
-	}
-
-	foundRemoveVol := false
-	for _, volume := range vmi.Spec.Volumes {
-		if volumeRequest.AddVolumeOptions != nil && volume.Name == volumeRequest.AddVolumeOptions.Name {
-			return "", fmt.Errorf("Unable to add volume [%s] because it already exists", volume.Name)
-		} else if volumeRequest.RemoveVolumeOptions != nil && volume.Name == volumeRequest.RemoveVolumeOptions.Name {
-			foundRemoveVol = true
-		}
-	}
-
-	if volumeRequest.RemoveVolumeOptions != nil && !foundRemoveVol {
-		return "", fmt.Errorf("Unable to remove volume [%s] because it does not exist", volumeRequest.RemoveVolumeOptions.Name)
 	}
 
 	vmiCopy := vmi.DeepCopy()
@@ -1235,6 +1297,11 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
 	}
 
+	err := verifyVolumeOption(vmi.Spec.Volumes, volumeRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
+	}
+
 	patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
@@ -1258,6 +1325,11 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 	vm, statErr := app.fetchVirtualMachine(name, namespace)
 	if statErr != nil {
 		return statErr
+	}
+
+	err := verifyVolumeOption(vm.Spec.Template.Spec.Volumes, volumeRequest)
+	if err != nil {
+		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
 	}
 
 	patch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
