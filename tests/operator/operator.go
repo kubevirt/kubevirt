@@ -1591,7 +1591,7 @@ spec:
 
 	})
 
-	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", func() {
+	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
 		// This test is installing a previous release of KubeVirt
@@ -1929,7 +1929,7 @@ spec:
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
-		It("[test_id:3146]should be able to delete and re-create kubevirt install", func() {
+		It("[test_id:3146]should be able to delete and re-create kubevirt install", decorators.Upgrade, func() {
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -1998,7 +1998,7 @@ spec:
 			})
 		})
 
-		It("[test_id:3148]should be able to create kubevirt install with custom image tag", func() {
+		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -2037,7 +2037,7 @@ spec:
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
-		It("[test_id:3149]should be able to create kubevirt install with image prefix", func() {
+		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
@@ -2104,7 +2104,7 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
@@ -2178,7 +2178,7 @@ spec:
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
+		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
