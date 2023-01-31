@@ -50,5 +50,6 @@
     ;
     ; This is needed for passt. This is the only thing for which this policy is actually needed.
     ; The policy will be removed from here once it will be installed via the passt package.
-    (allow process tmpfs_t (filesystem (mount)))
+    (allow process tmpfs_t (filesystem (mount unmount)))
+    (allow process tmpfs_t (file (getattr map)))
 )
