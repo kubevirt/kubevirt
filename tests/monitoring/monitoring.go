@@ -325,7 +325,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			labels := map[string]string{
 				"vmi": vmi.Name,
 			}
-			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded_total", 1, labels)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded", 1, labels)
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -354,7 +354,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", func() {
 			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
 			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
-			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed_total", 1, labels)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed", 1, labels)
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())

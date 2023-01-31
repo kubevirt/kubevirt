@@ -31,8 +31,8 @@ const (
 	PendingMigrations    = "kubevirt_migrate_vmi_pending_count"
 	SchedulingMigrations = "kubevirt_migrate_vmi_scheduling_count"
 	RunningMigrations    = "kubevirt_migrate_vmi_running_count"
-	SucceededMigrations  = "kubevirt_migrate_vmi_succeeded_total"
-	FailedMigrations     = "kubevirt_migrate_vmi_failed_total"
+	SucceededMigrations  = "kubevirt_migrate_vmi_succeeded"
+	FailedMigrations     = "kubevirt_migrate_vmi_failed"
 )
 
 var (
