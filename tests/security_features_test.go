@@ -187,7 +187,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 
 		Context("With selinuxLauncherType defined as virt_launcher.process", func() {
 
-			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", func() {
+			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", decorators.CustomSELinux, func() {
 				config := kubevirtConfiguration.DeepCopy()
 				launcherType := "virt_launcher.process"
 				config.SELinuxLauncherType = launcherType
