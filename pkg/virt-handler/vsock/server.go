@@ -1,6 +1,7 @@
 package vsock
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -64,6 +65,13 @@ func (h *Hypervisor) start() {
 }
 
 func (h *Hypervisor) serve() {
+	// Load the vhost_vsock module on demand.
+	if fd, err := os.Open("/dev/vhost-vsock"); err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to open /dev/vhost-vsock.")
+		return
+	} else {
+		fd.Close()
+	}
 	conn, err := vsock.ListenContextID(vsock.Host, h.port, &vsock.Config{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to bind to VSOCK port %v.", h.port)
