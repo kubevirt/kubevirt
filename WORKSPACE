@@ -717,6 +717,18 @@ rpm(
 )
 
 rpm(
+    name = "coreutils-0__8.32-34.el9.x86_64",
+    sha256 = "b9154b4318aad0f472cf2b678f536440dd1b76a97cff233ff22bf6b99bfd8324",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/coreutils-8.32-34.el9.x86_64.rpm"],
+)
+
+rpm(
+    name = "coreutils-common-0__8.32-34.el9.x86_64",
+    sha256 = "1f43fe705fba7d1aed1d427f31759959eaab26220cfa2eaa4d5f12485cbecbd5",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/coreutils-common-8.32-34.el9.x86_64.rpm"],
+)
+
+rpm(
     name = "coreutils-single-0__8.32-34.el9.aarch64",
     sha256 = "9ab931a79d42f2cf38ef98283603792abbef8c99d7cc112e04c69d0a66fb074c",
     urls = [
@@ -975,6 +987,18 @@ rpm(
         "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/device-mapper-libs-1.02.187-6.el9.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/3a43bf7c8310ef8876a1bda1c9551bde4cfdb89f31022092b466ff33a28812f9",
     ],
+)
+
+rpm(
+    name = "device-mapper-multipath-libs-0__0.8.7-20.el9.aarch64",
+    sha256 = "e371df943d0437e8d5b56285dec30a0044269ff3851d2d3b7b44175823be83d8",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/device-mapper-multipath-libs-0.8.7-20.el9.aarch64.rpm"],
+)
+
+rpm(
+    name = "device-mapper-multipath-libs-0__0.8.7-20.el9.x86_64",
+    sha256 = "9a680004eb379b4ad1501edede4febd34ccc54970de6930c5e71f07eac79a23f",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/device-mapper-multipath-libs-0.8.7-20.el9.x86_64.rpm"],
 )
 
 rpm(
@@ -1407,6 +1431,18 @@ rpm(
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/glibc-headers-2.34-60.el9.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/9005e807ee28bf7d7c4a148efe8bd2714b146324933f3de08ae017b991da6a7b",
     ],
+)
+
+rpm(
+    name = "glibc-langpack-om-0__2.34-60.el9.aarch64",
+    sha256 = "4cbeb002e4152665c2d3bcd8013e021febaf4cc4bceab3f34c620793d9835812",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-om-2.34-60.el9.aarch64.rpm"],
+)
+
+rpm(
+    name = "glibc-langpack-wal-0__2.34-60.el9.x86_64",
+    sha256 = "cdcceb7b3d5be73ffcdea827cd7034b8892f0c52ff4535ecf5244beec9554652",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-wal-2.34-60.el9.x86_64.rpm"],
 )
 
 rpm(
@@ -4032,6 +4068,18 @@ rpm(
 )
 
 rpm(
+    name = "qemu-pr-helper-17__7.2.0-8.el9.aarch64",
+    sha256 = "3ddc4bb2ce253185e40f0f6cfd176f5046d12aab8eb8331e4c3e83415a328645",
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-pr-helper-7.2.0-8.el9.aarch64.rpm"],
+)
+
+rpm(
+    name = "qemu-pr-helper-17__7.2.0-8.el9.x86_64",
+    sha256 = "9fd3c9b8b8531885468f4db8f3d1943ce03ce0fa4eb6dd0f26a85151f4ef772a",
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-pr-helper-7.2.0-8.el9.x86_64.rpm"],
+)
+
+rpm(
     name = "quota-1__4.06-6.el9.x86_64",
     sha256 = "b4827d71208202beeecc6e661584b3cf008f2ee22ddd7250089dd94ff22be31e",
     urls = [
@@ -4502,10 +4550,19 @@ rpm(
 rpm(
     name = "usbredir-0__0.13.0-2.el9.x86_64",
     sha256 = "7b6cec071b2d7437b70f8af875c127c00bd9b2e9d516ece64a9c30c96245394d",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/usbredir-0.13.0-2.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/7b6cec071b2d7437b70f8af875c127c00bd9b2e9d516ece64a9c30c96245394d",
-    ],
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/usbredir-0.13.0-2.el9.x86_64.rpm"],
+)
+
+rpm(
+    name = "userspace-rcu-0__0.12.1-6.el9.aarch64",
+    sha256 = "5ab924e8c35535d0101a5e1cb732e63940ef7b4b35a5cd0b422bf53809876b56",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/userspace-rcu-0.12.1-6.el9.aarch64.rpm"],
+)
+
+rpm(
+    name = "userspace-rcu-0__0.12.1-6.el9.x86_64",
+    sha256 = "119e159428dda0e194c6428da57fae87ef75cce5c7271d347fe84283a7374c03",
+    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/userspace-rcu-0.12.1-6.el9.x86_64.rpm"],
 )
 
 rpm(
