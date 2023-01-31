@@ -59,6 +59,7 @@ import (
 const (
 	dataMessage             = "data/message"
 	addingVolumeRunningVM   = "Adding volume to running VM"
+	addingVolumeAgain       = "Adding the same volume again with different name"
 	verifyingVolumeDiskInVM = "Verifying the volume and disk are in the VM and VMI"
 	removingVolumeFromVM    = "removing volume from VM"
 	verifyingVolumeNotExist = "Verifying the volume no longer exists in VM"
@@ -854,8 +855,47 @@ var _ = SIGDescribe("Hotplug", func() {
 					},
 				}, false, ""))
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("conflicts with an existing volume of the same name on the vmi template"))
+				Expect(err.Error()).To(ContainSubstring("Unable to add volume [disk0] because volume with that name already exists"))
 			})
+
+			It("should reject hotplugging the same volume with an existing volume name", func() {
+				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+
+				By(addingVolumeRunningVM)
+				addPVCVolumeVMI(vmi.Name, vmi.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
+
+				By(verifyingVolumeDiskInVM)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
+				verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
+
+				By(addingVolumeAgain)
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, getAddVolumeOptions(dvBlock.Name, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dvBlock.Name,
+					},
+				}, false, ""))
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Unable to add volume source [%s] because it already exists", dvBlock.Name)))
+			})
+
+			DescribeTable("should reject removing a volume", func(volName, expectedErr string) {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+
+				By(removingVolumeFromVM)
+				err = virtClient.VirtualMachine(vm.Namespace).RemoveVolume(vm.Name, &v1.RemoveVolumeOptions{Name: volName})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(expectedErr))
+			},
+				Entry("which wasn't hotplugged", "disk0", "Unable to remove volume [disk0] because it is not hotpluggable"),
+				Entry("which doesn't exist", "doesntexist", "Unable to remove volume [doesntexist] because it does not exist"),
+			)
 
 			It("should allow hotplugging both a filesystem and block volume", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
