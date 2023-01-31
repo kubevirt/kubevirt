@@ -45,6 +45,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
 	_ "kubevirt.io/kubevirt/tests/numa"
+	_ "kubevirt.io/kubevirt/tests/operator"
 	_ "kubevirt.io/kubevirt/tests/performance"
 	_ "kubevirt.io/kubevirt/tests/realtime"
 	_ "kubevirt.io/kubevirt/tests/scale"
