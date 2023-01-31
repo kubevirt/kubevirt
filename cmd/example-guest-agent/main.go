@@ -28,6 +28,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/client-go/util/keyutil"
+
 	"github.com/mdlayher/vsock"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
@@ -122,7 +124,11 @@ func setupCert() (*tls.Certificate, error) {
 	if err != nil {
 		return nil, err
 	}
-	crt, err := tls.X509KeyPair(cert.EncodeCertPEM(pair.Cert), cert.EncodePrivateKeyPEM(pair.Key))
+	pem, err := keyutil.MarshalPrivateKeyToPEM(pair.Key)
+	if err != nil {
+		return nil, err
+	}
+	crt, err := tls.X509KeyPair(cert.EncodeCertPEM(pair.Cert), pem)
 	if err != nil {
 		return nil, err
 	}

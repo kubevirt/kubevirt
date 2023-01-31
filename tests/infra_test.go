@@ -382,8 +382,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
 			cipher = &tls.CipherSuite{
-				ID:   tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-				Name: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+				ID:   tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				Name: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
 			}
 			kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 			kvConfig.TLSConfiguration = &v1.TLSConfiguration{

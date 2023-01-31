@@ -310,7 +310,7 @@ var _ = Describe("Export controller", func() {
 		defer GinkgoRecover()
 		caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
 
-		intermediateKey, err := certutil.NewPrivateKey()
+		intermediateKey, err := certutil.NewECDSAPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
 		intermediateConfig := certutil.Config{
 			CommonName: fmt.Sprintf("%s@%d", "intermediate", time.Now().Unix()),
@@ -321,7 +321,7 @@ var _ = Describe("Export controller", func() {
 		intermediateCert, err := certutil.NewSignedCert(intermediateConfig, intermediateKey, caKeyPair.Cert, caKeyPair.Key, time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 
-		key, err := certutil.NewPrivateKey()
+		key, err := certutil.NewECDSAPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
 
 		config.AltNames.DNSNames = []string{"hahaha.wwoo", "*.apps-crc.testing", "fgdgd.dfsgdf"}
@@ -362,7 +362,7 @@ var _ = Describe("Export controller", func() {
 	}
 
 	generateRouteCert := func() string {
-		key, err := certutil.NewPrivateKey()
+		key, err := certutil.NewECDSAPrivateKey()
 		Expect(err).ToNot(HaveOccurred())
 
 		config := certutil.Config{

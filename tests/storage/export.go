@@ -998,7 +998,7 @@ var _ = SIGDescribe("Export", func() {
 		})
 
 		generateTestCert := func(hostName string) (string, error) {
-			key, err := certutil.NewPrivateKey()
+			key, err := certutil.NewECDSAPrivateKey()
 			if err != nil {
 				return "", err
 			}
