@@ -17,7 +17,7 @@
  *
  */
 
-package tests_test
+package operator
 
 import (
 	"bytes"
