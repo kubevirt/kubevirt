@@ -24,6 +24,7 @@ import (
 	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -60,6 +61,20 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	// Validate updates to the {Instancetype,Preference}Matchers
+	if ar.Request.Operation == admissionv1.Update {
+		newVM, oldVM, err := webhookutils.GetVMFromAdmissionReview(ar)
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+		if causes := validateInstancetypeMatcherUpdate(newVM.Spec.Instancetype, oldVM.Spec.Instancetype); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+		if causes := validatePreferenceMatcherUpdate(newVM.Spec.Preference, oldVM.Spec.Preference); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
 	}
 
 	// Validate the InstancetypeMatcher before proceeding, the schema check above isn't enough
@@ -223,6 +238,50 @@ func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
 	if vm.Spec.Preference.Kind == "" {
 		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
+}
+
+func validateInstancetypeMatcherUpdate(oldInstancetypeMatcher *v1.InstancetypeMatcher, newInstancetypeMatcher *v1.InstancetypeMatcher) []metav1.StatusCause {
+	// Allow updates introducing or removing the matchers
+	if oldInstancetypeMatcher == nil || newInstancetypeMatcher == nil {
+		return nil
+	}
+	if err := validateMatcherUpdate(oldInstancetypeMatcher, newInstancetypeMatcher); err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
+			Field:   k8sfield.NewPath("spec", "instancetype", "revisionName").String(),
+		}}
+	}
+	return nil
+}
+
+func validatePreferenceMatcherUpdate(oldPreferenceMatcher *v1.PreferenceMatcher, newPreferenceMatcher *v1.PreferenceMatcher) []metav1.StatusCause {
+	// Allow updates introducing or removing the matchers
+	if oldPreferenceMatcher == nil || newPreferenceMatcher == nil {
+		return nil
+	}
+	if err := validateMatcherUpdate(oldPreferenceMatcher, newPreferenceMatcher); err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
+			Field:   k8sfield.NewPath("spec", "preference", "revisionName").String(),
+		}}
+	}
+	return nil
+}
+
+func validateMatcherUpdate(oldMatcher, newMatcher v1.Matcher) error {
+	// Do not check anything when the original matcher didn't have a revisionName as this is likely the VM Controller updating the matcher
+	if oldMatcher.GetRevisionName() == "" {
+		return nil
+	}
+	// If the matchers have changed ensure that the RevisionName is cleared when updating the Name
+	if !equality.Semantic.DeepEqual(newMatcher, oldMatcher) {
+		if oldMatcher.GetName() != newMatcher.GetName() && oldMatcher.GetRevisionName() == newMatcher.GetRevisionName() {
+			return fmt.Errorf("the Matcher Name has been updated without updating the RevisionName")
+		}
+	}
+	return nil
 }
 
 func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {
