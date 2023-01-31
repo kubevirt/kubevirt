@@ -524,3 +524,31 @@ func initContainerMinimalRequests() k8sv1.ResourceList {
 		k8sv1.ResourceMemory: resource.MustParse("1M"),
 	}
 }
+
+func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		return k8sv1.ResourceRequirements{
+			Limits:   hotplugContainerMinimalLimits(),
+			Requests: hotplugContainerMinimalLimits(),
+		}
+	} else {
+		return k8sv1.ResourceRequirements{
+			Limits:   hotplugContainerMinimalLimits(),
+			Requests: hotplugContainerMinimalRequests(),
+		}
+	}
+}
+
+func hotplugContainerMinimalLimits() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("100m"),
+		k8sv1.ResourceMemory: resource.MustParse("80M"),
+	}
+}
+
+func hotplugContainerMinimalRequests() k8sv1.ResourceList {
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    resource.MustParse("10m"),
+		k8sv1.ResourceMemory: resource.MustParse("2M"),
+	}
+}
