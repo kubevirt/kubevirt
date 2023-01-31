@@ -102,6 +102,28 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		return vmSpec, vmMeta
 	}
 
+	getResponseFromVMUpdate := func(oldVM *v1.VirtualMachine, newVM *v1.VirtualMachine) *admissionv1.AdmissionResponse {
+		oldVMBytes, err := json.Marshal(oldVM)
+		Expect(err).ToNot(HaveOccurred())
+		newVMBytes, err := json.Marshal(newVM)
+		Expect(err).ToNot(HaveOccurred())
+		By("Creating the test admissions review from the VM")
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+				Object: runtime.RawExtension{
+					Raw: newVMBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldVMBytes,
+				},
+			},
+		}
+		By("Mutating the VM")
+		return mutator.Mutate(ar)
+	}
+
 	BeforeEach(func() {
 		vm = &v1.VirtualMachine{
 			ObjectMeta: k8smetav1.ObjectMeta{
@@ -365,6 +387,225 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		for _, dv := range vmSpec.DataVolumeTemplates {
 			Expect(*dv.Spec.PVC.StorageClassName).To(Equal(storageClass))
 		}
+	})
+
+	Context("on update", func() {
+		var oldVM, newVM *v1.VirtualMachine
+		BeforeEach(func() {
+			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+			oldVM = &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{},
+							},
+						},
+					},
+				},
+			}
+			newVM = &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{},
+							},
+						},
+					},
+				},
+			}
+		})
+		Context("of InstancetypeMatcher", func() {
+			const (
+				instancetypeName   = "instancetype"
+				instancetypeCRName = "instancetypeCR"
+			)
+			It("should accept request without changes", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when updating name and clearing RevisionName", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: "foo",
+					Kind: apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when updating name and RevisionName", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         "foo",
+					RevisionName: "bar",
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request changing RevisionName", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: "foo",
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when introducing matcher", func() {
+				oldVM.Spec.Instancetype = nil
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: "foo",
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when removing matcher", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				newVM.Spec.Instancetype = nil
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should reject request changing name without without clearing RevisionName", func() {
+				oldVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         instancetypeName,
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				newVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         "foo",
+					RevisionName: instancetypeCRName,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeFalse())
+			})
+		})
+		Context("of PreferenceMatcher", func() {
+			const (
+				preferenceName   = "preference"
+				preferenceCRName = "preferenceCR"
+			)
+			It("should accept request without changes", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when updating name and RevisionName", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         "foo",
+					RevisionName: "bar",
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when updating name and clearing RevisionName", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name: "foo",
+					Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request changing RevisionName", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: "foo",
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when introducing matcher", func() {
+				oldVM.Spec.Preference = nil
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: "foo",
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should accept request when removing matcher", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				newVM.Spec.Preference = nil
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+			It("should reject request changing name without clearing RevisionName", func() {
+				oldVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         preferenceName,
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				newVM.Spec.Preference = &v1.PreferenceMatcher{
+					Name:         "foo",
+					RevisionName: preferenceCRName,
+					Kind:         apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
+				resp := getResponseFromVMUpdate(oldVM, newVM)
+				Expect(resp.Allowed).To(BeFalse())
+			})
+		})
 	})
 
 	Context("with InferFromVolume enabled", func() {
