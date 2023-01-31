@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -172,6 +173,7 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	var permittedDevices []Device
 
+	permittedDevices = append(permittedDevices, NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket()))
 	var featureGatedDevices = []struct {
 		Name      string
 		Path      string
@@ -231,7 +233,6 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
 		}
 	}
-
 	return permittedDevices
 }
 
