@@ -8,18 +8,45 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
 	VirtHandlerName = "virt-handler"
 	kubeletPodsPath = "/var/lib/kubelet/pods"
+	PrHelperName    = "pr-helper"
+	prVolumeName    = "pr-helper-socket-vol"
 )
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, productName, productVersion, productComponent, image, launcherImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
+func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
+	bidi := corev1.MountPropagationBidirectional
+	return corev1.Container{
+		Name:            PrHelperName,
+		Image:           image,
+		ImagePullPolicy: pullPolicy,
+		Command:         []string{"/usr/bin/qemu-pr-helper"},
+		Args: []string{
+			"-k", reservation.GetPrHelperSocketPath(),
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:             prVolumeName,
+				MountPath:        reservation.GetPrHelperSocketDir(),
+				MountPropagation: &bidi,
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: pointer.Bool(true),
+		},
+	}
+}
+
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -246,6 +273,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil},
 		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
 		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
+		{prVolumeName, reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocketDir(), &bidi},
 	}
 
 	for _, volume := range volumes {
@@ -291,7 +319,11 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			corev1.ResourceMemory: resource.MustParse("325Mi"),
 		},
 	}
+	if prHelperImage == "" {
+		prHelperImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, PrHelperName, AddVersionSeparatorPrefix(prHelperVersion))
+	}
 
+	pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
 	return daemonset, nil
 
 }
