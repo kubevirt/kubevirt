@@ -53,8 +53,6 @@ const (
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	PSA                        = "PSA"
 	VSOCKGate                  = "VSOCK"
-	// PSASeccompAllowsUserfaultfd tells us that the seccomp policy on the nodes allow the userfaultfd syscall, which is needed for post-copy migrations
-	PSASeccompAllowsUserfaultfd = "PSASeccompAllowsUserfaultfd"
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
@@ -189,10 +187,6 @@ func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(VSOCKGate)
-}
-
-func (config *ClusterConfig) PSASeccompAllowsUserfaultfd() bool {
-	return config.isFeatureGateEnabled(PSASeccompAllowsUserfaultfd)
 }
 
 func (config *ClusterConfig) CustomSELinuxPolicyDisabled() bool {

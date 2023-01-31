@@ -3540,20 +3540,6 @@ var _ = Describe("Template", func() {
 			}),
 		)
 
-		It("should compute the correct security context when migrating and postcopy is enabled and PSASeccompAllowsUserfaultfd is disabled", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Status.RuntimeUser = uint64(nonRootUser)
-			pod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			migrationConfig := &v1.MigrationConfiguration{
-				AllowPostCopy: pointer.Bool(true),
-			}
-			pod, err = svc.RenderMigrationManifest(vmi, pod, migrationConfig)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.SecurityContext.SeccompProfile.Type).To(Equal(kubev1.SeccompProfileTypeUnconfined))
-		})
-
 		It("should compute the correct security context when rendering hotplug attachment pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)

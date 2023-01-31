@@ -29,7 +29,6 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/network/link:go_default_library",
-        "//pkg/psa:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util/hardware:go_default_library",
@@ -95,7 +94,6 @@ go_test(
     deps = [
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
-        "//pkg/psa:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
