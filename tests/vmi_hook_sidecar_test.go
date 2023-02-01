@@ -51,8 +51,9 @@ import (
 )
 
 const (
-	hookSMBiosSidecarImage = "example-hook-sidecar"
-	sidecarContainerName   = "hook-sidecar-0"
+	hookSMBiosSidecarImage              = "example-hook-sidecar"
+	annotationSMBiosSidecarManufacturer = "smbios.vm.kubevirt.io/baseBoardManufacturer"
+	sidecarContainerName                = "hook-sidecar-0"
 )
 
 var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
@@ -245,16 +246,21 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	return string(logsRaw)
 }
 
-func RenderValidSMBiosSidecar(version string) map[string]string {
+func RenderSidecar(sidecarArgs, annotationName, annotationValue string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag),
-		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+		"hooks.kubevirt.io/hookSidecars": sidecarArgs,
+		annotationName:                   annotationValue,
 	}
 }
 
+func RenderValidSMBiosSidecar(version string) map[string]string {
+	sidecarArgs := fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+		version, flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag)
+	return RenderSidecar(sidecarArgs, annotationSMBiosSidecarManufacturer, "Radical Edward")
+}
+
 func RenderInvalidSMBiosSidecar() map[string]string {
-	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag),
-		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
-	}
+	sidecarArgs := fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+		flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag)
+	return RenderSidecar(sidecarArgs, annotationSMBiosSidecarManufacturer, "Radical Edward")
 }
