@@ -1053,23 +1053,11 @@ func addVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string)
 }
 
 func volumeHotpluggable(volume v1.Volume) bool {
-	if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
-		return true
-	}
-
-	if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
-		return true
-	}
-
-	return false
+	return (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable)
 }
 
 func volumeNameExists(volume v1.Volume, volumeName string) bool {
-	if volume.Name == volumeName {
-		return true
-	}
-
-	return false
+	return volume.Name == volumeName
 }
 
 func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
@@ -1083,21 +1071,12 @@ func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
 }
 
 func volumeSourceExists(volume v1.Volume, volumeName string) bool {
-	if volume.DataVolume != nil && volume.DataVolume.Name == volumeName {
-		return true
-	}
-
-	if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName {
-		return true
-	}
-	return false
+	return (volume.DataVolume != nil && volume.DataVolume.Name == volumeName) ||
+		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName)
 }
 
 func volumeExists(volume v1.Volume, volumeName string) bool {
-	if volumeNameExists(volume, volumeName) {
-		return true
-	}
-	return volumeSourceExists(volume, volumeName)
+	return volumeNameExists(volume, volumeName) || volumeSourceExists(volume, volumeName)
 }
 
 func verifyVolumeOption(volumes []v1.Volume, volumeRequest *v1.VirtualMachineVolumeRequest) error {
