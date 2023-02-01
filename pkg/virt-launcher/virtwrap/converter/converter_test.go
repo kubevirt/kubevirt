@@ -1635,6 +1635,40 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
+		It("should succeed with SCSI reservation", func() {
+			name := "scsi-reservation"
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: name,
+					DiskDevice: v1.DiskDevice{
+						Disk: nil,
+						LUN: &v1.LunTarget{
+							Bus:         "scsi",
+							Reservation: true,
+						},
+					},
+				}}
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: name,
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: name,
+						},
+					},
+				},
+			})
+			c.DisksInfo = make(map[string]*cmdv1.DiskInfo)
+			c.DisksInfo[name] = &cmdv1.DiskInfo{}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			reserv := domainSpec.Devices.Disks[0].Source.Reservations
+			Expect(reserv.Managed).To(Equal("no"))
+			Expect(reserv.SourceReservations.Type).To(Equal("unix"))
+			Expect(reserv.SourceReservations.Path).To(Equal("/var/run/kubevirt/daemons/pr/pr-helper.sock"))
+			Expect(reserv.SourceReservations.Mode).To(Equal("client"))
+		})
+
 		It("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func() {
 			one := uint(1)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
