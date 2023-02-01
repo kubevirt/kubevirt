@@ -22,6 +22,7 @@ package export
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -185,7 +186,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
 	vmExportCopy := vmExport.DeepCopy()
 
-	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes); err != nil {
+	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getSnapshotVolumeName); err != nil {
 		return 0, err
 	}
 
@@ -282,4 +283,10 @@ func volumeBackupIsKubeVirtContent(volumeBackup *snapshotv1.VolumeBackup, source
 		}
 	}
 	return false
+}
+
+func getSnapshotVolumeName(pvc *corev1.PersistentVolumeClaim, vmExport *exportv1.VirtualMachineExport) string {
+	// When exporting snapshots, we change the name of the
+	// restore PVC to match the volume name of the source VM
+	return strings.TrimPrefix(pvc.Name, fmt.Sprintf("%s-", vmExport.Name))
 }

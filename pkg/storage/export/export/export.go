@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/openshift/library-go/pkg/build/naming"
@@ -218,6 +217,13 @@ type VMExportController struct {
 type CertParams struct {
 	Duration    time.Duration
 	RenewBefore time.Duration
+}
+
+type getExportVolumeName func(pvc *corev1.PersistentVolumeClaim, vmExport *exportv1.VirtualMachineExport) string
+
+// Default getExportVolumeName function
+func getVolumeName(pvc *corev1.PersistentVolumeClaim, vmExport *exportv1.VirtualMachineExport) string {
+	return pvc.Name
 }
 
 func serializeCertParams(cp *CertParams) (string, error) {
@@ -1110,7 +1116,7 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	return isKubevirt
 }
 
-func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExportCopy *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) error {
+func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExportCopy *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes, getVolumeName getExportVolumeName) error {
 	var err error
 
 	vmExportCopy.Status.ServiceName = service.Name
@@ -1122,11 +1128,11 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		if exporterPod.Status.Phase == corev1.PodRunning {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionTrue, podReadyReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Ready
-			vmExportCopy.Status.Links.Internal, err = ctrl.getInteralLinks(sourceVolumes.volumes, exporterPod, service, vmExport)
+			vmExportCopy.Status.Links.Internal, err = ctrl.getInteralLinks(sourceVolumes.volumes, exporterPod, service, getVolumeName, vmExport)
 			if err != nil {
 				return err
 			}
-			vmExportCopy.Status.Links.External, err = ctrl.getExternalLinks(sourceVolumes.volumes, exporterPod, vmExport)
+			vmExportCopy.Status.Links.External, err = ctrl.getExternalLinks(sourceVolumes.volumes, exporterPod, getVolumeName, vmExport)
 			if err != nil {
 				return err
 			}
@@ -1409,13 +1415,4 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 		}
 	}
 	return nil
-}
-
-func (ctrl *VMExportController) getExportVolumeName(pvc *corev1.PersistentVolumeClaim, vmExport *exportv1.VirtualMachineExport) string {
-	// When exporting snapshots, we change the name of the
-	// restore PVC to match the volume name of the source VM
-	if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
-		return strings.TrimPrefix(pvc.Name, fmt.Sprintf("%s-", vmExport.Name))
-	}
-	return pvc.Name
 }

@@ -54,26 +54,26 @@ const (
 	external              = "external"
 )
 
-func (ctrl *VMExportController) getInteralLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getInteralLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, service *corev1.Service, getVolumeName getExportVolumeName, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
 	internalCert, err := ctrl.internalExportCa()
 	if err != nil {
 		return nil, err
 	}
 	host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
-	return ctrl.getLinks(pvcs, exporterPod, export, host, internal, internalCert)
+	return ctrl.getLinks(pvcs, exporterPod, export, host, internal, internalCert, getVolumeName)
 }
 
-func (ctrl *VMExportController) getExternalLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getExternalLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, getVolumeName getExportVolumeName, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
 	urlPath := fmt.Sprintf(externalUrlLinkFormat, export.Namespace, export.Name)
 	externalLinkHost, cert := ctrl.getExternalLinkHostAndCert()
 	if externalLinkHost != "" {
 		hostAndBase := path.Join(externalLinkHost, urlPath)
-		return ctrl.getLinks(pvcs, exporterPod, export, hostAndBase, external, cert)
+		return ctrl.getLinks(pvcs, exporterPod, export, hostAndBase, external, cert, getVolumeName)
 	}
 	return nil, nil
 }
 
-func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport, hostAndBase, linkType, cert string) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport, hostAndBase, linkType, cert string, getVolumeName getExportVolumeName) (*exportv1.VirtualMachineExportLink, error) {
 	const scheme = "https://"
 	exportLink := &exportv1.VirtualMachineExportLink{
 		Volumes: []exportv1.VirtualMachineExportVolume{},
@@ -94,7 +94,7 @@ func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, e
 
 			if ctrl.isKubevirtContentType(pvc) {
 				exportLink.Volumes = append(exportLink.Volumes, exportv1.VirtualMachineExportVolume{
-					Name: ctrl.getExportVolumeName(pvc, export),
+					Name: getVolumeName(pvc, export),
 					Formats: []exportv1.VirtualMachineExportVolumeFormat{
 						{
 							Format: exportv1.KubeVirtRaw,
@@ -108,7 +108,7 @@ func (ctrl *VMExportController) getLinks(pvcs []*corev1.PersistentVolumeClaim, e
 				})
 			} else {
 				exportLink.Volumes = append(exportLink.Volumes, exportv1.VirtualMachineExportVolume{
-					Name: ctrl.getExportVolumeName(pvc, export),
+					Name: getVolumeName(pvc, export),
 					Formats: []exportv1.VirtualMachineExportVolumeFormat{
 						{
 							Format: exportv1.Dir,
