@@ -730,6 +730,11 @@ type Interface struct {
 	Alias               *Alias           `xml:"alias,omitempty"`
 	Driver              *InterfaceDriver `xml:"driver,omitempty"`
 	Rom                 *Rom             `xml:"rom,omitempty"`
+	ACPI                *ACPI            `xml:"acpi,omitempty"`
+}
+
+type ACPI struct {
+	Index uint `xml:"index,attr"`
 }
 
 type InterfaceDriver struct {

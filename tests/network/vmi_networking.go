@@ -509,6 +509,30 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
+	It("VMI with an interface that has ACPI Index set", func() {
+		const acpiIndex = 101
+		const pciAddress = "0000:01:00.0"
+		iface := *v1.DefaultBridgeNetworkInterface()
+		iface.ACPIIndex = acpiIndex
+		iface.PciAddress = pciAddress
+		testVMI := libvmi.NewAlpine(
+			libvmi.WithInterface(iface),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+		testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI)
+		Expect(err).ToNot(HaveOccurred())
+
+		libwait.WaitUntilVMIReady(testVMI, console.LoginToAlpine)
+
+		err := console.SafeExpectBatch(testVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "cat /sys/bus/pci/devices/" + pciAddress + "/acpi_index\n"},
+			&expect.BExp{R: strconv.Itoa(acpiIndex)},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
 		It("[test_id:1777]should disable learning on pod iface", func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
