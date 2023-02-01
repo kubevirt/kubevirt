@@ -23,6 +23,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -30,6 +32,11 @@ import (
 )
 
 const (
+	NetworkNameSchemeLabel   = "kubevirt.io/launcherNetworkInterfacesNameScheme"
+	NetworkNameSchemeIndexed = "Indexed"
+	NetworkNameSchemeMix     = "Mixed"
+	NetworkNameSchemeHash    = "Hashed"
+
 	// MaxIfaceNameLen equals max kernel interface name len (15) - length("-nic")
 	// which is the suffix used for the bridge binding interface with IPAM.
 	// (the interface created to hold the pod's IP address - and thus appease CNI).
@@ -60,4 +67,18 @@ func hashNetworkName(networkName string) string {
 	hash := sha256.New()
 	_, _ = io.WriteString(hash, networkName)
 	return fmt.Sprintf("%x", hash.Sum(nil))[:MaxIfaceNameLen]
+}
+
+func IndexedInterfaceName(name string) string {
+	const (
+		defaultInterfaceNamePrefix = "eth"
+		interfaceNamePrefix        = "net"
+	)
+	for _, prefix := range []string{interfaceNamePrefix, defaultInterfaceNamePrefix} {
+		index := strings.TrimPrefix(name, prefix)
+		if _, err := strconv.Atoi(index); err == nil {
+			return index
+		}
+	}
+	return ""
 }

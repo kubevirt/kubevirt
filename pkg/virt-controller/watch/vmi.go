@@ -46,6 +46,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/multus"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -608,6 +610,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			}
 		}
 		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
+
+		if err := c.updateNetworkNameSchemeLabel(vmiCopy, pod); err != nil {
+			log.Log.Errorf("failed to update the network name scheme label: %v", err)
+		}
 
 	case vmi.IsScheduled():
 		// Nothing here
@@ -2099,4 +2105,37 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 		return virtv1.VolumeBound, PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
+}
+
+func (c *VMIController) updateNetworkNameSchemeLabel(vmiCopy *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	networkStatusAnnotationValue := pod.Annotations[networkv1.NetworkStatusAnnot]
+	if networkStatusAnnotationValue == "" {
+		return fmt.Errorf("network-status annotation is not present")
+	}
+	multusInterfaceNameToNetworkStatusMap, err := multus.MapInterfaceNameToNetworkStatus(pod.Annotations[networkv1.NetworkStatusAnnot])
+	if err != nil {
+		return err
+	}
+
+	indexedIfaceNamesCount := 0
+	for podIfaceName, _ := range multusInterfaceNameToNetworkStatusMap {
+		if index := namescheme.IndexedInterfaceName(podIfaceName); index != "" {
+			indexedIfaceNamesCount++
+		}
+	}
+	noIndexedPodIfaceNames := indexedIfaceNamesCount == 0
+
+	secondaryNetworksCount := len(vmispec.FilterMultusNonDefaultNetworks(vmiCopy.Spec.Networks))
+	allPodIfaceNamesAreIndexed := indexedIfaceNamesCount == secondaryNetworksCount
+
+	switch {
+	case noIndexedPodIfaceNames:
+		vmiCopy.Labels[namescheme.NetworkNameSchemeLabel] = namescheme.NetworkNameSchemeHash
+	case allPodIfaceNamesAreIndexed:
+		vmiCopy.Labels[namescheme.NetworkNameSchemeLabel] = namescheme.NetworkNameSchemeIndexed
+	default:
+		vmiCopy.Labels[namescheme.NetworkNameSchemeLabel] = namescheme.NetworkNameSchemeMix
+	}
+
+	return nil
 }
