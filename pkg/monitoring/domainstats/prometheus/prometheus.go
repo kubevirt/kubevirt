@@ -234,6 +234,39 @@ func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
 	)
 }
 
+func (metrics *vmiMetrics) updateCPU(vmi *k6tv1.VirtualMachineInstance, domainCPUStats *stats.DomainStatsCPU) {
+	if !domainCPUStats.TimeSet && !domainCPUStats.UserSet && !domainCPUStats.SystemSet {
+		log.Log.V(4).Warningf("No domain CPU stats is set for %s VMI.", vmi.Name)
+	}
+
+	if domainCPUStats.TimeSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_cpu_usage_seconds",
+			"Total CPU time spent in all modes (sum of both vcpu and hypervisor usage).",
+			prometheus.GaugeValue,
+			float64(domainCPUStats.Time/1000000000),
+		)
+	}
+
+	if domainCPUStats.UserSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_cpu_user_usage_seconds",
+			"Total CPU time spent in user mode.",
+			prometheus.GaugeValue,
+			float64(domainCPUStats.User/1000000000),
+		)
+	}
+
+	if domainCPUStats.SystemSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_cpu_system_usage_seconds",
+			"Total CPU time spent in system mode.",
+			prometheus.GaugeValue,
+			float64(domainCPUStats.System/1000000000),
+		)
+	}
+}
+
 func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 	for vcpuIdx, vcpu := range vcpuStats {
 		stringVcpuIdx := fmt.Sprintf("%d", vcpuIdx)
@@ -241,7 +274,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 		if vcpu.StateSet && vcpu.TimeSet {
 			metrics.pushCustomMetric(
 				"kubevirt_vmi_vcpu_seconds",
-				"Total amount of time spent in each state by each vcpu. Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
+				"Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
 				prometheus.CounterValue,
 				float64(vcpu.Time/1000000000),
 				[]string{"id", "state"},
@@ -637,7 +670,7 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 	}()
 
 	vmiMetrics := newVmiMetrics(vmi, ps.ch)
-	vmiMetrics.updateMetrics(vmStats)
+	vmiMetrics.updateMetrics(vmi, vmStats)
 }
 
 func Handler(MaxRequestsInFlight int) http.Handler {
@@ -658,10 +691,11 @@ type vmiMetrics struct {
 	ch             chan<- prometheus.Metric
 }
 
-func (metrics *vmiMetrics) updateMetrics(vmStats *VirtualMachineInstanceStats) {
+func (metrics *vmiMetrics) updateMetrics(vmi *k6tv1.VirtualMachineInstance, vmStats *VirtualMachineInstanceStats) {
 	metrics.updateKubernetesLabels()
 
 	metrics.updateMemory(vmStats.DomainStats.Memory)
+	metrics.updateCPU(vmi, vmStats.DomainStats.Cpu)
 	metrics.updateVcpu(vmStats.DomainStats.Vcpu)
 	metrics.updateBlock(vmStats.DomainStats.Block)
 	metrics.updateNetwork(vmStats.DomainStats.Net)
