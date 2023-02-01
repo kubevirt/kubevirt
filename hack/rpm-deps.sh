@@ -56,6 +56,7 @@ testimage_main="
   nmap-ncat
   procps-ng
   qemu-img-${QEMU_VERSION}
+  sevctl
   tar
   util-linux
   which
