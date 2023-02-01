@@ -22,6 +22,8 @@ package sriov_test
 import (
 	"fmt"
 
+	"kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -195,7 +197,11 @@ var _ = Describe("SRIOV", func() {
 ]`
 	DescribeTable("should fail to prepare network pci map on the pod network-pci-map anotation",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue string) {
-			networkPCIAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
+			vmi := api.NewMinimalVMI("test")
+			vmi.Spec.Networks = networkList
+			vmi.Spec.Domain.Devices.Interfaces = interfaceList
+
+			networkPCIAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(vmi, networkStatusAnnotationValue)
 			Expect(networkPCIAnnotationValue).To(Equal("{}"))
 		},
 		Entry("when pod's networkStatus Annotation does not exist",
@@ -240,7 +246,11 @@ var _ = Describe("SRIOV", func() {
 
 	DescribeTable("should succeed to prepare network pci map on pod's network-pci-map",
 		func(networkList []virtv1.Network, interfaceList []virtv1.Interface, networkStatusAnnotationValue, expectedPciMapString string) {
-			Expect(sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)).To(Equal(expectedPciMapString))
+			vmi := api.NewMinimalVMI("test")
+			vmi.Spec.Networks = networkList
+			vmi.Spec.Domain.Devices.Interfaces = interfaceList
+
+			Expect(sriov.CreateNetworkPCIAnnotationValue(vmi, networkStatusAnnotationValue)).To(Equal(expectedPciMapString))
 		},
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV}; Networks{1X masquarade(primary),1X Multus} 1xNAD",
 			[]virtv1.Network{newMasqueradeDefaultNetwork("testmasquerade"), newMultusNetwork("foo", "default/nad1")},

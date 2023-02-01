@@ -23,10 +23,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
@@ -57,7 +57,7 @@ func CreateNetworkPCIAnnotationValue(networks []v1.Network, interfaces []v1.Inte
 
 func mapNetworkNameToPCIAddress(networks []v1.Network, interfaces []v1.Interface,
 	networkStatusAnnotationValue string) (map[string]string, error) {
-	multusInterfaceNameToNetworkStatusMap, err := mapMultusInterfaceNameToNetworkStatus(networkStatusAnnotationValue)
+	multusInterfaceNameToNetworkStatusMap, err := multus.MapInterfaceNameToNetworkStatus(networkStatusAnnotationValue)
 	if err != nil {
 		return nil, err
 	}
@@ -81,21 +81,4 @@ func mapNetworkNameToPCIAddress(networks []v1.Network, interfaces []v1.Interface
 		networkPCIMap[sriovIface.Name] = pciAddress
 	}
 	return networkPCIMap, nil
-}
-
-func mapMultusInterfaceNameToNetworkStatus(networkStatusAnnotationValue string) (map[string]networkv1.NetworkStatus, error) {
-	if networkStatusAnnotationValue == "" {
-		return nil, fmt.Errorf("network-status annotation is not present")
-	}
-	var networkStatusList []networkv1.NetworkStatus
-	if err := json.Unmarshal([]byte(networkStatusAnnotationValue), &networkStatusList); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal network-status annotation: %v", err)
-	}
-
-	multusInterfaceNameToNetworkStatusMap := map[string]networkv1.NetworkStatus{}
-	for _, networkStatus := range networkStatusList {
-		multusInterfaceNameToNetworkStatusMap[networkStatus.Interface] = networkStatus
-	}
-
-	return multusInterfaceNameToNetworkStatusMap, nil
 }
