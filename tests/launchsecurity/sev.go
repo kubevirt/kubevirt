@@ -19,12 +19,14 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -32,6 +34,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -41,16 +44,7 @@ import (
 
 var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SEV, decorators.SigCompute, func() {
 	const (
-		tikBase64  = "kyka7P31TaQCFZGvIWlwtg=="
-		tekBase64  = "QukFWth0tLFJvhb1G0eOZw=="
 		diskSecret = "qwerty123"
-	)
-
-	var (
-		sevSessionOptions = &v1.SEVSessionOptions{
-			Session: "KOXMb7l+gifAhkqsUAp9oRgDhu2suoj3zc7acQVabfxu4rVyWYlllBseOc4M31Gf+oTALbWAjDWb7Lu5dDZNeOfnsieUH7oG/faRYArjaL7fKn6iRo95s8GtoOeJ8bu4diTPNqPTr4sQmeg4sV+QOXfseO94KqAnEZmPnfwWWI8=",
-			DHCert:  "AQAAAAAAAAADEAAAAwAAAAIAAABemUB/cPF55uQUuHUgsB7HxN0JfL/SZuyIkWhetMIsc7X8vlqC12UyZXLxEVRbcpwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5TExeg3dkfCy/g/Cl0h8K2cwhV77+1f1yt3belrhuXDwS+nU/L4tmVoAgCvYQZBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQAAABWAABZ2m7hAFYAAAMAAAAAAAAAXNpu4QBWAAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMD7S+EAVgAABAQAAPx/AAAAAAAAAAAAAOh8RwT8fwAAkHpHBPx/AAAAAAAAAAAAAOh8RwT8fwAAKDJHBPx/AAAAAAAAAAAAAAQAAAAAAAAAGdpu4QBWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADnAwAAAAAAAOcDAAAAAAAAAAARAAAAAAAAAAAAAAAAAAQEAAAEBAAAGvdY4QBWAAA4L0cE/H8AAAAAAAAAAAAAT0Fv4QBWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACoK0cE/H8AAAAAAAAAAAAAAAAAAAAAAAAAABEA/H8AAAAAAAAAAAAAAAAAAAAAAAAa91jhAFYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAQAAABWAABZ2m7hAFYAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMD7S+EAVgAABAQAAPx/AAAAAAAAAAAAAOh8RwT8fwAAkHpHBPx/AAAAAAAAAAAAAOh8RwT8fwAAKDJHBPx/AAAAAAAAAAAAAAQAAAAAAAAAGdpu4QBWAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADnAwAAAAAAAOcDAAAAAAAAAAARAAAAAAAAAAAAAAAAAAQEAAAEBAAAGvdY4QBWAAA4L0cEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-		}
 	)
 
 	newSEVFedora := func(withES bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
@@ -212,6 +206,47 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		return uint(val)
 	}
 
+	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName string, pdh string) (*v1.SEVSessionOptions, string, string) {
+		helperPod := tests.RenderPrivilegedPod("sev-helper", []string{"sleep"}, []string{"infinity"})
+		helperPod.Spec.NodeName = nodeName
+
+		var err error
+		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(context.Background(), helperPod, k8smetav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		defer func() {
+			err := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		}()
+		EventuallyWithOffset(1, ThisPod(helperPod), 30).Should(BeInPhase(k8sv1.PodRunning))
+
+		execOnHelperPod := func(command string) (string, error) {
+			stdout, err := exec.ExecuteCommandOnPod(
+				virtClient,
+				helperPod,
+				helperPod.Spec.Containers[0].Name,
+				[]string{tests.BinBash, "-c", command})
+			return strings.TrimSpace(stdout), err
+		}
+
+		_, err = execOnHelperPod(fmt.Sprintf("echo %s | base64 --decode > pdh.bin", pdh))
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		_, err = execOnHelperPod("sevctl session pdh.bin 1")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		godh, err := execOnHelperPod("cat vm_godh.b64")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		session, err := execOnHelperPod("cat vm_session.b64")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		tikBase64, err := execOnHelperPod("base64 vm_tik.bin")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		tekBase64, err := execOnHelperPod("base64 vm_tek.bin")
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		return &v1.SEVSessionOptions{
+			DHCert:  godh,
+			Session: session,
+		}, tikBase64, tekBase64
+	}
+
 	BeforeEach(func() {
 		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
 	})
@@ -331,6 +366,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(sevPlatformInfo).To(Equal(expectedSEVPlatformInfo))
 
 			By("Setting up session parameters")
+			vmi, err = ThisVMI(vmi)()
+			Expect(err).ToNot(HaveOccurred())
+			sevSessionOptions, tikBase64, tekBase64 := prepareSession(virtClient, vmi.Status.NodeName, sevPlatformInfo.PDH)
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(vmi.Name, sevSessionOptions)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
