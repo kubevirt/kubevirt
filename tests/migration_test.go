@@ -3142,7 +3142,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
 				config := getCurrentKv()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
+				config.MigrationConfiguration.AllowAutoConverge = pointer.BoolPtr(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -3151,7 +3151,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
 					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
-					policy.Spec.AllowPostCopy = pointer.BoolPtr(false)
+					policy.Spec.AllowAutoConverge = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
