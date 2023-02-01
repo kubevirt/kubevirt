@@ -191,6 +191,7 @@ func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1
 	for _, pvc := range sourceVolumes.volumes {
 		pvc.Name = strings.TrimPrefix(pvc.Name, fmt.Sprintf("%s-", vmExport.Name))
 	}
+	vmExportCopy.Status.VirtualMachineName = ctrl.getVmNameFromVmSnapshot(vmExport)
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes); err != nil {
 		return 0, err
 	}

@@ -219,6 +219,7 @@ func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.Virtua
 	var requeue time.Duration
 
 	vmExportCopy := vmExport.DeepCopy()
+	vmExportCopy.Status.VirtualMachineName = vmExport.Spec.Source.Name
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes); err != nil {
 		return requeue, err
 	}

@@ -1169,6 +1169,17 @@ var _ = SIGDescribe("Export", func() {
 		}
 	}
 
+	checkVMNameInStatus := func(name string, export *exportv1.VirtualMachineExport) {
+		Eventually(func() string {
+			export, err := virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if export.Status == nil {
+				return ""
+			}
+			return export.Status.VirtualMachineName
+		}, 30*time.Second, time.Second).Should(Equal(name))
+	}
+
 	createDataVolume := func(dv *cdiv1.DataVolume) *cdiv1.DataVolume {
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -1416,6 +1427,7 @@ var _ = SIGDescribe("Export", func() {
 		defer deleteSnapshot(snapshot)
 		export := createRunningVMSnapshotExport(snapshot)
 		Expect(export).ToNot(BeNil())
+		checkVMNameInStatus(vm.Name, export)
 		checkExportSecretRef(export)
 		restoreName := vm.Spec.Template.Spec.Volumes[0].DataVolume.Name
 		// [1] is the cloud init
@@ -1488,6 +1500,7 @@ var _ = SIGDescribe("Export", func() {
 		export := createVMExportObject(vm.Name, vm.Namespace, token)
 		Expect(export).ToNot(BeNil())
 		waitForExportPhase(export, exportv1.Pending)
+		checkVMNameInStatus(vm.Name, export)
 
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 
