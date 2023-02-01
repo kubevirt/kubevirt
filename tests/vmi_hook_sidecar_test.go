@@ -51,8 +51,8 @@ import (
 )
 
 const (
-	hookSidecarImage     = "example-hook-sidecar"
-	sidecarContainerName = "hook-sidecar-0"
+	hookSMBiosSidecarImage = "example-hook-sidecar"
+	sidecarContainerName   = "hook-sidecar-0"
 )
 
 var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		virtClient = kubevirt.Client()
 
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
+		vmi.ObjectMeta.Annotations = RenderValidSMBiosSidecar(hooksv1alpha1.Version)
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
@@ -153,7 +153,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
+				vmi.ObjectMeta.Annotations = RenderValidSMBiosSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -245,16 +245,16 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	return string(logsRaw)
 }
 
-func RenderSidecar(version string) map[string]string {
+func RenderValidSMBiosSidecar(version string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
 
 func RenderInvalidSMBiosSidecar() map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
