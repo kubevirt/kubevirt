@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,10 +43,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
@@ -134,49 +133,20 @@ func BeforeTestSuiteSetup(_ []byte) {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
-func EnsureKubevirtInfra() {
+func EnsureKubevirtReady() {
 	virtClient := kubevirt.Client()
 	kv := util.GetCurrentKv(virtClient)
 
-	timeout := 180 * time.Second
-	interval := 1 * time.Second
-
-	deployments := []string{
-		"virt-operator",
-		components.VirtAPIName,
-		components.VirtControllerName,
-	}
-
-	ensureDeployment := func(deploymentName string) {
-		deployment, err := virtClient.
-			AppsV1().
-			Deployments(kv.Namespace).
-			Get(context.Background(), deploymentName, metav1.GetOptions{})
+	Eventually(func() *v1.KubeVirt {
+		kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		EventuallyWithOffset(
-			1,
-			matcher.ThisDeploymentWith(kv.Namespace, deploymentName),
-			timeout,
-			interval).
-			Should(matcher.HaveReadyReplicasNumerically("==", *deployment.Spec.Replicas),
-				"waiting for %s deployment to be ready", deploymentName)
-	}
-
-	for _, deploymentName := range deployments {
-		ensureDeployment(deploymentName)
-	}
-
-	//TODO: implement matcher for Daemonset in test infra
-	Eventually(func() bool {
-		ds, err := virtClient.
-			AppsV1().
-			DaemonSets(kv.Namespace).
-			Get(context.Background(), components.VirtHandlerName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady
-	}, timeout, interval).Should(BeTrue(), "waiting for virt-handler daemonSet to be ready")
+		return kv
+	}, 180*time.Second, 1*time.Second).Should(
+		SatisfyAll(
+			matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+			matcher.HaveConditionFalse(v1.KubeVirtConditionProgressing),
+			matcher.HaveConditionFalse(v1.KubeVirtConditionDegraded),
+		))
 
 }
 
