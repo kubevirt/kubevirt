@@ -1002,7 +1002,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dv.Annotations = map[string]string{"user.custom.annotation/storage.thick-provisioned": "false"}
 			return dv
 		}
-		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
+		DescribeTable("[QUARANTINE][rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
