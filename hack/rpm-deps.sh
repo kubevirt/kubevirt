@@ -129,7 +129,6 @@ handlerbase_extra="
 "
 
 libguestfstools_main="
-  file
   libguestfs-${LIBGUESTFS_VERSION}
   guestfs-tools-${GUESTFSTOOLS_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
