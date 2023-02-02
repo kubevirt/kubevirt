@@ -239,7 +239,20 @@ func (ctrl *VMExportController) findCertByHostName(hostName string, certs []*x50
 	if latestCert != nil && latestCert.NotAfter.After(now) && latestCert.NotBefore.Before(now) {
 		return ctrl.buildPemFromCert(latestCert, certs)
 	}
+	if len(certs) > 0 {
+		return ctrl.buildPemFromAllCerts(certs, now)
+	}
 	return "", nil
+}
+
+func (ctrl *VMExportController) buildPemFromAllCerts(allCerts []*x509.Certificate, now time.Time) (string, error) {
+	pemOut := strings.Builder{}
+	for _, cert := range allCerts {
+		if cert.NotAfter.After(now) && cert.NotBefore.Before(now) {
+			pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+		}
+	}
+	return strings.TrimSpace(pemOut.String()), nil
 }
 
 func (ctrl *VMExportController) buildPemFromCert(matchingCert *x509.Certificate, allCerts []*x509.Certificate) (string, error) {
