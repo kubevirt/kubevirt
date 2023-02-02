@@ -40,14 +40,14 @@ package libvirt
 //
 // - Create a CGO function similar to the above function but with the
 //   appropriate signature to be registered as a callback in C code
-//   (connErrCallbackHelper). Notably, it will have a void* argument
+//   (connErrCallbackHelper). Notably, it will have a void * argument
 //   that should be cast to long to retrieve the callback ID. It
 //   should be just a thin wrapper to transform the opaque argument to
 //   a callback ID.
 //
 // - Create a CGO function which will be a wrapper around the C
 //   function to register the callback (virConnSetErrorFuncWrapper). Its
-//   only role is to transform a callback ID (long) to an opaque (void*)
+//   only role is to transform a callback ID (long) to an opaque (void *)
 //   and call the C function.
 //
 // - When setting up a callback (SetErrorFunc), register the struct from first step
