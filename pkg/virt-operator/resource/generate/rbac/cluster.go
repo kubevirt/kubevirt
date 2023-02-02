@@ -141,6 +141,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
 					"virtualmachineinstances/vnc/screenshot",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -161,7 +162,6 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
-					"virtualmachineinstances/portforward",
 				},
 				Verbs: []string{
 					"update",
@@ -173,6 +173,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachines/expand-spec",
+					"virtualmachines/portforward",
 				},
 				Verbs: []string{
 					"get",
@@ -296,6 +297,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
 					"virtualmachineinstances/vnc/screenshot",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -316,7 +318,6 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
-					"virtualmachineinstances/portforward",
 				},
 				Verbs: []string{
 					"update",
@@ -328,6 +329,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachines/expand-spec",
+					"virtualmachines/portforward",
 				},
 				Verbs: []string{
 					"get",
