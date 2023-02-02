@@ -45,6 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -431,6 +432,21 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Entry("[test_id:1578]with default network and secondary network", []v1.Interface{defaultInterface, linuxBridgeInterface}, []v1.Network{defaultNetwork, linuxBridgeNetwork}, "eth1", ptpSubnetIP1+ptpSubnetMask, ptpSubnetIP2+ptpSubnetMask),
 				Entry("with default network and secondary network with IPAM", []v1.Interface{defaultInterface, linuxBridgeInterfaceWithIPAM}, []v1.Network{defaultNetwork, linuxBridgeWithIPAMNetwork}, "eth1", "", ""),
 			)
+
+			It("should be labeled with network interface name scheme label", func() {
+				testVmi := libvmi.NewAlpine(
+					libvmi.WithInterface(defaultInterface),
+					libvmi.WithNetwork(&defaultNetwork),
+					libvmi.WithInterface(linuxBridgeInterface),
+					libvmi.WithNetwork(&linuxBridgeNetwork),
+				)
+				testVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(testVmi)).Create(context.Background(), testVmi)
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitUntilVMIReady(testVmi, console.LoginToAlpine)
+				testVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(testVmi)).Get(context.Background(), testVmi.Name, &v13.GetOptions{})
+
+				Expect(testVmi.Labels).To(HaveKeyWithValue(namescheme.NetworkNameSchemeLabel, namescheme.NetworkNameSchemeHash), "vm should be labeled with network-name-scheme label and have hashed value")
+			})
 		})
 
 		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
