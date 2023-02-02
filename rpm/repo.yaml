@@ -11,10 +11,6 @@ repositories:
   baseurl: http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/
   name: centos/stream9-crb-x86_64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
-- arch: x86_64
-  baseurl: https://passt.top/builds/copr/0%5E20221026.gf212044/centos-stream-9-x86_64/
-  name: centos/stream9-passt-x86_64
-  gpgkey: https://passt.top/builds/copr/0%5E20221026.gf212044/pubkey.gpg
 - arch: aarch64
   baseurl: http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/
   name: centos/stream9-baseos-aarch64
@@ -27,7 +23,3 @@ repositories:
   baseurl: http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/
   name: centos/stream9-crb-aarch64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
-- arch: aarch64
-  baseurl: https://passt.top/builds/copr/0%5E20221026.gf212044/centos-stream-9-aarch64/
-  name: centos/stream9-passt-aarch64
-  gpgkey: https://passt.top/builds/copr/0%5E20221026.gf212044/pubkey.gpg
