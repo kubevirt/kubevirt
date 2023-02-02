@@ -206,7 +206,7 @@ var _ = Describe("Pod Network", func() {
 				}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil, istioVmi)
-				Expect(getPorts(specGenerator)).To(Equal("-t ~15000,~15001,~15006,~15008,~15020,~15021,~15090 -u all"))
+				Expect(getPorts(specGenerator)).To(Equal("-t ~15000,~15001,~15004,~15006,~15008,~15009,~15020,~15021,~15053,~15090 -u all"))
 			})
 		})
 	})
