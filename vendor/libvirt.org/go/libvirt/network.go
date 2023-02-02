@@ -27,9 +27,11 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo !libvirt_dlopen pkg-config: libvirt
+#cgo libvirt_dlopen LDFLAGS: -ldl
+#cgo libvirt_dlopen CFLAGS: -DLIBVIRT_DLOPEN
 #include <stdlib.h>
-#include "network_wrapper.h"
+#include "libvirt_generated.h"
 */
 import "C"
 
@@ -313,9 +315,6 @@ func (n *Network) Update(cmd NetworkUpdateCommand, section NetworkUpdateSection,
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkGetDHCPLeases
 func (n *Network) GetDHCPLeases() ([]NetworkDHCPLease, error) {
-	if C.LIBVIR_VERSION_NUMBER < 1002006 {
-		return []NetworkDHCPLease{}, makeNotImplementedError("virNetworkGetDHCPLeases")
-	}
 	var cLeases *C.virNetworkDHCPLeasePtr
 	var err C.virError
 	numLeases := C.virNetworkGetDHCPLeasesWrapper(n.ptr, nil, (**C.virNetworkDHCPLeasePtr)(&cLeases), C.uint(0), &err)
@@ -349,10 +348,6 @@ func (n *Network) GetDHCPLeases() ([]NetworkDHCPLease, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortLookupByUUIDString
 func (n *Network) LookupNetworkPortByUUIDString(uuid string) (*NetworkPort, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5005000 {
-		return nil, makeNotImplementedError("virNetworkPortLookupByUUIDString")
-	}
-
 	cUuid := C.CString(uuid)
 	defer C.free(unsafe.Pointer(cUuid))
 	var err C.virError
@@ -365,10 +360,6 @@ func (n *Network) LookupNetworkPortByUUIDString(uuid string) (*NetworkPort, erro
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortLookupByUUID
 func (n *Network) LookupNetworkPortByUUID(uuid []byte) (*NetworkPort, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5005000 {
-		return nil, makeNotImplementedError("virNetworkPortLookupByUUID")
-	}
-
 	if len(uuid) != C.VIR_UUID_BUFLEN {
 		return nil, fmt.Errorf("UUID must be exactly %d bytes in size",
 			int(C.VIR_UUID_BUFLEN))
@@ -387,9 +378,6 @@ func (n *Network) LookupNetworkPortByUUID(uuid []byte) (*NetworkPort, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortCreateXML
 func (n *Network) PortCreateXML(xmlConfig string, flags uint32) (*NetworkPort, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5005000 {
-		return nil, makeNotImplementedError("virNetworkPortCreateXML")
-	}
 	cXml := C.CString(string(xmlConfig))
 	defer C.free(unsafe.Pointer(cXml))
 	var err C.virError
@@ -402,10 +390,6 @@ func (n *Network) PortCreateXML(xmlConfig string, flags uint32) (*NetworkPort, e
 
 // See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkListAllPorts
 func (n *Network) ListAllPorts(flags uint32) ([]NetworkPort, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5005000 {
-		return []NetworkPort{}, makeNotImplementedError("virNetworkListAllPorts")
-	}
-
 	var cList *C.virNetworkPortPtr
 	var err C.virError
 	numPorts := C.virNetworkListAllPortsWrapper(n.ptr, (**C.virNetworkPortPtr)(&cList), C.uint(flags), &err)

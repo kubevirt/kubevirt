@@ -138,4 +138,6 @@
 //       dom.Free()
 //   }
 //
+//go:generate go build -o generator ./gen
+//go:generate ./generator
 package libvirt
