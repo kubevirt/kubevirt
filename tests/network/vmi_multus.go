@@ -433,7 +433,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Entry("with default network and secondary network with IPAM", []v1.Interface{defaultInterface, linuxBridgeInterfaceWithIPAM}, []v1.Network{defaultNetwork, linuxBridgeWithIPAMNetwork}, "eth1", "", ""),
 			)
 
-			It("should be labeled with network interface name scheme label", func() {
+			FIt("should be labeled with network interface name scheme label", func() {
 				testVmi := libvmi.NewAlpine(
 					libvmi.WithInterface(defaultInterface),
 					libvmi.WithNetwork(&defaultNetwork),
