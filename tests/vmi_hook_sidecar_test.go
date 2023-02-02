@@ -46,6 +46,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -53,7 +54,11 @@ import (
 const (
 	hookSMBiosSidecarImage              = "example-hook-sidecar"
 	annotationSMBiosSidecarManufacturer = "smbios.vm.kubevirt.io/baseBoardManufacturer"
-	sidecarContainerName                = "hook-sidecar-0"
+
+	hookDebugToolkitImage     = "debug-toolkit"
+	annotationQEMUArgsSidecar = "libvirt.vm.kubevirt.io/qemuArgs"
+
+	sidecarContainerName = "hook-sidecar-0"
 )
 
 var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
@@ -229,6 +234,119 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	})
 })
 
+var _ = Describe("[sig-compute]HookQEMUArgsSidecar", decorators.SigCompute, func() {
+
+	var err error
+	var virtClient kubecli.KubevirtClient
+
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+
+		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi.ObjectMeta.Annotations = RenderValidQEMUArgsSidecar(hooksv1alpha1.Version)
+	})
+
+	Describe("[vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
+		getVMIPod := func(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, bool, error) {
+			podSelector := tests.UnfinishedVMIPodSelector(vmi)
+			vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), podSelector)
+
+			if err != nil {
+				return nil, false, fmt.Errorf("could not retrieve the VMI pod: %v", err)
+			} else if len(vmiPods.Items) == 0 {
+				return nil, false, nil
+			}
+			return &vmiPods.Items[0], true, nil
+		}
+
+		Context("with QEMU Args hook sidecar", func() {
+			It("should successfully start with hook sidecar annotation", func() {
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi)
+			})
+
+			It("should successfully start with hook sidecar annotation for v1alpha2", func() {
+				By("Starting a VMI")
+				vmi.ObjectMeta.Annotations = RenderValidQEMUArgsSidecar(hooksv1alpha2.Version)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi)
+			})
+
+			It("should call Collect and OnDefineDomain on the hook sidecar", func() {
+				By("Getting hook-sidecar logs")
+				vmi, err = virtClient.
+					VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+				libwait.WaitForSuccessfulVMIStart(vmi)
+				Eventually(logs,
+					11*time.Second,
+					500*time.Millisecond).
+					Should(And(ContainSubstring("Info method has been called"), ContainSubstring("OnDefineDomain method has been called")))
+			})
+
+			It("should update domain XML with QEMU command line options and environment variables", func() {
+				By("Reading domain XML using virsh")
+				clientcmd.SkipIfNoCmd("kubectl")
+
+				strategy := v1.StartStrategyPaused
+				vmi.Spec.StartStrategy = &strategy
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
+				libwait.WaitForSuccessfulVMIStart(vmi)
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+
+				domainXml, _ := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				fmt.Println(domainXml)
+				Expect(domainXml).Should(ContainSubstring("<qemu:commandline>"))
+				Expect(domainXml).Should(ContainSubstring("<qemu:env name='G_MESSAGES_DEBUG' value='all'/>"))
+				Expect(domainXml).Should(ContainSubstring("</qemu:commandline>"))
+			})
+
+			It("should not start with hook sidecar annotation when the version is not provided", func() {
+				By("Starting a VMI")
+				vmi.ObjectMeta.Annotations = RenderInvalidQEMUArgsSidecar("lacks version")
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
+
+				Eventually(func() bool {
+					vmiPod, exists, err := getVMIPod(vmi)
+					Expect(err).NotTo(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+					Expect(exists).To(BeTrue())
+					for _, container := range vmiPod.Status.ContainerStatuses {
+						if container.Name == sidecarContainerName && container.State.Terminated != nil {
+							terminated := container.State.Terminated
+							return terminated.ExitCode != 0 && terminated.Reason == "Error"
+						}
+					}
+					return false
+				}, 30*time.Second, time.Second).Should(
+					BeTrue(),
+					fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
+			})
+		})
+
+		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
+			BeforeEach(func() {
+				tests.DisableFeatureGate(virtconfig.SidecarGate)
+			})
+
+			It("should not start with hook sidecar annotation", func() {
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
+				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
+			})
+		})
+	})
+})
+
 func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	podName := tests.GetVmPodName(virtCli, vmi)
@@ -263,4 +381,18 @@ func RenderInvalidSMBiosSidecar() map[string]string {
 	sidecarArgs := fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
 		flags.KubeVirtUtilityRepoPrefix, hookSMBiosSidecarImage, flags.KubeVirtUtilityVersionTag)
 	return RenderSidecar(sidecarArgs, annotationSMBiosSidecarManufacturer, "Radical Edward")
+}
+
+func RenderValidQEMUArgsSidecar(version string) map[string]string {
+	qemuArgs := `{"env": [{"name": "G_MESSAGES_DEBUG", "value": "all"}]}`
+	sidecarArgs := fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+		version, flags.KubeVirtUtilityRepoPrefix, hookDebugToolkitImage, flags.KubeVirtUtilityVersionTag)
+	return RenderSidecar(sidecarArgs, annotationQEMUArgsSidecar, qemuArgs)
+}
+
+func RenderInvalidQEMUArgsSidecar(reason string) map[string]string {
+	qemuArgs := `{"env": [{"name": "G_MESSAGES_DEBUG", "value": "all"}]}`
+	sidecarArgs := fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+		flags.KubeVirtUtilityRepoPrefix, hookDebugToolkitImage, flags.KubeVirtUtilityVersionTag)
+	return RenderSidecar(sidecarArgs, annotationQEMUArgsSidecar, qemuArgs)
 }
