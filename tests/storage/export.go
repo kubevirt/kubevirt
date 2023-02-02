@@ -1173,10 +1173,10 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() string {
 			export, err := virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if export.Status == nil {
+			if export.Status == nil || export.Status.VirtualMachineName == nil {
 				return ""
 			}
-			return export.Status.VirtualMachineName
+			return *export.Status.VirtualMachineName
 		}, 30*time.Second, time.Second).Should(Equal(name))
 	}
 

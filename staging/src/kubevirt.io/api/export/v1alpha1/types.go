@@ -108,7 +108,7 @@ type VirtualMachineExportStatus struct {
 	// VirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or
 	// a VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a
 	// VirtualMachineSnapshot
-	VirtualMachineName string `json:"virtualMachineName,omitempty"`
+	VirtualMachineName *string `json:"virtualMachineName,omitempty"`
 
 	// +optional
 	// +listType=atomic
