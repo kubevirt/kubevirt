@@ -41,4 +41,4 @@ VIRT_LAUNCHER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-launc
 VIRT_EXPORTPROXY_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-exportproxy.digest)
 VIRT_EXPORTSERVER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-exportserver.digest)
 GS_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-libguestfs.digest)
-PR_SHA=$(cat ${DIGESTS_DIR}/bazel-bin/push-pr-helper.digest)
+PR_HELPER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-pr-helper.digest)

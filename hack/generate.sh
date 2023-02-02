@@ -176,6 +176,7 @@ virtlauncher_sha=$(getShasum ".VirtLauncherSha")
 virtexportproxy_sha=$(getShasum ".VirtExportProxySha")
 virtexportserver_sha=$(getShasum ".VirtExportServerSha")
 gs_sha=$(getShasum ".GsSha")
+pr_helper_sha=$(getShasum ".PrHelperSha")
 
 virtapi_rawsha=$(getRawShasum ".VirtApiSha")
 virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
@@ -184,6 +185,7 @@ virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
 virtexportproxy_rawsha=$(getRawShasum ".VirtExportProxySha")
 virtexportserver_rawsha=$(getRawShasum ".VirtExportServerSha")
 gs_rawsha=$(getRawShasum ".GsSha")
+prhelper_rawsha=$(getRawShasum ".PrHelperSha")
 
 # The generation code for CSV requires a valid semver to be used.
 # But we're trying to generate a template for a CSV here from code
@@ -192,7 +194,7 @@ gs_rawsha=$(getRawShasum ".GsSha")
 # values after the file is generated.
 _fake_replaces_csv_version="1111.1111.1111"
 _fake_csv_version="2222.2222.2222"
-${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --exportProxySha="$virtexportproxy_rawsha" --exportServerSha="$virtexportserver_rawsha" --gsSha="$gs_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --exportProxySha="$virtexportproxy_rawsha" --exportServerSha="$virtexportserver_rawsha" --gsSha="$gs_rawsha" --prHelperSha="$prhelper_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_replaces_csv_version/{{.ReplacesCsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 
