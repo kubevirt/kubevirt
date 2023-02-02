@@ -1953,16 +1953,21 @@ var _ = Describe("Converter", func() {
 			Entry("disabled - virtLauncherLogVerbosity variable is not defined", false, -1, false),
 		)
 
-		It("should add VSOCK section when present", func() {
-			cid := uint32(100)
-			vmi.Status.VSOCKCID = &cid
-			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
-			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-			Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
-			Expect(domainSpec.Devices.VSOCK.Model).To(Equal("virtio-non-transitional"))
-			Expect(domainSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
-			Expect(domainSpec.Devices.VSOCK.CID.Address).To(BeNumerically("==", 100))
-		})
+		DescribeTable("should add VSOCK section when present",
+			func(useVirtioTransitional bool) {
+				cid := uint32(100)
+				vmi.Status.VSOCKCID = &cid
+				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
+				c.UseVirtioTransitional = useVirtioTransitional
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
+				Expect(domainSpec.Devices.VSOCK.Model).To(Equal("virtio-non-transitional"))
+				Expect(domainSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
+				Expect(domainSpec.Devices.VSOCK.CID.Address).To(BeNumerically("==", 100))
+			},
+			Entry("use virtio transitional", true),
+			Entry("use virtio non-transitional", false),
+		)
 
 	})
 	Context("Network convert", func() {
