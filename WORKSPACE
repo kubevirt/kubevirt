@@ -4263,6 +4263,18 @@ rpm(
 )
 
 rpm(
+    name = "sevctl-0__0.1.0-4.el9.aarch64",
+    sha256 = "10a9ace255a5b84c2e89b413c08e24894470bfec6f6c790ea073b6fa3df7ee7a",
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/sevctl-0.1.0-4.el9.aarch64.rpm"],
+)
+
+rpm(
+    name = "sevctl-0__0.3.2-1.el9.x86_64",
+    sha256 = "99a4a78436176e6b7ec9f24f3e24bb1d8fbb62c96e2b6b018046d91f95e6ada1",
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/sevctl-0.3.2-1.el9.x86_64.rpm"],
+)
+
+rpm(
     name = "shadow-utils-2__4.9-6.el9.aarch64",
     sha256 = "8d04bd9c627fdcfae1ff8a2ee8e4e75a6eb2391566a7cdfe89f6380c1cec06bf",
     urls = [
