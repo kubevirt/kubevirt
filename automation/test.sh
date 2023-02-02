@@ -47,12 +47,14 @@ elif [[ $TARGET =~ cnao ]]; then
   export KUBEVIRT_DEPLOY_CDI=false
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
-  export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
-  if [[ $TARGET =~ k8s-1\.1.* ]]; then
+  # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
+  if [[ $TARGET =~ no-istio ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
+  else
+    export KUBEVIRT_DEPLOY_ISTIO=true
   fi
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
@@ -363,7 +365,12 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
-    label_filter='(sig-network)'
+    # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
+    if [[ $TARGET =~ no-istio ]]; then
+      label_filter='(sig-network && !Istio)'
+    else
+      label_filter='(sig-network)'
+    fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
   elif [[ $TARGET =~ vgpu.* ]]; then
