@@ -284,21 +284,36 @@ The release itself is only a git signed tag as it's used for minor releases as w
 For every release a branch will be created following the pattern `release-x.y`.
 For now, community members can propose pull requests to be included into a
 stable branch.
+
 Those pull requests should be limited to bug fixes and must not be
 enhancements. More info related to the policy around backporting can be found
-in this document, [docs/release-branch-backporting.md](https://github.com/kubevirt/kubevirt/blob/main/docs/release-branch-backporting.md)
+in this document, [docs/release-branch-backporting.md](https://github.com/kubevirt/kubevirt/blob/main/docs/release-branch-backporting.md).
 
-Cherry picking can be used to pick a merge commit from the main branch
-to a stable branch. An example:
+You can request that a PR be cherry-picked to a given branch with the 
+`/cherry-pick release-$release` kubevirt-bot [command](https://prow.k8s.io/command-help?repo=kubevirt%2Fkubevirt).
+
+You can also manually cherry-pick a change, for example:
 
 ```bash
-git checkout release-0.6
-git cherry-pick $THE_MERGE_COMMIT_ID -m 1 -sx
+$ git checkout release-0.6
+$ git cherry-pick -sx $THE_MERGE_COMMIT_ID 
 [release-0.6 acd756040] Merge pull request #1234 from great_person
  Author: Bob Builder <builder@bob.com>
  Date: Thu Jun 28 17:50:05 2018 +0300
  5 files changed, 55 insertions(+), 22 deletions(-)
-git push $YOUR_REMOTE release-0.6:release-0.6-aParticularFix
+$ git push $YOUR_REMOTE release-0.6:release-0.6-aParticularFix
+```
+
+If the patch you’re proposing will not cherry-pick cleanly, you can help
+by resolving the conflicts yourself and proposing the resulting patch.
+Please keep `Conflicts` lines in the commit message to help reviewers, for example:
+
+```
+Conflicts:
+  pkg/virt-operator/resource/generate/rbac/cluster.go
+
+NOTE: The conflict was due to no other permissions with method/verb GET
+being defined in this branch.
 ```
 
 After pushing the branch, you'll need to make sure to create a pull request
