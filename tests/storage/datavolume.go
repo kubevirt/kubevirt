@@ -186,11 +186,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithForceBindAnnotation(),
 				)
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				var pvc *k8sv1.PersistentVolumeClaim
 				Eventually(func() *k8sv1.PersistentVolumeClaim {
-					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
+					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespacePrivileged).Get(context.Background(), dv.Name, metav1.GetOptions{})
 					if err != nil {
 						return nil
 					}
@@ -201,6 +201,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				tests.ChangeImgFilePermissionsToNonQEMU(pvc)
 
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
+				vmi.Namespace = testsuite.NamespacePrivileged
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
