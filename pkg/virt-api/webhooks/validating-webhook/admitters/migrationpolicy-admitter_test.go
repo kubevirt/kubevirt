@@ -25,16 +25,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/api/migrations"
-
-	"kubevirt.io/kubevirt/pkg/psa"
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
@@ -42,7 +38,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -50,45 +45,13 @@ import (
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
-	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
 	var admitter *MigrationPolicyAdmitter
 	var policyName string
 	var kubeClient *fake.Clientset
-
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
-					},
-				},
-			},
-		})
-	}
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: make([]string, 0),
-					},
-				},
-			},
-		})
-	}
-
-	const (
-		privilegedNamespace    = true
-		nonPrivilegedNamespace = false
-		enableTheFeatureGate   = true
-		disableTheFeatureGate  = false
-		shouldSucceed          = true
-		shouldFail             = false
-	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -145,44 +108,6 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			migrationsv1.MigrationPolicySpec{},
 		),
 	)
-
-	DescribeTable("migration policy with postcopy enabled should be", func(usePrivilegedNamespace, useFeatureGate, expectedOutcome bool) {
-		if useFeatureGate {
-			enableFeatureGate(virtconfig.PSASeccompAllowsUserfaultfd)
-		} else {
-			disableFeatureGates()
-		}
-		kubeClient.Fake.PrependReactor("get", "namespaces", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			_, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-
-			labels := map[string]string{}
-			if usePrivilegedNamespace {
-				labels[psa.PSALabel] = "privileged"
-			}
-
-			return true, &k8sv1.Namespace{
-				TypeMeta: metav1.TypeMeta{Kind: "Namespace"},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   "default",
-					Labels: labels,
-				},
-			}, nil
-		})
-
-		By("Setting up a new policy")
-		policy := kubecli.NewMinimalMigrationPolicy(policyName)
-		policy.Spec = migrationsv1.MigrationPolicySpec{AllowPostCopy: pointer.BoolPtr(true)}
-
-		By("Expecting admitter would allow it")
-		admitter.admitAndExpect(policy, expectedOutcome)
-	},
-		Entry("allowed in a privileged namespace", privilegedNamespace, disableTheFeatureGate, shouldSucceed),
-		Entry("denied in a non-privileged namespace", nonPrivilegedNamespace, disableTheFeatureGate, shouldFail),
-		Entry("allowed in a privileged namespace when the feature gate is enabled", privilegedNamespace, enableTheFeatureGate, shouldSucceed),
-		Entry("allowed in a non-privileged namespace when the feature gate is enabled", nonPrivilegedNamespace, enableTheFeatureGate, shouldSucceed),
-	)
-
 })
 
 func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace string) *admissionv1.AdmissionReview {

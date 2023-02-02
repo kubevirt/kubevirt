@@ -20,7 +20,6 @@
 package admitters
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -37,7 +36,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/psa"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -93,21 +91,6 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "must not be negative",
 				Field:   sourceField.Child("bandwidthPerMigration").String(),
-			})
-		}
-	}
-
-	if spec.AllowPostCopy != nil && *spec.AllowPostCopy {
-		namespace, err := admitter.Client.CoreV1().Namespaces().Get(context.Background(), policy.Namespace, metav1.GetOptions{})
-		if err != nil {
-			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		if !admitter.ClusterConfig.PSASeccompAllowsUserfaultfd() && !psa.IsNamespacePrivileged(namespace) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "PostCopy is not allowed if the namespace is unprivileged",
-				Field:   sourceField.Child("allowPostCopy").String(),
 			})
 		}
 	}

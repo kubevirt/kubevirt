@@ -107,7 +107,6 @@ func AdjustKubeVirtResource() {
 		virtconfig.VMExportGate,
 		virtconfig.VSOCKGate,
 		virtconfig.KubevirtSeccompProfile,
-		virtconfig.PSASeccompAllowsUserfaultfd,
 	)
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {

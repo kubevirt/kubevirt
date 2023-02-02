@@ -121,9 +121,6 @@ const (
 	// MigrationBackoffReason is set when an error has occured while migrating
 	// and virt-controller is backing off before retrying.
 	MigrationBackoffReason = "MigrationBackoff"
-	// WarningPostCopyNotAllowed is added in an event when PostCopy is enabled for a migration
-	// but the namespace in which the VM is running is not privileged
-	WarningPostCopyNotAllowed = "PostCopyNotAllowed"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
