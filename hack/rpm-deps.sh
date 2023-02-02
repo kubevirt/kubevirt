@@ -14,6 +14,7 @@ LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.48.4-2.el9}
 GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.48.2-7.el9}
 PASST_VERSION=${PASST_VERSION:-0:0^20221026.gf212044-1.el9}
 VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.4.0-1.el9}
+SWTPM_VERSION=${SWTPM_VERSION:-0:0.7.0-2.20211109gitb79fd91.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 
 bazeldnf_repos="--repofile rpm/repo.yaml"
@@ -87,6 +88,7 @@ launcherbase_main="
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   passt-${PASST_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
+  swtpm-tools-${SWTPM_VERSION}
 "
 launcherbase_x86_64="
   edk2-ovmf-${EDK2_VERSION}
