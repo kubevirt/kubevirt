@@ -3356,13 +3356,13 @@ rpm(
 rpm(
     name = "passt-0__0__caret__20221110.g4129764-1.el9.aarch64",
     sha256 = "61b885cbe37e2204ac49226541c10fec3be4efe6d10cd707b416bbdd1a6231da",
-    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0^20221110.g4129764-1.el9.aarch64.rpm"],
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20221110.g4129764-1.el9.aarch64.rpm"],
 )
 
 rpm(
     name = "passt-0__0__caret__20221110.g4129764-1.el9.x86_64",
     sha256 = "fa2f8e30695df5254f75855ef8e32163d0350ca23f549e41284f1f6b90ae029d",
-    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0^20221110.g4129764-1.el9.x86_64.rpm"],
+    urls = ["http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20221110.g4129764-1.el9.x86_64.rpm"],
 )
 
 rpm(
