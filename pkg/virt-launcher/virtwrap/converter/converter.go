@@ -1600,7 +1600,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		})
 	}
 
-	if needsSCSIControler(vmi) {
+	if needsSCSIController(vmi) {
 		scsiController := api.Controller{
 			Type:   "scsi",
 			Index:  "0",
@@ -1872,7 +1872,7 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 	return info, err
 }
 
-func needsSCSIControler(vmi *v1.VirtualMachineInstance) bool {
+func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if disk.LUN != nil && disk.LUN.Bus == "scsi" {
 			return true
