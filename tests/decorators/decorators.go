@@ -33,4 +33,5 @@ var (
 	Reenlightenment  = []interface{}{Label("Reenlightenment")}
 	PasstGate        = []interface{}{Label("PasstGate")}
 	Upgrade          = []interface{}{Label("Upgrade")}
+	Istio            = []interface{}{Label("Istio")}
 )
