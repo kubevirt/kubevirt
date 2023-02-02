@@ -863,8 +863,6 @@ rpmtree(
         "@edk2-ovmf-0__20221207gitfff6d81270b5-5.el9.x86_64//rpm",
         "@elfutils-libelf-0__0.188-3.el9.x86_64//rpm",
         "@expat-0__2.5.0-1.el9.x86_64//rpm",
-        "@file-0__5.39-10.el9.x86_64//rpm",
-        "@file-libs-0__5.39-10.el9.x86_64//rpm",
         "@filesystem-0__3.16-2.el9.x86_64//rpm",
         "@fuse-0__2.9.9-15.el9.x86_64//rpm",
         "@fuse-common-0__3.10.2-5.el9.x86_64//rpm",

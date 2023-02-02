@@ -1119,18 +1119,6 @@ rpm(
 )
 
 rpm(
-    name = "file-0__5.39-10.el9.x86_64",
-    sha256 = "5127d8fba1f3b07e2982a4f21a2e4fa0f7dfb089681b2f10e267f5908735d625",
-    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/file-5.39-10.el9.x86_64.rpm"],
-)
-
-rpm(
-    name = "file-libs-0__5.39-10.el9.x86_64",
-    sha256 = "da4dcbcf8f49bc84db988884a208f823cf1876fa5db79a05a66f5f0a30f67a01",
-    urls = ["http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/file-libs-5.39-10.el9.x86_64.rpm"],
-)
-
-rpm(
     name = "filesystem-0__3.16-2.el9.aarch64",
     sha256 = "0afb1f7582830fa9c8c58a6679ab3b4ccf8bbdf1c0c76908fea1429eec8b8a53",
     urls = [
