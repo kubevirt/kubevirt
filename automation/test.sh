@@ -377,7 +377,13 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
-    label_filter='(sig-operator)'
+    if [[ $TARGET =~ sig-operator-upgrade ]]; then
+      label_filter='(Upgrade)'
+    elif [[ $TARGET =~ sig-operator-configuration ]]; then
+      label_filter='(sig-operator && !(Upgrade))'
+    else
+      label_filter='(sig-operator)'
+    fi
   elif [[ $TARGET =~ sriov.* ]]; then
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
