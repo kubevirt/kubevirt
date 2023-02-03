@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"kubevirt.io/api/instancetype"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/api/instancetype"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -20,6 +20,26 @@ type InstancetypeAdmitter struct{}
 var _ validating_webhooks.Admitter = &InstancetypeAdmitter{}
 
 func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+	return admitInstancetype(ar,
+		metav1.GroupVersionResource{
+			Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
+			Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
+			Resource: instancetype.PluralResourceName,
+		},
+		func(raw []byte) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+			instancetypeObj := &instancetypev1alpha2.VirtualMachineInstancetype{}
+			err := json.Unmarshal(raw, &instancetypeObj)
+			if err != nil {
+				return nil, err
+			}
+			return instancetypeObj, nil
+		},
+	)
+}
+
+type extractInstancetypeFunc = func([]byte) (*instancetypev1alpha2.VirtualMachineInstancetype, error)
+
+func admitInstancetype(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersionResource, extractInstancetype extractInstancetypeFunc) *admissionv1.AdmissionResponse {
 	// Only handle create and update
 	if ar.Request.Operation != admissionv1.Create && ar.Request.Operation != admissionv1.Update {
 		return &admissionv1.AdmissionResponse{
@@ -27,36 +47,20 @@ func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admission
 		}
 	}
 
-	err := validateRequestResource(ar, instancetype.PluralResourceName)
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
+	if ar.Request.Resource != expectedGvr {
+		return webhookutils.ToAdmissionResponseError(
+			fmt.Errorf("expected '%s' got '%s'", expectedGvr, ar.Request.Resource),
+		)
 	}
 
-	// Get instancetypeObj from AdmissionReview
-	instancetypeObj, err := getInstanceTypeFromAdmissionReview(ar)
+	_, err := extractInstancetype(ar.Request.Object.Raw)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
-	}
-
-	causes := validateDedicatedCPUPlacement(&instancetypeObj.Spec)
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
-}
-
-func getInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
-	raw := ar.Request.Object.Raw
-	newInstanceType := instancetypev1alpha2.VirtualMachineInstancetype{}
-
-	if err := json.Unmarshal(raw, &newInstanceType); err != nil {
-		return nil, err
-	}
-
-	return &newInstanceType, nil
 }
 
 type ClusterInstancetypeAdmitter struct{}
@@ -64,6 +68,26 @@ type ClusterInstancetypeAdmitter struct{}
 var _ validating_webhooks.Admitter = &ClusterInstancetypeAdmitter{}
 
 func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+	return admitClusterInstancetype(ar,
+		metav1.GroupVersionResource{
+			Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
+			Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
+			Resource: instancetype.ClusterPluralResourceName,
+		},
+		func(raw []byte) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+			clusterInstancetypeObj := &instancetypev1alpha2.VirtualMachineClusterInstancetype{}
+			err := json.Unmarshal(raw, &clusterInstancetypeObj)
+			if err != nil {
+				return nil, err
+			}
+			return clusterInstancetypeObj, nil
+		},
+	)
+}
+
+type extractClusterInstancetypeFunc = func([]byte) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error)
+
+func admitClusterInstancetype(ar *admissionv1.AdmissionReview, expectedGvr metav1.GroupVersionResource, extractClusterInstancetype extractClusterInstancetypeFunc) *admissionv1.AdmissionResponse {
 	// Only handle create and update
 	if ar.Request.Operation != admissionv1.Create && ar.Request.Operation != admissionv1.Update {
 		return &admissionv1.AdmissionResponse{
@@ -71,64 +95,18 @@ func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *ad
 		}
 	}
 
-	err := validateRequestResource(ar, instancetype.ClusterPluralResourceName)
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
+	if ar.Request.Resource != expectedGvr {
+		return webhookutils.ToAdmissionResponseError(
+			fmt.Errorf("expected '%s' got '%s'", expectedGvr, ar.Request.Resource),
+		)
 	}
 
-	// Get instancetypeObj from AdmissionReview
-	instancetypeObj, err := getClusterInstanceTypeFromAdmissionReview(ar)
+	_, err := extractClusterInstancetype(ar.Request.Object.Raw)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
-	}
-
-	causes := validateDedicatedCPUPlacement(&instancetypeObj.Spec)
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
-}
-
-func getClusterInstanceTypeFromAdmissionReview(ar *admissionv1.AdmissionReview) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
-	raw := ar.Request.Object.Raw
-	newInstanceType := instancetypev1alpha2.VirtualMachineClusterInstancetype{}
-
-	if err := json.Unmarshal(raw, &newInstanceType); err != nil {
-		return nil, err
-	}
-
-	return &newInstanceType, nil
-}
-
-func validateRequestResource(ar *admissionv1.AdmissionReview, resourceType string) error {
-	instanceTypeResource := metav1.GroupVersionResource{
-		Group:    instancetypev1alpha2.SchemeGroupVersion.Group,
-		Version:  instancetypev1alpha2.SchemeGroupVersion.Version,
-		Resource: resourceType,
-	}
-
-	if ar.Request.Resource != instanceTypeResource {
-		return fmt.Errorf("expected '%s' got '%s'", &instanceTypeResource, ar.Request.Resource)
-	}
-
-	return nil
-}
-
-func validateDedicatedCPUPlacement(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
-	if instancetypeSpec == nil {
-		return nil
-	}
-
-	if instancetypeSpec.CPU.DedicatedCPUPlacement {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "dedicatedCPUPlacement is not currently supported",
-			Field:   k8sfield.NewPath("spec", "cpu", "dedictatedCPUPlacement").String(),
-		}}
-	}
-
-	return nil
 }
