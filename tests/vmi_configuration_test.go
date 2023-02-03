@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -2370,13 +2371,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking if pod memory usage is > 80Mi")
 				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 			})
-			It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
+			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
 
 				cpuVmi := libvmi.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
 					IsolateEmulatorThread: true,
+				}
+				if resources != nil {
+					cpuVmi.Spec.Domain.Resources = *resources
 				}
 
 				By("Starting a VirtualMachineInstance")
@@ -2445,7 +2449,19 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
-			})
+			},
+				Entry("with explicit resources set", &virtv1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("2"),
+						kubev1.ResourceMemory: resource.MustParse("256Mi"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("2"),
+						kubev1.ResourceMemory: resource.MustParse("256Mi"),
+					},
+				}),
+				Entry("without resource requirements set", nil),
+			)
 
 			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
 				cpuVmi := libvmi.NewCirros()
