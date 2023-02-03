@@ -140,6 +140,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -163,6 +164,17 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameSubresources,
+				},
+				Resources: []string{
+					"virtualmachines/portforward",
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 			{
@@ -268,6 +280,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/portforward",
 					VMInstancesGuestOSInfo,
 					VMInstancesFileSysList,
 					VMInstancesUserList,
@@ -291,6 +304,17 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupNameSubresources,
+				},
+				Resources: []string{
+					"virtualmachines/portforward",
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 			{

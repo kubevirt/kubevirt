@@ -646,6 +646,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
@@ -663,6 +664,12 @@ rules:
   - virtualmachineinstances/softreboot
   verbs:
   - update
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/portforward
+  verbs:
+  - get
 - apiGroups:
   - subresources.kubevirt.io
   resources:
@@ -746,6 +753,7 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
@@ -763,6 +771,12 @@ rules:
   - virtualmachineinstances/softreboot
   verbs:
   - update
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/portforward
+  verbs:
+  - get
 - apiGroups:
   - subresources.kubevirt.io
   resources:

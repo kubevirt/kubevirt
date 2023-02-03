@@ -312,6 +312,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				"virtualmachines", "restart",
 				allowUpdateFor("admin", "edit"),
 				denyAllFor("view", "default")),
+			Entry("on vm portforward",
+				"virtualmachines", "portforward",
+				allowGetFor("admin", "edit"),
+				denyAllFor("view", "default")),
 			Entry("on vmi guestosinfo",
 				"virtualmachineinstances", "guestosinfo",
 				allowGetFor("admin", "edit", "view"),
@@ -344,6 +348,10 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Entry("on vmi softreboot",
 				"virtualmachineinstances", "softreboot",
 				allowUpdateFor("admin", "edit"),
+				denyAllFor("view", "default")),
+			Entry("on vmi portforward",
+				"virtualmachineinstances", "portforward",
+				allowGetFor("admin", "edit"),
 				denyAllFor("view", "default")),
 		)
 	})

@@ -744,6 +744,7 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/portforward
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
@@ -761,6 +762,12 @@ spec:
           - virtualmachineinstances/softreboot
           verbs:
           - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/portforward
+          verbs:
+          - get
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -844,6 +851,7 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/portforward
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
           - virtualmachineinstances/userlist
@@ -861,6 +869,12 @@ spec:
           - virtualmachineinstances/softreboot
           verbs:
           - update
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/portforward
+          verbs:
+          - get
         - apiGroups:
           - subresources.kubevirt.io
           resources:
