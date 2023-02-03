@@ -146,6 +146,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			k8sClient = k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		})
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
@@ -1113,7 +1114,7 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			}
 
-			DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *virtv1.DataVolumeTemplateSpec, saVol *virtv1.Volume, ds *cdiv1.DataSource, fail bool) {
+			DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *virtv1.DataVolumeTemplateSpec, saVol *virtv1.Volume, ds *cdiv1.DataSource, fail, sourcePVC bool) {
 				vm, _ := DefaultVirtualMachine(true)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 					virtv1.Volume{
@@ -1161,6 +1162,22 @@ var _ = Describe("VirtualMachine", func() {
 					})
 				}
 
+				// Add source PVC to cache
+				if sourcePVC {
+					pvc := k8sv1.PersistentVolumeClaim{}
+					if dv.Spec.Source != nil {
+						pvc.Name = dv.Spec.Source.PVC.Name
+						pvc.Namespace = dv.Spec.Source.PVC.Namespace
+					} else {
+						pvc.Name = ds.Spec.Source.PVC.Name
+						pvc.Namespace = ds.Spec.Source.PVC.Namespace
+					}
+					if pvc.Namespace == "" {
+						pvc.Namespace = vm.Namespace
+					}
+					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
+				}
+
 				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 					if dv.Spec.Source != nil {
 						if dv.Spec.Source.PVC.Namespace != "" {
@@ -1194,15 +1211,19 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(createCount).To(Equal(0))
 					testutils.ExpectEvent(recorder, UnauthorizedDataVolumeCreateReason)
 				} else {
+					if !sourcePVC {
+						testutils.ExpectEvent(recorder, SourcePVCNotAvailabe)
+					}
 					Expect(createCount).To(Equal(1))
 					testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 				}
 			},
-				Entry("with auth and source namespace defined", dv1, serviceAccountVol, nil, false),
-				Entry("with auth and no source namespace defined", dv2, serviceAccountVol, nil, false),
-				Entry("with auth and source namespace no serviceaccount defined", dv1, nil, nil, false),
-				Entry("with no auth and source namespace defined", dv1, serviceAccountVol, nil, true),
-				Entry("with auth, datasource and source namespace defined", dv3, serviceAccountVol, ds, false),
+				Entry("with auth, source PVC and source namespace defined", dv1, serviceAccountVol, nil, false, true),
+				Entry("with auth and no source namespace defined", dv2, serviceAccountVol, nil, false, true),
+				Entry("with auth and source namespace no serviceaccount defined", dv1, nil, nil, false, true),
+				Entry("with no auth and source namespace defined", dv1, serviceAccountVol, nil, true, true),
+				Entry("with auth, source PVC, datasource and source namespace defined", dv3, serviceAccountVol, ds, false, true),
+				Entry("with auth, datasource and source namespace but no source PVC", dv3, serviceAccountVol, ds, false, false),
 			)
 		})
 
