@@ -764,6 +764,7 @@ rules:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
   - virtualmachineinstances/vnc/screenshot
+  - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
@@ -779,13 +780,13 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
-  - virtualmachineinstances/portforward
   verbs:
   - update
 - apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachines/expand-spec
+  - virtualmachines/portforward
   verbs:
   - get
 - apiGroups:
@@ -881,6 +882,7 @@ rules:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
   - virtualmachineinstances/vnc/screenshot
+  - virtualmachineinstances/portforward
   - virtualmachineinstances/guestosinfo
   - virtualmachineinstances/filesystemlist
   - virtualmachineinstances/userlist
@@ -896,13 +898,13 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
-  - virtualmachineinstances/portforward
   verbs:
   - update
 - apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachines/expand-spec
+  - virtualmachines/portforward
   verbs:
   - get
 - apiGroups:
