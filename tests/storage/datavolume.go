@@ -870,6 +870,50 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(dv.Spec.Source.PVC.Name).To(Equal(ds.Spec.Source.PVC.Name))
 			})
 
+			It("should report DataVolume without source PVC", func() {
+				cloneRole, cloneRoleBinding = addClonePermission(
+					virtClient,
+					explicitCloneRole,
+					testsuite.AdminServiceAccountName,
+					testsuite.GetTestNamespace(nil),
+					testsuite.NamespaceTestAlternative,
+				)
+
+				// We first delete the source PVC and DataVolume to force a clone without source
+				err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+				if !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+				err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestAlternative).Delete(context.Background(), dataVolume.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// We check if the VM is succesfully created
+				By("Creating VM")
+				Eventually(func() bool {
+					_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+					if err != nil {
+						return false
+					}
+					return true
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+				// Check for owner reference
+				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
+
+				// We check the expected event
+				By("Expecting SourcePVCNotAvailabe event")
+				Eventually(func() bool {
+					events, err := virtClient.CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, e := range events.Items {
+						if e.Reason == "SourcePVCNotAvailabe" {
+							return true
+						}
+					}
+					return false
+				}, 30*time.Second, 5*time.Second).Should(BeTrue())
+			})
+
 			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool) {
 				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 				Expect(err).To(HaveOccurred())
