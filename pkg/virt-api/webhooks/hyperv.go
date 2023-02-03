@@ -199,10 +199,10 @@ func ValidateVirtualMachineInstanceHypervFeatureDependencies(field *k8sfield.Pat
 	return causes
 }
 
-func SetVirtualMachineInstanceHypervFeatureDependencies(vmi *v1.VirtualMachineInstance) error {
+func SetHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) error {
 	path := k8sfield.NewPath("spec")
 
-	if features := getHypervFeatureDependencies(path, &vmi.Spec); features != nil {
+	if features := getHypervFeatureDependencies(path, spec); features != nil {
 		for _, feat := range features {
 			if err := feat.TryToSetRequirement(); err != nil {
 				return err
@@ -211,15 +211,15 @@ func SetVirtualMachineInstanceHypervFeatureDependencies(vmi *v1.VirtualMachineIn
 	}
 
 	//Check if vmi has EVMCS feature enabled. If yes, we have to add vmx cpu feature
-	if vmi.Spec.Domain.Features != nil && vmi.Spec.Domain.Features.Hyperv != nil && vmi.Spec.Domain.Features.Hyperv.EVMCS != nil &&
-		(vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled == nil || (*vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled) == true) {
-		setEVMCSDependency(vmi)
+	if spec.Domain.Features != nil && spec.Domain.Features.Hyperv != nil && spec.Domain.Features.Hyperv.EVMCS != nil &&
+		(spec.Domain.Features.Hyperv.EVMCS.Enabled == nil || (*spec.Domain.Features.Hyperv.EVMCS.Enabled) == true) {
+		setEVMCSDependency(spec)
 	}
 
 	return nil
 }
 
-func setEVMCSDependency(vmi *v1.VirtualMachineInstance) {
+func setEVMCSDependency(spec *v1.VirtualMachineInstanceSpec) {
 	vmxFeature := v1.CPUFeature{
 		Name:   nodelabellerutil.VmxFeature,
 		Policy: nodelabellerutil.RequirePolicy,
@@ -229,33 +229,33 @@ func setEVMCSDependency(vmi *v1.VirtualMachineInstance) {
 		vmxFeature,
 	}
 
-	if vmi.Spec.Domain.CPU == nil {
-		vmi.Spec.Domain.CPU = &v1.CPU{
+	if spec.Domain.CPU == nil {
+		spec.Domain.CPU = &v1.CPU{
 			Features: cpuFeatures,
 		}
 		return
 	}
 
-	if len(vmi.Spec.Domain.CPU.Features) == 0 {
-		vmi.Spec.Domain.CPU.Features = cpuFeatures
+	if len(spec.Domain.CPU.Features) == 0 {
+		spec.Domain.CPU.Features = cpuFeatures
 		return
 	}
 
 	for _, requiredFeature := range cpuFeatures {
 		featureFound := false
 
-		for i, existingFeature := range vmi.Spec.Domain.CPU.Features {
+		for i, existingFeature := range spec.Domain.CPU.Features {
 			if existingFeature.Name == requiredFeature.Name {
 				featureFound = true
 				if existingFeature.Policy != requiredFeature.Policy {
-					vmi.Spec.Domain.CPU.Features[i].Policy = requiredFeature.Policy
+					spec.Domain.CPU.Features[i].Policy = requiredFeature.Policy
 				}
 				break
 			}
 		}
 
 		if !featureFound {
-			vmi.Spec.Domain.CPU.Features = append(vmi.Spec.Domain.CPU.Features, requiredFeature)
+			spec.Domain.CPU.Features = append(spec.Domain.CPU.Features, requiredFeature)
 		}
 	}
 

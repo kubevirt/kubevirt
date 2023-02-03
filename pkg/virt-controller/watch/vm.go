@@ -901,11 +901,11 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 
-	util.SetDefaultVolumeDisk(vmi)
+	util.SetDefaultVolumeDisk(&vmi.Spec)
 
 	autoAttachInputDevice(vmi)
 
-	err = c.clusterConfig.SetVMIDefaultNetworkInterface(vmi)
+	err = c.clusterConfig.SetVMISpecDefaultNetworkInterface(&vmi.Spec)
 	if err != nil {
 		return err
 	}

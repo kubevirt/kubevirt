@@ -108,6 +108,11 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	// Set VirtualMachine defaults on the copy before validating
+	if err = webhooks.SetDefaultVirtualMachine(admitter.ClusterConfig, vmCopy); err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
