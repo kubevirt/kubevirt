@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 var _ = Describe("RBAC", func() {
@@ -75,10 +77,10 @@ var _ = Describe("RBAC", func() {
 			func(name string) {
 				Expect(serviceAccounts).To(HaveKey(MatchRegexp(fmt.Sprintf(".*%s.*", name))))
 			},
-			Entry("for Handler", HandlerServiceAccountName),
-			Entry("for Api", ApiServiceAccountName),
-			Entry("for Controller", ControllerServiceAccountName),
-			Entry("for Operator", OperatorServiceAccountName),
+			Entry("for Handler", components.HandlerServiceAccountName),
+			Entry("for Api", components.ApiServiceAccountName),
+			Entry("for Controller", components.ControllerServiceAccountName),
+			Entry("for Operator", components.OperatorServiceAccountName),
 		)
 
 	})

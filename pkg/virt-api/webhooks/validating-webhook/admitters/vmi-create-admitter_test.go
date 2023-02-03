@@ -27,8 +27,6 @@ import (
 
 	"kubevirt.io/client-go/api"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -49,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
@@ -424,17 +423,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 			Entry("Create restricted label by API",
 				map[string]string{v1.NodeNameLabel: "someValue"},
-				rbac.ApiServiceAccountName,
+				components.ApiServiceAccountName,
 				true,
 			),
 			Entry("Create restricted label by Handler",
 				map[string]string{v1.NodeNameLabel: "someValue"},
-				rbac.HandlerServiceAccountName,
+				components.HandlerServiceAccountName,
 				true,
 			),
 			Entry("Create restricted label by Controller",
 				map[string]string{v1.NodeNameLabel: "someValue"},
-				rbac.ControllerServiceAccountName,
+				components.ControllerServiceAccountName,
 				true,
 			),
 			Entry("Create restricted label by non kubevirt user",

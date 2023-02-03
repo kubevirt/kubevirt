@@ -26,6 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const (
@@ -33,7 +35,6 @@ const (
 	GroupNameRoute    = "route.openshift.io"
 	serviceAccountFmt = "%s:%s:%s"
 )
-const OperatorServiceAccountName = "kubevirt-operator"
 
 // Used for manifest generation only, not by the operator itself
 func GetAllOperator(namespace string) []interface{} {
@@ -54,7 +55,7 @@ func newOperatorServiceAccount(namespace string) *corev1.ServiceAccount {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      OperatorServiceAccountName,
+			Name:      components.OperatorServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -74,7 +75,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: OperatorServiceAccountName,
+			Name: components.OperatorServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -396,7 +397,7 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: OperatorServiceAccountName,
+			Name: components.OperatorServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -404,13 +405,13 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: VersionName,
 			Kind:     "ClusterRole",
-			Name:     OperatorServiceAccountName,
+			Name:     components.OperatorServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      OperatorServiceAccountName,
+				Name:      components.OperatorServiceAccountName,
 			},
 		},
 	}
@@ -432,13 +433,13 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: VersionName,
 			Kind:     "Role",
-			Name:     OperatorServiceAccountName,
+			Name:     components.OperatorServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      OperatorServiceAccountName,
+				Name:      components.OperatorServiceAccountName,
 			},
 		},
 	}
@@ -452,7 +453,7 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OperatorServiceAccountName,
+			Name:      components.OperatorServiceAccountName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
@@ -465,6 +466,16 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 				},
 				Resources: []string{
 					"secrets",
+				},
+				ResourceNames: []string{
+					components.KubeVirtCASecretName,
+					components.KubeVirtExportCASecretName,
+					components.VirtHandlerCertSecretName,
+					components.VirtHandlerServerCertSecretName,
+					components.VirtOperatorCertSecretName,
+					components.VirtApiCertSecretName,
+					components.VirtControllerCertSecretName,
+					components.VirtExportProxyCertSecretName,
 				},
 				Verbs: []string{
 					"create",
@@ -526,10 +537,10 @@ func GetKubevirtComponentsServiceAccounts(namespace string) map[string]bool {
 	usermap := make(map[string]bool)
 
 	prefix := "system:serviceaccount"
-	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, HandlerServiceAccountName)] = true
-	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, ApiServiceAccountName)] = true
-	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, ControllerServiceAccountName)] = true
-	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, OperatorServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, components.HandlerServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, components.ApiServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, components.ControllerServiceAccountName)] = true
+	usermap[fmt.Sprintf(serviceAccountFmt, prefix, namespace, components.OperatorServiceAccountName)] = true
 
 	return usermap
 }
