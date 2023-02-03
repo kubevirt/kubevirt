@@ -202,7 +202,7 @@ func WithCPUPinning(cpu *v1.CPU) ResourceRendererOption {
 			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
 			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
 			limits.Add(*emulatorThreadCPU)
-			renderer.calculatedLimits[k8sv1.ResourceCPU] = limits
+			renderer.vmLimits[k8sv1.ResourceCPU] = limits
 			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
 				cpuRequest.Add(*emulatorThreadCPU)
 				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest

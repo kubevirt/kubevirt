@@ -138,12 +138,18 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 		When("an isolated emulator thread is requested", func() {
 			cpuIsolatedEmulatorThreadOverhead := resource.MustParse("1000m")
-			userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
+			userSpecifiedCPURequest := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 
-			It("requires an additional 1000m CPU, and an additional CPU is added to the limits", func() {
+			DescribeTable("requires an additional 1000m CPU, and an additional CPU is added to the limits", func(defineUserSpecifiedCPULimit bool) {
+
+				var userSpecifiedCPULimit kubev1.ResourceList
+
+				if defineUserSpecifiedCPULimit {
+					userSpecifiedCPULimit = kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
+				}
 				rr = NewResourceRenderer(
-					nil,
-					userSpecifiedCPU,
+					userSpecifiedCPULimit,
+					userSpecifiedCPURequest,
 					WithCPUPinning(&v1.CPU{
 						Cores:                 5,
 						IsolateEmulatorThread: true,
@@ -157,7 +163,10 @@ var _ = Describe("Resource pod spec renderer", func() {
 					kubev1.ResourceCPU,
 					addResources(userCPURequest, cpuIsolatedEmulatorThreadOverhead),
 				))
-			})
+			},
+				Entry("only CPU requests set by the user", false),
+				Entry("request and limits set by the user", true),
+			)
 		})
 	})
 
