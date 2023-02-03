@@ -48,6 +48,10 @@ func execute() error {
 	if value, exists := os.LookupEnv("CONTAINER_TAG"); exists {
 		args = append(args, "--container-tag", value)
 	}
+	if _, exists := os.LookupEnv("KUBEVIRT_CI"); exists {
+		args = append(args, "--apply-default-e2e-configuration")
+	}
+
 	args = append(args, "--config", "/conformance-config.json")
 
 	cmd := exec.Command("/usr/bin/go_default_test", args...)
