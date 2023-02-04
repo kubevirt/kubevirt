@@ -2346,6 +2346,82 @@ status:
 			}, 2*time.Minute, 5*time.Second).Should(BeNil())
 		})
 	})
+
+	Context("VirtualMachineControllerFinalizer", func() {
+		const customFinalizer = "customFinalizer"
+
+		var (
+			vmi *v1.VirtualMachineInstance
+			vm  *v1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomVMI()
+
+			By("Creating VirtualMachine")
+			vm = tests.NewRandomVirtualMachine(vmi, true)
+			Expect(vm.Finalizers).To(HaveLen(0))
+
+		})
+
+		AfterEach(func() {
+			if controller.HasFinalizer(vm, customFinalizer) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				var ops []string
+				oldFinalizers, err := json.Marshal(vm.GetFinalizers())
+				Expect(err).ToNot(HaveOccurred())
+				newVm := vm.DeepCopy()
+				controller.RemoveFinalizer(newVm, customFinalizer)
+				newFinalizers, err := json.Marshal(newVm.GetFinalizers())
+				Expect(err).ToNot(HaveOccurred())
+				ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
+				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(vm.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensure the vm has disappeared")
+			Eventually(func() bool {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				return errors.IsNotFound(err)
+			}, 2*time.Minute, 1*time.Second).Should(BeTrue(), fmt.Sprintf("vm %s is not deleted", vm.Name))
+		})
+
+		It("should be added when the vm is created", func() {
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
+			}, 2*time.Minute, 1*time.Second)
+		})
+
+		It("should be removed when the vm is being deleted", func() {
+			vm.Finalizers = append(vm.Finalizers, customFinalizer)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
+			}, 2*time.Minute, 1*time.Second)
+
+			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(vm.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeFalse())
+			}, 2*time.Minute, 1*time.Second)
+		})
+	})
 })
 
 func getExpectedPodName(vm *v1.VirtualMachine) string {
