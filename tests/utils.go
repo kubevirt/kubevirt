@@ -133,7 +133,7 @@ func TestCleanup() {
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
-	testsuite.EnsureKubevirtInfra()
+	testsuite.EnsureKubevirtReady()
 	SetupAlpineHostPath()
 	GinkgoWriter.Println("Global test cleanup ended.")
 }
