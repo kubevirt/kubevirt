@@ -1435,12 +1435,12 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			})
 		})
 
-		Context("[Serial]node with obsolete host-model cpuModel", func() {
+		Context("[Serial]node with obsolete host-model cpuModel", Serial, func() {
 
 			expectSerialRun := func() {
-				suiteConfig, _ := GinkgoConfiguration()
-				Expect(suiteConfig.ParallelTotal).To(Equal(1), "this test is supported for serial tests only")
+				Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "this test is supported for serial tests only")
 			}
+
 			expectAtLeastOneEvent := func(eventListOpts metav1.ListOptions, namespace string) *k8sv1.EventList {
 				// This function is dangerous to use from parallel tests as events might override each other.
 				// This can be removed in the future if these functions are used with great caution.
