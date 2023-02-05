@@ -86,7 +86,7 @@ export PROMETHEUS_PORT=${PROMETHEUS_PORT:-30007}
 
 # expose prometheus in an external kubernetes cluster
 if [[ (${PERFAUDIT} == "true" || ${PERFAUDIT} == "True") && ${KUBEVIRT_PROVIDER} == "external" ]]; then
-  kubectl -n monitoring port-forward service/prometheus-stack-kube-prom-prometheus ${PROMETHEUS_PORT} &> /dev/null &
+  kubectl -n openshift-monitoring port-forward service/prometheus-operated ${PROMETHEUS_PORT} &> /dev/null &
   _prometheus_port_forward_pid=$1
 fi
 
