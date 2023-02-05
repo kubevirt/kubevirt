@@ -223,6 +223,11 @@ func (in *VirtualMachineExportStatus) DeepCopyInto(out *VirtualMachineExportStat
 		in, out := &in.TTLExpirationTime, &out.TTLExpirationTime
 		*out = (*in).DeepCopy()
 	}
+	if in.VirtualMachineName != nil {
+		in, out := &in.VirtualMachineName, &out.VirtualMachineName
+		*out = new(string)
+		**out = **in
+	}
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make([]Condition, len(*in))
