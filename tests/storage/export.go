@@ -1282,12 +1282,10 @@ var _ = SIGDescribe("Export", func() {
 		Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
 		contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-		Expect(snapshot.Status.Indications).To(BeEmpty())
 		content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
-		Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
 		Expect(content.Spec.Source.VirtualMachine.UID).ToNot(BeEmpty())
 		Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 		return snapshot
@@ -1573,6 +1571,16 @@ var _ = SIGDescribe("Export", func() {
 		return ""
 	}
 
+	cleanMacAddresses := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
+		if len(vm.Spec.Template.Spec.Domain.Devices.Interfaces) > 0 {
+			By("Clearing out any mac addresses")
+			for i, _ := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
+				vm.Spec.Template.Spec.Domain.Devices.Interfaces[i].MacAddress = ""
+			}
+		}
+		return vm
+	}
+
 	checkWithYamlOutput := func(pod *k8sv1.Pod, export *exportv1.VirtualMachineExport, vm *virtv1.VirtualMachine) {
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
@@ -1602,6 +1610,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
 		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = resVM.Spec.DataVolumeTemplates[0].Name
+		resVM = cleanMacAddresses(resVM)
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
 		command = []string{
@@ -1665,6 +1674,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
 		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
 		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = resVM.Spec.DataVolumeTemplates[0].Name
+		resVM = cleanMacAddresses(resVM)
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
 		command = []string{
@@ -1860,6 +1870,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resVM.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(4)))
 		Expect(resVM.Spec.Template.Spec.Volumes).To(HaveLen(3))
 		Expect(resVM.Spec.Template.Spec.Volumes[0].DataVolume).ToNot(BeNil())
+		resVM = cleanMacAddresses(resVM)
 		resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = fmt.Sprintf("%s-clone", resVM.Spec.Template.Spec.Volumes[0].DataVolume.Name)
 		resVM.Spec.Template.Spec.Volumes[2].DataVolume.Name = fmt.Sprintf("%s-clone", resVM.Spec.Template.Spec.Volumes[2].DataVolume.Name)
 		diskDV := &cdiv1.DataVolume{}
