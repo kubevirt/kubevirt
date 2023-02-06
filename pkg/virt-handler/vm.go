@@ -84,6 +84,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1452,6 +1453,10 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+	}
+
+	if reservation.HasVMIPersistentReservation(vmi) {
+		return newNonMigratableCondition("VMI uses SCSI persitent reservation", v1.VirtualMachineInstanceReasonPRNotMigratable), isBlockMigration
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
