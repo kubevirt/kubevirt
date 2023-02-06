@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
+	ps "github.com/mitchellh/go-ps"
 	mount "github.com/moby/sys/mountinfo"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -56,6 +57,8 @@ type IsolationResult interface {
 	MountNamespace() string
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
+	// returns the QEMU process
+	GetQEMUProcess() (ps.Process, error)
 }
 
 type RealIsolationResult struct {
@@ -142,6 +145,19 @@ func (r *RealIsolationResult) Pid() int {
 
 func (r *RealIsolationResult) PPid() int {
 	return r.ppid
+}
+
+// GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
+func (r *RealIsolationResult) GetQEMUProcess() (ps.Process, error) {
+	processes, err := ps.Processes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all processes: %v", err)
+	}
+	qemuProcess, err := findIsolatedQemuProcess(processes, r.PPid())
+	if err != nil {
+		return nil, err
+	}
+	return qemuProcess, nil
 }
 
 func NodeIsolationResult() *RealIsolationResult {

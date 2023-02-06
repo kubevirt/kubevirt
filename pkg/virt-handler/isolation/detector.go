@@ -165,24 +165,19 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		return err
 	}
 
-	processes, err := ps.Processes()
-	if err != nil {
-		return fmt.Errorf("failed to get all processes: %v", err)
-	}
-	qemuProcess, err := findIsolatedQemuProcess(processes, isolationResult.PPid())
+	qemuProcess, err := isolationResult.GetQEMUProcess()
 	if err != nil {
 		return err
 	}
-	qemuProcessPid := qemuProcess.Pid()
-
+	qemuProcessID := qemuProcess.Pid()
 	// make the best estimate for memory required by libvirt
 	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH)
 	// Add base memory requested for the VM
 	vmiMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory()
 	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
 
-	if err := setProcessMemoryLockRLimit(qemuProcessPid, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessPid, memlockSize.Value(), err)
+	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
 	}
 	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
 		qemuProcess, memlockSize.Value())

@@ -362,6 +362,49 @@ func getPodsByLabel(label, labelType, namespace string) (*k8sv1.PodList, error) 
 	return pods, nil
 }
 
+func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	fPath := "/proc/" + pid + "/comm"
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", fPath},
+	)
+
+	return
+}
+
+func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cpuset/tasks"},
+	)
+
+	if err == nil {
+		// Cgroup V1
+		return
+	}
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"cat", "/sys/fs/cgroup/cgroup.threads"},
+	)
+	return
+}
+
 func GetPodCPUSet(pod *k8sv1.Pod) (output string, err error) {
 	const (
 		cgroupV1cpusetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"

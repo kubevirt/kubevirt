@@ -203,10 +203,9 @@ type DomainSpec struct {
 }
 
 type CPUTune struct {
-	VCPUPin       []CPUTuneVCPUPin     `xml:"vcpupin"`
-	IOThreadPin   []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
-	EmulatorPin   *CPUEmulatorPin      `xml:"emulatorpin"`
-	VCPUScheduler *VCPUScheduler       `xml:"vcpusched,omitempty"`
+	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`
+	IOThreadPin []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
+	EmulatorPin *CPUEmulatorPin      `xml:"emulatorpin"`
 }
 
 type NUMATune struct {
@@ -237,12 +236,6 @@ type CPUTuneIOThreadPin struct {
 
 type CPUEmulatorPin struct {
 	CPUSet string `xml:"cpuset,attr"`
-}
-
-type VCPUScheduler struct {
-	Scheduler string `xml:"scheduler,attr"`
-	Priority  uint   `xml:"priority,attr"`
-	VCPUs     string `xml:"vcpus,attr"`
 }
 
 type VCPU struct {

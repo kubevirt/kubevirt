@@ -111,7 +111,6 @@ type ConverterContext struct {
 	EphemeraldiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore  []string
 	Topology              *cmdv1.Topology
-	CpuScheduler          *api.VCPUScheduler
 	ExpandDisksEnabled    bool
 	UseLaunchSecurity     bool
 }

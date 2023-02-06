@@ -81,7 +81,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+			[]string{tests.BinBash, "-c", "ps -LC qemu-kvm -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -94,7 +94,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -u qemu -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
+			[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -C qemu-kvm -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		limits := strings.Split(strings.TrimSpace(psOutput), " ")
@@ -123,7 +123,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "ps -u qemu -L -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+			[]string{tests.BinBash, "-c", "ps -LC qemu-kvm -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -135,7 +135,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", func() {
 			virtClient,
 			pod,
 			"compute",
-			[]string{tests.BinBash, "-c", "ps -cT -u qemu  |grep -i cpu |awk '{print $3\" \" $8}'"},
+			[]string{tests.BinBash, "-c", "ps -TcC qemu-kvm  |grep CPU |awk '{print $3\" \" $8}'"},
 		)
 		Expect(err).ToNot(HaveOccurred())
 		slice = strings.Split(strings.TrimSpace(psOutput), "\n")

@@ -56,11 +56,37 @@ type Manager interface {
 
 	// GetCpuSet returns the cpu set
 	GetCpuSet() (string, error)
+
+	// SetCpuSet returns the cpu set
+	SetCpuSet(subcgroup string, cpulist []int) error
+
+	// Create new child cgroup
+	CreateChildCgroup(name string, subSystem string) error
+
+	// Attach TID to cgroup
+	AttachTID(subSystem string, subCgroup string, tid int) error
+
+	// Get list of threads attached to cgroup
+	GetCgroupThreads() ([]int, error)
 }
 
 // This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.
 type runcManager interface {
 	runc_cgroups.Manager
+}
+
+// If a task is moved into a sub-cgroup, we want the manager to
+// reference the root cgroup, not the sub-cgroup.
+// Currently the only sub-cgroup create is named "housekeeping".
+
+func managerPath(taskPath string) string {
+	retPath := taskPath
+	s := strings.Split(taskPath, "/")
+	if s[len(s)-1] == "housekeeping" {
+		fStr := "/" + strings.Join(s[1:len(s)-1], "/") + "/"
+		retPath = fStr
+	}
+	return retPath
 }
 
 // NewManagerFromPid initializes a new cgroup manager from VMI's pid.
@@ -84,6 +110,7 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 	if runc_cgroups.IsCgroup2UnifiedMode() {
 		version = V2
 		slicePath := filepath.Join(cgroupBasePath, controllerPaths[""])
+		slicePath = managerPath(slicePath)
 		manager, err = newV2Manager(config, slicePath)
 	} else {
 		version = V1
@@ -91,6 +118,7 @@ func NewManagerFromPid(pid int) (manager Manager, err error) {
 			if path == "" {
 				continue
 			}
+			path = managerPath(path)
 			controllerPaths[subsystem] = filepath.Join("/", subsystem, path)
 		}
 
