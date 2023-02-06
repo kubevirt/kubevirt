@@ -192,6 +192,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logVMICommands(virtCli, vmiNamespaces)
 
 	r.logCloudInit(virtCli, vmiNamespaces)
+	r.logVirtualMachinePools(virtCli)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -1327,4 +1328,14 @@ func isDataVolumeEnabled(clientset kubecli.KubevirtClient) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (r *KubernetesReporter) logVirtualMachinePools(virtCli kubecli.KubevirtClient) {
+	pools, err := virtCli.VirtualMachinePool(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vm exports: %v\n", err)
+		return
+	}
+
+	r.logObjects(virtCli, pools, "virtualmachinepools")
 }
