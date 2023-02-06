@@ -184,9 +184,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 				switch watchEvent.Object.(type) {
 				case *metav1.Status:
 					status := watchEvent.Object.(*metav1.Status)
-					//api server sometimes closes connections to Watch() client command
-					//ignore this error, because it will reconnect automatically
-					if status.Message != "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
+					if !shouldIgnoreWatchErr(status) {
 						Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
 					}
 				default:
@@ -274,3 +272,18 @@ const (
 	// Watch since the resourceVersion passed in to the builder
 	watchSinceResourceVersion startType = "watchSinceResourceVersion"
 )
+
+func shouldIgnoreWatchErr(status *metav1.Status) bool {
+	//api server sometimes closes connections to Watch() client command
+	//ignore this error, because it will reconnect automatically
+	if status.Message == "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
+		return true
+	}
+	// https://sdk.operatorframework.io/docs/faqs/#i-see-the-warning-in-my-operators-logs-the-resourceversion-for-the-provided-watch-is-too-old-whats-wrong
+	// https://github.com/kubernetes/kubernetes/issues/72187
+	if strings.Contains(status.Message, "The resourceVersion for the provided watch is too old") {
+		return true
+	}
+
+	return false
+}
