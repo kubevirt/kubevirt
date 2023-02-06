@@ -92,16 +92,20 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		pool, err := virtClient.VirtualMachinePool(util.NamespaceTestDefault).Patch(context.Background(), name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)), metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
+		running := *pool.Spec.VirtualMachineTemplate.Spec.Running
 		By("Checking the number of replicas")
 		Eventually(func() int32 {
 			pool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Get(context.Background(), name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			if running {
+				return pool.Status.ReadyReplicas
+			}
 			return pool.Status.Replicas
 		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
 
 		vms, err := virtClient.VirtualMachine(util.NamespaceTestDefault).List(&v12.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(tests.NotDeletedVMs(vms)).To(HaveLen(int(scale)))
+		Expect(notDeletedVMs(pool.Name, vms)).To(HaveLen(int(scale)))
 	}
 	createVirtualMachinePool := func(pool *poolv1.VirtualMachinePool) *poolv1.VirtualMachinePool {
 		pool, err = virtClient.VirtualMachinePool(util.NamespaceTestDefault).Create(context.Background(), pool, metav1.CreateOptions{})
@@ -603,4 +607,16 @@ func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 		},
 	}
 	return pool
+}
+
+func notDeletedVMs(poolName string, vms *v1.VirtualMachineList) (notDeleted []v1.VirtualMachine) {
+	nonDeletedVms := tests.NotDeletedVMs(vms)
+	for _, vm := range nonDeletedVms {
+		for _, ref := range vm.OwnerReferences {
+			if ref.Name == poolName {
+				notDeleted = append(notDeleted, vm)
+			}
+		}
+	}
+	return
 }
