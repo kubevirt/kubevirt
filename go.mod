@@ -32,7 +32,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20221207184640-f3cff1453715
 	k8s.io/utils v0.0.0-20230115233650-391b47cb4029
-	kubevirt.io/api v0.59.0-alpha.2
+	kubevirt.io/api v0.59.0-rc.0
 	kubevirt.io/containerized-data-importer-api v1.55.2
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 	kubevirt.io/ssp-operator/api v0.16.2
@@ -42,10 +42,6 @@ require (
 
 // TODO: consume v0.12.0 as soon as available
 replace github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.0.0-20230126194151-7fc7204a9445
-
-// TODO: move to the next v0.59.0 as soon as it is available
-// and remove this!!!
-replace kubevirt.io/api => kubevirt.io/api v0.0.0-20230123193700-4f4f713a0b5b
 
 require (
 	github.com/benbjohnson/clock v1.3.0 // indirect
