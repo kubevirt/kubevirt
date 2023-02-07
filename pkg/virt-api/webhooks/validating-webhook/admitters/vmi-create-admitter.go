@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -213,6 +214,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
+	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 
 	return causes
 }
@@ -2550,6 +2552,22 @@ func validateVSOCK(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, co
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VSOCKGate),
 			Field:   field.Child("domain", "devices", "autoattachVSOCK").String(),
+		})
+	}
+
+	return
+}
+
+func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	if !reservation.HasVMISpecPersistentReservation(spec) {
+		return
+	}
+
+	if !config.PersistentReservationEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.PersistentReservation),
+			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
 		})
 	}
 
