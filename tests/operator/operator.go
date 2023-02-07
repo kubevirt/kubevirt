@@ -1496,6 +1496,13 @@ spec:
 			}
 		}
 
+		checkVirtLauncherPod := func(vmi *v1.VirtualMachineInstance) {
+			virtLauncherPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			serviceAccount, err := virtClient.CoreV1().ServiceAccounts(vmi.Namespace).Get(context.Background(), virtLauncherPod.Spec.ServiceAccountName, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(equality.Semantic.DeepEqual(virtLauncherPod.Spec.ImagePullSecrets, serviceAccount.ImagePullSecrets)).To(BeTrue())
+		}
+
 		It("should not be present if not specified on the KubeVirt CR", func() {
 
 			By("Check that KubeVirt CR has empty imagePullSecrets")
@@ -1512,13 +1519,8 @@ spec:
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			By("Getting virt-launcher")
-			uid := vmi.GetObjectMeta().GetUID()
-			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).NotTo(HaveOccurred(), "Should list pods")
-			Expect(pods.Items).To(HaveLen(1))
-			Expect(pods.Items[0].Spec.ImagePullSecrets).To(HaveLen(0))
+			By("Ensuring that virt-launcher pod does not have additional image pull secrets")
+			checkVirtLauncherPod(vmi)
 
 		})
 
@@ -1566,13 +1568,8 @@ spec:
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			By("Getting virt-launcher")
-			uid := vmi.GetObjectMeta().GetUID()
-			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-			Expect(err).NotTo(HaveOccurred(), "Should list pods")
-			Expect(pods.Items).To(HaveLen(1))
-			Expect(pods.Items[0].Spec.ImagePullSecrets).To(HaveLen(0))
+			By("Ensuring that virt-launcher pod does not have additional image pull secrets")
+			checkVirtLauncherPod(vmi)
 
 			By("Deleting imagePullSecrets from KubeVirt object")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
