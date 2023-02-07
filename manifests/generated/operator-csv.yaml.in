@@ -921,6 +921,32 @@ spec:
           - watch
           - deletecollection
         - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - instancetype.kubevirt.io
           resources:
           - virtualmachineinstancetypes
@@ -1037,6 +1063,30 @@ spec:
           - list
           - watch
         - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
           - instancetype.kubevirt.io
           resources:
           - virtualmachineinstancetypes
@@ -1111,6 +1161,22 @@ spec:
           - virtualmachinesnapshots
           - virtualmachinesnapshotcontents
           - virtualmachinerestores
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - export.kubevirt.io
+          resources:
+          - virtualmachineexports
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - clone.kubevirt.io
+          resources:
+          - virtualmachineclones
           verbs:
           - get
           - list
