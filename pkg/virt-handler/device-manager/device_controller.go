@@ -173,7 +173,6 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	var permittedDevices []Device
 
-	permittedDevices = append(permittedDevices, NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket()))
 	var featureGatedDevices = []struct {
 		Name      string
 		Path      string
@@ -189,6 +188,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
 			)
 		}
+	}
+
+	if c.virtConfig.PersistentReservationEnabled() {
+		permittedDevices = append(permittedDevices, NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket()))
 	}
 
 	hostDevs := c.virtConfig.GetPermittedHostDevices()
