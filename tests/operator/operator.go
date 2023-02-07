@@ -58,6 +58,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	"k8s.io/utils/pointer"
@@ -3035,7 +3036,39 @@ spec:
 
 				By("Checking launcher seccomp policy")
 				vmi := libvmi.NewCirros()
-				vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+				vmi = tests.RunVMI(vmi, 60)
+				fetchVMI := matcher.ThisVMI(vmi)
+				psaRelatedErrorDetected := false
+				err := wait.PollImmediate(time.Second, 30*time.Second, func() (done bool, err error) {
+					vmi, err := fetchVMI()
+					if err != nil {
+						return done, err
+					}
+
+					if vmi.Status.Phase != v1.Pending {
+						return true, nil
+					}
+
+					for _, condition := range vmi.Status.Conditions {
+						if condition.Type == v1.VirtualMachineInstanceSynchronized {
+							if condition.Status == k8sv1.ConditionFalse && strings.Contains(condition.Message, "needs a privileged namespace") {
+								psaRelatedErrorDetected = true
+								return true, nil
+							}
+						}
+					}
+					return
+				})
+				Expect(err).NotTo(HaveOccurred())
+				// In case we are running on PSA cluster, the case were we don't specify seccomp will violate the policy.
+				// Therefore the VMIs Pod will fail to be created and we can't check its configuration.
+				// In that case the loop above needs to see that VMI contains PSA related error.
+				// This is enough and we declare this test as passed.
+				if psaRelatedErrorDetected && virtualMachineProfile == nil {
+					return
+				}
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(BeInPhase(v1.Scheduled))
+
 				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				var podProfile *k8sv1.SeccompProfile
