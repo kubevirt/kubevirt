@@ -35,7 +35,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3
         with:
           skip-pkg-cache: true
-          args: --timeout=5m
+          args: --timeout=5m --out-${NO_FUTURE}format line-number
 
       - name: Verify we can actually build the operator
         run: make build
