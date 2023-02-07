@@ -74,6 +74,7 @@ const (
 	VmiMasquerade        = "vmi-masquerade"
 	VmiSRIOV             = "vmi-sriov"
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
+	VmiSidecarQEMUArgs   = "vmi-sidecar-qemu-args"
 	VmiMultusPtp         = "vmi-multus-ptp"
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
@@ -1191,6 +1192,26 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi.ObjectMeta.Annotations = map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+	}
+	return vmi
+}
+
+func GetVMISidecarQEMUArgs() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiSidecarQEMUArgs)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
+
+	sidecarArgs := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s/debug-toolkit:%s"}]`,
+		DockerPrefix, DockerTag)
+	qemuArgs := fmt.Sprintf(`{"env": %s, "arg": %s}`,
+		`[{"name": "G_MESSAGES_DEBUG", "value": "all"}]`,
+		`[{"value": "-name"}, {"value": "guest=sidecarKubevirtVM,debug-threads=on"}]`)
+
+	vmi.ObjectMeta.Annotations = map[string]string{
+		"hooks.kubevirt.io/hookSidecars":  sidecarArgs,
+		"libvirt.vm.kubevirt.io/qemuArgs": qemuArgs,
 	}
 	return vmi
 }
