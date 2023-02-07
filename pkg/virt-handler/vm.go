@@ -672,6 +672,19 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		log.Log.Object(vmi).Infof("migration completed to node %s", migrationHost)
 	}
 
+	// if a migration just completed, whether it succeeded or failed,
+	//   we need to make sure host-disks get properly relabeled with a secure SELinux MCS label.
+	// using a copy of the VMI as we don't actually want to replace PVCs my host disks at this point
+	vmiCopy := vmi.DeepCopy()
+	err := hostdisk.ReplacePVCByHostDisk(vmiCopy)
+	if err != nil {
+		return err
+	}
+	err = d.updateDisksSELinuxLabel(vmiCopy, vmiCopy.Status.SelinuxContext)
+	if err != nil {
+		return fmt.Errorf("%s: %v", "failed to update the disks SELinux levels", err)
+	}
+
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		d.vmiExpectations.SetExpectations(key, 1, 0)
@@ -2506,6 +2519,14 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			return err
 		}
 
+		// remove the SELinux categories from the disks to allow disk access to both the source and target virt-launchers
+		// the categories will be updated to the target virt-launcher categories once the migration is completed,
+		//   or back to the source virt-launcher categories if the migration fails.
+		err = d.updateDisksSELinuxLabel(vmi, "system_u:object_r:container_file_t:s0")
+		if err != nil {
+			return fmt.Errorf("removing host-disk categories failed: %v", err)
+		}
+
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
 			return err
@@ -3060,6 +3081,27 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	if err == nil {
 		d.Queue.Add(key)
 	}
+}
+
+func (d *VirtualMachineController) updateDisksSELinuxLabel(vmi *v1.VirtualMachineInstance, label string) error {
+	isolationRes, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return fmt.Errorf(failedDetectIsolationFmt, err)
+	}
+
+	virtLauncherRootMount, err := isolationRes.MountRoot()
+	if err != nil {
+		return err
+	}
+
+	lessPVCSpaceToleration := d.clusterConfig.GetLessPVCSpaceToleration()
+	minimumPVCReserveBytes := d.clusterConfig.GetMinimumReservePVCBytes()
+
+	hostDiskCreator := hostdisk.NewHostDiskCreator(d.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
+
+	hostDiskCreator.UpdateSELinuxLabel(vmi, label)
+
+	return nil
 }
 
 func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {

@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/opencontainers/selinux/go-selinux"
+
 	"kubevirt.io/client-go/log"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -213,7 +215,7 @@ func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
 	hdc.lessPVCSpaceToleration = toleration
 }
 
-func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
+func (hdc *DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) {
 			if err := hdc.mountHostDiskAndSetOwnership(vmi, volume.Name, hostDisk); err != nil {
@@ -246,6 +248,19 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 		return err
 	}
 	return nil
+}
+
+func (hdc *DiskImgCreator) UpdateSELinuxLabel(vmi *v1.VirtualMachineInstance, label string) {
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.HostDisk == nil {
+			continue
+		}
+		diskDir := GetMountedHostDiskDirFromHandler(unsafepath.UnsafeAbsolute(hdc.mountRoot.Raw()), volume.Name)
+		err := selinux.Chcon(diskDir, label, true)
+		if err != nil {
+			log.Log.Reason(err).Warningf("Couldn't change SELinux label for volume %s. This is normal if the storage class does not support SELinux labels.", volume.Name)
+		}
+	}
 }
 
 func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir string, diskPath string, hostDisk *v1.HostDisk) error {

@@ -45,7 +45,7 @@ func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtCli
 		}
 		return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
 
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
+	}, time.Duration(timeout)*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 	return migration
 }
 
