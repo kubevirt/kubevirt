@@ -1885,7 +1885,7 @@ func (d *VirtualMachineController) execute(key string) error {
 
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
-	if string(vmi.UID) == "" {
+	if vmiExists && string(vmi.UID) == "" {
 		uid := virtcache.LastKnownUIDFromGhostRecordCache(key)
 		if uid != "" {
 			log.Log.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)

@@ -309,6 +309,28 @@ var _ = Describe("VirtualMachineInstance", func() {
 			diskutils.MockDefaultOwnershipManager()
 		})
 
+		It("should do nothing if vmi and domain do not exist", func() {
+			controller.Execute()
+			testutils.ExpectEvent(recorder, "")
+		})
+
+		It("should create vm if vmi exist and domain does not exist", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Scheduled
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+			})
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, VMIStarted)
+		})
+
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domainFeeder.Add(domain)
