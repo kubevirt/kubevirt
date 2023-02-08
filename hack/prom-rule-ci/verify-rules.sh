@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-readonly PROM_IMAGE="docker.io/prom/prometheus:v2.15.2"
+readonly PROM_IMAGE="quay.io/prometheus/prometheus:v2.42.0"
 
 function cleanup() {
     local cleanup_files=("${@:?}")
@@ -12,7 +12,7 @@ function cleanup() {
 function lint() {
     local target_file="${1:?}"
     podman run --rm --entrypoint=/bin/promtool \
-        -v "$target_file":/tmp/rules.verify:ro "$PROM_IMAGE" \
+        -v "$target_file":/tmp/rules.verify:ro,Z "$PROM_IMAGE" \
         check rules /tmp/rules.verify
 }
 
@@ -20,8 +20,8 @@ function unit_test() {
     local target_file="${1:?}"
     local tests_file="${2:?}"
     podman run --rm --entrypoint=/bin/promtool \
-        -v "$tests_file":/tmp/rules.test:ro \
-        -v "$target_file":/tmp/rules.verify:ro \
+        -v "$tests_file":/tmp/rules.test:ro,Z \
+        -v "$target_file":/tmp/rules.verify:ro,Z \
         "$PROM_IMAGE" \
         test rules /tmp/rules.test
 }
