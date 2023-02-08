@@ -70,6 +70,9 @@ var _ = Describe("DownwardAPI", func() {
 				},
 			},
 		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "downwardapi-volume",
+		})
 
 		err := CreateDownwardAPIDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -77,4 +80,27 @@ var _ = Describe("DownwardAPI", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Should create a new downwardapi iso disk without a Disk device", func() {
+		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "downwardapi-volume",
+			VolumeSource: v1.VolumeSource{
+				DownwardAPI: &v1.DownwardAPIVolumeSource{
+					Fields: []k8sv1.DownwardAPIVolumeFile{
+						{
+							Path: "labels",
+							FieldRef: &k8sv1.ObjectFieldSelector{
+								FieldPath: "metadata.labels",
+							},
+						},
+					},
+				},
+			},
+		})
+
+		err := CreateDownwardAPIDisks(vmi, false)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.Stat(filepath.Join(DownwardAPIDisksDir, "downwardapi-volume.iso"))
+		Expect(err).To(HaveOccurred())
+	})
 })
