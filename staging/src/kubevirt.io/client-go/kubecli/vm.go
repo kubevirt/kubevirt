@@ -85,12 +85,12 @@ func (v *vm) Get(ctx context.Context, name string, options *k8smetav1.GetOptions
 	return newVm, err
 }
 
-func (v *vm) GetWithExpandedSpec(name string) (*v1.VirtualMachine, error) {
+func (v *vm) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "expand-spec")
 	newVm := &v1.VirtualMachine{}
 	err := v.restClient.Get().
 		AbsPath(uri).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVm)
 
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)

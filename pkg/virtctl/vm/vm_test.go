@@ -594,7 +594,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should succeed when called on vm", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().GetWithExpandedSpec(vmName)
+			vmInterface.EXPECT().GetWithExpandedSpec(context.Background(), vmName)
 
 			cmd := clientcmd.NewVirtctlCommand("expand", "--vm", vmName)
 			Expect(cmd.Execute()).To(Succeed())
@@ -602,7 +602,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		DescribeTable("should succeed when called with ", func(formatName string) {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().GetWithExpandedSpec(vmName)
+			vmInterface.EXPECT().GetWithExpandedSpec(context.Background(), vmName)
 
 			cmd := clientcmd.NewVirtctlCommand("expand", outputFormat, formatName, "--vm", vmName)
 			Expect(cmd.Execute()).To(Succeed())
@@ -613,7 +613,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should fail when called on non existing vm", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().GetWithExpandedSpec(nonExistingVM).Return(nil, fmt.Errorf("\"%s\" not found", nonExistingVM))
+			vmInterface.EXPECT().GetWithExpandedSpec(context.Background(), nonExistingVM).Return(nil, fmt.Errorf("\"%s\" not found", nonExistingVM))
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", "--vm", nonExistingVM)
 			err := cmd()
