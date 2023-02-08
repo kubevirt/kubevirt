@@ -569,7 +569,7 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 	}
 
 	if !t.doesTargetVMExist() {
-		newVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(newVM)
+		newVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), newVM)
 	} else {
 		newVM, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(newVM)
 	}

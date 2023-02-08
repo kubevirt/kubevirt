@@ -759,7 +759,7 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
-			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(vm)
+			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 
 			if err != nil {
 				c.expectations.CreationObserved(poolKey)

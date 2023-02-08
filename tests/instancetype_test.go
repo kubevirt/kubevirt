@@ -115,7 +115,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: "non-existing-cluster-instancetype",
 			}
 
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(vm)
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -135,7 +135,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularResourceName,
 			}
 
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(vm)
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -156,7 +156,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: "non-existing-cluster-preference",
 			}
 
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(vm)
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -176,7 +176,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularPreferenceResourceName,
 			}
 
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -218,7 +218,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: clusterPreference.Name,
 			}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
@@ -275,7 +275,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularPreferenceResourceName,
 			}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
@@ -324,7 +324,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularResourceName,
 			}
 
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -352,7 +352,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularResourceName,
 			}
 
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
@@ -403,7 +403,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: clusterPreference.Name,
 			}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
@@ -432,7 +432,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}
 			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
@@ -479,7 +479,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularPreferenceResourceName,
 			}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VirtualMachineInstancetypeSpec and VirtualMachinePreferenceSpec ControllerRevision to be referenced from the VirtualMachine")
@@ -540,7 +540,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: preference.Name,
 				Kind: instancetypeapi.SingularPreferenceResourceName,
 			}
-			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(newVM)
+			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for a VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the new VirtualMachine")
@@ -591,7 +591,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularResourceName,
 			}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.StartVirtualMachine(vm)
@@ -645,7 +645,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Kind: instancetypeapi.SingularResourceName,
 			}
 
-			newVm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(newVm)
+			newVm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVm)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega) {
@@ -684,7 +684,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		checkVMhasInferredInstancetypeAndPreference := func() {
 			By("Creating and starting the VirtualMachine")
-			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
 
@@ -1063,7 +1063,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: clusterInstancetype.Name,
 			}
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = tests.StartVirtualMachine(vm)

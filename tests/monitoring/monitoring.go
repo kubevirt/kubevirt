@@ -409,7 +409,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 
 		createVirtualMachine := func(vm *v1.VirtualMachine) {
 			By("Creating VirtualMachine")
-			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
