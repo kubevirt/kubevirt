@@ -283,7 +283,7 @@ type VirtualMachineInterface interface {
 	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
 	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
 	Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
+	Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
 	UpdateStatus(*v1.VirtualMachine) (*v1.VirtualMachine, error)

@@ -136,7 +136,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, vmPath)),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 		))
-		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(vm)
+		updatedVM, err := client.VirtualMachine(k8sv1.NamespaceDefault).Update(context.Background(), vm)
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
