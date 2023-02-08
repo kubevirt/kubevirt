@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/tests/libnet/service"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"kubevirt.io/api/migrations/v1alpha1"
@@ -62,6 +64,7 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -642,6 +645,67 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}, 30*time.Second, 1*time.Second).Should(BeEmpty())
 	}
 
+	Context("with Headless service", func() {
+		const subdomain = "mysub"
+
+		AfterEach(func() {
+			err := virtClient.CoreV1().Services(util.NamespaceTestDefault).Delete(context.Background(), subdomain, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		It("should remain to able resolve the VM IP", func() {
+			withHostnameAndSubdomain := func(hostname, subdomain string) libvmi.Option {
+				return func(vmi *v1.VirtualMachineInstance) {
+					vmi.Spec.Hostname = hostname
+					vmi.Spec.Subdomain = subdomain
+
+				}
+			}
+			const hostname = "alpine"
+			const port int = 1500
+			const labelKey = "subdomain"
+			const labelValue = "mysub"
+
+			vmi := libvmi.NewCirros(
+				withHostnameAndSubdomain(hostname, subdomain),
+				libvmi.WithLabel(labelKey, labelValue),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Starting hello world in the VM")
+			tests.StartTCPServer(vmi, port, console.LoginToCirros)
+
+			By("Exposing headless service matching subdomain")
+			service := service.BuildHeadlessSpec(subdomain, port, port, labelKey, labelValue)
+			_, err = virtClient.CoreV1().Services(vmi.Namespace).Create(context.TODO(), service, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			assertConnectivityToService := func(msg string) {
+				By(msg)
+				job := tests.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
+				job.Spec.BackoffLimit = pointer.Int32(3)
+				job, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				err = tests.WaitForJobToSucceed(job, 90*time.Second)
+				Expect(err).ToNot(HaveOccurred(), msg)
+			}
+
+			assertConnectivityToService("Asserting connectivity through service before migration")
+
+			By("Executing a migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationuid := tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migrationuid)
+
+			assertConnectivityToService("Asserting connectivity through service after migration")
+
+		})
+	})
 	Describe("Starting a VirtualMachineInstance ", func() {
 
 		var pvName string
