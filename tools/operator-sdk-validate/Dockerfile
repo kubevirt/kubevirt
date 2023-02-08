@@ -1,4 +1,4 @@
-FROM quay.io/fedora/fedora:33-x86_64
+FROM quay.io/fedora/fedora:37-x86_64
 
 COPY deploy/olm-catalog/community-kubevirt-hyperconverged /manifests
 COPY tools/operator-sdk-validate/validate-bundles.sh .

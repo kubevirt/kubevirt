@@ -1,4 +1,4 @@
-FROM quay.io/fedora/fedora:33-x86_64 AS builder
+FROM quay.io/fedora/fedora:37-x86_64 AS builder
 ARG INITIAL_VERSION=1.9.0
 ARG INITIAL_VERSION_SED="1\.9\.0"
 ARG TARGET_VERSION=100.0.0
