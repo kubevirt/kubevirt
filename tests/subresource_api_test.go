@@ -471,7 +471,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
-						GetWithExpandedSpec(vm.GetName())
+						GetWithExpandedSpec(context.Background(), vm.GetName())
 					Expect(err).ToNot(HaveOccurred())
 					Expect(expandedVm.Spec).To(Equal(vm.Spec))
 				})
@@ -484,7 +484,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
-						GetWithExpandedSpec(vm.GetName())
+						GetWithExpandedSpec(context.Background(), vm.GetName())
 					Expect(err).ToNot(HaveOccurred())
 					Expect(expandedVm.Spec.Instancetype).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
 					Expect(expandedVm.Spec.Template.Spec.Domain.CPU).To(Equal(expectedCpu), "VM should have instancetype expanded")
@@ -616,7 +616,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
-						GetWithExpandedSpec(vm.GetName())
+						GetWithExpandedSpec(context.Background(), vm.GetName())
 					Expect(err).ToNot(HaveOccurred())
 					Expect(expandedVm.Spec).To(Equal(vm.Spec))
 				})
@@ -630,7 +630,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					expandedVm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).
-						GetWithExpandedSpec(vm.GetName())
+						GetWithExpandedSpec(context.Background(), vm.GetName())
 					Expect(err).ToNot(HaveOccurred())
 					Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
 					Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeTrue(), "VM should have preference expanded")

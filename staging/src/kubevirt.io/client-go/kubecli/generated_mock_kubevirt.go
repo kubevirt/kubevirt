@@ -1470,15 +1470,15 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Get(arg0, arg1, arg2 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) GetWithExpandedSpec(name string) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "GetWithExpandedSpec", name)
+func (_m *MockVirtualMachineInterface) GetWithExpandedSpec(ctx context.Context, name string) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "GetWithExpandedSpec", ctx, name)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) GetWithExpandedSpec(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetWithExpandedSpec", arg0)
+func (_mr *_MockVirtualMachineInterfaceRecorder) GetWithExpandedSpec(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetWithExpandedSpec", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInterface) List(opts *v12.ListOptions) (*v120.VirtualMachineList, error) {

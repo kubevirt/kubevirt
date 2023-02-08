@@ -280,7 +280,7 @@ type VirtualMachineInstancePresetInterface interface {
 // virtual machines inside the cluster
 type VirtualMachineInterface interface {
 	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachine, error)
-	GetWithExpandedSpec(name string) (*v1.VirtualMachine, error)
+	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
 	List(opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
 	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)

@@ -486,7 +486,7 @@ func expandVirtualMachine(namespace string, virtClient kubecli.KubevirtClient, o
 	var err error
 
 	if vmName != "" {
-		expandedVm, err = virtClient.VirtualMachine(namespace).GetWithExpandedSpec(vmName)
+		expandedVm, err = virtClient.VirtualMachine(namespace).GetWithExpandedSpec(context.Background(), vmName)
 		if err != nil {
 			return fmt.Errorf("error expanding VirtualMachine - %s in namespace - %s: %w", vmName, namespace, err)
 		}
