@@ -23,7 +23,7 @@ function node::remount_sysfs() {
   for node in "${nodes_array[@]}"; do
 
     # KIND mounts sysfs as read-only by default, remount as R/W"
-    node_exec="docker exec $node"
+    node_exec="${CRI_BIN} exec $node"
     $node_exec mount -o remount,rw /sys
     $node_exec chmod 666 /dev/vfio/vfio
 
