@@ -1,4 +1,6 @@
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-stream8-image-cron
   spec:
     schedule: "0 */12 * * *"
@@ -14,6 +16,8 @@
     garbageCollect: Outdated
     managedDataSource: centos-stream8
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-stream9-image-cron
   spec:
     schedule: "0 */12 * * *"
@@ -29,6 +33,8 @@
     garbageCollect: Outdated
     managedDataSource: centos-stream9
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: fedora-image-cron
   spec:
     schedule: "0 */12 * * *"
@@ -44,6 +50,8 @@
     garbageCollect: Outdated
     managedDataSource: fedora
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-7-image-cron
   spec:
     schedule: "0 */12 * * *"
