@@ -364,6 +364,11 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
 			disks.shared[volume.Name] = true
 		}
+
+		// Some volumes may not have an associated Disk (e.g., accessed using Filesystem),
+		// so they do not have an .iso file to be copied during migration. However, we don't
+		// need to check that they have it, since getDiskTargetsForMigration() will traverse
+		// through the disks.
 		if volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
 			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil {

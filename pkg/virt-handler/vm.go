@@ -1134,9 +1134,19 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 		return
 	}
 
+	volumes := map[string]*v1.Volume{}
 	for _, volume := range vmi.Spec.Volumes {
+		volumes[volume.Name] = volume.DeepCopy()
+	}
 
-		volPath, found := IsoGuestVolumePath(vmi, &volume)
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		volume := volumes[disk.Name]
+		if volume == nil {
+			log.DefaultLogger().V(2).Warningf("No matching volume with name %s found", disk.Name)
+			continue
+		}
+
+		volPath, found := IsoGuestVolumePath(vmi, volume)
 		if !found {
 			continue
 		}
