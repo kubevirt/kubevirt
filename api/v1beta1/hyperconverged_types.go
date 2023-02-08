@@ -498,6 +498,10 @@ type HyperConvergedStatus struct {
 	// DataImportCronTemplates is a list of the actual DataImportCronTemplates as HCO update in the SSP CR. The list
 	// contains both the common and the custom templates, including any modification done by HCO.
 	DataImportCronTemplates []DataImportCronTemplateStatus `json:"dataImportCronTemplates,omitempty"`
+
+	// SystemHealthStatus reflects the health of HCO and its secondary resources, based on the aggregated conditions.
+	// +optional
+	SystemHealthStatus string `json:"systemHealthStatus,omitempty"`
 }
 
 type Version struct {

@@ -4363,6 +4363,10 @@ spec:
                   x-kubernetes-map-type: atomic
                 type: array
                 x-kubernetes-list-type: atomic
+              systemHealthStatus:
+                description: SystemHealthStatus reflects the health of HCO and its
+                  secondary resources, based on the aggregated conditions.
+                type: string
               versions:
                 description: 'Versions is a list of HCO component versions, as name/version
                   pairs. The version with a name of "operator" is the HCO version

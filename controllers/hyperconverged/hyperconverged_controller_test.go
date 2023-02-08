@@ -197,6 +197,8 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "Initializing HyperConverged cluster",
 				})))
 
+				verifySystemHealthStatusError(foundResource)
+
 				expectedFeatureGates := []string{
 					"DataVolumes",
 					"SRIOV",
@@ -328,6 +330,8 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  "TektonTasksConditions",
 					Message: "TektonTasks resource has no conditions",
 				})))
+
+				verifySystemHealthStatusError(foundResource)
 
 				Expect(foundResource.Status.RelatedObjects).To(HaveLen(20))
 				expectedRef := corev1.ObjectReference{
@@ -659,6 +663,8 @@ var _ = Describe("HyperconvergedController", func() {
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
+
+				verifySystemHealthStatusHealthy(foundResource)
 			})
 
 			It("should increment counter when out-of-band change overwritten", func() {
@@ -3795,6 +3801,22 @@ func verifyHyperConvergedCRExistsMetricFalse() {
 	hcExists, err := metrics.HcoMetrics.IsHCOMetricHyperConvergedExists()
 	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
 	ExpectWithOffset(1, hcExists).Should(BeFalse())
+}
+
+func verifySystemHealthStatusHealthy(hco *hcov1beta1.HyperConverged) {
+	ExpectWithOffset(1, hco.Status.SystemHealthStatus).To(Equal(systemHealthStatusHealthy))
+
+	systemHealthStatusMetric, err := metrics.HcoMetrics.GetHCOMetricSystemHealthStatus()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, systemHealthStatusMetric).To(Equal(metrics.SystemHealthStatusHealthy))
+}
+
+func verifySystemHealthStatusError(hco *hcov1beta1.HyperConverged) {
+	ExpectWithOffset(1, hco.Status.SystemHealthStatus).To(Equal(systemHealthStatusError))
+
+	systemHealthStatusMetric, err := metrics.HcoMetrics.GetHCOMetricSystemHealthStatus()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, systemHealthStatusMetric).To(Equal(metrics.SystemHealthStatusError))
 }
 
 func searchInRelatedObjects(relatedObjects []corev1.ObjectReference, kind, name string) bool {

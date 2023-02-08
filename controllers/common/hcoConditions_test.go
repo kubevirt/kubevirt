@@ -109,4 +109,35 @@ var _ = Describe("HCO Conditions Tests", func() {
 			Expect(conds.HasCondition(hcov1beta1.ConditionAvailable)).To(BeFalse())
 		})
 	})
+
+	Context("Test IsStatusConditionTrue", func() {
+		conds := NewHcoConditions()
+		Expect(conds.IsEmpty()).To(BeTrue())
+
+		It("Should return false when the conditionType is not present", func() {
+			Expect(conds.IsStatusConditionTrue(hcov1beta1.ConditionReconcileComplete)).To(BeFalse())
+		})
+
+		It("Should return false when the conditionType is present but not set to True", func() {
+			conds.SetStatusConditionIfUnset(metav1.Condition{
+				Type:    hcov1beta1.ConditionReconcileComplete,
+				Status:  metav1.ConditionFalse,
+				Reason:  "reason",
+				Message: "a message",
+			})
+
+			Expect(conds.IsStatusConditionTrue(hcov1beta1.ConditionReconcileComplete)).To(BeFalse())
+		})
+
+		It("Should return true when the conditionType is present and set to True", func() {
+			conds.SetStatusCondition(metav1.Condition{
+				Type:    hcov1beta1.ConditionReconcileComplete,
+				Status:  metav1.ConditionTrue,
+				Reason:  "reason2",
+				Message: "another message",
+			})
+
+			Expect(conds.IsStatusConditionTrue(hcov1beta1.ConditionReconcileComplete)).To(BeTrue())
+		})
+	})
 })

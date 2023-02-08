@@ -76,6 +76,9 @@ const (
 	commonProgressingReason     = "HCOProgressing"
 	taintedConfigurationReason  = "UnsupportedFeatureAnnotation"
 	taintedConfigurationMessage = "Unsupported feature was activated via an HCO annotation"
+	systemHealthStatusHealthy   = "healthy"
+	systemHealthStatusWarning   = "warning"
+	systemHealthStatusError     = "error"
 
 	hcoVersionName    = "operator"
 	secondaryCRPrefix = "hco-controlled-cr-"
@@ -989,6 +992,17 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 		req.Instance.Status.Conditions = conditions
 		req.StatusDirty = true
 	}
+
+	systemHealthStatus := r.getSystemHealthStatus(req.Conditions)
+
+	if systemHealthStatus != req.Instance.Status.SystemHealthStatus {
+		req.Instance.Status.SystemHealthStatus = systemHealthStatus
+		req.StatusDirty = true
+	}
+
+	if metricErr := metrics.HcoMetrics.SetHCOMetricSystemHealthStatus(getNumericalHealthStatus(systemHealthStatus)); metricErr != nil {
+		req.Logger.Error(metricErr, "failed to update the systemHealthStatus metric")
+	}
 }
 
 func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
@@ -1044,6 +1058,36 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 			req.Logger.Info("Detected untainted configuration state for HCO")
 		}
 	}
+}
+
+func (r *ReconcileHyperConverged) getSystemHealthStatus(conditions common.HcoConditions) string {
+	if isSystemHealthStatusError(conditions) {
+		return systemHealthStatusError
+	}
+
+	if isSystemHealthStatusWarning(conditions) {
+		return systemHealthStatusWarning
+	}
+
+	return systemHealthStatusHealthy
+}
+
+func isSystemHealthStatusError(conditions common.HcoConditions) bool {
+	return !conditions.IsStatusConditionTrue(hcov1beta1.ConditionAvailable) || conditions.IsStatusConditionTrue(hcov1beta1.ConditionDegraded)
+}
+
+func isSystemHealthStatusWarning(conditions common.HcoConditions) bool {
+	return !conditions.IsStatusConditionTrue(hcov1beta1.ConditionReconcileComplete) || conditions.IsStatusConditionTrue(hcov1beta1.ConditionProgressing)
+}
+
+func getNumericalHealthStatus(status string) float64 {
+	healthStatusCodes := map[string]float64{
+		systemHealthStatusHealthy: metrics.SystemHealthStatusHealthy,
+		systemHealthStatusWarning: metrics.SystemHealthStatusWarning,
+		systemHealthStatusError:   metrics.SystemHealthStatusError,
+	}
+
+	return healthStatusCodes[status]
 }
 
 func getNumOfChangesJSONPatch(jsonPatch string) int {

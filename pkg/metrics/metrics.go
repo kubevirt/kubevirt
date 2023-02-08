@@ -16,9 +16,16 @@ const (
 	HCOMetricOverwrittenModifications = "overwrittenModifications"
 	HCOMetricUnsafeModifications      = "unsafeModifications"
 	HCOMetricHyperConvergedExists     = "HyperConvergedCRExists"
+	HCOMetricSystemHealthStatus       = "systemHealthStatus"
 
 	HyperConvergedExists    = float64(1)
 	HyperConvergedNotExists = float64(0)
+)
+
+const (
+	SystemHealthStatusHealthy float64 = iota
+	SystemHealthStatusWarning
+	SystemHealthStatusError
 )
 
 type metricDesc struct {
@@ -69,6 +76,20 @@ var HcoMetrics = func() hcoMetrics {
 		HCOMetricHyperConvergedExists: {
 			fqName:          "kubevirt_hco_hyperconverged_cr_exists",
 			help:            "Indicates whether the HyperConverged custom resource exists (1) or not (0)",
+			mType:           "Gauge",
+			constLabelPairs: []string{counterLabelAnnName},
+			initFunc: func(md metricDesc) prometheus.Collector {
+				return prometheus.NewGauge(
+					prometheus.GaugeOpts{
+						Name: md.fqName,
+						Help: md.help,
+					},
+				)
+			},
+		},
+		HCOMetricSystemHealthStatus: {
+			fqName:          "kubevirt_hco_system_health_status",
+			help:            "Indicates whether the system health status is healthy (0), warning (1), or error (2), by aggregating the conditions of HCO and its secondary resources",
 			mType:           "Gauge",
 			constLabelPairs: []string{counterLabelAnnName},
 			initFunc: func(md metricDesc) prometheus.Collector {
@@ -227,6 +248,16 @@ func (hm *hcoMetrics) IsHCOMetricHyperConvergedExists() (bool, error) {
 	}
 
 	return val == HyperConvergedExists, nil
+}
+
+// SetHCOMetricSystemHealthStatus sets the gauge to status
+func (hm *hcoMetrics) SetHCOMetricSystemHealthStatus(status float64) error {
+	return hm.SetMetric(HCOMetricSystemHealthStatus, nil, status)
+}
+
+// GetHCOMetricSystemHealthStatus returns current value of gauge. If error is not nil then value is undefined
+func (hm *hcoMetrics) GetHCOMetricSystemHealthStatus() (float64, error) {
+	return hm.GetMetricValue(HCOMetricSystemHealthStatus, nil)
 }
 
 func getLabelsForObj(kind string, name string) prometheus.Labels {

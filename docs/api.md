@@ -201,6 +201,7 @@ HyperConvergedStatus defines the observed state of HyperConverged
 | observedGeneration | ObservedGeneration reflects the HyperConverged resource generation. If the ObservedGeneration is less than the resource generation in metadata, the status is out of date | int64 |  | false |
 | dataImportSchedule | DataImportSchedule is the cron expression that is used in for the hard-coded data import cron templates. HCO generates the value of this field once and stored in the status field, so will survive restart. | string |  | false |
 | dataImportCronTemplates | DataImportCronTemplates is a list of the actual DataImportCronTemplates as HCO update in the SSP CR. The list contains both the common and the custom templates, including any modification done by HCO. | [][DataImportCronTemplateStatus](#dataimportcrontemplatestatus) |  | false |
+| systemHealthStatus | SystemHealthStatus reflects the health of HCO and its secondary resources, based on the aggregated conditions. | string |  | false |
 
 [Back to TOC](#table-of-contents)
 
