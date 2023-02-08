@@ -229,7 +229,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 }
 
 func (r *KubernetesReporter) logVMs(virtCli kubecli.KubevirtClient) {
-	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(&metav1.ListOptions{})
+	vms, err := virtCli.VirtualMachine(v1.NamespaceAll).List(context.Background(), &metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch vms: %v\n", err)
 		return

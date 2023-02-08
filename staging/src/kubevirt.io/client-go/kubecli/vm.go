@@ -128,13 +128,13 @@ func (v *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 }
 
 // List all VirtualMachines in given namespace
-func (v *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
+func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
 	newVmList := &v1.VirtualMachineList{}
 	err := v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVmList)
 
 	for _, vm := range newVmList.Items {
