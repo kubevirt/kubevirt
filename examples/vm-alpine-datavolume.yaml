@@ -19,7 +19,7 @@ spec:
             storage: 2Gi
         storageClassName: local
       source:
-        http:
+        registry:
           url: docker://registry:5000/kubevirt/alpine-container-disk-demo:devel
   running: false
   template:
