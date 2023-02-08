@@ -580,6 +580,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 				return nil
 			}
 		}
+
 		if domainState == libvirt.DOMAIN_RUNNING {
 			logger.Info("Migration job failed")
 			return &libvirt.DomainJobInfo{
@@ -944,6 +945,15 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		return
 	}
 
+	// finalize the migration here. MigrateToURI3 is synchronic. If we got here
+	// it means that the migration has successfully completed. Due to its
+	// nature, it is very likely that the migration monitor will miss
+	// DOMAIN_JOB_COMPLETED which quickly switches to DOMAIN_JOB_NONE.
+	// Migration monitor will not have enough time to find the correct result
+	// and it will be in a race with the domain shutdown proceess, which starts
+	// immediately after a successful migration.
+
+	l.setMigrationResult(false, "", "")
 	log.Log.Object(vmi).Infof("Live migration succeeded.")
 }
 

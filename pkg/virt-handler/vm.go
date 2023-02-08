@@ -591,6 +591,7 @@ func (d *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMac
 		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
 	}
 	vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
+
 	vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
@@ -2517,6 +2518,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			return err
 		}
 
+		log.Log.Object(vmi).Infof("Starting VirtualMachineInstance migration")
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
 			return err
@@ -3176,6 +3178,7 @@ func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 		return nil
 	}
 
+	log.Log.Object(vmi).Infof("Cancelling VMI migration")
 	err := client.CancelVirtualMachineMigration(vmi)
 	if err != nil && err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
 		// If migration did not even start there is no need to cancel it
