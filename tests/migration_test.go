@@ -320,6 +320,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		return kvc.Spec.Configuration
 	}
 
+	getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
+		namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+		ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+		ExpectWithOffset(1, namespace).ShouldNot(BeNil())
+		return namespace
+	}
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 
@@ -1828,8 +1835,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, console.LoginToAlpine),
 			)
 		})
-		Context("migration security", func() {
-			Context("[Serial] with TLS disabled", func() {
+		Context("[Serial] migration security", func() {
+			Context("with TLS disabled", func() {
 				It("[test_id:6976] should be successfully migrated", func() {
 					cfg := getCurrentKv()
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
@@ -1952,15 +1959,22 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					tests.WaitAgentConnected(virtClient, vmi)
 
+					By("Creating a migration policy to slow the migration")
+					policy := tests.GetPolicyMatchedToVmi("testpolicy", vmi, getVmisNamespace(vmi), 1, 0)
+					bandwidth := resource.MustParse("1Mi")
+					policy.Spec.BandwidthPerMigration = &bandwidth
+
+					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the proxy connection details to appear")
 					Eventually(func() bool {
@@ -2885,13 +2899,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
 					Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(*expectedName))
 				}
-			}
-
-			getVmisNamespace := func(vmi *v1.VirtualMachineInstance) *k8sv1.Namespace {
-				namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(namespace).ShouldNot(BeNil())
-				return namespace
 			}
 
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
