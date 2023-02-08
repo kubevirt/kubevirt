@@ -64,6 +64,9 @@ var _ = Describe("ConfigMap", func() {
 				},
 			},
 		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "configmap-volume",
+		})
 
 		err := CreateConfigMapDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -71,4 +74,22 @@ var _ = Describe("ConfigMap", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Should not create a new config map iso disk without a Disk device", func() {
+		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "configmap-volume",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: k8sv1.LocalObjectReference{
+						Name: "test-config",
+					},
+				},
+			},
+		})
+
+		err := CreateConfigMapDisks(vmi, false)
+		Expect(err).NotTo(HaveOccurred())
+		files, _ := os.ReadDir(ConfigMapDisksDir)
+		Expect(files).To(BeEmpty())
+	})
 })
