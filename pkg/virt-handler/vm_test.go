@@ -93,6 +93,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
 	var gracefulShutdownInformer cache.SharedIndexInformer
+	var vmiInformer cache.SharedIndexInformer
+	var nodeInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
 	var mockGracefulShutdown *MockGracefulShutdown
@@ -167,6 +169,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
@@ -212,6 +216,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiTargetInformer,
 			domainInformer,
 			gracefulShutdownInformer,
+			vmiInformer,
+			nodeInformer,
 			1,
 			10,
 			config,
@@ -239,12 +245,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		wg.Add(5)
+		wg.Add(7)
 		go func() { vmiSourceInformer.Run(stop); wg.Done() }()
 		go func() { vmiTargetInformer.Run(stop); wg.Done() }()
 		go func() { domainInformer.Run(stop); wg.Done() }()
 		go func() { gracefulShutdownInformer.Run(stop); wg.Done() }()
-		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+		go func() { vmiInformer.Run(stop); wg.Done() }()
+		go func() { nodeInformer.Run(stop); wg.Done() }()
+		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced, vmiInformer.HasSynced, nodeInformer.HasSynced)).To(BeTrue())
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)

@@ -328,6 +328,9 @@ func (app *virtHandlerApp) Run() {
 		return
 	}
 
+	vmiInformer := factory.VMI()
+	nodeInformer := factory.KubeVirtNode()
+
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -339,6 +342,8 @@ func (app *virtHandlerApp) Run() {
 		vmiTargetInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
+		vmiInformer,
+		nodeInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
@@ -374,6 +379,8 @@ func (app *virtHandlerApp) Run() {
 	factory.Start(stop)
 	go gracefulShutdownInformer.Run(stop)
 	go domainSharedInformer.Run(stop)
+	go vmiInformer.Run(stop)
+	go nodeInformer.Run(stop)
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
