@@ -61,6 +61,9 @@ var _ = Describe("Secret", func() {
 				},
 			},
 		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "secret-volume",
+		})
 
 		err := CreateSecretDisks(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -68,4 +71,20 @@ var _ = Describe("Secret", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Should not create a new secret iso disk without a Disk device", func() {
+		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "secret-volume",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "test-secret",
+				},
+			},
+		})
+
+		err := CreateSecretDisks(vmi, false)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.Stat(filepath.Join(SecretDisksDir, "secret-volume.iso"))
+		Expect(err).To(HaveOccurred())
+	})
 })
