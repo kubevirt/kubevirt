@@ -27,7 +27,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -110,7 +109,6 @@ type netstat interface {
 
 const (
 	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
-	kubevirtPrivate                       = "kubevirt-private"
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
 )
 
@@ -1103,15 +1101,15 @@ func IsoGuestVolumePath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (stri
 	} else if volume.CloudInitConfigDrive != nil {
 		volPath = filepath.Join(basepath, "kubevirt-ephemeral-disks", "cloud-init-data", vmi.Namespace, vmi.Name, "configdrive.iso")
 	} else if volume.ConfigMap != nil {
-		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.ConfigMapDisksDir), volume.Name+".iso")
+		volPath = config.GetConfigMapDiskPath(volume.Name)
 	} else if volume.DownwardAPI != nil {
-		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.DownwardAPIDisksDir), volume.Name+".iso")
+		volPath = config.GetDownwardAPIDiskPath(volume.Name)
 	} else if volume.Secret != nil {
-		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.SecretDisksDir), volume.Name+".iso")
+		volPath = config.GetSecretDiskPath(volume.Name)
 	} else if volume.ServiceAccount != nil {
-		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.ServiceAccountDiskDir), config.ServiceAccountDiskName)
+		volPath = config.GetServiceAccountDiskPath()
 	} else if volume.Sysprep != nil {
-		volPath = filepath.Join(basepath, kubevirtPrivate, path.Base(config.SysprepDisksDir), volume.Name+".iso")
+		volPath = config.GetSysprepDiskPath(volume.Name)
 	} else {
 		return "", false
 	}
