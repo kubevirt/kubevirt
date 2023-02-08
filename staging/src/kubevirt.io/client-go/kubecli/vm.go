@@ -70,14 +70,14 @@ func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 }
 
 // Get the Virtual machine from the cluster by its name and namespace
-func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
+func (v *vm) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
 	err := v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVm)
 
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)

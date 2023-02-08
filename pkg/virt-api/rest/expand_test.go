@@ -2,6 +2,7 @@ package rest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -192,7 +193,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			request.PathParameters()["name"] = vmName
 			request.PathParameters()["namespace"] = vmNamespace
 
-			vmClient.EXPECT().Get(vmName, gomock.Any()).Return(vm, nil).AnyTimes()
+			vmClient.EXPECT().Get(context.Background(), vmName, gomock.Any()).Return(vm, nil).AnyTimes()
 
 			app.ExpandSpecVMRequestHandler(request, response)
 			return recorder
@@ -204,7 +205,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			request.PathParameters()["name"] = "nonexistent-vm"
 			request.PathParameters()["namespace"] = vmNamespace
 
-			vmClient.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, errors.NewNotFound(
+			vmClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(nil, errors.NewNotFound(
 				schema.GroupResource{
 					Group:    kubevirtcore.GroupName,
 					Resource: "VirtualMachine",

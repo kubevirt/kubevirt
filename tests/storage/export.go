@@ -1209,7 +1209,7 @@ var _ = SIGDescribe("Export", func() {
 		vmNamespace := vm.Namespace
 		var err error
 		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(vmName, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -1229,7 +1229,7 @@ var _ = SIGDescribe("Export", func() {
 		vmName := vm.Name
 		vmNamespace := vm.Namespace
 		Eventually(func() error {
-			vm, err = virtClient.VirtualMachine(vmNamespace).Get(vmName, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm.Spec.Running = pointer.BoolPtr(true)
 			vm, err = virtClient.VirtualMachine(vmNamespace).Update(vm)
@@ -1942,7 +1942,7 @@ var _ = SIGDescribe("Export", func() {
 		dv = createDataVolume(dv)
 		Eventually(ThisPVCWith(vm.Namespace, dv.Name), 160).Should(Exist())
 
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.AddDataVolume(vm, "blank-disk", dv)
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)

@@ -1459,15 +1459,15 @@ func (_m *MockVirtualMachineInterface) EXPECT() *_MockVirtualMachineInterfaceRec
 	return _m.recorder
 }
 
-func (_m *MockVirtualMachineInterface) Get(name string, options *v12.GetOptions) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "Get", name, options)
+func (_m *MockVirtualMachineInterface) Get(ctx context.Context, name string, options *v12.GetOptions) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "Get", ctx, name, options)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInterface) GetWithExpandedSpec(name string) (*v120.VirtualMachine, error) {
