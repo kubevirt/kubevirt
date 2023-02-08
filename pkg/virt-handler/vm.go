@@ -2300,11 +2300,15 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 		return nil
 	}
 
-	if !netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
-		return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network")
+	_, allowPodBridgeNetworkLiveMigration := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]
+	if allowPodBridgeNetworkLiveMigration && netvmispec.IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
+		return nil
+	}
+	if netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
+		return nil
 	}
 
-	return nil
+	return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network or bridge with %s VM annotation", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {

@@ -67,6 +67,15 @@ func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []
 	return true
 }
 
+func IsPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
+	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
+		if podInterface := LookupInterfaceByNetwork(ifaces, podNetwork); podInterface != nil {
+			return podInterface.Bridge != nil
+		}
+	}
+	return true
+}
+
 func PopInterfaceByNetwork(statusIfaces []v1.VirtualMachineInstanceNetworkInterface, network *v1.Network) (*v1.VirtualMachineInstanceNetworkInterface, []v1.VirtualMachineInstanceNetworkInterface) {
 	if network == nil {
 		return nil, statusIfaces
