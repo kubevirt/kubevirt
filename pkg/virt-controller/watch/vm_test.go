@@ -339,7 +339,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().AddVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].AddVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
 			}).Return(vm, nil)
 
@@ -388,7 +388,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiInterface.EXPECT().RemoveVolume(context.Background(), vmi.ObjectMeta.Name, vm.Status.VolumeRequests[0].RemoveVolumeOptions)
 			}
 
-			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
 			}).Return(vm, nil)
 
@@ -1958,7 +1958,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				shouldExpectVMIVolumesAddPatched(vmi)
 
-				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
 				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
@@ -2173,7 +2173,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
 				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)

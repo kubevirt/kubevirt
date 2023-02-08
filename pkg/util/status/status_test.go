@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -282,7 +283,7 @@ var _ = Describe("Status", func() {
 			vmUpdater := NewVMStatusUpdater(virtClient)
 			vmUpdater.updater.subresource = false
 			vm := &v1.VirtualMachine{Status: v1.VirtualMachineStatus{Ready: true}}
-			vmInterface.EXPECT().Update(vm).Return(vm, nil).Times(1)
+			vmInterface.EXPECT().Update(context.Background(), vm).Return(vm, nil).Times(1)
 			Expect(vmUpdater.UpdateStatus(vm)).To(Succeed())
 
 			By("checking the VirtualMachineInstanceReplicaSet resource")

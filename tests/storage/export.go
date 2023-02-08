@@ -1214,7 +1214,7 @@ var _ = SIGDescribe("Export", func() {
 				return err
 			}
 			vm.Spec.Running = pointer.BoolPtr(false)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(vm)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm)
 			return err
 		}, 15*time.Second, time.Second).Should(BeNil())
 		return vm
@@ -1232,7 +1232,7 @@ var _ = SIGDescribe("Export", func() {
 			vm, err = virtClient.VirtualMachine(vmNamespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm.Spec.Running = pointer.BoolPtr(true)
-			vm, err = virtClient.VirtualMachine(vmNamespace).Update(vm)
+			vm, err = virtClient.VirtualMachine(vmNamespace).Update(context.Background(), vm)
 			return err
 		}, 15*time.Second, time.Second).Should(Succeed())
 		return vm
@@ -1945,7 +1945,7 @@ var _ = SIGDescribe("Export", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		libstorage.AddDataVolume(vm, "blank-disk", dv)
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 		Expect(err).ToNot(HaveOccurred())
 		if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			// With WFFC we expect the volume to not be populated and the condition to be not ready and reason populating

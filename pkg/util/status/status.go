@@ -170,7 +170,7 @@ func (u *updater) updateUnstructured(obj runtime.Object) (oldStatus interface{},
 	switch obj.(type) {
 	case *v1.VirtualMachine:
 		oldObj := obj.(*v1.VirtualMachine)
-		newObj, err := u.cli.VirtualMachine(a.GetNamespace()).Update(oldObj)
+		newObj, err := u.cli.VirtualMachine(a.GetNamespace()).Update(context.Background(), oldObj)
 		if err != nil {
 			return nil, nil, err
 		}

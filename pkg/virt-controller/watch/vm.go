@@ -251,7 +251,7 @@ func (c *VMController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		vm := vm.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(vm)
+		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
@@ -795,7 +795,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				} else {
 					vmCopy.Spec.Running = &running
 				}
-				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 			}
 			return nil
@@ -2309,7 +2309,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
-				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				if err != nil {
 					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
 				}

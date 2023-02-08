@@ -235,7 +235,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = nil
 				updatedVM.Spec.RunStrategy = &runStrategyAlways
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 				return err
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -266,7 +266,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = nil
 				updatedVM.Spec.RunStrategy = &runStrategyHalted
-				_, err = virtClient.VirtualMachine(meta.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), updatedVM)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -301,7 +301,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = nil
 				updatedVM.Spec.RunStrategy = &runStrategyAlways
-				_, err = virtClient.VirtualMachine(meta.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), updatedVM)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -362,7 +362,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.Template.ObjectMeta.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(vm)
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -391,7 +391,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(context.Background(), meta.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(vm)
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(context.Background(), vm)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -594,7 +594,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("4096Ki"),
 			}
-			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting the old VirtualMachineInstance spec still running")
@@ -714,7 +714,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("4096Ki"),
 				}
-				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 				return err
 			}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
 
@@ -2285,7 +2285,7 @@ status:
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				delete(updatedVM.Spec.Template.ObjectMeta.Annotations, v1.FuncTestLauncherFailFastAnnotation)
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
