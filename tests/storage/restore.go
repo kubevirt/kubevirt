@@ -132,7 +132,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		// sometimes it takes a bit for permission to actually be applied so eventually
 		Eventually(func() bool {
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			if err != nil {
 				fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
 				return false
@@ -285,7 +285,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		Context("and no snapshot", func() {
 			It("[test_id:5255]should reject restore", func() {
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				restore := createRestoreDef(vm.Name, "foobar")
 
@@ -308,7 +308,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			It("should successfully restore", func() {
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategyHalted
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 
@@ -329,7 +329,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
@@ -480,7 +480,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
 				newVM := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
-				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(newVM)
+				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), newVM)
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
 
@@ -613,7 +613,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Kind: "VirtualMachinePreference",
 				}
 
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")

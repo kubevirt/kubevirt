@@ -2446,7 +2446,7 @@ spec:
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
 			By("Expecting Error to Occur when posting VM with DataVolume")
-			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+			_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).To(HaveOccurred())
 
 			// Enable DataVolumes by reinstalling CDI
@@ -2458,7 +2458,7 @@ spec:
 
 			// Verify we can post a VM with DataVolumeTemplates successfully
 			By("Expecting Error to not occur when posting VM with DataVolume")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting VM to start successfully")

@@ -95,7 +95,7 @@ var _ = SIGDescribe("Memory dump", func() {
 	createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 		By("Creating VirtualMachine")
 		vm := tests.NewRandomVirtualMachine(template, running)
-		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(vm)
+		newVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 		Expect(err).ToNot(HaveOccurred())
 		return newVM
 	}

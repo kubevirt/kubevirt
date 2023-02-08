@@ -230,7 +230,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		BeforeEach(func() {
 			var err error
 			vm = tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -318,7 +318,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				var vmi *v1.VirtualMachineInstance
 				t := true
 				vm.Spec.Running = &t
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
@@ -944,7 +944,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				vm.Spec.Running = &running
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -1225,7 +1225,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				vm.Spec.Running = &running
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -1299,7 +1299,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vmi := vmif(dataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
@@ -1350,7 +1350,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				vmi = tests.AddPVCDisk(vmi, "notsnapshotablevolume", v1.DiskBusVirtio, excludedDataVolume.Name)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				volumeSnapshotStatusAsExpected := func(volumeSnapshotStatuses []v1.VolumeSnapshotStatus) bool {
@@ -1410,7 +1410,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					Name: instancetype.Name,
 					Kind: "VirtualMachineInstanceType",
 				}
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {

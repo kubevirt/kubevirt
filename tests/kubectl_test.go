@@ -1,6 +1,7 @@
 package tests_test
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -91,7 +92,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			virtCli = kubevirt.Client()
 
 			vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
-			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			tests.StartVirtualMachine(vm)
 		})

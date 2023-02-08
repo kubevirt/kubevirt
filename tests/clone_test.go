@@ -63,7 +63,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 		vm.Labels = vmi.Labels
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		return
@@ -485,7 +485,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				)
 				vm.Spec.Running = pointer.Bool(running)
 
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -620,7 +620,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 						Kind: "VirtualMachinePreference",
 					}
 
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(sourceVM)
+					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM)
 					Expect(err).ToNot(HaveOccurred())
 
 					for _, dvt := range sourceVM.Spec.DataVolumeTemplates {

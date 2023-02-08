@@ -3500,11 +3500,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vm_noevict := tests.NewRandomVirtualMachine(vmi_noevict, false)
 
 					// post VMs
-					vm_evict1, err = virtClient.VirtualMachine(vm_evict1.Namespace).Create(vm_evict1)
+					vm_evict1, err = virtClient.VirtualMachine(vm_evict1.Namespace).Create(context.Background(), vm_evict1)
 					Expect(err).ToNot(HaveOccurred())
-					vm_evict2, err = virtClient.VirtualMachine(vm_evict2.Namespace).Create(vm_evict2)
+					vm_evict2, err = virtClient.VirtualMachine(vm_evict2.Namespace).Create(context.Background(), vm_evict2)
 					Expect(err).ToNot(HaveOccurred())
-					vm_noevict, err = virtClient.VirtualMachine(vm_noevict.Namespace).Create(vm_noevict)
+					vm_noevict, err = virtClient.VirtualMachine(vm_noevict.Namespace).Create(context.Background(), vm_noevict)
 					Expect(err).ToNot(HaveOccurred())
 
 					// Start VMs
