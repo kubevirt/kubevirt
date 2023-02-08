@@ -281,7 +281,7 @@ type VirtualMachineInstancePresetInterface interface {
 type VirtualMachineInterface interface {
 	Get(ctx context.Context, name string, options *metav1.GetOptions) (*v1.VirtualMachine, error)
 	GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error)
-	List(opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
+	List(ctx context.Context, opts *metav1.ListOptions) (*v1.VirtualMachineList, error)
 	Create(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *metav1.DeleteOptions) error
