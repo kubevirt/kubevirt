@@ -61,6 +61,9 @@ var _ = Describe("ServiceAccount", func() {
 				},
 			},
 		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "serviceaccount-volume",
+		})
 
 		err := CreateServiceAccountDisk(vmi, false)
 		Expect(err).NotTo(HaveOccurred())
@@ -68,4 +71,20 @@ var _ = Describe("ServiceAccount", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Should create a new service account iso disk without a Disk device", func() {
+		vmi := api.NewMinimalVMI("fake-vmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "serviceaccount-volume",
+			VolumeSource: v1.VolumeSource{
+				ServiceAccount: &v1.ServiceAccountVolumeSource{
+					ServiceAccountName: "testaccount",
+				},
+			},
+		})
+
+		err := CreateServiceAccountDisk(vmi, false)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.Stat(filepath.Join(ServiceAccountDiskDir, ServiceAccountDiskName))
+		Expect(err).To(HaveOccurred())
+	})
 })
