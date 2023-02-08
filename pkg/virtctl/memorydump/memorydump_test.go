@@ -114,7 +114,7 @@ var _ = Describe("MemoryDump", func() {
 			vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{}
 		}
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-		vmInterface.EXPECT().Get(vmName, gomock.Any()).Return(vm, nil).Times(1)
+		vmInterface.EXPECT().Get(context.Background(), vmName, gomock.Any()).Return(vm, nil).Times(1)
 	}
 
 	expectGetVMNoAssociatedMemoryDump := func() {

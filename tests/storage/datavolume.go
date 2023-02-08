@@ -357,7 +357,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.PrintableStatus
 				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
@@ -367,13 +367,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				defer libstorage.DeleteDataVolume(&dataVolume)
 
 				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.PrintableStatus
 				}, 180*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineStatusProvisioning))
 
 				Eventually(func() v1.VirtualMachinePrintableStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.PrintableStatus
 				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))

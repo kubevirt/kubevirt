@@ -399,7 +399,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
 
-			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -458,7 +458,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
 
-			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(name, &metav1.GetOptions{})
+			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
