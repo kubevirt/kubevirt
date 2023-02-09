@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	kvUIPluginName     = "kubevirt-plugin"
+	kvUIPluginName     = "kubevirt-console-plugin"
 	kvUIPluginSvcName  = kvUIPluginName + "-service"
 	kvUIPluginNameEnv  = "UI_PLUGIN_NAME"
 	kvServingCertName  = "plugin-serving-cert"
