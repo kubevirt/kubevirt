@@ -57,6 +57,7 @@ testimage_main="
   procps-ng
   qemu-img-${QEMU_VERSION}
   tar
+  targetcli
   util-linux
   which
 "
