@@ -1222,7 +1222,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 					v1.Disk{
 						Cache:             v1.CacheWriteBack,
-						IO:                v1.IODefault,
+						IO:                v1.IONative,
 						DedicatedIOThread: pointer.Bool(false),
 						BlockSize:         userDefinedBlockSize,
 						DiskDevice: v1.DiskDevice{
@@ -1319,7 +1319,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(BeFalse())
 				Expect(*vmi.Spec.Domain.Devices.AutoattachInputDevice).To(BeTrue())
 				Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(v1.CacheWriteBack))
-				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IODefault))
+				Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(v1.IONative))
 				Expect(*vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread).To(BeFalse())
 				Expect(*vmi.Spec.Domain.Devices.Disks[0].BlockSize).To(Equal(*userDefinedBlockSize))
 				Expect(vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus).To(Equal(v1.DiskBusSCSI))
