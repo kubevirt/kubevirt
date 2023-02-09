@@ -159,7 +159,7 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 	return createdPvc
 }
 
-func CreateFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
+func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
 	sc, exists := GetRWOFileSystemStorageClass()
 	if !exists {
 		Skip("Skip test when RWOFileSystem storage class is not present")
@@ -167,6 +167,13 @@ func CreateFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
 	pvc := NewPVC(name, size, sc)
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 	pvc.Spec.VolumeMode = &volumeMode
+	if labels != nil && pvc.Labels == nil {
+		pvc.Labels = map[string]string{}
+	}
+
+	for key, value := range labels {
+		pvc.Labels[key] = value
+	}
 
 	return createPVC(pvc, namespace)
 }
