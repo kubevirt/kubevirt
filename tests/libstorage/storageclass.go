@@ -21,6 +21,7 @@ package libstorage
 
 import (
 	"context"
+	"fmt"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -138,9 +139,25 @@ func GetRWXFileSystemStorageClass() (string, bool) {
 	return storageRWXFileSystem, storageRWXFileSystem != ""
 }
 
+func GetRWXFileSystemStorageClassOrSkip() string {
+	sc, exists := GetRWXFileSystemStorageClass()
+	if !exists {
+		Skip("Skip test when RWX Filesystem storage is not present")
+	}
+	return sc
+}
+
 func GetRWOFileSystemStorageClass() (string, bool) {
 	storageRWOFileSystem := Config.StorageRWOFileSystem
 	return storageRWOFileSystem, storageRWOFileSystem != ""
+}
+
+func GetRWOFileSystemStorageClassOrSkip() string {
+	sc, exists := GetRWOFileSystemStorageClass()
+	if !exists {
+		Skip("Skip test when RWO Filesystem storage is not present")
+	}
+	return sc
 }
 
 func GetRWOBlockStorageClass() (string, bool) {
@@ -148,9 +165,25 @@ func GetRWOBlockStorageClass() (string, bool) {
 	return storageRWOBlock, storageRWOBlock != ""
 }
 
+func GetRWOBlockStorageClassOrSkip() string {
+	sc, exists := GetRWOBlockStorageClass()
+	if !exists {
+		Skip("Skip test when RWO Block storage is not present")
+	}
+	return sc
+}
+
 func GetRWXBlockStorageClass() (string, bool) {
 	storageRWXBlock := Config.StorageRWXBlock
 	return storageRWXBlock, storageRWXBlock != ""
+}
+
+func GetRWXBlockStorageClassOrSkip() string {
+	sc, exists := GetRWXBlockStorageClass()
+	if !exists {
+		Skip("Skip test when RWX Block storage is not present")
+	}
+	return sc
 }
 
 func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, bool) {
@@ -160,6 +193,14 @@ func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, 
 	}
 
 	return sc, foundSC
+}
+
+func GetBlockStorageClassOrSkip(accessMode k8sv1.PersistentVolumeAccessMode) string {
+	sc, exists := GetBlockStorageClass(accessMode)
+	if !exists {
+		Skip(fmt.Sprintf("Skip test when %s Block storage is not present", accessMode))
+	}
+	return sc
 }
 
 // GetNoVolumeSnapshotStorageClass goes over all the existing storage classes
