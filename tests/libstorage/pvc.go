@@ -26,7 +26,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -160,10 +159,7 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 }
 
 func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
-	sc, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		Skip("Skip test when RWOFileSystem storage class is not present")
-	}
+	sc := GetRWOFileSystemStorageClassOrSkip()
 	pvc := NewPVC(name, size, sc)
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 	pvc.Spec.VolumeMode = &volumeMode
@@ -179,10 +175,7 @@ func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.
 }
 
 func CreateBlockPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
-	sc, exists := GetRWOBlockStorageClass()
-	if !exists {
-		Skip("Skip test when RWOBlock storage class is not present")
-	}
+	sc := GetRWOBlockStorageClassOrSkip()
 	pvc := NewPVC(name, size, sc)
 	volumeMode := k8sv1.PersistentVolumeBlock
 	pvc.Spec.VolumeMode = &volumeMode
@@ -391,10 +384,7 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
-	storageClass, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		Skip("Skip test when Filesystem storage is not present")
-	}
+	storageClass := GetRWOFileSystemStorageClassOrSkip()
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
@@ -428,10 +418,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 	quantity, err := resource.ParseQuantity(size)
 	util.PanicOnError(err)
 
-	storageClass, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		Skip("Skip test when Filesystem storage is not present")
-	}
+	storageClass := GetRWOFileSystemStorageClassOrSkip()
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	return &k8sv1.PersistentVolumeClaim{

@@ -1444,10 +1444,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
-				sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -1662,11 +1659,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 
 			BeforeEach(func() {
-				var foundSC bool
-				storageClass, foundSC = libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				storageClass = libstorage.GetRWXFileSystemStorageClassOrSkip()
 			})
 
 			AfterEach(func() {
@@ -1704,10 +1697,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		createDataVolumePVCAndChangeDiskImgPermissions := func(namespace, size string) *cdiv1.DataVolume {
 			// Create DV and alter permission of disk.img
-			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-			if !foundSC {
-				Skip("Skip test when Filesystem storage is not present")
-			}
+			sc := libstorage.GetRWXFileSystemStorageClassOrSkip()
 
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -2106,10 +2096,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			var dv *cdiv1.DataVolume
 
 			BeforeEach(func() {
-				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWXFileSystemStorageClassOrSkip()
 
 				By("Allowing post-copy and limit migration bandwidth")
 				config := getCurrentKv()
@@ -2611,10 +2598,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 
-				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
-				if !foundSC {
-					Skip("Skip test when Block storage is not present")
-				}
+				sc := libstorage.GetBlockStorageClassOrSkip(k8sv1.ReadWriteMany)
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),

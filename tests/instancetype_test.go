@@ -664,13 +664,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Context("with inferFromVolume enabled", Ordered, func() {
 
 		var (
-			err                     error
-			vm                      *v1.VirtualMachine
-			instancetype            *instancetypev1alpha2.VirtualMachineInstancetype
-			preference              *instancetypev1alpha2.VirtualMachinePreference
-			sourcePVC               *k8sv1.PersistentVolumeClaim
-			blockStorageClass       string
-			blockStorageClassExists bool
+			err               error
+			vm                *v1.VirtualMachine
+			instancetype      *instancetypev1alpha2.VirtualMachineInstancetype
+			preference        *instancetypev1alpha2.VirtualMachinePreference
+			sourcePVC         *k8sv1.PersistentVolumeClaim
+			blockStorageClass string
 		)
 
 		const (
@@ -717,10 +716,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Skip("instance type and preference inferFromVolume tests require CDI to be installed providing the DataVolume and DataSource CRDs")
 			}
 
-			blockStorageClass, blockStorageClassExists = libstorage.GetRWOBlockStorageClass()
-			if !blockStorageClassExists {
-				Skip("Skip test when RWOBlock storage class is not present")
-			}
+			blockStorageClass = libstorage.GetRWOBlockStorageClassOrSkip()
 
 			By("Creating a VirtualMachineInstancetype")
 			instancetype = newVirtualMachineInstancetype(nil)

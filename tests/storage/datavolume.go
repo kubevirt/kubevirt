@@ -100,17 +100,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Skip("Skip DataVolume tests when CDI is not present")
 			}
 			var sc string
-			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
-				sc, exists = libstorage.GetRWOBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present")
-				}
+				sc = libstorage.GetRWOBlockStorageClassOrSkip()
 			} else {
-				sc, exists = libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc = libstorage.GetRWOFileSystemStorageClassOrSkip()
 			}
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
 			if !volumeExpansionAllowed {
@@ -171,10 +164,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("should succesfully start", func() {
 				// Create DV and alter permission of disk.img
-				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWXFileSystemStorageClassOrSkip()
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
@@ -229,10 +219,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
@@ -268,10 +255,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
 
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
 
@@ -308,10 +292,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			})
 
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
@@ -442,10 +423,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with an invalid DataVolume", func() {
 		Context("using DataVolume with invalid URL", func() {
 			It("should be possible to stop VM if datavolume is crashing", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(InvalidDataVolumeUrl, cdiv1.RegistryPullPod),
@@ -491,10 +469,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeInPhase(v1.Pending))
 			})
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				realRegistryName := flags.KubeVirtUtilityRepoPrefix
 				realRegistryPort := ""
@@ -755,11 +730,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			var vm *v1.VirtualMachine
 
 			BeforeEach(func() {
-				var exists bool
-				storageClass, exists = libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when RWOFileSystem storage class is not present")
-				}
+				storageClass = libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 				dataVolume = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -1048,10 +1019,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			return dv
 		}
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
-			}
+			sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),

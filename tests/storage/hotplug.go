@@ -84,7 +84,7 @@ const (
 
 type addVolumeFunction func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache)
 type removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
-type storageClassFunction func() (string, bool)
+type storageClassFunction func() string
 
 var _ = SIGDescribe("Hotplug", func() {
 	var err error
@@ -643,11 +643,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 
 			BeforeEach(func() {
-				exists := false
-				sc, exists = libstorage.GetRWXBlockStorageClass()
-				if !exists {
-					Skip("Skip test when RWXBlock storage class is not present")
-				}
+				sc = libstorage.GetRWXBlockStorageClassOrSkip()
 
 				node := findCPUManagerWorkerNode()
 				opts := []libvmi.Option{}
@@ -951,11 +947,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			)
 
 			BeforeEach(func() {
-				exists := false
-				sc, exists = libstorage.GetRWXBlockStorageClass()
-				if !exists {
-					Skip("Skip test when RWXBlock storage class is not present")
-				}
+				sc = libstorage.GetRWXBlockStorageClassOrSkip()
 
 				// Workaround for the issue with CPU manager and runc prior to version v1.0.0:
 				// CPU manager periodically updates cgroup settings via the container runtime
@@ -1099,18 +1091,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			})
 
 			DescribeTable("should be able to add and remove volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, storageClassFunc storageClassFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
-				sc, exists := storageClassFunc()
-				if !exists {
-					Skip("Skip test when appropriate storage class is not available")
-				}
+				sc := storageClassFunc()
 
 				var err error
 				url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 
-				storageClass, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
+				storageClass := libstorage.GetRWXFileSystemStorageClassOrSkip()
 
 				dv = libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -1151,9 +1137,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, true)
 			},
-				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeFilesystem, false),
-				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, corev1.PersistentVolumeBlock, false),
+				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClassOrSkip, corev1.PersistentVolumeFilesystem, false),
+				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClassOrSkip, corev1.PersistentVolumeFilesystem, true),
+				Entry("[Serial] with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClassOrSkip, corev1.PersistentVolumeBlock, false),
 			)
 		})
 	})
@@ -1239,10 +1225,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		It("should allow adding and removing hotplugged volumes", func() {
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip no filesystem storage class available")
-			}
+			sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),

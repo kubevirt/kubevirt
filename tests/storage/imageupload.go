@@ -158,10 +158,7 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 	Context("[storage-req] Upload an image and start a VMI with PVC", decorators.StorageReq, func() {
 		DescribeTable("[test_id:4621] Should succeed", func(resource, targetName string, validateFunc func(string, string), deleteFunc func(string), startVM bool) {
-			sc, exists := libstorage.GetRWOBlockStorageClass()
-			if !exists {
-				Skip("Skip test when RWOBlock storage class is not present")
-			}
+			sc := libstorage.GetRWOBlockStorageClassOrSkip()
 			defer deleteFunc(targetName)
 
 			By("Upload image")

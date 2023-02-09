@@ -402,11 +402,7 @@ var _ = SIGDescribe("Memory dump", func() {
 		)
 
 		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip no filesystem storage class available")
-			}
+			sc = libstorage.GetRWOFileSystemStorageClassOrSkip()
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
@@ -528,11 +524,7 @@ var _ = SIGDescribe("Memory dump", func() {
 		)
 
 		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip no filesystem storage class available")
-			}
+			sc = libstorage.GetRWOFileSystemStorageClassOrSkip()
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()
@@ -677,10 +669,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			if !checks.IsOpenShift() {
 				Skip("Need ingress to run this test which we only have on openshift")
 			}
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip no filesystem storage class available")
-			}
+			sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 
 			vm = createAndStartVM()

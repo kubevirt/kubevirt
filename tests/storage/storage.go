@@ -396,7 +396,7 @@ var _ = SIGDescribe("Storage", func() {
 			pvc1 := "pvc-1"
 			pvc2 := "pvc-2"
 			createPVC := func(name string) {
-				sc, _ := libstorage.GetRWXFileSystemStorageClass()
+				sc := libstorage.GetRWXFileSystemStorageClassOrSkip()
 				pvc := libstorage.NewPVC(name, "1Gi", sc)
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespacePrivileged).Create(context.Background(), pvc, metav1.CreateOptions{})
 				ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -529,11 +529,7 @@ var _ = SIGDescribe("Storage", func() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 				dataVolume = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
@@ -1283,11 +1279,7 @@ var _ = SIGDescribe("Storage", func() {
 				vmi1, vmi2 *virtv1.VirtualMachineInstance
 			)
 			BeforeEach(func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
+				sc := libstorage.GetRWOFileSystemStorageClassOrSkip()
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
 					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
