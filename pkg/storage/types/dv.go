@@ -166,23 +166,13 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 		newDataVolume.Spec.PriorityClassName = priorityClassName
 	}
 
-	cloneSource, err := GetCloneSource(context.TODO(), clientset, namespace, &newDataVolume.Spec)
-	if err != nil {
+	if _, err := GetCloneSource(context.TODO(), clientset, namespace, &newDataVolume.Spec); err != nil {
 		return nil, err
-	}
-
-	if cloneSource != nil && newDataVolume.Spec.SourceRef != nil {
-		newDataVolume.Spec.SourceRef = nil
-		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
-			PVC: &cdiv1.DataVolumeSourcePVC{
-				Namespace: cloneSource.Namespace,
-				Name:      cloneSource.Name,
-			},
-		}
 	}
 
 	return newDataVolume, nil
 }
+
 func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.SharedInformer) (*cdiv1.DataVolume, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := dataVolumeInformer.GetStore().GetByKey(key)
