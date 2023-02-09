@@ -2023,6 +2023,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
+					By("Limiting the bandwidth of migrations in the test namespace")
+					tests.CreateMigrationPolicy(virtClient, tests.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
+
 					By("Starting the VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -2032,12 +2035,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
-
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the proxy connection details to appear")
 					Eventually(func() bool {
