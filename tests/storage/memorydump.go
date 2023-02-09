@@ -411,7 +411,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 			vm = createAndStartVM()
 
-			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), "500Mi")
+			memoryDumpPVC = libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(vm), "500Mi", nil)
 		})
 
 		AfterEach(func() {
@@ -462,7 +462,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			By("Running remove memory dump to pvc: " + memoryDumpPVCName)
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
 
-			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "500Mi")
+			memoryDumpPVC2 = libstorage.CreateFSPVC(memoryDumpPVCName2, testsuite.GetTestNamespace(vm), "500Mi", nil)
 			By("Running memory dump to other pvc: " + memoryDumpPVCName2)
 			previousOutput = createMemoryDumpAndVerify(vm, memoryDumpPVCName2, previousOutput, memoryDumpVirtctl)
 
@@ -508,7 +508,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 		It("[test_id:8501]Run memory dump with pvc too small should fail", func() {
 			By("Trying to get memory dump with small pvc")
-			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, testsuite.GetTestNamespace(vm), "200Mi")
+			memoryDumpSmallPVC = libstorage.CreateFSPVC(memoryDumpSmallPVCName, testsuite.GetTestNamespace(vm), "200Mi", nil)
 			commandAndArgs := []string{commandMemoryDump, "get", vm.Name, fmt.Sprintf(virtCtlClaimName, memoryDumpSmallPVCName), virtCtlNamespace, vm.Namespace}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() string {
