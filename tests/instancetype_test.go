@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1039,6 +1040,41 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			),
 		)
+	})
+
+	Context("instance type with dedicatedCPUPlacement enabled", func() {
+
+		BeforeEach(func() {
+			checks.SkipTestIfNoCPUManager()
+		})
+
+		It("should be accepted and result in running VirtualMachineInstance", func() {
+			vmi := libvmi.NewCirros()
+
+			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
+			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = true
+			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
+				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			removeResourcesAndPreferencesFromVMI(vmi)
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: clusterInstancetype.Name,
+			}
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVirtualMachine(vm)
+
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Assert that DedicatedCPUPlacement is not set in the VM but enabled in the VMI through the instance type
+			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
+			Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(BeTrue())
+		})
 	})
 })
 
