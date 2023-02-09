@@ -9,15 +9,16 @@ import (
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
-	"k8s.io/utils/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"k8s.io/utils/pointer"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -294,6 +295,154 @@ var _ = Describe("SSP Operands", func() {
 				Expect(foundResource.Spec.TemplateValidator.Placement.NodeSelector["key3"]).Should(Equal("value3"))
 
 				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
+		Context("jsonpath Annotation", func() {
+			It("Should create SSP object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchSSPAnnotationName: `[
+					{
+						"op": "replace",
+						"path": "/spec/templateValidator/replicas",
+						"value": 5
+					}
+				]`}
+
+				ssp, _, err := NewSSP(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ssp).ToNot(BeNil())
+				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
+				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+			})
+
+			It("Should fail to create SSP object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchSSPAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/templateValidator/replicas",
+						"value": 5
+					}
+				]`}
+
+				_, _, err := NewSSP(hco)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("Ensure func should create SSP object with changes from the annotation", func() {
+				hco.Annotations = map[string]string{common.JSONPatchSSPAnnotationName: `[
+					{
+						"op": "replace",
+						"path": "/spec/templateValidator/replicas",
+						"value": 5
+					}
+				]`}
+
+				expectedResource := NewSSPWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newSspHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				ssp := &sspv1beta1.SSP{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						ssp),
+				).To(Succeed())
+
+				Expect(ssp).ToNot(BeNil())
+				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
+				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+			})
+
+			It("Ensure func should fail to create SSP object with wrong jsonPatch", func() {
+				hco.Annotations = map[string]string{common.JSONPatchSSPAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/templateValidator/replicas",
+						"value": 5
+					}
+				]`}
+
+				expectedResource := NewSSPWithNameOnly(hco)
+				cl := commonTestUtils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newSspHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				ssp := &sspv1beta1.SSP{}
+
+				err := cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					ssp)
+
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("Ensure func should update SSP object with changes from the annotation", func() {
+				existsSsp, _, err := NewSSP(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchSSPAnnotationName: `[
+					{
+						"op": "replace",
+						"path": "/spec/templateValidator/replicas",
+						"value": 5
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsSsp})
+
+				handler := (*genericOperand)(newSspHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).ToNot(HaveOccurred())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.UpgradeDone).To(BeFalse())
+
+				ssp := &sspv1beta1.SSP{}
+
+				expectedResource := NewSSPWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						ssp),
+				).To(Succeed())
+
+				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
+				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+			})
+
+			It("Ensure func should fail to update SSP object with wrong jsonPatch", func() {
+				existsSsp, _, err := NewSSP(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Annotations = map[string]string{common.JSONPatchSSPAnnotationName: `[
+					{
+						"op": "notExists",
+						"path": "/spec/templateValidator/replicas",
+						"value": 5
+					}
+				]`}
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsSsp})
+
+				handler := (*genericOperand)(newSspHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.Err).To(HaveOccurred())
+
+				ssp := &sspv1beta1.SSP{}
+
+				expectedResource := NewSSPWithNameOnly(hco)
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						ssp),
+				).To(Succeed())
+
+				Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
+				Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(defaultTemplateValidatorReplicas)))
 			})
 		})
 

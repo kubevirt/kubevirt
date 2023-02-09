@@ -3663,6 +3663,141 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 			})
 
+			Context("Detection of a tainted configuration for SSP", func() {
+
+				It("Raises a TaintedConfiguration condition upon detection of such configuration", func() {
+					hco.ObjectMeta.Annotations = map[string]string{
+						common.JSONPatchSSPAnnotationName: `[
+							{
+								"op": "replace",
+								"path": "/spec/templateValidator/replicas",
+								"value": 5
+							}
+						]`,
+					}
+
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)
+					Expect(err).ToNot(HaveOccurred())
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					r := initReconciler(cl, nil)
+
+					By("Reconcile", func() {
+						res, err := r.Reconcile(context.TODO(), request)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+					})
+
+					foundResource := &hcov1beta1.HyperConverged{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+							foundResource),
+					).To(Succeed())
+
+					By("Verify HC conditions", func() {
+						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+							Type:    hcov1beta1.ConditionTaintedConfiguration,
+							Status:  metav1.ConditionTrue,
+							Reason:  taintedConfigurationReason,
+							Message: taintedConfigurationMessage,
+						})))
+					})
+
+					By("verify that the metrics match to the annotation", func() {
+						verifyUnsafeMetrics(1, common.JSONPatchSSPAnnotationName)
+					})
+
+					By("Verify that SSP was modified by the annotation", func() {
+						ssp := operands.NewSSPWithNameOnly(hco)
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: ssp.Name, Namespace: ssp.Namespace},
+								ssp),
+						).To(Succeed())
+
+						Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
+						Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
+					})
+				})
+
+				It("Removes the TaintedConfiguration condition upon removal of such configuration", func() {
+					hco.Status.Conditions = append(hco.Status.Conditions, metav1.Condition{
+						Type:    hcov1beta1.ConditionTaintedConfiguration,
+						Status:  metav1.ConditionTrue,
+						Reason:  taintedConfigurationReason,
+						Message: taintedConfigurationMessage,
+					})
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)
+					Expect(err).ToNot(HaveOccurred())
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					r := initReconciler(cl, nil)
+
+					// Do the reconcile
+					res, err := r.Reconcile(context.TODO(), request)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Expecting "Requeue: false" since the conditions aren't empty
+					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+
+					// Get the HCO
+					foundResource := &hcov1beta1.HyperConverged{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+							foundResource),
+					).To(Succeed())
+
+					// Check conditions
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Type:    hcov1beta1.ConditionTaintedConfiguration,
+						Status:  metav1.ConditionTrue,
+						Reason:  taintedConfigurationReason,
+						Message: taintedConfigurationMessage,
+					}))))
+					By("verify that the metrics match to the annotation", func() {
+						verifyUnsafeMetrics(0, common.JSONPatchSSPAnnotationName)
+					})
+				})
+
+				It("Removes the TaintedConfiguration condition if the annotation is wrong", func() {
+					hco.ObjectMeta.Annotations = map[string]string{
+						// Set bad json
+						common.JSONPatchSSPAnnotationName: `[{`,
+					}
+					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)
+					Expect(err).ToNot(HaveOccurred())
+
+					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					r := initReconciler(cl, nil)
+
+					By("Reconcile", func() {
+						res, err := r.Reconcile(context.TODO(), request)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+					})
+
+					foundResource := &hcov1beta1.HyperConverged{}
+					Expect(
+						cl.Get(context.TODO(),
+							types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+							foundResource),
+					).To(Succeed())
+
+					// Check conditions
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Type:    hcov1beta1.ConditionTaintedConfiguration,
+						Status:  metav1.ConditionTrue,
+						Reason:  taintedConfigurationReason,
+						Message: taintedConfigurationMessage,
+					}))))
+					By("verify that the metrics match to the annotation", func() {
+						verifyUnsafeMetrics(0, common.JSONPatchSSPAnnotationName)
+					})
+				})
+			})
+
 			Context("Detection of a tainted configuration for all the annotations", func() {
 				It("Raises a TaintedConfiguration condition upon detection of such configuration", func() {
 					hco.ObjectMeta.Annotations = map[string]string{
@@ -3698,12 +3833,21 @@ var _ = Describe("HyperconvergedController", func() {
 								"value": "Always"
 							}
 						]`,
+						common.JSONPatchSSPAnnotationName: `[
+							{
+								"op": "replace",
+								"path": "/spec/templateValidator/replicas",
+								"value": 5
+							}
+						]`,
 					}
 					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
 					Expect(err).ToNot(HaveOccurred())
 					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
 					Expect(err).ToNot(HaveOccurred())
 					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
+					Expect(err).ToNot(HaveOccurred())
+					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)
 					Expect(err).ToNot(HaveOccurred())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
@@ -3735,6 +3879,7 @@ var _ = Describe("HyperconvergedController", func() {
 						verifyUnsafeMetrics(1, common.JSONPatchKVAnnotationName)
 						verifyUnsafeMetrics(2, common.JSONPatchCDIAnnotationName)
 						verifyUnsafeMetrics(2, common.JSONPatchCNAOAnnotationName)
+						verifyUnsafeMetrics(1, common.JSONPatchSSPAnnotationName)
 					})
 
 					By("Verify that KV was modified by the annotation", func() {
@@ -3777,6 +3922,17 @@ var _ = Describe("HyperconvergedController", func() {
 						Expect(cna.Spec.KubeMacPool.RangeStart).Should(Equal("1.1.1.1.1.1"))
 						Expect(cna.Spec.KubeMacPool.RangeEnd).Should(Equal("5.5.5.5.5.5"))
 						Expect(cna.Spec.ImagePullPolicy).Should(BeEquivalentTo("Always"))
+					})
+					By("Verify that SSP was modified by the annotation", func() {
+						ssp := operands.NewSSPWithNameOnly(hco)
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: ssp.Name, Namespace: ssp.Namespace},
+								ssp),
+						).To(Succeed())
+
+						Expect(ssp.Spec.TemplateValidator.Replicas).Should(Not(BeNil()))
+						Expect(*ssp.Spec.TemplateValidator.Replicas).Should(Equal(int32(5)))
 					})
 				})
 			})

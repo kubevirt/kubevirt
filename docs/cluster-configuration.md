@@ -846,6 +846,7 @@ The following annotations are supported in the HyperConverged CR:
 * `kubevirt.kubevirt.io/jsonpatch` - for [KubeVirt configurations](https://github.com/kubevirt/api)
 * `containerizeddataimporter.kubevirt.io/jsonpatch` - for [CDI configurations](https://github.com/kubevirt/containerized-data-importer-api)
 * `networkaddonsconfigs.kubevirt.io/jsonpatch` - for [CNAO](https://github.com/kubevirt/cluster-network-addons-operator) configurations
+* `ssp.kubevirt.io/jsonpatch` - for [SSP](https://github.com/kubevirt/ssp-operator) configurations
 
 The content of the annotation will be a json array of patch objects, as defined in [RFC6902](https://tools.ietf.org/html/rfc6902).
 
@@ -1034,6 +1035,7 @@ FIELDS:
 * To explore kubevirt configuration options, use `kubectl explain kv.spec`
 * To explore CDI configuration options, use `kubectl explain cdi.spec`
 * To explore CNAO configuration options, use `kubectl explain networkaddonsconfig.spec`
+* To explore SSP configuration options, use `kubectl explain ssp.spec`
 
 ### WARNING
 Using the jsonpatch annotation feature incorrectly might lead to unexpected results and could potentially render the Kubevirt-Hyperconverged system unstable.  

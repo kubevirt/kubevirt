@@ -152,6 +152,10 @@ func (wh *WebhookHandler) ValidateCreate(ctx context.Context, dryrun bool, hc *v
 		return err
 	}
 
+	if _, _, err := operands.NewSSP(hc); err != nil {
+		return err
+	}
+
 	if !dryrun {
 		hcoTlsConfigCache = hc.Spec.TLSSecurityProfile
 	}

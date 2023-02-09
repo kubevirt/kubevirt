@@ -115,6 +115,9 @@ tests:
   - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 5 1 1 1 0 0 3 stale stale  1"
+  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="ssp.kubevirt.io/jsonpatch"}'
+    # time:      0     1 2 3 4 5 6 7 8     9    10 11
+    values: "stale stale 5 4 3 2 0 0 3 stale stale  1"
 
   alert_rule_test:
   # No metric, no alert
@@ -156,6 +159,16 @@ tests:
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+        summary: "5 unsafe modifications were detected in the HyperConverged resource."
+      exp_labels:
+        severity: "info"
+        operator_health_impact: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # New increases must be detected
   - eval_time: 4m
@@ -192,6 +205,16 @@ tests:
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        operator_health_impact: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # counter can be reduced
   - eval_time: 5m
@@ -228,6 +251,16 @@ tests:
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "2 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        operator_health_impact: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # no alert if the value is 0
   - eval_time: 6m
@@ -294,6 +327,16 @@ tests:
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "3 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        operator_health_impact: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "ssp.kubevirt.io/jsonpatch"
 
   # no data
   - eval_time: 9m
@@ -335,6 +378,16 @@ tests:
         kubernetes_operator_part_of: "kubevirt"
         kubernetes_operator_component: "hyperconverged-cluster-operator"
         annotation_name: "networkaddonsconfigs.kubevirt.io/jsonpatch"
+    - exp_annotations:
+        description: "unsafe modification for the ssp.kubevirt.io/jsonpatch annotation in the HyperConverged resource."
+        summary: "1 unsafe modifications were detected in the HyperConverged resource."
+        runbook_url: "https://kubevirt.io/monitoring/runbooks/KubevirtHyperconvergedClusterOperatorUSModification"
+      exp_labels:
+        severity: "info"
+        operator_health_impact: "warning"
+        kubernetes_operator_part_of: "kubevirt"
+        kubernetes_operator_component: "hyperconverged-cluster-operator"
+        annotation_name: "ssp.kubevirt.io/jsonpatch"
 
 # Test hyperconverged exists counter
 - interval: 1m

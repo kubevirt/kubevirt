@@ -167,6 +167,10 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 	ssp := NewSSPWithNameOnly(hc)
 	ssp.Spec = spec
 
+	if err := applyPatchToSpec(hc, common.JSONPatchSSPAnnotationName, ssp); err != nil {
+		return nil, nil, err
+	}
+
 	return ssp, dataImportCronStatuses, nil
 }
 
