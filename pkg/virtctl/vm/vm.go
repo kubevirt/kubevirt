@@ -36,8 +36,7 @@ import (
 )
 
 const (
-	COMMAND_GUESTOSINFO = "guestosinfo"
-	COMMAND_USERLIST    = "userlist"
+	COMMAND_USERLIST = "userlist"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
@@ -60,21 +59,6 @@ var (
 	persist      bool
 	dryRun       bool
 )
-
-func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "guestosinfo (VMI)",
-		Short:   "Return guest agent info about operating system.",
-		Example: usage(COMMAND_GUESTOSINFO),
-		Args:    templates.ExactArgs("guestosinfo", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_GUESTOSINFO, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
 
 func NewUserListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -140,19 +124,6 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("Dry Run execution\n")
 	}
 	switch o.command {
-	case COMMAND_GUESTOSINFO:
-		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(context.Background(), vmiName)
-		if err != nil {
-			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
-		}
-
-		data, err := json.MarshalIndent(guestosinfo, "", "  ")
-		if err != nil {
-			return fmt.Errorf("Cannot marshal guestosinfo %v", err)
-		}
-
-		fmt.Printf("%s\n", string(data))
-		return nil
 	case COMMAND_USERLIST:
 		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(context.Background(), vmiName)
 		if err != nil {

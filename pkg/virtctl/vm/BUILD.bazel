@@ -6,6 +6,7 @@ go_library(
         "add_volume.go",
         "expand.go",
         "fs_list.go",
+        "guestosinfo.go",
         "migrate.go",
         "migrate_cancel.go",
         "remove_volume.go",
