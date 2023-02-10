@@ -7,6 +7,7 @@ go_library(
     importpath = "github.com/nunnatsa/ginkgolinter",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/github.com/go-toolsmith/astcopy:go_default_library",
         "//vendor/github.com/nunnatsa/ginkgolinter/gomegahandler:go_default_library",
         "//vendor/github.com/nunnatsa/ginkgolinter/reverseassertion:go_default_library",
         "//vendor/github.com/nunnatsa/ginkgolinter/types:go_default_library",
