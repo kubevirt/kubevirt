@@ -111,11 +111,11 @@
 <path fill="none" stroke="#000000" d="M1313,-448C1313,-448 665,-448 665,-448 659,-448 653,-442 653,-436 653,-436 653,-388 653,-388 653,-382 659,-376 665,-376 665,-376 1313,-376 1313,-376 1319,-376 1325,-382 1325,-388 1325,-388 1325,-436 1325,-436 1325,-442 1319,-448 1313,-448"/>
 <text text-anchor="middle" x="989" y="-405.8" font-family="Courier,monospace" font-weight="bold" font-size="24.00" fill="#000000">deployment/hyperconverged&#45;cluster&#45;cli&#45;download</text>
 </g>
-<!-- deployment/kubevirt&#45;plugin -->
+<!-- deployment/kubevirt&#45;console&#45;plugin -->
 <g id="node10" class="node">
-<title>deployment/kubevirt&#45;plugin</title>
-<path fill="none" stroke="#000000" d="M1170.5,-358C1170.5,-358 807.5,-358 807.5,-358 801.5,-358 795.5,-352 795.5,-346 795.5,-346 795.5,-298 795.5,-298 795.5,-292 801.5,-286 807.5,-286 807.5,-286 1170.5,-286 1170.5,-286 1176.5,-286 1182.5,-292 1182.5,-298 1182.5,-298 1182.5,-346 1182.5,-346 1182.5,-352 1176.5,-358 1170.5,-358"/>
-<text text-anchor="middle" x="989" y="-315.8" font-family="Courier,monospace" font-weight="bold" font-size="24.00" fill="#000000">deployment/kubevirt&#45;plugin</text>
+<title>deployment/kubevirt&#45;console&#45;plugin</title>
+<path fill="none" stroke="#000000" d="M1227.5,-358C1227.5,-358 750.5,-358 750.5,-358 744.5,-358 738.5,-352 738.5,-346 738.5,-346 738.5,-298 738.5,-298 738.5,-292 744.5,-286 750.5,-286 750.5,-286 1227.5,-286 1227.5,-286 1233.5,-286 1239.5,-292 1239.5,-298 1239.5,-298 1239.5,-346 1239.5,-346 1239.5,-352 1233.5,-358 1227.5,-358"/>
+<text text-anchor="middle" x="989" y="-315.8" font-family="Courier,monospace" font-weight="bold" font-size="24.00" fill="#000000">deployment/kubevirt&#45;console&#45;plugin</text>
 </g>
 <!-- SSP/ssp&#45;kubevirt&#45;hyperconverged -->
 <g id="node17" class="node">
