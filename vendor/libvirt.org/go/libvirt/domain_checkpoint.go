@@ -27,9 +27,11 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo !libvirt_dlopen pkg-config: libvirt
+#cgo libvirt_dlopen LDFLAGS: -ldl
+#cgo libvirt_dlopen CFLAGS: -DLIBVIRT_DLOPEN
 #include <stdlib.h>
-#include "domain_checkpoint_wrapper.h"
+#include "libvirt_generated.h"
 */
 import "C"
 
@@ -78,10 +80,6 @@ type DomainCheckpoint struct {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointFree
 func (s *DomainCheckpoint) Free() error {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return makeNotImplementedError("virDomainCheckpointFree")
-	}
-
 	var err C.virError
 	ret := C.virDomainCheckpointFreeWrapper(s.ptr, &err)
 	if ret == -1 {
@@ -92,10 +90,6 @@ func (s *DomainCheckpoint) Free() error {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointRef
 func (c *DomainCheckpoint) Ref() error {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return makeNotImplementedError("virDomainCheckpointRef")
-	}
-
 	var err C.virError
 	ret := C.virDomainCheckpointRefWrapper(c.ptr, &err)
 	if ret == -1 {
@@ -106,10 +100,6 @@ func (c *DomainCheckpoint) Ref() error {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointDelete
 func (s *DomainCheckpoint) Delete(flags DomainCheckpointDeleteFlags) error {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return makeNotImplementedError("virDomainCheckpointDelete")
-	}
-
 	var err C.virError
 	result := C.virDomainCheckpointDeleteWrapper(s.ptr, C.uint(flags), &err)
 	if result != 0 {
@@ -120,10 +110,6 @@ func (s *DomainCheckpoint) Delete(flags DomainCheckpointDeleteFlags) error {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointGetXMLDesc
 func (s *DomainCheckpoint) GetXMLDesc(flags DomainCheckpointXMLFlags) (string, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return "", makeNotImplementedError("virDomainCheckpointGetXMLDesc")
-	}
-
 	var err C.virError
 	result := C.virDomainCheckpointGetXMLDescWrapper(s.ptr, C.uint(flags), &err)
 	if result == nil {
@@ -136,10 +122,6 @@ func (s *DomainCheckpoint) GetXMLDesc(flags DomainCheckpointXMLFlags) (string, e
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointGetName
 func (s *DomainCheckpoint) GetName() (string, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return "", makeNotImplementedError("virDomainCheckpointGetName")
-	}
-
 	var err C.virError
 	name := C.virDomainCheckpointGetNameWrapper(s.ptr, &err)
 	if name == nil {
@@ -150,10 +132,6 @@ func (s *DomainCheckpoint) GetName() (string, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointGetParent
 func (s *DomainCheckpoint) GetParent(flags uint32) (*DomainCheckpoint, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return nil, makeNotImplementedError("virDomainCheckpointGetParent")
-	}
-
 	var err C.virError
 	ptr := C.virDomainCheckpointGetParentWrapper(s.ptr, C.uint(flags), &err)
 	if ptr == nil {
@@ -164,10 +142,6 @@ func (s *DomainCheckpoint) GetParent(flags uint32) (*DomainCheckpoint, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain-checkpoint.html#virDomainCheckpointListAllChildren
 func (d *DomainCheckpoint) ListAllChildren(flags DomainCheckpointListFlags) ([]DomainCheckpoint, error) {
-	if C.LIBVIR_VERSION_NUMBER < 5006000 {
-		return []DomainCheckpoint{}, makeNotImplementedError("virDomainCheckpointListAllChildren")
-	}
-
 	var cList *C.virDomainCheckpointPtr
 	var err C.virError
 	numVols := C.virDomainCheckpointListAllChildrenWrapper(d.ptr, (**C.virDomainCheckpointPtr)(&cList), C.uint(flags), &err)
