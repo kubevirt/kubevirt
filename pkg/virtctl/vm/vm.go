@@ -38,7 +38,6 @@ import (
 )
 
 const (
-	COMMAND_RESTART        = "restart"
 	COMMAND_MIGRATE_CANCEL = "migrate-cancel"
 	COMMAND_GUESTOSINFO    = "guestosinfo"
 	COMMAND_USERLIST       = "userlist"
@@ -71,24 +70,6 @@ var (
 	dryRun       bool
 	cache        string
 )
-
-func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "restart (VM)",
-		Short:   "Restart a virtual machine.",
-		Example: usage(COMMAND_RESTART),
-		Args:    templates.ExactArgs("restart", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.Flags().BoolVar(&forceRestart, forceArg, false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
-	cmd.Flags().Int64Var(&gracePeriod, gracePeriodArg, notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
-	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
 
 func NewMigrateCancelCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -354,25 +335,6 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("Dry Run execution\n")
 	}
 	switch o.command {
-	case COMMAND_RESTART:
-		if gracePeriod != notDefinedGracePeriod && forceRestart == false {
-			return fmt.Errorf("Can not set gracePeriod without --force=true")
-		}
-		if forceRestart {
-			if gracePeriod != notDefinedGracePeriod {
-				err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
-				if err != nil {
-					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
-				}
-			} else if gracePeriod == notDefinedGracePeriod {
-				return fmt.Errorf("Can not force restart without gracePeriod")
-			}
-			break
-		}
-		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
-		if err != nil {
-			return fmt.Errorf("Error restarting VirtualMachine %v", err)
-		}
 	case COMMAND_MIGRATE_CANCEL:
 		// get a list of migrations for vmiName (use LabelSelector filter)
 		labelselector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)

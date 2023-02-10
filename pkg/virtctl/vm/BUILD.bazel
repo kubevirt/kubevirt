@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "expand.go",
         "migrate.go",
+        "restart.go",
         "start.go",
         "stop.go",
         "vm.go",
