@@ -89,6 +89,9 @@ const (
 	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
 	// dataVolume is successfully created
 	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
+	// SourcePVCNotAvailabe is added in an event when the source PVC of a valid
+	// clone Datavolume doesn't exist
+	SourcePVCNotAvailabe = "SourcePVCNotAvailabe"
 )
 
 const (
@@ -336,15 +339,35 @@ func (c *VMController) execute(key string) error {
 	return syncErr
 }
 
-func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
-	if dataVolume.Spec.SourceRef != nil {
+func (c *VMController) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv1.DataVolume) error {
+	if dv.Spec.SourceRef != nil {
 		return fmt.Errorf("DataVolume sourceRef not supported")
 	}
 
-	if dataVolume.Spec.Source == nil || dataVolume.Spec.Source.PVC == nil {
+	if dv.Spec.Source == nil || dv.Spec.Source.PVC == nil {
 		return nil
 	}
 
+	// For consistency with other k8s objects, we allow creating clone DataVolumes even when the source PVC doesn't exist.
+	// This means that a VirtualMachine can be successfully created with volumes that may remain unpopulated until the source PVC is created.
+	// For this reason, we check if the source PVC exists and, if not, we trigger an event to let users know of this behavior.
+	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcInformer)
+	if err != nil {
+		return err
+	}
+	if pvc == nil {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, SourcePVCNotAvailabe, "Source PVC %s not available: Target PVC %s will remain unpopulated until source is created", dv.Spec.Source.PVC.Name, dv.Name)
+	}
+
+	if err := c.authorizeDataVolume(vm, dv); err != nil {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, UnauthorizedDataVolumeCreateReason, "Not authorized to create DataVolume %s: %v", dv.Name, err)
+		return fmt.Errorf("Not authorized to create DataVolume: %v", err)
+	}
+
+	return nil
+}
+
+func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
 	serviceAccount := "default"
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
 		if vol.ServiceAccount != nil {
@@ -352,12 +375,7 @@ func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume
 		}
 	}
 
-	pvcNs := dataVolume.Spec.Source.PVC.Namespace
-	if pvcNs == "" {
-		pvcNs = vm.Namespace
-	}
-
-	allowed, reason, err := c.cloneAuthFunc(pvcNs, dataVolume.Spec.Source.PVC.Name, vm.Namespace, serviceAccount)
+	allowed, reason, err := c.cloneAuthFunc(dataVolume.Spec.Source.PVC.Namespace, dataVolume.Spec.Source.PVC.Name, vm.Namespace, serviceAccount)
 	if err != nil {
 		return err
 	}
@@ -401,9 +419,9 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 				return ready, fmt.Errorf("unable to create DataVolume manifest: %v", err)
 			}
 
-			if err = c.authorizeDataVolume(vm, newDataVolume); err != nil {
-				c.recorder.Eventf(vm, k8score.EventTypeWarning, UnauthorizedDataVolumeCreateReason, "Not authorized to create DataVolume %s: %v", newDataVolume.Name, err)
-				return ready, fmt.Errorf("Not authorized to create DataVolume: %v", err)
+			// We validate requirements that are exclusive to clone DataVolumes
+			if err = c.handleCloneDataVolume(vm, newDataVolume); err != nil {
+				return ready, err
 			}
 
 			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
