@@ -1822,7 +1822,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// Handle VSOCK CID
 	if vmi.Status.VSOCKCID != nil {
 		domain.Spec.Devices.VSOCK = &api.VSOCK{
-			Model: translateModel(c, "virtio"),
+			// Force virtio v1 for vhost-vsock-pci.
+			// https://gitlab.com/qemu-project/qemu/-/commit/6209070503989cf4f28549f228989419d4f0b236
+			Model: "virtio-non-transitional",
 			CID: api.CID{
 				Auto:    "no",
 				Address: *vmi.Status.VSOCKCID,

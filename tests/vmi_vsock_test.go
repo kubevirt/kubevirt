@@ -59,9 +59,10 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	})
 
 	Context("VM creation", func() {
-		It("should expose a VSOCK device", func() {
+		DescribeTable("should expose a VSOCK device", func(useVirtioTransitional bool) {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := tests.NewRandomFedoraVMI()
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
@@ -88,7 +89,10 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 				&expect.BSnd{S: "ls /dev/vsock\n"},
 				&expect.BExp{R: "/dev/vsock"},
 			}, 300)).To(Succeed(), "Could not find a vsock device")
-		})
+		},
+			Entry("Use virtio transitional", true),
+			Entry("Use virtio non-transitional", false),
+		)
 	})
 
 	Context("Live migration", func() {
