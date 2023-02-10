@@ -43,7 +43,6 @@ const (
 	COMMAND_USERLIST       = "userlist"
 	COMMAND_FSLIST         = "fslist"
 	COMMAND_ADDVOLUME      = "addvolume"
-	COMMAND_REMOVEVOLUME   = "removevolume"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
@@ -153,25 +152,6 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "removevolume VMI",
-		Short:   "remove a volume from a running VM",
-		Example: usageRemoveVolume(),
-		Args:    templates.ExactArgs("removevolume", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_REMOVEVOLUME, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
-	cmd.MarkFlagRequired(volumeNameArg)
-	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
-	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	return cmd
-}
-
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
 	//Check if data volume exists.
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
@@ -232,15 +212,6 @@ func usageAddVolume() string {
   `
 }
 
-func usageRemoveVolume() string {
-	return `  #Remove volume that was dynamically attached to a running VM.
-  {{ProgramName}} removevolume fedora-dv --volume-name=example-dv
-
-  #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
-  {{ProgramName}} removevolume fedora-dv --volume-name=example-dv --persist
-  `
-}
-
 func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
 	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
 	if err != nil {
@@ -281,26 +252,6 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		return fmt.Errorf("error adding volume, %v", err)
 	}
 	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
-	return nil
-}
-
-func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
-	var err error
-	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
-			Name:   volumeName,
-			DryRun: *dryRunOption,
-		})
-	} else {
-		err = virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
-			Name:   volumeName,
-			DryRun: *dryRunOption,
-		})
-	}
-	if err != nil {
-		return fmt.Errorf("error removing volume, %v", err)
-	}
-	fmt.Printf("Successfully submitted remove volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
 }
 
@@ -405,8 +356,6 @@ func (o *Command) Run(args []string) error {
 		return nil
 	case COMMAND_ADDVOLUME:
 		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
-	case COMMAND_REMOVEVOLUME:
-		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
