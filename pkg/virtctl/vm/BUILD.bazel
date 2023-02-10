@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "expand.go",
+        "migrate.go",
         "start.go",
         "vm.go",
     ],

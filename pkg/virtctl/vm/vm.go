@@ -40,7 +40,6 @@ import (
 const (
 	COMMAND_STOP           = "stop"
 	COMMAND_RESTART        = "restart"
-	COMMAND_MIGRATE        = "migrate"
 	COMMAND_MIGRATE_CANCEL = "migrate-cancel"
 	COMMAND_GUESTOSINFO    = "guestosinfo"
 	COMMAND_USERLIST       = "userlist"
@@ -106,22 +105,6 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&forceRestart, forceArg, false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
 	cmd.Flags().Int64Var(&gracePeriod, gracePeriodArg, notDefinedGracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
-	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "migrate (VM)",
-		Short:   "Migrate a virtual machine.",
-		Example: usage(COMMAND_MIGRATE),
-		Args:    templates.ExactArgs("migrate", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -428,11 +411,6 @@ func (o *Command) Run(args []string) error {
 		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
-		}
-	case COMMAND_MIGRATE:
-		err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
-		if err != nil {
-			return fmt.Errorf("Error migrating VirtualMachine %v", err)
 		}
 	case COMMAND_MIGRATE_CANCEL:
 		// get a list of migrations for vmiName (use LabelSelector filter)
