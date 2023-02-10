@@ -38,7 +38,6 @@ import (
 )
 
 const (
-	COMMAND_START          = "start"
 	COMMAND_STOP           = "stop"
 	COMMAND_RESTART        = "restart"
 	COMMAND_MIGRATE        = "migrate"
@@ -54,7 +53,6 @@ const (
 	dryRunCommandUsage    = "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes."
 
 	dryRunArg      = "dry-run"
-	pausedArg      = "paused"
 	forceArg       = "force"
 	gracePeriodArg = "grace-period"
 	serialArg      = "serial"
@@ -72,27 +70,9 @@ var (
 	volumeName   string
 	serial       string
 	persist      bool
-	startPaused  bool
 	dryRun       bool
 	cache        string
 )
-
-func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "start (VM)",
-		Short:   "Start a virtual machine.",
-		Example: usage(COMMAND_START),
-		Args:    templates.ExactArgs("start", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_START, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.Flags().BoolVar(&startPaused, pausedArg, false, "--paused=false: If set to true, start virtual machine in paused state")
-	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
 
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -411,11 +391,6 @@ func (o *Command) Run(args []string) error {
 		fmt.Printf("Dry Run execution\n")
 	}
 	switch o.command {
-	case COMMAND_START:
-		err = virtClient.VirtualMachine(namespace).Start(context.Background(), vmiName, &v1.StartOptions{Paused: startPaused, DryRun: dryRunOption})
-		if err != nil {
-			return fmt.Errorf("Error starting VirtualMachine %v", err)
-		}
 	case COMMAND_STOP:
 		if gracePeriodIsSet(gracePeriod) && forceRestart == false {
 			return fmt.Errorf("Can not set gracePeriod without --force=true")

@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "expand.go",
+        "start.go",
         "vm.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/vm",
