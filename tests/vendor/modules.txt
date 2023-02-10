@@ -829,7 +829,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/api v0.59.0-alpha.2 => kubevirt.io/api v0.59.0-alpha.2
+# kubevirt.io/api v0.59.0-rc.0 => kubevirt.io/api v0.59.0-alpha.2
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
