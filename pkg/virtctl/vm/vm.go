@@ -25,13 +25,11 @@ import (
 	"fmt"
 	"strings"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/spf13/cobra"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -41,7 +39,6 @@ const (
 	COMMAND_GUESTOSINFO = "guestosinfo"
 	COMMAND_USERLIST    = "userlist"
 	COMMAND_FSLIST      = "fslist"
-	COMMAND_ADDVOLUME   = "addvolume"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
@@ -50,9 +47,7 @@ const (
 	dryRunArg      = "dry-run"
 	forceArg       = "force"
 	gracePeriodArg = "grace-period"
-	serialArg      = "serial"
 	persistArg     = "persist"
-	cacheArg       = "cache"
 
 	YAML = "yaml"
 	JSON = "json"
@@ -63,10 +58,8 @@ var (
 	forceRestart bool
 	gracePeriod  int64
 	volumeName   string
-	serial       string
 	persist      bool
 	dryRun       bool
-	cache        string
 )
 
 func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -114,55 +107,6 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "addvolume VMI",
-		Short:   "add a volume to a running VM",
-		Example: usageAddVolume(),
-		Args:    templates.ExactArgs("addvolume", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_ADDVOLUME, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
-	cmd.MarkFlagRequired(volumeNameArg)
-	cmd.Flags().StringVar(&serial, serialArg, "", "serial number you want to assign to the disk")
-	cmd.Flags().StringVar(&cache, cacheArg, "", "caching options attribute control the cache mechanism")
-	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
-	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-
-	return cmd
-}
-
-func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
-	//Check if data volume exists.
-	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
-	if err == nil {
-		return &v1.HotplugVolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name:         volumeName,
-				Hotpluggable: true,
-			},
-		}, nil
-	}
-	// DataVolume not found, try PVC
-	_, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), volumeName, metav1.GetOptions{})
-	if err == nil {
-		return &v1.HotplugVolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: volumeName,
-				},
-				Hotpluggable: true,
-			},
-		}, nil
-	}
-	// Neither return error
-	return nil, fmt.Errorf("Volume %s is not a DataVolume or PersistentVolumeClaim", volumeName)
-}
-
 type Command struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
@@ -179,64 +123,6 @@ func usage(cmd string) string {
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
 	return usage
-}
-
-func usageAddVolume() string {
-	return `  #Dynamically attach a volume to a running VM.
-  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
-
-  #Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
-  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --serial=1234567890
-
-  #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
-  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
-
-  #Dynamically attach a volume with 'none' cache attribute to a running VM.
-  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --cache=none
-  `
-}
-
-func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
-	volumeSource, err := getVolumeSourceFromVolume(volumeName, namespace, virtClient)
-	if err != nil {
-		return fmt.Errorf("error adding volume, %v", err)
-	}
-	hotplugRequest := &v1.AddVolumeOptions{
-		Name: volumeName,
-		Disk: &v1.Disk{
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: "scsi",
-				},
-			},
-		},
-		VolumeSource: volumeSource,
-		DryRun:       *dryRunOption,
-	}
-	if serial != "" {
-		hotplugRequest.Disk.Serial = serial
-	} else {
-		hotplugRequest.Disk.Serial = volumeName
-	}
-	if cache != "" {
-		hotplugRequest.Disk.Cache = v1.DriverCache(cache)
-		// Verify if cache mode is valid
-		if hotplugRequest.Disk.Cache != v1.CacheNone &&
-			hotplugRequest.Disk.Cache != v1.CacheWriteThrough &&
-			hotplugRequest.Disk.Cache != v1.CacheWriteBack {
-			return fmt.Errorf("error adding volume, invalid cache value %s", cache)
-		}
-	}
-	if !persist {
-		err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
-	} else {
-		err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
-	}
-	if err != nil {
-		return fmt.Errorf("error adding volume, %v", err)
-	}
-	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
-	return nil
 }
 
 func gracePeriodIsSet(period int64) bool {
@@ -309,8 +195,6 @@ func (o *Command) Run(args []string) error {
 
 		fmt.Printf("%s\n", string(data))
 		return nil
-	case COMMAND_ADDVOLUME:
-		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
