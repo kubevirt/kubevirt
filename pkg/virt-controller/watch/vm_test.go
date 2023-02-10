@@ -1853,21 +1853,6 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 		})
 
-		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
-			vm, vmi := DefaultVirtualMachine(true)
-			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
-			annotations := map[string]string{"kubevirt.io/ignitiondata": "test"}
-
-			vm.Status.PrintableStatus = virtv1.VirtualMachineStatusStarting
-			addVirtualMachine(vm)
-
-			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
-				Expect(obj.(*virtv1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
-			}).Return(vmi, nil)
-
-			controller.Execute()
-		})
-
 		It("should copy kubernetes annotations from spec.template to vmi", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}

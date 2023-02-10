@@ -302,22 +302,6 @@ var _ = Describe("Template", func() {
 						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
 					},
 				),
-				Entry("and contain kubevirt ignitiondata annotation",
-					map[string]string{
-						"kubevirt.io/ignitiondata": `{
-							"ignition" :  {
-								"version": "3"
-							 },
-						}`,
-					},
-					map[string]string{
-						"kubevirt.io/ignitiondata": `{
-							"ignition" :  {
-								"version": "3"
-							 },
-						}`,
-					},
-				),
 				Entry("and contain default container for logging and exec",
 					map[string]string{},
 					map[string]string{

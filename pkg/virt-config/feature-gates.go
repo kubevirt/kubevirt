@@ -27,7 +27,6 @@ const (
 	ExpandDisksGate   = "ExpandDisks"
 	CPUManager        = "CPUManager"
 	NUMAFeatureGate   = "NUMA"
-	IgnitionGate      = "ExperimentalIgnitionSupport"
 	LiveMigrationGate = "LiveMigration"
 	// SRIOVLiveMigrationGate enables Live Migration for VM's with network SR-IOV interfaces.
 	SRIOVLiveMigrationGate     = "SRIOVLiveMigration"
@@ -107,10 +106,6 @@ func (config *ClusterConfig) NUMAEnabled() bool {
 
 func (config *ClusterConfig) DownwardMetricsEnabled() bool {
 	return config.isFeatureGateEnabled(DownwardMetricsFeatureGate)
-}
-
-func (config *ClusterConfig) IgnitionEnabled() bool {
-	return config.isFeatureGateEnabled(IgnitionGate)
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {

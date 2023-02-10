@@ -459,10 +459,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
 		},
-			Entry("without ExperimentalIgnitionSupport feature gate enabled",
-				map[string]string{v1.IgnitionAnnotation: "fake-data"},
-				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.IgnitionAnnotation),
-			),
 			Entry("without sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
@@ -478,10 +474,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
 			Expect(causes).To(BeEmpty())
 		},
-			Entry("with ExperimentalIgnitionSupport feature gate enabled",
-				map[string]string{v1.IgnitionAnnotation: "fake-data"},
-				virtconfig.IgnitionGate,
-			),
 			Entry("with sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
 				virtconfig.SidecarGate,

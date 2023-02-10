@@ -149,7 +149,6 @@ go_test(
         "vmi_headless_test.go",
         "vmi_hook_sidecar_test.go",
         "vmi_hostdev_test.go",
-        "vmi_ignition_test.go",
         "vmi_iothreads_test.go",
         "vmi_kernel_boot_test.go",
         "vmi_lifecycle_test.go",

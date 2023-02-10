@@ -47,7 +47,6 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
-	"kubevirt.io/kubevirt/pkg/ignition"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -171,11 +170,6 @@ func initializeDirs(ephemeralDiskDir string,
 	}
 
 	err = cloudinit.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "cloud-init-data"))
-	if err != nil {
-		panic(err)
-	}
-
-	err = ignition.SetLocalDirectory(filepath.Join(ephemeralDiskDir, "ignition-data"))
 	if err != nil {
 		panic(err)
 	}

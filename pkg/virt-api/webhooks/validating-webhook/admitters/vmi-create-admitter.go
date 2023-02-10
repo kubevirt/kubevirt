@@ -1605,16 +1605,6 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 		}
 	}
 
-	// Validate ignition feature gate if set when the corresponding annotation is found
-	if annotations[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config, invalid entry %s",
-				field.Child("annotations").Child(v1.IgnitionAnnotation).String()),
-			Field: field.Child("annotations").String(),
-		})
-	}
-
 	// Validate sidecar feature gate if set when the corresponding annotation is found
 	if annotations[hooks.HookSidecarListAnnotationName] != "" && !config.SidecarEnabled() {
 		causes = append(causes, metav1.StatusCause{

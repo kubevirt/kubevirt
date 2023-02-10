@@ -69,7 +69,6 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/ignition"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -552,16 +551,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		// store the generated cloud init metadata.
 		// cloud init ISO will be generated after the domain definition
 		l.cloudInitDataStore = cloudInitData
-	}
-
-	// generate ignition data
-	ignitionData := ignition.GetIgnitionSource(vmi)
-	if ignitionData != "" {
-
-		err := ignition.GenerateIgnitionLocalData(vmi, vmi.Namespace)
-		if err != nil {
-			return domain, err
-		}
 	}
 
 	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain)

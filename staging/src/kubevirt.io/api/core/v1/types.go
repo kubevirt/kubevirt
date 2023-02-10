@@ -817,10 +817,7 @@ const (
 	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
 	CPUManager                               string = "cpumanager"
-	// This annotation is used to inject ignition data
-	// Used on VirtualMachineInstance.
-	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
-	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
+	PlacePCIDevicesOnRootComplex             string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
 	// This label represents supported cpu features on the node
 	CPUFeatureLabel = "cpu-feature.node.kubevirt.io/"
