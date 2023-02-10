@@ -423,7 +423,7 @@ var _ = SIGDescribe("Storage", func() {
 				libstorage.DeletePVC(pvc2)
 			})
 
-			It("should be successfully started and accessible", func() {
+			DescribeTable("should be successfully started and accessible", func(option1, option2 libvmi.Option) {
 
 				virtiofsMountPath := func(pvcName string) string { return fmt.Sprintf("/mnt/virtiofs_%s", pvcName) }
 				virtiofsTestFile := func(virtiofsMountPath string) string { return fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath) }
@@ -442,6 +442,7 @@ var _ = SIGDescribe("Storage", func() {
 					libvmi.WithCloudInitNoCloudUserData(mountVirtiofsCommands, true),
 					libvmi.WithFilesystemPVC(pvc1),
 					libvmi.WithFilesystemPVC(pvc2),
+					option1, option2,
 				)
 
 				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
@@ -473,7 +474,10 @@ var _ = SIGDescribe("Storage", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
-			})
+			},
+				Entry("", func(instance *virtv1.VirtualMachineInstance) {}, func(instance *virtv1.VirtualMachineInstance) {}),
+				Entry("with passt enabled", libvmi.WithPasstInterfaceWithPort(), libvmi.WithNetwork(v1.DefaultPodNetwork())),
+			)
 
 		})
 		Context("VirtIO-FS with an empty PVC", func() {

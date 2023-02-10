@@ -58,7 +58,7 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 
 		It("should report the IP to the status", func() {
 			vmi := libvmi.NewAlpineWithTestTooling(
-				withPasstInterfaceWithPort(),
+				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
@@ -126,7 +126,7 @@ var _ = SIGDescribe("[Serial] Passt", func() {
 
 					startClientVMI := func() {
 						clientVMI = libvmi.NewAlpineWithTestTooling(
-							withPasstInterfaceWithPort(),
+							libvmi.WithPasstInterfaceWithPort(),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						)
 
@@ -249,7 +249,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				}
 
 				vmi := libvmi.NewAlpineWithTestTooling(
-					withPasstInterfaceWithPort(),
+					libvmi.WithPasstInterfaceWithPort(),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 				vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(vmi)
@@ -273,7 +273,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 				}
 
 				vmi := libvmi.NewAlpineWithTestTooling(
-					withPasstInterfaceWithPort(),
+					libvmi.WithPasstInterfaceWithPort(),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -295,8 +295,4 @@ func withPasstExtendedResourceMemory(ports ...v1.Port) libvmi.Option {
 	}
 	return func(vmi *v1.VirtualMachineInstance) {
 	}
-}
-
-func withPasstInterfaceWithPort() libvmi.Option {
-	return libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding([]v1.Port{{Port: 1234, Protocol: "TCP"}}...))
 }
