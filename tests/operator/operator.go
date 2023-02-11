@@ -3051,7 +3051,7 @@ spec:
 
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceSynchronized {
-							if condition.Status == k8sv1.ConditionFalse && strings.Contains(condition.Reason, "needs a privileged namespace") {
+							if condition.Status == k8sv1.ConditionFalse && strings.Contains(condition.Message, "needs a privileged namespace") {
 								psaRelatedErrorDetected = true
 								return true, nil
 							}
