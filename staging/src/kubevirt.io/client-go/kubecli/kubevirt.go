@@ -291,7 +291,7 @@ type VirtualMachineInterface interface {
 	Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error
 	Start(ctx context.Context, name string, startOptions *v1.StartOptions) error
-	Stop(name string, stopOptions *v1.StopOptions) error
+	Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
 	ForceStop(name string, stopOptions *v1.StopOptions) error
 	Migrate(name string, migrateOptions *v1.MigrateOptions) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error

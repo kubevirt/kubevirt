@@ -111,7 +111,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = pointer.Bool(true)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
+			vmInterface.EXPECT().Stop(context.Background(), vm.Name, &stopOpts).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName)
 			Expect(cmd.Execute()).To(Succeed())
@@ -122,7 +122,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = pointer.Bool(false)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
+			vmInterface.EXPECT().Stop(context.Background(), vm.Name, &stopOpts).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName)
 			Expect(cmd.Execute()).To(Succeed())
@@ -145,7 +145,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategyAlways
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
+				vmInterface.EXPECT().Stop(context.Background(), vm.Name, &stopOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("stop", vmName)
 				Expect(cmd.Execute()).To(Succeed())
@@ -156,7 +156,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = &runStrategyHalted
 
 				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Stop(vm.Name, &stopOpts).Return(nil).Times(1)
+				vmInterface.EXPECT().Stop(context.Background(), vm.Name, &stopOpts).Return(nil).Times(1)
 
 				cmd := clientcmd.NewVirtctlCommand("stop", vmName)
 				Expect(cmd.Execute()).To(Succeed())
@@ -334,7 +334,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm.Spec.Running = pointer.Bool(true)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Stop(vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
+			vmInterface.EXPECT().Stop(context.Background(), vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName, "--dry-run")
 			Expect(cmd.Execute()).To(Succeed())

@@ -551,7 +551,7 @@ func (o *Command) Run(args []string) error {
 			}
 			break
 		}
-		err = virtClient.VirtualMachine(namespace).Stop(vmiName, &v1.StopOptions{DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Stop(context.Background(), vmiName, &v1.StopOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)
 		}
