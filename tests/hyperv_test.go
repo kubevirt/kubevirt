@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -125,10 +124,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
-					nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					for _, node := range nodeList.Items {
+					for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
 						stopNodeLabeller(node.Name, virtClient)
 						removeTSCFrequencyFromNode(node)
 					}
@@ -136,10 +132,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", func() {
 			})
 
 			AfterEach(func() {
-				nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				for _, node := range nodeList.Items {
+				for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
 					_ = resumeNodeLabeller(node.Name, virtClient)
 				}
 			})
