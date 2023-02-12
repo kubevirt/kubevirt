@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
+
 	"k8s.io/utils/pointer"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -2868,7 +2870,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 	})
 
-	Context("topology hints", func() {
+	Context("topology hints", decorators.TscFrequencies, func() {
 
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")

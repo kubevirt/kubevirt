@@ -31,6 +31,7 @@ var (
 	NativeSsh        = []interface{}{Label("native-ssh")}
 	ExcludeNativeSsh = []interface{}{Label("exclude-native-ssh")}
 	Reenlightenment  = []interface{}{Label("Reenlightenment")}
+	TscFrequencies   = []interface{}{Label("TscFrequencies")}
 	PasstGate        = []interface{}{Label("PasstGate")}
 	Upgrade          = []interface{}{Label("Upgrade")}
 	CustomSELinux    = []interface{}{Label("CustomSELinux")}
