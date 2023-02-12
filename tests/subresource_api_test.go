@@ -166,7 +166,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(vmi.Status.Phase).To(Equal(v1.Running))
 
-				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(vm.Name, &v1.RestartOptions{})
+				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -183,7 +183,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vm, err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(vm.Name, &v1.RestartOptions{})
+				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -191,7 +191,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				vmi := tests.NewRandomVMI()
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
-				err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Restart(vmi.Name, &v1.RestartOptions{})
+				err := virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Restart(context.Background(), vmi.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -207,7 +207,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Trying to start VM via Restart subresource")
-				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(vm.Name, &v1.RestartOptions{})
+				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -237,7 +237,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
-				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(vm.Name, &v1.RestartOptions{})
+				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
@@ -273,7 +273,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Restarting VM")
-				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(vm.Name, &v1.RestartOptions{})
+				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineInstancePhase {

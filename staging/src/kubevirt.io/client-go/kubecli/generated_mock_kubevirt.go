@@ -1562,14 +1562,14 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) PatchStatus(arg0, arg1, arg2, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2, arg3, arg4)
 }
 
-func (_m *MockVirtualMachineInterface) Restart(name string, restartOptions *v120.RestartOptions) error {
-	ret := _m.ctrl.Call(_m, "Restart", name, restartOptions)
+func (_m *MockVirtualMachineInterface) Restart(ctx context.Context, name string, restartOptions *v120.RestartOptions) error {
+	ret := _m.ctrl.Call(_m, "Restart", ctx, name, restartOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Restart(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Restart", arg0, arg1)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Restart(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Restart", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInterface) ForceRestart(name string, restartOptions *v120.RestartOptions) error {
