@@ -542,7 +542,7 @@ func (o *Command) Run(args []string) error {
 		}
 		if forceRestart {
 			if gracePeriodIsSet(gracePeriod) {
-				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
+				err = virtClient.VirtualMachine(namespace).ForceStop(context.Background(), vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
 				}

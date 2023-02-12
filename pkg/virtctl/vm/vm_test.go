@@ -298,7 +298,7 @@ var _ = Describe("VirtualMachine", func() {
 				GracePeriod: &gracePeriod,
 				DryRun:      nil,
 			}
-			vmInterface.EXPECT().ForceStop(vm.Name, &stopOptions).Return(nil).Times(1)
+			vmInterface.EXPECT().ForceStop(context.Background(), vm.Name, &stopOptions).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName, "--force", "--grace-period=0")
 			Expect(cmd.Execute()).To(Succeed())
