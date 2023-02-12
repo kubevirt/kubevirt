@@ -581,7 +581,7 @@ var _ = Describe("Pool", func() {
 			})
 
 			// Check if only 10 are deleted
-			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(10).Return(nil)
+			vmInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(10).Return(nil)
 
 			controller.Execute()
 
@@ -618,7 +618,7 @@ var _ = Describe("Pool", func() {
 			})
 
 			// Check if only 5 are deleted
-			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(5).Return(nil)
+			vmInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(5).Return(nil)
 
 			controller.Execute()
 

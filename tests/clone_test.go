@@ -322,7 +322,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				// of snapshot tests scope.
 
 				By("Deleting VM")
-				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(sourceVM.Name, &v1.DeleteOptions{})
+				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a clone with a snapshot source")
@@ -547,7 +547,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					snapshot = waitSnapshotReady(snapshot)
 
 					By("Deleting VM")
-					err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(sourceVM.Name, &v1.DeleteOptions{})
+					err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Creating a clone and expecting error")
