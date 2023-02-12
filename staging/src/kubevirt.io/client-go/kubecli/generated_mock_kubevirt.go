@@ -1582,14 +1582,14 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) ForceRestart(arg0, arg1, arg2 i
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceRestart", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) Start(name string, startOptions *v120.StartOptions) error {
-	ret := _m.ctrl.Call(_m, "Start", name, startOptions)
+func (_m *MockVirtualMachineInterface) Start(ctx context.Context, name string, startOptions *v120.StartOptions) error {
+	ret := _m.ctrl.Call(_m, "Start", ctx, name, startOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Start(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Start", arg0, arg1)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Start(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Start", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInterface) Stop(name string, stopOptions *v120.StopOptions) error {

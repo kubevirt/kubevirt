@@ -70,14 +70,14 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 		Context("with correct permissions", func() {
 			It("[test_id:3170]should be allowed to access subresource endpoint", func() {
 				saClient := getClientForSA(virtCli, testsuite.SubresourceServiceAccountName)
-				err := saClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(vm.Name, &v1.StartOptions{})
+				err := saClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(context.Background(), vm.Name, &v1.StartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 		Context("Without permissions", func() {
 			It("[test_id:3171]should not be able to access subresource endpoint", func() {
 				saClient := getClientForSA(virtCli, testsuite.SubresourceUnprivilegedServiceAccountName)
-				err := saClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(vm.Name, &v1.StartOptions{})
+				err := saClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(context.Background(), vm.Name, &v1.StartOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(errors.ReasonForError(err)).To(Equal(metav1.StatusReasonForbidden))
 			})
@@ -221,7 +221,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting VM via Start subresource")
-				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(vm.Name, &v1.StartOptions{Paused: false})
+				err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &v1.StartOptions{Paused: false})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")

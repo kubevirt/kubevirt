@@ -204,14 +204,14 @@ func (v *vm) ForceRestart(ctx context.Context, name string, restartOptions *v1.R
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
+func (v *vm) Start(ctx context.Context, name string, startOptions *v1.StartOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "start")
 
 	optsJson, err := json.Marshal(startOptions)
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(ctx).Error()
 }
 
 func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
