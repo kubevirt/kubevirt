@@ -561,7 +561,7 @@ func (o *Command) Run(args []string) error {
 		}
 		if forceRestart {
 			if gracePeriod != notDefinedGracePeriod {
-				err = virtClient.VirtualMachine(namespace).ForceRestart(vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
+				err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
 				}
