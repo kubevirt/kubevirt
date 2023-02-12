@@ -625,7 +625,7 @@ var _ = Describe("exportserver", func() {
 			err = yaml.Unmarshal([]byte(out[1]), resVm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resVm.Name).To(Equal(testVm.Name))
-			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(0))
+			Expect(resVm.Spec.DataVolumeTemplates).To(BeEmpty())
 			resDv := &cdiv1.DataVolume{}
 			err = yaml.Unmarshal([]byte(out[2]), resDv)
 			Expect(err).ToNot(HaveOccurred())

@@ -1086,7 +1086,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should apply to VMI", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(*instancetypeSpec.IOThreadsPolicy))
 			})
@@ -1112,7 +1112,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should apply to VMI", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.LaunchSecurity).To(Equal(*instancetypeSpec.LaunchSecurity))
 			})
@@ -1144,7 +1144,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply to VMI", func() {
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.GPUs).To(Equal(instancetypeSpec.GPUs))
 
@@ -1182,7 +1182,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply to VMI", func() {
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.HostDevices).To(Equal(instancetypeSpec.HostDevices))
 
@@ -1313,7 +1313,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply to VMI", func() {
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeFalse())
 				Expect(*vmi.Spec.Domain.Devices.AutoattachMemBalloon).To(BeFalse())
@@ -1357,7 +1357,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk = nil
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
 
@@ -1411,7 +1411,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should apply to VMI", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Features.ACPI).To(Equal(*preferenceSpec.Features.PreferredAcpi))
 				Expect(*vmi.Spec.Domain.Features.APIC).To(Equal(*preferenceSpec.Features.PreferredApic))
@@ -1432,7 +1432,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled).To(BeFalse())
 
@@ -1452,7 +1452,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(Equal(*preferenceSpec.Firmware.PreferredUseBiosSerial))
 			})
@@ -1468,7 +1468,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.PreferredUseSecureBoot))
 			})
@@ -1484,7 +1484,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
 			})
@@ -1506,7 +1506,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(0))
+				Expect(conflicts).To(BeEmpty())
 
 				Expect(*&vmi.Spec.Domain.Clock.ClockOffset).To(Equal(*preferenceSpec.Clock.PreferredClockOffset))
 				Expect(*vmi.Spec.Domain.Clock.Timer).To(Equal(*preferenceSpec.Clock.PreferredTimer))

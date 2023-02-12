@@ -2253,7 +2253,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Creating VirtualMachine")
 			vm = tests.NewRandomVirtualMachine(vmi, true)
-			Expect(vm.Finalizers).To(HaveLen(0))
+			Expect(vm.Finalizers).To(BeEmpty())
 
 		})
 
