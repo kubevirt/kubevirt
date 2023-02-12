@@ -287,7 +287,7 @@ type VirtualMachineInterface interface {
 	Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error
 	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error)
 	UpdateStatus(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
-	PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.VirtualMachine, err error)
+	PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (result *v1.VirtualMachine, err error)
 	Restart(name string, restartOptions *v1.RestartOptions) error
 	ForceRestart(name string, restartOptions *v1.RestartOptions) error
 	Start(name string, startOptions *v1.StartOptions) error
