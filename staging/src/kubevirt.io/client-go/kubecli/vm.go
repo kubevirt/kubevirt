@@ -115,13 +115,13 @@ func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMach
 }
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
-func (v *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *vm) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
 	err := v.restClient.Delete().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		Body(options).
-		Do(context.Background()).
+		Do(ctx).
 		Error()
 
 	return err
