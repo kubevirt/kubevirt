@@ -172,7 +172,7 @@ func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte, patchOpti
 	return
 }
 
-func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
+func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
 	result = &v1.VirtualMachine{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
@@ -180,7 +180,7 @@ func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, er
 		Resource(v.resource).
 		SubResource("status").
 		Body(vmi).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
