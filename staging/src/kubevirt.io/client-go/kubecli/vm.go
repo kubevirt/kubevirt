@@ -258,7 +258,7 @@ func (v *vm) RemoveMemoryDump(name string) error {
 	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
 }
 
-func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
+func (v *vm) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 
 	JSON, err := json.Marshal(addVolumeOptions)
@@ -267,7 +267,7 @@ func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
 func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {

@@ -1464,7 +1464,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	} else {
 		Eventually(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, addVolumeOptions)
+			return virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		verifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
 	}

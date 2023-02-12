@@ -294,7 +294,7 @@ type VirtualMachineInterface interface {
 	Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
 	ForceStop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
 	Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error
-	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
+	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error

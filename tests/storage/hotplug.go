@@ -150,7 +150,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	addVolumeVMWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
 		Eventually(func() error {
-			return virtClient.VirtualMachine(namespace).AddVolume(name, volumeOptions)
+			return virtClient.VirtualMachine(namespace).AddVolume(context.Background(), name, volumeOptions)
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
@@ -858,7 +858,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By(addingVolumeRunningVM)
-				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(vm.Name, getAddVolumeOptions("disk0", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, getAddVolumeOptions("disk0", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
 					DataVolume: &v1.DataVolumeSource{
 						Name: dvBlock.Name,
 					},

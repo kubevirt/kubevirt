@@ -393,7 +393,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 	} else {
-		err = virtClient.VirtualMachine(namespace).AddVolume(vmiName, hotplugRequest)
+		err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 	}
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
