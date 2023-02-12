@@ -144,7 +144,7 @@ func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.Virt
 	return newVmList, err
 }
 
-func (v *vm) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
+func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
 	result = &v1.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
@@ -153,7 +153,7 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, patchOptions *k
 		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return result, err
 }

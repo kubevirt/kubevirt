@@ -105,7 +105,7 @@ var _ = Describe("Status", func() {
 				newVM.SetResourceVersion("2")
 				patchOptions := &v12.PatchOptions{}
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(2)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(2)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
 			})
@@ -115,7 +115,7 @@ var _ = Describe("Status", func() {
 				patchOptions := &v12.PatchOptions{}
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
@@ -126,7 +126,7 @@ var _ = Describe("Status", func() {
 				patchOptions := &v12.PatchOptions{}
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(1)
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(vm, nil).Times(1)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
@@ -196,7 +196,7 @@ var _ = Describe("Status", func() {
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
 				patchOptions := &v12.PatchOptions{}
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(2)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(2)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
 			})
@@ -208,7 +208,7 @@ var _ = Describe("Status", func() {
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
 				patchOptions := &v12.PatchOptions{}
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(2)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, errors.NewNotFound(schema.GroupResource{}, "something")).Times(2)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
 			})
@@ -220,7 +220,7 @@ var _ = Describe("Status", func() {
 				newVM := vm.DeepCopy()
 				newVM.SetResourceVersion("2")
 				patchOptions := &v12.PatchOptions{}
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, fmt.Errorf("I am an arbitrary error")).Times(2)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(nil, fmt.Errorf("I am an arbitrary error")).Times(2)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).ToNot(Succeed())
 			})
@@ -231,7 +231,7 @@ var _ = Describe("Status", func() {
 				vm := &v1.VirtualMachine{ObjectMeta: v12.ObjectMeta{Name: "test", ResourceVersion: "1"}, Status: v1.VirtualMachineStatus{Ready: true}}
 				newVM := vm.DeepCopy()
 				patchOptions := &v12.PatchOptions{}
-				vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)
+				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)
 				Expect(updater.PatchStatus(vm, types.JSONPatchType, []byte("test"), patchOptions)).To(Succeed())
 				vmInterface.EXPECT().PatchStatus(vm.Name, types.JSONPatchType, []byte("test"), patchOptions).Return(newVM, nil).Times(1)

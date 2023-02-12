@@ -1714,7 +1714,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine, finalizer st
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 	return vm, err
 }
 
@@ -1731,7 +1731,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine, finalizer strin
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 }
 
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {

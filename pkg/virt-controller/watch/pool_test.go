@@ -697,7 +697,7 @@ var _ = Describe("Pool", func() {
 			addPool(pool)
 			addVM(vm)
 
-			vmInterface.EXPECT().Patch(vm.ObjectMeta.Name, gomock.Any(), gomock.Any(), gomock.Any())
+			vmInterface.EXPECT().Patch(context.Background(), vm.ObjectMeta.Name, gomock.Any(), gomock.Any(), gomock.Any())
 			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Return(vm, nil)
 
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
