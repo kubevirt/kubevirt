@@ -291,7 +291,7 @@ var _ = SIGDescribe("Memory dump", func() {
 				ClaimName: claimName,
 			}
 
-			return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+			return virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 

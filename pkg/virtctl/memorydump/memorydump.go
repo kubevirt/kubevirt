@@ -269,7 +269,7 @@ func createMemoryDump(namespace, vmName, claimName string, virtClient kubecli.Ku
 		ClaimName: claimName,
 	}
 
-	err := virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+	err := virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
 	if err != nil {
 		return fmt.Errorf("error dumping vm memory, %v", err)
 	}

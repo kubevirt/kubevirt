@@ -1653,7 +1653,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 							ClaimName: claimName,
 						}
 
-						return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+						return virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
 					}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 				}
 

@@ -241,7 +241,7 @@ func (v *vm) Migrate(ctx context.Context, name string, migrateOptions *v1.Migrat
 	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(ctx).Error()
 }
 
-func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
+func (v *vm) MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "memorydump")
 
 	JSON, err := json.Marshal(memoryDumpRequest)
@@ -249,7 +249,7 @@ func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryD
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
 func (v *vm) RemoveMemoryDump(name string) error {
