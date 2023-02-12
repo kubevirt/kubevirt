@@ -575,7 +575,7 @@ func (o *Command) Run(args []string) error {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
 	case COMMAND_MIGRATE:
-		err = virtClient.VirtualMachine(namespace).Migrate(vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
 		}

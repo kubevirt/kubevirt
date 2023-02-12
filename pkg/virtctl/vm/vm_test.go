@@ -190,7 +190,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Migrate(vm.Name, migrateOptions).Return(nil).Times(1)
+			vmInterface.EXPECT().Migrate(context.Background(), vm.Name, migrateOptions).Return(nil).Times(1)
 
 			var cmd *cobra.Command
 			if len(migrateOptions.DryRun) == 0 {

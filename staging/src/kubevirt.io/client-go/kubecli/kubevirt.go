@@ -293,7 +293,7 @@ type VirtualMachineInterface interface {
 	Start(ctx context.Context, name string, startOptions *v1.StartOptions) error
 	Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
 	ForceStop(ctx context.Context, name string, stopOptions *v1.StopOptions) error
-	Migrate(name string, migrateOptions *v1.MigrateOptions) error
+	Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error
 	AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	PortForward(name string, port int, protocol string) (StreamInterface, error)

@@ -232,13 +232,13 @@ func (v *vm) ForceStop(ctx context.Context, name string, stopOptions *v1.StopOpt
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
+func (v *vm) Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "migrate")
 	optsJson, err := json.Marshal(migrateOptions)
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(ctx).Error()
 }
 
 func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {

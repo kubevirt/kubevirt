@@ -1612,14 +1612,14 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) ForceStop(arg0, arg1, arg2 inte
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceStop", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) Migrate(name string, migrateOptions *v120.MigrateOptions) error {
-	ret := _m.ctrl.Call(_m, "Migrate", name, migrateOptions)
+func (_m *MockVirtualMachineInterface) Migrate(ctx context.Context, name string, migrateOptions *v120.MigrateOptions) error {
+	ret := _m.ctrl.Call(_m, "Migrate", ctx, name, migrateOptions)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0, arg1)
+func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0, arg1, arg2)
 }
 
 func (_m *MockVirtualMachineInterface) AddVolume(name string, addVolumeOptions *v120.AddVolumeOptions) error {
