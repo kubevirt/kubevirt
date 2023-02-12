@@ -198,7 +198,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 	removeVolumeVM := func(name, namespace, volumeName string, dryRun bool) {
 		Eventually(func() error {
-			return virtClient.VirtualMachine(namespace).RemoveVolume(name, &v1.RemoveVolumeOptions{
+			return virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), name, &v1.RemoveVolumeOptions{
 				Name:   volumeName,
 				DryRun: getDryRunOption(dryRun),
 			})
@@ -898,7 +898,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By(removingVolumeFromVM)
-				err = virtClient.VirtualMachine(vm.Namespace).RemoveVolume(vm.Name, &v1.RemoveVolumeOptions{Name: volName})
+				err = virtClient.VirtualMachine(vm.Namespace).RemoveVolume(context.Background(), vm.Name, &v1.RemoveVolumeOptions{Name: volName})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErr))
 			},

@@ -270,7 +270,7 @@ func (v *vm) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.Ad
 	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+func (v *vm) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
@@ -279,7 +279,7 @@ func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptio
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
 func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {

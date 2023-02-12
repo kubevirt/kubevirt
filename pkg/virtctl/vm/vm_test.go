@@ -494,7 +494,7 @@ var _ = Describe("VirtualMachine", func() {
 				VirtualMachine(k8smetav1.NamespaceDefault).
 				Return(vmInterface).
 				Times(1)
-			vmInterface.EXPECT().RemoveVolume(vmiName, gomock.Any()).DoAndReturn(func(arg0, arg1 interface{}) interface{} {
+			vmInterface.EXPECT().RemoveVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
 				Expect(arg1.(*v1.RemoveVolumeOptions).Name).To(Equal(volumeName))
 				return nil
 			})
