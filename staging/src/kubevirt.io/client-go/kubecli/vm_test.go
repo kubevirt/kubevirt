@@ -217,7 +217,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.VerifyRequest("PUT", path.Join(proxyPath, subVMPath, "restart")),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err = client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm", &v1.RestartOptions{})
+		err = client.VirtualMachine(k8sv1.NamespaceDefault).Restart(context.Background(), "testvm", &v1.RestartOptions{})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

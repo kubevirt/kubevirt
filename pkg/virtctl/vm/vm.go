@@ -570,7 +570,7 @@ func (o *Command) Run(args []string) error {
 			}
 			break
 		}
-		err = virtClient.VirtualMachine(namespace).Restart(vmiName, &v1.RestartOptions{DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
