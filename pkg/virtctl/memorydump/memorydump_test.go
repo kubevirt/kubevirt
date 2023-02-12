@@ -99,7 +99,7 @@ var _ = Describe("MemoryDump", func() {
 			VirtualMachine(k8smetav1.NamespaceDefault).
 			Return(vmInterface).
 			Times(1)
-		vmInterface.EXPECT().RemoveMemoryDump(vmName).DoAndReturn(func(arg0 interface{}) interface{} {
+		vmInterface.EXPECT().RemoveMemoryDump(context.Background(), vmName).DoAndReturn(func(ctx context.Context, arg0 interface{}) interface{} {
 			Expect(arg0.(string)).To(Equal(vmName))
 			return nil
 		})

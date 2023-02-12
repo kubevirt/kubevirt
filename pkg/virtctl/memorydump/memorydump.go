@@ -356,7 +356,7 @@ func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName stri
 }
 
 func removeMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
-	err := virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
+	err := virtClient.VirtualMachine(namespace).RemoveMemoryDump(context.Background(), vmName)
 	if err != nil {
 		return fmt.Errorf("error removing memory dump association, %v", err)
 	}

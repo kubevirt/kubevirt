@@ -354,7 +354,7 @@ var _ = SIGDescribe("Memory dump", func() {
 
 	removeMemoryDumpVMSubresource := func(vmName, namespace string) {
 		Eventually(func() error {
-			return virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
+			return virtClient.VirtualMachine(namespace).RemoveMemoryDump(context.Background(), vmName)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	}
 

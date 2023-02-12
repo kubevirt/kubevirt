@@ -1663,14 +1663,14 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) MemoryDump(arg0, arg1, arg2 int
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryDump", arg0, arg1, arg2)
 }
 
-func (_m *MockVirtualMachineInterface) RemoveMemoryDump(name string) error {
-	ret := _m.ctrl.Call(_m, "RemoveMemoryDump", name)
+func (_m *MockVirtualMachineInterface) RemoveMemoryDump(ctx context.Context, name string) error {
+	ret := _m.ctrl.Call(_m, "RemoveMemoryDump", ctx, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveMemoryDump(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveMemoryDump", arg0)
+func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveMemoryDump(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveMemoryDump", arg0, arg1)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface
