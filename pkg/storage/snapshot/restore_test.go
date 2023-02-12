@@ -366,7 +366,7 @@ var _ = Describe("Restore controller", func() {
 			vmStatusUpdate := vm.DeepCopy()
 			vmStatusUpdate.ResourceVersion = "1"
 			vmStatusUpdate.Status.RestoreInProgress = &vmRestoreName
-			vmInterface.EXPECT().UpdateStatus(vmStatusUpdate).Return(vmStatusUpdate, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), vmStatusUpdate).Return(vmStatusUpdate, nil)
 		}
 
 		Context("with initialized snapshot and content", func() {
@@ -673,7 +673,7 @@ var _ = Describe("Restore controller", func() {
 				updatedVM := vm.DeepCopy()
 				updatedVM.ResourceVersion = "1"
 				updatedVM.Status.RestoreInProgress = nil
-				vmInterface.EXPECT().UpdateStatus(updatedVM).Return(updatedVM, nil)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), updatedVM).Return(updatedVM, nil)
 
 				ur := r.DeepCopy()
 				ur.ResourceVersion = "1"

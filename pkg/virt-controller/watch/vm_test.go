@@ -343,7 +343,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
 			}).Return(vm, nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
 			}).Return(vm, nil)
@@ -392,7 +392,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
 			}).Return(vm, nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change occured
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
 			}).Return(vm, nil)
@@ -438,7 +438,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
@@ -470,7 +470,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 			}
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(BeEmpty())
 			}).Return(nil, nil)
 
@@ -526,7 +526,7 @@ var _ = Describe("VirtualMachine", func() {
 			deletionCount := 0
 			shouldExpectDataVolumeDeletion(vm.UID, &deletionCount)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 
@@ -576,7 +576,7 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 
@@ -628,7 +628,7 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 
@@ -663,7 +663,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -701,7 +701,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -738,7 +738,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
 			}).Return(vmi, nil)
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -772,7 +772,7 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume)
 			vmiFeeder.Add(vmi)
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
@@ -866,7 +866,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
@@ -899,7 +899,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(Equal(oldRetry))
@@ -939,7 +939,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).To(BeNil())
 				}).Return(nil, nil)
 
@@ -968,7 +968,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
 					if runStrategy == virtv1.RunStrategyHalted || runStrategy == virtv1.RunStrategyManual {
 						Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).To(BeNil())
 					} else {
@@ -1151,7 +1151,7 @@ var _ = Describe("VirtualMachine", func() {
 				createCount := 0
 				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, map[string]string{}, &createCount)
 				if fail {
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 				}
 
 				if ds != nil {
@@ -1253,7 +1253,7 @@ var _ = Describe("VirtualMachine", func() {
 			}).Return(vmi, nil)
 
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -1281,7 +1281,7 @@ var _ = Describe("VirtualMachine", func() {
 			}).Return(vmi, nil)
 
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -1304,7 +1304,7 @@ var _ = Describe("VirtualMachine", func() {
 			}).Return(vmi, nil)
 
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -1331,7 +1331,7 @@ var _ = Describe("VirtualMachine", func() {
 			}).Return(vmi, nil)
 
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -1349,7 +1349,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeTrue())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
@@ -1365,7 +1365,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			// expect update status is called
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeTrue())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeTrue())
 			}).Return(nil, nil)
@@ -1406,7 +1406,7 @@ var _ = Describe("VirtualMachine", func() {
 			// vmInterface.EXPECT().Update(gomock.Any()).Return(vm, nil)
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 
@@ -1420,7 +1420,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			shouldExpectVMFinalizerAddition(vm)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1433,7 +1433,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			//Expect only update status, not Patch on vmInterface
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1447,7 +1447,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 
@@ -1462,7 +1462,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			shouldExpectVMFinalizerRemoval(vm)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1479,7 +1479,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			shouldExpectVMIFinalizerRemoval(vmi)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 
@@ -1496,7 +1496,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1513,7 +1513,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiSource.Add(nonMatchingVMI)
 
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(2).Return(vm, nil).AnyTimes()
 
 			controller.Execute()
 
@@ -1528,7 +1528,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiFeeder.Add(vmi)
 
 			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.ObjectMeta.Name, gomock.Any(), gomock.Any(), &metav1.PatchOptions{})
 
 			controller.Execute()
@@ -1572,7 +1572,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			vmInterface.EXPECT().Get(context.Background(), vm.ObjectMeta.Name, gomock.Any()).Return(vm, nil)
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1583,7 +1583,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Return(vm, nil)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Return(vm, nil)
 
 			controller.Execute()
 		})
@@ -1597,7 +1597,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, fmt.Errorf("some random failure"))
 
 			// We should see the failed condition, replicas should stay at 0
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 				Expect(cond).To(Not(BeNil()))
@@ -1620,7 +1620,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("some random failure"))
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 				Expect(cond).To(Not(BeNil()))
@@ -1643,7 +1643,7 @@ var _ = Describe("VirtualMachine", func() {
 			setup(vmi)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
 					GetCondition(objVM, virtv1.VirtualMachineReady)
@@ -1729,7 +1729,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				// these conditions should be added
 				for _, condName := range addCondList {
@@ -1758,7 +1758,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtcontroller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
 			addVirtualMachine(vm)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
 					GetCondition(objVM, virtv1.VirtualMachineReady)
@@ -1782,7 +1782,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
 					GetCondition(objVM, virtv1.VirtualMachinePaused)
@@ -1804,7 +1804,7 @@ var _ = Describe("VirtualMachine", func() {
 			markAsReady(vmi)
 			vmiFeeder.Add(vmi)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().
 					GetCondition(objVM, virtv1.VirtualMachinePaused)
@@ -1822,7 +1822,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmiInterface.EXPECT().Delete(context.Background(), vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("some random failure"))
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(obj interface{}) {
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, obj interface{}) {
 				objVM := obj.(*virtv1.VirtualMachine)
 				cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 				Expect(cond).To(Not(BeNil()))
@@ -1961,7 +1961,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
 				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
 			})
@@ -1987,7 +1987,7 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     virtv1.MemoryDumpInProgress,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
@@ -2030,7 +2030,7 @@ var _ = Describe("VirtualMachine", func() {
 					FileName:       &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
@@ -2071,7 +2071,7 @@ var _ = Describe("VirtualMachine", func() {
 					EndTimestamp: &now,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
@@ -2116,7 +2116,7 @@ var _ = Describe("VirtualMachine", func() {
 				defer close(pvcAnnotationUpdated)
 				expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
 				shouldExpectVMIVolumesRemovePatched(vmi)
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
 				Eventually(func() bool {
@@ -2155,7 +2155,7 @@ var _ = Describe("VirtualMachine", func() {
 					EndTimestamp: &now,
 				}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
 				}).Return(nil, nil)
 
@@ -2176,7 +2176,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
 				}).Return(vm, nil)
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
 			})
@@ -2192,7 +2192,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 
 				// in case the volume is not in vm volumes we should remove memory dump request
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.MemoryDumpRequest).To(BeNil())
 				}).Return(nil, nil)
 
@@ -2223,7 +2223,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm, _ := DefaultVirtualMachine(false)
 				addVirtualMachine(vm)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopped))
 				})
@@ -2247,7 +2247,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmiFeeder.Add(vmi)
 
 				vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopped))
 				})
@@ -2269,7 +2269,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStarting))
 				})
@@ -2285,7 +2285,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStarting))
 				})
@@ -2311,7 +2311,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmiFeeder.Add(vmi)
 				}
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					if expectCrashloop {
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusCrashLoopBackOff))
@@ -2437,7 +2437,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(status))
 					})
@@ -2464,7 +2464,7 @@ var _ = Describe("VirtualMachine", func() {
 						if dvPhase == cdiv1.WaitForFirstConsumer {
 							vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
 						}
-						vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+						vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 							objVM := obj.(*virtv1.VirtualMachine)
 							Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 						})
@@ -2484,7 +2484,7 @@ var _ = Describe("VirtualMachine", func() {
 					dvFunc(dv)
 					dataVolumeFeeder.Add(dv)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusDataVolumeError))
 					})
@@ -2522,7 +2522,7 @@ var _ = Describe("VirtualMachine", func() {
 					})
 					dataVolumeFeeder.Add(dv)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
@@ -2565,7 +2565,7 @@ var _ = Describe("VirtualMachine", func() {
 					dataVolumeFeeder.Add(dv1)
 					dataVolumeFeeder.Add(dv2)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
 					})
@@ -2606,7 +2606,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusWaitingForVolumeBinding))
 					})
@@ -2628,7 +2628,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusRunning))
 				})
@@ -2648,7 +2648,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusPaused))
 				})
@@ -2671,7 +2671,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusStopping))
 				})
@@ -2704,7 +2704,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmiFeeder.Add(vmi)
 
 					vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).AnyTimes()
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
@@ -2730,7 +2730,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
@@ -2746,7 +2746,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					shouldExpectVMFinalizerRemoval(vm)
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
 					})
@@ -2770,7 +2770,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusMigrating))
 				})
@@ -2786,7 +2786,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusUnknown))
 				})
@@ -2804,7 +2804,7 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 					vmiFeeder.Add(vmi)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(status))
 					})
@@ -2842,7 +2842,7 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				vmiFeeder.Add(vmi)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 					objVM := obj.(*virtv1.VirtualMachine)
 					Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachinePrintableStatus(reason)))
 				})
@@ -2996,7 +2996,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3034,7 +3034,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3070,7 +3070,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3105,7 +3105,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3143,7 +3143,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3179,7 +3179,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3196,7 +3196,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3220,7 +3220,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3243,7 +3243,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3272,7 +3272,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3304,7 +3304,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3396,7 +3396,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3433,7 +3433,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3469,7 +3469,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3506,7 +3506,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3543,7 +3543,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3579,7 +3579,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 
@@ -3596,7 +3596,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3620,7 +3620,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3643,7 +3643,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3676,7 +3676,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(objVM, virtv1.VirtualMachineFailure)
 						Expect(cond).To(Not(BeNil()))
@@ -3717,7 +3717,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 				})
@@ -3766,7 +3766,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Networks).To(BeEmpty())
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 				})
@@ -3820,7 +3820,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Disks[1].Disk.Bus).To(Equal(preference.Spec.Devices.PreferredDiskBus))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 				})
@@ -3852,7 +3852,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(preference.Spec.Devices.PreferredInputBus))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 				})
@@ -3900,7 +3900,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(autoattachInputDevicePreference.Spec.Devices.PreferredInputBus))
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 				})
@@ -3945,7 +3945,7 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmiArg.Spec.Domain.Devices.Inputs).To(BeEmpty())
 					}).Return(vmi, nil)
 
-					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+					vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 					controller.Execute()
 				})
@@ -3991,7 +3991,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmiArg.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
 				}).Return(vmi, nil)
 
-				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 				controller.Execute()
 
@@ -4014,7 +4014,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiArg.Spec.Networks).To(Equal(networks))
 			}).Return(vmi, nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 			controller.Execute()
 
@@ -4051,7 +4051,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiArg.Spec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
 			}).Return(vmi, nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 			controller.Execute()
 
@@ -4076,7 +4076,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			}).Return(vmi, nil)
 
-			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1)
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1)
 
 			controller.Execute()
 

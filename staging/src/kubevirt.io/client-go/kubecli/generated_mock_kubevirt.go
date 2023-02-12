@@ -1540,15 +1540,15 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Patch(arg0, arg1, arg2, arg3, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInterface) UpdateStatus(_param0 *v120.VirtualMachine) (*v120.VirtualMachine, error) {
-	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+func (_m *MockVirtualMachineInterface) UpdateStatus(ctx context.Context, vm *v120.VirtualMachine) (*v120.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", ctx, vm)
 	ret0, _ := ret[0].(*v120.VirtualMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+func (_mr *_MockVirtualMachineInterfaceRecorder) UpdateStatus(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInterface) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *v12.PatchOptions) (*v120.VirtualMachine, error) {
