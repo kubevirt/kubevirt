@@ -123,7 +123,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			})
 		})
 
-		When("TSC frequency is not exposed on the cluster", decorators.Reenlightenment, func() {
+		When("TSC frequency is not exposed on the cluster", decorators.Reenlightenment, decorators.TscFrequencies, func() {
 
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
