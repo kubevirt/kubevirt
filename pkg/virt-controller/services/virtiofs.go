@@ -40,7 +40,7 @@ func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool) k8sv1
 
 	// TODO: Find out correct values
 	resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("80M")
 
 	if dedicatedCPUs || guaranteedQOS {
 		resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
@@ -49,7 +49,7 @@ func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool) k8sv1
 	}
 
 	if guaranteedQOS {
-		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("80M")
 	} else {
 		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 	}
