@@ -26,11 +26,12 @@ import (
 )
 
 const (
-	kvUIPluginName     = "kubevirt-console-plugin"
-	kvUIPluginSvcName  = kvUIPluginName + "-service"
-	kvUIPluginNameEnv  = "UI_PLUGIN_NAME"
-	kvServingCertName  = "plugin-serving-cert"
-	nginxConfigMapName = "nginx-conf"
+	kvUIPluginName           = "kubevirt-plugin"
+	kvUIPluginDeploymentName = "kubevirt-console-plugin"
+	kvUIPluginSvcName        = kvUIPluginDeploymentName + "-service"
+	kvUIPluginNameEnv        = "UI_PLUGIN_NAME"
+	kvServingCertName        = "plugin-serving-cert"
+	nginxConfigMapName       = "nginx-conf"
 )
 
 // **** Kubevirt UI Plugin Deployment Handler ****
@@ -62,7 +63,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kvUIPluginName,
+			Name:      kvUIPluginDeploymentName,
 			Labels:    getLabels(hc, hcoutil.AppComponentDeployment),
 			Namespace: hc.Namespace,
 		},
@@ -70,7 +71,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 			Replicas: pointer.Int32(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": kvUIPluginName,
+					"app": kvUIPluginDeploymentName,
 				},
 			},
 			Strategy: appsv1.DeploymentStrategy{
@@ -79,7 +80,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": kvUIPluginName,
+						"app": kvUIPluginDeploymentName,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -87,7 +88,7 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 					SecurityContext:    components.GetStdPodSecurityContext(),
 					Containers: []corev1.Container{
 						{
-							Name:            kvUIPluginName,
+							Name:            kvUIPluginDeploymentName,
 							Image:           kvUiPluginImage,
 							ImagePullPolicy: corev1.PullAlways,
 							Resources: corev1.ResourceRequirements{
@@ -148,9 +149,9 @@ func NewKvUiPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 
 func NewKvUiPluginSvc(hc *hcov1beta1.HyperConverged) *corev1.Service {
 	servicePorts := []corev1.ServicePort{
-		{Port: hcoutil.UiPluginServerPort, Name: kvUIPluginName + "-port", Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.UiPluginServerPort}},
+		{Port: hcoutil.UiPluginServerPort, Name: kvUIPluginDeploymentName + "-port", Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.UiPluginServerPort}},
 	}
-	pluginName := kvUIPluginName
+	pluginName := kvUIPluginDeploymentName
 	val, ok := os.LookupEnv(kvUIPluginNameEnv)
 	if ok && val != "" {
 		pluginName = val

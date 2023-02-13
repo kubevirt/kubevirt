@@ -293,6 +293,9 @@ Msg "Check that OVS is deployed or not deployed according to deployOVS annotatio
 ./hack/retry.sh 40 15 "CMD=${CMD} PREVIOUS_OVS_ANNOTATION=${PREVIOUS_OVS_ANNOTATION}\
  PREVIOUS_OVS_STATE=${PREVIOUS_OVS_STATE} ./hack/check_upgrade_ovs.sh"
 
+Msg "Ensure that console plugin deployment and service has been renamed successfully"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_upgrade_console_plugin.sh
+
 Msg "Check that managed objects has correct labels"
 ./hack/retry.sh 10 30 "KUBECTL_BINARY=${CMD} ./hack/check_labels.sh"
 

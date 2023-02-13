@@ -111,6 +111,30 @@
         "name": "nodemaintenances.nodemaintenance.kubevirt.io",
         "namespace": ""
       }
+    },
+    {
+      "semverRange": "<1.9.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "apps/v1",
+        "kind": "Deployment"
+      },
+      "objectKey": {
+        "name": "kubevirt-plugin",
+        "namespace": "kubevirt-hyperconverged"
+      }
+    },
+    {
+      "semverRange": "<1.9.0",
+      "groupVersionKind": {
+        "group": "",
+        "version": "v1",
+        "kind": "Service"
+      },
+      "objectKey": {
+        "name": "kubevirt-plugin-service",
+        "namespace": "kubevirt-hyperconverged"
+      }
     }
   ]
 }
