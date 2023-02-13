@@ -34,6 +34,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	clientutil "kubevirt.io/client-go/util"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -94,6 +96,9 @@ const (
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
@@ -205,6 +210,13 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	if kv.Spec.Configuration.MigrationConfiguration != nil &&
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
+	}
+	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
+		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+			if v == virtconfig.PersistentReservation {
+				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+			}
+		}
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
@@ -573,6 +585,11 @@ func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectRefe
 
 func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesPersistentReservationEnabled]
 	return enabled
 }
 
