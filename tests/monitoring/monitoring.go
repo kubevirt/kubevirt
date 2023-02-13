@@ -148,10 +148,14 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 		return fmt.Errorf("alert doesn't exist: %v", alertName)
 	}
 
-	verifyAlertExist := func(alertName string) {
+	verifyAlertExistWithCustomTime := func(alertName string, timeout time.Duration) {
 		Eventually(func() error {
 			return checkAlert(alertName)
-		}, 120*time.Second, 1*time.Second).Should(BeNil())
+		}, timeout, 10*time.Second).Should(BeNil())
+	}
+
+	verifyAlertExist := func(alertName string) {
+		verifyAlertExistWithCustomTime(alertName, 120*time.Second)
 	}
 
 	waitUntilAlertDoesNotExist := func(alertName string) {
@@ -630,6 +634,69 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
+
+	Context("System Alerts", func() {
+		disableVirtHandler := func() *v1.KubeVirt {
+			originalKv := util.GetCurrentKv(virtClient)
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			kv.Spec.CustomizeComponents = v1.CustomizeComponents{
+				Patches: []v1.CustomizeComponentsPatch{
+					{
+						ResourceName: virtHandler.deploymentName,
+						ResourceType: "DaemonSet",
+						Patch:        `{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"does-not-exist"}}}}}`,
+						Type:         v1.StrategicMergePatchType,
+					},
+				},
+			}
+
+			Eventually(func() error {
+				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+				return err
+			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+			Eventually(func() string {
+				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vh.Spec.Template.Spec.NodeSelector["kubernetes.io/hostname"]
+			}, 90*time.Second, 5*time.Second).Should(Equal("does-not-exist"))
+
+			Eventually(func() int {
+				vh, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return int(vh.Status.NumberAvailable + vh.Status.NumberUnavailable)
+			}, 90*time.Second, 5*time.Second).Should(Equal(0))
+
+			return kv
+		}
+
+		restoreVirtHandler := func(kv *v1.KubeVirt) {
+			originalKv := util.GetCurrentKv(virtClient)
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.CustomizeComponents = v1.CustomizeComponents{}
+
+			Eventually(func() error {
+				kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(kv)
+				return err
+			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}
+
+		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when there are no available nodes in the cluster to run VMs", func() {
+			By("Scaling down virt-handler")
+			kv := disableVirtHandler()
+
+			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
+			verifyAlertExistWithCustomTime("KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
+
+			By("Restoring virt-handler")
+			restoreVirtHandler(kv)
+			waitUntilAlertDoesNotExist("KubeVirtNoAvailableNodesToRunVMs")
+		})
+	})
+
 })
 
 func checkRequiredAnnotations(rule promv1.Rule) {
