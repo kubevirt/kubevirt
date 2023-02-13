@@ -354,6 +354,16 @@ spec:
 EOF
 fi
 
+add_to_label_filter() {
+  local label=$1
+  local separator=$2
+  if [[ -z $label_filter ]]; then
+    label_filter="${1}"
+  else
+    label_filter="${label_filter}${separator}${1}"
+  fi
+}
+
 # Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
@@ -400,32 +410,22 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   else
     label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU))'
   fi
-fi
 
-add_to_label_filter() {
-  local label=$1
-  local separator=$2
-  if [[ -z $label_filter ]]; then
-    label_filter="${1}"
-  else
-    label_filter="${label_filter}${separator}${1}"
-  fi
-}
-
-if [[ $KUBEVIRT_NONROOT =~ true ]]; then
+  if [[ $KUBEVIRT_NONROOT =~ true ]]; then
   add_to_label_filter '(verify-non-root)' ','
-else
-  add_to_label_filter '(!verify-non-root)' '&&'
-fi
+  else
+    add_to_label_filter '(!verify-non-root)' '&&'
+  fi
 
-if [[ $TARGET =~ centos9 ]]; then
-  add_to_label_filter '(!CustomSELinux)' '&&'
-fi
+  if [[ $TARGET =~ centos9 ]]; then
+    add_to_label_filter '(!CustomSELinux)' '&&'
+  fi
 
-# Single-node single-replica test lanes obviously can't run live migrations,
-# but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
-if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))' '&&'
+  # Single-node single-replica test lanes obviously can't run live migrations,
+  # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
+  if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+    add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))' '&&'
+  fi
 fi
 
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
