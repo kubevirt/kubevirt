@@ -15,6 +15,7 @@ var (
 	// HW
 	GPU         = []interface{}{Label("GPU")}
 	VGPU        = []interface{}{Label("VGPU")}
+	SEV         = []interface{}{Label("SEV")}
 	SRIOV       = []interface{}{Label("SRIOV")}
 	StorageReq  = []interface{}{Label("storage-req")}
 	Multus      = []interface{}{Label("Multus")}
