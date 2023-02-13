@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["emulator-container.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/emulator-container",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/util/net/grpc:go_default_library",
+        "//pkg/virt-handler/cmd-client:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "emulator-container",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

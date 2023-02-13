@@ -64,9 +64,12 @@ var (
 	podsBaseDir          = "/pods"
 )
 
-const StandardLauncherSocketFileName = "launcher-sock"
-const StandardInitLauncherSocketFileName = "launcher-init-sock"
-const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
+const (
+	StandardLauncherSocketFileName       = "launcher-sock"
+	StandardInitLauncherSocketFileName   = "launcher-init-sock"
+	EmulatorContainerSocketName          = "emulator-sock"
+	StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
+)
 
 type MigrationOptions struct {
 	Bandwidth               resource.Quantity
