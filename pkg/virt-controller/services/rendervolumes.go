@@ -499,7 +499,7 @@ func (vr *VolumeRenderer) handleHostDisk(volume v1.Volume) {
 func (vr *VolumeRenderer) handleSecret(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+		MountPath: config.GetSecretSourcePath(volume.Name),
 		ReadOnly:  true,
 	})
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
@@ -516,7 +516,7 @@ func (vr *VolumeRenderer) handleSecret(volume v1.Volume) {
 func (vr *VolumeRenderer) handleConfigMap(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: filepath.Join(config.ConfigMapSourceDir, volume.Name),
+		MountPath: config.GetConfigMapSourcePath(volume.Name),
 		ReadOnly:  true,
 	})
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
@@ -534,7 +534,7 @@ func (vr *VolumeRenderer) handleDownwardAPI(volume v1.Volume) {
 	// attach a Secret to the pod
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: filepath.Join(config.DownwardAPISourceDir, volume.Name),
+		MountPath: config.GetDownwardAPISourcePath(volume.Name),
 		ReadOnly:  true,
 	})
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
