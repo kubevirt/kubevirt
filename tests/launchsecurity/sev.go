@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decorators.SEV, decorators.SigCompute, func() {
 	const (
 		diskSecret = "qwerty123"
 	)
