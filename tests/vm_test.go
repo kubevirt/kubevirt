@@ -2360,7 +2360,7 @@ status:
 
 			By("Creating VirtualMachine")
 			vm = tests.NewRandomVirtualMachine(vmi, true)
-			Expect(vm.Finalizers).To(HaveLen(0))
+			Expect(vm.Finalizers).To(BeEmpty())
 
 		})
 

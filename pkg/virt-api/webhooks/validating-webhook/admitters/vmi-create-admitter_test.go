@@ -3785,12 +3785,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Context("feature gate enabled", func() {
 			It("should accept vmi with no vsocks defined", func() {
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(0))
+				Expect(causes).To(BeEmpty())
 			})
 			It("should accept vmi with vsocks defined", func() {
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.Bool(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(0))
+				Expect(causes).To(BeEmpty())
 			})
 		})
 		Context("feature gate disabled", func() {
