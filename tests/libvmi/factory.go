@@ -75,7 +75,7 @@ func newFedora(containerDisk cd.ContainerDisk, opts ...Option) *kvirtv1.VirtualM
 		WithContainerImage(cd.ContainerDiskFor(containerDisk)),
 	}
 	opts = append(fedoraOptions, opts...)
-	return New(RandName(DefaultVmiName), opts...)
+	return New(opts...)
 }
 
 // NewCirros instantiates a new CirrOS based VMI configuration
@@ -87,5 +87,5 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 	}
 	cirrosOpts = append(cirrosOpts, opts...)
-	return New(RandName(DefaultVmiName), cirrosOpts...)
+	return New(cirrosOpts...)
 }
