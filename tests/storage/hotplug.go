@@ -860,21 +860,21 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			It("should reject hotplugging the same volume with an existing volume name", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By(addingVolumeRunningVM)
 				addPVCVolumeVMI(vmi.Name, vmi.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
 
 				By(verifyingVolumeDiskInVM)
-				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
 				verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
 
 				By(addingVolumeAgain)
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).AddVolume(context.Background(), vmi.Name, getAddVolumeOptions(dvBlock.Name, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).AddVolume(vmi.Name, getAddVolumeOptions(dvBlock.Name, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
 					DataVolume: &v1.DataVolumeSource{
 						Name: dvBlock.Name,
 					},
@@ -884,9 +884,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			})
 
 			DescribeTable("should reject removing a volume", func(volName, expectedErr string) {
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
 
 				By(removingVolumeFromVM)
 				err = virtClient.VirtualMachine(vm.Namespace).RemoveVolume(vm.Name, &v1.RemoveVolumeOptions{Name: volName})
