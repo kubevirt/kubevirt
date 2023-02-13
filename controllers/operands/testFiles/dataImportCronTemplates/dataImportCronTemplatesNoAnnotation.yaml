@@ -1,7 +1,5 @@
 - metadata:
-    annotations:
-      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
-    name: fedora-image-cron
+    name: no-annotations
     namespace: golden-image-namespace
   spec:
     schedule: "* */1 * * *"
@@ -13,8 +11,8 @@
     managedDataSource: fedora
 - metadata:
     annotations:
-      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
-    name: centos8-image-cron
+      cdi.kubevirt.io/storage.bind.immediate.requested: "false"
+    name: from-file-annotation-false
     namespace: golden-image-namespace
   spec:
     schedule: "* */1 * * *"

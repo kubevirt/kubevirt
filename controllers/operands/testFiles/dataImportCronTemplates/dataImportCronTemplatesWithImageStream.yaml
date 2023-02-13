@@ -1,4 +1,6 @@
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: fedora-image-cron
   spec:
     schedule: "* */1 * * *"
@@ -10,6 +12,8 @@
             imageStream: fedora
     managedDataSource: fedora
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: test-is
   spec:
     schedule: "* */1 * * *"
@@ -20,6 +24,8 @@
             imageStream: test-is
     managedDataSource: test-is
 - metadata:
+    annotations:
+      cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos8-image-cron
   spec:
     schedule: "* */1 * * *"

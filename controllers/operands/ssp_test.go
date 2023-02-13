@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -609,7 +610,7 @@ var _ = Describe("SSP Operands", func() {
 			It("should read the dataImportCronTemplates file", func() {
 
 				By("directory does not exist - no error")
-				Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+				Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 				Expect(dataImportCronTemplateHardCodedMap).To(BeEmpty())
 
 				By("file does not exist - no error")
@@ -617,7 +618,7 @@ var _ = Describe("SSP Operands", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer func() { _ = os.RemoveAll(dir) }()
 
-				Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+				Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 				Expect(dataImportCronTemplateHardCodedMap).To(BeEmpty())
 
 				destFile := path.Join(dir, "dataImportCronTemplates.yaml")
@@ -626,7 +627,7 @@ var _ = Describe("SSP Operands", func() {
 				err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 				defer os.Remove(destFile)
-				Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+				Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 				Expect(dataImportCronTemplateHardCodedMap).To(HaveLen(2))
 
 				By("the file is wrong")
@@ -793,7 +794,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(goldenImageList).To(ContainElements(statusImage3, statusImage4))
 				})
 
-				It("Should not replace the common DICT registry field if the CR list includes it", func() {
+				It("Should replace the common DICT registry field if the CR list includes it", func() {
 
 					modifiedURL := "docker://someregistry/modified"
 					anotherURL := "docker://someregistry/anotherURL"
@@ -911,7 +912,7 @@ var _ = Describe("SSP Operands", func() {
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
 					defer os.Remove(destFile)
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
@@ -931,7 +932,7 @@ var _ = Describe("SSP Operands", func() {
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
 					defer os.Remove(destFile)
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
@@ -949,7 +950,7 @@ var _ = Describe("SSP Operands", func() {
 					commonImages = append(commonImages, image3)
 					commonImages = append(commonImages, image4)
 
-					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(hcoDictSliceToSSSP(commonImages)))
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(hcoDictSliceToSSP(commonImages)))
 				})
 
 				It("Should not add a common DIC template if it marked as disabled", func() {
@@ -961,7 +962,7 @@ var _ = Describe("SSP Operands", func() {
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
 					defer os.Remove(destFile)
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
@@ -977,7 +978,7 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
-					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{commonCentos8, image3, image4})
+					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{commonCentos8, image3, image4})
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(ContainElement(commonFedora))
 				})
@@ -991,7 +992,7 @@ var _ = Describe("SSP Operands", func() {
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
 					defer os.Remove(destFile)
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
@@ -1007,7 +1008,7 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("Should reject if the CR list contain DIC template with the same name", func() {
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
@@ -1023,7 +1024,7 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("should return a only the list from the HyperConverged CR, if the file is missing", func() {
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 					Expect(dataImportCronTemplateHardCodedMap).Should(BeEmpty())
 
 					hco := commonTestUtils.NewHco()
@@ -1034,7 +1035,7 @@ var _ = Describe("SSP Operands", func() {
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
-					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
+					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 				})
 
@@ -1047,7 +1048,7 @@ var _ = Describe("SSP Operands", func() {
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
 					defer os.Remove(destFile)
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
@@ -1056,7 +1057,7 @@ var _ = Describe("SSP Operands", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
-					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
+					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{image3, image4})
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
 				})
 
@@ -1069,7 +1070,7 @@ var _ = Describe("SSP Operands", func() {
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
 					defer os.Remove(destFile)
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
 					hco := commonTestUtils.NewHco()
 					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
@@ -1095,8 +1096,52 @@ var _ = Describe("SSP Operands", func() {
 					ssp, _, err := NewSSP(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
-					expected := hcoDictSliceToSSSP([]hcov1beta1.DataImportCronTemplate{*fedoraDic, commonCentos8, image3, image4})
+					expected := hcoDictSliceToSSP([]hcov1beta1.DataImportCronTemplate{*fedoraDic, commonCentos8, image3, image4})
 					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(expected))
+				})
+
+				It("should add the cdi.kubevirt.io/storage.bind.immediate.requested annotation if missing", func() {
+					err := os.Mkdir(dir, os.ModePerm)
+					Expect(err).ToNot(HaveOccurred())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplatesNoAnnotation.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
+
+					hco := commonTestUtils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+
+					Expect(dataImportCronTemplateHardCodedMap).To(HaveLen(2))
+
+					var customDicAnnotationFalse hcov1beta1.DataImportCronTemplate
+					image3.DeepCopyInto(&customDicAnnotationFalse)
+					customDicAnnotationFalse.Name = "custom-dict-annotation-false"
+					customDicAnnotationFalse.Annotations = map[string]string{
+						CDIImmediateBindAnnotation: "false",
+					}
+
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{customDicAnnotationFalse, image4}
+					ssp, _, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+
+					annotationTrue := 0
+					annotationFalse := 0
+					for _, dict := range ssp.Spec.CommonTemplates.DataImportCronTemplates {
+						Expect(dict.Annotations).ToNot(BeEmpty())
+						if strings.HasSuffix(dict.Name, "-annotation-false") {
+							Expect(dict.Annotations[CDIImmediateBindAnnotation]).Should(Equal("false"))
+							annotationFalse++
+						} else {
+							Expect(dict.Annotations[CDIImmediateBindAnnotation]).Should(Equal("true"))
+							annotationTrue++
+						}
+					}
+					Expect(annotationTrue).Should(Equal(2))
+					Expect(annotationFalse).Should(Equal(2))
 				})
 			})
 
@@ -1139,7 +1184,7 @@ var _ = Describe("SSP Operands", func() {
 					destFile = path.Join(dir, "dataImportCronTemplates.yaml")
 					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(readDataImportCronTemplatesFromFile()).ToNot(HaveOccurred())
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 				})
 
 				AfterEach(func() {

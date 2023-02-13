@@ -3,7 +3,9 @@ package tests
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -41,16 +43,29 @@ func BeforeEach() {
 	kvtutil.PanicOnError(virtClient.CoreV1().RESTClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("persistentvolumeclaims").Do(context.TODO()).Error())
 }
 
-func SkipIfNotOpenShift(cli kubecli.KubevirtClient) {
+func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
 	isOpenShift, err := IsOpenShift(cli)
 	kvtutil.PanicOnError(err)
 
 	if !isOpenShift {
-		ginkgo.Skip("Skipping Prometheus tests when the cluster is not OpenShift")
+		ginkgo.Skip(fmt.Sprintf("Skipping %s tests when the cluster is not OpenShift", testName))
 	}
 }
 
-func IsOpenShift(cli kubecli.KubevirtClient) (bool, error) {
+type cacheIsOpenShift struct {
+	isOpenShift bool
+	hasSet      bool
+	lock        sync.Mutex
+}
+
+func (c *cacheIsOpenShift) IsOpenShift(cli kubecli.KubevirtClient) (bool, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if c.hasSet {
+		return c.isOpenShift, nil
+	}
+
 	s := scheme.Scheme
 	_ = openshiftconfigv1.Install(s)
 	s.AddKnownTypes(openshiftconfigv1.GroupVersion)
@@ -69,11 +84,22 @@ func IsOpenShift(cli kubecli.KubevirtClient) (bool, error) {
 		Do(context.TODO()).Into(clusterVersion)
 
 	if err == nil {
-		return true, nil
-	} else if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
-		return false, nil
-	} else {
-		return false, err
+		c.isOpenShift = true
+		c.hasSet = true
+		return c.isOpenShift, nil
 	}
 
+	if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
+		c.isOpenShift = false
+		c.hasSet = true
+		return c.isOpenShift, nil
+	}
+
+	return false, err
+}
+
+var isOpenShiftCache cacheIsOpenShift
+
+func IsOpenShift(cli kubecli.KubevirtClient) (bool, error) {
+	return isOpenShiftCache.IsOpenShift(cli)
 }

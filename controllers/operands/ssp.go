@@ -34,6 +34,8 @@ const (
 	defaultCommonTemplatesNamespace = hcoutil.OpenshiftNamespace
 
 	dataImportCronTemplatesFileLocation = "./dataImportCronTemplates"
+
+	CDIImmediateBindAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 )
 
 var (
@@ -147,7 +149,7 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 		},
 		CommonTemplates: sspv1beta1.CommonTemplates{
 			Namespace:               templatesNamespace,
-			DataImportCronTemplates: hcoDictSliceToSSSP(dataImportCronTemplates),
+			DataImportCronTemplates: hcoDictSliceToSSP(dataImportCronTemplates),
 		},
 		// NodeLabeller field is explicitly initialized to its zero-value,
 		// in order to future-proof from bugs if SSP changes it to pointer-type,
@@ -322,19 +324,29 @@ func (d dataImportTemplateSlice) Len() int           { return len(d) }
 func (d dataImportTemplateSlice) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d dataImportTemplateSlice) Less(i, j int) bool { return d[i].Name < d[j].Name }
 
-func hcoDictToSSSP(hcoDict hcov1beta1.DataImportCronTemplate) sspv1beta1.DataImportCronTemplate {
+func hcoDictToSSP(hcoDict hcov1beta1.DataImportCronTemplate) sspv1beta1.DataImportCronTemplate {
 	spec := cdiv1beta1.DataImportCronSpec{}
 	if hcoDict.Spec != nil {
 		hcoDict.Spec.DeepCopyInto(&spec)
 	}
 
-	return sspv1beta1.DataImportCronTemplate{
+	dict := sspv1beta1.DataImportCronTemplate{
 		ObjectMeta: *hcoDict.ObjectMeta.DeepCopy(),
 		Spec:       spec,
 	}
+
+	if dict.Annotations == nil {
+		dict.Annotations = make(map[string]string)
+	}
+
+	if _, foundAnnotation := dict.Annotations[CDIImmediateBindAnnotation]; !foundAnnotation {
+		dict.Annotations[CDIImmediateBindAnnotation] = "true"
+	}
+
+	return dict
 }
 
-func hcoDictSliceToSSSP(hcoDicts []hcov1beta1.DataImportCronTemplate) []sspv1beta1.DataImportCronTemplate {
+func hcoDictSliceToSSP(hcoDicts []hcov1beta1.DataImportCronTemplate) []sspv1beta1.DataImportCronTemplate {
 	if len(hcoDicts) == 0 {
 		return nil
 	}
@@ -342,7 +354,7 @@ func hcoDictSliceToSSSP(hcoDicts []hcov1beta1.DataImportCronTemplate) []sspv1bet
 	res := make([]sspv1beta1.DataImportCronTemplate, len(hcoDicts))
 
 	for i, hcoDict := range hcoDicts {
-		res[i] = hcoDictToSSSP(hcoDict)
+		res[i] = hcoDictToSSP(hcoDict)
 	}
 
 	return res

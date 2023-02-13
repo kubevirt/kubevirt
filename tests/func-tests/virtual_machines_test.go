@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	timeout         = 360 * time.Second
-	pollingInterval = 5 * time.Second
+	timeout         = 10 * time.Minute
+	pollingInterval = 10 * time.Second
 	vmiSamplingSize = 5
 )
 
@@ -48,17 +48,17 @@ func verifyVMICreation(client kubecli.KubevirtClient) string {
 	EventuallyWithOffset(1, func() error {
 		_, err := client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Create(context.Background(), vmi)
 		return err
-	}, timeout, pollingInterval).Should(Not(HaveOccurred()), "failed to create a vmi")
+	}, timeout, pollingInterval).Should(Succeed(), "failed to create a vmi")
 	return vmi.Name
 }
 
 func verifyVMIRunning(client kubecli.KubevirtClient, vmiName string) *kubevirtcorev1.VirtualMachineInstance {
 	By("Verifying VMI is running")
 	var vmi *kubevirtcorev1.VirtualMachineInstance
-	EventuallyWithOffset(1, func() bool {
+	EventuallyWithOffset(1, func(g Gomega) bool {
 		var err error
 		vmi, err = client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Get(context.Background(), vmiName, &k8smetav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 		return vmi.Status.Phase == kubevirtcorev1.Running
 	}, timeout, pollingInterval).Should(BeTrue(), "failed to get the vmi Running")
 
@@ -68,7 +68,6 @@ func verifyVMIRunning(client kubecli.KubevirtClient, vmiName string) *kubevirtco
 func verifyVMIDeletion(client kubecli.KubevirtClient, vmiName string) {
 	By("Verifying node placement of VMI")
 	EventuallyWithOffset(1, func() error {
-		err := client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Delete(context.Background(), vmiName, &k8smetav1.DeleteOptions{})
-		return err
+		return client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Delete(context.Background(), vmiName, &k8smetav1.DeleteOptions{})
 	}, timeout, pollingInterval).Should(Not(HaveOccurred()), "failed to delete a vmi")
 }

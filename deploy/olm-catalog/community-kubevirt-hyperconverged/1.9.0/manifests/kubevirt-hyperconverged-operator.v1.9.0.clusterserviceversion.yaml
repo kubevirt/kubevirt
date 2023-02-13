@@ -3868,6 +3868,28 @@ spec:
     type: MutatingAdmissionWebhook
     webhookPath: /mutate-virt-launcher-hco-kubevirt-io
   - admissionReviewVersions:
+    - v1beta1
+    - v1
+    containerPort: 4343
+    deploymentName: hco-webhook
+    failurePolicy: Fail
+    generateName: mutate-hyperconverged-hco.kubevirt.io
+    rules:
+    - apiGroups:
+      - hco.kubevirt.io
+      apiVersions:
+      - v1alpha1
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - hyperconvergeds
+    sideEffects: NoneOnDryRun
+    timeoutSeconds: 10
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-hco-kubevirt-io-v1beta1-hyperconverged
+  - admissionReviewVersions:
     - v1
     - v1beta1
     containerPort: 9443

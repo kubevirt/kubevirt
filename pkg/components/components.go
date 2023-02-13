@@ -18,6 +18,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/pointer"
@@ -29,8 +30,6 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -782,7 +781,6 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 	}
 
 	mutatingWebhookSideEffects := admissionregistrationv1.SideEffectClassNoneOnDryRun
-	mutatingWebhookPath := util.HCONSWebhookPath
 
 	mutatingNamespaceWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoMutatingWebhookNS,
@@ -808,7 +806,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 			},
 		},
-		WebhookPath: &mutatingWebhookPath,
+		WebhookPath: pointer.String(util.HCONSWebhookPath),
 	}
 
 	mutatingVirtLauncherWebhook := csvv1alpha1.WebhookDescription{
@@ -836,6 +834,31 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			},
 		},
 		WebhookPath: pointer.String(util.HCOVirtLauncherWebhookPath),
+	}
+
+	mutatingHyperConvergedWebhook := csvv1alpha1.WebhookDescription{
+		GenerateName:            util.HcoMutatingWebhookHyperConverged,
+		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
+		DeploymentName:          hcoWhDeploymentName,
+		ContainerPort:           util.WebhookPort,
+		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
+		SideEffects:             &mutatingWebhookSideEffects,
+		FailurePolicy:           &failurePolicy,
+		TimeoutSeconds:          &webhookTimeout,
+		Rules: []admissionregistrationv1.RuleWithOperations{
+			{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+				},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   stringListToSlice(util.APIVersionGroup),
+					APIVersions: stringListToSlice(util.APIVersionAlpha, util.APIVersionBeta),
+					Resources:   stringListToSlice("hyperconvergeds"),
+				},
+			},
+		},
+		WebhookPath: pointer.String(util.HCOMutatingWebhookPath),
 	}
 
 	return &csvv1alpha1.ClusterServiceVersion{
@@ -926,8 +949,13 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			},
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
-			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
-			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validatingWebhook, mutatingNamespaceWebhook, mutatingVirtLauncherWebhook},
+			InstallStrategy: csvv1alpha1.NamedInstallStrategy{},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{
+				validatingWebhook,
+				mutatingNamespaceWebhook,
+				mutatingVirtLauncherWebhook,
+				mutatingHyperConvergedWebhook,
+			},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{

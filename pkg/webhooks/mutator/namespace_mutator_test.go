@@ -170,3 +170,27 @@ func newRequest(operation admissionv1.Operation, object runtime.Object, encoder 
 		},
 	}
 }
+
+func newCreateRequest(object runtime.Object, encoder runtime.Encoder) admissionv1.AdmissionRequest {
+	return admissionv1.AdmissionRequest{
+		Operation: admissionv1.Create,
+		Object: runtime.RawExtension{
+			Raw:    []byte(runtime.EncodeOrDie(encoder, object)),
+			Object: object,
+		},
+	}
+}
+
+func newUpdateRequest(origObject runtime.Object, newObject runtime.Object, encoder runtime.Encoder) admissionv1.AdmissionRequest {
+	return admissionv1.AdmissionRequest{
+		Operation: admissionv1.Update,
+		OldObject: runtime.RawExtension{
+			Raw:    []byte(runtime.EncodeOrDie(encoder, origObject)),
+			Object: origObject,
+		},
+		Object: runtime.RawExtension{
+			Raw:    []byte(runtime.EncodeOrDie(encoder, newObject)),
+			Object: newObject,
+		},
+	}
+}
