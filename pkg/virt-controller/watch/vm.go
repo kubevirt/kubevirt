@@ -22,9 +22,11 @@ package watch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,7 +35,7 @@ import (
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -330,7 +332,7 @@ func (c *VMController) execute(key string) error {
 		logger.Reason(syncErr).Error("Reconciling the VirtualMachine failed.")
 	}
 
-	err = c.updateStatus(vm, vmi, syncErr)
+	err = c.updateStatus(vm, vmi, syncErr, logger)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
 		return err
@@ -906,6 +908,8 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	}
 	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
+	setGenerationAnnotationOnVmi(vm.Generation, vmi)
+
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
@@ -945,6 +949,133 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+
+	return nil
+}
+
+func setGenerationAnnotationOnVmi(generation int64, vmi *virtv1.VirtualMachineInstance) {
+	annotations := vmi.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[virtv1.VirtualMachineGenerationAnnotation] = strconv.FormatInt(generation, 10)
+	vmi.SetAnnotations(annotations)
+}
+
+func (c *VMController) patchVmGenerationAnnotationOnVmi(generation int64, vmi *virtv1.VirtualMachineInstance) error {
+	origVmi := vmi.DeepCopy()
+
+	setGenerationAnnotationOnVmi(generation, vmi)
+
+	var ops []string
+	oldAnnotations, err := json.Marshal(origVmi.Annotations)
+	if err != nil {
+		return err
+	}
+	newAnnotations, err := json.Marshal(vmi.Annotations)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
+	ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
+	_, err = c.clientset.VirtualMachineInstance(origVmi.Namespace).Patch(context.Background(), origVmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getGenerationAnnotation will return the generation annotation on the
+// vmi as an string pointer. The string pointer will be nil if the annotation is
+// not found.
+func getGenerationAnnotation(vmi *virtv1.VirtualMachineInstance) (i *string, err error) {
+	if vmi == nil {
+		return nil, errors.New("received nil pointer for vmi")
+	}
+
+	currentGenerationAnnotation, found := vmi.Annotations[virtv1.VirtualMachineGenerationAnnotation]
+	if found {
+		return &currentGenerationAnnotation, nil
+	}
+
+	return nil, nil
+}
+
+// getGenerationAnnotation will return the generation annotation on the
+// vmi as an int64 pointer. The int64 pointer will be nil if the annotation is
+// not found.
+func getGenerationAnnotationAsInt(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) (i *int64, err error) {
+	if vmi == nil {
+		return nil, errors.New("received nil pointer for vmi")
+	}
+
+	currentGenerationAnnotation, found := vmi.Annotations[virtv1.VirtualMachineGenerationAnnotation]
+	if found {
+		i, err := strconv.ParseInt(currentGenerationAnnotation, 10, 64)
+		if err != nil {
+			// If there is an error during parsing, it will be treated as if the
+			// annotation does not exist since the annotation is not formatted
+			// correctly. Further iterations / logic in the controller will handle
+			// re-annotating this by the controller revision. Still log the error for
+			// debugging, since there should never be a ParseInt error during normal
+			// use.
+			logger.Reason(err).Errorf("Failed to parse virtv1.VirtualMachineGenerationAnnotation as an int from vmi %v annotations", vmi.Name)
+			return nil, nil
+		}
+
+		return &i, nil
+	}
+
+	return nil, nil
+}
+
+// Follows the template used in createVMRevision for the Data.Raw value
+type VirtualMachineRevisionData struct {
+	Spec virtv1.VirtualMachineSpec `json:"spec"`
+}
+
+// conditionallyBumpGenerationAnnotationOnVmi will check whether the
+// generation annotation needs to be bumped on the VMI, and then bump that
+// annotation if needed. The checks are:
+// 1. If the generation has not changed, do not bump.
+// 2. Only bump if the templates are the same.
+//
+// Note that if only the Run Strategy of the VM has changed, the generaiton
+// annotation will still be bumped, since this does not affect the VMI.
+func (c *VMController) conditionallyBumpGenerationAnnotationOnVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vm == nil {
+		return nil
+	}
+
+	// If this is an old vmi created before a controller update, then the
+	// annotation may not exist. In that case, continue on as if the generation
+	// annotation needs to be bumped.
+	currentGeneration, err := getGenerationAnnotation(vmi)
+	if err != nil {
+		return err
+	}
+	if currentGeneration != nil && *currentGeneration == strconv.FormatInt(vm.Generation, 10) {
+		return nil
+	}
+
+	currentRevision, err := c.getControllerRevision(vmi.Namespace, vmi.Status.VirtualMachineRevisionName)
+	if currentRevision == nil || err != nil {
+		return err
+	}
+
+	revisionSpec := &VirtualMachineRevisionData{}
+	if err = json.Unmarshal(currentRevision.Data.Raw, revisionSpec); err != nil {
+		return err
+	}
+
+	// If the templates are the same, we can safely bump the annotation.
+	if equality.Semantic.DeepEqual(revisionSpec.Spec.Template, vm.Spec.Template) {
+		if err := c.patchVmGenerationAnnotationOnVmi(vm.Generation, vmi); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -1167,6 +1298,20 @@ func (c *VMController) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, e
 	}
 
 	return createNotNeeded, nil
+}
+
+// getControllerRevision attempts to get the controller revision by name and
+// namespace. It will return (nil, nil) if the controller revision is not found.
+func (c *VMController) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
+	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, v1.GetOptions{})
+	if err != nil {
+		if apiErrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return cr, nil
 }
 
 func (c *VMController) createVMRevision(vm *virtv1.VirtualMachine) (string, error) {
@@ -1734,7 +1879,81 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine, finalizer strin
 	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 }
 
-func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {
+// parseGeneration will parse for the last value after a '-'. It is assumed the
+// revision name is created with getVMRevisionName. If the name is not formatted
+// correctly and the generation cannot be found, then nil will be returned.
+func parseGeneration(revisionName string, logger *log.FilteredLogger) *int64 {
+	idx := strings.LastIndexAny(revisionName, "-")
+	if idx == -1 {
+		logger.Errorf("Failed to parse generation as an int from revision %v", revisionName)
+		return nil
+	}
+
+	generationStr := revisionName[idx+1:]
+
+	generation, err := strconv.ParseInt(generationStr, 10, 64)
+	if err != nil {
+		logger.Reason(err).Errorf("Failed to parse generation as an int from revision %v", revisionName)
+		return nil
+	}
+
+	return &generation
+}
+
+// patchVmGenerationFromControllerRevision will first fetch the generation from
+// the corresponding controller revision, and then patch the vmi with the
+// generation annotation. If the controller revision does not exist,
+// (nil, nil) will be returned.
+func (c *VMController) patchVmGenerationFromControllerRevision(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) (generation *int64, err error) {
+	generation = nil
+
+	cr, err := c.getControllerRevision(vmi.Namespace, vmi.Status.VirtualMachineRevisionName)
+	if err != nil || cr == nil {
+		return generation, err
+	}
+
+	generation = parseGeneration(cr.Name, logger)
+	if generation == nil {
+		return nil, nil
+	}
+
+	if err := c.patchVmGenerationAnnotationOnVmi(*generation, vmi); err != nil {
+		return generation, err
+	}
+
+	return generation, err
+}
+
+// syncGenerationInfo will update the vm.Status with the ObservedGeneration
+// from the vmi and the DesiredGeneration from the vm current generation.
+func (c *VMController) syncGenerationInfo(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
+	if vm == nil || vmi == nil {
+		return errors.New("passed nil pointer")
+	}
+
+	generation, err := getGenerationAnnotationAsInt(vmi, logger)
+	if err != nil {
+		return err
+	}
+
+	// If the generation annotation does not exist, the VMI could have been
+	// been created before the controller was updated. In this case, check the
+	// ControllerRevision on what the latest observed generation is and back-fill
+	// the info onto the vmi annotation.
+	if generation == nil {
+		generation, err = c.patchVmGenerationFromControllerRevision(vmi, logger)
+		if generation == nil || err != nil {
+			return err
+		}
+	}
+
+	vm.Status.ObservedGeneration = *generation
+	vm.Status.DesiredGeneration = vm.Generation
+
+	return nil
+}
+
+func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError, logger *log.FilteredLogger) error {
 	key := controller.VirtualMachineKey(vmOrig)
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "updateStatus", trace.Field{Key: "VM Name", Value: vmOrig.Name})
 
@@ -1746,6 +1965,9 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	ready := false
 	if created {
 		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
+		if err := c.syncGenerationInfo(vm, vmi, logger); err != nil {
+			return err
+		}
 	}
 	vm.Status.Ready = ready
 
@@ -2078,7 +2300,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 			// because either the VM or VMI informers can trigger processing here
 			// double check the state of the cluster before taking action
 			_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), &v1.GetOptions{})
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil && apiErrors.IsNotFound(err) {
 				// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
 				log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
 				return true
@@ -2265,6 +2487,10 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		if err != nil {
 			return vm, nil, err
 		}
+	}
+
+	if err := c.conditionallyBumpGenerationAnnotationOnVmi(vm, vmi); err != nil {
+		return nil, nil, err
 	}
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
