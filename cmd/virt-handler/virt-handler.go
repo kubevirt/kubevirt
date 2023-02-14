@@ -185,7 +185,7 @@ func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
 	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
-		logger.Level(log.ERROR).Log("Unable to mark node as unschedulable", err.Error())
+		logger.Reason(err).Error("Unable to mark node as unschedulable")
 	}
 }
 
@@ -204,7 +204,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	logger := log.Log
-	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
+	logger.V(1).Infof("hostname %s", app.HostOverride)
 	var err error
 
 	// Copy container-disk binary
