@@ -35,6 +35,7 @@ type GuestfsInfo struct {
 	Tag         string `json:"tag"`
 	Digest      string `json:"digest"`
 	ImagePrefix string `json:"imagePrefix"`
+	GsImage     string `json:"gsImage"`
 }
 
 func (k *kubevirt) GuestfsVersion() *GuestfsVersion {

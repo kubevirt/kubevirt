@@ -36,17 +36,6 @@ func fakeSetImage(virtClient kubecli.KubevirtClient) error {
 	return nil
 }
 
-func fakeGetImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
-	info := &kubecli.GuestfsInfo{
-		Registry:    "someregistry.io/kubevirt",
-		Tag:         "sha256:07c601d33793ee987g5417d755665572dc9a9680cea01dfb9bdbcc3ecf866720",
-		Digest:      "89af657d3c226ac3083a0986e19efe70c9ccd7e7278137e9df24b9b430182aa7",
-		ImagePrefix: "some-prefix-",
-	}
-
-	return info, nil
-}
-
 var _ = Describe("Guestfs shell", func() {
 	var (
 		kubeClient     *fake.Clientset
@@ -166,17 +155,57 @@ var _ = Describe("Guestfs shell", func() {
 	})
 
 	Context("URL authenticity", func() {
-		BeforeEach(func() {
-			guestfs.SetImageInfoGetFunc(fakeGetImageInfo)
-		})
+		fakeGetImageInfoNoCustomURL := func(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
+			info := &kubecli.GuestfsInfo{
+				Registry:    "someregistry.io/kubevirt",
+				Tag:         "sha256:07c601d33793ee987g5417d755665572dc9a9680cea01dfb9bdbcc3ecf866720",
+				Digest:      "89af657d3c226ac3083a0986e19efe70c9ccd7e7278137e9df24b9b430182aa7",
+				ImagePrefix: "some-prefix-",
+			}
+
+			return info, nil
+		}
+
+		fakeGetImageInfoWithCustomURL := func(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
+			info := &kubecli.GuestfsInfo{
+				GsImage: "someregistry.io/kubevirt/libguestfs-tools-centos9@sha256:128736c7736a8791fb8a8de7d92a4f9be886dc6d8e77d01db8bd55253399099b",
+			}
+
+			return info, nil
+		}
+
+		fakeGetImageInfoWithCustomURLAndRegistrySpecifics := func(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, error) {
+			info := &kubecli.GuestfsInfo{
+				Registry:    "someregistry.io/kubevirt",
+				Tag:         "sha256:07c601d33793ee987g5417d755665572dc9a9680cea01dfb9bdbcc3ecf866720",
+				Digest:      "89af657d3c226ac3083a0986e19efe70c9ccd7e7278137e9df24b9b430182aa7",
+				ImagePrefix: "some-prefix-",
+				GsImage:     "someregistry.io/kubevirt/libguestfs-tools-centos9@sha256:128736c7736a8791fb8a8de7d92a4f9be886dc6d8e77d01db8bd55253399099b",
+			}
+
+			return info, nil
+		}
 
 		AfterEach(func() {
 			guestfs.SetDefaultImageInfoGetFunc()
 		})
 
 		It("Image prefix from kubevirt config not discarded", func() {
+			guestfs.SetImageInfoGetFunc(fakeGetImageInfoNoCustomURL)
 			guestfs.ImageSetFunc(kubevirtClient)
-			Expect(guestfs.ExportedImage).To(Equal("someregistry.io/kubevirt/some-prefix-libguestfs-tools@89af657d3c226ac3083a0986e19efe70c9ccd7e7278137e9df24b9b430182aa7"))
+			Expect(*guestfs.ImagePtr).To(Equal("someregistry.io/kubevirt/some-prefix-libguestfs-tools@89af657d3c226ac3083a0986e19efe70c9ccd7e7278137e9df24b9b430182aa7"))
+		})
+
+		It("Image override alone is enough to assemble url", func() {
+			guestfs.SetImageInfoGetFunc(fakeGetImageInfoWithCustomURL)
+			guestfs.ImageSetFunc(kubevirtClient)
+			Expect(*guestfs.ImagePtr).To(Equal("someregistry.io/kubevirt/libguestfs-tools-centos9@sha256:128736c7736a8791fb8a8de7d92a4f9be886dc6d8e77d01db8bd55253399099b"))
+		})
+
+		It("Image override takes precedence over registry specifics", func() {
+			guestfs.SetImageInfoGetFunc(fakeGetImageInfoWithCustomURLAndRegistrySpecifics)
+			guestfs.ImageSetFunc(kubevirtClient)
+			Expect(*guestfs.ImagePtr).To(Equal("someregistry.io/kubevirt/libguestfs-tools-centos9@sha256:128736c7736a8791fb8a8de7d92a4f9be886dc6d8e77d01db8bd55253399099b"))
 		})
 	})
 })

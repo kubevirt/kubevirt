@@ -1113,6 +1113,7 @@ func (app *virtAPIApp) GetGsInfo() func(_ *restful.Request, response *restful.Re
 			Tag:         kv.Status.ObservedKubeVirtVersion,
 			Digest:      kvConfig.GsSha,
 			ImagePrefix: kvConfig.GetImagePrefix(),
+			GsImage:     kvConfig.GsImage,
 		})
 		return
 	}
