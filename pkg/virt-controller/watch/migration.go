@@ -30,6 +30,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opencontainers/selinux/go-selinux"
+
 	"kubevirt.io/api/migrations/v1alpha1"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -598,6 +600,37 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	return nil
 }
 
+func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {
+	// The target pod may share resources with the sources pod (RWX disks for example)
+	// Therefore, it needs to share the same SELinux categories to inherit the same permissions
+	// Note: there is a small probablility that the target pod will share the same categories as another pod on its node.
+	//   It is a slight security concern, but not as bad as removing categories on all shared objects for the duration of the migration.
+	if vmiSeContext == "none" {
+		// The SelinuxContext is explicitly set to "none" when SELinux is not present
+		return nil
+	}
+	if vmiSeContext == "" {
+		return fmt.Errorf("SELinux context not set on VMI status")
+	} else {
+		seContext, err := selinux.NewContext(vmiSeContext)
+		if err != nil {
+			return err
+		}
+		level, exists := seContext["level"]
+		if exists && level != "" {
+			// The SELinux context looks like "system_u:object_r:container_file_t:s0:c1,c2", we care about "s0:c1,c2"
+			if pod.Spec.SecurityContext == nil {
+				pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
+			}
+			pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{
+				Level: level,
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod)
 	if err != nil {
@@ -638,6 +671,14 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 		}
 
 		err = prepareNodeSelectorForHostCpuModel(node, templatePod, sourcePod)
+		if err != nil {
+			return err
+		}
+	}
+
+	matchLevelOnTarget := c.clusterConfig.GetMigrationConfiguration().MatchSELinuxLevelOnMigration
+	if matchLevelOnTarget == nil || *matchLevelOnTarget {
+		err = setTargetPodSELinuxLevel(templatePod, vmi.Status.SelinuxContext)
 		if err != nil {
 			return err
 		}

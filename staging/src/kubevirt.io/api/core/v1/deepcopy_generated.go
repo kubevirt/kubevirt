@@ -2806,6 +2806,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.MatchSELinuxLevelOnMigration != nil {
+		in, out := &in.MatchSELinuxLevelOnMigration, &out.MatchSELinuxLevelOnMigration
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
