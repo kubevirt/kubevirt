@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -306,7 +307,10 @@ func createAnnotatedSourcePVC(virtClient kubecli.KubevirtClient, instancetypeNam
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 	}
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		var err error
+		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
+		return err
+	}, 60*time.Second, 1*time.Second).Should(Succeed())
 	return pvc
 }
