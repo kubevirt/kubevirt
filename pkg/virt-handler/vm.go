@@ -922,10 +922,11 @@ func (d *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 }
 
 func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
-
-	// Cacluate whether the VM is migratable
-	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi)
-	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
+	liveMigrationCondition := condManager.GetCondition(vmi, v1.VirtualMachineInstanceIsMigratable)
+	isConditionSet := liveMigrationCondition != nil
+	// Calcuate whether the VM is migratable
+	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi, liveMigrationCondition)
+	if !isConditionSet {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 		// Set VMI Migration Method
 		if isBlockMigration {
@@ -1371,45 +1372,64 @@ func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInst
 	}
 }
 
-func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
-	isBlockMigration, err := d.checkVolumesForMigration(vmi)
-	if err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
-	}
+func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, cond *v1.VirtualMachineInstanceCondition) (*v1.VirtualMachineInstanceCondition, bool) {
+	isConditionSet := cond != nil
+	isConditionCleared := false
+	// the following conditions are set as a result of immutable setting in the
+	// VMI spec, hence should be set once.
+	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+	var err error
+	if !isConditionSet {
+		// Set VMI Migration Method
+		isBlockMigration, err = d.checkVolumesForMigration(vmi)
+		if err != nil {
+			return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
+		}
 
-	err = d.checkNetworkInterfacesForMigration(vmi)
-	if err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonInterfaceNotMigratable), isBlockMigration
-	}
+		err = d.checkNetworkInterfacesForMigration(vmi)
+		if err != nil {
+			return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonInterfaceNotMigratable), isBlockMigration
+		}
 
-	if err := d.isHostModelMigratable(vmi); err != nil {
-		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
-	}
+		if err := d.isHostModelMigratable(vmi); err != nil {
+			return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
+		}
 
-	if util.IsVMIVirtiofsEnabled(vmi) {
-		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
-	}
+		if util.IsVMIVirtiofsEnabled(vmi) {
+			return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
+		}
 
-	if vmiContainsPCIHostDevice(vmi) {
-		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
-	}
+		if vmiContainsPCIHostDevice(vmi) {
+			return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+		}
 
-	if util.IsSEVVMI(vmi) {
-		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+		if util.IsSEVVMI(vmi) {
+			return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+		}
+
+		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			return newNonMigratableCondition("VMI uses dedicated CPUs and emulator thread isolation", v1.VirtualMachineInstanceReasonDedicatedCPU), isBlockMigration
+		}
 	}
 
 	if tscRequirement := topology.GetTscFrequencyRequirement(vmi); !topology.AreTSCFrequencyTopologyHintsDefined(vmi) && tscRequirement.Type == topology.RequiredForMigration {
 		return newNonMigratableCondition(tscRequirement.Reason, v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable), isBlockMigration
+	} else {
+		if isConditionSet && cond.Reason == v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable {
+			isConditionCleared = true
+		}
 	}
 
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		return newNonMigratableCondition("VMI uses dedicated CPUs and emulator thread isolation", v1.VirtualMachineInstanceReasonDedicatedCPU), isBlockMigration
+	// set the condition as migrateable if no other condition was set or
+	// previous condition was cleared
+	if !isConditionSet || isConditionCleared {
+		return &v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceIsMigratable,
+			Status: k8sv1.ConditionTrue,
+		}, isBlockMigration
 	}
 
-	return &v1.VirtualMachineInstanceCondition{
-		Type:   v1.VirtualMachineInstanceIsMigratable,
-		Status: k8sv1.ConditionTrue,
-	}, isBlockMigration
+	return cond, isBlockMigration
 }
 
 func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
@@ -2354,7 +2374,7 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 			blockMigrate = true
 		}
 	}
-	return
+	return blockMigrate, nil
 }
 
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {

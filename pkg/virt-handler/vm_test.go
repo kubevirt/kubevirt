@@ -2409,7 +2409,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2472,7 +2472,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				}
 
-				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 				Expect(isBlockMigration).To(BeFalse())
 				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2494,7 +2494,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				}
 
-				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 				Expect(isBlockMigration).To(BeFalse())
 				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2508,7 +2508,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				SEV: &v1.SEV{},
 			}
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
@@ -2604,8 +2604,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{disk}
 				vmi.Spec.Volumes = []v1.Volume{volume}
 
-				isBlockMigration, err := controller.checkVolumesForMigration(vmi)
-				Expect(err).ShouldNot(HaveOccurred())
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi, nil)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+
 				switch migrationMethod {
 				case v1.BlockMigration:
 					Expect(isBlockMigration).To(BeTrue(), migrationMethodExpected)
@@ -2626,7 +2628,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)}}}
 			vmi.Status.TopologyHints = nil
 
-			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			cond, _ := controller.calculateLiveMigrationCondition(vmi, nil)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
