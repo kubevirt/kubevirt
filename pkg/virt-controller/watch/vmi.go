@@ -441,7 +441,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
-			if vmi.Status.TopologyHints == nil && c.topologyHinter.TopologyHintsRequiredForVMI(vmi) {
+			if vmi.Status.TopologyHints == nil {
 				if topologyHints, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGatherhingClusterTopologyHints, err.Error())
 					return &syncErrorImpl{err, FailedGatherhingClusterTopologyHints}

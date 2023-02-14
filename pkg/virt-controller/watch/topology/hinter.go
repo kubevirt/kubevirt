@@ -28,7 +28,7 @@ type topologyHinter struct {
 }
 
 func (t *topologyHinter) TopologyHintsRequiredForVMI(vmi *k6tv1.VirtualMachineInstance) bool {
-	return t.arch == "amd64" && VMIHasInvTSCFeature(vmi)
+	return t.arch == "amd64" && IsManualTSCFrequencyRequired(vmi)
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, err error) {

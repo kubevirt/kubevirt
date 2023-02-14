@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/utils/pointer"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -210,7 +212,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
+		kubevirtFakeConfig := &virtv1.KubeVirtConfiguration{
+			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
+				MinimumClusterTSCFrequency: pointer.Int64(12345),
+			},
+		}
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
@@ -2630,6 +2637,54 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
+		})
+	})
+
+	Context("topology hints", func() {
+
+		Context("needs to be set when", func() {
+
+			expectTopologyHintsUpdate := func() {
+				var vmi *virtv1.VirtualMachineInstance
+				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+					vmi = arg.(*virtv1.VirtualMachineInstance)
+					Expect(topology.IsManualTSCFrequencyRequired(vmi)).To(BeTrue())
+				}).Return(vmi, nil)
+			}
+
+			runController := func(vmi *virtv1.VirtualMachineInstance) {
+				addVirtualMachine(vmi)
+				shouldExpectPodCreation(vmi.UID)
+				controller.Execute()
+			}
+
+			It("invtsc feature exists", func() {
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Spec.Domain.CPU = &virtv1.CPU{
+					Features: []virtv1.CPUFeature{
+						{
+							Name:   "invtsc",
+							Policy: "require",
+						},
+					},
+				}
+
+				expectTopologyHintsUpdate()
+				runController(vmi)
+			})
+
+			It("HyperV reenlightenment is enabled", func() {
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Spec.Domain.Features = &virtv1.Features{
+					Hyperv: &virtv1.FeatureHyperv{
+						Reenlightenment: &virtv1.FeatureState{Enabled: pointer.Bool(true)},
+					},
+				}
+
+				expectTopologyHintsUpdate()
+				runController(vmi)
+			})
+
 		})
 	})
 })

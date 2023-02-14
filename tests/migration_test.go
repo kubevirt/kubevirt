@@ -30,6 +30,7 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -3650,6 +3651,44 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 			}, time.Second*30, time.Second*1).Should(BeNumerically("<=", 1))
 		})
+	})
+
+	Context("topology hints", func() {
+
+		Context("needs to be set when", func() {
+
+			expectTopologyHintsToBeSet := func(vmi *v1.VirtualMachineInstance) {
+				EventuallyWithOffset(1, func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					return topology.AreTSCFrequencyTopologyHintsDefined(vmi)
+				}, 90*time.Second, 3*time.Second).Should(BeTrue(), fmt.Sprintf("tsc frequency topology hints are expected to exist for vmi %s", vmi.Name))
+			}
+
+			It("invtsc feature exists", func() {
+				vmi := libvmi.New(libvmi.WithResourceMemory("1Mi"))
+				vmi.Spec.Domain.CPU = &v1.CPU{Features: []v1.CPUFeature{
+					{Name: "invtsc", Policy: "require"},
+				}}
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				expectTopologyHintsToBeSet(vmi)
+			})
+
+			It("HyperV reenlightenment is enabled", func() {
+				vmi := libvmi.New()
+				vmi.Spec = getWindowsVMISpec()
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
+				vmi.Spec.Volumes = []v1.Volume{}
+				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				expectTopologyHintsToBeSet(vmi)
+			})
+
+		})
+
 	})
 })
 
