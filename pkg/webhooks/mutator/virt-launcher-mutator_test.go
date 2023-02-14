@@ -64,8 +64,7 @@ var _ = Describe("virt-launcher webhook mutator", func() {
 		}
 
 		launcherPod.Spec.Containers[0].Resources = podResources
-		err := mutator.handleVirtLauncherCreation(launcherPod, hco, true, true)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(mutator.handleVirtLauncherCreation(launcherPod, hco, true, true)).To(Succeed())
 
 		resources := launcherPod.Spec.Containers[0].Resources
 		Expect(resources.Limits[k8sv1.ResourceCPU].Equal(expectedResources.Limits[k8sv1.ResourceCPU])).To(BeTrue())
@@ -151,8 +150,7 @@ var _ = Describe("virt-launcher webhook mutator", func() {
 			launcherPod := getFakeLauncherPod()
 			mutator := getVirtLauncherMutator()
 
-			err := mutator.setResourceRatio(launcherPod, ratio, resourceAnnotationKey, resourceName)
-			Expect(err).To(HaveOccurred())
+			Expect(mutator.setResourceRatio(launcherPod, ratio, resourceAnnotationKey, resourceName)).ToNot(Succeed())
 		},
 			Entry("zero ratio", "0", k8sv1.ResourceCPU),
 			Entry("negative ratio", "-1.2", k8sv1.ResourceMemory),
@@ -195,11 +193,9 @@ var _ = Describe("virt-launcher webhook mutator", func() {
 			}
 
 			const ratio = "1.23"
-			err := mutator.setResourceRatio(launcherPod, ratio, resourceAnnotationKey, k8sv1.ResourceCPU)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mutator.setResourceRatio(launcherPod, ratio, resourceAnnotationKey, k8sv1.ResourceCPU)).To(Succeed())
 
-			err = mutator.setResourceRatio(launcherPod, ratio, resourceAnnotationKey, k8sv1.ResourceMemory)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(mutator.setResourceRatio(launcherPod, ratio, resourceAnnotationKey, k8sv1.ResourceMemory)).To(Succeed())
 
 			Expect(launcherPod.Spec.Containers[0].Resources.Requests).To(BeEmpty())
 		})

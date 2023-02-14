@@ -65,8 +65,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(res.Created).To(BeFalse())
 
 			imageStreamObjects := &imagev1.ImageStreamList{}
-			err = cli.List(context.TODO(), imageStreamObjects)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 			Expect(imageStreamObjects.Items).To(BeEmpty())
 		})
 
@@ -115,8 +114,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(res.Created).To(BeFalse())
 
 			imageStreamObjects := &imagev1.ImageStreamList{}
-			err = cli.List(context.TODO(), imageStreamObjects)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 			Expect(imageStreamObjects.Items).To(BeEmpty())
 		})
 
@@ -139,12 +137,10 @@ var _ = Describe("imageStream tests", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			ImageStreamObjects := &imagev1.ImageStreamList{}
-			err = cli.List(context.TODO(), ImageStreamObjects)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 			Expect(ImageStreamObjects.Items).To(HaveLen(1))
 			Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
 
@@ -161,14 +157,12 @@ var _ = Describe("imageStream tests", func() {
 			eventEmitter.Reset()
 			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
 			req = commonTestUtils.NewReq(hco)
-			err = handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			By("check that the image stream was removed")
 			ImageStreamObjects = &imagev1.ImageStreamList{}
-			err = cli.List(context.TODO(), ImageStreamObjects)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ImageStreamObjects.Items).To(HaveLen(0))
+			Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
+			Expect(ImageStreamObjects.Items).To(BeEmpty())
 
 			By("check that the delete event was emitted")
 			expectedEvents := []commonTestUtils.MockEvent{
@@ -205,8 +199,7 @@ var _ = Describe("imageStream tests", func() {
 			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
 
 			req := commonTestUtils.NewReq(hco)
-			err := handler.Ensure(req)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(handler.Ensure(req)).To(Succeed())
 
 			expectedEvents := []commonTestUtils.MockEvent{
 				{
@@ -242,8 +235,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(res.Created).To(BeTrue())
 
 			ImageStreamObjects := &imagev1.ImageStreamList{}
-			err = cli.List(context.TODO(), ImageStreamObjects)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(cli.List(context.TODO(), ImageStreamObjects)).To(Succeed())
 			Expect(ImageStreamObjects.Items).To(HaveLen(1))
 			Expect(ImageStreamObjects.Items[0].Name).Should(Equal("test-image-stream"))
 
@@ -291,8 +283,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeTrue())
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]
@@ -357,8 +348,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeTrue())
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]
@@ -431,8 +421,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeTrue())
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]
@@ -501,8 +490,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeFalse()) // <=== should not update the imageStream
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]
@@ -571,8 +559,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeFalse()) // <=== should not update the imageStream
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]
@@ -642,8 +629,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeFalse()) // <=== should not update the imageStream
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]
@@ -712,8 +698,7 @@ var _ = Describe("imageStream tests", func() {
 				Expect(res.Updated).To(BeTrue())
 
 				imageStreamObjects := &imagev1.ImageStreamList{}
-				err := cli.List(context.TODO(), imageStreamObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), imageStreamObjects)).To(Succeed())
 				Expect(imageStreamObjects.Items).To(HaveLen(1))
 
 				is := imageStreamObjects.Items[0]

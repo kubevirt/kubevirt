@@ -1119,8 +1119,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := commonTestUtils.InitClient(resources)
 
 				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged_controller_test")
-				err := hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 				Expect(initialTLSSecurityProfile).ToNot(Equal(customTLSSecurityProfile), "customTLSSecurityProfile should be a different value")
 
@@ -1193,8 +1192,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// Update ApiServer CR
 				apiServer.Spec.TLSSecurityProfile = customTLSSecurityProfile
-				err = cl.Update(context.TODO(), apiServer)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
 
 				// mock a reconciliation triggered by a change in the APIServer CR
@@ -2394,11 +2392,8 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).To(HaveOccurred())
 					Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)).To(Succeed())
 
 					for _, objRef := range toBeRemovedRelatedObjects {
 						Expect(foundResource.Status.RelatedObjects).ToNot(ContainElement(objRef))
@@ -2459,18 +2454,10 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, metav1.ConditionTrue)
 
 					foundCM := &corev1.ConfigMap{}
-					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved2), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved2), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)).To(Succeed())
 				})
 
 				It("should remove ConfigMap kubevirt-storage-class-defaults upgrading from < 1.7.0", func() {
@@ -2598,11 +2585,8 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).To(HaveOccurred())
 					Expect(apierrors.IsNotFound(err)).To(BeTrue())
 
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)).To(Succeed())
 
 					for _, objRef := range toBeRemovedRelatedObjects {
 						Expect(foundResource.Status.RelatedObjects).ToNot(ContainElement(objRef))
@@ -2677,20 +2661,12 @@ var _ = Describe("HyperconvergedController", func() {
 					foundCM := &corev1.ConfigMap{}
 					foundRole := &rbacv1.Role{}
 					foundRoleBinding := &rbacv1.RoleBinding{}
-					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
-					Expect(err).ToNot(HaveOccurred())
 
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleToBeRemoved), foundRole)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleBindingToBeRemoved), foundRoleBinding)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)
-					Expect(err).ToNot(HaveOccurred())
-
-					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(roleToBeRemoved), foundRole)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(roleBindingToBeRemoved), foundRoleBinding)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)).To(Succeed())
+					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)).To(Succeed())
 				})
 
 			})
@@ -3221,8 +3197,7 @@ var _ = Describe("HyperconvergedController", func() {
 							}
 						]`,
 					}
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3275,8 +3250,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3297,7 +3271,6 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					// Check conditions
 					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -3317,8 +3290,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)).To(Succeed())
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -3348,7 +3320,6 @@ var _ = Describe("HyperconvergedController", func() {
 							foundResource),
 					).To(Succeed())
 
-					// Check conditions
 					// Check conditions
 					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
@@ -3381,8 +3352,7 @@ var _ = Describe("HyperconvergedController", func() {
 				]`,
 					}
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3439,8 +3409,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3461,7 +3430,6 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					// Check conditions
 					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -3481,8 +3449,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Message: taintedConfigurationMessage,
 					})
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
 					hco.ObjectMeta.Annotations = map[string]string{
 						// Set bad json format (missing comma)
@@ -3505,7 +3472,6 @@ var _ = Describe("HyperconvergedController", func() {
 							foundResource),
 					).To(Succeed())
 
-					// Check conditions
 					// Check conditions
 					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
@@ -3537,8 +3503,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3591,8 +3556,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Reason:  taintedConfigurationReason,
 						Message: taintedConfigurationMessage,
 					})
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3613,7 +3577,6 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					// Check conditions
 					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
@@ -3630,8 +3593,7 @@ var _ = Describe("HyperconvergedController", func() {
 						// Set bad json
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3649,7 +3611,6 @@ var _ = Describe("HyperconvergedController", func() {
 							foundResource),
 					).To(Succeed())
 
-					// Check conditions
 					// Check conditions
 					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
@@ -3676,8 +3637,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3728,8 +3688,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Reason:  taintedConfigurationReason,
 						Message: taintedConfigurationMessage,
 					})
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3766,8 +3725,7 @@ var _ = Describe("HyperconvergedController", func() {
 						// Set bad json
 						common.JSONPatchSSPAnnotationName: `[{`,
 					}
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
@@ -3841,14 +3799,10 @@ var _ = Describe("HyperconvergedController", func() {
 							}
 						]`,
 					}
-					err := metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
-					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
-					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
-					err = metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)).To(Succeed())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)).To(Succeed())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
+					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
 					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)

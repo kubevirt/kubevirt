@@ -42,8 +42,7 @@ var _ = Describe("QuickStart tests", func() {
 		It("should return true if CRD exists, with no error", func() {
 			cli := commonTestUtils.InitClient([]runtime.Object{qsCrd})
 
-			err := checkCrdExists(context.TODO(), cli, logger)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(checkCrdExists(context.TODO(), cli, logger)).To(Succeed())
 		})
 	})
 
@@ -68,8 +67,7 @@ var _ = Describe("QuickStart tests", func() {
 				Expect(handlers).To(BeEmpty())
 			})
 
-			err := os.Mkdir(dir, 0744)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(os.Mkdir(dir, 0744)).To(Succeed())
 			defer os.RemoveAll(dir)
 
 			By("folder is empty", func() {
@@ -96,8 +94,7 @@ var _ = Describe("QuickStart tests", func() {
 				Expect(handlers).To(BeEmpty())
 			})
 
-			err = commonTestUtils.CopyFile(path.Join(dir, "quickStart.yaml"), path.Join(testFilesLocation, "quickstart.yaml"))
-			Expect(err).ToNot(HaveOccurred())
+			Expect(commonTestUtils.CopyFile(path.Join(dir, "quickStart.yaml"), path.Join(testFilesLocation, "quickstart.yaml"))).To(Succeed())
 
 			By("yaml file exists", func() {
 				cli := commonTestUtils.InitClient([]runtime.Object{qsCrd})
@@ -159,8 +156,7 @@ var _ = Describe("QuickStart tests", func() {
 				Expect(res.Created).To(BeTrue())
 
 				quickstartObjects := &consolev1.ConsoleQuickStartList{}
-				err := cli.List(context.TODO(), quickstartObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
 				Expect(quickstartObjects.Items).To(HaveLen(1))
 				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
 			})
@@ -187,8 +183,7 @@ var _ = Describe("QuickStart tests", func() {
 				Expect(res.Updated).To(BeTrue())
 
 				quickstartObjects := &consolev1.ConsoleQuickStartList{}
-				err := cli.List(context.TODO(), quickstartObjects)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), quickstartObjects)).To(Succeed())
 				Expect(quickstartObjects.Items).To(HaveLen(1))
 				Expect(quickstartObjects.Items[0].Name).Should(Equal("test-quick-start"))
 				// check that the existing object was reconciled

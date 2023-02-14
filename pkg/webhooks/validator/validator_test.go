@@ -1515,7 +1515,7 @@ var _ = Describe("webhooks validator", func() {
 					Expect(minTypedTLSVersion).Should(Equal(midExpected))
 
 					apiServer.Spec.TLSSecurityProfile = finApiTlsSecurityProfile
-					err = cl.Update(context.TODO(), apiServer)
+					Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
 					hcoTlsConfigCache = finHCOTlsSecurityProfile
 
 					Expect(util.GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())

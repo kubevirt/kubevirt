@@ -35,15 +35,12 @@ func TestHyperconverged(t *testing.T) {
 
 		wd, _ := os.Getwd()
 		destFile = path.Join(wd, "upgradePatches.json")
-		err := commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))
-		Expect(err).ToNot(HaveOccurred())
-
+		Expect(commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))).To(Succeed())
 	})
 
 	AfterSuite(func() {
 		hcoutil.GetClusterInfo = getClusterInfo
-		err := os.Remove(destFile)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(os.Remove(destFile)).To(Succeed())
 	})
 
 	RunSpecs(t, "Hyperconverged Suite")

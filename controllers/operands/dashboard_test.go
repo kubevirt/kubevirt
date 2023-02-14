@@ -130,8 +130,7 @@ var _ = Describe("Dashboard tests", func() {
 				Expect(res.Created).To(BeTrue())
 
 				cms := &corev1.ConfigMapList{}
-				err := cli.List(context.TODO(), cms)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cli.List(context.TODO(), cms)).To(Succeed())
 				Expect(cms.Items).To(HaveLen(1))
 				Expect(cms.Items[0].Name).Should(Equal("grafana-dashboard-kubevirt-top-consumers"))
 			})

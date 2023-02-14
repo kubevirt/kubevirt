@@ -614,8 +614,7 @@ var _ = Describe("SSP Operands", func() {
 				Expect(dataImportCronTemplateHardCodedMap).To(BeEmpty())
 
 				By("file does not exist - no error")
-				err := os.Mkdir(dir, os.ModePerm)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 				defer func() { _ = os.RemoveAll(dir) }()
 
 				Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
@@ -624,15 +623,13 @@ var _ = Describe("SSP Operands", func() {
 				destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
 				By("valid file exits")
-				err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-				Expect(err).ToNot(HaveOccurred())
+				Expect(commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))).To(Succeed())
 				defer os.Remove(destFile)
 				Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 				Expect(dataImportCronTemplateHardCodedMap).To(HaveLen(2))
 
 				By("the file is wrong")
-				err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "wrongDataImportCronTemplates.yaml"))
-				Expect(err).ToNot(HaveOccurred())
+				Expect(commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "wrongDataImportCronTemplates.yaml"))).To(Succeed())
 				defer os.Remove(destFile)
 				Expect(readDataImportCronTemplatesFromFile()).To(HaveOccurred())
 				Expect(dataImportCronTemplateHardCodedMap).To(BeEmpty())
@@ -904,13 +901,11 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("should return an the hard coded list if there is a file, but no list in the HyperConverged CR", func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					defer func() { _ = os.RemoveAll(dir) }()
 					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))).To(Succeed())
 					defer os.Remove(destFile)
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
@@ -924,13 +919,13 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("should return a combined list if there is a file and a list in the HyperConverged CR", func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					defer func() { _ = os.RemoveAll(dir) }()
 					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
 					defer os.Remove(destFile)
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
@@ -954,13 +949,13 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("Should not add a common DIC template if it marked as disabled", func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					defer func() { _ = os.RemoveAll(dir) }()
 					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
 					defer os.Remove(destFile)
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
@@ -984,13 +979,13 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("Should reject if the CR list contain DIC template with the same name, and there are also common DIC templates", func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					defer func() { _ = os.RemoveAll(dir) }()
 					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
 					defer os.Remove(destFile)
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
@@ -1040,13 +1035,13 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("should not return the common templates, if feature gate is false", func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					defer func() { _ = os.RemoveAll(dir) }()
 					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
 					defer os.Remove(destFile)
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
@@ -1062,13 +1057,13 @@ var _ = Describe("SSP Operands", func() {
 				})
 
 				It("should modify a common dic if it exist in the HyperConverged CR", func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					defer func() { _ = os.RemoveAll(dir) }()
 					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
 
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
 					defer os.Remove(destFile)
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 
@@ -1179,11 +1174,11 @@ var _ = Describe("SSP Operands", func() {
 			Context("test data import cron templates in Status", func() {
 				var destFile string
 				BeforeEach(func() {
-					err := os.Mkdir(dir, os.ModePerm)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
 					destFile = path.Join(dir, "dataImportCronTemplates.yaml")
-					err = commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))
-					Expect(err).ToNot(HaveOccurred())
+					Expect(
+						commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
 					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
 				})
 

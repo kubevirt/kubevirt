@@ -40,11 +40,10 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 
 				// we should have no runnable before registering the controller
-				Expect(mockmgr.GetRunnables()).To(HaveLen(0))
+				Expect(mockmgr.GetRunnables()).To(BeEmpty())
 
 				// we should have one runnable after registering it on Openshift
-				err = RegisterReconciler(mgr, ci)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(RegisterReconciler(mgr, ci)).To(Succeed())
 				Expect(mockmgr.GetRunnables()).To(HaveLen(1))
 			})
 
@@ -61,12 +60,11 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 
 				// we should have no runnable before registering the controller
-				Expect(mockmgr.GetRunnables()).To(HaveLen(0))
+				Expect(mockmgr.GetRunnables()).To(BeEmpty())
 
 				// we should have still no runnable after registering if not on Openshift
-				err = RegisterReconciler(mgr, ci)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(mockmgr.GetRunnables()).To(HaveLen(0))
+				Expect(RegisterReconciler(mgr, ci)).To(Succeed())
+				Expect(mockmgr.GetRunnables()).To(BeEmpty())
 			})
 
 		})
@@ -140,8 +138,7 @@ var _ = Describe("HyperconvergedController", func() {
 				resources := []runtime.Object{clusterVersion, infrastructure, ingress, apiServer, dns}
 				cl := commonTestUtils.InitClient(resources)
 
-				err := hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 				ci := hcoutil.GetClusterInfo()
 				// We should have corrctly mocked all the Openshift resources needed by clusterInfo
 				Expect(ci.IsOpenshift()).To(BeTrue())
@@ -168,8 +165,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				// Update ApiServer CR
 				apiServer.Spec.TLSSecurityProfile = customTLSSecurityProfile
-				err = cl.Update(context.TODO(), apiServer)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(cl.Update(context.TODO(), apiServer)).To(Succeed())
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
 
 				// Reconcile again to refresh ApiServer CR in memory

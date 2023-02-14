@@ -84,8 +84,10 @@ var _ = Describe("Test operator.go", func() {
 				},
 			}
 
-			err := applyAnnotationPatch(obj, `[{"op": "add", "path": "/spec/config/filesystemOverhead/global", "value": "55"}]`)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(
+				applyAnnotationPatch(obj, `[{"op": "add", "path": "/spec/config/filesystemOverhead/global", "value": "55"}]`),
+			).To(Succeed())
+
 			Expect(obj.Spec.Config).NotTo(BeNil())
 			Expect(obj.Spec.Config.FilesystemOverhead).NotTo(BeNil())
 			Expect(obj.Spec.Config.FilesystemOverhead.Global).Should(BeEquivalentTo("55"))
@@ -118,8 +120,7 @@ var _ = Describe("Test operator.go", func() {
 			}
 
 			operand := genericOperand{Scheme: scheme.Scheme}
-			err := operand.addCrToTheRelatedObjectList(req, found)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(operand.addCrToTheRelatedObjectList(req, found)).To(Succeed())
 
 			foundRef, err := reference.GetReference(operand.Scheme, found)
 			Expect(err).ToNot(HaveOccurred())
@@ -143,16 +144,14 @@ var _ = Describe("Test operator.go", func() {
 			}
 
 			operand := genericOperand{Scheme: scheme.Scheme}
-			err := operand.addCrToTheRelatedObjectList(req, found)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(operand.addCrToTheRelatedObjectList(req, found)).To(Succeed())
 
 			oldRef, err := reference.GetReference(operand.Scheme, found)
 			Expect(err).ToNot(HaveOccurred())
 
 			// update resource version
 			found.ResourceVersion = newVersion
-			err = operand.addCrToTheRelatedObjectList(req, found)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(operand.addCrToTheRelatedObjectList(req, found)).To(Succeed())
 
 			newRef, err := reference.GetReference(operand.Scheme, found)
 			Expect(err).ToNot(HaveOccurred())
