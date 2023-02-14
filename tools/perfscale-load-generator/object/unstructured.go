@@ -50,7 +50,7 @@ func DeleteObject(virtCli kubecli.KubevirtClient, obj unstructured.Unstructured,
 		Body(&metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}).
 		Do(context.Background()).Error()
 	if err != nil && !errors.IsNotFound(err) {
-		log.Log.V(2).Errorf("Error deleting obj %s %s: %v", resourceKind, obj.GetName(), err)
+		log.Log.Errorf("Error deleting obj %s %s: %v", resourceKind, obj.GetName(), err)
 	}
 	return
 }

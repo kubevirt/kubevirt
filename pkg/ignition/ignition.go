@@ -68,7 +68,7 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 	domainBasePath := GetDomainBasePath(vmi.Name, namespace)
 	err := util.MkdirAllWithNosec(domainBasePath)
 	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("unable to create Ignition base path %s", domainBasePath)
+		log.Log.Reason(err).Errorf("unable to create Ignition base path %s", domainBasePath)
 		return err
 	}
 

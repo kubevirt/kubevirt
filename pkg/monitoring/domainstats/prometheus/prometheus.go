@@ -69,7 +69,7 @@ var (
 
 func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch chan<- prometheus.Metric) {
 	if err != nil {
-		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", desc, err)
+		log.Log.Warningf("Error creating the new const metric for %s: %s", desc, err)
 		return
 	}
 	ch <- mv
@@ -236,7 +236,7 @@ func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
 
 func (metrics *vmiMetrics) updateCPU(vmi *k6tv1.VirtualMachineInstance, domainCPUStats *stats.DomainStatsCPU) {
 	if !domainCPUStats.TimeSet && !domainCPUStats.UserSet && !domainCPUStats.SystemSet {
-		log.Log.V(4).Warningf("No domain CPU stats is set for %s VMI.", vmi.Name)
+		log.Log.Warningf("No domain CPU stats is set for %s VMI.", vmi.Name)
 	}
 
 	if domainCPUStats.TimeSet {
@@ -298,7 +298,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 	for blockIdx, block := range blkStats {
 		if !block.NameSet {
-			log.Log.V(4).Warningf("Name not set for block device#%d", blockIdx)
+			log.Log.Warningf("Name not set for block device#%d", blockIdx)
 			continue
 		}
 
@@ -665,7 +665,7 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 	// Since this is a known failure condition, let's handle it explicitly.
 	defer func() {
 		if err := recover(); err != nil {
-			log.Log.V(2).Warningf("collector goroutine panicked for VM %s: %s", socketFile, err)
+			log.Log.Warningf("collector goroutine panicked for VM %s: %s", socketFile, err)
 		}
 	}()
 

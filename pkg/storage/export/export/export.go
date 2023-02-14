@@ -787,7 +787,7 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachineExport) (*corev1.Pod, bool, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
-		log.Log.V(3).Errorf("error %v", err)
+		log.Log.Errorf("error %v", err)
 		return nil, false, err
 	} else if !exists {
 		return nil, exists, nil
@@ -801,7 +801,7 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 	log.Log.V(3).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
-		log.Log.V(3).Errorf("error %v", err)
+		log.Log.Errorf("error %v", err)
 		return nil, err
 	} else if !exists {
 		manifest, err := ctrl.createExporterPodManifest(vmExport, service, pvcs)
