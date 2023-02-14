@@ -1337,7 +1337,7 @@ func (c *VMIController) updatePVC(old, cur interface{}) {
 
 	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
 	if err != nil {
-		log.Log.V(4).Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
+		log.Log.Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
 		return
 	}
 
@@ -1388,7 +1388,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 
 	vmis, err := c.listVMIsMatchingDV(curDataVolume.Namespace, curDataVolume.Name)
 	if err != nil {
-		log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
+		log.Log.Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
 		return
 	}
 	for _, vmi := range vmis {

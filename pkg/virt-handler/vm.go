@@ -1124,7 +1124,7 @@ func (d *VirtualMachineController) updateMemoryDumpInfo(vmi *v1.VirtualMachineIn
 			volumeStatus.MemoryDumpVolume.StartTimestamp = memoryDumpMetadata.StartTimestamp
 		}
 		if memoryDumpMetadata.EndTimestamp != nil && memoryDumpMetadata.Failed {
-			log.Log.Object(vmi).V(3).Errorf("Memory dump to pvc %s failed: %v", volumeStatus.Name, memoryDumpMetadata.FailureReason)
+			log.Log.Object(vmi).Errorf("Memory dump to pvc %s failed: %v", volumeStatus.Name, memoryDumpMetadata.FailureReason)
 			volumeStatus.Message = fmt.Sprintf("Memory dump to pvc %s failed: %v", volumeStatus.Name, memoryDumpMetadata.FailureReason)
 			volumeStatus.Phase = v1.MemoryDumpVolumeFailed
 			volumeStatus.MemoryDumpVolume.EndTimestamp = memoryDumpMetadata.EndTimestamp
@@ -1192,7 +1192,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 		}
 	}
 	if podUID == "" {
-		log.DefaultLogger().V(2).Warningf("failed to find pod UID for VMI %s", vmi.Name)
+		log.DefaultLogger().Warningf("failed to find pod UID for VMI %s", vmi.Name)
 		return
 	}
 
@@ -1204,7 +1204,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		volume, ok := volumes[disk.Name]
 		if !ok {
-			log.DefaultLogger().V(2).Warningf("No matching volume with name %s found", disk.Name)
+			log.DefaultLogger().Warningf("No matching volume with name %s found", disk.Name)
 			continue
 		}
 
@@ -1215,24 +1215,24 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 
 		res, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
-			log.DefaultLogger().V(2).Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
+			log.DefaultLogger().Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
 
 		rootPath, err := res.MountRoot()
 		if err != nil {
-			log.DefaultLogger().V(2).Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
+			log.DefaultLogger().Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
 
 		safeVolPath, err := rootPath.AppendAndResolveWithRelativeRoot(volPath)
 		if err != nil {
-			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			log.DefaultLogger().Warningf("failed to determine file size for volume %s", volPath)
 			continue
 		}
 		fileInfo, err := safepath.StatAtNoFollow(safeVolPath)
 		if err != nil {
-			log.DefaultLogger().V(2).Warningf("failed to determine file size for volume %s", volPath)
+			log.DefaultLogger().Warningf("failed to determine file size for volume %s", volPath)
 			continue
 		}
 
@@ -1902,7 +1902,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
 		// so there is no need to log it twice in hot path without increased verbosity.
-		log.Log.Object(vmi).V(3).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists

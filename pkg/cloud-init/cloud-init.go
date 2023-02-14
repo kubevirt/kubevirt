@@ -304,8 +304,7 @@ func readFileFromDir(basedir, file string) (string, error) {
 	// #nosec No risk for path injection: basedir & secretFile are static strings
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Log.V(2).Reason(err).
-			Errorf("could not read data from source: %s", filePath)
+		log.Log.Reason(err).Errorf("could not read data from source: %s", filePath)
 		return "", err
 	}
 	return string(data), nil
@@ -423,7 +422,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 
 	err := cmd.Start()
 	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("%s cmd failed to start while generating iso file %s", isoBinary, isoOutFile)
+		log.Log.Reason(err).Errorf("%s cmd failed to start while generating iso file %s", isoBinary, isoOutFile)
 		return err
 	}
 
@@ -435,11 +434,11 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 	for {
 		select {
 		case <-timeout:
-			log.Log.V(2).Errorf("Timed out generating cloud-init iso at path %s", isoOutFile)
+			log.Log.Errorf("Timed out generating cloud-init iso at path %s", isoOutFile)
 			cmd.Process.Kill()
 		case err := <-done:
 			if err != nil {
-				log.Log.V(2).Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
+				log.Log.Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
 				return err
 			}
 			return nil
@@ -524,7 +523,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 
 	err = util.MkdirAllWithNosec(path.Dir(isoStaging))
 	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
+		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
 		return err
 	}
 
@@ -613,7 +612,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 
 	err = util.MkdirAllWithNosec(dataPath)
 	if err != nil {
-		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
+		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
 		return err
 	}
 

@@ -175,7 +175,7 @@ func (ps *prometheusScraper) pushMetric(desc *prometheus.Desc, value float64, la
 		labelValues...,
 	)
 	if err != nil {
-		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", desc, err)
+		log.Log.Warningf("Error creating the new const metric for %s: %s", desc, err)
 		return
 	}
 	ps.ch <- mv

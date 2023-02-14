@@ -57,7 +57,7 @@ func main() {
 	} else if workload.Type == "steady-state" {
 		lg = &steadyState.SteadyStateLoadGenerator{Done: timeout, UUID: testUUID}
 	} else {
-		log.Log.V(1).Errorf("Load Generator doesn't have type %s", workload.Type)
+		log.Log.Errorf("Load Generator doesn't have type %s", workload.Type)
 		return
 	}
 

@@ -753,7 +753,7 @@ func (c *MigrationController) handleMigrationBackoff(key string, vmi *virtv1.Vir
 	backoff = outOffBackoffTS.Sub(time.Now())
 
 	if backoff > 0 {
-		log.Log.Object(vmi).V(2).Errorf("vmi in migration backoff, re-enqueueing after %v", backoff)
+		log.Log.Object(vmi).Errorf("vmi in migration backoff, re-enqueueing after %v", backoff)
 		c.Queue.AddAfter(key, backoff)
 		return migrationBackoffError
 	}
@@ -1594,7 +1594,7 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 			// scenarios that the migration we're trying to garbage
 			// collect has already disappeared. Let's log it as debug
 			// and suppress the error in this situation.
-			log.Log.V(3).Reason(err).Infof("error encountered when garbage collecting migration object %s/%s", vmi.Namespace, finalizedMigrations[i])
+			log.Log.Reason(err).Infof("error encountered when garbage collecting migration object %s/%s", vmi.Namespace, finalizedMigrations[i])
 		} else if err != nil {
 			return err
 		}
@@ -1674,7 +1674,7 @@ func (c *MigrationController) updateVMI(old, cur interface{}) {
 
 	migrations, err := c.listMigrationsMatchingVMI(curVMI.Namespace, curVMI.Name)
 	if err != nil {
-		log.Log.V(4).Object(curVMI).Errorf("Error encountered during datavolume update: %v", err)
+		log.Log.Object(curVMI).Errorf("Error encountered during datavolume update: %v", err)
 		return
 	}
 	for _, migration := range migrations {

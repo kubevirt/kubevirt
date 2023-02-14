@@ -45,7 +45,7 @@ func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLab
 	_, err := virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 	if !errors.IsAlreadyExists(err) {
 		if err != nil {
-			log.Log.V(2).Errorf("Error creating namespace %s: %v", name, err)
+			log.Log.Errorf("Error creating namespace %s: %v", name, err)
 			return err
 		}
 	}

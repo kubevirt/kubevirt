@@ -296,7 +296,7 @@ func (app *SubresourceAPIApp) vmiInterfacePatch(vmName string, namespace string,
 
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
 	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
-		log.Log.Object(vmi).V(1).Errorf("unable to patch vmi: %v", err)
+		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		var statusError *errors.StatusError
 		if goerrors.As(err, &statusError) {
 			return statusError
@@ -323,7 +323,7 @@ func (app *SubresourceAPIApp) vmInterfacePatchStatus(vmName string, namespace st
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patch)
 	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
-		log.Log.Object(vm).V(1).Errorf("unable to patch vm status: %v", err)
+		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
 				return statErr
