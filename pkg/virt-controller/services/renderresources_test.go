@@ -252,6 +252,85 @@ var _ = Describe("Resource pod spec renderer", func() {
 			sevResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
 		}))
 	})
+
+	defaultRequest := func() kubev1.ResourceList {
+		return kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("10m"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
+		}
+	}
+
+	zeroQuantity := func() *resource.Quantity {
+		return resource.NewQuantity(0, resource.DecimalSI)
+	}
+
+	DescribeTable("Calculate ratios from VMI", func(reqMem, reqCpu, limMem, limCpu *resource.Quantity, expectedRequest, expectedLimits kubev1.ResourceList) {
+		vmi := &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Resources: v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{},
+						Limits:   kubev1.ResourceList{},
+					},
+				},
+			},
+		}
+		if reqMem != nil {
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = *reqMem
+		}
+		if reqCpu != nil {
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = *reqCpu
+		}
+		if limMem != nil {
+			vmi.Spec.Domain.Resources.Limits[kubev1.ResourceMemory] = *limMem
+		}
+		if limCpu != nil {
+			vmi.Spec.Domain.Resources.Limits[kubev1.ResourceCPU] = *limCpu
+		}
+		res := hotplugContainerResourceRequirementsForVMI(vmi)
+		memRes := res.Requests[kubev1.ResourceMemory]
+		memRes.RoundUp(resource.Mega)
+		Expect(memRes.String()).ToNot(BeEmpty())
+		expMemRes := expectedRequest[kubev1.ResourceMemory]
+		Expect(expMemRes).To(Equal(memRes))
+
+		cpuRes := res.Requests[kubev1.ResourceCPU]
+		cpuRes.RoundUp(resource.Milli)
+		Expect(cpuRes.String()).ToNot(BeEmpty())
+		expCpuRes := expectedRequest[kubev1.ResourceCPU]
+		Expect(expCpuRes).To(Equal(cpuRes))
+
+		Expect(res.Limits).To(BeEquivalentTo(expectedLimits))
+	},
+		Entry("Nil everything", nil, nil, nil, nil, defaultRequest(), hotplugContainerLimits()),
+		Entry("Zero memory request/limit, nil cpu request/limit", zeroQuantity(), nil, zeroQuantity(), nil, defaultRequest(), hotplugContainerLimits()),
+		Entry("Zero everything", zeroQuantity(), zeroQuantity(), zeroQuantity(), zeroQuantity(), defaultRequest(), hotplugContainerLimits()),
+		Entry("Nil memory request/limit, zero cpu request/limit", nil, zeroQuantity(), nil, zeroQuantity(), defaultRequest(), hotplugContainerLimits()),
+		Entry("Memory request and limit same, nil cpu request/limit", resource.NewQuantity(10, resource.DecimalSI), nil, resource.NewQuantity(10, resource.DecimalSI), nil, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("10m"),
+			kubev1.ResourceMemory: resource.MustParse("80M"),
+		}, hotplugContainerLimits()),
+		Entry("Cpu request and limit same, nil mem request/limit", nil, resource.NewQuantity(2, resource.DecimalSI), nil, resource.NewQuantity(2, resource.DecimalSI), kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("100m"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
+		}, hotplugContainerLimits()),
+		Entry("Memory request and limit at ratio 2, nil cpu request/limit", resource.NewQuantity(10, resource.DecimalSI), nil, resource.NewQuantity(20, resource.DecimalSI), nil, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("10m"),
+			kubev1.ResourceMemory: resource.MustParse("40M"),
+		}, hotplugContainerLimits()),
+		Entry("Cpu request and limit at ratio 2, nil mem request/limit", nil, resource.NewQuantity(2, resource.DecimalSI), nil, resource.NewQuantity(4, resource.DecimalSI), kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("50m"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
+		}, hotplugContainerLimits()),
+		Entry("Memory request and limit at ratio 3, nil cpu request/limit", resource.NewQuantity(10, resource.DecimalSI), nil, resource.NewQuantity(30, resource.DecimalSI), nil, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("10m"),
+			kubev1.ResourceMemory: resource.MustParse("27M"),
+		}, hotplugContainerLimits()),
+		Entry("Cpu request and limit at ratio 3, nil mem request/limit", nil, resource.NewQuantity(2, resource.DecimalSI), nil, resource.NewQuantity(6, resource.DecimalSI), kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("34m"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
+		}, hotplugContainerLimits()),
+	)
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

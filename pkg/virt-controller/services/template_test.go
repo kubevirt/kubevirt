@@ -3596,6 +3596,25 @@ var _ = Describe("Template", func() {
 			Entry("when volume is a filesystem", false),
 		)
 
+		verifyPodRequestLimits1to1Ratio := func(pod *kubev1.Pod) {
+			cpuLimit, _ := pod.Spec.Containers[0].Resources.Limits.Cpu().AsInt64()
+			memLimit, _ := pod.Spec.Containers[0].Resources.Limits.Memory().AsInt64()
+			cpuReq, _ := pod.Spec.Containers[0].Resources.Requests.Cpu().AsInt64()
+			memReq, _ := pod.Spec.Containers[0].Resources.Requests.Memory().AsInt64()
+			expCpuLimitQ := resource.MustParse("100m")
+			expCpuLimit, _ := expCpuLimitQ.AsInt64()
+			Expect(cpuLimit).To(Equal(expCpuLimit))
+			expMemLimitQ := resource.MustParse("80M")
+			expMemLimit, _ := expMemLimitQ.AsInt64()
+			Expect(memLimit).To(Equal(expMemLimit))
+			expCpuReqQ := resource.MustParse("100m")
+			expCpuReq, _ := expCpuReqQ.AsInt64()
+			Expect(cpuReq).To(Equal(expCpuReq))
+			expMemReqQ := resource.MustParse("80M")
+			expMemReq, _ := expMemReqQ.AsInt64()
+			Expect(memReq).To(Equal(expMemReq))
+		}
+
 		It("should compute the correct resource req according to desired QoS when rendering hotplug pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
@@ -3615,17 +3634,8 @@ var _ = Describe("Template", func() {
 			claimMap := map[string]*kubev1.PersistentVolumeClaim{}
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers[0].Resources).To(Equal(kubev1.ResourceRequirements{
-				Limits: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-				Requests: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-			}))
+			verifyPodRequestLimits1to1Ratio(pod)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
@@ -3646,17 +3656,7 @@ var _ = Describe("Template", func() {
 			}
 			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", isBlock, false)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers[0].Resources).To(Equal(kubev1.ResourceRequirements{
-				Limits: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-				Requests: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-			}))
+			verifyPodRequestLimits1to1Ratio(pod)
 		},
 			Entry("when volume is a block device", true),
 			Entry("when volume is a filesystem", false),
