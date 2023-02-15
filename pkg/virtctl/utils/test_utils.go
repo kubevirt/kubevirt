@@ -13,9 +13,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+
+	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 )
@@ -43,7 +46,34 @@ func (b *AtomicBool) False() {
 	b.value = false
 }
 
-func VMExportSpec(name, namespace, kind, resourceName, secretName string) *exportv1.VirtualMachineExport {
+func VMExportSpecPVC(name, namespace, resourceName, secretName string) *exportv1.VirtualMachineExport {
+	source := v1.TypedLocalObjectReference{
+		APIGroup: &v1.SchemeGroupVersion.Group,
+		Kind:     "PersistentVolumeClaim",
+		Name:     resourceName,
+	}
+	return VMExportSpecLocalObjectResource(name, namespace, secretName, &source)
+}
+
+func VMExportSpecVM(name, namespace, resourceName, secretName string) *exportv1.VirtualMachineExport {
+	source := v1.TypedLocalObjectReference{
+		APIGroup: &virtv1.SchemeGroupVersion.Group,
+		Kind:     "VirtualMachine",
+		Name:     resourceName,
+	}
+	return VMExportSpecLocalObjectResource(name, namespace, secretName, &source)
+}
+
+func VMExportSpecSnapshot(name, namespace, resourceName, secretName string) *exportv1.VirtualMachineExport {
+	source := v1.TypedLocalObjectReference{
+		APIGroup: &snapshotv1.SchemeGroupVersion.Group,
+		Kind:     "VirtualMachineSnapshot",
+		Name:     resourceName,
+	}
+	return VMExportSpecLocalObjectResource(name, namespace, secretName, &source)
+}
+
+func VMExportSpecLocalObjectResource(name, namespace, secretName string, source *v1.TypedLocalObjectReference) *exportv1.VirtualMachineExport {
 	tokenSecretRef := secretName
 	vmexport := &exportv1.VirtualMachineExport{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -52,11 +82,7 @@ func VMExportSpec(name, namespace, kind, resourceName, secretName string) *expor
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
 			TokenSecretRef: &tokenSecretRef,
-			Source: v1.TypedLocalObjectReference{
-				APIGroup: &v1.SchemeGroupVersion.Group,
-				Kind:     kind,
-				Name:     resourceName,
-			},
+			Source:         *source,
 		},
 	}
 
@@ -140,10 +166,10 @@ func GetVMEStatus(volumes []exportv1.VirtualMachineExportVolume, secretName stri
 	}
 }
 
-func WaitExportCompleteDefault(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration) error {
+func WaitExportCompleteDefault(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration, string) error {
 	return nil
 }
 
-func WaitExportCompleteError(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration) error {
+func WaitExportCompleteError(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration, string) error {
 	return fmt.Errorf("processing failed: Test error")
 }

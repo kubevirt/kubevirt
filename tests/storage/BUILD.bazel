@@ -55,6 +55,7 @@ go_library(
         "//tests/libstorage:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/libwait:go_default_library",
+        "//tests/monitoring:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",
         "//tests/watcher:go_default_library",
