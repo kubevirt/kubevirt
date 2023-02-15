@@ -24,6 +24,10 @@ import (
 	"strings"
 	"time"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -574,6 +578,242 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}, 200*time.Second)).To(Succeed())
 		})
 	})
+
+	Context("With a virtiofs filesystem defined", func() {
+		BeforeEach(func() {
+			checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
+		})
+
+		Context("With a single ConfigMap volume", func() {
+			var (
+				configMapName string
+				configMapPath string
+			)
+
+			BeforeEach(func() {
+				// We use the ConfigMap name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
+				configMapName = "configmap-" + uuid.NewRandom().String()[:6]
+				configMapPath = config.GetConfigMapSourcePath(configMapName)
+
+				data := map[string]string{
+					"option1": "value1",
+					"option2": "value2",
+					"option3": "value3",
+				}
+				tests.CreateConfigMap(configMapName, testsuite.NamespacePrivileged, data)
+			})
+
+			AfterEach(func() {
+				tests.DeleteConfigMap(configMapName, testsuite.NamespacePrivileged)
+			})
+
+			It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {
+				expectedOutput := "value1value2value3"
+
+				By("Running VMI")
+				vmi := libvmi.NewFedora(
+					withConfigMapFs(configMapName, configMapName),
+					libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Logging into the VMI")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Checking if ConfigMap has been attached to the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				podOutput, err := exec.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					fmt.Sprintf("virtiofs-%s", configMapName),
+					[]string{"cat",
+						configMapPath + "/option1",
+						configMapPath + "/option2",
+						configMapPath + "/option3",
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(podOutput).To(Equal(expectedOutput))
+
+				By("Checking mounted ConfigMap")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", configMapName)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
+					&expect.BExp{R: expectedOutput},
+				}, 200)).To(Succeed())
+			})
+		})
+
+		Context("With a single Secret volume", func() {
+			var (
+				secretName string
+				secretPath string
+			)
+
+			BeforeEach(func() {
+				// We use the Secret name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
+				secretName = "secret-" + uuid.NewRandom().String()[:6]
+				secretPath = config.GetSecretSourcePath(secretName)
+
+				data := map[string]string{
+					"user":     "admin",
+					"password": "redhat",
+				}
+				tests.CreateSecret(secretName, testsuite.NamespacePrivileged, data)
+			})
+
+			AfterEach(func() {
+				tests.DeleteSecret(secretName, testsuite.NamespacePrivileged)
+			})
+
+			It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {
+				expectedOutput := "adminredhat"
+
+				By("Running VMI")
+				vmi := libvmi.NewFedora(
+					withSecretFs(secretName, secretName),
+					libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Logging into the VMI")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Checking if Secret has been attached to the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				podOutput, err := exec.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					fmt.Sprintf("virtiofs-%s", secretName),
+					[]string{"cat",
+						secretPath + "/user",
+						secretPath + "/password",
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(podOutput).To(Equal(expectedOutput))
+
+				By("Checking mounted Secret")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", secretName)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
+					&expect.BExp{R: expectedOutput},
+				}, 200)).To(Succeed())
+			})
+		})
+
+		Context("With a ServiceAccount defined", func() {
+
+			serviceAccountPath := config.ServiceAccountSourceDir
+
+			It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
+				serviceAccountVolumeName := "default-disk"
+
+				By("Running VMI")
+				vmi := libvmi.NewFedora(
+					withServiceAccountFs("default", serviceAccountVolumeName),
+					libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Logging into the VMI")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Checking if ServiceAccount has been attached to the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				namespace, err := exec.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
+					[]string{"cat",
+						serviceAccountPath + "/namespace",
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(namespace).To(Equal(testsuite.GetTestNamespace(vmi)))
+
+				token, err := exec.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
+					[]string{"tail", "-c", "20",
+						serviceAccountPath + "/token",
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking mounted ServiceAccount")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					// mount iso ConfigMap image
+					&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", serviceAccountVolumeName)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: "cat /mnt/namespace\n"},
+					&expect.BExp{R: testsuite.GetTestNamespace(vmi)},
+					&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
+					&expect.BExp{R: token},
+				}, 200)).To(Succeed())
+			})
+		})
+
+		Context("With a DownwardAPI defined", func() {
+			// We use the DownwardAPI name as mount `tag` for qemu, but the `tag` property must be 36 bytes or less
+			downwardAPIName := "downwardapi-" + uuid.NewRandom().String()[:6]
+			downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
+
+			testLabelKey := "kubevirt.io.testdownwardapi"
+			testLabelVal := "downwardAPIValue"
+			expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
+
+			It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
+
+				By("Running VMI")
+				vmi := libvmi.NewFedora(
+					libvmi.WithLabel(testLabelKey, testLabelVal),
+					withDownwardAPIFs(downwardAPIName),
+					libvmi.WithNamespace(testsuite.NamespacePrivileged),
+				)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Logging into the VMI")
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				By("Checking if DownwardAPI has been attached to the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				podOutput, err := exec.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					fmt.Sprintf("virtiofs-%s", downwardAPIName),
+					[]string{"grep", testLabelKey,
+						downwardAPIPath + "/labels",
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(podOutput).To(Equal(expectedOutput + "\n"))
+
+				By("Checking mounted DownwardAPI")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", downwardAPIName)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: "grep --color=never " + testLabelKey + " /mnt/labels\n"},
+					&expect.BExp{R: expectedOutput},
+				}, 200)).To(Succeed())
+			})
+		})
+	})
 })
 
 func withSecret(secretName, volumeName string) libvmi.Option {
@@ -617,6 +857,34 @@ func withDownwardAPI(name string) libvmi.Option {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: name,
 		})
+	}
+}
+
+func withConfigMapFs(configMapName, volumeName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newConfigMap(configMapName, volumeName, ""))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, libvmi.NewVirtiofsFilesystem(volumeName))
+	}
+}
+
+func withSecretFs(secretName, volumeName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newSecret(secretName, volumeName, ""))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, libvmi.NewVirtiofsFilesystem(volumeName))
+	}
+}
+
+func withServiceAccountFs(serviceAccountName, volumeName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newServiceAccount(serviceAccountName, volumeName))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, libvmi.NewVirtiofsFilesystem(volumeName))
+	}
+}
+
+func withDownwardAPIFs(name string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newDownwardAPI(name))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, libvmi.NewVirtiofsFilesystem(name))
 	}
 }
 
