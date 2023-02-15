@@ -287,10 +287,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			os.RemoveAll(fakeMdevBasePath)
 		})
 		DescribeTable("should create and remove relevant mdev types", func(scenario func() *scenarioValues) {
+			noExternallyConfiguredMdevs := make(map[string]struct{})
 			sc := scenario()
 			createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
 			mdevManager := NewMDEVTypesManager()
-			_, err := mdevManager.updateMDEVTypesConfiguration(sc.desiredDevicesList)
+			_, err := mdevManager.updateMDEVTypesConfiguration(sc.desiredDevicesList, noExternallyConfiguredMdevs)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("creating the desired mdev types")
@@ -321,7 +322,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 
 			By("removing all created mdevs")
-			_, err = mdevManager.updateMDEVTypesConfiguration([]string{})
+			_, err = mdevManager.updateMDEVTypesConfiguration([]string{}, noExternallyConfiguredMdevs)
 			Expect(err).ToNot(HaveOccurred())
 			files, err := ioutil.ReadDir(fakeMdevDevicesPath)
 			Expect(err).ToNot(HaveOccurred())
