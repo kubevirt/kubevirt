@@ -369,7 +369,7 @@ var _ = Describe("MemoryDump", func() {
 			expectVMEndpointMemoryDump("testvm", "")
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
 
-			vmexport := utils.VMExportSpec(vmexportName, k8smetav1.NamespaceDefault, "pvc", claimName, secretName)
+			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    claimName,
@@ -386,7 +386,7 @@ var _ = Describe("MemoryDump", func() {
 
 		It("should call download memory dump", func() {
 			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
-			vmexport := utils.VMExportSpec(vmexportName, k8smetav1.NamespaceDefault, "pvc", claimName, secretName)
+			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
 			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
 				{
 					Name:    claimName,
