@@ -29,7 +29,7 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	v1 "kubevirt.io/api/core/v1"
 	clientutil "kubevirt.io/client-go/util"
@@ -89,9 +89,9 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 	}
 
 	prefix := fmt.Sprintf("system:serviceaccount:%s", ns)
-	return serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName) ||
-		serviceAccount == fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName)
+	return serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ApiServiceAccountName) ||
+		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName) ||
+		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName)
 }
 
 func IsARM64() bool {

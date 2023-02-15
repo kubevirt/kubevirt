@@ -46,10 +46,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-var privilegedUser = fmt.Sprintf("%s:%s:%s:%s", "system", "serviceaccount", "kubevirt", rbac.ControllerServiceAccountName)
+var privilegedUser = fmt.Sprintf("%s:%s:%s:%s", "system", "serviceaccount", "kubevirt", components.ControllerServiceAccountName)
 
 var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var vmi *v1.VirtualMachineInstance

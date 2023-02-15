@@ -1341,6 +1341,15 @@ spec:
       - rules:
         - apiGroups:
           - ""
+          resourceNames:
+          - kubevirt-ca
+          - kubevirt-export-ca
+          - kubevirt-virt-handler-certs
+          - kubevirt-virt-handler-server-certs
+          - kubevirt-operator-certs
+          - kubevirt-virt-api-certs
+          - kubevirt-controller-certs
+          - kubevirt-exportproxy-certs
           resources:
           - secrets
           verbs:

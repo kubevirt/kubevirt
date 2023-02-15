@@ -13,7 +13,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -81,7 +80,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	}
 
 	pod := &daemonset.Spec.Template.Spec
-	pod.ServiceAccountName = rbac.HandlerServiceAccountName
+	pod.ServiceAccountName = HandlerServiceAccountName
 	pod.HostPID = true
 
 	// nodelabeller currently only support x86

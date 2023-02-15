@@ -26,13 +26,13 @@ import (
 
 	"kubevirt.io/api/clone"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
 	"kubevirt.io/api/instancetype"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations"
 )
-
-const ControllerServiceAccountName = "kubevirt-controller"
 
 func GetAllController(namespace string) []runtime.Object {
 	return []runtime.Object{
@@ -52,7 +52,7 @@ func newControllerServiceAccount(namespace string) *corev1.ServiceAccount {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      ControllerServiceAccountName,
+			Name:      components.ControllerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -67,7 +67,7 @@ func newControllerRole(namespace string) *rbacv1.Role {
 			Kind:       "Role",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ControllerServiceAccountName,
+			Name:      components.ControllerServiceAccountName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
@@ -124,7 +124,7 @@ func newControllerRoleBinding(namespace string) *rbacv1.RoleBinding {
 			Kind:       "RoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ControllerServiceAccountName,
+			Name:      components.ControllerServiceAccountName,
 			Namespace: namespace,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
@@ -133,13 +133,13 @@ func newControllerRoleBinding(namespace string) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: VersionName,
 			Kind:     "Role",
-			Name:     ControllerServiceAccountName,
+			Name:     components.ControllerServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      ControllerServiceAccountName,
+				Name:      components.ControllerServiceAccountName,
 			},
 		},
 	}
@@ -152,7 +152,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ControllerServiceAccountName,
+			Name: components.ControllerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -515,7 +515,7 @@ func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ControllerServiceAccountName,
+			Name: components.ControllerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -523,13 +523,13 @@ func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     ControllerServiceAccountName,
+			Name:     components.ControllerServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      ControllerServiceAccountName,
+				Name:      components.ControllerServiceAccountName,
 			},
 		},
 	}

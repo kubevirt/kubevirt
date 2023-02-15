@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 var _ = Describe("Validating VMIUpdate Admitter", func() {
@@ -190,17 +190,17 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Entry("Update by API",
 			map[string]string{v1.NodeNameLabel: "someValue"},
 			map[string]string{v1.NodeNameLabel: "someNewValue"},
-			rbac.ApiServiceAccountName,
+			components.ApiServiceAccountName,
 		),
 		Entry("Update by Handler",
 			map[string]string{v1.NodeNameLabel: "someValue"},
 			map[string]string{v1.NodeNameLabel: "someNewValue"},
-			rbac.HandlerServiceAccountName,
+			components.HandlerServiceAccountName,
 		),
 		Entry("Update by Controller",
 			map[string]string{v1.NodeNameLabel: "someValue"},
 			map[string]string{v1.NodeNameLabel: "someNewValue"},
-			rbac.ControllerServiceAccountName,
+			components.ControllerServiceAccountName,
 		),
 	)
 
@@ -560,7 +560,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		resp := vmiUpdateAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(expected)
 	},
-		Entry("Should admit internal sa", "system:serviceaccount:kubevirt:"+rbac.ApiServiceAccountName, BeTrue()),
+		Entry("Should admit internal sa", "system:serviceaccount:kubevirt:"+components.ApiServiceAccountName, BeTrue()),
 		Entry("Should reject regular user", "system:serviceaccount:someNamespace:someUser", BeFalse()),
 	)
 })
