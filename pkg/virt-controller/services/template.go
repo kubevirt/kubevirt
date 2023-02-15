@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/backend-storage"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
@@ -293,6 +292,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
 		psc.RunAsNonRoot = pointer.Bool(true)
+		psc.FSGroup = &nonRootUser
 	} else {
 		rootUser := int64(util.RootUser)
 		psc.RunAsUser = &rootUser
@@ -489,11 +489,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
-	}
-
-	if util.IsNonRootVMI(vmi) && backendstorage.HasPersistentTPMDevice(vmi) {
-		tpmDirInitContainer := containerdisk.GenerateTpmDirInitContainer(vmi, t.launcherImage)
-		initContainers = append(initContainers, *tpmDirInitContainer)
 	}
 
 	hostName := dns.SanitizeHostname(vmi)

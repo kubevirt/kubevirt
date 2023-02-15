@@ -337,12 +337,6 @@ func withTPM(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 		if backendstorage.HasPersistentTPMDevice(vmi) {
 			volumeName := vmi.Name + "-tpm"
 			pvcName := backendstorage.PVCPrefix + vmi.Name
-			swtpmPath := "/var/lib/libvirt/swtpm"
-			localCaPath := "/var/lib/swtpm-localca"
-			if util.IsNonRootVMI(vmi) {
-				swtpmPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "swtpm")
-				localCaPath = filepath.Join(util.VirtPrivateDir, "var", "lib", "swtpm-localca")
-			}
 			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 				Name: volumeName,
 				VolumeSource: k8sv1.VolumeSource{
@@ -352,6 +346,31 @@ func withTPM(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 					},
 				},
 			})
+
+			swtpmPath := "/var/lib/libvirt/swtpm"
+			localCaPath := "/var/lib/swtpm-localca"
+			if util.IsNonRootVMI(vmi) {
+				// For non-root VMIs, the TPM state lives under /var/run/kubevirt-private/libvirt/qemu/swtpm
+				// To persist it, we need the persistent PVC to be mounted under that location.
+				// /var/run/kubevirt-private is an emptyDir, and k8s would automatically create the right sub-directories under it.
+				// However, the sub-directories would get created as root:<fsGroup>, with a mode like 0755 (drwxr-xr-x), preventing write access to them.
+				// Depending on the storage class used, the SELinux label of the sub-directories can also be problematic (like nfs_t for nfs-csi).
+				// Creating emptydirs for each intermediate directory (+ setting fsGroup to 107) solves both issues.
+				// The only viable alternative would be to use an init container to `mkdir -p /var/run/kubevirt-private/libvirt/qemu/swtpm`,
+				//   but init containers are expensive, and emptyDirs were deemed to be the least undesirable approach.
+				renderer.podVolumes = append(renderer.podVolumes,
+					emptyDirVolume("private-libvirt"),
+					emptyDirVolume("private-libvirt-qemu"))
+				renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+					Name:      "private-libvirt",
+					MountPath: filepath.Join(util.VirtPrivateDir, "libvirt"),
+				}, k8sv1.VolumeMount{
+					Name:      "private-libvirt-qemu",
+					MountPath: filepath.Join(util.VirtPrivateDir, "libvirt", "qemu"),
+				})
+				swtpmPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "swtpm")
+				localCaPath = filepath.Join(util.VirtPrivateDir, "var", "lib", "swtpm-localca")
+			}
 			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
 				Name:      volumeName,
 				ReadOnly:  false,

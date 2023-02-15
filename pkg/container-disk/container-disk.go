@@ -231,18 +231,6 @@ func GenerateKernelBootInitContainer(vmi *v1.VirtualMachineInstance, config *vir
 	return generateKernelBootContainerHelper(vmi, config, imageIDs, podVolumeName, binVolumeName, true)
 }
 
-func GenerateTpmDirInitContainer(vmi *v1.VirtualMachineInstance, image string) *kubev1.Container {
-	return &kubev1.Container{
-		Name:    "tpm-dir",
-		Image:   image,
-		Command: []string{"mkdir", "-p", "/var/run/kubevirt-private/libvirt/qemu/swtpm"},
-		VolumeMounts: []kubev1.VolumeMount{{
-			Name:      "private",
-			MountPath: util.VirtPrivateDir,
-		}},
-	}
-}
-
 func generateKernelBootContainerHelper(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig, imageIDs map[string]string, podVolumeName string, binVolumeName string, isInit bool) *kubev1.Container {
 	if !util.HasKernelBootContainerImage(vmi) {
 		return nil
