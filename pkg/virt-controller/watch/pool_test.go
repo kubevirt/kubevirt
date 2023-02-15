@@ -251,7 +251,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
 			}).Return(vm, nil)
@@ -300,7 +300,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(newPoolRevision)
 
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
-			vmInterface.EXPECT().Update(gomock.Any()).MaxTimes(1).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).MaxTimes(1).Do(func(ctx context.Context, arg interface{}) {
 				newVM := arg.(*v1.VirtualMachine)
 				revisionName := newVM.Labels[virtv1.VirtualMachinePoolRevisionName]
 				Expect(revisionName).To(Equal(newPoolRevision.Name))
@@ -420,7 +420,7 @@ var _ = Describe("Pool", func() {
 			expectedPool.Status.Replicas = 0
 
 			// No invocations expected
-			vmInterface.EXPECT().Create(gomock.Any()).Times(0)
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(0)
 
 			// Expect pool to be updated with paused condition
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -447,7 +447,7 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Return(nil, fmt.Errorf("error"))
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Return(nil, fmt.Errorf("error"))
 
 			// Expect pool to be updated with paused condition
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -516,7 +516,7 @@ var _ = Describe("Pool", func() {
 			expectedPool := pool.DeepCopy()
 			expectedPool.Status.Replicas = 0
 
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 			}).Return(vm, nil)
 
@@ -546,7 +546,7 @@ var _ = Describe("Pool", func() {
 			addPool(pool)
 
 			// Check if only 10 are created
-			vmInterface.EXPECT().Create(gomock.Any()).Times(10).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(10).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 			}).Return(vm, nil)
 
@@ -581,7 +581,7 @@ var _ = Describe("Pool", func() {
 			})
 
 			// Check if only 10 are deleted
-			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(10).Return(nil)
+			vmInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(10).Return(nil)
 
 			controller.Execute()
 
@@ -618,7 +618,7 @@ var _ = Describe("Pool", func() {
 			})
 
 			// Check if only 5 are deleted
-			vmInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(5).Return(nil)
+			vmInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(5).Return(nil)
 
 			controller.Execute()
 
@@ -642,7 +642,7 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).ToNot(Equal(nonMatchingVM.Name))
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
@@ -667,7 +667,7 @@ var _ = Describe("Pool", func() {
 
 			addPool(pool)
 
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Do(func(arg interface{}) {
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Do(func(ctx context.Context, arg interface{}) {
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.Name).To(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 				Expect(arg.(*v1.VirtualMachine).ObjectMeta.GenerateName).To(Equal(""))
 			}).Return(vm, nil)
@@ -697,8 +697,8 @@ var _ = Describe("Pool", func() {
 			addPool(pool)
 			addVM(vm)
 
-			vmInterface.EXPECT().Patch(vm.ObjectMeta.Name, gomock.Any(), gomock.Any(), gomock.Any())
-			vmInterface.EXPECT().Create(gomock.Any()).Times(3).Return(vm, nil)
+			vmInterface.EXPECT().Patch(context.Background(), vm.ObjectMeta.Name, gomock.Any(), gomock.Any(), gomock.Any())
+			vmInterface.EXPECT().Create(context.Background(), gomock.Any()).Times(3).Return(vm, nil)
 
 			client.Fake.PrependReactor("update", "virtualmachinepools", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)

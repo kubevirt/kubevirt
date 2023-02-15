@@ -251,7 +251,7 @@ func (c *VMController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		vm := vm.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(vm)
+		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
@@ -274,7 +274,7 @@ func (c *VMController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(vm.ObjectMeta.Name, &v1.GetOptions{})
+		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(context.Background(), vm.ObjectMeta.Name, &v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -795,7 +795,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				} else {
 					vmCopy.Spec.Running = &running
 				}
-				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				return &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
 			}
 			return nil
@@ -1714,7 +1714,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine, finalizer st
 		return vm, err
 	}
 
-	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	vm, err = c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 	return vm, err
 }
 
@@ -1731,7 +1731,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine, finalizer strin
 		return vm, err
 	}
 
-	return c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	return c.clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
 }
 
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr syncError) error {
@@ -2309,7 +2309,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
-				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
 				if err != nil {
 					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
 				}

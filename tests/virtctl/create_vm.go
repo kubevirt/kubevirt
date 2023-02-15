@@ -43,7 +43,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		It("VM with random name and default settings", func() {
 			out, err := runCmd()
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).ToNot(BeEmpty())
@@ -80,7 +80,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))
@@ -176,7 +176,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
-			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
+			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), unmarshalVM(out))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vm.Name).To(Equal(vmName))

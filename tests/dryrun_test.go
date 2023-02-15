@@ -158,13 +158,13 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually created")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 
 		It("[test_id:7632]delete a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to delete a Virtual Machine")
@@ -173,22 +173,22 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 				DryRun:            []string{metav1.DryRunAll},
 				PropagationPolicy: &deletePolicy,
 			}
-			err = virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &opts)
+			err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &opts)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no Virtual Machine was actually deleted")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:7633]update a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to update a Virtual Machine")
 			err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -200,14 +200,14 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})
 
 		It("[test_id:7634]patch a VirtualMachine", func() {
 			By("Create a VirtualMachine")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Make a Dry-Run request to patch a Virtual Machine")
@@ -216,7 +216,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Check that no update actually took place")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Labels["key"]).ToNot(Equal("42"))
 		})
@@ -552,7 +552,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			vm := tests.NewRandomVirtualMachine(vmi, false)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			snap = newVMSnapshot(vm)
@@ -643,7 +643,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			vm := tests.NewRandomVirtualMachine(vmi, false)
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			snap := newVMSnapshot(vm)

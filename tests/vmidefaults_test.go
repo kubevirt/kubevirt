@@ -253,7 +253,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
 			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.Bool(true)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting VirtualMachine")

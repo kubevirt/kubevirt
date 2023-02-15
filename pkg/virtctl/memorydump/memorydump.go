@@ -218,7 +218,7 @@ func checkNoExistingPVC(namespace, claimName string, virtClient kubecli.Kubevirt
 }
 
 func checkNoAssociatedMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
-	vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
+	vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func createMemoryDump(namespace, vmName, claimName string, virtClient kubecli.Ku
 		ClaimName: claimName,
 	}
 
-	err := virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+	err := virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
 	if err != nil {
 		return fmt.Errorf("error dumping vm memory, %v", err)
 	}
@@ -333,7 +333,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
 	var claimName string
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -356,7 +356,7 @@ func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName stri
 }
 
 func removeMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
-	err := virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
+	err := virtClient.VirtualMachine(namespace).RemoveMemoryDump(context.Background(), vmName)
 	if err != nil {
 		return fmt.Errorf("error removing memory dump association, %v", err)
 	}

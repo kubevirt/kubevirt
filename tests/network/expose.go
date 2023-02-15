@@ -640,7 +640,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			By("Getting the status of the VMI")
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(namespace).Get(name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
@@ -661,7 +661,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			vm := tests.NewRandomVirtualMachine(newLabeledVMI("vm"), false)
 
 			By("Creating the VM")
-			vm, err = virtClient.VirtualMachine(namespace).Create(vm)
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
 			return vm, err
 		}
 

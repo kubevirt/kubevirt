@@ -114,7 +114,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		Eventually(func() bool {
 			s, err = virtClient.VirtualMachineSnapshot(s.Namespace).Get(context.Background(), s.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return s.Status != nil && s.Status.ReadyToUse != nil && *s.Status.ReadyToUse && vm.Status.SnapshotInProgress == nil
 		}, 180*time.Second, time.Second).Should(BeTrue())
@@ -132,7 +132,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		// sometimes it takes a bit for permission to actually be applied so eventually
 		Eventually(func() bool {
-			_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+			_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 			if err != nil {
 				fmt.Printf("command should have succeeded maybe new permissions not applied yet\nerror\n%s\n", err)
 				return false
@@ -192,7 +192,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	}
 
 	deleteVM := func(vm *v1.VirtualMachine) {
-		err := virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+		err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			err = nil
 		}
@@ -262,7 +262,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		expectNewVMCreation := func(vmName string) (createdVM *v1.VirtualMachine) {
 			Eventually(func() error {
-				createdVM, err = virtClient.VirtualMachine(vm.Namespace).Get(vmName, &metav1.GetOptions{})
+				createdVM, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vmName, &metav1.GetOptions{})
 				return err
 			}, 90*time.Second, 5*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("new VM (%s) is not being created", vmName))
 			return createdVM
@@ -285,7 +285,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 		Context("and no snapshot", func() {
 			It("[test_id:5255]should reject restore", func() {
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				restore := createRestoreDef(vm.Name, "foobar")
 
@@ -308,7 +308,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			It("should successfully restore", func() {
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategyHalted
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 
@@ -329,7 +329,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
 
 			BeforeEach(func() {
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 				snapshot = createSnapshot(vm)
 			})
@@ -346,7 +346,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By("Wait for snapshot to be finished")
 				Eventually(func() *string {
-					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					return vm.Status.SnapshotInProgress
@@ -363,7 +363,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
@@ -375,7 +375,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.Restores).To(BeEmpty())
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vm.Spec).To(Equal(*origSpec))
 
@@ -384,7 +384,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			It("[test_id:5257]should reject restore if VM running", func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
@@ -480,7 +480,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
 				newVM := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
-				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(newVM)
+				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), newVM)
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
 
@@ -535,9 +535,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Expect(isOwnedByTargetVM).To(BeTrue(), "restore is expected to be owned by target VM")
 
 					By("Verifying both VMs exist")
-					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
-					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &metav1.GetOptions{})
+					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					By("Verifying newly created VM is set properly")
@@ -613,7 +613,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					Kind: "VirtualMachinePreference",
 				}
 
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")
@@ -625,7 +625,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should use existing ControllerRevisions for an existing VM restore", Label("instancetype", "preference", "restore"), func() {
-				originalVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+				originalVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a VirtualMachineSnapshot")
@@ -641,7 +641,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
 
 				By("Asserting that the restored VM has the same instancetype and preference controllerRevisions")
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalVM.Spec.Instancetype.RevisionName))
@@ -666,9 +666,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				libinstancetype.WaitForVMInstanceTypeRevisionNames(restoreVMName, virtClient)
 
 				By("Asserting that the restoreVM has new instancetype and preference controllerRevisions")
-				sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(vm.Name, &metav1.GetOptions{})
+				sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				restoreVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(restoreVMName, &metav1.GetOptions{})
+				restoreVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), restoreVMName, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(restoreVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName))
@@ -939,7 +939,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			startVMAfterRestore := func(targetVMName, device string, login console.LoginToFunction) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
-				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(targetVMName, &metav1.GetOptions{})
+				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), targetVMName, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				targetVM = tests.StartVirtualMachine(targetVM)
@@ -1218,7 +1218,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				targetVM := getTargetVM(restoreToNewVM)
-				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(targetVM.Name, &metav1.GetOptions{})
+				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				if !restoreToNewVM {
@@ -1373,7 +1373,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Eventually(func() bool {
 					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return restore.Status != nil &&
 						len(restore.Status.Conditions) == 2 &&
@@ -1393,7 +1393,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					},
 				)
 				Expect(err).NotTo(HaveOccurred())
-				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
@@ -1403,7 +1403,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
 
 				Eventually(func() bool {
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVM.Status.RestoreInProgress == nil
 				}, 30*time.Second, 3*time.Second).Should(BeTrue())
@@ -1532,7 +1532,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					},
 				)
 				Expect(err).NotTo(HaveOccurred())
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
 				By(creatingSnapshot)
@@ -1570,7 +1570,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				cloneVM(vm.Name, targetVMName)
 
 				By(fmt.Sprintf("Getting the cloned VM %s", targetVMName))
-				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(targetVMName, &metav1.GetOptions{})
+				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), targetVMName, &metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By(creatingSnapshot)
@@ -1653,13 +1653,13 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 							ClaimName: claimName,
 						}
 
-						return virtClient.VirtualMachine(namespace).MemoryDump(vmName, memoryDumpRequest)
+						return virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
 					}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 				}
 
 				waitMemoryDumpCompletion := func(vm *v1.VirtualMachine) {
 					Eventually(func() bool {
-						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						if updatedVM.Status.MemoryDumpRequest == nil ||
 							updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {

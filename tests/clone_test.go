@@ -63,7 +63,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 		vm.Labels = vmi.Labels
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		return
@@ -287,7 +287,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				createCloneAndWaitForFinish(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By("Making sure target is runnable")
@@ -306,7 +306,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				By("Creating a VM")
 				sourceVM = createVM()
 				Eventually(func() virtv1.VirtualMachinePrintableStatus {
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
+					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, &v1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					return sourceVM.Status.PrintableStatus
@@ -322,7 +322,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				// of snapshot tests scope.
 
 				By("Deleting VM")
-				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(sourceVM.Name, &v1.DeleteOptions{})
+				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a clone with a snapshot source")
@@ -330,7 +330,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				createCloneAndWaitForFinish(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By("Making sure target is runnable")
@@ -355,7 +355,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				createCloneAndWaitForFinish(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By("Making sure target is runnable")
@@ -385,7 +385,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				createCloneAndWaitForFinish(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By("Making sure target is runnable")
@@ -427,7 +427,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					createCloneAndWaitForFinish(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					By("Making sure target is runnable")
@@ -455,7 +455,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					createCloneAndWaitForFinish(vmClone)
 
 					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					By("Making sure target is runnable")
@@ -485,7 +485,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				)
 				vm.Spec.Running = pointer.Bool(running)
 
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -509,7 +509,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				createCloneAndWaitForFinish(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(targetVMName, &v1.GetOptions{})
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By("Making sure target is runnable")
@@ -529,7 +529,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					// create running in case storage is WFFC (local storage)
 					By("Creating source VM")
 					sourceVM = createVMWithStorageClass(sc, true)
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(sourceVM.Name, &v1.GetOptions{})
+					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, &v1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					sourceVM = StopVirtualMachine(sourceVM)
 				})
@@ -547,7 +547,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					snapshot = waitSnapshotReady(snapshot)
 
 					By("Deleting VM")
-					err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(sourceVM.Name, &v1.DeleteOptions{})
+					err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Creating a clone and expecting error")
@@ -620,7 +620,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 						Kind: "VirtualMachinePreference",
 					}
 
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(sourceVM)
+					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM)
 					Expect(err).ToNot(HaveOccurred())
 
 					for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
@@ -639,9 +639,9 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					libinstancetype.WaitForVMInstanceTypeRevisionNames(targetVMName, virtClient)
 
 					By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
-					sourceVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(sourceVM.Name, &metav1.GetOptions{})
+					sourceVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), sourceVM.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					targetVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(targetVMName, &metav1.GetOptions{})
+					targetVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), targetVMName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(targetVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName), "source and target instancetype revision names should not be equal")

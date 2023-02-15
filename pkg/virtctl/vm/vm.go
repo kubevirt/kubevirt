@@ -393,7 +393,7 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 	} else {
-		err = virtClient.VirtualMachine(namespace).AddVolume(vmiName, hotplugRequest)
+		err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 	}
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
@@ -410,7 +410,7 @@ func removeVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kube
 			DryRun: *dryRunOption,
 		})
 	} else {
-		err = virtClient.VirtualMachine(namespace).RemoveVolume(vmiName, &v1.RemoveVolumeOptions{
+		err = virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
 			Name:   volumeName,
 			DryRun: *dryRunOption,
 		})
@@ -486,7 +486,7 @@ func expandVirtualMachine(namespace string, virtClient kubecli.KubevirtClient, o
 	var err error
 
 	if vmName != "" {
-		expandedVm, err = virtClient.VirtualMachine(namespace).GetWithExpandedSpec(vmName)
+		expandedVm, err = virtClient.VirtualMachine(namespace).GetWithExpandedSpec(context.Background(), vmName)
 		if err != nil {
 			return fmt.Errorf("error expanding VirtualMachine - %s in namespace - %s: %w", vmName, namespace, err)
 		}
@@ -532,7 +532,7 @@ func (o *Command) Run(args []string) error {
 	}
 	switch o.command {
 	case COMMAND_START:
-		err = virtClient.VirtualMachine(namespace).Start(vmiName, &v1.StartOptions{Paused: startPaused, DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Start(context.Background(), vmiName, &v1.StartOptions{Paused: startPaused, DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
@@ -542,7 +542,7 @@ func (o *Command) Run(args []string) error {
 		}
 		if forceRestart {
 			if gracePeriodIsSet(gracePeriod) {
-				err = virtClient.VirtualMachine(namespace).ForceStop(vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
+				err = virtClient.VirtualMachine(namespace).ForceStop(context.Background(), vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
 				}
@@ -551,7 +551,7 @@ func (o *Command) Run(args []string) error {
 			}
 			break
 		}
-		err = virtClient.VirtualMachine(namespace).Stop(vmiName, &v1.StopOptions{DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Stop(context.Background(), vmiName, &v1.StopOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)
 		}
@@ -561,7 +561,7 @@ func (o *Command) Run(args []string) error {
 		}
 		if forceRestart {
 			if gracePeriod != notDefinedGracePeriod {
-				err = virtClient.VirtualMachine(namespace).ForceRestart(vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
+				err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
 				if err != nil {
 					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
 				}
@@ -570,12 +570,12 @@ func (o *Command) Run(args []string) error {
 			}
 			break
 		}
-		err = virtClient.VirtualMachine(namespace).Restart(vmiName, &v1.RestartOptions{DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
 	case COMMAND_MIGRATE:
-		err = virtClient.VirtualMachine(namespace).Migrate(vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+		err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
 		}

@@ -81,8 +81,8 @@ var _ = Describe("Expose", func() {
 		vmiInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
 		vmiInterface.EXPECT().Get(context.Background(), vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
 		vmiInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
-		vmInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vm, nil).AnyTimes()
-		vmInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
+		vmInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vm, nil).AnyTimes()
+		vmInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
 		vmrsInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmrs, nil).AnyTimes()
 		vmrsInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknonw VMRS")).AnyTimes()
 
