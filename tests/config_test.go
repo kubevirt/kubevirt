@@ -582,16 +582,7 @@ func withSecret(secretName, volumeName string) libvmi.Option {
 
 func withLabelledSecret(secretName, volumeName, label string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName:  secretName,
-					VolumeLabel: label,
-				},
-			},
-		})
-
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newSecret(secretName, volumeName, label))
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: volumeName,
 		})
@@ -604,18 +595,7 @@ func withConfigMap(configMapName, volumeName string) libvmi.Option {
 
 func withLabelledConfigMap(configMapName, volumeName, label string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: k8sv1.LocalObjectReference{
-						Name: configMapName,
-					},
-					VolumeLabel: label,
-				},
-			},
-		})
-
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newConfigMap(configMapName, volumeName, label))
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: volumeName,
 		})
@@ -624,15 +604,7 @@ func withLabelledConfigMap(configMapName, volumeName, label string) libvmi.Optio
 
 func withServiceAccount(name string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name + "-disk",
-			VolumeSource: v1.VolumeSource{
-				ServiceAccount: &v1.ServiceAccountVolumeSource{
-					ServiceAccountName: name,
-				},
-			},
-		})
-
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newServiceAccount(name, name+"-disk"))
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: name + "-disk",
 		})
@@ -641,25 +613,65 @@ func withServiceAccount(name string) libvmi.Option {
 
 func withDownwardAPI(name string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name,
-			VolumeSource: v1.VolumeSource{
-				DownwardAPI: &v1.DownwardAPIVolumeSource{
-					Fields: []k8sv1.DownwardAPIVolumeFile{
-						{
-							Path: "labels",
-							FieldRef: &k8sv1.ObjectFieldSelector{
-								FieldPath: "metadata.labels",
-							},
-						},
-					},
-					VolumeLabel: "",
-				},
-			},
-		})
-
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newDownwardAPI(name))
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: name,
 		})
+	}
+}
+
+func newSecret(secretName, volumeName, label string) v1.Volume {
+	return v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName:  secretName,
+				VolumeLabel: label,
+			},
+		},
+	}
+}
+
+func newConfigMap(configMapName, volumeName, label string) v1.Volume {
+	return v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: k8sv1.LocalObjectReference{
+					Name: configMapName,
+				},
+				VolumeLabel: label,
+			},
+		},
+	}
+}
+
+func newServiceAccount(serviceAccountName, volumeName string) v1.Volume {
+	return v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			ServiceAccount: &v1.ServiceAccountVolumeSource{
+				ServiceAccountName: serviceAccountName,
+			},
+		},
+	}
+}
+
+func newDownwardAPI(name string) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			DownwardAPI: &v1.DownwardAPIVolumeSource{
+				Fields: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: "labels",
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							FieldPath: "metadata.labels",
+						},
+					},
+				},
+				VolumeLabel: "",
+			},
+		},
 	}
 }
