@@ -1323,7 +1323,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Entry("with PVC volume", tests.NewRandomVMIWithPVC),
 			)
 
-			It("Should show included and excluded volumes in the snapshot", func() {
+			It("[test_id:9705]Should show included and excluded volumes in the snapshot", func() {
 				noSnapshotSC := libstorage.GetNoVolumeSnapshotStorageClass("local")
 				if noSnapshotSC == "" {
 					Skip("Skipping test, no storage class without snapshot support")
