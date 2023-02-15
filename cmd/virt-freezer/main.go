@@ -102,7 +102,7 @@ func main() {
 	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
 	if !isVmRunning(client) {
-		log.Log.Reason(err).Error("VM is not running")
+		log.Log.Error("Paused VM, unable to freeze/unfreeze")
 		os.Exit(1)
 	}
 

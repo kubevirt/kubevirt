@@ -816,7 +816,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				By("Calling Velero pre-backup hook")
 				_, stderr, err := callVeleroHook(vmi, VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION)
 				Expect(err).To(HaveOccurred())
-				Expect(stderr).Should(ContainSubstring("not running"))
+				Expect(stderr).Should(ContainSubstring("Paused VM"))
 			})
 
 			Context("with memory dump", func() {
