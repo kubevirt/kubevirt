@@ -63,7 +63,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
 			dataSource := createDataSource(virtClient)
-			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M")
+			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M", nil)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := runCmd(
@@ -162,7 +162,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			vmName := "vm-" + rand.String(5)
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
-			pvc := createAnnotatedSourcePVC(virtClient, instancetype.Name, preference.Name)
+			pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := runCmd(
@@ -298,15 +298,13 @@ func createDataSource(virtClient kubecli.KubevirtClient) *v1beta1.DataSource {
 	return dataSource
 }
 
-func createAnnotatedSourcePVC(virtClient kubecli.KubevirtClient, instancetypeName, preferenceName string) *k8sv1.PersistentVolumeClaim {
-	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M")
-	pvc.Labels = map[string]string{
+func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.PersistentVolumeClaim {
+	pvcLabels := map[string]string{
 		apiinstancetype.DefaultInstancetypeLabel:     instancetypeName,
 		apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 	}
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Update(context.Background(), pvc, metav1.UpdateOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M", pvcLabels)
 	return pvc
 }
