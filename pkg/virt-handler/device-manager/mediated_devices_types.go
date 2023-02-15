@@ -75,16 +75,26 @@ func (m *MDEVTypesManager) getAlreadyConfiguredMdevParents() (map[string]struct{
 	return configuredPCICards, nil
 }
 
-func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string) (bool, error) {
+func (m *MDEVTypesManager) updateMDEVTypesConfiguration(desiredTypesList []string, externallyProvidedTypesMap map[string]struct{}) (bool, error) {
 	m.mdevsConfigurationMutex.Lock()
 	defer m.mdevsConfigurationMutex.Unlock()
+
+	// create a map of types that should not be removed
+	typesToKeepMap := make(map[string]struct{})
+	for key, val := range externallyProvidedTypesMap {
+		typesToKeepMap[key] = val
+	}
 
 	// construct a map of desired types for lookup
 	desiredTypesMap := make(map[string]struct{})
 	for _, mdevType := range desiredTypesList {
 		desiredTypesMap[mdevType] = struct{}{}
+		typesToKeepMap[mdevType] = struct{}{}
 	}
-	removeUndesiredMDEVs(desiredTypesMap)
+
+	// the following will remove all configured types that have not been
+	// created by an external provider and are not in the desiredTypesMap
+	removeUndesiredMDEVs(typesToKeepMap)
 
 	err := m.discoverConfigurableMDEVTypes(desiredTypesMap)
 	if err != nil {
@@ -238,6 +248,7 @@ func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool
 
 	if rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+		typeNameStr = strings.TrimSpace(typeNameStr)
 		if _, exist := desiredTypesMap[typeNameStr]; exist {
 			return false
 		}
@@ -251,6 +262,7 @@ func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool
 
 	// The name usually contain spaces which should be replaced with _
 	typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+	typeNameStr = strings.TrimSpace(typeNameStr)
 	if _, exist := desiredTypesMap[typeNameStr]; exist {
 		return false
 	}
