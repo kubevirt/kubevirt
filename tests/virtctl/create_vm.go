@@ -22,13 +22,17 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
 
-	. "kubevirt.io/kubevirt/pkg/virtctl/create"
+	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 )
 
-const cloudInitUserData = `#cloud-config
+const (
+	cloudInitUserData = `#cloud-config
 user: user
 password: password
 chpasswd: { expire: False }`
+
+	create = "create"
+)
 
 var _ = Describe("[sig-compute][virtctl]create vm", func() {
 	var virtClient kubecli.KubevirtClient
@@ -41,7 +45,8 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 	Describe("should create a valid VM manifest", func() {
 		It("VM with random name and default settings", func() {
-			out, err := runCmd()
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM)()
+
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
 			Expect(err).ToNot(HaveOccurred())
@@ -66,7 +71,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M")
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
-			out, err := runCmd(
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
 				setFlag(NameFlag, vmName),
 				setFlag(RunStrategyFlag, string(runStrategy)),
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -78,7 +83,8 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s", pvc.Name)),
 				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
-			)
+			)()
+
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
 			Expect(err).ToNot(HaveOccurred())
@@ -164,8 +170,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			preference := createPreference(virtClient)
 			pvc := createAnnotatedSourcePVC(virtClient, instancetype.Name, preference.Name)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
-
-			out, err := runCmd(
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
 				setFlag(NameFlag, vmName),
 				setFlag(RunStrategyFlag, string(runStrategy)),
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
@@ -174,7 +179,8 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s", pvc.Namespace, pvc.Name)),
 				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
-			)
+			)()
+
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(unmarshalVM(out))
 			Expect(err).ToNot(HaveOccurred())
@@ -234,11 +240,6 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
-}
-
-func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{CREATE, VM}, args...)
-	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 
 func unmarshalVM(bytes []byte) *v1.VirtualMachine {

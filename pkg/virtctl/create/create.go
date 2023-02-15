@@ -20,10 +20,9 @@
 package create
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -40,12 +39,8 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(NewVirtualMachineCommand())
+	cmd.AddCommand(vm.NewCommand())
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
-}
-
-func flagErr(flagName, format string, a ...any) error {
-	return fmt.Errorf("failed to parse \"--%s\" flag: %w", flagName, fmt.Errorf(format, a...))
 }

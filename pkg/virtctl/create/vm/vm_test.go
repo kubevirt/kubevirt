@@ -1,4 +1,4 @@
-package create_test
+package vm_test
 
 import (
 	"encoding/base64"
@@ -14,7 +14,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 
-	. "kubevirt.io/kubevirt/pkg/virtctl/create"
+	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 )
 
 const (
@@ -30,6 +30,8 @@ chpasswd: { expire: False }`
   name: eth0
   subnets:
     - type: dhcp`
+
+	create = "create"
 )
 
 var _ = Describe("create vm", func() {
@@ -588,7 +590,7 @@ func setFlag(flag, parameter string) string {
 }
 
 func runCmd(args ...string) ([]byte, error) {
-	_args := append([]string{CREATE, VM}, args...)
+	_args := append([]string{create, VM}, args...)
 	return clientcmd.NewRepeatableVirtctlCommandWithOut(_args...)()
 }
 

@@ -1,4 +1,4 @@
-package create_test
+package vm_test
 
 import (
 	"testing"
