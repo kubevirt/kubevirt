@@ -17125,6 +17125,14 @@
      "smbios": {
       "$ref": "#/definitions/v1.SMBiosConfiguration"
      },
+     "supportContainerResources": {
+      "description": "SupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.SupportContainerResources"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "supportedGuestAgentVersions": {
       "description": "deprecated",
       "type": "array",
@@ -18251,6 +18259,21 @@
      },
      "kind": {
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     }
+    }
+   },
+   "v1.SupportContainerResources": {
+    "description": "SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.",
+    "type": "object",
+    "required": [
+     "type"
+    ],
+    "properties": {
+     "resources": {
+      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
+     },
+     "type": {
       "type": "string"
      }
     }

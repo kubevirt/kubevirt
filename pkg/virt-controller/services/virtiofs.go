@@ -11,10 +11,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
-func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string) []k8sv1.Container {
+func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) []k8sv1.Container {
 	passthroughFSVolumes := make(map[string]struct{})
 	for i := range vmi.Spec.Domain.Devices.Filesystems {
 		passthroughFSVolumes[vmi.Spec.Domain.Devices.Filesystems[i].Name] = struct{}{}
@@ -27,7 +28,7 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string) []
 	for _, volume := range vmi.Spec.Volumes {
 		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
 
-			container := generateContainerFromVolume(&volume, image)
+			container := generateContainerFromVolume(&volume, image, config)
 			containers = append(containers, container)
 
 		}
@@ -36,23 +37,33 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string) []
 	return containers
 }
 
-func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool) k8sv1.ResourceRequirements {
+func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	resources := k8sv1.ResourceRequirements{Requests: k8sv1.ResourceList{}, Limits: k8sv1.ResourceList{}}
 
-	// TODO: Find out correct values
 	resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+	if reqCpu := config.GetSupportContainerRequest(v1.VirtioFS, k8sv1.ResourceCPU); reqCpu != nil {
+		resources.Requests[k8sv1.ResourceCPU] = *reqCpu
+	}
 	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("80M")
+	if limMem := config.GetSupportContainerLimit(v1.VirtioFS, k8sv1.ResourceMemory); limMem != nil {
+		resources.Limits[k8sv1.ResourceMemory] = *limMem
+	}
 
+	resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
+	if limCpu := config.GetSupportContainerLimit(v1.VirtioFS, k8sv1.ResourceCPU); limCpu != nil {
+		resources.Limits[k8sv1.ResourceCPU] = *limCpu
+	}
 	if dedicatedCPUs || guaranteedQOS {
-		resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
-	} else {
-		resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
+		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
 	}
 
 	if guaranteedQOS {
-		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("80M")
+		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
 	} else {
 		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+		if reqMem := config.GetSupportContainerRequest(v1.VirtioFS, k8sv1.ResourceMemory); reqMem != nil {
+			resources.Requests[k8sv1.ResourceMemory] = *reqMem
+		}
 	}
 
 	return resources
@@ -113,8 +124,8 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	return volumeMountPoint
 }
 
-func generateContainerFromVolume(volume *v1.Volume, image string) k8sv1.Container {
-	resources := resourcesForVirtioFSContainer(false, false)
+func generateContainerFromVolume(volume *v1.Volume, image string, config *virtconfig.ClusterConfig) k8sv1.Container {
+	resources := resourcesForVirtioFSContainer(false, false, config)
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))

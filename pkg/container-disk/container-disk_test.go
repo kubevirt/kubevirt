@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -168,7 +169,18 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(path).To(Equal(expectedPath))
 			})
 
-			It("by verifying that resources are set if the VMI wants the guaranteed QOS class", func() {
+			DescribeTable("by verifying that resources are set if the VMI wants the guaranteed QOS class", func(req, lim, expectedReq, expectedLimit k8sv1.ResourceList) {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{
+						{
+							Type: v1.ContainerDisk,
+							Resources: &k8sv1.ResourceRequirements{
+								Requests: req,
+								Limits:   lim,
+							},
+						},
+					},
+				})
 
 				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
@@ -182,19 +194,87 @@ var _ = Describe("ContainerDisk", func() {
 						k8sv1.ResourceMemory: resource.MustParse("64M"),
 					},
 				}
-				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")
 
-				containerResourceSpecs := []k8sv1.ResourceList{containers[0].Resources.Limits, containers[0].Resources.Requests}
+				Expect(containers[0].Resources.Requests).To(ContainElements(*expectedReq.Cpu(), *expectedReq.Memory(), *expectedReq.StorageEphemeral()))
+				Expect(containers[0].Resources.Limits).To(BeEquivalentTo(expectedLimit))
+			},
+				Entry("defaults not overriden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:              resource.MustParse("100m"),
+					k8sv1.ResourceMemory:           resource.MustParse("40M"),
+					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("100m"),
+					k8sv1.ResourceMemory: resource.MustParse("40M"),
+				}),
+				Entry("defaults overriden", k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("1m"),
+					k8sv1.ResourceMemory: resource.MustParse("25M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("100m"),
+					k8sv1.ResourceMemory: resource.MustParse("400M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:              resource.MustParse("100m"),
+					k8sv1.ResourceMemory:           resource.MustParse("400M"),
+					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("100m"),
+					k8sv1.ResourceMemory: resource.MustParse("400M"),
+				}),
+			)
 
-				for _, containerResourceSpec := range containerResourceSpecs {
-					Expect(containerResourceSpec).To(And(HaveKey(k8sv1.ResourceCPU), HaveKey(k8sv1.ResourceMemory)))
-				}
-			})
-			It("by verifying that ephemeral storage request is set to every container", func() {
+			DescribeTable("by verifying that resources are set from config", func(req, lim, expectedReq, expectedLimit k8sv1.ResourceList) {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{
+						{
+							Type: v1.ContainerDisk,
+							Resources: &k8sv1.ResourceRequirements{
+								Requests: req,
+								Limits:   lim,
+							},
+						},
+					},
+				})
 
 				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")
+
+				Expect(containers[0].Resources.Requests).To(ContainElements(*expectedReq.Cpu(), *expectedReq.Memory(), *expectedReq.StorageEphemeral()))
+				Expect(containers[0].Resources.Limits).To(BeEquivalentTo(expectedLimit))
+			},
+				Entry("defaults not overriden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:              resource.MustParse("10m"),
+					k8sv1.ResourceMemory:           resource.MustParse("1M"),
+					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("100m"),
+					k8sv1.ResourceMemory: resource.MustParse("40M"),
+				}),
+				Entry("defaults overriden", k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("1m"),
+					k8sv1.ResourceMemory: resource.MustParse("25M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("110m"),
+					k8sv1.ResourceMemory: resource.MustParse("400M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:              resource.MustParse("1m"),
+					k8sv1.ResourceMemory:           resource.MustParse("25M"),
+					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
+				}, k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("110m"),
+					k8sv1.ResourceMemory: resource.MustParse("400M"),
+				}),
+			)
+
+			It("by verifying that ephemeral storage request is set to every container", func() {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{},
+				})
+
+				vmi := api.NewMinimalVMI("fake-vmi")
+				appendContainerDisk(vmi, "r0")
+				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "/var/run/libvirt")
 
 				expectedEphemeralStorageRequest := resource.MustParse(ephemeralStorageOverheadSize)
 
@@ -208,10 +288,13 @@ var _ = Describe("ContainerDisk", func() {
 				}
 			})
 			It("by verifying container generation", func() {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{},
+				})
 				vmi := api.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r1")
 				appendContainerDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, nil, "libvirt-runtime", "bin-volume")
+				containers := GenerateContainers(vmi, clusterConfig, nil, "libvirt-runtime", "bin-volume")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(containers).To(HaveLen(2))
@@ -264,6 +347,9 @@ var _ = Describe("ContainerDisk", func() {
 
 		Context("should use the right containerID", func() {
 			It("for a new migration pod with two containerDisks", func() {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{},
+				})
 				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				appendNonContainerDisk(vmi, "disk3")
@@ -277,11 +363,14 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1"))
 				Expect(imageIDs).To(HaveLen(2))
 
-				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
+				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
 				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0"))
 				Expect(newContainers[1].Image).To(Equal("someimage@sha256:1"))
 			})
 			It("for a new migration pod with a containerDisk and a kernel image", func() {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{},
+				})
 				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				appendNonContainerDisk(vmi, "disk3")
@@ -296,8 +385,8 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bootcontainer"))
 				Expect(imageIDs).To(HaveLen(2))
 
-				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
-				newBootContainer := GenerateKernelBootContainer(vmi, imageIDs, "a-name", "something")
+				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
+				newBootContainer := GenerateKernelBootContainer(vmi, clusterConfig, imageIDs, "a-name", "something")
 				newContainers = append(newContainers, *newBootContainer)
 				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0"))
 				Expect(newContainers[1].Image).To(Equal("someimage@sha256:bootcontainer"))
@@ -307,10 +396,10 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 				pod := createMigrationSourcePod(vmi)
-				pod.Status.ContainerStatuses[0].ImageID = "rubish"
+				pod.Status.ContainerStatuses[0].ImageID = "rubbish"
 				_, err := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "rubish"`))
+				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "rubbish"`))
 			})
 
 			DescribeTable("It should detect the image ID from", func(imageID string) {
@@ -347,6 +436,9 @@ var _ = Describe("ContainerDisk", func() {
 
 		Context("when generating the container", func() {
 			DescribeTable("when generating the container", func(testFunc func(*k8sv1.Container)) {
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{},
+				})
 				vmi := api.NewMinimalVMI("myvmi")
 				appendContainerDisk(vmi, "disk1")
 
@@ -354,7 +446,7 @@ var _ = Describe("ContainerDisk", func() {
 				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(err).ToNot(HaveOccurred())
 
-				newContainers := GenerateContainers(vmi, imageIDs, "a-name", "something")
+				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
 				testFunc(&newContainers[0])
 			},
 				Entry("AllowPrivilegeEscalation should be false", func(c *k8sv1.Container) {
@@ -401,8 +493,11 @@ func appendNonContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
 }
 
 func createMigrationSourcePod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+		SupportContainerResources: []v1.SupportContainerResources{},
+	})
 	pod := &k8sv1.Pod{Status: k8sv1.PodStatus{}}
-	containers := GenerateContainers(vmi, nil, "a-name", "something")
+	containers := GenerateContainers(vmi, clusterConfig, nil, "a-name", "something")
 
 	for idx, container := range containers {
 		status := k8sv1.ContainerStatus{
@@ -412,7 +507,7 @@ func createMigrationSourcePod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 		}
 		pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, status)
 	}
-	bootContainer := GenerateKernelBootContainer(vmi, nil, "a-name", "something")
+	bootContainer := GenerateKernelBootContainer(vmi, clusterConfig, nil, "a-name", "something")
 	if bootContainer != nil {
 		status := k8sv1.ContainerStatus{
 			Name:    bootContainer.Name,

@@ -243,6 +243,30 @@ func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
 }
 
+func (c *ClusterConfig) GetSupportContainerRequest(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity {
+	for _, containerResource := range c.GetConfig().SupportContainerResources {
+		if containerResource.Type == typeName {
+			quantity := containerResource.Resources.Requests[resourceName]
+			if !quantity.IsZero() {
+				return &quantity
+			}
+		}
+	}
+	return nil
+}
+
+func (c *ClusterConfig) GetSupportContainerLimit(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity {
+	for _, containerResource := range c.GetConfig().SupportContainerResources {
+		if containerResource.Type == typeName {
+			quantity := containerResource.Resources.Limits[resourceName]
+			if !quantity.IsZero() {
+				return &quantity
+			}
+		}
+	}
+	return nil
+}
+
 func canSelectNode(nodeSelector map[string]string, node *k8sv1.Node) bool {
 	for key, val := range nodeSelector {
 		labelValue, exist := node.Labels[key]

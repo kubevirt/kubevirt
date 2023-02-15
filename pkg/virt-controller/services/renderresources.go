@@ -513,64 +513,132 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 	return nil
 }
 
-func sidecarResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
-	resources := k8sv1.ResourceRequirements{}
+func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+	resources := k8sv1.ResourceRequirements{
+		Requests: k8sv1.ResourceList{},
+		Limits:   k8sv1.ResourceList{},
+	}
+	if reqCpu := config.GetSupportContainerRequest(v1.SideCar, k8sv1.ResourceCPU); reqCpu != nil {
+		resources.Requests[k8sv1.ResourceCPU] = *reqCpu
+	}
+	if reqMem := config.GetSupportContainerRequest(v1.SideCar, k8sv1.ResourceMemory); reqMem != nil {
+		resources.Requests[k8sv1.ResourceMemory] = *reqMem
+	}
+
 	// add default cpu and memory limits to enable cpu pinning if requested
 	// TODO(vladikr): make the hookSidecar express resources
 	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		resources.Limits = make(k8sv1.ResourceList)
 		resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
+		if limCpu := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceCPU); limCpu != nil {
+			resources.Limits[k8sv1.ResourceCPU] = *limCpu
+		}
 		resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
+		if limMem := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceMemory); limMem != nil {
+			resources.Limits[k8sv1.ResourceMemory] = *limMem
+		}
+		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
+		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
+	} else {
+		if limCpu := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceCPU); limCpu != nil {
+			resources.Limits[k8sv1.ResourceCPU] = *limCpu
+		}
+		if limMem := config.GetSupportContainerLimit(v1.SideCar, k8sv1.ResourceMemory); limMem != nil {
+			resources.Limits[k8sv1.ResourceMemory] = *limMem
+		}
 	}
 	return resources
 }
 
-func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 		return k8sv1.ResourceRequirements{
-			Limits:   initContainerDedicatedCPURequiredResources(),
-			Requests: initContainerDedicatedCPURequiredResources(),
+			Limits:   initContainerDedicatedCPURequiredResources(containerType, config),
+			Requests: initContainerDedicatedCPURequiredResources(containerType, config),
 		}
 	} else {
 		return k8sv1.ResourceRequirements{
-			Limits:   initContainerMinimalLimits(),
-			Requests: initContainerMinimalRequests(),
+			Limits:   initContainerMinimalLimits(containerType, config),
+			Requests: initContainerMinimalRequests(containerType, config),
 		}
 	}
 }
 
-func initContainerDedicatedCPURequiredResources() k8sv1.ResourceList {
-	return k8sv1.ResourceList{
+func initContainerDedicatedCPURequiredResources(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("10m"),
 		k8sv1.ResourceMemory: resource.MustParse("40M"),
 	}
+	if cpuLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceCPU); cpuLim != nil {
+		res[k8sv1.ResourceCPU] = *cpuLim
+	}
+	if memLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceMemory); memLim != nil {
+		res[k8sv1.ResourceMemory] = *memLim
+	}
+	return res
 }
 
-func initContainerMinimalLimits() k8sv1.ResourceList {
-	return k8sv1.ResourceList{
+func initContainerMinimalLimits(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("100m"),
 		k8sv1.ResourceMemory: resource.MustParse("40M"),
 	}
+	if cpuLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceCPU); cpuLim != nil {
+		res[k8sv1.ResourceCPU] = *cpuLim
+	}
+	if memLim := config.GetSupportContainerLimit(containerType, k8sv1.ResourceMemory); memLim != nil {
+		res[k8sv1.ResourceMemory] = *memLim
+	}
+	return res
 }
 
-func initContainerMinimalRequests() k8sv1.ResourceList {
-	return k8sv1.ResourceList{
+func initContainerMinimalRequests(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("10m"),
 		k8sv1.ResourceMemory: resource.MustParse("1M"),
 	}
+	if cpuReq := config.GetSupportContainerRequest(containerType, k8sv1.ResourceCPU); cpuReq != nil {
+		res[k8sv1.ResourceCPU] = *cpuReq
+	}
+	if memReq := config.GetSupportContainerRequest(containerType, k8sv1.ResourceMemory); memReq != nil {
+		res[k8sv1.ResourceMemory] = *memReq
+	}
+	return res
 }
 
-func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
+func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
-		Limits:   hotplugContainerMinimalLimits(),
-		Requests: hotplugContainerMinimalLimits(),
+		Limits:   hotplugContainerLimits(config),
+		Requests: hotplugContainerRequests(config),
 	}
 }
 
-func hotplugContainerMinimalLimits() k8sv1.ResourceList {
+func hotplugContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("100m")
+	if cpu := config.GetSupportContainerLimit(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
+		cpuQuantity = *cpu
+	}
+	memQuantity := resource.MustParse("80M")
+	if mem := config.GetSupportContainerLimit(v1.HotplugAttachment, k8sv1.ResourceMemory); mem != nil {
+		memQuantity = *mem
+	}
 	return k8sv1.ResourceList{
-		k8sv1.ResourceCPU:    resource.MustParse("100m"),
-		k8sv1.ResourceMemory: resource.MustParse("80M"),
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("100m")
+	if cpu := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
+		cpuQuantity = *cpu
+	}
+	memQuantity := resource.MustParse("80M")
+	if mem := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceMemory); mem != nil {
+		memQuantity = *mem
+	}
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
 	}
 }
 
