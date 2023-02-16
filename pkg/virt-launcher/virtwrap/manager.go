@@ -1186,6 +1186,9 @@ func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPa
 func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	logger := log.Log.Object(vmi)
 
+	if l.shouldSkipMemoryDump(dumpPath) {
+		return nil
+	}
 	l.initializeMemoryDumpMetadata(dumpPath)
 
 	domName := api.VMINamespaceKeyFunc(vmi)
@@ -1212,13 +1215,18 @@ func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPa
 	return err
 }
 
+func (l *LibvirtDomainManager) shouldSkipMemoryDump(dumpPath string) bool {
+	memoryDumpMetadata, _ := l.metadataCache.MemoryDump.Load()
+	if memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
+		// memory dump still in progress or have just completed
+		// no need to trigger another one
+		return true
+	}
+	return false
+}
+
 func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(dumpPath string) {
 	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
-		if memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
-			// memory dump still in progress or have just completed
-			return
-		}
-
 		now := metav1.Now()
 		*memoryDumpMetadata = api.MemoryDumpMetadata{
 			FileName:       filepath.Base(dumpPath),
