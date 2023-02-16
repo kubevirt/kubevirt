@@ -3635,7 +3635,6 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
 			Expect(err).ToNot(HaveOccurred())
 			verifyPodRequestLimits1to1Ratio(pod)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {

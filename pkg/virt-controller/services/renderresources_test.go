@@ -264,7 +264,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 		return resource.NewQuantity(0, resource.DecimalSI)
 	}
 
-	DescribeTable("Calculate ratios from VMI", func(reqMem, reqCpu, limMem, limCpu *resource.Quantity, expectedRequest, expectedLimits kubev1.ResourceList) {
+	DescribeTable("Calculate ratios from VMI", func(reqMem, reqCpu, limMem, limCpu *resource.Quantity, expectedRequest kubev1.ResourceList) {
+		expectedLimits := hotplugContainerLimits()
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
@@ -302,34 +303,38 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 		Expect(res.Limits).To(BeEquivalentTo(expectedLimits))
 	},
-		Entry("Nil everything", nil, nil, nil, nil, defaultRequest(), hotplugContainerLimits()),
-		Entry("Zero memory request/limit, nil cpu request/limit", zeroQuantity(), nil, zeroQuantity(), nil, defaultRequest(), hotplugContainerLimits()),
-		Entry("Zero everything", zeroQuantity(), zeroQuantity(), zeroQuantity(), zeroQuantity(), defaultRequest(), hotplugContainerLimits()),
-		Entry("Nil memory request/limit, zero cpu request/limit", nil, zeroQuantity(), nil, zeroQuantity(), defaultRequest(), hotplugContainerLimits()),
+		Entry("Nil everything", nil, nil, nil, nil, defaultRequest()),
+		Entry("Zero memory request/limit, nil cpu request/limit", zeroQuantity(), nil, zeroQuantity(), nil, defaultRequest()),
+		Entry("Zero everything", zeroQuantity(), zeroQuantity(), zeroQuantity(), zeroQuantity(), defaultRequest()),
+		Entry("Nil memory request/limit, zero cpu request/limit", nil, zeroQuantity(), nil, zeroQuantity(), defaultRequest()),
 		Entry("Memory request and limit same, nil cpu request/limit", resource.NewQuantity(10, resource.DecimalSI), nil, resource.NewQuantity(10, resource.DecimalSI), nil, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("10m"),
 			kubev1.ResourceMemory: resource.MustParse("80M"),
-		}, hotplugContainerLimits()),
+		}),
 		Entry("Cpu request and limit same, nil mem request/limit", nil, resource.NewQuantity(2, resource.DecimalSI), nil, resource.NewQuantity(2, resource.DecimalSI), kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("100m"),
 			kubev1.ResourceMemory: resource.MustParse("2M"),
-		}, hotplugContainerLimits()),
+		}),
 		Entry("Memory request and limit at ratio 2, nil cpu request/limit", resource.NewQuantity(10, resource.DecimalSI), nil, resource.NewQuantity(20, resource.DecimalSI), nil, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("10m"),
 			kubev1.ResourceMemory: resource.MustParse("40M"),
-		}, hotplugContainerLimits()),
+		}),
 		Entry("Cpu request and limit at ratio 2, nil mem request/limit", nil, resource.NewQuantity(2, resource.DecimalSI), nil, resource.NewQuantity(4, resource.DecimalSI), kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("50m"),
 			kubev1.ResourceMemory: resource.MustParse("2M"),
-		}, hotplugContainerLimits()),
+		}),
 		Entry("Memory request and limit at ratio 3, nil cpu request/limit", resource.NewQuantity(10, resource.DecimalSI), nil, resource.NewQuantity(30, resource.DecimalSI), nil, kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("10m"),
 			kubev1.ResourceMemory: resource.MustParse("27M"),
-		}, hotplugContainerLimits()),
+		}),
 		Entry("Cpu request and limit at ratio 3, nil mem request/limit", nil, resource.NewQuantity(2, resource.DecimalSI), nil, resource.NewQuantity(6, resource.DecimalSI), kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("34m"),
 			kubev1.ResourceMemory: resource.MustParse("2M"),
-		}, hotplugContainerLimits()),
+		}),
+		Entry("Cpu request and limit at ratio 6, mem request and limit at ratio 2", resource.NewQuantity(100, resource.DecimalSI), resource.NewQuantity(2000, resource.DecimalSI), resource.NewQuantity(200, resource.DecimalSI), resource.NewQuantity(12000, resource.DecimalSI), kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("17m"),
+			kubev1.ResourceMemory: resource.MustParse("40M"),
+		}),
 	)
 })
 

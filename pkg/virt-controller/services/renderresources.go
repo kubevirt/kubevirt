@@ -566,12 +566,12 @@ func calculateHotplugContainerRequests(vmi *v1.VirtualMachineInstance) k8sv1.Res
 	defaultMemoryRequest := resource.MustParse("2M")
 
 	return k8sv1.ResourceList{
-		k8sv1.ResourceCPU:    calculateVMIResourceRatio(resources.Requests.Cpu(), resources.Limits.Cpu(), &defaultCpuRequest, cpuLimit, resource.Milli),
-		k8sv1.ResourceMemory: calculateVMIResourceRatio(resources.Requests.Memory(), resources.Limits.Memory(), &defaultMemoryRequest, memLimit, 0),
+		k8sv1.ResourceCPU:    calculateVMIResourceQuantity(resources.Requests.Cpu(), resources.Limits.Cpu(), &defaultCpuRequest, cpuLimit, resource.Milli),
+		k8sv1.ResourceMemory: calculateVMIResourceQuantity(resources.Requests.Memory(), resources.Limits.Memory(), &defaultMemoryRequest, memLimit, 0),
 	}
 }
 
-func calculateVMIResourceRatio(req, lim, defaultValue *resource.Quantity, limitValue int64, scale resource.Scale) resource.Quantity {
+func calculateVMIResourceQuantity(req, lim, defaultValue *resource.Quantity, limitValue int64, scale resource.Scale) resource.Quantity {
 	if req == nil || req.IsZero() || lim == nil || lim.IsZero() {
 		return *defaultValue
 	}
