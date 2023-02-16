@@ -350,6 +350,68 @@ func (c *VMIController) execute(key string) error {
 	return nil
 }
 
+// These "dynamic" labels are Pod labels which may diverge from the VMI over time that we want to keep in sync.
+func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	var patchOps []string
+
+	dynamicLabels := []string{
+		virtv1.NodeNameLabel,
+		virtv1.OutdatedLauncherImageLabel,
+	}
+
+	podMeta := pod.ObjectMeta.DeepCopy()
+	if podMeta.Labels == nil {
+		podMeta.Labels = map[string]string{}
+	}
+
+	changed := false
+	for _, key := range dynamicLabels {
+		vmiVal, vmiLabelExists := vmi.Labels[key]
+		podVal, podLabelExists := podMeta.Labels[key]
+		if vmiLabelExists == podLabelExists && vmiVal == podVal {
+			continue
+		}
+
+		changed = true
+		if !vmiLabelExists {
+			delete(podMeta.Labels, key)
+		} else {
+			podMeta.Labels[key] = vmiVal
+		}
+	}
+
+	if !changed {
+		return nil
+	}
+
+	newLabelBytes, err := json.Marshal(podMeta.Labels)
+	if err != nil {
+		return err
+	}
+	if pod.ObjectMeta.Labels == nil {
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+	} else {
+		oldLabelBytes, err := json.Marshal(pod.ObjectMeta.Labels)
+		if err != nil {
+			return err
+		}
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s }`, string(oldLabelBytes)))
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s }`, string(newLabelBytes)))
+	}
+
+	patchBytes := controller.GeneratePatchBytes(patchOps)
+
+	if len(patchBytes) == 0 {
+		return nil
+	}
+
+	if _, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
+		log.Log.Object(pod).Errorf("failed to sync dynamic pod labels during sync: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	var patchOps []string
 	for key, newValue := range newAnnotations {
@@ -437,9 +499,21 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	c.syncReadyConditionFromPod(vmiCopy, pod)
 	if vmiPodExists {
-		err := c.syncPausedConditionToPod(vmiCopy, pod)
-		if err != nil {
+		var foundImage string
+		for _, container := range pod.Spec.Containers {
+			if container.Name == "compute" {
+				foundImage = container.Image
+				break
+			}
+		}
+		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
+
+		if err := c.syncPausedConditionToPod(vmiCopy, pod); err != nil {
 			return fmt.Errorf("error syncing paused condition to pod: %v", err)
+		}
+
+		if err := c.syncDynamicLabelsToPod(vmiCopy, pod); err != nil {
+			return fmt.Errorf("error syncing labels to pod: %v", err)
 		}
 	}
 
@@ -596,15 +670,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
 			return err
 		}
-
-		var foundImage string
-		for _, container := range pod.Spec.Containers {
-			if container.Name == "compute" {
-				foundImage = container.Image
-				break
-			}
-		}
-		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
 
 	case vmi.IsScheduled():
 		// Nothing here

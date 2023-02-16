@@ -1626,10 +1626,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
-			patch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
+			vmiPatch := `[{ "op": "add", "path": "/status/launcherContainerImageVersion", "value": "madeup" }, { "op": "add", "path": "/metadata/labels", "value": {"kubevirt.io/outdatedLauncherImage":""} }]`
 
-			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(vmiPatch), &metav1.PatchOptions{}).Return(vmi, nil)
 
+			podPatch := `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/outdatedLauncherImage":""} }]`
+			kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				p, _ := action.(testing.PatchAction)
+				Expect(podPatch).To(Equal(string(p.GetPatch())))
+				return true, nil, nil
+			})
 			controller.Execute()
 		})
 		It("should remove outdated label if pod's image up-to-date and VMI is in running state", func() {
@@ -1859,6 +1865,94 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					To(Equal(virtv1.MigrationTransportUnix))
 			}).Return(vmi, nil)
 			controller.Execute()
+		})
+
+		Context("should update pod labels", func() {
+
+			type testData struct {
+				vmiLabels     map[string]string
+				podLabels     map[string]string
+				expectedPatch string
+			}
+			DescribeTable("when VMI dynamic label set changes", func(td *testData) {
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+				vmi.Labels = td.vmiLabels
+				for key, val := range td.podLabels {
+					pod.Labels[key] = val
+				}
+
+				addVirtualMachine(vmi)
+				addActivePods(vmi, pod.UID, "")
+				podFeeder.Add(pod)
+
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+
+				patch := ""
+				kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+					p, _ := action.(testing.PatchAction)
+					patch = string(p.GetPatch())
+					return true, nil, nil
+				})
+
+				key := kvcontroller.VirtualMachineInstanceKey(vmi)
+				err := controller.execute(key)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(patch).To(Equal(td.expectedPatch))
+			},
+				Entry("when VMI and pod labels differ",
+					&testData{
+						vmiLabels: map[string]string{
+							virtv1.NodeNameLabel: "node2",
+						},
+						podLabels: map[string]string{
+							virtv1.NodeNameLabel: "node1",
+						},
+						expectedPatch: `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/nodeName":"node1"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/nodeName":"node2"} }]`,
+					},
+				),
+				Entry("when VMI and pod label are the same",
+					&testData{
+						vmiLabels: map[string]string{
+							virtv1.NodeNameLabel: "node1",
+						},
+						podLabels: map[string]string{
+							virtv1.NodeNameLabel: "node1",
+						},
+						expectedPatch: "",
+					},
+				),
+				Entry("when POD label doesn't exist",
+
+					&testData{
+						vmiLabels: map[string]string{
+							virtv1.NodeNameLabel: "node1",
+						},
+						podLabels:     map[string]string{},
+						expectedPatch: `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/nodeName":"node1"} }]`,
+					},
+				),
+				Entry("when neither POD or VMI label exists",
+					&testData{
+						vmiLabels:     map[string]string{},
+						podLabels:     map[string]string{},
+						expectedPatch: "",
+					},
+				),
+				Entry("when POD label exists and VMI does not",
+					&testData{
+						vmiLabels: map[string]string{},
+						podLabels: map[string]string{
+							virtv1.OutdatedLauncherImageLabel: "",
+						},
+						expectedPatch: `[{ "op": "test", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234","kubevirt.io/outdatedLauncherImage":""} }, { "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io":"virt-launcher","kubevirt.io/created-by":"1234"} }]`,
+					},
+				),
+			)
 		})
 
 		DescribeTable("should set VirtualMachineUnpaused=False pod condition when VMI is paused", func(currUnpausedStatus k8sv1.ConditionStatus) {
