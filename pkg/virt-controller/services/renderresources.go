@@ -540,7 +540,7 @@ func initContainerMinimalRequests() k8sv1.ResourceList {
 func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   hotplugContainerLimits(),
-		Requests: calculateHotplugContainerRequests(vmi),
+		Requests: calculateContainerRequests(vmi, hotplugContainerLimits()),
 	}
 }
 
@@ -551,16 +551,15 @@ func hotplugContainerLimits() k8sv1.ResourceList {
 	}
 }
 
-func calculateHotplugContainerRequests(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
+func calculateContainerRequests(vmi *v1.VirtualMachineInstance, limits k8sv1.ResourceList) k8sv1.ResourceList {
 	// In order to calculate the request to limit ratio, use the request to limit ratio
 	// of the VMI. If the VMI has a cpu request to limit ratio of 1, then we will use the
 	// same ratio for the hotplug container. Same for memory. These ratios can be independent
 	// of each other. Requests can never be > limits.
-	limits := hotplugContainerLimits()
+
 	// Using UnscaledBig here or limit returns as a 0 depending on the scale (cpu slice in milli)
 	cpuLimit := limits.Cpu().AsDec().UnscaledBig().Int64()
-	// Don't need to use unscaled here because mem is giving values > 1 byte
-	memLimit, _ := limits.Memory().AsInt64()
+	memLimit := limits.Memory().Value()
 	resources := vmi.Spec.Domain.Resources
 	defaultCpuRequest := resource.MustParse("10m")
 	defaultMemoryRequest := resource.MustParse("2M")
@@ -576,10 +575,10 @@ func calculateVMIResourceQuantity(req, lim, defaultValue *resource.Quantity, lim
 		return *defaultValue
 	}
 
-	request := req.AsDec().UnscaledBig().Int64()
-	limit := lim.AsDec().UnscaledBig().Int64()
+	request := req.Value()
+	limit := lim.Value()
 	ratio := float64(request) / float64(limit)
-	// Observed ratio needs to be <= limit Ratio, ceil ensures the ratio is always <=
+	// Observed ratio needs to be <= limitRange Ratio, ceil ensures the ratio is always <=
 	val := int64(math.Ceil(float64(limitValue) * ratio))
 	return *resource.NewScaledQuantity(val, scale)
 }

@@ -22,12 +22,17 @@ package storage
 import (
 	"context"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/pointer"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/client-go/log"
 
@@ -1273,6 +1278,177 @@ var _ = SIGDescribe("Hotplug", func() {
 			removeVolumeVMI(vm.Name, vm.Namespace, "testvolume", false)
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
+	})
+
+	Context("with limit range in namespace", func() {
+		var (
+			sc                         string
+			lr                         *corev1.LimitRange
+			orgCdiResourceRequirements *corev1.ResourceRequirements
+		)
+
+		createVMWithMemoryRatio := func(ratio float64) *v1.VirtualMachine {
+			vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+				cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
+				testsuite.GetTestNamespace(nil), sc, corev1.ReadWriteOnce)
+
+			limit := int64(1024 * 1024 * 128) //128Mi
+			request := int64(math.Ceil(float64(limit) / ratio))
+			requestQuantity := resource.NewScaledQuantity(request, 0)
+			limitQuantity := resource.NewScaledQuantity(limit, 0)
+			vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = *requestQuantity
+			vm.Spec.Template.Spec.Domain.Resources.Limits = corev1.ResourceList{}
+			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceMemory] = *limitQuantity
+			vm.Spec.Running = pointer.BoolPtr(true)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+			return vm
+		}
+
+		updateCDIResourceRequirements := func(requirements *corev1.ResourceRequirements) {
+			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			if len(cdiList.Items) != 1 {
+				Fail("Unable to locate CDI CR")
+			}
+			orgCdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			orgCdiResourceRequirements = cdiList.Items[0].Spec.Config.PodResourceRequirements
+			newCdi := cdiList.Items[0].DeepCopy()
+			newCdi.Spec.Config.PodResourceRequirements = requirements
+			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), newCdi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				cdiConfig, _ := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
+				if cdiConfig == nil {
+					return false
+				}
+				return cdiConfig.Generation > orgCdiConfig.Generation
+			}, 30*time.Second, 1*time.Second).Should(BeTrue())
+		}
+
+		updateCDIToRatio := func(ratio float64) {
+			limitQuantity := resource.MustParse("600Mi")
+			limit := limitQuantity.Value()
+			request := int64(math.Ceil(float64(limit) / ratio))
+			requestQuantity := resource.NewScaledQuantity(request, 0)
+
+			updateCDIResourceRequirements(&corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("100m"),
+					corev1.ResourceMemory: *requestQuantity,
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("700m"),
+					corev1.ResourceMemory: limitQuantity,
+				},
+			})
+		}
+
+		createLimitRangeInNamespace := func(namespace string, ratio float64) {
+			lr = &corev1.LimitRange{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      fmt.Sprintf("%s-lr", namespace),
+				},
+				Spec: corev1.LimitRangeSpec{
+					Limits: []corev1.LimitRangeItem{
+						{
+							Type: corev1.LimitTypeContainer,
+							MaxLimitRequestRatio: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%f", ratio)),
+							},
+							Max: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("1Gi"),
+							},
+							Min: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("24Mi"),
+							},
+						},
+					},
+				},
+			}
+			lr, err = virtClient.CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Ensuring LimitRange exists")
+			Eventually(func() error {
+				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
+				return err
+			}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}
+
+		BeforeEach(func() {
+			exists := false
+			sc, exists = libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when RWoFilesystem storage class is not present")
+			}
+		})
+
+		AfterEach(func() {
+			if lr != nil {
+				err = virtClient.CoreV1().LimitRanges(namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
+				if !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+				lr = nil
+			}
+			updateCDIResourceRequirements(orgCdiResourceRequirements)
+			orgCdiResourceRequirements = nil
+		})
+
+		// Needs to be serial since I am putting limit range on namespace
+		DescribeTable("hotplug volume should have mem ratio same as VMI with limit range applied", func(ratio float64) {
+			updateCDIToRatio(ratio)
+			createLimitRangeInNamespace(util.NamespaceTestDefault, ratio)
+			vm := createVMWithMemoryRatio(ratio)
+			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+
+			By(addingVolumeRunningVM)
+			addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
+			By(verifyingVolumeDiskInVM)
+			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
+			verifySingleAttachmentPod(vmi)
+			By("Verifying request/limit ratio on attachment pod")
+			podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			var attachmentPod *corev1.Pod
+			for _, pod := range podList.Items {
+				for _, ownerRef := range pod.GetOwnerReferences() {
+					if ownerRef.UID == vmi.GetUID() {
+						attachmentPod = &pod
+						break
+					}
+				}
+			}
+			memLimit := attachmentPod.Spec.Containers[0].Resources.Limits.Memory().Value()
+			memRequest := attachmentPod.Spec.Containers[0].Resources.Requests.Memory().Value()
+			Expect(memRequest * int64(ratio)).To(BeNumerically(">=", memLimit))
+
+			By("Remove volume from a running VM")
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry("[Serial]1 to 1 ratio", float64(1)),
+			Entry("[Serial]2 to 1 ratio", float64(2)),
+			Entry("[Serial]3 to 1 ratio", float64(3)),
+			Entry("[Serial]2.25 to 1 ratio", float64(2.25)),
+		)
 	})
 
 	Context("hostpath-separate-device", func() {

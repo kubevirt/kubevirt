@@ -3597,22 +3597,18 @@ var _ = Describe("Template", func() {
 		)
 
 		verifyPodRequestLimits1to1Ratio := func(pod *kubev1.Pod) {
-			cpuLimit, _ := pod.Spec.Containers[0].Resources.Limits.Cpu().AsInt64()
-			memLimit, _ := pod.Spec.Containers[0].Resources.Limits.Memory().AsInt64()
-			cpuReq, _ := pod.Spec.Containers[0].Resources.Requests.Cpu().AsInt64()
-			memReq, _ := pod.Spec.Containers[0].Resources.Requests.Memory().AsInt64()
+			cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().Value()
+			memLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value()
+			cpuReq := pod.Spec.Containers[0].Resources.Requests.Cpu().Value()
+			memReq := pod.Spec.Containers[0].Resources.Requests.Memory().Value()
 			expCpuLimitQ := resource.MustParse("100m")
-			expCpuLimit, _ := expCpuLimitQ.AsInt64()
-			Expect(cpuLimit).To(Equal(expCpuLimit))
+			Expect(cpuLimit).To(Equal(expCpuLimitQ.Value()))
 			expMemLimitQ := resource.MustParse("80M")
-			expMemLimit, _ := expMemLimitQ.AsInt64()
-			Expect(memLimit).To(Equal(expMemLimit))
+			Expect(memLimit).To(Equal(expMemLimitQ.Value()))
 			expCpuReqQ := resource.MustParse("100m")
-			expCpuReq, _ := expCpuReqQ.AsInt64()
-			Expect(cpuReq).To(Equal(expCpuReq))
+			Expect(cpuReq).To(Equal(expCpuReqQ.Value()))
 			expMemReqQ := resource.MustParse("80M")
-			expMemReq, _ := expMemReqQ.AsInt64()
-			Expect(memReq).To(Equal(expMemReq))
+			Expect(memReq).To(Equal(expMemReqQ.Value()))
 		}
 
 		It("should compute the correct resource req according to desired QoS when rendering hotplug pods", func() {
