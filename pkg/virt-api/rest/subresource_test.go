@@ -727,9 +727,41 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.Request.Body = newRemoveVolumeBody(removeOpts)
 			}
 
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = k8smetav1.NamespaceDefault
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "existingvol",
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "hotpluggedPVC",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "existingvol",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim",
+					}},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "hotpluggedPVC",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "hotpluggedPVC",
+						},
+						Hotpluggable: true,
+					},
+				},
+			})
+
 			if isVM {
 				vm := newMinimalVM(request.PathParameter("name"))
 				vm.Namespace = k8smetav1.NamespaceDefault
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				}
 
 				patchedVM := vm.DeepCopy()
 				patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
@@ -754,20 +786,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					app.VMRemoveVolumeRequestHandler(request, response)
 				}
 			} else {
-				vmi := api.NewMinimalVMI(request.PathParameter("name"))
-				vmi.Namespace = k8smetav1.NamespaceDefault
-				vmi.Status.Phase = v1.Running
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "existingvol",
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "existingvol",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testpvcdiskclaim",
-						}},
-					},
-				})
 
 				vmiClient.EXPECT().Get(vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil).AnyTimes()
 
@@ -815,10 +833,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Disk: &v1.Disk{},
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
-				Name: "vol1",
+				Name: "hotpluggedPVC",
 			}, true, http.StatusAccepted, true),
 			Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
-				Name: "existingvol",
+				Name: "hotpluggedPVC",
 			}, false, http.StatusAccepted, true),
 			Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
 			Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
@@ -857,11 +875,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				DryRun: getDryRunOption(),
 			}, nil, false, http.StatusBadRequest, true),
 			Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
-				Name:   "vol1",
+				Name:   "hotpluggedPVC",
 				DryRun: getDryRunOption(),
 			}, true, http.StatusAccepted, true),
 			Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
-				Name:   "existingvol",
+				Name:   "hotpluggedPVC",
 				DryRun: getDryRunOption(),
 			}, false, http.StatusAccepted, true),
 			Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
@@ -923,24 +941,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"[{ \"op\": \"test\", \"path\": \"/spec/volumes\", \"value\": [{\"name\":\"existingvol\",\"persistentVolumeClaim\":{\"claimName\":\"testpvcdiskclaim\"}}]}, { \"op\": \"test\", \"path\": \"/spec/domain/devices/disks\", \"value\": [{\"name\":\"existingvol\"}]}, { \"op\": \"replace\", \"path\": \"/spec/volumes\", \"value\": []}, { \"op\": \"replace\", \"path\": \"/spec/domain/devices/disks\", \"value\": []}]",
 				false),
-			Entry("remove volume that doesn't exist",
-				&v1.VirtualMachineVolumeRequest{
-					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-						Name: "non-existent",
-					},
-				},
-				"",
-				true),
-			Entry("add a volume that already exists",
-				&v1.VirtualMachineVolumeRequest{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "existingvol",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
-					},
-				},
-				"",
-				true),
 		)
 		DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatch string, expectError bool) {
 
@@ -1049,6 +1049,122 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				},
 				"",
 				true),
+		)
+
+		DescribeTable("Should verify volume option", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumes []v1.Volume, expectedError string) {
+			err := verifyVolumeOption(existingVolumes, volumeRequest)
+			if expectedError != "" {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(expectedError))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("add volume name which already exists should fail",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name:         "vol1",
+						Disk:         &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{},
+					},
+				},
+				[]v1.Volume{
+					{
+						Name: "vol1",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv1",
+							},
+						},
+					},
+				},
+				"Unable to add volume [vol1] because volume with that name already exists"),
+			Entry("add volume source which already exists should fail(existing dv)",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name: "dv1",
+						Disk: &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv1",
+							},
+						},
+					},
+				},
+				[]v1.Volume{
+					{
+						Name: "vol1",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv1",
+							},
+						},
+					},
+				},
+				"Unable to add volume source [dv1] because it already exists"),
+			Entry("add volume which source already exists should fail(existing pvc)",
+				&v1.VirtualMachineVolumeRequest{
+					AddVolumeOptions: &v1.AddVolumeOptions{
+						Name: "pvc1",
+						Disk: &v1.Disk{},
+						VolumeSource: &v1.HotplugVolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvc1",
+							}},
+						},
+					},
+				},
+				[]v1.Volume{
+					{
+						Name: "vol1",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvc1",
+							}},
+						},
+					},
+				},
+				"Unable to add volume source [pvc1] because it already exists"),
+			Entry("remove volume which doesnt exist should fail",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "vol1",
+					},
+				},
+				[]v1.Volume{},
+				"Unable to remove volume [vol1] because it does not exist"),
+			Entry("remove volume which wasnt hotplugged should fail(existing dv)",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "dv1",
+					},
+				},
+				[]v1.Volume{
+					{
+						Name: "vol1",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: "dv1",
+							},
+						},
+					},
+				},
+				"Unable to remove volume [vol1] because it is not hotpluggable"),
+			Entry("remove volume which wasnt hotplugged should fail(existing cloudInit)",
+				&v1.VirtualMachineVolumeRequest{
+					RemoveVolumeOptions: &v1.RemoveVolumeOptions{
+						Name: "cloudinitdisk",
+					},
+				},
+				[]v1.Volume{
+					{
+						Name: "cloudinitdisk",
+						VolumeSource: v1.VolumeSource{
+							CloudInitNoCloud: &v1.CloudInitNoCloudSource{},
+						},
+					},
+				},
+				"Unable to remove volume [cloudinitdisk] because it is not hotpluggable"),
 		)
 	})
 
