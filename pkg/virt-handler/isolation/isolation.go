@@ -49,6 +49,8 @@ type IsolationResult interface {
 	Pid() int
 	// parent process ID
 	PPid() int
+	// Emulator Ambassador PID
+	EmulatorAmbassadorPid() (pid int, exists bool)
 	// full path to the process namespace
 	PIDNamespace() string
 	// full path to the process root mount
@@ -62,12 +64,17 @@ type IsolationResult interface {
 }
 
 type RealIsolationResult struct {
-	pid  int
-	ppid int
+	pid                   int
+	ppid                  int
+	emulatorAmbassadorPid int
 }
 
 func NewIsolationResult(pid, ppid int) IsolationResult {
 	return &RealIsolationResult{pid: pid, ppid: ppid}
+}
+
+func NewIsolationResultWithEmulatorPid(pid, ppid, emulatorAmbassadorPid int) IsolationResult {
+	return &RealIsolationResult{pid: pid, ppid: ppid, emulatorAmbassadorPid: emulatorAmbassadorPid}
 }
 
 func (r *RealIsolationResult) PIDNamespace() string {
@@ -145,6 +152,14 @@ func (r *RealIsolationResult) Pid() int {
 
 func (r *RealIsolationResult) PPid() int {
 	return r.ppid
+}
+
+func (r *RealIsolationResult) EmulatorAmbassadorPid() (pid int, exists bool) {
+	if r.emulatorAmbassadorPid == 0 {
+		return 0, false
+	}
+
+	return r.emulatorAmbassadorPid, true
 }
 
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID

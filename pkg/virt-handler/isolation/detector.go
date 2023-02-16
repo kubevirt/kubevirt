@@ -85,8 +85,8 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (IsolationResult, error) {
-	var pid int
-	var ppid int
+	var pid, ppid, emulatorContainerPid int
+	var emulatorContainerPidExists bool
 	var err error
 
 	if pid, err = s.getPid(socket); err != nil {
@@ -99,7 +99,18 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 		return nil, err
 	}
 
-	return NewIsolationResult(pid, ppid), nil
+	if vmiCpu := vm.Spec.Domain.CPU; vmiCpu != nil && vmiCpu.DedicatedCPUPlacement {
+		emulatorContainerPid, emulatorContainerPidExists, err = s.detectEmulatorAmbassadorPid(vm)
+		if err != nil {
+			log.Log.Object(vm).Reason(err).Errorf("could not get emulator ambassador pid for vmi %s/%s", vm.Namespace, vm.Name)
+		}
+	}
+
+	if emulatorContainerPidExists {
+		return NewIsolationResultWithEmulatorPid(pid, ppid, emulatorContainerPid), nil
+	} else {
+		return NewIsolationResult(pid, ppid), nil
+	}
 }
 
 func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolationDetector {
@@ -150,6 +161,21 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		break
 	}
 	return nil
+}
+
+func (s *socketBasedIsolationDetector) detectEmulatorAmbassadorPid(vmi *v1.VirtualMachineInstance) (pid int, exists bool, err error) {
+	socketPath, err := cmdclient.FindSocketOnHostWithSocketName(vmi, cmdclient.EmulatorContainerSocketName, false)
+	if err != nil {
+		return
+	}
+
+	pid, err = s.getPid(socketPath)
+	if err != nil {
+		return
+	}
+
+	exists = true
+	return
 }
 
 // AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside

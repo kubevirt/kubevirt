@@ -52,6 +52,17 @@ func (_mr *_MockIsolationResultRecorder) PPid() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PPid")
 }
 
+func (_m *MockIsolationResult) EmulatorAmbassadorPid() (int, bool) {
+	ret := _m.ctrl.Call(_m, "EmulatorAmbassadorPid")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+func (_mr *_MockIsolationResultRecorder) EmulatorAmbassadorPid() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "EmulatorAmbassadorPid")
+}
+
 func (_m *MockIsolationResult) PIDNamespace() string {
 	ret := _m.ctrl.Call(_m, "PIDNamespace")
 	ret0, _ := ret[0].(string)
