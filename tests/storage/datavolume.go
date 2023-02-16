@@ -654,7 +654,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), Not(BeOwned())))
 
 			By("Verifying VMI still exists with owner references removed")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(And(BeRunning(), Not(BeOwned())))
+			Consistently(ThisVMIWith(vm.Namespace, vm.Name), 60, 1).Should(And(BeRunning(), Not(BeOwned())))
 		})
 
 	})
