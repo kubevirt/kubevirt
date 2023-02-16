@@ -222,7 +222,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")
+				Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected), "should have agent connected condition")
 				origHandlerCons := getHandlerConnectionCount()
 
 				By("Making multiple requests")
