@@ -2242,8 +2242,12 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	var syncErr syncError
 	var err error
 
+	if !c.needsSync(key) {
+		return vm, nil, nil
+	}
+
 	if vm.DeletionTimestamp != nil {
-		if vmi == nil {
+		if vmi == nil || controller.HasFinalizer(vm, v1.FinalizerOrphanDependents) {
 			vm, err = c.removeVMFinalizer(vm, virtv1.VirtualMachineControllerFinalizer)
 			if err != nil {
 				return vm, nil, err
@@ -2261,10 +2265,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		if err != nil {
 			return vm, nil, err
 		}
-	}
-
-	if !c.needsSync(key) {
-		return vm, nil, nil
 	}
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
