@@ -14,10 +14,8 @@ stages:
   export PKG_CONFIG_PATH="$LIBDIR/pkgconfig"
 
 .native_git_build_job:
-  extends: .gitlab_native_build_job
-  before_script:
-    - *git_build_vars
   script:
+    - *git_build_vars
     - pushd "$PWD"
     - mkdir -p "$SCRATCH_DIR"
     - cd "$SCRATCH_DIR"
@@ -28,28 +26,111 @@ stages:
     - popd
     - go build
     - go test
+    - go test -tags libvirt_without_qemu
+    - go test -tags libvirt_without_lxc
+
+.native_git_build_job_prebuilt_env:
+  extends:
+    - .native_git_build_job
+    - .gitlab_native_build_job_prebuilt_env
+
+.native_git_build_job_local_env:
+  extends:
+    - .native_git_build_job
+    - .gitlab_native_build_job_local_env
 
 .native_build_job:
-  extends: .gitlab_native_build_job
   script:
     - go build -x
     - go test
-    - go build -x -tags libvirt_without_qemu -tags libvirt_without_lxc
-    - go test
+    - go build -x -tags libvirt_without_qemu
+    - go test -tags libvirt_without_qemu
+    - go build -x -tags libvirt_without_lxc
+    - go test -tags libvirt_without_lxc
+
+.native_build_job_prebuilt_env:
+  extends:
+    - .native_build_job
+    - .gitlab_native_build_job_prebuilt_env
+
+.native_build_job_local_env:
+  extends:
+    - .native_build_job
+    - .gitlab_native_build_job_local_env
 
 include: '/ci/gitlab.yml'
 
-api-coverage:
-  image: $CI_REGISTRY_IMAGE/ci-almalinux-8:latest
+.api_coverage_job:
   stage: sanity_checks
-  needs:
-    - job: x86_64-almalinux-8-git
-      artifacts: true
-  before_script:
-    - *git_build_vars
   script:
+    - *git_build_vars
     - go test -tags api
+  allow_failure: true
+
+api_coverage_prebuilt_env:
+  extends:
+    - .gitlab_native_build_job_prebuilt_env
+    - .api_coverage_job
+  needs:
+    - job: x86_64-almalinux-8-git-prebuilt-env
+      artifacts: true
+  variables:
+    NAME: almalinux-8
+
+api_coverage_local_env:
+  extends:
+    - .gitlab_native_build_job_local_env
+    - .api_coverage_job
+  needs:
+    - job: x86_64-almalinux-8-git-local-env
+      artifacts: true
+  variables:
+    IMAGE: docker.io/library/almalinux:8
+    NAME: almalinux-8
+
+.go_build: &go_build
+  stage: builds
+  script:
+    - go build -v -tags libvirt_dlopen
+    - go build -v -tags "libvirt_dlopen libvirt_without_qemu"
+    - go build -v -tags "libvirt_dlopen libvirt_without_lxc"
+    - apt-get update
+    - apt-get install -y libvirt0
+    - go test -timeout 10m -v -tags libvirt_dlopen
+    - go test -timeout 10m -v -tags "libvirt_dlopen libvirt_without_qemu"
+    - go test -timeout 10m -v -tags "libvirt_dlopen libvirt_without_lxc"
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "push"'
-      allow_failure: true
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    # upstream: pushes to a branch
+    - if: '$CI_PROJECT_NAMESPACE == $RUN_UPSTREAM_NAMESPACE && $CI_PIPELINE_SOURCE == "push"'
+      when: on_success
+
+    # forks: pushes to a branch
+    - if: '$CI_PROJECT_NAMESPACE != $RUN_UPSTREAM_NAMESPACE && $CI_PIPELINE_SOURCE == "push" && $RUN_PIPELINE'
+      when: on_success
+
+    # upstream+forks: other web/api/scheduled pipelines
+    - if: '$CI_PIPELINE_SOURCE =~ /(web|api|schedule|merge_request_event)/'
+      when: on_success
+
+    # upstream+forks: that's all folks
+    - when: never
+
+# an old version without modules
+go_1_9:
+  <<: *go_build
+  image: golang:1.9
+
+# first version declared in go.mod
+go_1_11:
+  <<: *go_build
+  image: golang:1.11
+
+# very fussy about +go:build tags having a blank line
+go_1_16:
+  <<: *go_build
+  image: golang:1.16
+
+# a quite new version
+go_1_19:
+  <<: *go_build
+  image: golang:1.19

@@ -47,12 +47,14 @@ elif [[ $TARGET =~ cnao ]]; then
   export KUBEVIRT_DEPLOY_CDI=false
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-network/}
-  export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_DEPLOY_CDI=false
-  if [[ $TARGET =~ k8s-1\.1.* ]]; then
+  # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
+  if [[ $TARGET =~ no-istio ]]; then
     export KUBEVIRT_DEPLOY_ISTIO=false
+  else
+    export KUBEVIRT_DEPLOY_ISTIO=true
   fi
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
@@ -363,7 +365,12 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
-    label_filter='(sig-network)'
+    # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
+    if [[ $TARGET =~ no-istio ]]; then
+      label_filter='(sig-network && !Istio)'
+    else
+      label_filter='(sig-network)'
+    fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
   elif [[ $TARGET =~ vgpu.* ]]; then
@@ -395,28 +402,30 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   fi
 fi
 
+add_to_label_filter() {
+  local label=$1
+  local separator=$2
+  if [[ -z $label_filter ]]; then
+    label_filter="${1}"
+  else
+    label_filter="${label_filter}${separator}${1}"
+  fi
+}
+
 if [[ $KUBEVIRT_NONROOT =~ true ]]; then
-  if [[ -z $label_filter ]]; then
-    label_filter='(verify-non-root)'
-  else
-    label_filter=$label_filter',(verify-non-root)'
-  fi
+  add_to_label_filter '(verify-non-root)' ','
 else
-  if [[ -z $label_filter ]]; then
-    label_filter='(!verify-non-root)'
-  else
-    label_filter=$label_filter'&&(!verify-non-root)'
-  fi
+  add_to_label_filter '(!verify-non-root)' '&&'
+fi
+
+if [[ $TARGET =~ centos9 ]]; then
+  add_to_label_filter '(!CustomSELinux)' '&&'
 fi
 
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  if [[ -z $label_filter ]]; then
-    label_filter='(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))'
-  else
-    label_filter=$label_filter'&&(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))'
-  fi
+  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations))' '&&'
 fi
 
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is

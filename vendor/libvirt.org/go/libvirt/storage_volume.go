@@ -27,9 +27,11 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo !libvirt_dlopen pkg-config: libvirt
+#cgo libvirt_dlopen LDFLAGS: -ldl
+#cgo libvirt_dlopen CFLAGS: -DLIBVIRT_DLOPEN
 #include <stdlib.h>
-#include "storage_volume_wrapper.h"
+#include "libvirt_generated.h"
 */
 import "C"
 
@@ -42,6 +44,7 @@ type StorageVolCreateFlags uint
 const (
 	STORAGE_VOL_CREATE_PREALLOC_METADATA = StorageVolCreateFlags(C.VIR_STORAGE_VOL_CREATE_PREALLOC_METADATA)
 	STORAGE_VOL_CREATE_REFLINK           = StorageVolCreateFlags(C.VIR_STORAGE_VOL_CREATE_REFLINK)
+	STORAGE_VOL_CREATE_VALIDATE          = StorageVolCreateFlags(C.VIR_STORAGE_VOL_CREATE_VALIDATE)
 )
 
 type StorageVolDeleteFlags uint
@@ -168,10 +171,6 @@ func (v *StorageVol) GetInfo() (*StorageVolInfo, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-storage.html#virStorageVolGetInfoFlags
 func (v *StorageVol) GetInfoFlags(flags StorageVolInfoFlags) (*StorageVolInfo, error) {
-	if C.LIBVIR_VERSION_NUMBER < 3000000 {
-		return nil, makeNotImplementedError("virStorageVolGetInfoFlags")
-	}
-
 	var cinfo C.virStorageVolInfo
 	var err C.virError
 	result := C.virStorageVolGetInfoFlagsWrapper(v.ptr, &cinfo, C.uint(flags), &err)

@@ -1,3 +1,4 @@
+//go:build !libvirt_without_lxc
 // +build !libvirt_without_lxc
 
 /*
@@ -29,13 +30,15 @@
 package libvirt
 
 /*
-#cgo pkg-config: libvirt
+#cgo !libvirt_dlopen pkg-config: libvirt
 // Can't rely on pkg-config for libvirt-lxc since it was not
 // installed until 2.6.0 onwards
-#cgo LDFLAGS: -lvirt-lxc
+#cgo !libvirt_dlopen LDFLAGS: -lvirt-lxc
+#cgo libvirt_dlopen LDFLAGS: -ldl
+#cgo libvirt_dlopen CFLAGS: -DLIBVIRT_DLOPEN
 #include <stdlib.h>
 #include <string.h>
-#include "lxc_wrapper.h"
+#include "libvirt_lxc_generated.h"
 */
 import "C"
 
@@ -140,10 +143,6 @@ func DomainLxcEnterSecurityLabel(model *NodeSecurityModel, label *SecurityLabel,
 }
 
 func (d *Domain) DomainLxcEnterCGroup(flags uint32) error {
-	if C.LIBVIR_VERSION_NUMBER < 2000000 {
-		return makeNotImplementedError("virDomainLxcEnterCGroup")
-	}
-
 	var err C.virError
 	ret := C.virDomainLxcEnterCGroupWrapper(d.ptr, C.uint(flags), &err)
 
