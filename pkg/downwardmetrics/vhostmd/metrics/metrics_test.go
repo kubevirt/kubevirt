@@ -10,7 +10,7 @@ import (
 var _ = Describe("metrics", func() {
 	DescribeTable("should write", func(value interface{}, result string, metricType api.MetricType) {
 		m := MustToMetric(value, "TotalCPUTime", "", api.MetricContextHost)
-		Expect(m.Value).To(Equal(result))
+		Expect(m.Value.CValue).To(Equal(result))
 		Expect(m.Type).To(Equal(metricType))
 		Expect(m.Unit).To(BeEmpty())
 	},

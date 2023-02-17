@@ -31,6 +31,12 @@ type Metric struct {
 	Type    MetricType    `xml:"type,attr"`
 	Context MetricContext `xml:"context,attr"`
 	Name    string        `xml:"name"`
-	Value   string        `xml:"value"`
+	Value   CValue        `xml:"value"`
 	Unit    string        `xml:"unit,attr,omitempty"`
+}
+
+// CValue aims to wrap data with special characters such as & or % to prevent them being encoded by xml.
+// Otherwise, those characters will be unreadable by humans.
+type CValue struct {
+	CValue string `xml:",cdata"`
 }

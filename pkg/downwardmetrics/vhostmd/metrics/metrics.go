@@ -53,9 +53,9 @@ func ToMetric(value interface{}, name string, unit string, context api.MetricCon
 
 	switch value.(type) {
 	case float64, float32:
-		metric.Value = fmt.Sprintf("%.6f", value)
+		metric.Value.CValue = fmt.Sprintf("%.6f", value)
 	default:
-		metric.Value = fmt.Sprintf("%v", value)
+		metric.Value.CValue = fmt.Sprintf("%v", value)
 	}
 
 	if unit != "" {

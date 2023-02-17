@@ -1849,7 +1849,7 @@ func getTimeFromMetrics(metrics *api.Metrics) int {
 
 	for _, m := range metrics.Metrics {
 		if m.Name == "Time" {
-			val, err := strconv.Atoi(m.Value)
+			val, err := strconv.Atoi(m.Value.CValue)
 			Expect(err).ToNot(HaveOccurred())
 			return val
 		}
@@ -1861,7 +1861,7 @@ func getTimeFromMetrics(metrics *api.Metrics) int {
 func getHostnameFromMetrics(metrics *api.Metrics) string {
 	for _, m := range metrics.Metrics {
 		if m.Name == "HostName" {
-			return m.Value
+			return m.Value.CValue
 		}
 	}
 	Fail("no hostname in metrics XML")

@@ -1,6 +1,7 @@
 package vhostmd
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/xml"
 	"fmt"
@@ -61,7 +62,7 @@ func (d *Disk) Metrics() (*api.Metrics, error) {
 		m.Metrics[i].Name = strings.TrimSpace(metric.Name)
 		m.Metrics[i].Type = api.MetricType(strings.TrimSpace(string(metric.Type)))
 		m.Metrics[i].Context = api.MetricContext(strings.TrimSpace(string(metric.Context)))
-		m.Metrics[i].Value = strings.TrimSpace(metric.Value)
+		m.Metrics[i].Value.CValue = strings.TrimSpace(metric.Value.CValue)
 		m.Metrics[i].Text = strings.TrimSpace(metric.Text)
 	}
 	return m, nil
@@ -160,6 +161,10 @@ func writeDisk(file *os.File, m *api.Metrics) (err error) {
 	if d.Raw, err = xml.MarshalIndent(m, "", "  "); err != nil {
 		return fmt.Errorf("failed to encode metrics: %v", err)
 	}
+
+	//In combination with marshal xml metric values as cdata, it prevents to encode useful information, e.g. gitVersion
+	d.Raw = bytes.Replace(d.Raw, []byte("<![CDATA["), []byte(""), -1)
+	d.Raw = bytes.Replace(d.Raw, []byte("]]>"), []byte(""), -1)
 	// Add newline, since `vm-dump-metrics` does not append a newline when writing to metrics
 	d.Raw = append(d.Raw, '\n')
 
