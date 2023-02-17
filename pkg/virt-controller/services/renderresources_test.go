@@ -335,6 +335,10 @@ var _ = Describe("Resource pod spec renderer", func() {
 			kubev1.ResourceCPU:    resource.MustParse("17m"),
 			kubev1.ResourceMemory: resource.MustParse("40M"),
 		}),
+		Entry("Cpu request and limit at ratio 3, nil mem request/limit, with large number", nil, resource.NewQuantity(2000000, resource.DecimalSI), nil, resource.NewQuantity(6000000, resource.DecimalSI), kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("34m"),
+			kubev1.ResourceMemory: resource.MustParse("2M"),
+		}),
 	)
 })
 

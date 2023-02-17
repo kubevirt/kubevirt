@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -280,7 +279,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			// verify disk cache mode in spec
 			for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
 				if _, ok := nameMap[disk.Name]; ok && disk.Cache != cache {
-					return fmt.Errorf("Expected disk cache mode is %s, but %s in actual", cache, string(disk.Cache))
+					return fmt.Errorf("expected disk cache mode is %s, but %s in actual", cache, string(disk.Cache))
 				}
 			}
 
@@ -495,7 +494,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dvBlock, 240, HaveSucceeded())
+		libstorage.EventuallyDV(dvBlock, 240, matcher.HaveSucceeded())
 		return dvBlock
 	}
 
@@ -1132,7 +1131,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("waiting for the dv import to pvc to finish")
-				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
+				libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
 
 				By("rename disk image on PVC")
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -1311,16 +1310,15 @@ var _ = SIGDescribe("Hotplug", func() {
 		}
 
 		updateCDIResourceRequirements := func(requirements *corev1.ResourceRequirements) {
-			cdiList, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			if len(cdiList.Items) != 1 {
-				Fail("Unable to locate CDI CR")
+			if !libstorage.HasCDI() {
+				Skip("Test requires CDI CR to be available")
 			}
 			orgCdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			orgCdiResourceRequirements = cdiList.Items[0].Spec.Config.PodResourceRequirements
-			newCdi := cdiList.Items[0].DeepCopy()
+			cdi := libstorage.GetCDI(virtClient)
+			orgCdiResourceRequirements = cdi.Spec.Config.PodResourceRequirements
+			newCdi := cdi.DeepCopy()
 			newCdi.Spec.Config.PodResourceRequirements = requirements
 			_, err = virtClient.CdiClient().CdiV1beta1().CDIs().Update(context.Background(), newCdi, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1385,9 +1383,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			exists := false
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
+			sc, exists = libstorage.GetRWXBlockStorageClass()
 			if !exists {
-				Skip("Skip test when RWoFilesystem storage class is not present")
+				Skip("Skip test when RWXBlock storage class is not present")
 			}
 		})
 
@@ -1408,7 +1406,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			updateCDIToRatio(ratio)
 			createLimitRangeInNamespace(util.NamespaceTestDefault, ratio)
 			vm := createVMWithMemoryRatio(ratio)
-			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
+			dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
