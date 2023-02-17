@@ -1308,9 +1308,13 @@ var _ = Describe("Manager", func() {
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, ovmfDir, ephemeralDiskCreatorMock, metadataCache)
 			sevMeasurementInfo, err := manager.GetLaunchMeasurement(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sevMeasurementInfo.Measurement).To(Equal(domainLaunchSecurityParameters.SEVMeasurement))
-			Expect(sevMeasurementInfo.LoaderSHA).To(Equal(fmt.Sprintf("%x", sha256.Sum256(loaderBytes))))
+			if runtime.GOARCH == "amd64" {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(sevMeasurementInfo.Measurement).To(Equal(domainLaunchSecurityParameters.SEVMeasurement))
+				Expect(sevMeasurementInfo.LoaderSHA).To(Equal(fmt.Sprintf("%x", sha256.Sum256(loaderBytes))))
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
 		})
 
 		It("should inject a secret into a VirtualMachineInstance", func() {
