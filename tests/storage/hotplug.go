@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -459,9 +460,17 @@ var _ = SIGDescribe("Hotplug", func() {
 		podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		attachmentPodCount := 0
+		var virtlauncherPod corev1.Pod
 		for _, pod := range podList.Items {
 			for _, ownerRef := range pod.GetOwnerReferences() {
 				if ownerRef.UID == vmi.GetUID() {
+					virtlauncherPod = pod
+				}
+			}
+		}
+		for _, pod := range podList.Items {
+			for _, ownerRef := range pod.GetOwnerReferences() {
+				if ownerRef.UID == virtlauncherPod.GetUID() {
 					attachmentPodCount++
 				}
 			}
@@ -494,7 +503,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dvBlock, 240, matcher.HaveSucceeded())
+		libstorage.EventuallyDV(dvBlock, 240, HaveSucceeded())
 		return dvBlock
 	}
 
@@ -1131,7 +1140,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("waiting for the dv import to pvc to finish")
-				libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
+				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
 
 				By("rename disk image on PVC")
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -1424,18 +1433,29 @@ var _ = SIGDescribe("Hotplug", func() {
 			By("Verifying request/limit ratio on attachment pod")
 			podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			var attachmentPod *corev1.Pod
+			var virtlauncherPod, attachmentPod corev1.Pod
+			By("Finding virt-launcher pod")
 			for _, pod := range podList.Items {
 				for _, ownerRef := range pod.GetOwnerReferences() {
 					if ownerRef.UID == vmi.GetUID() {
-						attachmentPod = &pod
+						virtlauncherPod = pod
 						break
 					}
 				}
 			}
+			// Attachment pod is owned by virt-launcher pod
+			for _, pod := range podList.Items {
+				for _, ownerRef := range pod.GetOwnerReferences() {
+					if ownerRef.UID == virtlauncherPod.GetUID() {
+						attachmentPod = pod
+						break
+					}
+				}
+			}
+			Expect(attachmentPod.Name).To(ContainSubstring("hp-volume-"))
 			memLimit := attachmentPod.Spec.Containers[0].Resources.Limits.Memory().Value()
 			memRequest := attachmentPod.Spec.Containers[0].Resources.Requests.Memory().Value()
-			Expect(memRequest * int64(ratio)).To(BeNumerically(">=", memLimit))
+			Expect(float64(memRequest) * ratio).To(BeNumerically(">=", memLimit))
 
 			By("Remove volume from a running VM")
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
