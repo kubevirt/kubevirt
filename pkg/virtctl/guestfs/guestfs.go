@@ -48,17 +48,17 @@ const (
 )
 
 var (
-	pvc           string
-	image         string
-	ExportedImage string
-	timeout       = 500 * time.Second
-	pullPolicy    string
-	kvm           bool
-	podName       string
-	root          bool
-	fsGroup       string
-	uid           string
-	gid           string
+	pvc        string
+	image      string
+	ImagePtr   = &image
+	timeout    = 500 * time.Second
+	pullPolicy string
+	kvm        bool
+	podName    string
+	root       bool
+	fsGroup    string
+	uid        string
+	gid        string
 )
 
 type guestfsCommand struct {
@@ -222,6 +222,11 @@ func setImage(virtClient kubecli.KubevirtClient) error {
 	if err != nil {
 		return fmt.Errorf("could not get guestfs image info: %v", err)
 	}
+	if info.GsImage != "" {
+		// custom image set, no need to assemble url
+		image = info.GsImage
+		return nil
+	}
 	// Set image name including prefix if available
 	imageName = fmt.Sprintf("%s%s", info.ImagePrefix, defaultImageName)
 	// Set the image version.
@@ -238,7 +243,6 @@ func setImage(virtClient kubecli.KubevirtClient) error {
 	if info.Registry != "" {
 		image = fmt.Sprintf("%s/%s", info.Registry, imageName)
 	}
-	ExportedImage = image
 
 	return nil
 }
