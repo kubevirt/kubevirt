@@ -45,14 +45,14 @@ We can do that with `virt-sysprep`:
 ￼
 
 Once the image is ready it is necessary to convert it to   
-container image with `kubevirt/container-disk-v1alpha` layer, 
+container image with `scratch` layer, 
 so KubeVirt VM's can consume it according to  
 https://github.com/kubevirt/kubevirt/blob/main/docs/container-register-disks.md
 
 ```bash
 cat > Dockerfile <<EOF
-FROM kubevirt/container-disk-v1alpha
-ADD fedora32.qcow2 /disk/
+FROM scratch
+ADD --chown=107:107 fedora32.qcow2 /disk/
 EOF
 
 docker build -t kubevirt/fedora-sriov-testing:latest .

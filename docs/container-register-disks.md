@@ -59,11 +59,13 @@ wrapper container image. By default, the base wrapper container KubeVirt
 provides will serve up any VMI disk placed in the /disk directory as a block
 device consumable by libvirt.
 
+Note: The containerDisk needs to be readable for the user with the UID 107 (qemu).
+
 Example:
 ```
 cat << END > Dockerfile
 FROM scratch
-ADD fedora25.qcow2 /disk/
+ADD --chown=107:107 fedora25.qcow2 /disk/
 END
 docker build -t vmdisks/fedora25:latest .
 docker push vmdisks/fedora25:latest
