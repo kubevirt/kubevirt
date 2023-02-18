@@ -288,6 +288,11 @@ func (c *DeviceController) getExternallyProvidedMdevs() map[string]struct{} {
 }
 
 func (c *DeviceController) refreshMediatedDeviceTypes() bool {
+	// the handling of mediated device is disabled
+	if c.virtConfig.MediatedDevicesHandlingDisabled() {
+		return false
+	}
+
 	requiresDevicePluginsUpdate := false
 	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
 	if err != nil {

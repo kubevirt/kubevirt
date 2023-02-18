@@ -51,6 +51,9 @@ const (
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	PSA                        = "PSA"
+	// DisableMediatedDevicesHandling disables the handling of mediated
+	// devices, its creation and deletion
+	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -177,4 +180,8 @@ func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 
 func (config *ClusterConfig) PSAEnabled() bool {
 	return config.isFeatureGateEnabled(PSA)
+}
+
+func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
+	return config.isFeatureGateEnabled(DisableMediatedDevicesHandling)
 }
