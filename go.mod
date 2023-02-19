@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/imdario/mergo v0.3.13
 	github.com/kubevirt/cluster-network-addons-operator v0.85.0
-	github.com/kubevirt/tekton-tasks-operator/api v0.4.1
+	github.com/kubevirt/tekton-tasks-operator/api v0.5.0
 	github.com/onsi/ginkgo/v2 v2.7.0
 	github.com/onsi/gomega v1.26.0
 	github.com/openshift/api v3.9.0+incompatible

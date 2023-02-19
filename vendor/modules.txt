@@ -99,8 +99,8 @@ github.com/json-iterator/go
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
-# github.com/kubevirt/tekton-tasks-operator/api v0.4.1
-## explicit; go 1.17
+# github.com/kubevirt/tekton-tasks-operator/api v0.5.0
+## explicit; go 1.19
 github.com/kubevirt/tekton-tasks-operator/api/v1alpha1
 # github.com/mailru/easyjson v0.7.7
 ## explicit; go 1.12

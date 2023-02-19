@@ -2600,7 +2600,7 @@ spec:
                 - name: SSP_VERSION
                   value: v0.16.2
                 - name: TTO_VERSION
-                  value: v0.4.1
+                  value: v0.5.0
                 - name: HPPO_VERSION
                   value: v0.14.0
                 - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -3094,7 +3094,7 @@ spec:
                 - /manager
                 env:
                 - name: OPERATOR_VERSION
-                  value: v0.4.1
+                  value: v0.5.0
                 - name: CLEANUP_VM_IMG
                 - name: COPY_TEMPLATE_IMG
                 - name: MODIFY_DATA_OBJECT_IMG
@@ -3104,11 +3104,12 @@ spec:
                 - name: MODIFY_VM_TEMPLATE_IMG
                 - name: WAIT_FOR_VMI_STATUS_IMG
                 - name: GENERATE_SSH_KEYS_IMG
+                - name: VIRTIO_IMG
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/kubevirt/tekton-tasks-operator@sha256:a1693a2c6676095c00203a4a938b7d2730ec3080aa9c802c496c60de70626507
+                image: quay.io/kubevirt/tekton-tasks-operator@sha256:6c6e296d48eb5e81236443155ffecb39a44bc490d4cd6ac897d02c13908ea3ca
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -3773,7 +3774,7 @@ spec:
     name: ovs-cni-plugin
   - image: quay.io/kubevirt/ssp-operator@sha256:d94f38087856d98f847010cfa0b5f4ef80de64ef1098dd27d4998595e10fe1c1
     name: ssp-operator
-  - image: quay.io/kubevirt/tekton-tasks-operator@sha256:a1693a2c6676095c00203a4a938b7d2730ec3080aa9c802c496c60de70626507
+  - image: quay.io/kubevirt/tekton-tasks-operator@sha256:6c6e296d48eb5e81236443155ffecb39a44bc490d4cd6ac897d02c13908ea3ca
     name: tekton-tasks-operator
   - image: quay.io/kubevirt/virt-api@sha256:b46404a6887c181e963fcfe412f450fe943ac60a0cdd44c54f13654f8c3af505
     name: virt-api
