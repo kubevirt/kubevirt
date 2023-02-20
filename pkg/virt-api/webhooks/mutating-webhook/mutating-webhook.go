@@ -77,7 +77,7 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 }
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	serve(resp, req, &mutators.VMsMutator{ClusterConfig: clusterConfig, InstancetypeMethods: instancetype.NewMethods(nil, nil, nil, nil, nil, virtCli)})
+	serve(resp, req, &mutators.VMsMutator{ClusterConfig: clusterConfig, InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: virtCli}})
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers) {

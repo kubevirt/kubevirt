@@ -13,7 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
@@ -67,7 +66,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 	}
 
 	BeforeEach(func() {
-
 		k8sClient = k8sfake.NewSimpleClientset()
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -91,14 +89,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 		controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-		instancetypeMethods = instancetype.NewMethods(
-			instancetypeInformerStore,
-			clusterInstancetypeInformerStore,
-			preferenceInformerStore,
-			clusterPreferenceInformerStore,
-			controllerrevisionInformerStore,
-			virtClient,
-		)
+		instancetypeMethods = &instancetype.InstancetypeMethods{
+			InstancetypeStore:        instancetypeInformerStore,
+			ClusterInstancetypeStore: clusterInstancetypeInformerStore,
+			PreferenceStore:          preferenceInformerStore,
+			ClusterPreferenceStore:   clusterInstancetypeInformerStore,
+			ControllerRevisionStore:  controllerrevisionInformerStore,
+			Clientset:                virtClient,
+		}
 
 		vm = kubecli.NewMinimalVM("testvm")
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
@@ -107,7 +105,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			},
 		}
 		vm.Namespace = k8sv1.NamespaceDefault
-
 	})
 
 	Context("Find and store Instancetype Spec", func() {
@@ -147,7 +144,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			var fakeClusterInstancetypeClient v1alpha2.VirtualMachineClusterInstancetypeInterface
 
 			BeforeEach(func() {
-
 				fakeClusterInstancetypeClient = fakeInstancetypeClients.VirtualMachineClusterInstancetypes()
 				virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeClusterInstancetypeClient).AnyTimes()
 
@@ -181,27 +177,25 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected instancetype", func() {
-
-				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*f).To(Equal(clusterInstancetype.Spec))
+				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
 			})
 
 			It("uses client when instancetype not found within informer", func() {
 				err := clusterInstancetypeInformerStore.Delete(clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*f).To(Equal(clusterInstancetype.Spec))
+				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
 			})
 
 			It("returns expected instancetype using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
-
-				f, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
+				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*f).To(Equal(clusterInstancetype.Spec))
+				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
 			})
 
 			It("find fails when instancetype does not exist", func() {
@@ -212,7 +206,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store VirtualMachineClusterInstancetype ControllerRevision", func() {
-
 				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -247,14 +240,12 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store fails when instancetype does not exist", func() {
 				vm.Spec.Instancetype.Name = "non-existing-instancetype"
-
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -268,7 +259,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
-
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -288,22 +278,19 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
 			})
-
 		})
 
 		Context("Using namespaced Instancetype", func() {
-			var f *instancetypev1alpha2.VirtualMachineInstancetype
+			var fakeInstancetype *instancetypev1alpha2.VirtualMachineInstancetype
 			var fakeInstancetypeClient v1alpha2.VirtualMachineInstancetypeInterface
 
 			BeforeEach(func() {
-
 				fakeInstancetypeClient = fakeInstancetypeClients.VirtualMachineInstancetypes(vm.Namespace)
 				virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
 
-				f = &instancetypev1alpha2.VirtualMachineInstancetype{
+				fakeInstancetype = &instancetypev1alpha2.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "VirtualMachineInstancetype",
 						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
@@ -321,14 +308,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				}
 
-				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), f, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), fakeInstancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				err = instancetypeInformerStore.Add(f)
+				err = instancetypeInformerStore.Add(fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: f.Name,
+					Name: fakeInstancetype.Name,
 					Kind: apiinstancetype.SingularResourceName,
 				}
 			})
@@ -336,24 +323,22 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("find returns expected instancetype", func() {
 				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(f.Spec))
+				Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
 			})
 
 			It("uses client when instancetype not found within informer", func() {
-				err := clusterInstancetypeInformerStore.Delete(f)
+				err := clusterInstancetypeInformerStore.Delete(fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
-
 				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(f.Spec))
+				Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
 			})
 
 			It("returns expected instancetype using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
-
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(f.Spec))
+				Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
 			})
 
 			It("find fails when instancetype does not exist", func() {
@@ -364,8 +349,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store VirtualMachineInstancetype ControllerRevision", func() {
-
-				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, f)
+				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
@@ -381,21 +365,20 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store fails when instancetype does not exist", func() {
 				vm.Spec.Instancetype.Name = "non-existing-instancetype"
-
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
 			It("store returns a nil revision when RevisionName already populated", func() {
-				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, f)
+				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name:         f.Name,
+					Name:         fakeInstancetype.Name,
 					RevisionName: instancetypeControllerRevision.Name,
 					Kind:         apiinstancetype.SingularResourceName,
 				}
@@ -405,8 +388,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-
-				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, f)
+				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
@@ -423,7 +405,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
-				unexpectedInstancetype := f.DeepCopy()
+				unexpectedInstancetype := fakeInstancetype.DeepCopy()
 				unexpectedInstancetype.Spec.CPU.Guest = 15
 
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
@@ -439,7 +421,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
 			})
 		})
@@ -521,7 +502,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			var fakeClusterPreferenceClient v1alpha2.VirtualMachineClusterPreferenceInterface
 
 			BeforeEach(func() {
-
 				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
@@ -559,15 +539,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("uses client when preference not found within informer", func() {
 				err := clusterPreferenceInformerStore.Delete(clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
-
 				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*preferenceSpec).To(Equal(clusterPreference.Spec))
 			})
 
 			It("returns expected preference using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
-
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*preferenceSpec).To(Equal(clusterPreference.Spec))
@@ -581,7 +559,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store VirtualMachineClusterPreference ControllerRevision", func() {
-
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -594,16 +571,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
-
 			})
 
 			It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
 				vm.Spec.Preference.Name = "non-existing-preference"
-
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
-
 			})
 
 			It("store returns nil revision when RevisionName already populated", func() {
@@ -617,11 +591,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
-
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -657,7 +629,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			var fakePreferenceClient v1alpha2.VirtualMachinePreferenceInterface
 
 			BeforeEach(func() {
-
 				fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
 				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
 
@@ -688,9 +659,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find returns expected preference spec", func() {
-				s, err := instancetypeMethods.FindPreferenceSpec(vm)
+				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(*s).To(Equal(preference.Spec))
+				Expect(*preferenceSpec).To(Equal(preference.Spec))
 			})
 
 			It("uses client when preference not found within informer", func() {
@@ -703,8 +674,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("returns expected preference using only the client", func() {
-				instancetypeMethods = instancetype.NewMethods(nil, nil, nil, nil, nil, virtClient)
-
+				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 				preferenceSpec, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*preferenceSpec).To(Equal(preference.Spec))
@@ -735,11 +705,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store fails when VirtualMachinePreference doesn't exist", func() {
 				vm.Spec.Preference.Name = "non-existing-preference"
-
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
-
 			})
 
 			It("store returns nil revision when RevisionName already populated", func() {
@@ -757,7 +725,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -833,7 +800,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		var (
 			instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec
 			preferenceSpec   *instancetypev1alpha2.VirtualMachinePreferenceSpec
-			field            *field.Path
+			field            *k8sfield.Path
 		)
 
 		BeforeEach(func() {
@@ -848,7 +815,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("instancetype.spec.CPU and preference.spec.CPU", func() {
 
 			BeforeEach(func() {
-
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1alpha2.CPUInstancetype{
 						Guest:                 uint32(2),
@@ -869,7 +835,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should default to PreferSockets", func() {
-
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
@@ -885,7 +850,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferCores selected", func() {
-
 				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferCores
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
@@ -899,11 +863,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
-
 			})
 
 			It("should apply in full with PreferThreads selected", func() {
-
 				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferThreads
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
@@ -917,11 +879,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
-
 			})
 
 			It("should apply in full with PreferSockets selected", func() {
-
 				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1alpha2.PreferSockets
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
@@ -935,11 +895,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
-
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.CPU already defined", func() {
-
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1alpha2.CPUInstancetype{
 						Guest: uint32(2),
@@ -955,11 +913,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
-
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {
-
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1alpha2.CPUInstancetype{
 						Guest: uint32(2),
@@ -975,11 +931,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.cpu"))
-
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] already defined", func() {
-
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1alpha2.CPUInstancetype{
 						Guest: uint32(2),
@@ -995,7 +949,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.cpu"))
-
 			})
 		})
 		Context("instancetype.Spec.Memory", func() {
@@ -1011,17 +964,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply to VMI", func() {
-
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeSpec.Memory.Guest))
 				Expect(*vmi.Spec.Domain.Memory.Hugepages).To(Equal(*instancetypeSpec.Memory.Hugepages))
-
 			})
 
 			It("should detect memory conflict", func() {
-
 				vmiMemGuest := resource.MustParse("512M")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &vmiMemGuest,
@@ -1030,11 +980,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory"))
-
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] already defined", func() {
-
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
@@ -1050,11 +998,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.memory"))
-
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] already defined", func() {
-
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					Memory: instancetypev1alpha2.MemoryInstancetype{
 						Guest: resource.MustParse("512M"),
@@ -1070,7 +1016,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.memory"))
-
 			})
 		})
 		Context("instancetype.Spec.ioThreadsPolicy", func() {
@@ -1133,7 +1078,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					GPUs: []v1.GPU{
-						v1.GPU{
+						{
 							Name:       "barfoo",
 							DeviceName: "vendor.com/gpu_name",
 						},
@@ -1142,18 +1087,15 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply to VMI", func() {
-
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.GPUs).To(Equal(instancetypeSpec.GPUs))
-
 			})
 
 			It("should detect GPU conflict", func() {
-
 				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-					v1.GPU{
+					{
 						Name:       "foobar",
 						DeviceName: "vendor.com/gpu_name",
 					},
@@ -1162,7 +1104,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.devices.gpus"))
-
 			})
 		})
 
@@ -1171,7 +1112,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 					HostDevices: []v1.HostDevice{
-						v1.HostDevice{
+						{
 							Name:       "foobar",
 							DeviceName: "vendor.com/device_name",
 						},
@@ -1180,18 +1121,15 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply to VMI", func() {
-
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.HostDevices).To(Equal(instancetypeSpec.HostDevices))
-
 			})
 
 			It("should detect HostDevice conflict", func() {
-
 				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-					v1.HostDevice{
+					{
 						Name:       "foobar",
 						DeviceName: "vendor.com/device_name",
 					},
@@ -1200,7 +1138,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.devices.hostDevices"))
-
 			})
 		})
 
@@ -1210,7 +1147,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			var userDefinedBlockSize *v1.BlockSize
 
 			BeforeEach(func() {
-
 				userDefinedBlockSize = &v1.BlockSize{
 					Custom: &v1.CustomBlockSize{
 						Logical:  512,
@@ -1220,7 +1156,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.Bool(false)
 				vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.Bool(false)
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
-					v1.Disk{
+					{
 						Cache:             v1.CacheWriteBack,
 						IO:                v1.IODefault,
 						DedicatedIOThread: pointer.Bool(false),
@@ -1231,48 +1167,48 @@ var _ = Describe("Instancetype and Preferences", func() {
 							},
 						},
 					},
-					v1.Disk{
+					{
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{},
 						},
 					},
-					v1.Disk{
+					{
 						DiskDevice: v1.DiskDevice{
 							CDRom: &v1.CDRomTarget{
 								Bus: v1.DiskBusSATA,
 							},
 						},
 					},
-					v1.Disk{
+					{
 						DiskDevice: v1.DiskDevice{
 							CDRom: &v1.CDRomTarget{},
 						},
 					},
-					v1.Disk{
+					{
 						DiskDevice: v1.DiskDevice{
 							LUN: &v1.LunTarget{
 								Bus: v1.DiskBusSATA,
 							},
 						},
 					},
-					v1.Disk{
+					{
 						DiskDevice: v1.DiskDevice{
 							LUN: &v1.LunTarget{},
 						},
 					},
 				}
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
-					v1.Input{
+					{
 						Bus:  "usb",
 						Type: "tablet",
 					},
-					v1.Input{},
+					{},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					v1.Interface{
+					{
 						Model: "e1000",
 					},
-					v1.Interface{},
+					{},
 				}
 				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{}
 
@@ -1307,11 +1243,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredTPM:            &v1.TPMDevice{},
 					},
 				}
-
 			})
 
 			It("should apply to VMI", func() {
-
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
@@ -1349,18 +1283,15 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))
 				Expect(*vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue))
 				Expect(*vmi.Spec.Domain.Devices.TPM).To(Equal(*preferenceSpec.Devices.PreferredTPM))
-
 			})
 
 			It("Should apply when a VMI disk doesn't have a DiskDevice target defined", func() {
-
 				vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk = nil
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
-
 			})
 		})
 
@@ -1422,7 +1353,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply when some HyperV features already defined in the VMI", func() {
-
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
 						EVMCS: &v1.FeatureState{
@@ -1435,7 +1365,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(conflicts).To(BeEmpty())
 
 				Expect(*vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled).To(BeFalse())
-
 			})
 		})
 
@@ -1508,7 +1437,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(*&vmi.Spec.Domain.Clock.ClockOffset).To(Equal(*preferenceSpec.Clock.PreferredClockOffset))
+				Expect(vmi.Spec.Domain.Clock.ClockOffset).To(Equal(*preferenceSpec.Clock.PreferredClockOffset))
 				Expect(*vmi.Spec.Domain.Clock.Timer).To(Equal(*preferenceSpec.Clock.PreferredTimer))
 			})
 		})

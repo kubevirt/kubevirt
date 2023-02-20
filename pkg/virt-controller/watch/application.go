@@ -651,14 +651,14 @@ func (vca *VirtControllerApp) initPool() {
 func (vca *VirtControllerApp) initVirtualMachines() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
-	instancetypeMethods := instancetype.NewMethods(
-		vca.instancetypeInformer.GetStore(),
-		vca.clusterInstancetypeInformer.GetStore(),
-		vca.preferenceInformer.GetStore(),
-		vca.clusterPreferenceInformer.GetStore(),
-		vca.controllerRevisionInformer.GetStore(),
-		vca.clientSet,
-	)
+	instancetypeMethods := &instancetype.InstancetypeMethods{
+		InstancetypeStore:        vca.instancetypeInformer.GetStore(),
+		ClusterInstancetypeStore: vca.clusterInstancetypeInformer.GetStore(),
+		PreferenceStore:          vca.preferenceInformer.GetStore(),
+		ClusterPreferenceStore:   vca.clusterPreferenceInformer.GetStore(),
+		ControllerRevisionStore:  vca.controllerRevisionInformer.GetStore(),
+		Clientset:                vca.clientSet,
+	}
 
 	vca.vmController = NewVMController(
 		vca.vmiInformer,

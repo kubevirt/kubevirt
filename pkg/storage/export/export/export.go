@@ -305,14 +305,14 @@ func (ctrl *VMExportController) Init() {
 			UpdateFunc: ctrl.handleKubeVirt,
 		},
 	)
-	ctrl.instancetypeMethods = instancetype.NewMethods(
-		ctrl.InstancetypeInformer.GetStore(),
-		ctrl.ClusterInstancetypeInformer.GetStore(),
-		ctrl.PreferenceInformer.GetStore(),
-		ctrl.ClusterPreferenceInformer.GetStore(),
-		ctrl.ControllerRevisionInformer.GetStore(),
-		ctrl.Client,
-	)
+	ctrl.instancetypeMethods = &instancetype.InstancetypeMethods{
+		InstancetypeStore:        ctrl.InstancetypeInformer.GetStore(),
+		ClusterInstancetypeStore: ctrl.ClusterInstancetypeInformer.GetStore(),
+		PreferenceStore:          ctrl.PreferenceInformer.GetStore(),
+		ClusterPreferenceStore:   ctrl.ClusterPreferenceInformer.GetStore(),
+		ControllerRevisionStore:  ctrl.ControllerRevisionInformer.GetStore(),
+		Clientset:                ctrl.Client,
+	}
 
 	initCert(ctrl)
 }
