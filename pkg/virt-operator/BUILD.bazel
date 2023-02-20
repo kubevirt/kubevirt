@@ -6,6 +6,8 @@ go_library(
     srcs = [
         "application.go",
         "kubevirt.go",
+        "strategy.go",
+        "strategy_job.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator",
     visibility = ["//visibility:public"],
