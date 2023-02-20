@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -57,14 +58,8 @@ type SocketDevicePlugin struct {
 	deregistered     chan struct{}
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socket string) *SocketDevicePlugin {
+func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int) *SocketDevicePlugin {
 	dpi := &SocketDevicePlugin{
-		devs: []*pluginapi.Device{
-			{
-				ID:     socketName,
-				Health: pluginapi.Healthy,
-			},
-		},
 		pluginSocketPath: SocketPath(strings.Replace(socketName, "/", "-", -1)),
 		socket:           socket,
 		socketDir:        socketDir,
@@ -72,6 +67,13 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string) *SocketDevicePl
 		resourceName:     fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
 		initialized:      false,
 		lock:             &sync.Mutex{},
+	}
+	for i := 0; i < maxDevices; i++ {
+		deviceId := dpi.socketName + strconv.Itoa(i)
+		dpi.devs = append(dpi.devs, &pluginapi.Device{
+			ID:     deviceId,
+			Health: pluginapi.Healthy,
+		})
 	}
 	return dpi
 }
