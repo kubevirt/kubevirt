@@ -53,7 +53,7 @@ $KUBEVIRT_CRI run ${CONTAINER_ENV} -v "${BUILDER}:/root:rw${selinux_bind_options
 mkdir -p ${OUT_DIR}
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --cap-add SYS_CHROOT --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
     $KUBEVIRT_CRI stop --time 1 ${RSYNC_CID} >/dev/null 2>&1
