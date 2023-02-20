@@ -174,6 +174,7 @@ function create_tto_csv() {
     --csv-version=${CSV_VERSION} \
     --operator-image=${TTO_OPERATOR_IMAGE} \
     --operator-version=${TTO_VERSION} \
+    --virtio-image=${KUBEVIRT_VIRTIO_IMAGE} \
   "
 
   gen_csv ${TTO_CSV_GENERATOR} ${operatorName} "${TTO_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}

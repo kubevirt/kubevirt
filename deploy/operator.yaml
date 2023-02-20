@@ -607,6 +607,7 @@ spec:
         - name: WAIT_FOR_VMI_STATUS_IMG
         - name: GENERATE_SSH_KEYS_IMG
         - name: VIRTIO_IMG
+          value: quay.io/kubevirt/virtio-container-disk@sha256:5b99c78ed831401048e72d72f9ec805710ee7625131fd9ad277b38ab1e67cfb9
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:

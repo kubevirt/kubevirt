@@ -3105,6 +3105,7 @@ spec:
                 - name: WAIT_FOR_VMI_STATUS_IMG
                 - name: GENERATE_SSH_KEYS_IMG
                 - name: VIRTIO_IMG
+                  value: quay.io/kubevirt/virtio-container-disk@sha256:5b99c78ed831401048e72d72f9ec805710ee7625131fd9ad277b38ab1e67cfb9
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -3790,6 +3791,8 @@ spec:
     name: virt-launcher
   - image: quay.io/kubevirt/virt-operator@sha256:c66cca19eefafb12d5ecf1d1e0e8c403792744c2031ed8cb4701a9cbd90f112f
     name: virt-operator
+  - image: quay.io/kubevirt/virtio-container-disk@sha256:5b99c78ed831401048e72d72f9ec805710ee7625131fd9ad277b38ab1e67cfb9
+    name: virtio-container
   - image: quay.io/kubevirt/virtio-container-disk@sha256:5b99c78ed831401048e72d72f9ec805710ee7625131fd9ad277b38ab1e67cfb9
     name: virtio-container-disk
   replaces: kubevirt-hyperconverged-operator.v1.8.0
