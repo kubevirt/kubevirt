@@ -359,6 +359,26 @@ var _ = Describe("Manager", func() {
 				return memoryDump.Completed
 			}, 5*time.Second, 2).Should(BeTrue())
 		})
+		It("should skip memory dump if the same dump command already completed successfully", func() {
+			mockDomain.EXPECT().Free().AnyTimes()
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Times(1).Return(mockDomain, nil)
+			mockDomain.EXPECT().CoreDumpWithFormat(testDumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).Times(1).Return(nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+
+			vmi := newVMI(testNamespace, testVmName)
+			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
+			// Expect extra call to memory dump not to impact
+			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
+
+			Eventually(func() bool {
+				memoryDump, _ := metadataCache.MemoryDump.Load()
+				return memoryDump.Completed
+			}, 5*time.Second, 2).Should(BeTrue())
+			// Expect extra call to memory dump after completion
+			// not to call core dump command again
+			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
+		})
 		It("should update domain with memory dump info if memory dump failed", func() {
 			mockDomain.EXPECT().Free().AnyTimes()
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
