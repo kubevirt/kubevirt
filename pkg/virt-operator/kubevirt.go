@@ -23,7 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -61,6 +61,11 @@ const (
 	obsoleteCMReason           = "ObsoleteConfigMapExists"
 )
 
+type strategyCacheEntry struct {
+	key   string
+	value *install.Strategy
+}
+
 type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
 	queue                workqueue.RateLimitingInterface
@@ -70,8 +75,7 @@ type KubeVirtController struct {
 	stores               util.Stores
 	informers            util.Informers
 	kubeVirtExpectations util.Expectations
-	installStrategyMutex sync.Mutex
-	installStrategyMap   map[string]*install.Strategy
+	latestStrategy       atomic.Value
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
 	statusUpdater        *status.KVStatusUpdater
@@ -123,9 +127,9 @@ func NewKubeVirtController(
 			Secrets:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secret")),
 			ConfigMap:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
 		},
-		installStrategyMap: make(map[string]*install.Strategy),
-		operatorNamespace:  operatorNamespace,
-		statusUpdater:      status.NewKubeVirtStatusUpdater(clientset),
+
+		operatorNamespace: operatorNamespace,
+		statusUpdater:     status.NewKubeVirtStatusUpdater(clientset),
 		delayedQueueAdder: func(key interface{}, queue workqueue.RateLimitingInterface) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
@@ -820,18 +824,23 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 }
 
 func (c *KubeVirtController) getInstallStrategyFromMap(config *operatorutil.KubeVirtDeploymentConfig, generation int64) (*install.Strategy, bool) {
-	c.installStrategyMutex.Lock()
-	defer c.installStrategyMutex.Unlock()
+	cachedValue := c.latestStrategy.Load()
+	if cachedValue == nil {
+		return nil, false
+	}
+	cachedEntry, ok := cachedValue.(strategyCacheEntry)
+	if !ok {
+		return nil, ok
+	}
 
-	strategy, ok := c.installStrategyMap[fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation)]
-	return strategy, ok
+	if cachedEntry.key == fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation) {
+		return cachedEntry.value, true
+	}
+	return nil, false
 }
 
-func (c *KubeVirtController) cacheInstallStrategyInMap(strategy *install.Strategy, config *operatorutil.KubeVirtDeploymentConfig, generation int64) {
-
-	c.installStrategyMutex.Lock()
-	defer c.installStrategyMutex.Unlock()
-	c.installStrategyMap[fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation)] = strategy
+func (c *KubeVirtController) cacheInstallStrategyInMap(cachedEntry *install.Strategy, config *operatorutil.KubeVirtDeploymentConfig, generation int64) {
+	c.latestStrategy.Store(strategyCacheEntry{key: fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation), value: cachedEntry})
 }
 
 func (c *KubeVirtController) deleteAllInstallStrategy() error {
@@ -847,11 +856,8 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 		}
 	}
 
-	c.installStrategyMutex.Lock()
-	defer c.installStrategyMutex.Unlock()
-	// reset the local map
-	c.installStrategyMap = make(map[string]*install.Strategy)
-
+	// reset the cached strategy
+	c.latestStrategy.Store(strategyCacheEntry{})
 	return nil
 }
 
