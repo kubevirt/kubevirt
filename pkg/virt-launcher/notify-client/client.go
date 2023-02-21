@@ -241,6 +241,7 @@ func newWatchEventError(err error) watch.Event {
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
+
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -460,7 +461,8 @@ func (n *Notifier) StartDomainNotifier(
 	}()
 
 	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
-		log.Log.Infof("DomainLifecycle event %d with reason %d received", event.Event, event.Detail)
+
+		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
 		name, err := d.GetName()
 		if err != nil {
 			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)

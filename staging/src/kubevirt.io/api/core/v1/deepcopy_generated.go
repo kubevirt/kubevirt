@@ -4357,6 +4357,10 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 		in, out := &in.EndTimestamp, &out.EndTimestamp
 		*out = (*in).DeepCopy()
 	}
+	if in.TargetNodeDomainReadyTimestamp != nil {
+		in, out := &in.TargetNodeDomainReadyTimestamp, &out.TargetNodeDomainReadyTimestamp
+		*out = (*in).DeepCopy()
+	}
 	if in.TargetDirectMigrationNodePorts != nil {
 		in, out := &in.TargetDirectMigrationNodePorts, &out.TargetDirectMigrationNodePorts
 		*out = make(map[string]int, len(*in))

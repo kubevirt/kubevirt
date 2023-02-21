@@ -609,6 +609,8 @@ type VirtualMachineInstanceMigrationState struct {
 	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 
+	// The timestamp at which the target node detects the domain is active
+	TargetNodeDomainReadyTimestamp *metav1.Time `json:"targetNodeDomainReadyTimestamp,omitempty"`
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
@@ -908,6 +910,10 @@ const (
 
 	// VirtualMachineGenerationAnnotation is the generation of a Virtual Machine.
 	VirtualMachineGenerationAnnotation string = "kubevirt.io/vm-generation"
+
+	// MigrationTargetReadyTimestamp indicates the time at which the target node
+	// detected that the VMI became active on the target during live migration.
+	MigrationTargetReadyTimestamp string = "kubevirt.io/migration-target-ready-timestamp"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

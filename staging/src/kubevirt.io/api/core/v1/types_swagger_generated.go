@@ -169,6 +169,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"":                               "+k8s:openapi-gen=true",
 		"startTimestamp":                 "The time the migration action began\n+nullable",
 		"endTimestamp":                   "The time the migration action ended\n+nullable",
+		"targetNodeDomainReadyTimestamp": "The timestamp at which the target node detects the domain is active",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
 		"targetNodeAddress":              "The address of the target node to use for the migration",
 		"targetDirectMigrationNodePorts": "The list of ports opened for live migration on the destination node",
