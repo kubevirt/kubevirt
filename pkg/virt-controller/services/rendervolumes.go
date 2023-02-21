@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/backend-storage"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

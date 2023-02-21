@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["backend-storage.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/backend-storage",
+    importpath = "kubevirt.io/kubevirt/pkg/storage/backend-storage",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-config:go_default_library",

@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/backend-storage"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -1123,7 +1123,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return syncErr
 	}
 
-	backendStorageReady, err := backendstorage.CreateIfNeeded(vmi, c.clusterConfig, c.clientset)
+	err := backendstorage.CreateIfNeeded(vmi, c.clusterConfig, c.clientset)
 	if err != nil {
 		return &syncErrorImpl{
 			err:    err,
@@ -1148,11 +1148,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return nil
 		}
 
-		// ensure that the backend storage associated with the VMI is ready before creating the pod
-		if !backendStorageReady {
-			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while backend storage gets created")
-			return nil
-		}
 		var templatePod *k8sv1.Pod
 		var err error
 		if isWaitForFirstConsumer {

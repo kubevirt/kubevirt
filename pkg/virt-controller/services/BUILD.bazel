@@ -14,7 +14,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/services",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/backend-storage:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
@@ -24,6 +23,7 @@ go_library(
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",

@@ -53,23 +53,23 @@ func isBackendStorageNeeded(vmi *corev1.VirtualMachineInstance) bool {
 	return HasPersistentTPMDevice(vmi)
 }
 
-func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) (bool, error) {
+func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) error {
 	if !isBackendStorageNeeded(vmi) {
-		return true, nil
+		return nil
 	}
 
 	_, err := client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), PVCPrefix+vmi.Name, metav1.GetOptions{})
 	if err == nil {
-		return true, nil
+		return nil
 	}
 	if !errors.IsNotFound(err) {
-		return false, err
+		return err
 	}
 
 	modeFile := v1.PersistentVolumeFilesystem
 	storageClass := clusterConfig.GetVMStateStorageClass()
 	if storageClass == "" {
-		return false, fmt.Errorf("backend VM storage requires a backend storage class defined in the custom resource")
+		return fmt.Errorf("backend VM storage requires a backend storage class defined in the custom resource")
 	}
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -86,9 +86,13 @@ func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfi
 	}
 
 	_, err = client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if errors.IsAlreadyExists(err) {
+
+		return nil
+	}
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return true, nil
+	return nil
 }
