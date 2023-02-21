@@ -901,6 +901,10 @@ const (
 	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
 	// pvc name and the timestamp the memory dump was collected
 	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
+
+	// AllowPodBridgeNetworkLiveMigrationAnnotation allow to run live migration when the
+	// vm has the pod networking bind with a bridge
+	AllowPodBridgeNetworkLiveMigrationAnnotation string = "kubevirt.io/allow-pod-bridge-network-live-migration"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

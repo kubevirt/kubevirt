@@ -2428,7 +2428,28 @@ var _ = Describe("VirtualMachineInstance", func() {
 			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
 			controller.updateLiveMigrationConditions(vmi, conditionManager)
 
-			testutils.ExpectEvent(recorder, "cannot migrate VMI which does not use masquerade to connect to the pod network")
+			testutils.ExpectEvent(recorder, fmt.Sprintf("cannot migrate VMI which does not use masquerade to connect to the pod network or bridge with %s VM annotation", v1.AllowPodBridgeNetworkLiveMigrationAnnotation))
+		})
+		Context("with AllowLiveMigrationBridgePodNetwork annotation", func() {
+			It("should allow to live-migrate if the VMI use bridge to connect to the pod network", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+
+				vmi.Annotations = map[string]string{v1.AllowPodBridgeNetworkLiveMigrationAnnotation: ""}
+
+				strategy := v1.EvictionStrategyLiveMigrate
+				vmi.Spec.EvictionStrategy = &strategy
+
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+				conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+				controller.updateLiveMigrationConditions(vmi, conditionManager)
+				Expect(vmi.Status.Conditions).To(ContainElement(v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				}))
+				Expect(vmi.Status.MigrationMethod).To(Equal(v1.LiveMigration))
+			})
 		})
 
 		Context("check that migration is not supported when using Host Devices", func() {
