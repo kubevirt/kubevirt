@@ -21,7 +21,12 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"k8s.io/apimachinery/pkg/api/errors"
+
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -147,12 +152,10 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 			}, 300)).To(Succeed(), "the state of the TPM did not persist")
 		}
 
-		DescribeTable("[Serial]should persist TPM secrets across", func(op1, op2 string) {
-			By("Setting the backend storage class to the default for RWX FS or skip if missing")
+		DescribeTable("[Serial]should persist TPM secrets across", Serial, func(ops ...string) {
+			By("Setting the backend storage class to the default for RWX FS")
 			storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
-			if !exists {
-				Skip("No RWX FS storage class found")
-			}
+			Expect(exists).To(BeTrue(), "No RWX FS storage class found")
 			kv := util.GetCurrentKv(virtClient)
 			kv.Spec.Configuration.VMStateStorageClass = storageClass
 			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
@@ -194,28 +197,65 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 				&expect.BExp{R: "MYSECRET"},
 			}, 300)).To(Succeed(), "failed to store secret into the TPM")
 
-			if op1 == "migrate" {
-				migrateVMI(vmi)
-			} else if op1 == "restart" {
-				restartVM(vm)
+			for _, op := range ops {
+				switch op {
+				case "migrate":
+					migrateVMI(vmi)
+				case "restart":
+					restartVM(vm)
+				}
+				checkTPM(vmi)
 			}
 
-			checkTPM(vmi)
-
-			if op2 == "migrate" {
-				migrateVMI(vmi)
-			} else if op2 == "restart" {
-				restartVM(vm)
-			}
-
-			checkTPM(vmi)
-
-			By("Removing the VM")
-			err := virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
+			By("Stopping and removing the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("migration and restart", "migrate", "restart"),
 			Entry("restart and migration", "restart", "migrate"),
 		)
+		It("[Serial]should remove persistent storage PVC if VMI is not owned by a VM", Serial, func() {
+			By("Setting the backend storage class to the default for RWX FS")
+			storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
+			Expect(exists).To(BeTrue(), "No RWX FS storage class found")
+			kv := util.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.VMStateStorageClass = storageClass
+			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+
+			By("Creating a VMI with persistent TPM enabled")
+			vmi := tests.NewRandomFedoraVMI()
+			vmi.Namespace = util.NamespaceTestDefault
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+				Persistent: pointer.BoolPtr(true),
+			}
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the VMI to start")
+			Eventually(func() error {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(Succeed())
+			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+
+			By("Removing the VMI")
+			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the PVC gets deleted")
+			Eventually(func() error {
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
+				if !errors.IsNotFound(err) {
+					return fmt.Errorf("VM %s not removed: %v", vmi.Name, err)
+				}
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), backendstorage.PVCForVMI(vmi), k8smetav1.GetOptions{})
+				if !errors.IsNotFound(err) {
+					return fmt.Errorf("PVC %s not removed: %v", backendstorage.PVCForVMI(vmi), err)
+				}
+				return nil
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		})
 	})
 })
