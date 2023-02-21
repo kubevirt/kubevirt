@@ -33,6 +33,7 @@ var (
 	Reenlightenment  = []interface{}{Label("Reenlightenment")}
 	TscFrequencies   = []interface{}{Label("TscFrequencies")}
 	PasstGate        = []interface{}{Label("PasstGate")}
+	VMX              = []interface{}{Label("VMX")}
 	Upgrade          = []interface{}{Label("Upgrade")}
 	CustomSELinux    = []interface{}{Label("CustomSELinux")}
 	Istio            = []interface{}{Label("Istio")}
