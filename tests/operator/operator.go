@@ -25,6 +25,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
@@ -32,9 +33,12 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"kubevirt.io/kubevirt/tests/libnode"
+	expect "github.com/google/goexpect"
+
+	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	"regexp"
 	"sort"
@@ -1925,6 +1929,156 @@ spec:
 			Entry("by patching KubeVirt CR", false),
 			Entry("by updating virt-operator", true),
 		)
+	})
+
+	Describe("[level:component]downwardMetrics", func() {
+
+		It("should be able available after update", decorators.Upgrade, func() {
+			if !libstorage.HasCDI() {
+				Skip("Skip update test when CDI is not present")
+			}
+
+			var migratableVMIs []*v1.VirtualMachineInstance
+
+			launcherSha := getVirtLauncherSha()
+			if !flags.SkipShasumCheck {
+				Expect(launcherSha).ToNot(Equal(""))
+			}
+
+			previousImageTag := flags.PreviousReleaseTag
+			previousImageRegistry := flags.PreviousReleaseRegistry
+			if previousImageTag == "" {
+				previousImageTag, err = detectLatestUpstreamOfficialTag()
+				Expect(err).ToNot(HaveOccurred())
+				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
+			} else {
+				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
+			}
+
+			previousUtilityTag := flags.PreviousUtilityTag
+			if previousUtilityTag == "" {
+				previousUtilityTag = previousImageTag
+				By(fmt.Sprintf("By Using detected tag %s for previous utility containers", previousUtilityTag))
+			} else {
+				By(fmt.Sprintf("By Using user defined tag %s for previous utility containers", previousUtilityTag))
+			}
+
+			curVersion := originalKv.Status.ObservedKubeVirtVersion
+			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
+
+			allPodsAreReady(originalKv)
+			sanityCheckDeploymentsExist()
+
+			// Delete current KubeVirt install so we can install previous release.
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			By("Verifying all infra pods have terminated")
+			allPodsAreTerminated(originalKv)
+
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			// Install previous release of KubeVirt
+			By("Creating KubeVirt object")
+			kv := copyOriginalKv()
+			kv.Name = "kubevirt-release-install"
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+
+			kv.Spec.ImageTag = previousImageTag
+			kv.Spec.ImageRegistry = previousImageRegistry
+
+			createKv(kv)
+
+			// Wait for previous release to come online
+			// wait 7 minutes because this test involves pulling containers
+			// over the internet related to the latest kubevirt release
+			By("Waiting for KV to stabilize")
+			waitForKvWithTimeout(kv, 420)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady(kv)
+			sanityCheckDeploymentsExist()
+
+			// kubectl API discovery cache only refreshes every 10 minutes
+			// Since we're likely dealing with api additions/removals here, we
+			// need to ensure we're using a different cache directory after
+			// the update from the previous release occurs.
+			oldClientCacheDir := filepath.Join(workDir, "oldclient")
+			err = os.MkdirAll(oldClientCacheDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+			newClientCacheDir := filepath.Join(workDir, "newclient")
+			err = os.MkdirAll(newClientCacheDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			getDownwardMetrics := func(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
+				res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+					&expect.BSnd{S: `sudo vm-dump-metrics 2> /dev/null` + "\n"},
+					&expect.BExp{R: `(?s)(<metrics>.+</metrics>)`},
+				}, 5)
+				if err != nil {
+					return nil, err
+				}
+				metricsStr := res[0].Match[2]
+				metrics := &api.Metrics{}
+				Expect(xml.Unmarshal([]byte(metricsStr), metrics)).To(Succeed())
+				return metrics, nil
+			}
+
+			getTimeFromMetrics := func(metrics *api.Metrics) int {
+
+				for _, m := range metrics.Metrics {
+					if m.Name == "Time" {
+						val, err := strconv.Atoi(m.Value)
+						Expect(err).ToNot(HaveOccurred())
+						return val
+					}
+				}
+				Fail("no Time in metrics XML")
+				return -1
+			}
+
+			//Lets create VM with downward metrics
+			opts := libvmi.WithMasqueradeNetworking()
+			downwardMetricsVMI := libvmi.NewFedora(opts...)
+			downwardMetricsVMI.Namespace = util2.NamespaceTestDefault
+			tests.AddDownwardMetricsVolume(downwardMetricsVMI, "vhostmd")
+			migratableVMIs = append(migratableVMIs, downwardMetricsVMI)
+
+			By("Starting multiple migratable VMIs before performing update")
+			startAllVMIs(migratableVMIs)
+
+			By("Updating KubeVirt object With current tag")
+			patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
+
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKvWithTimeout(kv, 420)
+
+			By("Verifying infrastructure Is Updated")
+			allPodsAreReady(kv)
+
+			By("Verifying all migratable vmi workloads are updated via live migration")
+			verifyVMIsUpdated(migratableVMIs, launcherSha)
+
+			// Ensure it is working properly after update
+			metrics, err := getDownwardMetrics(downwardMetricsVMI)
+			Expect(err).ToNot(HaveOccurred())
+			timestamp := getTimeFromMetrics(metrics)
+			Eventually(func() int {
+				metrics, err = getDownwardMetrics(downwardMetricsVMI)
+				Expect(err).ToNot(HaveOccurred())
+				return getTimeFromMetrics(metrics)
+			}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
+
+			By("Deleting migratable VMIs")
+			deleteAllVMIs(migratableVMIs)
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+		})
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {

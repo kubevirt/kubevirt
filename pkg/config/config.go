@@ -68,6 +68,11 @@ var (
 	// ServiceAccountSourceDir represents the location where the ServiceAccount token is attached to the pod
 	ServiceAccountSourceDir = "/var/run/secrets/kubernetes.io/serviceaccount/"
 
+	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
+	ServiceAccountDiskName = "service-account.iso"
+	// VhostmdDiskName represents the name of the vhostmd file
+	VhostmdDiskName = "vhostmd0"
+
 	// ConfigMapDisksDir represents a path to ConfigMap iso images
 	ConfigMapDisksDir = filepath.Join(mountBaseDir, "config-map-disks")
 	// SecretDisksDir represents a path to Secrets iso images
@@ -78,12 +83,10 @@ var (
 	DownwardAPIDisksDir = filepath.Join(mountBaseDir, "downwardapi-disks")
 	// DownwardMetricDisksDir represents a path to DownwardMetric block disk
 	DownwardMetricDisksDir = filepath.Join(mountBaseDir, "downwardmetric-disk")
-	// DownwardMetricDisks represents the disk location for the DownwardMetric disk
-	DownwardMetricDisk = filepath.Join(DownwardAPIDisksDir, "vhostmd0")
+	// DownwardMetricDisk represents the disk location for the DownwardMetric disk
+	DownwardMetricDisk = filepath.Join(DownwardMetricDisksDir, VhostmdDiskName)
 	// ServiceAccountDiskDir represents a path to the ServiceAccount iso image
 	ServiceAccountDiskDir = filepath.Join(mountBaseDir, "service-account-disk")
-	// ServiceAccountDiskName represents the name of the ServiceAccount iso image
-	ServiceAccountDiskName = "service-account.iso"
 
 	createISOImage      = defaultCreateIsoImage
 	createEmptyISOImage = defaultCreateEmptyIsoImage

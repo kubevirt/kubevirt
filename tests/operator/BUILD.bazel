@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/downwardmetrics/vhostmd/api:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
@@ -33,6 +34,7 @@ go_library(
         "//vendor/github.com/Masterminds/semver:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/google/go-github/v32/github:go_default_library",
+        "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
