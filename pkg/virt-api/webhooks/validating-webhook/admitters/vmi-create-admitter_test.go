@@ -4544,6 +4544,52 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.topologySpreadConstraints.labelSelector.matchExpressions[0].values: Required value: must be specified when `operator` is 'In' or 'NotIn'"))
 		})
 	})
+
+	Context("with persistent reservation defined", func() {
+		var vmi *v1.VirtualMachineInstance
+		addLunDiskWithPersistentReservation := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
+				v1.Disk{
+					Name: "testdisk",
+					DiskDevice: v1.DiskDevice{
+						LUN: &v1.LunTarget{
+							Reservation: true,
+						},
+					},
+				},
+			)
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+				},
+			})
+		}
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			enableFeatureGate(virtconfig.PersistentReservation)
+		})
+		Context("feature gate enabled", func() {
+			It("should accept vmi with no persistent reservation defined", func() {
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+			It("should accept vmi with persistent reservation defined", func() {
+				addLunDiskWithPersistentReservation(vmi)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+		})
+		Context("feature gate disabled", func() {
+			It("should reject when the feature gate is disabled", func() {
+				disableFeatureGates()
+				addLunDiskWithPersistentReservation(vmi)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.PersistentReservation)))
+			})
+		})
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
