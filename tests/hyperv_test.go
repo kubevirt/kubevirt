@@ -277,8 +277,8 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			}
 
 		},
-			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
-			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", &v1.FeatureState{Enabled: nil}),
+			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: pointer.BoolPtr(true)}),
+			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", decorators.VMX, &v1.FeatureState{Enabled: nil}),
 			Entry("Verify that features aren't applied when enabled is false", &v1.FeatureState{Enabled: pointer.BoolPtr(false)}),
 		)
 	})
