@@ -60,7 +60,7 @@ function functest() {
 	    -conn-check-dns=${conn_check_dns} \
 	    -migration-network-nic=${migration_network_nic} \
 	    ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
-    if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-1\.16)|(k8s-1\.17)|(k8s-sriov)|(ipv6).* ]]; then
+    if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-sriov).* ]] || [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."
         KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
