@@ -42,6 +42,15 @@ metadata:
 rules:
 - apiGroups:
   - ""
+  resourceNames:
+  - kubevirt-ca
+  - kubevirt-export-ca
+  - kubevirt-virt-handler-certs
+  - kubevirt-virt-handler-server-certs
+  - kubevirt-operator-certs
+  - kubevirt-virt-api-certs
+  - kubevirt-controller-certs
+  - kubevirt-exportproxy-certs
   resources:
   - secrets
   verbs:
@@ -1547,6 +1556,32 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
+  - export.kubevirt.io
+  resources:
+  - virtualmachineexports
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
+  - clone.kubevirt.io
+  resources:
+  - virtualmachineclones
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
   - instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
@@ -1663,6 +1698,30 @@ rules:
   - list
   - watch
 - apiGroups:
+  - export.kubevirt.io
+  resources:
+  - virtualmachineexports
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+- apiGroups:
+  - clone.kubevirt.io
+  resources:
+  - virtualmachineclones
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+- apiGroups:
   - instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes
@@ -1737,6 +1796,22 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
   - virtualmachinerestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - export.kubevirt.io
+  resources:
+  - virtualmachineexports
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - clone.kubevirt.io
+  resources:
+  - virtualmachineclones
   verbs:
   - get
   - list
