@@ -1,3 +1,4 @@
+//nolint:dupl,lll,gocyclo
 package instancetype
 
 import (
@@ -114,7 +115,7 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
 		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
 		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err = m.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec); err != nil {
+		if err := m.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec); err != nil {
 			return nil, err
 		}
 		return CreateControllerRevision(vm, instancetype)
@@ -128,7 +129,7 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
 		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
 		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err = m.checkForInstancetypeConflicts(&clusterInstancetype.Spec, &vm.Spec.Template.Spec); err != nil {
+		if err := m.checkForInstancetypeConflicts(&clusterInstancetype.Spec, &vm.Spec.Template.Spec); err != nil {
 			return nil, err
 		}
 		return CreateControllerRevision(vm, clusterInstancetype)
@@ -242,7 +243,6 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 }
 
 func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
-
 	// Lazy logger construction
 	logger := func() *log.FilteredLogger { return log.Log.Object(vm) }
 	instancetypeRevision, err := m.storeInstancetypeRevision(vm)
@@ -258,12 +258,12 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 	}
 
 	// Batch any writes to the VirtualMachine into a single Patch() call to avoid races in the controller.
-	patch, err := GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision)
+	revisionPatch, err := GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision)
 	if err != nil {
 		return err
 	}
-	if len(patch) > 0 {
-		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{}); err != nil {
+	if len(revisionPatch) > 0 {
+		if _, err := m.Clientset.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, revisionPatch, &metav1.PatchOptions{}); err != nil {
 			logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
 			return err
 		}
@@ -281,12 +281,12 @@ func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.Co
 		return false, err
 	}
 
-	revisionASpec, err := getInstancetypeApiSpec(revisionA.Data.Object)
+	revisionASpec, err := getInstancetypeAPISpec(revisionA.Data.Object)
 	if err != nil {
 		return false, err
 	}
 
-	revisionBSpec, err := getInstancetypeApiSpec(revisionB.Data.Object)
+	revisionBSpec, err := getInstancetypeAPISpec(revisionB.Data.Object)
 	if err != nil {
 		return false, err
 	}
@@ -342,7 +342,7 @@ func decodeRevisionObject(revision *appsv1.ControllerRevision, isPreference bool
 	return nil
 }
 
-func getInstancetypeApiSpec(obj runtime.Object) (interface{}, error) {
+func getInstancetypeAPISpec(obj runtime.Object) (interface{}, error) {
 	switch o := obj.(type) {
 	case *instancetypev1alpha2.VirtualMachineInstancetype:
 		return &o.Spec, nil
@@ -361,7 +361,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 	var conflicts Conflicts
 
 	if instancetypeSpec != nil {
-		conflicts = append(conflicts, applyCpu(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyCPU(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyMemory(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyIOThreadPolicy(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyLaunchSecurity(field, instancetypeSpec, vmiSpec)...)
@@ -429,7 +429,7 @@ func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.Na
 		return nil, err
 	}
 
-	if err = decodeRevisionObject(revision, true); err != nil {
+	if err := decodeRevisionObject(revision, true); err != nil {
 		return nil, err
 	}
 
@@ -708,7 +708,7 @@ Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> Persi
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
 */
-func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
 		if volume.Name != inferFromVolumeName {
 			continue
@@ -724,7 +724,7 @@ func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine
 	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
 }
 
-func inferDefaultsFromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func inferDefaultsFromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	defaultName, hasLabel := labels[defaultNameLabel]
 	if !hasLabel {
 		return "", "", fmt.Errorf("unable to find required %s label on the volume", defaultNameLabel)
@@ -732,7 +732,7 @@ func inferDefaultsFromLabels(labels map[string]string, defaultNameLabel, default
 	return defaultName, labels[defaultKindLabel], nil
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func (m *InstancetypeMethods) inferDefaultsFromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	pvc, err := m.Clientset.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
@@ -740,7 +740,7 @@ func (m *InstancetypeMethods) inferDefaultsFromPVC(pvcName, pvcNamespace, defaul
 	return inferDefaultsFromLabels(pvc.Labels, defaultNameLabel, defaultKindLabel)
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	if len(vm.Spec.DataVolumeTemplates) > 0 {
 		for _, dvt := range vm.Spec.DataVolumeTemplates {
 			if dvt.Name != dvName {
@@ -758,14 +758,14 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMach
 		return "", "", err
 	}
 	// Check the DataVolume for any labels before checking the underlying PVC
-	defaultName, defaultKind, err := inferDefaultsFromLabels(dv.Labels, defaultNameLabel, defaultKindLabel)
+	defaultName, defaultKind, err = inferDefaultsFromLabels(dv.Labels, defaultNameLabel, defaultKindLabel)
 	if err == nil {
 		return defaultName, defaultKind, nil
 	}
 	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string) (string, string, error) {
+func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
 	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
 		return m.inferDefaultsFromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
 	}
@@ -775,13 +775,13 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported")
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespace, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	ds, err := m.Clientset.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(context.Background(), dataSourceName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
 	}
 	// Check the DataSource for any labels before checking the underlying PVC
-	defaultName, defaultKind, err := inferDefaultsFromLabels(ds.Labels, defaultNameLabel, defaultKindLabel)
+	defaultName, defaultKind, err = inferDefaultsFromLabels(ds.Labels, defaultNameLabel, defaultKindLabel)
 	if err == nil {
 		return defaultName, defaultKind, nil
 	}
@@ -791,9 +791,8 @@ func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSo
 	return "", "", fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")
 }
 
-func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (string, string, error) {
-	switch sourceRef.Kind {
-	case "DataSource":
+func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
+	if sourceRef.Kind == "DataSource" {
 		// The namespace can be left blank here with the assumption that the DataSource is in the same namespace as the VM
 		namespace := vmNameSpace
 		if sourceRef.Namespace != nil {
@@ -804,7 +803,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }
 
-func applyCpu(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
 	}
@@ -879,7 +878,6 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 }
 
 func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
 	if vmiSpec.Domain.Memory != nil {
 		return Conflicts{field.Child("domain", "memory")}
 	}
@@ -905,7 +903,6 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.Vi
 }
 
 func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
 	if instancetypeSpec.IOThreadsPolicy == nil {
 		return nil
 	}
@@ -921,7 +918,6 @@ func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1a
 }
 
 func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
 	if instancetypeSpec.LaunchSecurity == nil {
 		return nil
 	}
@@ -936,7 +932,6 @@ func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1a
 }
 
 func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
 	if len(instancetypeSpec.GPUs) == 0 {
 		return nil
 	}
@@ -952,7 +947,6 @@ func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.Virt
 }
 
 func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-
 	if len(instancetypeSpec.HostDevices) == 0 {
 		return nil
 	}
@@ -968,7 +962,6 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alph
 }
 
 func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-
 	if preferenceSpec.Devices == nil {
 		return
 	}
@@ -1030,7 +1023,6 @@ func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachineP
 	applyDiskPreferences(preferenceSpec, vmiSpec)
 	applyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
-
 }
 
 func applyDiskPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
@@ -1061,12 +1053,10 @@ func applyDiskPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePre
 			if preferenceSpec.Devices.PreferredDiskDedicatedIoThread != nil && vmiDisk.DedicatedIOThread == nil {
 				vmiDisk.DedicatedIOThread = pointer.Bool(*preferenceSpec.Devices.PreferredDiskDedicatedIoThread)
 			}
-
 		} else if vmiDisk.DiskDevice.CDRom != nil {
 			if preferenceSpec.Devices.PreferredCdromBus != "" && vmiDisk.DiskDevice.CDRom.Bus == "" {
 				vmiDisk.DiskDevice.CDRom.Bus = preferenceSpec.Devices.PreferredCdromBus
 			}
-
 		} else if vmiDisk.DiskDevice.LUN != nil {
 			if preferenceSpec.Devices.PreferredLunBus != "" && vmiDisk.DiskDevice.LUN.Bus == "" {
 				vmiDisk.DiskDevice.LUN.Bus = preferenceSpec.Devices.PreferredLunBus
@@ -1098,7 +1088,6 @@ func applyInputPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePr
 }
 
 func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-
 	if preferenceSpec.Features == nil {
 		return
 	}
@@ -1131,11 +1120,9 @@ func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachine
 	if preferenceSpec.Features.PreferredSmm != nil && vmiSpec.Domain.Features.SMM == nil {
 		vmiSpec.Domain.Features.SMM = preferenceSpec.Features.PreferredSmm.DeepCopy()
 	}
-
 }
 
 func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-
 	if vmiSpec.Domain.Features.Hyperv == nil {
 		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
 	}
@@ -1199,7 +1186,6 @@ func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualM
 }
 
 func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-
 	if preferenceSpec.Firmware == nil {
 		return
 	}
@@ -1230,7 +1216,6 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachin
 }
 
 func applyMachinePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-
 	if preferenceSpec.Machine == nil {
 		return
 	}
@@ -1253,7 +1238,7 @@ func applyClockPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePr
 		vmiSpec.Domain.Clock = &virtv1.Clock{}
 	}
 
-	// We don't want to allow a partial overwrite here as that could lead to some unexpected behaviour for users so only replace when nothing is set
+	// We don't want to allow a partial overwrite here as that could lead to some unexpected behavior for users so only replace when nothing is set
 	if preferenceSpec.Clock.PreferredClockOffset != nil && vmiSpec.Domain.Clock.ClockOffset.UTC == nil && vmiSpec.Domain.Clock.ClockOffset.Timezone == nil {
 		vmiSpec.Domain.Clock.ClockOffset = *preferenceSpec.Clock.PreferredClockOffset.DeepCopy()
 	}
