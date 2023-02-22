@@ -31,11 +31,13 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -174,6 +176,8 @@ func NewController(
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
+	vmiInformer cache.SharedIndexInformer,
+	nodeInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -195,6 +199,8 @@ func NewController(
 		vmiTargetInformer:           vmiTargetInformer,
 		domainInformer:              domainInformer,
 		gracefulShutdownInformer:    gracefulShutdownInformer,
+		vmiInformer:                 vmiInformer,
+		nodeInformer:                nodeInformer,
 		heartBeatInterval:           1 * time.Minute,
 		watchdogTimeoutSeconds:      watchdogTimeoutSeconds,
 		migrationProxy:              migrationProxy,
@@ -255,6 +261,8 @@ func NewController(
 	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, permissions, clusterConfig, clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
+	c.topologyHinter = topology.NewTopologyHinter(nodeInformer.GetStore(), vmiInformer.GetStore(), runtime.GOARCH, c.clusterConfig)
+
 	return c
 }
 
@@ -270,6 +278,8 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
+	vmiInformer              cache.SharedIndexInformer
+	nodeInformer             cache.SharedIndexInformer
 	launcherClients          virtcache.LauncherClientInfoByVMI
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
@@ -280,6 +290,7 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
+	topologyHinter           topology.Hinter
 
 	netConf netconf
 	netStat netstat
@@ -1108,6 +1119,13 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	vmi := origVMI.DeepCopy()
 	oldStatus := *vmi.Status.DeepCopy()
 
+	// Update existing VMIs topologyHints if needed
+	if vmi.Status.TopologyHints == nil {
+		if topologyHints, _ := d.topologyHinter.TopologyHintsForVMI(vmi); topologyHints != nil {
+			vmi.Status.TopologyHints = topologyHints
+		}
+	}
+
 	// Update VMI status fields based on what is reported on the domain
 	d.updateIsoSizeStatus(vmi)
 	d.setMigrationProgressStatus(vmi, domain)
@@ -1313,7 +1331,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.deviceManagerController.Run(stopCh)
 
-	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced, c.vmiInformer.HasSynced, c.nodeInformer.HasSynced)
 
 	// Queue keys for previous Domains on the host that no longer exist
 	// in the cache. This ensures we perform local cleanup of deleted VMs.
