@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -309,6 +310,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	Context("lifecycle", func() {
 		BeforeEach(func() {
 			checks.SkipTestIfNotSEVCapable()
+			format.MaxLength = 0
 		})
 
 		It("should start a SEV VM", func() {
@@ -331,7 +333,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should run guest attestation", func() {
+		FIt("should run guest attestation", func() {
 			var (
 				expectedSEVPlatformInfo    v1.SEVPlatformInfo
 				expectedSEVMeasurementInfo v1.SEVMeasurementInfo
@@ -346,7 +348,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 			By("Querying virsh nodesevinfo")
 			nodeSevInfo := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
-			Expect(nodeSevInfo).ToNot(BeEmpty())
+			Expect(nodeSevInfo).To(BeEmpty()) // Fail
 			entries := parseVirshInfo(nodeSevInfo, []string{"pdh", "cert-chain"})
 			expectedSEVPlatformInfo.PDH = entries["pdh"]
 			expectedSEVPlatformInfo.CertChain = entries["cert-chain"]
