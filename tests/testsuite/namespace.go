@@ -310,6 +310,7 @@ func GetLabelsForNamespace(namespace string) map[string]string {
 	if namespace == NamespacePrivileged {
 		labels["pod-security.kubernetes.io/enforce"] = "privileged"
 		labels["pod-security.kubernetes.io/warn"] = "privileged"
+		labels["security.openshift.io/scc.podSecurityLabelSync"] = "false"
 	}
 
 	return labels
