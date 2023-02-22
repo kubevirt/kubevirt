@@ -57,11 +57,11 @@ import (
 )
 
 const (
-	sshAuthorizedKey = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
-	fedoraPassword   = "fedora"
-	expectedUserData = "printed from cloud-init userdata"
-	testNetworkData  = "#Test networkData"
-	testUserData     = "#cloud-config"
+	sshAuthorizedKey     = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
+	fedoraPassword       = "fedora"
+	expectedUserDataFile = "cloud-init-userdata-executed"
+	testNetworkData      = "#Test networkData"
+	testUserData         = "#cloud-config"
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]CloudInit UserData", decorators.SigCompute, func() {
@@ -132,15 +132,15 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with cloudInitNoCloud userDataBase64 source", func() {
 			It("[test_id:1615]should have cloud-init data", func() {
-				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-
+				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
-				LaunchVMI(vmi)
+
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
-				VerifyUserDataVMI(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: expectedUserData},
-				}, time.Second*120)
+
+				By("Checking whether the user-data script had created the file")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
 			})
 
 			Context("with injected ssh-key", func() {
@@ -154,6 +154,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					LaunchVMI(vmi)
 					CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
+
 					VerifyUserDataVMI(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: "login:"},
@@ -170,15 +171,15 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with cloudInitConfigDrive userDataBase64 source", func() {
 			It("[test_id:3178]should have cloud-init data", func() {
-				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-
+				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
-				LaunchVMI(vmi)
+
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
-				VerifyUserDataVMI(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: expectedUserData},
-				}, time.Second*120)
+
+				By("Checking whether the user-data script had created the file")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
 			})
 
 			Context("with injected ssh-key", func() {
@@ -192,6 +193,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					LaunchVMI(vmi)
 					CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
+
 					VerifyUserDataVMI(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: "login:"},
@@ -258,54 +260,44 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with cloudInitNoCloud userData source", func() {
-			It("[test_id:1617]should process provided cloud-init data", func() {
-				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
+		Context("should process provided cloud-init data", func() {
+			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 
-				vmi = LaunchVMI(vmi)
-				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
-				By("executing a user-data script")
-				VerifyUserDataVMI(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: expectedUserData},
-				}, time.Second*120)
+			runTest := func(vmi *v1.VirtualMachineInstance, dsType cloudinit.DataSourceType) {
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
-				By("applying the hostname from meta-data")
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				By("waiting until login appears")
+				libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
+				By("validating cloud-init disk is 4k aligned")
+				CheckCloudInitIsoSize(vmi, dsType)
+
+				By("Checking whether the user-data script had created the file")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
+
+				By("validating the hostname matches meta-data")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "hostname\n"},
 					&expect.BExp{R: dns.SanitizeHostname(vmi)},
 				}, 10)).To(Succeed())
+			}
+
+			It("[test_id:1617] with cloudInitNoCloud userData source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros),
+					userData)
+				runTest(vmi, cloudinit.DataSourceNoCloud)
 			})
-		})
-
-		Context("with cloudInitConfigDrive userData source", func() {
-			It("[test_id:3180]should process provided cloud-init data", func() {
-				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
-
-				vmi = LaunchVMI(vmi)
-				CheckCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
-				By("executing a user-data script")
-				VerifyUserDataVMI(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: expectedUserData},
-				}, time.Second*120)
-
-				By("applying the hostname from meta-data")
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "hostname\n"},
-					&expect.BExp{R: dns.SanitizeHostname(vmi)},
-				}, 10)).To(Succeed())
+			It("[test_id:3180] with cloudInitConfigDrive userData source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros),
+					userData)
+				runTest(vmi, cloudinit.DataSourceConfigDrive)
 			})
 		})
 
 		It("[test_id:1618]should take user-data from k8s secret", func() {
-			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
+			userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "")
 
 			idx := 0
@@ -338,12 +330,14 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 				break
 			}
-			LaunchVMI(vmi)
+
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+
 			CheckCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
-			VerifyUserDataVMI(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: expectedUserData},
-			}, time.Second*120)
+
+			By("Checking whether the user-data script had created the file")
+			Expect(console.RunCommand(vmi, fmt.Sprintf("cat /%s\n", expectedUserDataFile), time.Second*120)).To(Succeed())
 
 			// Expect that the secret is not present on the vmi itself
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
