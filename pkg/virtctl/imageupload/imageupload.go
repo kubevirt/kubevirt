@@ -206,7 +206,7 @@ func parseArgs(args []string) error {
 
 	archiveUpload = false
 	if imagePath == "" && archivePath == "" {
-		return fmt.Errorf("either image-path or archive-path most be provided")
+		return fmt.Errorf("either image-path or archive-path must be provided")
 	} else if imagePath != "" && archivePath != "" {
 		return fmt.Errorf("cannot handle both image-path and archive-path, provide only one")
 	} else if archivePath != "" {
