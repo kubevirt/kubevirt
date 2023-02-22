@@ -114,6 +114,13 @@ var HcoMetrics = func() hcoMetrics {
 	}
 }()
 
+var hcoRecordingRules = []MetricDescription{
+	{`kubevirt_hyperconverged_operator_health_status`,
+		"Indicates whether HCO and its secondary resources health status is healthy (0), warning (1) or critical (2), based both on the firing alerts that impact the operator health, and on kubevirt_hco_system_health_status metric",
+		"Gauge",
+	},
+}
+
 // hcoMetrics holds all HCO metrics
 type hcoMetrics struct {
 	// overwrittenModifications counts out-of-band modifications overwritten by HCO
@@ -279,6 +286,8 @@ func (hm hcoMetrics) GetMetricDesc() []MetricDescription {
 	for _, md := range hm.metricDescList {
 		res = append(res, MetricDescription{FqName: md.fqName, Help: md.help, Type: md.mType})
 	}
+	res = append(res, hcoRecordingRules...)
+
 	return res
 }
 

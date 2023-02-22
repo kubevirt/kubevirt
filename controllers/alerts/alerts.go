@@ -117,6 +117,7 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 				createUnsafeModificationAlertRule(),
 				createInstallationNotCompletedAlertRule(),
 				createRequestCPUCoresRule(),
+				createOperatorHealthStatusRule(),
 			},
 		}},
 	}
@@ -182,5 +183,12 @@ func createRequestCPUCoresRule() monitoringv1.Rule {
 	return monitoringv1.Rule{
 		Record: "cluster:vmi_request_cpu_cores:sum",
 		Expr:   intstr.FromString(`sum(kube_pod_container_resource_requests{resource="cpu"} and on (pod) kube_pod_status_phase{phase="Running"} * on (pod) group_left kube_pod_labels{ label_kubevirt_io="virt-launcher"} > 0)`),
+	}
+}
+
+func createOperatorHealthStatusRule() monitoringv1.Rule {
+	return monitoringv1.Rule{
+		Record: "kubevirt_hyperconverged_operator_health_status",
+		Expr:   intstr.FromString(`label_replace(vector(2) and on() ((kubevirt_hco_system_health_status>1) or (count(ALERTS{kubernetes_operator_component="kubevirt", alertstate="firing", operator_health_impact="critical"})>0)) or (vector(1) and on() ((kubevirt_hco_system_health_status==1) or (count(ALERTS{kubernetes_operator_component="kubevirt", alertstate="firing", operator_health_impact="warning"})>0))) or vector(0),"name","kubevirt-hyperconverged","","")`),
 	}
 }

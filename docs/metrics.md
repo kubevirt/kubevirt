@@ -11,6 +11,8 @@ Count of out-of-band modifications overwritten by HCO. Type: Counter.
 Indicates whether the system health status is healthy (0), warning (1), or error (2), by aggregating the conditions of HCO and its secondary resources. Type: Gauge.
 ### kubevirt_hco_unsafe_modification_count
 Count of unsafe modifications in the HyperConverged annotations. Type: Gauge.
+### kubevirt_hyperconverged_operator_health_status
+Indicates whether HCO and its secondary resources health status is healthy (0), warning (1) or critical (2), based both on the firing alerts that impact the operator health, and on kubevirt_hco_system_health_status metric. Type: Gauge.
 ## Developing new metrics
 After developing new metrics or changing old ones, please run `make generate-doc` to regenerate this document.
 
