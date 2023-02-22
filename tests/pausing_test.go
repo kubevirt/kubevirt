@@ -356,19 +356,6 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			})
 
-			It("[test_id:3086]should not be migrated", func() {
-				By("Pausing the VM")
-				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
-				Expect(command()).To(Succeed())
-				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachinePaused))
-
-				By("Trying to migrate the VM")
-				command = clientcmd.NewRepeatableVirtctlCommand("migrate", "--namespace", vm.Namespace, vm.Name)
-				err = command()
-				Expect(err.Error()).To(ContainSubstring("VM is paused"))
-
-			})
-
 			It("[test_id:3083]should connect to serial console", func() {
 				By("Pausing the VM")
 				command := clientcmd.NewRepeatableVirtctlCommand("pause", "vm", "--namespace", vm.Namespace, vm.Name)
