@@ -38,7 +38,6 @@ import (
 const (
 	COMMAND_GUESTOSINFO = "guestosinfo"
 	COMMAND_USERLIST    = "userlist"
-	COMMAND_FSLIST      = "fslist"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
@@ -85,21 +84,6 @@ func NewUserListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    templates.ExactArgs("userlist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_USERLIST, clientConfig: clientConfig}
-			return c.Run(args)
-		},
-	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-	return cmd
-}
-
-func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "fslist (VMI)",
-		Short:   "Return full list of filesystems available on the guest machine.",
-		Example: usage(COMMAND_FSLIST),
-		Args:    templates.ExactArgs("fslist", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_FSLIST, clientConfig: clientConfig}
 			return c.Run(args)
 		},
 	}
@@ -178,19 +162,6 @@ func (o *Command) Run(args []string) error {
 		data, err := json.MarshalIndent(userlist, "", "  ")
 		if err != nil {
 			return fmt.Errorf("Cannot marshal userlist %v", err)
-		}
-
-		fmt.Printf("%s\n", string(data))
-		return nil
-	case COMMAND_FSLIST:
-		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(context.Background(), vmiName)
-		if err != nil {
-			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
-		}
-
-		data, err := json.MarshalIndent(fslist, "", "  ")
-		if err != nil {
-			return fmt.Errorf("Cannot marshal filesystem list %v", err)
 		}
 
 		fmt.Printf("%s\n", string(data))
