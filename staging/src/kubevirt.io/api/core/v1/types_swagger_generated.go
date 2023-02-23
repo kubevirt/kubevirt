@@ -683,9 +683,10 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                            "KubeVirtConfiguration holds all kubevirt configurations",
-		"evictionStrategy":            "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
-		"supportedGuestAgentVersions": "deprecated",
+		"":                                   "KubeVirtConfiguration holds all kubevirt configurations",
+		"evictionStrategy":                   "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
+		"additionalGuestMemoryOverheadRatio": "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure\noverhead. This is useful, since the calculation of this overhead is not accurate and cannot\nbe entirely known in advance. The ratio that is being set determines by which factor to increase\nthe overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised\nby node pressures, but would mean that fewer VMs could be scheduled to a node.\nIf not set, the default is 1.",
+		"supportedGuestAgentVersions":        "deprecated",
 	}
 }
 
