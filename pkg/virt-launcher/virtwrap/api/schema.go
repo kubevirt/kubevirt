@@ -572,6 +572,7 @@ type Disk struct {
 	Device             string         `xml:"device,attr"`
 	Snapshot           string         `xml:"snapshot,attr,omitempty"`
 	Type               string         `xml:"type,attr"`
+	Sgio               string         `xml:"sgio,attr,omitempty"`
 	Source             DiskSource     `xml:"source"`
 	Target             DiskTarget     `xml:"target"`
 	Serial             string         `xml:"serial,omitempty"`

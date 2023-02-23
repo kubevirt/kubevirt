@@ -198,6 +198,15 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		disk.Target.Bus = diskDevice.LUN.Bus
 		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
+		if diskDevice.LUN.Sgio != "" {
+			disk.Sgio = diskDevice.LUN.Sgio
+		}
+	} else if diskDevice.Floppy != nil {
+		disk.Device = "floppy"
+		disk.Target.Bus = "fdc"
+		disk.Target.Tray = string(diskDevice.Floppy.Tray)
+		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, disk.Target.Bus, prefixMap)
+		disk.ReadOnly = toApiReadOnly(diskDevice.Floppy.ReadOnly)
 	} else if diskDevice.CDRom != nil {
 		disk.Device = "cdrom"
 		disk.Target.Tray = string(diskDevice.CDRom.Tray)
@@ -225,6 +234,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Capacity = getDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
 		}
 		disk.ExpandDisksEnabled = c.ExpandDisksEnabled
+	}
+	if diskDevice.Shareable != nil {
+		disk.Shareable = toApiShareable(*diskDevice.Shareable)
 	}
 	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
@@ -584,13 +596,18 @@ func toApiReadOnly(src bool) *api.ReadOnly {
 	}
 	return nil
 }
-
 func getErrorPolicy(policy string) string {
 	errorPolicy := "stop"
 	if policy == "stop" || policy == "report" || policy == "ignore" || policy == "enospace" {
 		errorPolicy = policy
 	}
 	return errorPolicy
+}
+func toApiShareable(src bool) *api.Shareable {
+	if src {
+		return &api.Shareable{}
+	}
+	return nil
 }
 
 // Add_Agent_To_api_Channel creates the channel for guest agent communication
@@ -1695,7 +1712,24 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootPortController)
 		}
 	}
-
+	if needsPciBridgeController(vmi) {
+		pciRootIndex1Controller := api.Controller{
+			Type:   "pci",
+			Index:  "1",
+			Model:  "pci-bridge",
+			Alias:  api.NewUserDefinedAlias("pci-bridge.1"),
+			Driver: controllerDriver,
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootIndex1Controller)
+		pciRootIndex2Controller := api.Controller{
+			Type:   "pci",
+			Index:  "2",
+			Model:  "pci-bridge",
+			Alias:  api.NewUserDefinedAlias("pci-bridge.2"),
+			Driver: controllerDriver,
+		}
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciRootIndex2Controller)
+	}
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
@@ -1949,6 +1983,23 @@ func needsHotplugController(vmi *v1.VirtualMachineInstance) bool {
 		if machine == nil {
 			return true
 		} else if machine != nil && strings.Contains(machine.Type, "q35") {
+			return true
+		} else if machine != nil && strings.Contains(machine.Type, "virt") {
+			return true
+		} else {
+			return false
+		}
+	}
+	return false
+}
+
+func needsPciBridgeController(vmi *v1.VirtualMachineInstance) bool {
+	if vmi != nil {
+		machine := vmi.Spec.Domain.Machine
+		if machine != nil && strings.Contains(machine.Type, "pc-i440fx") {
+			return true
+		}
+		if machine != nil && strings.Contains(machine.Type, "pc") {
 			return true
 		} else {
 			return false

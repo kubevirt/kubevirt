@@ -12999,7 +12999,7 @@
       "type": "string"
      },
      "shareable": {
-      "description": "If specified the disk is made sharable and multiple write from different VMs are permitted",
+      "description": "shareable indicates this disk is shareable with multiple vm for rwx Defaults to false.",
       "type": "boolean"
      },
      "tag": {
@@ -14186,6 +14186,10 @@
      "readonly": {
       "description": "ReadOnly. Defaults to false.",
       "type": "boolean"
+     },
+     "sgio": {
+      "description": "SgIo open sgio and set the value. support values: unfiltered filtered",
+      "type": "string"
      }
     }
    },

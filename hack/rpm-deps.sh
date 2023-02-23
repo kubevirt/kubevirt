@@ -75,6 +75,7 @@ sandbox_base="
   sssd-client
 "
 # create a rpmtree for virt-launcher and virt-handler. This is the OS for our node-components.
+# qemu-kvm-block-iscsi-${QEMU_VERSION}
 launcherbase_base="
   libvirt-client-${LIBVIRT_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}

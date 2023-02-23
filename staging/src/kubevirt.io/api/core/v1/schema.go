@@ -582,7 +582,8 @@ type Disk struct {
 	// If specified, will set the disk qos
 	// +optional
 	IOTune *IOTune `json:"ioTune,omitempty"`
-	// If specified the disk is made sharable and multiple write from different VMs are permitted
+	// shareable indicates this disk is shareable with multiple vm for rwx
+	// Defaults to false.
 	// +optional
 	Shareable *bool `json:"shareable,omitempty"`
 	// If specified, error_policy will be provided to the guest via config drive metadata
@@ -666,6 +667,9 @@ type LunTarget struct {
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
+	// SgIo open sgio and set the value.
+	// support values: unfiltered filtered
+	Sgio string `json:"sgio,omitempty"`
 }
 
 // TrayState indicates if a tray of a cdrom is open or closed.
