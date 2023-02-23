@@ -1,4 +1,4 @@
-package create
+package params
 
 import (
 	"errors"
@@ -13,7 +13,11 @@ const (
 	paramTag = "param"
 )
 
-func supportedParams(obj interface{}) string {
+func FlagErr(flagName, format string, a ...any) error {
+	return fmt.Errorf("failed to parse \"--%s\" flag: %w", flagName, fmt.Errorf(format, a...))
+}
+
+func Supported(obj interface{}) string {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Struct {
 		panic("passed in interface needs to be a struct")
@@ -45,15 +49,15 @@ func supportedParams(obj interface{}) string {
 	return strings.Join(params, ",")
 }
 
-func mapParams(flagName, paramsStr string, obj interface{}) error {
-	params, err := splitParams(paramsStr)
+func Map(flagName, paramsStr string, obj interface{}) error {
+	params, err := Split(paramsStr)
 	if err != nil {
-		return flagErr(flagName, "%w", err)
+		return FlagErr(flagName, "%w", err)
 	}
 
-	err = applyParams(params, obj)
+	err = Apply(params, obj)
 	if err != nil {
-		return flagErr(flagName, "%w", err)
+		return FlagErr(flagName, "%w", err)
 	}
 
 	if len(params) > 0 {
@@ -61,13 +65,13 @@ func mapParams(flagName, paramsStr string, obj interface{}) error {
 		for k, v := range params {
 			unknown = append(unknown, fmt.Sprintf("%s:%s", k, v))
 		}
-		return flagErr(flagName, "unknown param(s): %s", strings.Join(unknown, ","))
+		return FlagErr(flagName, "unknown param(s): %s", strings.Join(unknown, ","))
 	}
 
 	return nil
 }
 
-func splitParams(paramsStr string) (map[string]string, error) {
+func Split(paramsStr string) (map[string]string, error) {
 	if paramsStr == "" {
 		return nil, errors.New("params may not be empty")
 	}
@@ -85,7 +89,7 @@ func splitParams(paramsStr string) (map[string]string, error) {
 	return paramsMap, nil
 }
 
-func applyParams(paramsMap map[string]string, obj interface{}) error {
+func Apply(paramsMap map[string]string, obj interface{}) error {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Ptr {
 		panic("passed in interface needs to be a pointer")
@@ -130,7 +134,7 @@ func applyParams(paramsMap map[string]string, obj interface{}) error {
 	return nil
 }
 
-func splitPrefixedName(prefixedName string) (prefix string, name string, err error) {
+func SplitPrefixedName(prefixedName string) (prefix string, name string, err error) {
 	s := strings.Split(prefixedName, "/")
 
 	switch l := len(s); l {

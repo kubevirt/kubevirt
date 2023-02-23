@@ -17,7 +17,7 @@
  *
  */
 
-package create
+package vm
 
 import (
 	"fmt"
@@ -33,6 +33,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -138,7 +139,7 @@ var runStrategies = []string{
 	string(v1.RunStrategyRerunOnFailure),
 }
 
-func NewVirtualMachineCommand() *cobra.Command {
+func NewCommand() *cobra.Command {
 	c := defaultCreateVM()
 	cmd := &cobra.Command{
 		Use:     VM,
@@ -162,11 +163,11 @@ func NewVirtualMachineCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference, "Specify that the Preference of the VM is inferred from the booted volume.")
 	cmd.MarkFlagsMutuallyExclusive(PreferenceFlag, InferPreferenceFlag)
 
-	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(containerdiskVolume{})))
-	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(cloneVolume{})))
-	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, fmt.Sprintf("Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(cloneVolume{})))
-	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(pvcVolume{})))
-	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", supportedParams(blankVolume{})))
+	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(containerdiskVolume{})))
+	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
+	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, fmt.Sprintf("Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
+	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(pvcVolume{})))
+	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
 
 	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
 	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData, "Specify the base64 encoded cloud-init network data of the VM.")
@@ -188,7 +189,7 @@ func defaultCreateVM() createVM {
 func checkVolumeExists(flag string, vols []v1.Volume, name string) error {
 	for _, vol := range vols {
 		if vol.Name == name {
-			return flagErr(flag, "there is already a Volume with name '%s'", name)
+			return params.FlagErr(flag, "there is already a Volume with name '%s'", name)
 		}
 	}
 
@@ -291,17 +292,17 @@ func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
 		}
 	}
 
-	return flagErr(RunStrategyFlag, "invalid RunStrategy \"%s\", supported values are: %s", c.runStrategy, strings.Join(runStrategies, ", "))
+	return params.FlagErr(RunStrategyFlag, "invalid RunStrategy \"%s\", supported values are: %s", c.runStrategy, strings.Join(runStrategies, ", "))
 }
 
 func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
-	kind, name, err := splitPrefixedName(c.instancetype)
+	kind, name, err := params.SplitPrefixedName(c.instancetype)
 	if err != nil {
-		return flagErr(InstancetypeFlag, "%w", err)
+		return params.FlagErr(InstancetypeFlag, "%w", err)
 	}
 
 	if kind != "" && kind != instancetype.SingularResourceName && kind != instancetype.ClusterSingularResourceName {
-		return flagErr(InstancetypeFlag, "invalid instancetype kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularResourceName, instancetype.ClusterSingularResourceName)
+		return params.FlagErr(InstancetypeFlag, "invalid instancetype kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularResourceName, instancetype.ClusterSingularResourceName)
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterInstancetype
@@ -315,7 +316,7 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 
 func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return flagErr(InferInstancetypeFlag, "at least one volume is needed to infer instancetype")
+		return params.FlagErr(InferInstancetypeFlag, "at least one volume is needed to infer instancetype")
 	}
 
 	// TODO Expand this in the future to take a string containing the volume name to infer
@@ -329,13 +330,13 @@ func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 }
 
 func withPreference(c *createVM, vm *v1.VirtualMachine) error {
-	kind, name, err := splitPrefixedName(c.preference)
+	kind, name, err := params.SplitPrefixedName(c.preference)
 	if err != nil {
-		return flagErr(PreferenceFlag, "%w", err)
+		return params.FlagErr(PreferenceFlag, "%w", err)
 	}
 
 	if kind != "" && kind != instancetype.SingularPreferenceResourceName && kind != instancetype.ClusterSingularPreferenceResourceName {
-		return flagErr(InstancetypeFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
+		return params.FlagErr(InstancetypeFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterPreference
@@ -349,7 +350,7 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 
 func withInferredPreference(c *createVM, vm *v1.VirtualMachine) error {
 	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return flagErr(InferPreferenceFlag, "at least one volume is needed to infer preference")
+		return params.FlagErr(InferPreferenceFlag, "at least one volume is needed to infer preference")
 	}
 
 	// TODO Expand this in the future to take a string containing the volume name to infer
@@ -365,13 +366,13 @@ func withInferredPreference(c *createVM, vm *v1.VirtualMachine) error {
 func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for i, containerdiskVol := range c.containerdiskVolumes {
 		vol := containerdiskVolume{}
-		err := mapParams(ContainerdiskVolumeFlag, containerdiskVol, &vol)
+		err := params.Map(ContainerdiskVolumeFlag, containerdiskVol, &vol)
 		if err != nil {
 			return err
 		}
 
 		if vol.Source == "" {
-			return flagErr(ContainerdiskVolumeFlag, "src must be specified")
+			return params.FlagErr(ContainerdiskVolumeFlag, "src must be specified")
 		}
 
 		if vol.Name == "" {
@@ -398,18 +399,18 @@ func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
 func withDataSourceVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for _, dataSourceVol := range c.dataSourceVolumes {
 		vol := cloneVolume{}
-		err := mapParams(DataSourceVolumeFlag, dataSourceVol, &vol)
+		err := params.Map(DataSourceVolumeFlag, dataSourceVol, &vol)
 		if err != nil {
 			return err
 		}
 
 		if vol.Source == "" {
-			return flagErr(DataSourceVolumeFlag, "src must be specified")
+			return params.FlagErr(DataSourceVolumeFlag, "src must be specified")
 		}
 
-		namespace, name, err := splitPrefixedName(vol.Source)
+		namespace, name, err := params.SplitPrefixedName(vol.Source)
 		if err != nil {
-			return flagErr(DataSourceVolumeFlag, "src invalid: %w", err)
+			return params.FlagErr(DataSourceVolumeFlag, "src invalid: %w", err)
 		}
 
 		if vol.Name == "" {
@@ -458,21 +459,21 @@ func withDataSourceVolume(c *createVM, vm *v1.VirtualMachine) error {
 func withClonePvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for _, clonePvcVol := range c.clonePvcVolumes {
 		vol := cloneVolume{}
-		err := mapParams(ClonePvcVolumeFlag, clonePvcVol, &vol)
+		err := params.Map(ClonePvcVolumeFlag, clonePvcVol, &vol)
 		if err != nil {
 			return err
 		}
 
 		if vol.Source == "" {
-			return flagErr(ClonePvcVolumeFlag, "src must be specified")
+			return params.FlagErr(ClonePvcVolumeFlag, "src must be specified")
 		}
 
-		namespace, name, err := splitPrefixedName(vol.Source)
+		namespace, name, err := params.SplitPrefixedName(vol.Source)
 		if err != nil {
-			return flagErr(ClonePvcVolumeFlag, "src invalid: %w", err)
+			return params.FlagErr(ClonePvcVolumeFlag, "src invalid: %w", err)
 		}
 		if namespace == "" {
-			return flagErr(ClonePvcVolumeFlag, "namespace of pvc '%s' must be specified", name)
+			return params.FlagErr(ClonePvcVolumeFlag, "namespace of pvc '%s' must be specified", name)
 		}
 
 		if vol.Name == "" {
@@ -520,21 +521,21 @@ func withClonePvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for _, pvcVol := range c.pvcVolumes {
 		vol := pvcVolume{}
-		err := mapParams(PvcVolumeFlag, pvcVol, &vol)
+		err := params.Map(PvcVolumeFlag, pvcVol, &vol)
 		if err != nil {
 			return err
 		}
 
 		if vol.Source == "" {
-			return flagErr(PvcVolumeFlag, "src must be specified")
+			return params.FlagErr(PvcVolumeFlag, "src must be specified")
 		}
 
-		namespace, name, err := splitPrefixedName(vol.Source)
+		namespace, name, err := params.SplitPrefixedName(vol.Source)
 		if err != nil {
-			return flagErr(PvcVolumeFlag, "src invalid: %w", err)
+			return params.FlagErr(PvcVolumeFlag, "src invalid: %w", err)
 		}
 		if namespace != "" {
-			return flagErr(PvcVolumeFlag, "not allowed to specify namespace of pvc '%s'", name)
+			return params.FlagErr(PvcVolumeFlag, "not allowed to specify namespace of pvc '%s'", name)
 		}
 
 		if vol.Name == "" {
@@ -563,13 +564,13 @@ func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 func withBlankVolume(c *createVM, vm *v1.VirtualMachine) error {
 	for i, blankVol := range c.blankVolumes {
 		vol := blankVolume{}
-		err := mapParams(BlankVolumeFlag, blankVol, &vol)
+		err := params.Map(BlankVolumeFlag, blankVol, &vol)
 		if err != nil {
 			return err
 		}
 
 		if vol.Size == nil {
-			return flagErr(BlankVolumeFlag, "size must be specified")
+			return params.FlagErr(BlankVolumeFlag, "size must be specified")
 		}
 
 		if vol.Name == "" {
