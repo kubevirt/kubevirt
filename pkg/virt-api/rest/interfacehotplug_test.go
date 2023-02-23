@@ -51,6 +51,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Interface Hotplug Subresource", func() {
@@ -79,7 +81,7 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		},
 	}
 
-	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
@@ -116,6 +118,15 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		})
 	})
 
+	enableFeatureGate := func(featureGate string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+	}
+	restoreKubeVirtClusterConfig := func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kv)
+	}
+
 	Context("Add Interface Subresource api", func() {
 		const (
 			ifaceToHotplug      = "pluggediface1"
@@ -131,6 +142,10 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		BeforeEach(func() {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
+		})
+
+		AfterEach(func() {
+			restoreKubeVirtClusterConfig()
 		})
 
 		mutateIfaceRequest := func(addOpts *v1.AddInterfaceOptions) {
@@ -200,6 +215,8 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		}
 
 		DescribeTable("Should succeed a dynamic interface request", func(addOpts *v1.AddInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions)) {
+			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
+
 			mockScenario(addOpts)
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
@@ -213,15 +230,23 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			}, successfulMockScenarioForVMI),
 		)
 
-		DescribeTable("Should fail on invalid requests for a dynamic interfaces", func(addOpts *v1.AddInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions)) {
+		DescribeTable("Should fail on invalid requests for a dynamic interfaces", func(addOpts *v1.AddInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions), featuresToEnable ...string) {
+			for _, featureToEnable := range featuresToEnable {
+				enableFeatureGate(featureToEnable)
+			}
+
 			mockScenario(addOpts)
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		},
 			Entry("VM with an invalid add interface request missing a network name", &v1.AddInterfaceOptions{
 				InterfaceName: ifaceToHotplug,
-			}, failedMockScenarioForVM),
+			}, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
 			Entry("VM with an invalid add interface request missing the interface name", &v1.AddInterfaceOptions{
 				NetworkName: networkToHotplug,
+			}, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
+			Entry("VM with a valid add interface request but no feature gate", &v1.AddInterfaceOptions{
+				NetworkName:   networkToHotplug,
+				InterfaceName: ifaceToHotplug,
 			}, failedMockScenarioForVM),
 		)
 

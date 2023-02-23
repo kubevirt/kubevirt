@@ -61,6 +61,8 @@ const (
 	// DisableMediatedDevicesHandling disables the handling of mediated
 	// devices, its creation and deletion
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
+	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
+	HotplugNetworkIfacesGate = "HotplugNICs"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -202,4 +204,8 @@ func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(KubevirtSeccompProfile)
+}
+
+func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
+	return config.isFeatureGateEnabled(HotplugNetworkIfacesGate)
 }

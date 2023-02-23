@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 func generateVMIInterfaceRequestPatch(vmi *v1.VirtualMachineInstance, interfaceRequest *v1.VirtualMachineInterfaceRequest) (string, error) {
@@ -159,6 +160,11 @@ func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, requ
 
 // VMAddInterfaceRequestHandler handles the subresource for hot plugging a network interface.
 func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
+		writeError(featureGateNotEnableError(), response)
+		return
+	}
+
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 	interfaceRequest, err := app.newInterfaceRequest(request)
@@ -177,6 +183,11 @@ func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Requ
 
 // VMIAddInterfaceRequestHandler handles the subresource for hot plugging a network interface.
 func (app *SubresourceAPIApp) VMIAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
+		writeError(featureGateNotEnableError(), response)
+		return
+	}
+
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 	interfaceRequest, err := app.newInterfaceRequest(request)
@@ -283,4 +294,13 @@ func filterInterfaceRequests(ifaceRequests []v1.VirtualMachineInterfaceRequest, 
 		}
 	}
 	return filteredIfaceRequests
+}
+
+func featureGateNotEnableError() *errors.StatusError {
+	return errors.NewBadRequest(
+		fmt.Sprintf(
+			"Unable to Add Interface because the %q feature gate is not enabled.",
+			virtconfig.HotplugNetworkIfacesGate,
+		),
+	)
 }
