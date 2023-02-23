@@ -687,7 +687,7 @@ var _ = Describe("ImageUpload", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(errString))
 		},
-			Entry("No args", "either image-path or archive-path most be provided", []string{}),
+			Entry("No args", "either image-path or archive-path must be provided", []string{}),
 			Entry("Missing arg", "expecting two args",
 				[]string{"targetName", "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("No name", "expecting two args",
@@ -696,7 +696,7 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"dv", targetName, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Size invalid", "validation failed for size=500Zb: quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'",
 				[]string{"dv", targetName, "--size", "500Zb", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
-			Entry("No image path nor archive-path", "either image-path or archive-path most be provided",
+			Entry("No image path nor archive-path", "either image-path or archive-path must be provided",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure"}),
 			Entry("Image path and archive path provided", "cannot handle both image-path and archive-path, provide only one",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--archive-path", "/dev/null.tar"}),
