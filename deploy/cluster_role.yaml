@@ -2446,6 +2446,7 @@ rules:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
+  - customresourcedefinitions/status
   verbs:
   - '*'
 - apiGroups:
@@ -2495,6 +2496,12 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshots
+  verbs:
+  - get
+- apiGroups:
   - cdi.kubevirt.io
   resources:
   - datavolumes
@@ -2532,7 +2539,6 @@ rules:
   resources:
   - persistentvolumes
   - persistentvolumeclaims
-  - volumesnapshots
   verbs:
   - get
   - list
@@ -2546,7 +2552,6 @@ rules:
   resources:
   - persistentvolumeclaims/finalizers
   - pods/finalizers
-  - volumesnapshots/finalizers
   verbs:
   - update
 - apiGroups:
@@ -2566,6 +2571,7 @@ rules:
   - configmaps
   verbs:
   - get
+  - create
 - apiGroups:
   - storage.k8s.io
   resources:
