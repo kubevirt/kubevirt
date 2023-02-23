@@ -538,12 +538,12 @@ func initContainerMinimalRequests() k8sv1.ResourceList {
 
 func hotplugContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
-		Limits:   hotplugContainerMinimalResources(),
-		Requests: hotplugContainerMinimalResources(),
+		Limits:   hotplugContainerMinimalLimits(),
+		Requests: hotplugContainerMinimalLimits(),
 	}
 }
 
-func hotplugContainerMinimalResources() k8sv1.ResourceList {
+func hotplugContainerMinimalLimits() k8sv1.ResourceList {
 	return k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("100m"),
 		k8sv1.ResourceMemory: resource.MustParse("80M"),
