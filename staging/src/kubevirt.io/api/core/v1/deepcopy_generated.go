@@ -2103,6 +2103,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(SMBiosConfiguration)
 		**out = **in
 	}
+	if in.AdditionalGuestMemoryOverheadRatio != nil {
+		in, out := &in.AdditionalGuestMemoryOverheadRatio, &out.AdditionalGuestMemoryOverheadRatio
+		*out = new(string)
+		**out = **in
+	}
 	if in.SupportedGuestAgentVersions != nil {
 		in, out := &in.SupportedGuestAgentVersions, &out.SupportedGuestAgentVersions
 		*out = make([]string, len(*in))
