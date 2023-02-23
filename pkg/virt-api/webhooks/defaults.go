@@ -113,6 +113,22 @@ func setDefaultPullPoliciesOnContainerDisks(clusterConfig *virtconfig.ClusterCon
 	}
 }
 
+func setDefaultDisksBus(spec *v1.VirtualMachineInstanceSpec, defaultBus v1.DiskBus) {
+	for i := range spec.Domain.Devices.Disks {
+		disk := &spec.Domain.Devices.Disks[i].DiskDevice
+
+		if disk.Disk != nil && disk.Disk.Bus == "" {
+			disk.Disk.Bus = defaultBus
+		}
+		if disk.CDRom != nil && disk.CDRom.Bus == "" {
+			disk.CDRom.Bus = defaultBus
+		}
+		if disk.LUN != nil && disk.LUN.Bus == "" {
+			disk.LUN.Bus = defaultBus
+		}
+	}
+}
+
 func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	resources := &spec.Domain.Resources
 

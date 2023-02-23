@@ -983,6 +983,9 @@ var _ = Describe("Converter", func() {
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
     <controller type="usb" index="0" model="qemu-xhci"></controller>
+    <controller type="scsi" index="0" model="virtio-non-transitional">
+      <driver iothread="1" queues="1"></driver>
+    </controller>
     <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="virtio" heads="1"></model>
@@ -1005,74 +1008,81 @@ var _ = Describe("Converter", func() {
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target bus="virtio" dev="vdc" tray="closed"></target>
+      <target bus="scsi" dev="sda" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/cdrom_tray_open/disk.img"></source>
-      <target bus="virtio" dev="vdd" tray="open"></target>
+      <target bus="scsi" dev="sdb" tray="open"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
-    <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
-      <target bus="virtio" dev="vde"></target>
+      <target bus="scsi" dev="sdc"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-should_default_to_disk"></alias>
+      <address type="drive" bus="0" controller="0" unit="2"></address>
     </disk>
-    <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
-      <target bus="virtio" dev="vdf"></target>
+      <target bus="scsi" dev="sdd"></target>
       <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
         <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
       </backingStore>
+      <address type="drive" bus="0" controller="0" unit="3"></address>
     </disk>
-    <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
-      <target bus="virtio" dev="vdg"></target>
+      <target bus="scsi" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-secret_test"></alias>
+      <address type="drive" bus="0" controller="0" unit="4"></address>
     </disk>
-    <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
-      <target bus="virtio" dev="vdh"></target>
+      <target bus="scsi" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-configmap_test"></alias>
+      <address type="drive" bus="0" controller="0" unit="5"></address>
     </disk>
-    <disk device="disk" type="block" model="virtio-non-transitional">
+    <disk device="disk" type="block">
       <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
-      <target bus="virtio" dev="vdi"></target>
+      <target bus="scsi" dev="sdg"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
+      <address type="drive" bus="0" controller="0" unit="6"></address>
     </disk>
-    <disk device="disk" type="block" model="virtio-non-transitional">
+    <disk device="disk" type="block">
       <source dev="/dev/dv_block_test" name="dv_block_test"></source>
-      <target bus="virtio" dev="vdj"></target>
+      <target bus="scsi" dev="sdh"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
+      <address type="drive" bus="0" controller="0" unit="7"></address>
     </disk>
-    <disk device="disk" type="file" model="virtio-non-transitional">
+    <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
-      <target bus="virtio" dev="vdk"></target>
+      <target bus="scsi" dev="sdi"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-serviceaccount_test"></alias>
+      <address type="drive" bus="0" controller="0" unit="8"></address>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
-      <target bus="virtio" dev="vdl" tray="closed"></target>
+      <target bus="scsi" dev="sdj" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-sysprep"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
-      <target bus="virtio" dev="vdm" tray="closed"></target>
+      <target bus="scsi" dev="sdk" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-sysprep_secret"></alias>
     </disk>

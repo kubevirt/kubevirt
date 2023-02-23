@@ -129,24 +129,13 @@ func setDefaultArm64Bootloader(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-// setDefaultDisksBus set default Disks Bus, because sata is not supported by qemu-kvm of Arm64
 func setDefaultArm64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
-	bus := v1.DiskBusVirtio
-
-	for i := range spec.Domain.Devices.Disks {
-		disk := &spec.Domain.Devices.Disks[i].DiskDevice
-
-		if disk.Disk != nil && disk.Disk.Bus == "" {
-			disk.Disk.Bus = bus
-		}
-		if disk.CDRom != nil && disk.CDRom.Bus == "" {
-			disk.CDRom.Bus = bus
-		}
-		if disk.LUN != nil && disk.LUN.Bus == "" {
-			disk.LUN.Bus = bus
-		}
-	}
-
+	// - Setting SCSI as the default bus for Disks and LUNs, so we use virtio-scsi as the default storage interface.
+	//   Virtio-blk disks consume addresses on the PCI bus. Since performance parity has been shown between virtio-blk and
+	//   virtio-scsi, it makes sense to standardize the former.
+	// - Using SCSI too as default bus for CDRoms since SATA is not supported by qemu-kvm of Arm64.
+	defaultBus := v1.DiskBusSCSI
+	setDefaultDisksBus(spec, defaultBus)
 }
 
 // SetArm64Defaults is mutating function for mutating-webhook

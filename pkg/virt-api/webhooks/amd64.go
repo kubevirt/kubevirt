@@ -25,24 +25,11 @@ import (
 )
 
 func setDefaultAmd64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
-	// Setting SATA as the default bus since it is typically supported out of the box by
+	// Setting SATA as the default bus for all Disk types since it is typically supported out of the box by
 	// guest operating systems (we support only q35 and therefore IDE is not supported)
-	// TODO: consider making this OS-specific (VIRTIO for linux, SATA for others)
-	bus := v1.DiskBusSATA
-
-	for i := range spec.Domain.Devices.Disks {
-		disk := &spec.Domain.Devices.Disks[i].DiskDevice
-
-		if disk.Disk != nil && disk.Disk.Bus == "" {
-			disk.Disk.Bus = bus
-		}
-		if disk.CDRom != nil && disk.CDRom.Bus == "" {
-			disk.CDRom.Bus = bus
-		}
-		if disk.LUN != nil && disk.LUN.Bus == "" {
-			disk.LUN.Bus = bus
-		}
-	}
+	// TODO: consider making this OS-specific (SCSI for linux, SATA for others)
+	defaultBus := v1.DiskBusSATA
+	setDefaultDisksBus(spec, defaultBus)
 }
 
 // SetAmd64Defaults is mutating function for mutating-webhook
