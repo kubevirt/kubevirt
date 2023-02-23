@@ -1339,6 +1339,11 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 	return nil
 }
 
+func (l *LibvirtDomainManager) migrationInProgress() bool {
+	migrationMetadata, exists := l.metadataCache.Migration.Load()
+	return exists && migrationMetadata.StartTimestamp != nil && migrationMetadata.EndTimestamp == nil
+}
+
 func (l *LibvirtDomainManager) scheduleSafetyVMIUnfreeze(vmi *v1.VirtualMachineInstance, unfreezeTimeout time.Duration) {
 	select {
 	case <-time.After(unfreezeTimeout):
@@ -1372,6 +1377,9 @@ func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, err
 }
 
 func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
+	if l.migrationInProgress() {
+		return fmt.Errorf("Failed to freeze VMI, VMI is currently during migration")
+	}
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 

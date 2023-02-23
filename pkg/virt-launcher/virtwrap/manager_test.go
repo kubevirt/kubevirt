@@ -302,6 +302,17 @@ var _ = Describe("Manager", func() {
 
 			Expect(manager.FreezeVMI(vmi, 0)).To(Succeed())
 		})
+		It("should fail freeze a VirtualMachineInstance during migration", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			now := metav1.Now()
+			migrationMetadata, _ := metadataCache.Migration.Load()
+			migrationMetadata.StartTimestamp = &now
+			metadataCache.Migration.Store(migrationMetadata)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+
+			Expect(manager.FreezeVMI(vmi, 0)).To(MatchError(ContainSubstring("VMI is currently during migration")))
+		})
 		It("should unfreeze a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
