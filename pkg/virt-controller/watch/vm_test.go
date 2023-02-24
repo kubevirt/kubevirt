@@ -150,9 +150,21 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
-			patch := `[{ "op": "test", "path": "/metadata/finalizers", "value": ["kubevirt.io/virtualMachineControllerFinalize"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vmi, nil)
+		}
+
+		shouldExpectVMFinalizerAddition := func(vm *virtv1.VirtualMachine) {
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": null }, { "op": "replace", "path": "/metadata/finalizers", "value": ["%s"] }]`, virtv1.VirtualMachineControllerFinalizer)
+
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
+		}
+
+		shouldExpectVMFinalizerRemoval := func(vm *virtv1.VirtualMachine) {
+			patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, virtv1.VirtualMachineControllerFinalizer)
+
+			vmInterface.EXPECT().Patch(vm.Name, types.JSONPatchType, []byte(patch), &metav1.PatchOptions{}).Return(vm, nil)
 		}
 
 		shouldExpectDataVolumeCreationPriorityClass := func(uid types.UID, labels map[string]string, annotations map[string]string, priorityClassName string, idx *int) {
@@ -329,12 +341,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal("vol1"))
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			controller.Execute()
 		},
@@ -378,12 +390,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				// vol request shouldn't be cleared until update status observes the new volume change occured
 				Expect(arg.(*virtv1.VirtualMachine).Status.VolumeRequests).To(HaveLen(1))
-			}).Return(nil, nil)
+			}).Return(vm, nil)
 
 			controller.Execute()
 		},
@@ -1401,6 +1413,60 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
 		})
 
+		It("should add controller finalizer if VirtualMachine does not have it", func() {
+			vm, _ := DefaultVirtualMachine(false)
+			vm.Finalizers = nil
+
+			addVirtualMachine(vm)
+
+			shouldExpectVMFinalizerAddition(vm)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+		})
+
+		It("should add controller finalizer only once", func() {
+			//DefaultVirtualMachine already set finalizer
+			vm, _ := DefaultVirtualMachine(false)
+			Expect(vm.Finalizers).To(HaveLen(1))
+			Expect(vm.Finalizers[0]).To(BeEquivalentTo(virtv1.VirtualMachineControllerFinalizer))
+			addVirtualMachine(vm)
+
+			//Expect only update status, not Patch on vmInterface
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+		})
+
+		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = now()
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Return(nil)
+
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
+			//DefaultVirtualMachine already set finalizer
+			vm, _ := DefaultVirtualMachine(true)
+			vm.DeletionTimestamp = now()
+
+			addVirtualMachine(vm)
+
+			shouldExpectVMFinalizerRemoval(vm)
+			vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+		})
+
 		DescribeTable("should not delete VirtualMachineInstance when vmi failed", func(runStrategy virtv1.VirtualMachineRunStrategy) {
 			vm, vmi := DefaultVirtualMachine(true)
 
@@ -1894,7 +1960,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-				}).Return(nil, nil)
+				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
@@ -2109,7 +2175,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Spec.Template.Spec.Volumes).To(BeEmpty())
-				}).Return(nil, nil)
+				}).Return(vm, nil)
 				vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Return(vm, nil)
 
 				controller.Execute()
@@ -2679,6 +2745,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
+					shouldExpectVMFinalizerRemoval(vm)
 					vmInterface.EXPECT().UpdateStatus(gomock.Any()).Times(1).Do(func(obj interface{}) {
 						objVM := obj.(*virtv1.VirtualMachine)
 						Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusTerminating))
@@ -4054,6 +4121,7 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 	vmi.Status.Phase = virtv1.Running
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vm := VirtualMachineFromVMI(vmName, vmi, started)
+	vm.Finalizers = append(vm.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 	vmi.OwnerReferences = []metav1.OwnerReference{{
 		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
