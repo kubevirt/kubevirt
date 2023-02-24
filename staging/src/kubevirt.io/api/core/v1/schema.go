@@ -589,6 +589,8 @@ type Disk struct {
 	// If specified, error_policy will be provided to the guest via config drive metadata
 	// +optional
 	ErrorPolicy string `json:"errorPolicy,omitempty"`
+	// Attach a volume as a floppy to the vmi.
+	Floppy *FloppyTarget `json:"floppy,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
@@ -670,6 +672,17 @@ type LunTarget struct {
 	// SgIo open sgio and set the value.
 	// support values: unfiltered filtered
 	Sgio string `json:"sgio,omitempty"`
+}
+
+type FloppyTarget struct {
+	// ReadOnly.
+	// Defaults to false.
+	ReadOnly bool `json:"readonly,omitempty"`
+	// Tray indicates if the tray of the device is open or closed.
+	// Allowed values are "open" and "closed".
+	// Defaults to closed.
+	// +optional
+	Tray TrayState `json:"tray,omitempty"`
 }
 
 // TrayState indicates if a tray of a cdrom is open or closed.
