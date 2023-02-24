@@ -47,7 +47,7 @@ func (n *NodeLabeller) getMinCpuFeature() cpuFeatures {
 	if minCPUModel == "" {
 		minCPUModel = util.DefaultMinCPUModel
 	}
-	return n.cpuInfo.models[minCPUModel]
+	return n.cpuInfo.usableModels[minCPUModel]
 }
 
 func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []string {
@@ -176,7 +176,7 @@ func (n *NodeLabeller) loadCPUInfo() error {
 		}
 	}
 
-	n.cpuInfo.models = models
+	n.cpuInfo.usableModels = models
 	return nil
 }
 
