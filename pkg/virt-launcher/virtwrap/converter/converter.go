@@ -1647,9 +1647,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			} else {
 				domain.Spec.CPU.Mode = "custom"
 				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
-				if len(vmi.Spec.Domain.CPU.Features) == 0 {
-					domain.Spec.CPU.Check = "none"
-				}
 			}
 		}
 
