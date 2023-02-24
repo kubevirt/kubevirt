@@ -267,16 +267,24 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	for key := range cpuFeatures {
 		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
 	}
-	_, svmIsSupported := newLabels[kubevirtv1.CPUFeatureLabel+"svm"]
 
 	for _, value := range cpuModels {
-
-		//This workaround is necessary because currently Opteron_G2 require svm by libvirt (see /usr/share/libvirt/cpu_map/x86_Opteron_G2.xml )
-		//But libvirt still marks it as Usable:yes even without `svm` because it is usable by qemu (/var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml)
-		//For more information : https://wiki.qemu.org/Features/CPUModels in "Getting information about CPU models" section
-		//TODO: Delete this workaround once libvirt resolve the disagreement with qemu
-		if value == "Opteron_G2" && svmIsSupported == false {
-			continue
+		if value != hostCpuModel.Name {
+			requiredFeatures, ok := n.cpuInfo.models[value]
+			if !ok {
+				n.logger.Warningf("Skipping CPU model %s: cannot get the list of required features", value)
+				continue
+			}
+			missingFeatures := make([]string, 0)
+			for f, _ := range requiredFeatures {
+				if _, isFeatureSupported := newLabels[kubevirtv1.CPUFeatureLabel+f]; !isFeatureSupported {
+					missingFeatures = append(missingFeatures, f)
+				}
+			}
+			if len(missingFeatures) > 0 {
+				n.logger.Warningf("Skipping CPU model %s: host CPU does not provide required features: %v", value, missingFeatures)
+				continue
+			}
 		}
 
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
