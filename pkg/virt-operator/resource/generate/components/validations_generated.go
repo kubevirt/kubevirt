@@ -6730,13 +6730,12 @@ var CRDsValidation map[string]string = map[string]string{
                           number for the disk device.
                         type: string
                       shareable:
-<<<<<<< HEAD
                         description: If specified the disk is made sharable and multiple
                           write from different VMs are permitted
-=======
                         description: shareable indicates this disk is shareable with
                     type: object
                   dryRun:
+                    description: 'When present, indicates that modifications should
                       not be persisted. An invalid or unrecognized dryRun directive
                       will result in an error response and no further processing of
                       the request. Valid values are: - All: all dry run stages will
@@ -8424,8 +8423,150 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                  type: array
+                filesystems:
+                  description: Filesystems describes filesystem which is connected
+                    to the vmi.
+                  items:
+                    properties:
+                      name:
+                        description: Name is the device name
+                        type: string
+                      virtiofs:
+                        description: Virtiofs is supported
+                        type: object
+                    required:
+                    - name
+                    - virtiofs
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+                gpus:
+                  description: Whether to attach a GPU device to the vmi.
+                  items:
+                    properties:
+                      deviceName:
+                        type: string
+                      name:
+                        description: Name of the GPU device as exposed by a device
+                          plugin
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
+                        type: string
+                      virtualGPUOptions:
+                        properties:
+                          display:
+                            properties:
+                              enabled:
+                                description: Enabled determines if a display addapter
+                                  backed by a vGPU should be enabled or disabled on
+                                  the guest. Defaults to true.
+                                type: boolean
+                              ramFB:
+                                description: Enables a boot framebuffer, until the
+                                  guest OS loads a real GPU driver Defaults to true.
+                                properties:
+                                  enabled:
+                                    description: Enabled determines if the feature
+                                      should be enabled or disabled on the guest.
+                                      Defaults to true.
+                                    type: boolean
+                                type: object
+                            type: object
+                        type: object
+                    required:
+                    - deviceName
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+                hostDevices:
+                  description: Whether to attach a host device to the vmi.
+                  items:
+                    properties:
+                      deviceName:
+                        description: DeviceName is the resource name of the host device
+                          exposed by a device plugin
+                        type: string
+                      name:
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
+                        type: string
+                    required:
+                    - deviceName
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+                inputs:
+                  description: Inputs describe input devices
+                  items:
+                    properties:
+                      bus:
+                        description: 'Bus indicates the bus of input device to emulate.
+                          Supported values: virtio, usb.'
+                        type: string
+                      name:
+                        description: Name is the device name
+                        type: string
+                      type:
+                        description: 'Type indicated the type of input device. Supported
+                          values: tablet.'
+                        type: string
+                    required:
+                    - name
+                    - type
+                    type: object
+                  type: array
+                interfaces:
+                  description: Interfaces describe network interfaces which are added
+                    to the vmi.
+                  items:
+                    properties:
+                      bootOrder:
+                        description: BootOrder is an integer value > 0, used to determine
+                          ordering of boot devices. Lower values take precedence.
+                          Each interface or disk that has a boot order must have a
+                          unique value. Interfaces without a boot order are not tried.
+                        type: integer
+                      bridge:
+                        description: InterfaceBridge connects to a given network via
+                          a linux bridge.
+                        type: object
+                      dhcpOptions:
+                        description: If specified the network interface will pass
+                          additional DHCP options to the VMI
+                        properties:
+                          bootFileName:
+                            description: If specified will pass option 67 to interface's
+                              DHCP server
+                            type: string
+                          ntpServers:
+                            description: If specified will pass the configured NTP
+                              server to the VM via DHCP option 042.
+                            items:
+                              type: string
+                            type: array
+                          privateOptions:
+                            description: 'If specified will pass extra DHCP options
+                              for private use, range: 224-254'
+                            items:
+                              description: DHCPExtraOptions defines Extra DHCP options
+                                for a VM.
+                              properties:
+                                option:
+                                  description: Option is an Integer value from 224-254
+                                    Required.
+                                  type: integer
+                                value:
+                                  description: Value is a String value for the Option
                                     provided Required.
                                   type: string
+                              required:
                               - option
                               - value
                               type: object
@@ -20430,6 +20571,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               privateOptions:
                                                 description: 'If specified will pass
                                                   extra DHCP options for private use,
+                                                  range: 224-254'
                                                 items:
                                                   description: DHCPExtraOptions defines
                                                     Extra DHCP options for a VM.
