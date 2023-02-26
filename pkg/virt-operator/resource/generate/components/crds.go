@@ -96,8 +96,6 @@ func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomR
 	crvalidation := extv1.CustomResourceValidation{}
 	err := k8syaml.NewYAMLToJSONDecoder(strings.NewReader(validation)).Decode(&crvalidation)
 	if err != nil {
-		//htl修改点测试点
-		fmt.Println("validation: " + validation)
 		return fmt.Errorf("Could not decode validation for %s, %v", name, err)
 	}
 	if err = addFieldsToVersion(version, &crvalidation); err != nil {
@@ -166,9 +164,6 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	//htl测试点
-	fmt.Println("vmi crd: " + crd.String())
 	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
