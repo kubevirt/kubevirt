@@ -63,6 +63,7 @@ type Connection interface {
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	GetQemuVersion() (string, error)
 }
 
 type Stream interface {
@@ -263,6 +264,28 @@ func (l *LibvirtConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsType
 		return nil, err
 	}
 	return domStats, nil
+}
+
+func (l *LibvirtConnection) GetQemuVersion() (string, error) {
+	version, err := l.Connect.GetVersion()
+	if err != nil {
+		return "", err
+	}
+	// The following code works because version it's an uint32 var. Therefore, the divisions will result in
+	// an integer number. For instance:
+	// version = 7002002
+	// major = 7002002 / 1000000 = 7 --> decimals are discard in this operation
+	// version = 7002002 - (7*1000000) = 2000
+	// minor = 2002 / 1000 = 2
+	// version = version - (2*1000) = 2
+	// release = 2
+	major := version / 1000000
+	version = version - (major * 1000000)
+	minor := version / 1000
+	version = version - (minor * 1000)
+	release := version
+
+	return fmt.Sprintf("QEMU %d.%d.%d", major, minor, release), err
 }
 
 func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, migrateJobInfo *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {

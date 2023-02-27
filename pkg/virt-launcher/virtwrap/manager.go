@@ -128,6 +128,7 @@ type DomainManager interface {
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	GetQemuVersion() (string, error)
 }
 
 type LibvirtDomainManager struct {
@@ -1619,6 +1620,10 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 
 func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInstance, origSpec *api.DomainSpec) (cli.VirDomain, error) {
 	return util.SetDomainSpecStrWithHooks(l.virConn, vmi, origSpec)
+}
+
+func (l *LibvirtDomainManager) GetQemuVersion() (string, error) {
+	return l.virConn.GetQemuVersion()
 }
 
 func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {

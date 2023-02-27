@@ -191,7 +191,17 @@ var _ = Describe("Virt remote commands", func() {
 						TimeoutSeconds: testTimeoutSeconds,
 					})
 				}
+				expectQemuVersion = func() *gomock.Call {
+					return mockCmdClient.EXPECT().GetQemuVersion(gomock.Any(), &cmdv1.EmptyRequest{})
+				}
 			)
+			It("calls cmdclient.GetQemuVersion", func() {
+				fakeQemuVersion := "7.2.0"
+				expectQemuVersion().Return(&cmdv1.QemuVersionResponse{Version: fakeQemuVersion}, nil)
+				qemuVersion, err := client.GetQemuVersion()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(qemuVersion).To(Equal(fakeQemuVersion))
+			})
 			It("calls cmdclient.Exec", func() {
 				expectExec().Times(1)
 				client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)

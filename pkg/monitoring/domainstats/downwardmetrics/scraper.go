@@ -2,12 +2,9 @@ package downwardmetrics
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"k8s.io/client-go/tools/cache"
-
-	"kubevirt.io/client-go/version"
 
 	k6sv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -24,12 +21,12 @@ import (
 
 const DownwardmetricsRefreshDuration = 5 * time.Second
 const DownwardmetricsCollectionTimeout = vms.CollectionTimeout
+const qemuVersionUnknown = "qemu-unknown"
 
 type StaticHostMetrics struct {
 	HostName             string
 	HostSystemInfo       string
 	VirtualizationVendor string
-	VirtProductInfo      string
 }
 
 type Scraper struct {
@@ -55,6 +52,17 @@ func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 	}
 	defer cli.Close()
 
+	version, err := cli.GetQemuVersion()
+	if err != nil {
+		if cmdclient.IsUnimplemented(err) {
+			log.Log.Reason(err).Warning("getQemuVersion not implemented, consider to upgrade kubevirt")
+			version = qemuVersionUnknown
+		} else {
+			log.Log.Reason(err).Errorf("failed to update qemu stats from socket %s", socketFile)
+			return
+		}
+	}
+
 	vmStats, exists, err := cli.GetDomainStats()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to update stats from socket %s", socketFile)
@@ -74,9 +82,9 @@ func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return
 	}
-	s.Report(vmi, vmStats)
+	s.Report(vmi, vmStats, version)
 }
-func (s *Scraper) Report(vmi *k6sv1.VirtualMachineInstance, vmStats *stats.DomainStats) {
+func (s *Scraper) Report(vmi *k6sv1.VirtualMachineInstance, vmStats *stats.DomainStats, qemuVersion string) {
 	res, err := s.isolation.Detect(vmi)
 	if err != nil {
 		log.Log.Reason(err).Infof("failed to detect root directory of the vmi pod")
@@ -88,7 +96,7 @@ func (s *Scraper) Report(vmi *k6sv1.VirtualMachineInstance, vmStats *stats.Domai
 			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.HostName, "HostName"),
 			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.HostSystemInfo, "HostSystemInfo"),
 			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.VirtualizationVendor, "VirtualizationVendor"),
-			metricspkg.MustToUnitlessHostMetric(s.staticHostInfo.VirtProductInfo, "VirtProductInfo"),
+			metricspkg.MustToUnitlessHostMetric(qemuVersion, "VirtProductInfo"),
 		},
 	}
 	metrics.Metrics = append(metrics.Metrics, guestCPUMetrics(vmStats)...)
@@ -127,17 +135,12 @@ type Collector struct {
 
 func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiInformer cache.SharedIndexInformer, isolation isolation.PodIsolationDetector) error {
 
-	compactVersion, err := version.GetCompactJSON()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve compaced version info: %v", err)
-	}
 	scraper := &Scraper{
 		isolation: isolation,
 		staticHostInfo: &StaticHostMetrics{
 			HostName:             nodeName,
 			HostSystemInfo:       "linux",
 			VirtualizationVendor: "kubevirt.io",
-			VirtProductInfo:      compactVersion,
 		},
 		hostMetricsCollector: defaultHostMetricsCollector(),
 	}

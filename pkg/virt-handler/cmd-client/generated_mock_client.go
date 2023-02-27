@@ -289,3 +289,14 @@ func (_m *MockLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineIns
 func (_mr *_MockLauncherClientRecorder) VirtualMachineMemoryDump(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineMemoryDump", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) GetQemuVersion() (string, error) {
+	ret := _m.ctrl.Call(_m, "GetQemuVersion")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLauncherClientRecorder) GetQemuVersion() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQemuVersion")
+}
