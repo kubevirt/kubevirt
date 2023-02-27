@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -75,6 +76,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
+	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -396,4 +398,30 @@ func warnDeprecatedFeatureGates(featureGates []string, config *virtconfig.Cluste
 	}
 
 	return warnings
+}
+
+func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.StatusCause) {
+	if ratioStrPtr == nil {
+		return
+	}
+
+	ratioStr := *ratioStrPtr
+
+	ratio, err := strconv.ParseFloat(ratioStr, 64)
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("ratio provided, %s, cannot be parsed into float: %v", ratioStr, err),
+		})
+		return
+	}
+
+	if ratio < 1.0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("ratio provided, %s, cannot be smaller than 1.0", ratioStr),
+		})
+	}
+
+	return
 }
