@@ -16,6 +16,8 @@
             <model usable='yes'>Penryn</model>
             <model usable='yes'>IvyBridge</model>
             <model usable='yes'>Haswell</model>
+            <model usable='yes'>Skylake-Client-IBRS</model>
+            <model usable='yes'>Opteron_G2</model>
         </mode>
     </cpu>
     <features>
