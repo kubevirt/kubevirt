@@ -27,12 +27,21 @@ require (
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	golang.org/x/crypto v0.0.0-20211215165025-cf75a172585e // indirect
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/net v0.6.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
-	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	golang.org/x/sys v0.5.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
 replace github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/git => ./git
+
+// FIX: Denial of service in golang.org/x/text/language
+replace golang.org/x/text => golang.org/x/text v0.7.0
+
+// FIX: Uncontrolled Resource Consumption
+replace golang.org/x/net => golang.org/x/net v0.7.0
+
+// FIX: Use of a Broken or Risky Cryptographic Algorithm in golang.org/x/crypto/ssh
+replace golang.org/x/crypto => golang.org/x/crypto v0.6.0
