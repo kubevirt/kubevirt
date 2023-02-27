@@ -92,7 +92,9 @@ if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
 fi
 
 if [[ $TARGET =~ sriov.* ]]; then
-  export KUBEVIRT_NUM_NODES=3
+  if [[ $TARGET =~ kind.* ]]; then
+    export KUBEVIRT_NUM_NODES=3
+  fi
   export KUBEVIRT_DEPLOY_CDI="false"
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
