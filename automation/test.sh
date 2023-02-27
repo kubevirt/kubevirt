@@ -239,7 +239,9 @@ export NAMESPACE="${NAMESPACE:-kubevirt}"
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
-make cluster-down
+if [ "$CI" != "true" ]; then
+  make cluster-down
+fi
 
 # Create .bazelrc to use remote cache
 cat >ci.bazelrc <<EOF
