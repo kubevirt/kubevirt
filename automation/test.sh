@@ -319,7 +319,7 @@ kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
-if [[ $TARGET =~ .*kind.* ]]; then
+if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
