@@ -161,9 +161,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		}
 	}
 
-	Context("Expose service on a VM", func() {
+	Context("Expose service on a VMI", Ordered, ContinueOnFailure, decorators.RetainVirtualMachineInstances, func() {
 		var tcpVM *v1.VirtualMachineInstance
-		BeforeEach(func() {
+		BeforeAll(func() {
 			tcpVM = newLabeledVMI("vm")
 			tcpVM = tests.RunVMIAndExpectLaunch(tcpVM, 180)
 			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
@@ -433,9 +433,9 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("Expose UDP service on a VMI", func() {
+	Context("Expose UDP service on a VMI", Ordered, ContinueOnFailure, decorators.RetainVirtualMachineInstances, func() {
 		var udpVM *v1.VirtualMachineInstance
-		BeforeEach(func() {
+		BeforeAll(func() {
 			udpVM = newLabeledVMI("udp-vm")
 			udpVM = tests.RunVMIAndExpectLaunch(udpVM, 180)
 			tests.GenerateHelloWorldServer(udpVM, testPort, "udp", console.LoginToAlpine, false)

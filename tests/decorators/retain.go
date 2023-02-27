@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 )
 
-var RetainVirtualMachineInstances = ginkgo.Label("retain-vmi")
+var RetainVirtualMachineInstances = ginkgo.Label("retain-vmis")
 
 func HasLabel(specReport ginkgo.SpecReport, labels ginkgo.Labels) bool {
 	lookupLabel := map[string]string{}
