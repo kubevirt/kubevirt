@@ -97,11 +97,14 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 		if mode.Name == v1.CPUModeHostModel {
 			n.cpuModelVendor = mode.Vendor.Name
 
-			hostCpuModel := mode.Model[0]
-			if len(mode.Model) > 0 {
+			if len(mode.Model) < 1 {
+				return fmt.Errorf("host model mode is expected to contain a model")
+			}
+			if len(mode.Model) > 1 {
 				log.Log.Warning("host model mode is expected to contain only one model")
 			}
 
+			hostCpuModel := mode.Model[0]
 			n.hostCPUModel.name = hostCpuModel.Name
 			n.hostCPUModel.fallback = hostCpuModel.Fallback
 
