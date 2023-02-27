@@ -960,12 +960,12 @@ var _ = Describe("CNA Operand", func() {
 				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeNil())
 
 				By("compare pointers to make sure cache is working", func() {
-					Expect(handler.hooks.(*cnaHooks).cache == cr).Should(BeTrue())
+					Expect(handler.hooks.(*cnaHooks).cache).Should(BeIdenticalTo(cr))
 
 					crII, err := handler.hooks.getFullCr(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(crII).ToNot(BeNil())
-					Expect(cr == crII).Should(BeTrue())
+					Expect(cr).Should(BeIdenticalTo(crII))
 				})
 			})
 
@@ -988,9 +988,9 @@ var _ = Describe("CNA Operand", func() {
 				Expect(crII).ToNot(BeNil())
 				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeNil())
 
-				Expect(crI == crII).To(BeFalse())
-				Expect(handler.hooks.(*cnaHooks).cache == crI).To(BeFalse())
-				Expect(handler.hooks.(*cnaHooks).cache == crII).To(BeTrue())
+				Expect(crI).ToNot(BeIdenticalTo(crII))
+				Expect(handler.hooks.(*cnaHooks).cache).ToNot(BeIdenticalTo(crI))
+				Expect(handler.hooks.(*cnaHooks).cache).To(BeIdenticalTo(crII))
 			})
 
 			Context("Requested components", func() {

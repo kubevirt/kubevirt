@@ -11,6 +11,7 @@ WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
 FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
 VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
 LDFLAGS            ?= -w -s
+GOLANDCI_LINT_VERSION ?= v1.51.2
 
 
 
@@ -36,10 +37,9 @@ goimport:
 
 
 lint:
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANDCI_LINT_VERSION}
 	golangci-lint run
-	go install github.com/nunnatsa/ginkgolinter/cmd/ginkgolinter@latest
-	ginkgolinter ./...
-	(cd tests && ginkgolinter ./...)
+	(cd tests && golangci-lint run)
 
 build: build-operator build-csv-merger build-webhook
 

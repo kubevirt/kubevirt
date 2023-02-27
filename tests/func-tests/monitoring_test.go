@@ -99,7 +99,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 		By("Updating kubevirt object with a new label")
 		kubevirt.Labels["test-label"] = "test-label-value"
-		kubevirt, err = virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(kubevirt)
+		_, err = virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(kubevirt)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		verifyAlertExists(promClient, "KubevirtHyperconvergedClusterOperatorCRModification", 60*time.Second)

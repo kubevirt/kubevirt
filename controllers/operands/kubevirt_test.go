@@ -2843,12 +2843,12 @@ Version: 1.2.3`)
 				Expect(handler.hooks.(*kubevirtHooks).cache).ToNot(BeNil())
 
 				By("compare pointers to make sure cache is working", func() {
-					Expect(handler.hooks.(*kubevirtHooks).cache == cr).Should(BeTrue())
+					Expect(handler.hooks.(*kubevirtHooks).cache).Should(BeIdenticalTo(cr))
 
 					crII, err := handler.hooks.getFullCr(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(crII).ToNot(BeNil())
-					Expect(cr == crII).Should(BeTrue())
+					Expect(cr).Should(BeIdenticalTo(crII))
 				})
 			})
 
@@ -2871,9 +2871,9 @@ Version: 1.2.3`)
 				Expect(crII).ToNot(BeNil())
 				Expect(handler.hooks.(*kubevirtHooks).cache).ToNot(BeNil())
 
-				Expect(crI == crII).To(BeFalse())
-				Expect(handler.hooks.(*kubevirtHooks).cache == crI).To(BeFalse())
-				Expect(handler.hooks.(*kubevirtHooks).cache == crII).To(BeTrue())
+				Expect(crI).ToNot(BeIdenticalTo(crII))
+				Expect(handler.hooks.(*kubevirtHooks).cache).ToNot(BeIdenticalTo(crI))
+				Expect(handler.hooks.(*kubevirtHooks).cache).To(BeIdenticalTo(crII))
 			})
 		})
 

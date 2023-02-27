@@ -462,12 +462,12 @@ var _ = Describe("SSP Operands", func() {
 				Expect(handler.hooks.(*sspHooks).cache).ToNot(BeNil())
 
 				By("compare pointers to make sure cache is working", func() {
-					Expect(handler.hooks.(*sspHooks).cache == cr).Should(BeTrue())
+					Expect(handler.hooks.(*sspHooks).cache).Should(BeIdenticalTo(cr))
 
 					cdi1, err := handler.hooks.getFullCr(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(cdi1).ToNot(BeNil())
-					Expect(cr == cdi1).Should(BeTrue())
+					Expect(cr).Should(BeIdenticalTo(cdi1))
 				})
 			})
 
@@ -490,9 +490,9 @@ var _ = Describe("SSP Operands", func() {
 				Expect(crII).ToNot(BeNil())
 				Expect(handler.hooks.(*sspHooks).cache).ToNot(BeNil())
 
-				Expect(crI == crII).To(BeFalse())
-				Expect(handler.hooks.(*sspHooks).cache == crI).To(BeFalse())
-				Expect(handler.hooks.(*sspHooks).cache == crII).To(BeTrue())
+				Expect(crI).ToNot(BeIdenticalTo(crII))
+				Expect(handler.hooks.(*sspHooks).cache).ToNot(BeIdenticalTo(crI))
+				Expect(handler.hooks.(*sspHooks).cache).To(BeIdenticalTo(crII))
 			})
 		})
 
