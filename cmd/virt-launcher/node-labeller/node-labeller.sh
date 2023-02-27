@@ -1,6 +1,12 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
+
+# nodelabeller currently only support x86.
+if ! uname -m | grep x86_64; then
+  exit 0
+fi
 
 KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
 VIRTTYPE=qemu
