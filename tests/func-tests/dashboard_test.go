@@ -25,6 +25,8 @@ var _ = Describe("[rfe_id:5108][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		virtCli, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 
+		tests.SkipIfNotOpenShift(virtCli, "Dashboard configmaps")
+
 		client, err := kubecli.GetKubevirtClientFromRESTConfig(virtCli.Config())
 		Expect(err).ToNot(HaveOccurred())
 

@@ -101,7 +101,7 @@ container-build-validate-bundles:
 	podman build -f tools/operator-sdk-validate/Dockerfile -t operator-sdk-validate-hco .
 
 container-build-functest:
-	podman build -f build/Dockerfile.functest -t $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
+	. "hack/cri-bin.sh" && $$CRI_BIN build -f build/Dockerfile.functest -t $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
 container-build-artifacts-server:
 	podman build -f build/Dockerfile.artifacts -t $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
@@ -118,7 +118,7 @@ container-push-webhook:
 	. "hack/cri-bin.sh" && $$CRI_BIN push $$CRI_INSECURE $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG)
 
 container-push-functest:
-	podman push $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)
+	. "hack/cri-bin.sh" && $$CRI_BIN push $$CRI_INSECURE $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)
 
 container-push-artifacts-server:
 	podman push $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG)

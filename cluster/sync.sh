@@ -41,7 +41,7 @@ function cluster_clean() {
 }
 
 function build() {
-    make container-build-operator container-push-operator container-build-webhook container-push-webhook
+    make container-build-operator container-push-operator container-build-webhook container-push-webhook container-build-functest container-push-functest
 }
 
 function update_nodes {
