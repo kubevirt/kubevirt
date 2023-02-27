@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
+	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
 		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
@@ -352,4 +354,30 @@ func validateWorkloadUpdateMethods(oldKVSpec, newKVSpec *v1.KubeVirtSpec) []meta
 		})
 	}
 	return statuses
+}
+
+func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.StatusCause) {
+	if ratioStrPtr == nil {
+		return
+	}
+
+	ratioStr := *ratioStrPtr
+
+	ratio, err := strconv.ParseFloat(ratioStr, 64)
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("ratio provided, %s, cannot be parsed into float: %v", ratioStr, err),
+		})
+		return
+	}
+
+	if ratio < 1.0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("ratio provided, %s, cannot be smaller than 1.0", ratioStr),
+		})
+	}
+
+	return
 }
