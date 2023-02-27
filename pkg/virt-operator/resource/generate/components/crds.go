@@ -164,7 +164,6 @@ func NewVirtualMachineInstanceCrd() (*extv1.CustomResourceDefinition, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
