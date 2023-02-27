@@ -17,9 +17,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 )
 
 // ForceRunModeEnv indicates if the operator should be forced to run in either local
@@ -280,4 +283,16 @@ func GetLabels(hcName string, component AppComponent) map[string]string {
 		AppLabelPartOf:    HyperConvergedCluster,
 		AppLabelComponent: string(component),
 	}
+}
+
+func GetRESTClientFor(obj runtime.Object, config *rest.Config, scheme *runtime.Scheme) (rest.Interface, error) {
+	gvk, err := apiutil.GVKForObject(obj, scheme)
+	if err != nil {
+		return nil, err
+	}
+	restClient, err := apiutil.RESTClientForGVK(gvk, true, config, serializer.NewCodecFactory(scheme))
+	if err != nil {
+		return nil, err
+	}
+	return restClient, nil
 }

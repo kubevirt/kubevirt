@@ -10,35 +10,39 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/go-logr/logr"
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/go-logr/logr"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
-	alertRuleGroup                = "kubevirt.hyperconverged.rules"
-	outOfBandUpdateAlert          = "KubevirtHyperconvergedClusterOperatorCRModification"
-	unsafeModificationAlert       = "KubevirtHyperconvergedClusterOperatorUSModification"
-	installationNotCompletedAlert = "KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
-	severityAlertLabelKey         = "severity"
-	healthImpactAlertLabelKey     = "operator_health_impact"
-	partOfAlertLabelKey           = "kubernetes_operator_part_of"
-	partOfAlertLabelValue         = "kubevirt"
-	componentAlertLabelKey        = "kubernetes_operator_component"
-	componentAlertLabelValue      = "hyperconverged-cluster-operator"
-	ruleName                      = hcoutil.HyperConvergedName + "-prometheus-rule"
+	alertRuleGroup                   = "kubevirt.hyperconverged.rules"
+	outOfBandUpdateAlert             = "KubevirtHyperconvergedClusterOperatorCRModification"
+	unsafeModificationAlert          = "KubevirtHyperconvergedClusterOperatorUSModification"
+	installationNotCompletedAlert    = "KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
+	nodeStatusMaxImagesExceededAlert = "NodeStatusMaxImagesExceeded"
+	severityAlertLabelKey            = "severity"
+	healthImpactAlertLabelKey        = "operator_health_impact"
+	partOfAlertLabelKey              = "kubernetes_operator_part_of"
+	partOfAlertLabelValue            = "kubevirt"
+	componentAlertLabelKey           = "kubernetes_operator_component"
+	componentAlertLabelValue         = "hyperconverged-cluster-operator"
+	ruleName                         = hcoutil.HyperConvergedName + "-prometheus-rule"
 )
 
 var (
-	runbookUrlTemplate = "https://kubevirt.io/monitoring/runbooks/%s"
+	runbookUrlTemplate          = "https://kubevirt.io/monitoring/runbooks/%s"
+	openshiftRunbookUrlTemplate = "https://github.com/openshift/runbooks/blob/master/alerts/openshift-virtualization-operator/%s.md"
 
-	outOfBandUpdateRunbookUrl          = fmt.Sprintf(runbookUrlTemplate, outOfBandUpdateAlert)
-	unsafeModificationRunbookUrl       = fmt.Sprintf(runbookUrlTemplate, unsafeModificationAlert)
-	installationNotCompletedRunbookUrl = fmt.Sprintf(runbookUrlTemplate, installationNotCompletedAlert)
+	outOfBandUpdateRunbookUrl             = fmt.Sprintf(runbookUrlTemplate, outOfBandUpdateAlert)
+	unsafeModificationRunbookUrl          = fmt.Sprintf(runbookUrlTemplate, unsafeModificationAlert)
+	installationNotCompletedRunbookUrl    = fmt.Sprintf(runbookUrlTemplate, installationNotCompletedAlert)
+	nodeStatusMaxImagesExceededRunbookUrl = fmt.Sprintf(openshiftRunbookUrlTemplate, nodeStatusMaxImagesExceededAlert)
 )
 
 type AlertRuleReconciler struct {
@@ -116,6 +120,7 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 				createOutOfBandUpdateAlertRule(),
 				createUnsafeModificationAlertRule(),
 				createInstallationNotCompletedAlertRule(),
+				createNodeStatusMaxImagesExceededAlertRule(),
 				createRequestCPUCoresRule(),
 				createOperatorHealthStatusRule(),
 			},
@@ -172,6 +177,24 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 		Labels: map[string]string{
 			severityAlertLabelKey:     "info",
 			healthImpactAlertLabelKey: "critical",
+			partOfAlertLabelKey:       partOfAlertLabelValue,
+			componentAlertLabelKey:    componentAlertLabelValue,
+		},
+	}
+}
+
+func createNodeStatusMaxImagesExceededAlertRule() monitoringv1.Rule {
+	return monitoringv1.Rule{
+		Alert: nodeStatusMaxImagesExceededAlert,
+		Expr:  intstr.FromString("kubevirt_hco_node_status_max_images != -1 and kubevirt_hco_node_number_of_images >= kubevirt_hco_node_status_max_images"),
+		Annotations: map[string]string{
+			"summary":     "Node {{ $labels.node }} contains more images than the configured maximum number of images reportable in the node status",
+			"runbook_url": nodeStatusMaxImagesExceededRunbookUrl,
+		},
+		For: "5m",
+		Labels: map[string]string{
+			severityAlertLabelKey:     "warning",
+			healthImpactAlertLabelKey: "warning",
 			partOfAlertLabelKey:       partOfAlertLabelValue,
 			componentAlertLabelKey:    componentAlertLabelValue,
 		},

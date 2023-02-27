@@ -667,3 +667,36 @@ tests:
     exp_samples:
       - labels: 'kubevirt_hyperconverged_operator_health_status{name="kubevirt-hyperconverged"}'
         value: 2
+
+# Test NodeStatusMaxImagesExceeded alert
+- interval: 1m
+  input_series:
+    - series: 'kubevirt_hco_node_status_max_images{node="node1"}'
+      values: '50+0x10 -1'
+    - series: 'kubevirt_hco_node_number_of_images{node="node1"}'
+      values: '0+10x5'
+
+  alert_rule_test:
+    # Not yet 5m since kubevirt_hco_node_number_of_images reached 50 (same as kubevirt_hco_node_status_max_images)
+    - eval_time: 9m
+      alertname: NodeStatusMaxImagesExceeded
+      exp_alerts: [ ]
+
+    # 5m since kubevirt_hco_node_number_of_images reached 50 (same as kubevirt_hco_node_status_max_images)
+    - eval_time: 10m
+      alertname: NodeStatusMaxImagesExceeded
+      exp_alerts:
+        - exp_annotations:
+            summary: "Node node1 contains more images than the configured maximum number of images reportable in the node status"
+            runbook_url: "https://github.com/openshift/runbooks/blob/master/alerts/openshift-virtualization-operator/NodeStatusMaxImagesExceeded.md"
+          exp_labels:
+            kubernetes_operator_component: "hyperconverged-cluster-operator"
+            kubernetes_operator_part_of: "kubevirt"
+            operator_health_impact: "warning"
+            severity: "warning"
+            node: node1
+
+    # kubevirt_hco_node_status_max_images was set to -1 (unlimited)
+    - eval_time: 11m
+      alertname: NodeStatusMaxImagesExceeded
+      exp_alerts: [ ]

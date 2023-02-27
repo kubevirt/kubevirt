@@ -539,9 +539,11 @@ rules:
   - ""
   resources:
   - nodes
+  - nodes/proxy
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - ""
   resources:
