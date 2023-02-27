@@ -59,15 +59,27 @@ var _ = Describe("Node-labeller ", func() {
 		mockQueue.Wait()
 	}
 
-	expectNodePatch := func(expectedPatches ...string) {
+	expectPatch := func(expect bool, expectedPatches ...string) {
 		kubeClient.Fake.PrependReactor("patch", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			patch, ok := action.(testing.PatchAction)
 			Expect(ok).To(BeTrue())
 			for _, expectedPatch := range expectedPatches {
-				Expect(string(patch.GetPatch())).To(ContainSubstring(expectedPatch))
+				if expect {
+					Expect(string(patch.GetPatch())).To(ContainSubstring(expectedPatch))
+				} else {
+					Expect(string(patch.GetPatch())).ToNot(ContainSubstring(expectedPatch))
+				}
 			}
 			return true, nil, nil
 		})
+	}
+
+	expectNodePatch := func(expectedPatches ...string) {
+		expectPatch(true, expectedPatches...)
+	}
+
+	doNotExpectNodePatch := func(expectedPatches ...string) {
+		expectPatch(false, expectedPatches...)
 	}
 
 	BeforeEach(func() {
@@ -139,6 +151,34 @@ var _ = Describe("Node-labeller ", func() {
 
 	It("should add SEV label", func() {
 		expectNodePatch(kubevirtv1.SEVLabel)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+
+	It("should add usable cpu model labels for the host cpu model", func() {
+		expectNodePatch(
+			kubevirtv1.HostModelCPULabel+"Skylake-Client-IBRS",
+			kubevirtv1.CPUModelLabel+"Skylake-Client-IBRS",
+			kubevirtv1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS",
+		)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+
+	It("should add usable cpu model labels if all required features are supported", func() {
+		expectNodePatch(
+			kubevirtv1.CPUModelLabel+"Penryn",
+			kubevirtv1.SupportedHostModelMigrationCPU+"Penryn",
+		)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+
+	It("should not add usable cpu model labels if some features are not suported (svm)", func() {
+		doNotExpectNodePatch(
+			kubevirtv1.CPUModelLabel+"Opteron_G2",
+			kubevirtv1.SupportedHostModelMigrationCPU+"Opteron_G2",
+		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
