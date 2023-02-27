@@ -28,9 +28,11 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 
 
 if [ ${CI} == "true" ]; then
-  _delay="$(( ( RANDOM % 180 )))"
-  echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
-  sleep ${_delay}
+  if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
+    _delay="$(( ( RANDOM % 180 )))"
+    echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
+    sleep ${_delay}
+  fi
 fi
 
 if [ -z $TARGET ]; then
