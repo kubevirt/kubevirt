@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -1604,6 +1605,61 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("Checking for absence of runtimeClassName")
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 			Expect(pod.Spec.RuntimeClassName).To(BeNil())
+		})
+
+		Context("[Serial]with geust-to-request memory ", Serial, func() {
+			setHeadroom := func(ratioStr string) {
+				kv := util.GetCurrentKv(virtClient)
+
+				config := kv.Spec.Configuration
+				config.AdditionalGuestMemoryOverheadRatio = &ratioStr
+				tests.UpdateKubeVirtConfigValueAndWait(config)
+			}
+
+			getComputeMemoryRequest := func(vmi *virtv1.VirtualMachineInstance) resource.Quantity {
+				launcherPod := tests.GetPodByVirtualMachineInstance(vmi)
+				computeContainer := tests.GetComputeContainerOfPod(launcherPod)
+				return computeContainer.Resources.Requests[kubev1.ResourceMemory]
+			}
+
+			It("should add guest-to-memory headroom", func() {
+				const guestMemoryStr = "1024M"
+				origVmiWithoutHeadroom := libvmi.New(libvmi.WithResourceMemory(guestMemoryStr))
+				origVmiWithHeadroom := libvmi.New(libvmi.WithResourceMemory(guestMemoryStr))
+
+				By("Running a vmi without additional headroom")
+				vmiWithoutHeadroom := tests.RunVMIAndExpectScheduling(origVmiWithoutHeadroom, 60)
+
+				By("Setting a headroom ratio in Kubevirt CR")
+				const ratio = "1.567"
+				setHeadroom(ratio)
+
+				By("Running a vmi with additional headroom")
+				vmiWithHeadroom := tests.RunVMIAndExpectScheduling(origVmiWithHeadroom, 60)
+
+				requestWithoutHeadroom := getComputeMemoryRequest(vmiWithoutHeadroom)
+				requestWithHeadroom := getComputeMemoryRequest(vmiWithHeadroom)
+
+				overheadWithoutHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
+				overheadWithHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.String(ratio))
+
+				expectedDiffBetweenRequests := overheadWithHeadroom.DeepCopy()
+				expectedDiffBetweenRequests.Sub(overheadWithoutHeadroom)
+
+				actualDiffBetweenRequests := requestWithHeadroom.DeepCopy()
+				actualDiffBetweenRequests.Sub(requestWithoutHeadroom)
+
+				By("Ensuring memory request is as expected")
+				const errFmt = "ratio: %s, request without headroom: %s, request with headroom: %s, overhead without headroom: %s, overhead with headroom: %s, expected diff between requests: %s, actual diff between requests: %s"
+				Expect(actualDiffBetweenRequests.Cmp(expectedDiffBetweenRequests)).To(Equal(0),
+					fmt.Sprintf(errFmt, ratio, requestWithoutHeadroom.String(), requestWithHeadroom.String(), overheadWithoutHeadroom.String(), overheadWithHeadroom.String(), expectedDiffBetweenRequests.String(), actualDiffBetweenRequests.String()))
+
+				By("Ensure no memory specifications had been changed on VMIs")
+				Expect(origVmiWithHeadroom.Spec.Domain.Resources).To(Equal(vmiWithHeadroom.Spec.Domain.Resources), "vmi resources are not expected to change")
+				Expect(origVmiWithHeadroom.Spec.Domain.Memory).To(Equal(vmiWithHeadroom.Spec.Domain.Memory), "vmi guest memory is not expected to change")
+				Expect(origVmiWithoutHeadroom.Spec.Domain.Resources).To(Equal(vmiWithoutHeadroom.Spec.Domain.Resources), "vmi resources are not expected to change")
+				Expect(origVmiWithoutHeadroom.Spec.Domain.Memory).To(Equal(vmiWithoutHeadroom.Spec.Domain.Memory), "vmi guest memory is not expected to change")
+			})
 		})
 	})
 
