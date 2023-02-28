@@ -23,7 +23,15 @@ import (
 	"github.com/onsi/ginkgo/v2"
 )
 
-var RetainVirtualMachineInstances = ginkgo.Label("retain-vmis")
+const (
+	retainVirtualMachineInstancesKey           = "retain-vmis"
+	retainVirtualMachineInstanceReplicaSetsKey = "retain-vmirss"
+)
+
+var (
+	RetainVirtualMachineInstances           = ginkgo.Label(retainVirtualMachineInstancesKey)
+	RetainVirtualMachineInstanceReplicaSets = ginkgo.Label(retainVirtualMachineInstanceReplicaSetsKey)
+)
 
 func HasLabel(specReport ginkgo.SpecReport, labels ginkgo.Labels) bool {
 	lookupLabel := map[string]string{}
@@ -37,5 +45,19 @@ func HasLabel(specReport ginkgo.SpecReport, labels ginkgo.Labels) bool {
 		}
 	}
 
+	return false
+}
+
+func ShouldRetainVMIs(specReport ginkgo.SpecReport) bool {
+	lookupRetainVMIsLabels := map[string]string{
+		retainVirtualMachineInstanceReplicaSetsKey: retainVirtualMachineInstanceReplicaSetsKey,
+		retainVirtualMachineInstancesKey:           retainVirtualMachineInstancesKey,
+	}
+
+	for _, specReportLabel := range specReport.Labels() {
+		if _, exists := lookupRetainVMIsLabels[specReportLabel]; exists {
+			return true
+		}
+	}
 	return false
 }

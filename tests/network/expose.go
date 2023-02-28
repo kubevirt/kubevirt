@@ -554,11 +554,11 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 
-	Context("Expose service on a VMI replica set", func() {
+	Context("Expose service on a VMI replica set", Ordered, ContinueOnFailure, decorators.RetainVirtualMachineInstanceReplicaSets, func() {
 		const numberOfVMs = 2
 
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
-		BeforeEach(func() {
+		BeforeAll(func() {
 			By("Creating a VMRS object with 2 replicas")
 			vmrs = tests.NewRandomReplicaSetFromVMI(newLabeledVMI("vmirs"), int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}

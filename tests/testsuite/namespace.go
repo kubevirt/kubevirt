@@ -110,8 +110,7 @@ func CleanNamespaces() {
 		// Remove all VirtualMachines
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error())
 
-		// Remove all VirtualMachineReplicaSets
-		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error())
+		deleteVirtualMachineInstanceReplicaSets(currentGinkgoSpecReport, namespace)
 
 		deleteVirtualMachineInstances(currentGinkgoSpecReport, namespace)
 
@@ -231,6 +230,14 @@ func CleanNamespaces() {
 	}
 }
 
+func deleteVirtualMachineInstanceReplicaSets(specReport SpecReport, namespace string) {
+	if decorators.HasLabel(specReport, decorators.RetainVirtualMachineInstanceReplicaSets) {
+		return
+	}
+
+	util.PanicOnError(kubevirt.Client().RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error())
+}
+
 func deleteVirtualMachineInstances(specReport SpecReport, namespace string) {
 	if decorators.HasLabel(specReport, decorators.RetainVirtualMachineInstances) {
 		return
@@ -254,7 +261,7 @@ func deletePods(specReport SpecReport, namespace string) {
 	virtCli := kubevirt.Client()
 	var podList *k8sv1.PodList
 	var err error
-	if decorators.HasLabel(specReport, decorators.RetainVirtualMachineInstances) {
+	if decorators.ShouldRetainVMIs(specReport) {
 		filterOutVirtLauncherPods := fmt.Sprintf("kubevirt.io!=virt-launcher")
 		podList, err = virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: filterOutVirtLauncherPods})
 		util.PanicOnError(err)
