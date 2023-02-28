@@ -942,18 +942,64 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject not divisable by hugepages.size requests.memory", func() {
-			vmi := api.NewMinimalVMI("testvmi")
 
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
+		Context("if hugepages size is not divisible", func() {
+			type validType bool
+			const valid, notValid validType = true, false
+			const hugepagesSize = "2Mi"
+			var noMemoryRequest, noGuestMemory *string = nil, nil
+
+			isDividableBy2Mib := func(quantityStr string) bool {
+				quantity := resource.MustParse(quantityStr)
+				hugepagesSizeQuantity := resource.MustParse(hugepagesSize)
+				return quantity.Value()%hugepagesSizeQuantity.Value() == 0
 			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Gi"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+			DescribeTable("vmi 2Mi hugepages page size and with resources", func(memoryRequest, guestMemory *string, isValid validType) {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: hugepagesSize,
+					},
+				}
+
+				if memoryRequest != nil {
+					By(fmt.Sprintf("Setting memory request of %s", *memoryRequest))
+					vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+						k8sv1.ResourceMemory: resource.MustParse(*memoryRequest),
+					}
+				}
+
+				if guestMemory != nil {
+					By(fmt.Sprintf("Setting guest memory of %s", *guestMemory))
+					guestMemoryQuantity := resource.MustParse(*guestMemory)
+					vmi.Spec.Domain.Memory.Guest = &guestMemoryQuantity
+				}
+
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+
+				if isValid {
+					Expect(causes).To(BeEmpty())
+				} else {
+					Expect(causes).To(HaveLen(1))
+
+					var invalidField string
+					if guestMemory != nil && !isDividableBy2Mib(*guestMemory) {
+						invalidField = "guest"
+					} else {
+						invalidField = "requests"
+					}
+					Expect(causes[0].Field).To(ContainSubstring(invalidField))
+				}
+			},
+				Entry("should reject: memory request=65Mi", pointer.String("65Mi"), noGuestMemory, notValid),
+				Entry("should reject: guest memory=65Mi", noMemoryRequest, pointer.String("65Mi"), notValid),
+				Entry("should reject: memory request=64Mi, guest memory=65Mi", pointer.String("64Mi"), pointer.String("65Mi"), notValid),
+
+				Entry("should accept: memory request=64Mi", pointer.String("64Mi"), noGuestMemory, valid),
+				Entry("should accept: guest memory=64Mi", noMemoryRequest, pointer.String("64Mi"), valid),
+				Entry("should accept: memory request=65Mi, guest memory=64Mi", pointer.String("65Mi"), pointer.String("64Mi"), valid),
+			)
 		})
 		It("should accept correct memory and hugepages size values", func() {
 			vmi := api.NewMinimalVMI("testvmi")

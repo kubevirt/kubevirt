@@ -551,7 +551,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("3072M"))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
 	})
 
 	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
@@ -559,7 +558,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.Memory.Hugepages.PageSize).To(Equal("3072M"))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("3072M"))
 	})
 
 	It("should not apply memory overcommit when memory-request and guest-memory are set", func() {
@@ -1075,5 +1073,17 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
+	})
+
+	It("should not set memory request if only guest memory is defined", func() {
+		guestMemory := resource.MustParse("1234Mi")
+		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+		vmi.Spec.Domain.Resources.Requests = nil
+		vmi.Spec.Domain.Resources.Limits = nil
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiSpec.Domain.Resources.Requests).To(BeNil())
+		Expect(vmiSpec.Domain.Resources.Limits).To(BeNil())
+		Expect(vmiSpec.Domain.Memory).To(Equal(vmi.Spec.Domain.Memory))
 	})
 })
