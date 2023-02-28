@@ -257,33 +257,29 @@ func WithSEV() ResourceRendererOption {
 	}
 }
 
-func initMemoryRequest(vmMemory *v1.Memory, overcommitment int) ResourceRendererOption {
+func initMemoryRequest(vmi *v1.VirtualMachineInstance, overcommitment int) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		if memRequest, exists := renderer.vmRequests[k8sv1.ResourceMemory]; exists && !memRequest.IsZero() {
 			return
 		}
 
 		resources := renderer.ResourceRequirements()
-		var memory *resource.Quantity
 
-		if vmMemory != nil && vmMemory.Guest != nil {
-			memory = vmMemory.Guest
+		memory, err := util.GetVmiGuestMemory(vmi.Spec)
+		if err != nil {
+			// This should never happen
+			log.Log.Errorf("cannot initial memory request for vmi: %v", err)
 		}
-		if memory == nil && vmMemory != nil && vmMemory.Hugepages != nil {
-			if hugepagesSize, err := resource.ParseQuantity(vmMemory.Hugepages.PageSize); err == nil {
-				memory = &hugepagesSize
-			}
+
+		if overcommitment == 100 {
+			resources.Requests[k8sv1.ResourceMemory] = memory
+		} else {
+			value := (memory.Value() * int64(100)) / int64(overcommitment)
+			resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
 		}
-		if memory != nil && memory.Value() > 0 {
-			if overcommitment == 100 {
-				resources.Requests[k8sv1.ResourceMemory] = *memory
-			} else {
-				value := (memory.Value() * int64(100)) / int64(overcommitment)
-				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
-			}
-			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-			log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommitment)
-		}
+
+		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+		log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommitment)
 
 		copyResources(resources.Requests, renderer.vmRequests)
 	}

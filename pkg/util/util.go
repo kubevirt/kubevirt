@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -273,4 +275,20 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
 
 	return objCopy, nil
+}
+
+func GetVmiGuestMemory(spec v1.VirtualMachineInstanceSpec) (resource.Quantity, error) {
+	if vmiMemory := spec.Domain.Memory; vmiMemory != nil && vmiMemory.Guest != nil {
+		return *vmiMemory.Guest, nil
+	}
+
+	if memoryRequest, exists := spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; exists {
+		return memoryRequest, nil
+	}
+
+	if memoryLimit, exists := spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; exists {
+		return memoryLimit, nil
+	}
+
+	return resource.Quantity{}, fmt.Errorf("cannot get guest memory")
 }

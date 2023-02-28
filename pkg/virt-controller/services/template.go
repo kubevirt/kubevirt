@@ -712,7 +712,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
 	baseOptions := []ResourceRendererOption{
-		initMemoryRequest(vmi.Spec.Domain.Memory, t.clusterConfig.GetMemoryOvercommit()),
+		initMemoryRequest(vmi, t.clusterConfig.GetMemoryOvercommit()),
 		WithEphemeralStorageRequest(),
 		WithVirtualizationResources(getRequiredResources(vmi, t.clusterConfig.AllowEmulation())),
 	}

@@ -28,6 +28,8 @@ import (
 	"regexp"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1377,14 +1379,23 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 		return
 	}
 
-	var memory int64
-	var memoryField string
+	memoryQuantity, err := util.GetVmiGuestMemory(*spec)
+	if err != nil {
+		// This error should never happen as the mutator sets these defaults before and errors if no memory is specified
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("cannot find VMI guest memory amount - either guest memory or memory request must be specified"),
+			Field:   field.Child("domain", "hugepages", "size").String(),
+		})
+		return
+	}
 
+	memory := memoryQuantity.Value()
+
+	var memoryField string
 	if vmMemory := spec.Domain.Memory; vmMemory.Guest != nil {
-		memory = vmMemory.Guest.Value()
 		memoryField = field.Child("domain", "memory", "guest").String()
-	} else if memoryRequest, exists := spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; exists {
-		memory = memoryRequest.Value()
+	} else if _, exists := spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; exists {
 		memoryField = field.Child("domain", "resources", "requests", "memory").String()
 	} else {
 		causes = append(causes, metav1.StatusCause{
