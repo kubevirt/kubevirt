@@ -2381,11 +2381,11 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
-		if disk.IO != "" && disk.IO != v1.IODefault && disk.IO != v1.IONative && disk.IO != v1.IOThreads {
+		if disk.IO != "" && disk.IO != v1.IONative && disk.IO != v1.IOThreads {
 			field := field.Child("domain", "devices", "disks").Index(idx).Child("io").String()
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("Disk IO mode for %s is not supported. Supported modes are: native, threads, default.", field),
+				Message: fmt.Sprintf("Disk IO mode for %s is not supported. Supported modes are: native, threads.", field),
 				Field:   field,
 			})
 		}
