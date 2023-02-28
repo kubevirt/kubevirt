@@ -2,6 +2,9 @@
     annotations:
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-stream8-image-cron
+    labels:
+      instancetype.kubevirt.io/default-preference: centos.8.stream
+      instancetype.kubevirt.io/default-instancetype: server.medium
   spec:
     schedule: "0 */12 * * *"
     template:
@@ -19,6 +22,9 @@
     annotations:
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-stream9-image-cron
+    labels:
+      instancetype.kubevirt.io/default-preference: centos.9.stream
+      instancetype.kubevirt.io/default-instancetype: server.medium
   spec:
     schedule: "0 */12 * * *"
     template:
@@ -36,6 +42,9 @@
     annotations:
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: fedora-image-cron
+    labels:
+      instancetype.kubevirt.io/default-preference: fedora
+      instancetype.kubevirt.io/default-instancetype: server.medium
   spec:
     schedule: "0 */12 * * *"
     template:
@@ -53,6 +62,9 @@
     annotations:
       cdi.kubevirt.io/storage.bind.immediate.requested: "true"
     name: centos-7-image-cron
+    labels:
+      instancetype.kubevirt.io/default-preference: centos.7
+      instancetype.kubevirt.io/default-instancetype: server.medium
   spec:
     schedule: "0 */12 * * *"
     template:
