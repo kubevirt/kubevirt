@@ -169,7 +169,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			tests.GenerateHelloWorldServer(tcpVM, testPort, "tcp", console.LoginToAlpine, false)
 		})
 
-		Context("Expose ClusterIP service", func() {
+		FContext("Expose ClusterIP service", func() {
 			const servicePort = "27017"
 			const serviceNamePrefix = "cluster-ip-vmi"
 
@@ -187,6 +187,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			DescribeTable("[label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func(ipFamily ipFamily) {
 				skipIfNotSupportedCluster(ipFamily)
 				vmiExposeArgs = appendIpFamilyToExposeArgs(ipFamily, vmiExposeArgs)
+
+				if ipFamily == ipv6 {
+					panic("DEBUG: INJECT ERROR")
+				}
 
 				By("Exposing the service via virtctl command")
 				Expect(executeVirtctlExposeCommand(vmiExposeArgs)).To(Succeed(), shouldExposeServiceViaVirtctl)
@@ -207,7 +211,7 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			)
 		})
 
-		Context("Expose ClusterIP service with string target-port", func() {
+		FContext("Expose ClusterIP service with string target-port", func() {
 			const servicePort = "27017"
 			const serviceNamePrefix = "cluster-ip-target-vmi"
 
@@ -220,6 +224,8 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					libnet.WithPort(servicePort),
 					libnet.WithServiceName(serviceName),
 					libnet.WithTargetPort("http"))
+
+				panic("DEBUG: INJECT BEFORE-EACH ERROR")
 			})
 
 			DescribeTable("Should expose a ClusterIP service and connect to the vm on port 80", func(ipFamily ipFamily) {
