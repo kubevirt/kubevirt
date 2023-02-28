@@ -2166,14 +2166,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("[Serial] migration postcopy", Serial, func() {
-			var dv *cdiv1.DataVolume
 
 			BeforeEach(func() {
-				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
 				By("Allowing post-copy and limit migration bandwidth")
 				config := getCurrentKv()
 				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
@@ -2181,28 +2175,41 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				bandwidth := resource.MustParse("40Mi")
 				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
 				tests.UpdateKubeVirtConfigValueAndWait(config)
-				memoryRequestSize = resource.MustParse("1Gi")
-
-				dv = libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
-						libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
-					),
-				)
-
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				pvName = dv.Name
 			})
 
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dv)
-			})
+			Context("with datavolume", func() {
+				var dv *cdiv1.DataVolume
 
-			It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-				guestAgentMigrationTestFunc(v1.MigrationPostCopy)
+				BeforeEach(func() {
+					sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
+					if !foundSC {
+						Skip("Skip test when Filesystem storage is not present")
+					}
+
+					memoryRequestSize = resource.MustParse("1Gi")
+
+					dv = libdv.NewDataVolume(
+						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
+						libdv.WithPVC(
+							libdv.PVCWithStorageClass(sc),
+							libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
+							libdv.PVCWithReadWriteManyAccessMode(),
+						),
+					)
+
+					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					pvName = dv.Name
+				})
+
+				AfterEach(func() {
+					libstorage.DeleteDataVolume(&dv)
+				})
+
+				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
+					guestAgentMigrationTestFunc(v1.MigrationPostCopy)
+				})
+
 			})
 
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
