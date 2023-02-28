@@ -669,6 +669,27 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 10)).To(Succeed())
 
 			})
+
+			It("should not set vmi memory request if only guest memory is provided", func() {
+				const guestMemory = "256Mi"
+				vmi := libvmi.NewCirros(libvmi.WithGuestMemory(guestMemory))
+				emptyResource := virtv1.ResourceRequirements{}
+				vmi.Spec.Domain.Resources = emptyResource
+
+				vmi = tests.RunVMIAndExpectScheduling(vmi, 45)
+				Expect(vmi.Spec.Domain.Resources).To(Equal(emptyResource))
+				Expect(vmi.Spec.Domain.Memory).ToNot(BeNil())
+				Expect(vmi.Spec.Domain.Memory.Guest).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(guestMemory)))
+
+				virtLauncherPod := tests.GetPodByVirtualMachineInstance(vmi)
+				computeContainer := tests.GetComputeContainerOfPod(virtLauncherPod)
+				memoryRequest, exists := computeContainer.Resources.Requests[kubev1.ResourceMemory]
+
+				Expect(exists).To(BeTrue())
+				const isEqual, isBigger = 0, 1
+				Expect(memoryRequest.Cmp(resource.MustParse(guestMemory))).To(Or(Equal(isBigger), Equal(isEqual)))
+			})
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
