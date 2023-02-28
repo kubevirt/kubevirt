@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -419,6 +420,11 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	Context("Guest and Host uptime difference before pause", func() {
 		startTime := time.Now()
+		const (
+			sleepTimeSeconds = 10
+			deviation        = 4
+		)
+
 		var (
 			vmi                     *v1.VirtualMachineInstance
 			uptimeDiffBeforePausing float64
@@ -456,7 +462,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			command := clientcmd.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
 			Expect(command()).To(Succeed(), "should successfully pause the vmi")
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-			time.Sleep(10 * time.Second) // sleep to increase uptime diff
+			time.Sleep(sleepTimeSeconds * time.Second) // sleep to increase uptime diff
 
 			By("Unpausing the VMI")
 			command = clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", vmi.Namespace, vmi.Name)
@@ -465,7 +471,13 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Verifying VMI was indeed Paused")
 			uptimeDiffAfterPausing := hostUptime() - grepGuestUptime(vmi)
-			Expect(uptimeDiffAfterPausing).To(BeNumerically(">", uptimeDiffBeforePausing+10), "uptime diff after pausing should be greater by at least 10 than before pausing")
+
+			// We subtract from the sleep time the deviation due to the low resolution of `uptime` (seconds).
+			// If you capture the uptime when it is at the beginning of that second or at the end of that second,
+			// the value comes out the same even though in fact a whole second has almost passed.
+			// In extreme cases, as we take 4 readings (2 initially and 2 after the unpause), the deviation could be up to just under 4 seconds.
+			// This fact does not invalidate the purpose of the test, which is to prove that during the pause the vmi is actually paused.
+			Expect(uptimeDiffAfterPausing-uptimeDiffBeforePausing).To(BeNumerically(">=", sleepTimeSeconds-deviation), fmt.Sprintf("guest should be paused for at least %d seconds", sleepTimeSeconds-deviation))
 		})
 	})
 })
