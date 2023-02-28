@@ -1359,45 +1359,70 @@ func validateGuestMemoryLimit(field *k8sfield.Path, spec *v1.VirtualMachineInsta
 }
 
 func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
-		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s': %s",
-					field.Child("domain", "hugepages", "size").String(),
-					spec.Domain.Memory.Hugepages.PageSize,
-					resource.ErrFormatWrong,
-				),
-				Field: field.Child("domain", "hugepages", "size").String(),
-			})
-		} else {
-			vmMemory := spec.Domain.Resources.Requests.Memory().Value()
-			if vmMemory < hugepagesSize.Value() {
-				causes = append(causes, metav1.StatusCause{
-					Type: metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
-						field.Child("domain", "resources", "requests", "memory").String(),
-						spec.Domain.Resources.Requests.Memory(),
-						field.Child("domain", "hugepages", "size").String(),
-						spec.Domain.Memory.Hugepages.PageSize,
-					),
-					Field: field.Child("domain", "resources", "requests", "memory").String(),
-				})
-			} else if vmMemory%hugepagesSize.Value() != 0 {
-				causes = append(causes, metav1.StatusCause{
-					Type: metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
-						field.Child("domain", "resources", "requests", "memory").String(),
-						spec.Domain.Resources.Requests.Memory(),
-						field.Child("domain", "hugepages", "size").String(),
-						spec.Domain.Memory.Hugepages.PageSize,
-					),
-					Field: field.Child("domain", "resources", "requests", "memory").String(),
-				})
-			}
-		}
+	if spec.Domain.Memory == nil || spec.Domain.Memory.Hugepages == nil {
+		return
 	}
+
+	hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': %s",
+				field.Child("domain", "hugepages", "size").String(),
+				spec.Domain.Memory.Hugepages.PageSize,
+				resource.ErrFormatWrong,
+			),
+			Field: field.Child("domain", "hugepages", "size").String(),
+		})
+		return
+	}
+
+	var memory int64
+	var memoryField string
+
+	if vmMemory := spec.Domain.Memory; vmMemory.Guest != nil {
+		memory = vmMemory.Guest.Value()
+		memoryField = field.Child("domain", "memory", "guest").String()
+	} else if memoryRequest, exists := spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; exists {
+		memory = memoryRequest.Value()
+		memoryField = field.Child("domain", "resources", "requests", "memory").String()
+	} else {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("if %s is set, then either %s or %s must be set",
+				field.Child("domain", "hugepages", "size").String(),
+				field.Child("domain", "resources", "requests", "memory").String(),
+				field.Child("domain", "memory", "guest").String(),
+			),
+			Field: field.Child("domain", "hugepages", "size").String(),
+		})
+		return
+	}
+
+	if memory < hugepagesSize.Value() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
+				memoryField,
+				spec.Domain.Resources.Requests.Memory(),
+				field.Child("domain", "hugepages", "size").String(),
+				spec.Domain.Memory.Hugepages.PageSize,
+			),
+			Field: memoryField,
+		})
+	} else if memory%hugepagesSize.Value() != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
+				memoryField,
+				spec.Domain.Resources.Requests.Memory(),
+				field.Child("domain", "hugepages", "size").String(),
+				spec.Domain.Memory.Hugepages.PageSize,
+			),
+			Field: memoryField,
+		})
+	}
+
 	return causes
 }
 
