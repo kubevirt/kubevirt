@@ -110,30 +110,9 @@ func CleanNamespaces() {
 		// Remove all VirtualMachineReplicaSets
 		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error())
 
-		// Remove all VMIs
-		util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
-		vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), &metav1.ListOptions{})
-		util.PanicOnError(err)
-		for _, vmi := range vmis.Items {
-			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
-				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
-				if !errors.IsNotFound(err) {
-					util.PanicOnError(err)
-				}
-			}
-		}
+		deleteVirtualMachineInstances(namespace)
 
-		// Remove all Pods
-		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-		util.PanicOnError(err)
-		var gracePeriod int64 = 0
-		for _, pod := range podList.Items {
-			err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
-			if errors.IsNotFound(err) {
-				continue
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
+		deletePods(namespace)
 
 		// Remove all Services
 		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
@@ -246,6 +225,36 @@ func CleanNamespaces() {
 		}
 
 		util.PanicOnError(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
+	}
+}
+
+func deleteVirtualMachineInstances(namespace string) {
+	virtCli := kubevirt.Client()
+	util.PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error())
+	vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), &metav1.ListOptions{})
+	util.PanicOnError(err)
+	for _, vmi := range vmis.Items {
+		if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
+			_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"), &metav1.PatchOptions{})
+			if !errors.IsNotFound(err) {
+				util.PanicOnError(err)
+			}
+		}
+	}
+}
+
+func deletePods(namespace string) {
+	virtCli := kubevirt.Client()
+	podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	util.PanicOnError(err)
+
+	var gracePeriod int64 = 0
+	for _, pod := range podList.Items {
+		err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
