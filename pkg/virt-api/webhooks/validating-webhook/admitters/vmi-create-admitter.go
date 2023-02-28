@@ -1201,6 +1201,10 @@ func validateStartStrategy(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 }
 
 func validateMemoryRequestsAndLimits(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if _, isMemoryRequestDefined := spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !isMemoryRequestDefined {
+		return
+	}
+
 	if spec.Domain.Resources.Requests.Memory().Value() > 0 && spec.Domain.Resources.Limits.Memory().Value() > 0 && spec.Domain.Resources.Requests.Memory().Value() != spec.Domain.Resources.Limits.Memory().Value() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -1237,12 +1241,13 @@ func validateCPURequestIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineIn
 }
 
 func validateMemoryLimitAndRequestProvided(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
-	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 {
+	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 && (spec.Domain.Memory == nil || spec.Domain.Memory.Guest == nil) {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s or %s should be provided",
+			Message: fmt.Sprintf("%s, %s or %s should be provided",
 				field.Child("domain", "resources", "requests", "memory").String(),
 				field.Child("domain", "resources", "limits", "memory").String(),
+				field.Child("domain", "memory", "guest").String(),
 			),
 			Field: field.Child("domain", "resources", "limits", "memory").String(),
 		})
