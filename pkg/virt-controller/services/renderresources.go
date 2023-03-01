@@ -126,7 +126,7 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOp
 	}
 }
 
-func WithHugePages(vmMemory *v1.Memory, memoryOverhead *resource.Quantity) ResourceRendererOption {
+func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
 		hugepagesMemReq := renderer.vmRequests.Memory()
@@ -160,25 +160,25 @@ func WithHugePages(vmMemory *v1.Memory, memoryOverhead *resource.Quantity) Resou
 			}
 		}
 		// Set requested memory equals to overhead memory
-		reqMemDiff.Add(*memoryOverhead)
+		reqMemDiff.Add(memoryOverhead)
 		renderer.vmRequests[k8sv1.ResourceMemory] = *reqMemDiff
 		if _, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
-			limMemDiff.Add(*memoryOverhead)
+			limMemDiff.Add(memoryOverhead)
 			renderer.vmLimits[k8sv1.ResourceMemory] = *limMemDiff
 		}
 	}
 }
 
-func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhead *resource.Quantity) ResourceRendererOption {
+func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
 		if !guestResourceSpec.OvercommitGuestOverhead {
-			memoryRequest.Add(*memoryOverhead)
+			memoryRequest.Add(memoryOverhead)
 		}
 		renderer.vmRequests[k8sv1.ResourceMemory] = memoryRequest
 
 		if memoryLimit, ok := renderer.vmLimits[k8sv1.ResourceMemory]; ok {
-			memoryLimit.Add(*memoryOverhead)
+			memoryLimit.Add(memoryOverhead)
 			renderer.vmLimits[k8sv1.ResourceMemory] = memoryLimit
 		}
 	}
@@ -272,11 +272,11 @@ func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 // Note: This is the best estimation we were able to come up with
 //
 //	and is still not 100% accurate
-func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) *resource.Quantity {
+func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
-	overhead := resource.NewScaledQuantity(0, resource.Kilo)
+	overhead := *resource.NewScaledQuantity(0, resource.Kilo)
 
 	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
 	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
@@ -346,7 +346,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		overhead.Add(resource.MustParse("1Mi"))
 	}
 
-	addProbeOverheads(vmi, overhead)
+	addProbeOverheads(vmi, &overhead)
 
 	// Consider memory overhead for SEV guests.
 	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
@@ -377,7 +377,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 			return overhead
 		}
 
-		overhead = multiplyMemory(*overhead, ratio)
+		overhead = multiplyMemory(overhead, ratio)
 	}
 
 	return overhead
@@ -565,10 +565,10 @@ func hotplugContainerMinimalLimits() k8sv1.ResourceList {
 	}
 }
 
-func multiplyMemory(mem resource.Quantity, multiplication float64) *resource.Quantity {
+func multiplyMemory(mem resource.Quantity, multiplication float64) resource.Quantity {
 	overheadAddition := float64(mem.ScaledValue(resource.Kilo)) * (multiplication - 1.0)
 	additionalOverhead := resource.NewScaledQuantity(int64(overheadAddition), resource.Kilo)
 
 	mem.Add(*additionalOverhead)
-	return &mem
+	return mem
 }
