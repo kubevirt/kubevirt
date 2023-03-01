@@ -275,15 +275,35 @@ func (c *DeviceController) RefreshMediatedDeviceTypes() {
 	}()
 }
 
+func (c *DeviceController) getExternallyProvidedMdevs() map[string]struct{} {
+	externalMdevResourcesMap := make(map[string]struct{})
+	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
+		for _, supportedMdev := range hostDevs.MediatedDevices {
+			if supportedMdev.ExternalResourceProvider {
+				selector := removeSelectorSpaces(supportedMdev.MDEVNameSelector)
+				externalMdevResourcesMap[selector] = struct{}{}
+			}
+		}
+	}
+	return externalMdevResourcesMap
+}
+
 func (c *DeviceController) refreshMediatedDeviceTypes() bool {
+	// the handling of mediated device is disabled
+	if c.virtConfig.MediatedDevicesHandlingDisabled() {
+		return false
+	}
+
 	requiresDevicePluginsUpdate := false
 	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
 		return requiresDevicePluginsUpdate
 	}
+	externallyProvidedMdevMap := c.getExternallyProvidedMdevs()
+
 	nodeDesiredMdevTypesList := c.virtConfig.GetDesiredMDEVTypes(node)
-	requiresDevicePluginsUpdate, err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList)
+	requiresDevicePluginsUpdate, err = c.mdevTypesManager.updateMDEVTypesConfiguration(nodeDesiredMdevTypesList, externallyProvidedMdevMap)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
 	}
