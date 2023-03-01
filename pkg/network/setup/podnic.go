@@ -82,6 +82,13 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	} else if podnic.vmiSpecIface.Passt != nil {
 		podnic.infraConfigurator = infraconfigurators.NewPasstPodNetworkConfigurator(
 			podnic.handler)
+	} else if podnic.vmiSpecIface.Macvtap != nil {
+		podnic.infraConfigurator = infraconfigurators.NewMacvtapPodNetworkConfigurator(
+			podnic.vmi,
+			podnic.vmiSpecIface,
+			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
+			*podnic.launcherPID,
+			podnic.handler)
 	}
 	return podnic, nil
 }
@@ -238,7 +245,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 
 func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	var dhcpConfigurator dhcpconfigurator.Configurator
-	if l.vmiSpecIface.Bridge != nil {
+	if l.vmiSpecIface.Bridge != nil || l.vmiSpecIface.Macvtap != nil {
 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
 			l.cacheCreator,
 			getPIDString(l.launcherPID),
@@ -278,7 +285,14 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 		return domainspec.NewSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain)
 	}
 	if l.vmiSpecIface.Macvtap != nil {
-		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+		cachedDomainIface, err := l.cachedDomainInterface()
+		if err != nil {
+			return nil
+		}
+		if cachedDomainIface == nil {
+			cachedDomainIface = &api.Interface{}
+		}
+		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, *cachedDomainIface, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Passt != nil {
 		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.vmi)

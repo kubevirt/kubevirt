@@ -483,7 +483,7 @@ func validateConfig(config *v1.KubeVirtConfiguration) error {
 
 	// set default network interface
 	switch config.NetworkConfiguration.NetworkInterface {
-	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
+	case "", string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface), string(v1.MacvtapInterface):
 		break
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", config.NetworkConfiguration.NetworkInterface)

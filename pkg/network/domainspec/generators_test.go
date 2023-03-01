@@ -135,7 +135,7 @@ var _ = Describe("Pod Network", func() {
 				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
 				specGenerator = NewMacvtapLibvirtSpecGenerator(
-					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
+					&vmi.Spec.Domain.Devices.Interfaces[0], domain, api.Interface{}, primaryPodIfaceName, mockNetwork)
 			})
 
 			It("Should pass a non-privileged macvtap interface to qemu", func() {

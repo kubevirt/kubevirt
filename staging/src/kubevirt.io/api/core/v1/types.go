@@ -1627,6 +1627,8 @@ const (
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
 	// Virtual machine instance passt interface
 	PasstInterface NetworkInterfaceType = "passt"
+	// Virtual machine instance macvtap interface
+	MacvtapInterface NetworkInterfaceType = "macvtap"
 )
 
 type DriverCache string

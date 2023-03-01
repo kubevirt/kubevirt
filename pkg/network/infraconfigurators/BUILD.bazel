@@ -6,6 +6,7 @@ go_library(
         "bridge.go",
         "common.go",
         "generated_mock_common.go",
+        "macvtap.go",
         "masquerade.go",
         "passt.go",
     ],

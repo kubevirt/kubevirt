@@ -26,7 +26,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 
+	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/devices"
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -42,6 +46,7 @@ import (
 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
 	"kubevirt.io/kubevirt/pkg/network/dns"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
@@ -92,6 +97,7 @@ type NetworkHandler interface {
 	GetNFTIPString(ipVersion IPVersion) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
+	CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
 	DisableTXOffloadChecksum(ifaceName string) error
 }
 
@@ -377,6 +383,101 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 	}
 	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
+	return selinux.NewContextExecutor(virtLauncherPID, cmd)
+}
+
+func (h *NetworkUtilsHandler) CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+	tapDeviceSELinuxCmdExecutor, err := buildMacvtapDeviceMaker(tapName, parentName, queueNumber, launcherPID, mtu, tapOwner)
+	if err != nil {
+		return err
+	}
+	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
+		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
+	}
+
+	args := []string{
+		"exec",
+		"--mount", fmt.Sprintf("/proc/%d/ns/mnt", launcherPID),
+		"--",
+		"/bin/sh", "-c",
+		fmt.Sprintf("cat /sys/class/net/%s/macvtap/tap*/dev", tapName),
+	}
+
+	cmd := exec.Command("virt-chroot", args...)
+
+	log.Log.V(3).Infof("fetching macvtap info. running command: %s", cmd.String())
+	out, err := cmd.Output()
+	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				return fmt.Errorf("failed to read macvtap info: %v: '%v'", err, string(e.Stderr))
+			}
+		}
+		return fmt.Errorf("failed to read macvtap info: %v", err)
+	}
+
+	m := strings.Split(strings.TrimSuffix(string(out), "\n"), ":")
+	major, err := strconv.Atoi(m[0])
+	if err != nil {
+		return fmt.Errorf("unable to convert major %s. error: %v", m[0], err)
+	}
+	minor, err := strconv.Atoi(m[1])
+	if err != nil {
+		return fmt.Errorf("unable to convert minor %s. error: %v", m[1], err)
+	}
+
+	manager, err := cgroup.NewManagerFromPid(launcherPID)
+	if err != nil {
+		return fmt.Errorf("failed to create cgroup manager. error: %v", err)
+	}
+
+	deviceRule := &devices.Rule{
+		Type:        devices.CharDevice,
+		Major:       int64(major),
+		Minor:       int64(minor),
+		Permissions: "rwm",
+		Allow:       true,
+	}
+
+	err = manager.Set(&configs.Resources{
+		Devices: []*devices.Rule{deviceRule},
+	})
+
+	if err != nil {
+		return fmt.Errorf("cgroup %s had failed to set device rule. error: %v. rule: %+v", manager.GetCgroupVersion(), err, *deviceRule)
+	} else {
+		log.Log.Infof("cgroup %s device rule is set successfully. rule: %+v", manager.GetCgroupVersion(), *deviceRule)
+	}
+
+	tap, err := netlink.LinkByName(tapName)
+	log.Log.V(4).Infof("Looking for tap device: %s", tapName)
+	if err != nil {
+		return fmt.Errorf("could not find tap device %s; %v", tapName, err)
+	}
+
+	err = netlink.LinkSetUp(tap)
+	if err != nil {
+		return fmt.Errorf("failed to set tap device %s up; %v", tapName, err)
+	}
+
+	log.Log.Infof("Successfully configured tap device: %s", tapName)
+	return nil
+}
+
+func buildMacvtapDeviceMaker(tapName string, parentName string, queueNumber uint32, virtLauncherPID int, mtu int, tapOwner string) (*selinux.ContextExecutor, error) {
+	createTapDeviceArgs := []string{
+		"create-tap",
+		"--mount", fmt.Sprintf("/proc/%d/ns/mnt", virtLauncherPID),
+		"--tap-name", tapName,
+		"--parent-name", parentName,
+		"--uid", tapOwner,
+		"--gid", tapOwner,
+		"--queue-number", fmt.Sprintf("%d", queueNumber),
+		"--mtu", fmt.Sprintf("%d", mtu),
+	}
+	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
+	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
+
 	return selinux.NewContextExecutor(virtLauncherPID, cmd)
 }
 

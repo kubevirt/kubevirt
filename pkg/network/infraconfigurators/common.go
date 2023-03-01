@@ -25,6 +25,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
@@ -42,4 +44,8 @@ func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName strin
 		return err
 	}
 	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
+}
+
+func createMacvtap(handler netdriver.NetworkHandler, deviceName string, parentName string, launcherPID int, mtu int, tapOwner string, queues uint32, vmi *v1.VirtualMachineInstance) error {
+	return handler.CreateMacvtapDevice(deviceName, parentName, queues, launcherPID, mtu, tapOwner)
 }
