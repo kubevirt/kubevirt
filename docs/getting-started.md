@@ -30,19 +30,35 @@ kubectl create -f _out/manifests/release/kubevirt-cr.yaml
 
 ### Docker Desktop for Mac
 
-The Bazel build system does not support the macOS keychain. Please ensure that
-you deactivate the option `Securely store Docker logins in macOS keychain` in
-the Docker preferences. After restarting the Docker service, log in with `docker
-login`. Your `$HOME/.docker/config.json` should look like:
+The Bazel build system does not support the macOS keychain. Docker uses `osxkeychain`, which is the default [credential helper](https://github.com/docker/docker-credential-helpers) 
+for mac.
+
+We need to modify the `$HOME/.docker/config.json` file to include 
 
 ```json
 {
-  "auths" : {
-    "https://index.docker.io/v1/" : {
-      "auth" : "XXXXXXXXXX"
-    }
-  },
-  "credSstore" : ""
+  ...
+	"credHelpers": {
+		"https://index.docker.io/v1/": ""
+	}
+}
+```
+
+This makes sure that no credential helpers are used for the specified registry and hence the credentials will be stored in the config.json file itself.
+
+Now log in with `docker login`. You will get a warning message saying that no credential helper is configured. Your `$HOME/.docker/config.json` should look like:
+
+```json
+{
+	"auths": {
+		"https://index.docker.io/v1/": {
+			"auth": "XXXXXXXXXX"
+		}
+	},
+	"credsStore": "desktop",
+	"credHelpers": {
+		"https://index.docker.io/v1/": ""
+	}
 }
 ```
 
