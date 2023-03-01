@@ -2584,7 +2584,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		// set runtime limits as needed
-		err = d.podIsolationDetector.AdjustResources(vmi)
+		err = d.podIsolationDetector.AdjustResources(vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 		if err != nil {
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
@@ -2647,7 +2647,7 @@ func (d *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
+	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
@@ -2823,7 +2823,7 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 
 	// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
 	// perform hotplug host-devices on post migration.
-	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi); err != nil {
+	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
 	}
 
