@@ -64,4 +64,30 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			},
 		}, 0),
 	)
+
+	Context("with AdditionalGuestMemoryOverheadRatio", func() {
+		table.DescribeTable("the ratio must be parsable to float", func(unparsableRatio string) {
+			causes := validateGuestToRequestHeadroom(&unparsableRatio)
+			Expect(causes).To(HaveLen(1))
+		},
+			table.Entry("not a number", "abcdefg"),
+			table.Entry("number with bad formatting", "1.fd3ggx"),
+		)
+
+		table.DescribeTable("the ratio must be larger than 1", func(lessThanOneRatio string) {
+			causes := validateGuestToRequestHeadroom(&lessThanOneRatio)
+			Expect(causes).ToNot(BeEmpty())
+		},
+			table.Entry("0.999", "0.999"),
+			table.Entry("negative number", "-1.3"),
+		)
+
+		table.DescribeTable("valid values", func(validRatio string) {
+
+		},
+			table.Entry("1.0", "1.0"),
+			table.Entry("5", "5"),
+			table.Entry("1.123", "1.123"),
+		)
+	})
 })

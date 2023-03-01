@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -2342,7 +2343,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*GetMemoryOverhead(vmi, arch))
+				expectedMemory.Add(GetMemoryOverhead(vmi, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -2370,7 +2371,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*GetMemoryOverhead(vmi1, arch))
+				expectedMemory.Add(GetMemoryOverhead(vmi1, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
@@ -3200,7 +3201,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(*GetMemoryOverhead(vmi, arch))
+				expectedMemory.Add(GetMemoryOverhead(vmi, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -3271,6 +3272,47 @@ var _ = Describe("Template", func() {
 				})
 			})
 		})
+
+		Context("with guest-to-request memory headroom", func() {
+			BeforeEach(func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+			})
+
+			newVmi := func() *v1.VirtualMachineInstance {
+				vmi := api.NewMinimalVMI("test-vmi")
+
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("1G"),
+						kubev1.ResourceCPU:    resource.MustParse("1"),
+					},
+				}
+
+				return vmi
+			}
+
+			table.DescribeTable("should add guest-to-memory headroom when configured with ratio", func(ratioStr string) {
+				vmi := newVmi()
+
+				ratio, err := strconv.ParseFloat(ratioStr, 64)
+				Expect(err).ToNot(HaveOccurred())
+
+				originalOverhead := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), nil)
+				actualOverheadWithHeadroom := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), pointer.String(ratioStr))
+				expectedOverheadWithHeadroom := multiplyMemory(originalOverhead, ratio)
+
+				const errFmt = "overhead without headroom: %s, ratio: %s, actual overhead with headroom: %s, expected overhead with headroom: %s"
+				Expect(newVmi()).To(Equal(vmi), "vmi object should not be changed")
+				Expect(actualOverheadWithHeadroom.Cmp(expectedOverheadWithHeadroom)).To(Equal(0),
+					fmt.Sprintf(errFmt, originalOverhead.String(), ratioStr, actualOverheadWithHeadroom.String(), expectedOverheadWithHeadroom.String()))
+			},
+				table.Entry("2.332", "2.332"),
+				table.Entry("1.234", "1.234"),
+				table.Entry("1.0", "1.0"),
+			)
+
+		})
+
 	})
 
 	Describe("ServiceAccountName", func() {
