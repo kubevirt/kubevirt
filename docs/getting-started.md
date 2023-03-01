@@ -33,11 +33,10 @@ kubectl create -f _out/manifests/release/kubevirt-cr.yaml
 The Bazel build system does not support the macOS keychain. Docker uses `osxkeychain`, which is the default [credential helper](https://github.com/docker/docker-credential-helpers) 
 for mac.
 
-We need to modify the `$HOME/.docker/config.json` file to include 
+Modify the `$HOME/.docker/config.json` file to include the following snippet:
 
 ```json
 {
-  ...
 	"credHelpers": {
 		"https://index.docker.io/v1/": ""
 	}
