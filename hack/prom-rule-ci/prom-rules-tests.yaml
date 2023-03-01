@@ -588,10 +588,10 @@ tests:
   - series: 'kubevirt_hco_system_health_status'
     # time:  0     1     2     3     4     5     6     7     8     9     10     11
     values: "0     0     0     0     1     1     1     1     2     2      2      2"
-  - series: 'ALERTS{kubernetes_operator_component="kubevirt", alertstate="firing", operator_health_impact="warning"}'
+  - series: 'ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="warning"}'
     # time:  0     1     2     3     4     5     6     7     8     9     10     11
     values: "1     1   stale stale   1     1   stale stale   1     1    stale  stale"
-  - series: 'ALERTS{kubernetes_operator_component="kubevirt", alertstate="firing", operator_health_impact="critical"}'
+  - series: 'ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="critical"}'
     # time:  0     1     2     3     4     5     6     7     8     9     10     11
     values: "1   stale   1   stale   1   stale   1   stale   1   stale    1    stale"
   promql_expr_test:
