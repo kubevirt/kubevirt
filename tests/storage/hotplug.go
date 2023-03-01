@@ -1354,10 +1354,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[Serial]1 to 1 cpu and mem ratio", float64(1), float64(1)),
-			Entry("[Serial]1 to 1 mem ratio, 4 to 1 cpu ratio", float64(1), float64(4)),
-			Entry("[Serial]2 to 1 mem ratio, 4 to 1 cpu ratio", float64(2), float64(4)),
-			Entry("[Serial]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", float64(2.25), float64(5.75)),
+			Entry("[Serial]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
+			Entry("[Serial]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
+			Entry("[Serial]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
+			Entry("[Serial]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
 		)
 	})
 
