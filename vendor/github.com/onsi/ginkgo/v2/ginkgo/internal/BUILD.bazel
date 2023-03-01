@@ -8,6 +8,7 @@ go_library(
         "run.go",
         "test_suite.go",
         "utils.go",
+        "verify_version.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/v2/ginkgo/internal",
     importpath = "github.com/onsi/ginkgo/v2/ginkgo/internal",

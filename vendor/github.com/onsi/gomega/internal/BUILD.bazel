@@ -7,9 +7,14 @@ go_library(
         "async_assertion.go",
         "duration_bundle.go",
         "gomega.go",
+        "polling_signal_error.go",
+        "vetoptdesc.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/gomega/internal",
     importpath = "github.com/onsi/gomega/internal",
     visibility = ["//vendor/github.com/onsi/gomega:__subpackages__"],
-    deps = ["//vendor/github.com/onsi/gomega/types:go_default_library"],
+    deps = [
+        "//vendor/github.com/onsi/gomega/format:go_default_library",
+        "//vendor/github.com/onsi/gomega/types:go_default_library",
+    ],
 )
