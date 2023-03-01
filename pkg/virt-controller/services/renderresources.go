@@ -3,7 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
+
+	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -268,8 +271,9 @@ func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 // The return value is overhead memory quantity
 //
 // Note: This is the best estimation we were able to come up with
-//       and is still not 100% accurate
-func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
+//
+//	and is still not 100% accurate
+func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) *resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
@@ -355,6 +359,18 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 	// In `ps`, swtpm has VSZ of 53808 and RSS of 3496, so 53Mi should do
 	if vmi.Spec.Domain.Devices.TPM != nil {
 		overhead.Add(resource.MustParse("53Mi"))
+	}
+
+	// Multiplying the ratio is expected to be the last calculation before returning overhead
+	if additionalOverheadRatio != nil {
+		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
+		if err != nil {
+			// This error should never happen as it's already validated by webhooks
+			log.Log.Warningf("cannot add additional overhead to virt infra overhead calculation: %v", err)
+			return overhead
+		}
+
+		overhead = multiplyMemory(*overhead, ratio)
 	}
 
 	return overhead
@@ -537,4 +553,12 @@ func hotplugContainerMinimalLimits() k8sv1.ResourceList {
 		k8sv1.ResourceCPU:    resource.MustParse("100m"),
 		k8sv1.ResourceMemory: resource.MustParse("80M"),
 	}
+}
+
+func multiplyMemory(mem resource.Quantity, multiplication float64) *resource.Quantity {
+	overheadAddition := float64(mem.ScaledValue(resource.Kilo)) * (multiplication - 1.0)
+	additionalOverhead := resource.NewScaledQuantity(int64(overheadAddition), resource.Kilo)
+
+	mem.Add(*additionalOverhead)
+	return &mem
 }
