@@ -769,3 +769,82 @@ tests:
       - eval_time: 30h
         alertname: KubeVirtVMIExcessiveMigrations
         exp_alerts: []
+
+  # No nodes are available to host VMs
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_labels{node="node01",label_kubevirt_io_schedulable="true"}'
+        values: "_ _ _ _ _ _ _ 1+0x15"
+      - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
+        values: "1000+0x15 0+0x7"
+      - series: 'kubevirt_configuration_emulation_enabled'
+        values: "0+0x22"
+
+    alert_rule_test:
+      # has kvm allocatable but no schedulable label
+      - eval_time: 6m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts:
+          - exp_annotations:
+              summary: "There are no available nodes in the cluster to run VMs."
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_component: "kubevirt"
+              kubernetes_operator_part_of: "kubevirt"
+              operator_health_impact: "critical"
+
+      # has kvm allocatable and schedulable label
+      - eval_time: 7m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts: []
+
+      # has schedulable label but no kvm allocatable nor emulation enabled
+      - eval_time: 21m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts:
+          - exp_annotations:
+              summary: "There are no available nodes in the cluster to run VMs."
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_component: "kubevirt"
+              kubernetes_operator_part_of: "kubevirt"
+              operator_health_impact: "critical"
+
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_labels{node="node01",label_kubevirt_io_schedulable="true"}'
+        values: "0+0x7 1+0x14"
+      - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
+        values: "0+0x21"
+      - series: 'kubevirt_configuration_emulation_enabled'
+        values: "0+0x7 1+0x7 0+0x7"
+
+    alert_rule_test:
+      # no schedulable label
+      - eval_time: 6m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts:
+          - exp_annotations:
+              summary: "There are no available nodes in the cluster to run VMs."
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_component: "kubevirt"
+              kubernetes_operator_part_of: "kubevirt"
+              operator_health_impact: "critical"
+
+      # has schedulable label and emulation enabled
+      - eval_time: 8m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts: []
+
+      # has schedulable label, but no kvm allocatable and no emulation enabled
+      - eval_time: 21m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts:
+          - exp_annotations:
+              summary: "There are no available nodes in the cluster to run VMs."
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_component: "kubevirt"
+              kubernetes_operator_part_of: "kubevirt"
+              operator_health_impact: "critical"

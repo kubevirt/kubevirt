@@ -11,6 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/doc-generator",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/monitoring/configuration:go_default_library",
         "//pkg/monitoring/domainstats/prometheus:go_default_library",
         "//pkg/monitoring/migrationstats:go_default_library",
         "//pkg/monitoring/vmstats:go_default_library",

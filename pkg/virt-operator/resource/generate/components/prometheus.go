@@ -525,10 +525,24 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 							operatorHealthImpactLabelKey: "none",
 						},
 					},
+					{
+						Alert: "KubeVirtNoAvailableNodesToRunVMs",
+						Expr:  intstr.FromString("((sum(kube_node_status_allocatable{resource='devices_kubevirt_io_kvm'}) or on() vector(0)) == 0 and (sum(kubevirt_configuration_emulation_enabled) or on() vector(0)) == 0) or (sum(kube_node_labels{label_kubevirt_io_schedulable='true'}) or on() vector(0)) == 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "There are no available nodes in the cluster to run VMs.",
+						},
+						Labels: map[string]string{
+							severityAlertLabelKey:        "warning",
+							operatorHealthImpactLabelKey: "critical",
+						},
+					},
 				},
 			},
 		},
 	}
+
+	// ((sum(kube_node_status_allocatable{resource='devices_kubevirt_io_kvm'}) or on() vector(0)) == 0 and (sum(kubevirt_configuration_emulation_enabled) or on() vector(0)) == 0) or (sum(kube_node_labels{label_kubevirt_io_schedulable='true'}) or on() vector(0)) == 0
 
 	if workloadUpdatesEnabled {
 		ruleSpec.Groups[0].Rules = append(ruleSpec.Groups[0].Rules, v1.Rule{
