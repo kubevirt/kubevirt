@@ -23,6 +23,7 @@ import (
 	"context"
 
 	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -166,6 +167,17 @@ func SetDataVolumePVCStorageClass(dv *v1beta1.DataVolume, storageClass string) {
 
 func SetDataVolumePVCSize(dv *v1beta1.DataVolume, size string) {
 	dv.Spec.PVC.Resources.Requests[v1.ResourceStorage] = resource.MustParse(size)
+}
+
+func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
+	cdiList, err := virtCli.CdiClient().CdiV1beta1().CDIs().List(context.Background(), v12.ListOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(cdiList.Items).To(gomega.HaveLen(1))
+
+	cdi := &cdiList.Items[0]
+	cdi, err = virtCli.CdiClient().CdiV1beta1().CDIs().Get(context.TODO(), cdi.Name, v12.GetOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return cdi
 }
 
 func HasDataVolumeCRD() bool {
