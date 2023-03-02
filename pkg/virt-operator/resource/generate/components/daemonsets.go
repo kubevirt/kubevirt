@@ -293,7 +293,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("300Mi"),
+			corev1.ResourceMemory: resource.MustParse("325Mi"),
 		},
 	}
 
