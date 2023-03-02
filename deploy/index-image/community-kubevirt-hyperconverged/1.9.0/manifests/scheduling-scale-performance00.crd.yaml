@@ -38,6 +38,24 @@ spec:
           spec:
             description: SSPSpec defines the desired state of SSP
             properties:
+              commonInstancetypes:
+                description: CommonInstancetypes is the configuration of the common-instancetypes
+                  operand
+                properties:
+                  url:
+                    description: "URL of a remote Kustomize target from which to generate
+                      and deploy resources. \n The following caveats apply to the
+                      provided URL: \n * Only 'https://' and 'git://' URLs are supported.
+                      \n * The URL must include '?ref=$ref' or '?version=$ref' pinning
+                      it to a specific reference. It is recommended that the reference
+                      be a specific commit or tag to ensure the generated contents
+                      does not change over time. As such it is recommended not to
+                      use branches as the ref for the time being. \n * Only VirtualMachineClusterPreference
+                      and VirtualMachineClusterInstancetype resources generated from
+                      the URL are deployed by the operand. \n See the following Kustomize
+                      documentation for more details: \n remote targets https://github.com/kubernetes-sigs/kustomize/blob/master/examples/remoteBuild.md"
+                    type: string
+                type: object
               commonTemplates:
                 description: CommonTemplates is the configuration of the common templates
                   operand

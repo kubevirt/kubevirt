@@ -53,19 +53,44 @@ type NodeLabeller struct {
 	Placement *lifecycleapi.NodePlacement `json:"placement,omitempty"`
 }
 
+type CommonInstancetypes struct {
+	// URL of a remote Kustomize target from which to generate and deploy resources.
+	//
+	// The following caveats apply to the provided URL:
+	//
+	// * Only 'https://' and 'git://' URLs are supported.
+	//
+	// * The URL must include '?ref=$ref' or '?version=$ref' pinning it to a specific
+	//   reference. It is recommended that the reference be a specific commit or tag
+	//   to ensure the generated contents does not change over time. As such it is
+	//   recommended not to use branches as the ref for the time being.
+	//
+	// * Only VirtualMachineClusterPreference and VirtualMachineClusterInstancetype
+	//   resources generated from the URL are deployed by the operand.
+	//
+	// See the following Kustomize documentation for more details:
+	//
+	// remote targets
+	// https://github.com/kubernetes-sigs/kustomize/blob/master/examples/remoteBuild.md
+	URL *string `json:"url,omitempty"`
+}
+
 // SSPSpec defines the desired state of SSP
 type SSPSpec struct {
 	// TemplateValidator is configuration of the template validator operand
-	TemplateValidator TemplateValidator `json:"templateValidator,omitempty"`
+	TemplateValidator *TemplateValidator `json:"templateValidator,omitempty"`
 
 	// CommonTemplates is the configuration of the common templates operand
 	CommonTemplates CommonTemplates `json:"commonTemplates"`
 
 	// NodeLabeller is configuration of the node-labeller operand
-	NodeLabeller NodeLabeller `json:"nodeLabeller,omitempty"`
+	NodeLabeller *NodeLabeller `json:"nodeLabeller,omitempty"`
 
 	// TLSSecurityProfile is a configuration for the TLS.
 	TLSSecurityProfile *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
+
+	// CommonInstancetypes is the configuration of the common-instancetypes operand
+	CommonInstancetypes *CommonInstancetypes `json:"commonInstancetypes,omitempty"`
 }
 
 // DataImportCronTemplate defines the template type for DataImportCrons.

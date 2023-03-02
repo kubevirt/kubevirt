@@ -1677,6 +1677,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
           - cdi.kubevirt.io
           resources:
           - dataimportcrons
@@ -1743,6 +1755,20 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - configmaps
+          - serviceaccounts
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
           - namespaces
           verbs:
           - create
@@ -1792,6 +1818,38 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineclusterinstancetypes
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineclusterpreferences
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstances
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - kubevirt.io
@@ -1848,6 +1906,18 @@ spec:
           - role
           - rolebinding
           - serviceaccount
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
           verbs:
           - create
           - delete
@@ -2672,7 +2742,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.85.0
                 - name: SSP_VERSION
-                  value: v0.16.2
+                  value: v0.17.0
                 - name: TTO_VERSION
                   value: v0.5.0
                 - name: HPPO_VERSION
@@ -3069,6 +3139,8 @@ spec:
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
           app.kubernetes.io/version: 1.9.0
+          control-plane: ssp-operator
+          name: ssp-operator
         name: ssp-operator
         spec:
           replicas: 1
@@ -3078,6 +3150,8 @@ spec:
           strategy: {}
           template:
             metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
               labels:
                 app.kubernetes.io/component: schedule
                 app.kubernetes.io/managed-by: olm
@@ -3095,13 +3169,13 @@ spec:
                 env:
                 - name: KVM_INFO_IMAGE
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator:v0.16.2
+                  value: quay.io/kubevirt/kubevirt-template-validator:v0.17.0
                 - name: VIRT_LAUNCHER_IMAGE
                 - name: NODE_LABELLER_IMAGE
                 - name: CPU_PLUGIN_IMAGE
                 - name: OPERATOR_VERSION
-                  value: v0.16.2
-                image: quay.io/kubevirt/ssp-operator@sha256:d94f38087856d98f847010cfa0b5f4ef80de64ef1098dd27d4998595e10fe1c1
+                  value: v0.17.0
+                image: quay.io/kubevirt/ssp-operator@sha256:e93f2b49f2189ee60e17a756942b9847cc9d09602f23bc25ab95d5fe332e0256
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -3124,7 +3198,7 @@ spec:
                   periodSeconds: 10
                 resources:
                   requests:
-                    cpu: 100m
+                    cpu: 200m
                     memory: 150Mi
                 securityContext:
                   allowPrivilegeEscalation: false
@@ -3856,7 +3930,7 @@ spec:
     name: origin-kube-rbac-proxy
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:5f7290e2294255ab2547c3b4bf48cc2d75531ec5a43e600366e9b2719bef983f
     name: ovs-cni-plugin
-  - image: quay.io/kubevirt/ssp-operator@sha256:d94f38087856d98f847010cfa0b5f4ef80de64ef1098dd27d4998595e10fe1c1
+  - image: quay.io/kubevirt/ssp-operator@sha256:e93f2b49f2189ee60e17a756942b9847cc9d09602f23bc25ab95d5fe332e0256
     name: ssp-operator
   - image: quay.io/kubevirt/tekton-tasks-operator@sha256:6c6e296d48eb5e81236443155ffecb39a44bc490d4cd6ac897d02c13908ea3ca
     name: tekton-tasks-operator
@@ -3978,7 +4052,6 @@ spec:
     webhookPath: /mutate-hco-kubevirt-io-v1beta1-hyperconverged
   - admissionReviewVersions:
     - v1
-    - v1beta1
     containerPort: 9443
     deploymentName: ssp-operator
     failurePolicy: Fail

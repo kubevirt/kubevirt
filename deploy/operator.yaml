@@ -60,7 +60,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.85.0
         - name: SSP_VERSION
-          value: v0.16.2
+          value: v0.17.0
         - name: TTO_VERSION
           value: v0.5.0
         - name: HPPO_VERSION
@@ -491,6 +491,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
       labels:
         app.kubernetes.io/component: schedule
         app.kubernetes.io/part-of: hyperconverged-cluster
@@ -507,13 +509,13 @@ spec:
         env:
         - name: KVM_INFO_IMAGE
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator:v0.16.2
+          value: quay.io/kubevirt/kubevirt-template-validator:v0.17.0
         - name: VIRT_LAUNCHER_IMAGE
         - name: NODE_LABELLER_IMAGE
         - name: CPU_PLUGIN_IMAGE
         - name: OPERATOR_VERSION
-          value: v0.16.2
-        image: quay.io/kubevirt/ssp-operator@sha256:d94f38087856d98f847010cfa0b5f4ef80de64ef1098dd27d4998595e10fe1c1
+          value: v0.17.0
+        image: quay.io/kubevirt/ssp-operator@sha256:e93f2b49f2189ee60e17a756942b9847cc9d09602f23bc25ab95d5fe332e0256
         livenessProbe:
           httpGet:
             path: /healthz
@@ -536,7 +538,7 @@ spec:
           periodSeconds: 10
         resources:
           requests:
-            cpu: 100m
+            cpu: 200m
             memory: 150Mi
         securityContext:
           allowPrivilegeEscalation: false
