@@ -1,9 +1,6 @@
 #!/bin/bash
 
-# TODO: move to the next v0.59.0 as soon as it is available
-# and remove this!!!
-#KUBEVIRT_VERSION="v0.59.0-rc.0"
-KUBEVIRT_VERSION=20230222_76facc100
+KUBEVIRT_VERSION="v0.59.0"
 CDI_VERSION="v1.56.0-rc0"
 NETWORK_ADDONS_VERSION="v0.85.0"
 SSP_VERSION="v0.17.0"
