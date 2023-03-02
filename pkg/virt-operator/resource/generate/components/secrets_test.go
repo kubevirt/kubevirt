@@ -311,7 +311,7 @@ var _ = Describe("Certificate Management", func() {
 
 // newSelfSignedCert creates a CA certificate
 func newSelfSignedCert(notBefore time.Time, notAfter time.Time) *tls.Certificate {
-	key, err := certutil.NewPrivateKey()
+	key, err := certutil.NewECDSAPrivateKey()
 	Expect(err).ToNot(HaveOccurred())
 	tmpl := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(0),
