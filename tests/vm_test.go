@@ -2365,9 +2365,9 @@ status:
 		})
 
 		AfterEach(func() {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			if controller.HasFinalizer(vm, customFinalizer) {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				var ops []string
 				oldFinalizers, err := json.Marshal(vm.GetFinalizers())
 				Expect(err).ToNot(HaveOccurred())
@@ -2381,8 +2381,10 @@ status:
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			if vm.DeletionTimestamp == nil {
+				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
 
 			By("Ensure the vm has disappeared")
 			Eventually(func() bool {
