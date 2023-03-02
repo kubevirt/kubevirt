@@ -19,6 +19,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/bootstrap:go_default_library",
+        "//pkg/clone:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/healthz:go_default_library",
@@ -97,7 +98,6 @@ go_library(
         "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/k8s.io/utils/trace:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/clone:go_default_library",
     ],
 )
 
