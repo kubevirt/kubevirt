@@ -2,7 +2,6 @@ package components
 
 import (
 	"fmt"
-	"runtime"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +11,6 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -83,30 +81,28 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	pod.ServiceAccountName = HandlerServiceAccountName
 	pod.HostPID = true
 
-	// nodelabeller currently only support x86
-	if virtconfig.IsAMD64(runtime.GOARCH) {
-		pod.InitContainers = []corev1.Container{
-			{
-				Command: []string{
-					"/bin/sh",
-					"-c",
-				},
-				Image: launcherImage,
-				Name:  "virt-launcher",
-				Args: []string{
-					"node-labeller.sh",
-				},
-				SecurityContext: &corev1.SecurityContext{
-					Privileged: boolPtr(true),
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "node-labeller",
-						MountPath: nodeLabellerVolumePath,
-					},
+	// nodelabeller currently only support x86. The arch check will be done in node-labller.sh
+	pod.InitContainers = []corev1.Container{
+		{
+			Command: []string{
+				"/bin/sh",
+				"-c",
+			},
+			Image: launcherImage,
+			Name:  "virt-launcher",
+			Args: []string{
+				"node-labeller.sh",
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: boolPtr(true),
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "node-labeller",
+					MountPath: nodeLabellerVolumePath,
 				},
 			},
-		}
+		},
 	}
 
 	// If there is any image pull secret added to the `virt-handler` deployment
