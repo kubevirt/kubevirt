@@ -684,16 +684,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 	})
 	Describe("Starting a VirtualMachineInstance ", func() {
-
-		var pvName string
-		var memoryRequestSize resource.Quantity
-
-		BeforeEach(func() {
-			memoryRequestSize = resource.MustParse(fedoraVMSize)
-			pvName = "test-nfs-" + rand.String(48)
-		})
-
-		guestAgentMigrationTestFunc := func(mode v1.MigrationMode) {
+		guestAgentMigrationTestFunc := func(mode v1.MigrationMode, pvName string, memoryRequestSize resource.Quantity) {
 			By("Creating the VMI")
 			vmi := tests.NewRandomVMIWithPVC(pvName)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
@@ -1721,7 +1712,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				pvName = dv.Name
 			}
 
 			BeforeEach(func() {
@@ -1739,14 +1729,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
-				guestAgentMigrationTestFunc(v1.MigrationPreCopy)
+				guestAgentMigrationTestFunc(v1.MigrationPreCopy, dv.Name, resource.MustParse(fedoraVMSize))
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
 				By("Creating the DV")
 				createDV(testsuite.GetTestNamespace(nil))
 				By("Creating the VMI")
-				vmi = tests.NewRandomVMIWithPVC(pvName)
+				vmi = tests.NewRandomVMIWithPVC(dv.Name)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
@@ -1795,7 +1785,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			By("waiting for the dv import to pvc to finish")
 			libstorage.EventuallyDV(dv, 180, HaveSucceeded())
 			tests.ChangeImgFilePermissionsToNonQEMU(pvc)
-			pvName = pvc.Name
 			return dv
 		}
 
@@ -1867,7 +1856,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
-					return tests.NewRandomVMIWithDataVolume(pvName)
+					return tests.NewRandomVMIWithDataVolume(dv.Name)
 				}, console.LoginToAlpine),
 
 				Entry("[test_id:8611] with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
@@ -1877,7 +1866,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
-					return tests.NewRandomVMIWithPVC(pvName)
+					return tests.NewRandomVMIWithPVC(dv.Name)
 				}, console.LoginToAlpine),
 			)
 		})
@@ -1954,7 +1943,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
-					return tests.NewRandomVMIWithDataVolume(pvName)
+					return tests.NewRandomVMIWithDataVolume(dv.Name)
 				}, console.LoginToAlpine),
 
 				Entry("with CD + CloudInit + SA + ConfigMap + Secret + DownwardAPI + Kernel Boot", func() *v1.VirtualMachineInstance {
@@ -1964,7 +1953,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Entry("with PVC", func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
-					return tests.NewRandomVMIWithPVC(pvName)
+					return tests.NewRandomVMIWithPVC(dv.Name)
 				}, console.LoginToAlpine),
 			)
 		})
@@ -2186,8 +2175,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						Skip("Skip test when Filesystem storage is not present")
 					}
 
-					memoryRequestSize = resource.MustParse("1Gi")
-
 					dv = libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
 						libdv.WithPVC(
@@ -2199,7 +2186,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					pvName = dv.Name
 				})
 
 				AfterEach(func() {
@@ -2207,14 +2193,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					guestAgentMigrationTestFunc(v1.MigrationPostCopy)
+					guestAgentMigrationTestFunc(v1.MigrationPostCopy, dv.Name, resource.MustParse("1Gi"))
 				})
 
 			})
 
 			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				vmi.Namespace = testsuite.NamespacePrivileged
 
