@@ -2528,11 +2528,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if c.needsSync(key) && syncErr == nil {
 		vmCopy := vm.DeepCopy()
 
-		if err := c.handleInterfaceRequests(vmCopy, vmi); err != nil {
-			log.Log.Object(vm).Errorf("error encountered while handling network interface hotplug request: %v", err)
-			ifaceHotplugError = &syncErrorImpl{
-				err:    fmt.Errorf("error encountered while handling volume hotplug requests: %v", err),
-				reason: HotPlugVolumeErrorReason,
+		if c.clusterConfig.HotplugNetworkInterfacesEnabled() {
+			if err := c.handleInterfaceRequests(vmCopy, vmi); err != nil {
+				log.Log.Object(vm).Errorf("error encountered while handling network interface hotplug request: %v", err)
+				ifaceHotplugError = &syncErrorImpl{
+					err:    fmt.Errorf("error encountered while handling volume hotplug requests: %v", err),
+					reason: HotPlugVolumeErrorReason,
+				}
 			}
 		}
 

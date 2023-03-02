@@ -2812,10 +2812,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.hotplugVirtioInterfaces(vmi); err != nil {
-			log.Log.Object(vmi).Error(err.Error())
-			d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
-			errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
+		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
+			if err := d.hotplugVirtioInterfaces(vmi); err != nil {
+				log.Log.Object(vmi).Error(err.Error())
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
+				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
+			}
 		}
 	}
 
