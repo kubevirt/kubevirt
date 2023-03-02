@@ -4,7 +4,7 @@ WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
 RUN make build-functest
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal
+FROM registry.access.redhat.com/ubi9/ubi-minimal
 
 ENV USER_UID=1001 \
     TEST_OUT_PATH=/test
@@ -12,7 +12,7 @@ ENV USER_UID=1001 \
 WORKDIR ${TEST_OUT_PATH}
 ENTRYPOINT ["./hack/run-tests.sh"]
 
-RUN microdnf install tar gzip which openssl diffutils && \
+RUN microdnf install -y tar gzip which openssl diffutils && \
     curl -Lo /usr/local/bin/kubectl "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/local/bin/kubectl && \
     curl -Lsv --fail https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz | tar xvzf - -C /usr/local/bin/ oc && \

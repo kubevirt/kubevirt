@@ -4,7 +4,7 @@ WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
 RUN make build-operator build-csv-merger
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal
+FROM registry.access.redhat.com/ubi9/ubi-minimal
 ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-operator \
     CSV_MERGER=/usr/local/bin/csv-merger \
     USER_UID=1001 \

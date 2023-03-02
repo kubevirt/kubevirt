@@ -4,7 +4,7 @@ WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
 RUN make build-webhook
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal
+FROM registry.access.redhat.com/ubi9/ubi-minimal
 ENV WEBHOOK=/usr/local/bin/hyperconverged-cluster-webhook \
     USER_UID=1001 \
     USER_NAME=hyperconverged-cluster-webhook \

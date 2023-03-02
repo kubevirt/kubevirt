@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/python-36
+FROM registry.access.redhat.com/ubi9/python-39
 
 RUN pip3 install operator-courier
 COPY deploy/olm-catalog/community-kubevirt-hyperconverged /manifests

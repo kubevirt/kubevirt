@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/nginx-118
+FROM registry.access.redhat.com/ubi9/nginx-120
 
 WORKDIR /opt/app-root/src
 
