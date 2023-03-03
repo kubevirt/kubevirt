@@ -310,7 +310,7 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 			return
 		}
 	}
-	vm, err := app.fetchVirtualMachine(name, namespace)
+	_, err := app.fetchVirtualMachine(name, namespace)
 	if err != nil {
 		writeError(err, response)
 		return
@@ -325,13 +325,6 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 	if vmi.Status.Phase != v1.Running {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
 		return
-	}
-
-	for _, c := range vm.Status.Conditions {
-		if c.Type == v1.VirtualMachinePaused && c.Status == v12.ConditionTrue {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is paused")), response)
-			return
-		}
 	}
 
 	createMigrationJob := func() *errors.StatusError {
