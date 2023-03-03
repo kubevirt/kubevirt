@@ -24,6 +24,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Evacuation", func() {
@@ -293,6 +295,39 @@ var _ = Describe("Evacuation", func() {
 			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+			controller.Execute()
+		})
+
+		It("Shound do nothing when active migrations exceed the configured concurrent maximum", func() {
+			const maxParallelMigrationsPerCluster uint32 = 2
+			const maxParallelMigrationsPerSourceNode uint32 = 1
+			const activeMigrations = 10
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{
+					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
+					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+				},
+			})
+
+			nodeName := "node01"
+			addNode(newNode(nodeName))
+
+			controller = evacuation.
+				NewEvacuationController(
+					vmiInformer,
+					migrationInformer,
+					nodeInformer,
+					podInformer,
+					recorder,
+					virtClient,
+					config)
+
+			for i := 1; i <= activeMigrations; i++ {
+				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
+				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
+			}
+
 			controller.Execute()
 		})
 
