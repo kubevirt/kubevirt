@@ -21,7 +21,7 @@ package export
 
 import (
 	"context"
-	"crypto/rsa"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -626,7 +626,7 @@ func (ctrl *VMExportController) createCertSecretManifest(vmExport *exportv1.Virt
 
 	caCert := ctrl.caCertManager.Current()
 	caKeyPair := &triple.KeyPair{
-		Key:  caCert.PrivateKey.(*rsa.PrivateKey),
+		Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
 		Cert: caCert.Leaf,
 	}
 	keyPair, _ := triple.NewServerKeyPair(
