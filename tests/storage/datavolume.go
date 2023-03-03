@@ -748,7 +748,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
 		Context("using Alpine import/clone", func() {
 			var dataVolume *cdiv1.DataVolume
-			var createdVirtualMachine *v1.VirtualMachine
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
 			var storageClass string
@@ -791,16 +790,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				if cloneRole != nil {
 					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.Background(), cloneRole.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
+					cloneRole = nil
 				}
 
 				if cloneRoleBinding != nil {
 					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-				}
-
-				if createdVirtualMachine != nil {
-					err := virtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(context.Background(), createdVirtualMachine.Name, &metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					cloneRoleBinding = nil
 				}
 			})
 
@@ -815,12 +811,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return true
 				}, 90*time.Second, 1*time.Second).Should(BeTrue())
 
-				createdVirtualMachine = vm
-
 				// start vm and check dv clone succeeded
-				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
+				vm = tests.StartVirtualMachine(vm)
 				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
-				libstorage.EventuallyDVWith(createdVirtualMachine.Namespace, targetDVName, 90, HaveSucceeded())
+				libstorage.EventuallyDVWith(vm.Namespace, targetDVName, 90, HaveSucceeded())
 			}
 
 			It("should resolve DataVolume sourceRef", func() {
@@ -936,7 +930,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				createVmSuccess()
 
 				// stop vm
-				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
+				vm = tests.StopVirtualMachine(vm)
 			},
 				Entry("[test_id:3193]with explicit role", explicitCloneRole, false, false),
 				Entry("[test_id:3194]with implicit role", implicitCloneRole, false, false),
