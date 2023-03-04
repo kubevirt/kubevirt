@@ -829,7 +829,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/api v0.59.0-rc.0 => kubevirt.io/api v0.59.0-alpha.2
+# kubevirt.io/api v0.59.0 => kubevirt.io/api v0.59.0-alpha.2
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -876,7 +876,7 @@ kubevirt.io/client-go/precond
 kubevirt.io/client-go/subresources
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer-api v1.56.0-rc0 => kubevirt.io/containerized-data-importer-api v1.56.0-rc0
+# kubevirt.io/containerized-data-importer-api v1.56.0 => kubevirt.io/containerized-data-importer-api v1.56.0
 ## explicit; go 1.18
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
@@ -1014,7 +1014,7 @@ sigs.k8s.io/yaml
 # go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
 # kubevirt.io/api => kubevirt.io/api v0.59.0-alpha.2
 # kubevirt.io/client-go => kubevirt.io/client-go v0.59.0-alpha.2
-# kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.56.0-rc0
+# kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.56.0
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
 # github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200804184258-4fc3a5379c7a
