@@ -1,4 +1,6 @@
 # golangci configuration
+run:
+  timeout: 20m
 
 linters-settings:
   dupl:
