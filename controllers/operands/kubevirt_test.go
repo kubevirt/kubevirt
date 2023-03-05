@@ -1372,7 +1372,7 @@ Version: 1.2.3`)
 					})
 				})
 
-				It("should add the NonRoot feature gate if it's set in HyperConverged CR", func() {
+				It("should not add the Root feature gate if NonRoot is true in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						NonRoot: pointer.Bool(true),
 					}
@@ -1381,11 +1381,11 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 					By("KV CR should contain the NonRoot feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvNonRoot))
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
 					})
 				})
 
-				It("should not add the NonRoot feature gate if it's disabled in HyperConverged CR", func() {
+				It("should add the Root feature gate if NonRoot is false in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						NonRoot: pointer.Bool(false),
 					}
@@ -1394,7 +1394,20 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 					By("KV CR should contain the NonRoot feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement("NonRoot"))
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvRoot))
+					})
+				})
+
+				It("should not add the Root feature gate if NonRoot is not set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						NonRoot: nil,
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the NonRoot feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
 					})
 				})
 
@@ -1469,7 +1482,7 @@ Version: 1.2.3`)
 					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
-					Expect(res.Updated).To(BeTrue())
+					Expect(res.Updated).To(BeFalse())
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).ToNot(HaveOccurred())
 
@@ -1500,7 +1513,7 @@ Version: 1.2.3`)
 					handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
-					Expect(res.Updated).To(BeTrue())
+					Expect(res.Updated).To(BeFalse())
 					Expect(res.Overwritten).To(BeFalse())
 					Expect(res.Err).ToNot(HaveOccurred())
 
@@ -2820,7 +2833,7 @@ Version: 1.2.3`)
 				).ToNot(HaveOccurred())
 
 				Expect(kv.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates) + 1))
+				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(HaveLen(len(mandatoryKvFeatureGates)))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElements(hardCodeKvFgs))
 				Expect(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvSRIOVGate))
 				Expect(kv.Spec.Configuration.CPURequest).To(BeNil())

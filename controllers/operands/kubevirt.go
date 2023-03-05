@@ -142,7 +142,7 @@ var (
 // KubeVirt feature gates that are exposed in HCO API
 const (
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
-	kvNonRoot                = "NonRoot"
+	kvRoot                   = "Root"
 )
 
 // CPU Plugin default values
@@ -639,8 +639,8 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 		fgs = append(fgs, kvWithHostPassthroughCPU)
 	}
 
-	if featureGates.NonRoot != nil && *featureGates.NonRoot {
-		fgs = append(fgs, kvNonRoot)
+	if featureGates.NonRoot != nil && !*featureGates.NonRoot {
+		fgs = append(fgs, kvRoot)
 	}
 
 	return fgs

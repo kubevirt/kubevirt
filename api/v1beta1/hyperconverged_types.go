@@ -321,6 +321,9 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	DeployKubeSecondaryDNS *bool `json:"deployKubeSecondaryDNS,omitempty"`
 
+	// TODO: deprecate NonRoot and introduce Root FG with opposite semantic
+	// and a proper conversion logic
+
 	// Enables rootless virt-launcher.
 	// +optional
 	// +kubebuilder:default=true
