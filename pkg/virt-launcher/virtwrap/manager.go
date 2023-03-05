@@ -298,7 +298,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 					case libvirt.ERR_AGENT_UNRESPONSIVE:
 						const unresponsive = "failed to set time: QEMU agent unresponsive"
 						latestErr = fmt.Errorf("%s, %s", unresponsive, err)
-						log.Log.Object(vmi).Reason(err).V(9).Warning(unresponsive)
+						log.Log.Object(vmi).Reason(err).V(9).Info(unresponsive)
 					case libvirt.ERR_OPERATION_UNSUPPORTED:
 						// no need to retry as this opertaion is not supported
 						log.Log.Object(vmi).Reason(err).Warning("failed to set time: not supported")
@@ -309,7 +309,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 						return
 					default:
 						latestErr = fmt.Errorf("%s, %s", failedSyncGuestTime, err)
-						log.Log.Object(vmi).Reason(err).V(9).Warning(failedSyncGuestTime)
+						log.Log.Object(vmi).Reason(err).V(9).Info(failedSyncGuestTime)
 					}
 				} else {
 					latestErr = nil
