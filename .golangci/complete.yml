@@ -1,0 +1,16 @@
+# golangci configuration
+run:
+  timeout: 10m
+  skip-dirs:
+    - vendor
+
+linters-settings:
+  forbidigo:
+    forbid:
+      - Log.*\.V(.*).*Error[f]?(.*)
+      - Log.*\.V(.*).*Warning[f]?(.*)
+
+linters:
+  disable-all: true
+  enable:
+    - forbidigo

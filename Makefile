@@ -200,6 +200,10 @@ fmt: format
 lint:
 	if [ $$(wc -l < tests/utils.go) -gt 2813 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 
+	# CGO_ENABLED=0 is needed to avoid typecheck isseus with cmd/container-disk-v2alpha/main.c
+	# The error is on pre-processing whereas skip-files and skip-dirs are post-processing
+	hack/dockerized "CGO_ENABLED=0 golangci-lint run --verbose --config .golangci/complete.yml ./..."
+
 	hack/dockerized "golangci-lint run --verbose --config .golangci/partial.yml \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
