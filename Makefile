@@ -200,7 +200,7 @@ fmt: format
 lint:
 	if [ $$(wc -l < tests/utils.go) -gt 2813 ]; then echo >&2 "do not make tests/utils longer"; exit 1; fi
 
-	hack/dockerized "golangci-lint run --timeout 20m --verbose \
+	hack/dockerized "golangci-lint run --timeout 20m --verbose --config .golangci/partial.yml \
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
 	  pkg/network/sriov/... \
