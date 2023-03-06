@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	securityv1 "github.com/openshift/api/security/v1"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -249,6 +251,28 @@ func CleanNamespaces() {
 	}
 }
 
+// waitForNamespaceSCCAnnotations waits up to 30s for the cluster-policy-controller to add the SCC related
+// annotations to the provided namespace.
+func waitForNamespaceSCCAnnotations(c kubecli.KubevirtClient, nsName string) {
+	EventuallyWithOffset(1, func() error {
+		ns, err := c.CoreV1().Namespaces().Get(context.Background(), nsName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if ns.Annotations == nil {
+			return fmt.Errorf("namespace %q annotaions are nil", nsName)
+		}
+		for k := range ns.Annotations {
+			// annotations to check based off of
+			// https://github.com/openshift/cluster-policy-controller/blob/master/pkg/security/controller/namespace_scc_allocation_controller.go#L141
+			if k == securityv1.UIDRangeAnnotation {
+				return nil
+			}
+		}
+		return fmt.Errorf("namespace %q does not have SCC annotaions", nsName)
+	}, 250*time.Millisecond, 30*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("namespace %q should eventually have SCC annotations %q", nsName, securityv1.UIDRangeAnnotation))
+}
+
 func removeNamespaces() {
 	virtCli := kubevirt.Client()
 
@@ -340,6 +364,9 @@ func createNamespaces() {
 		_, err := virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 		if err != nil {
 			util.PanicOnError(err)
+		}
+		if checks.IsOpenShift() {
+			waitForNamespaceSCCAnnotations(virtCli, ns.Name)
 		}
 	}
 }
