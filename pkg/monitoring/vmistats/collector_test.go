@@ -198,6 +198,7 @@ var _ = Describe("Utility functions", func() {
 				Workload:     "server",
 				Flavor:       "tiny",
 				InstanceType: "<none>",
+				Preference:   "<none>",
 			}
 			pending := vmiCountMetric{
 				Phase:        "pending",
@@ -205,6 +206,7 @@ var _ = Describe("Utility functions", func() {
 				Workload:     "workstation",
 				Flavor:       "large",
 				InstanceType: "<none>",
+				Preference:   "<none>",
 			}
 			scheduling := vmiCountMetric{
 				Phase:        "scheduling",
@@ -212,6 +214,7 @@ var _ = Describe("Utility functions", func() {
 				Workload:     "server",
 				Flavor:       "medium",
 				InstanceType: "<none>",
+				Preference:   "<none>",
 			}
 			bogus := vmiCountMetric{
 				Phase: "bogus",
@@ -249,6 +252,33 @@ var _ = Describe("Utility functions", func() {
 					},
 				},
 			},
+			preferences: []*instancetypev1alpha2.VirtualMachinePreference{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "p-managed",
+						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "p-unmanaged",
+						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "XPTO"},
+					},
+				},
+			},
+			clusterPreferences: []*instancetypev1alpha2.VirtualMachineClusterPreference{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "cp-managed",
+						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cp-unmanaged",
+					},
+				},
+			},
 		}
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey string, instanceType string, expected string) {
@@ -277,10 +307,42 @@ var _ = Describe("Utility functions", func() {
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
 			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
-			Entry("with custom instance type expect <other>", k6tv1.InstancetypeAnnotation, "i-custom", "<other>"),
+			Entry("with custom instance type expect <other>", k6tv1.InstancetypeAnnotation, "i-unmanaged", "<other>"),
 			Entry("with no cluster instance type expect <none>", k6tv1.ClusterInstancetypeAnnotation, "", "<none>"),
 			Entry("with managed cluster instance type expect its name", k6tv1.ClusterInstancetypeAnnotation, "ci-managed", "ci-managed"),
-			Entry("with custom cluster instance type expect <other>", k6tv1.ClusterInstancetypeAnnotation, "ci-custom", "<other>"),
+			Entry("with custom cluster instance type expect <other>", k6tv1.ClusterInstancetypeAnnotation, "ci-unmanaged", "<other>"),
+		)
+
+		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey string, preference string, expected string) {
+			annotations := map[string]string{}
+			if preference != "" {
+				annotations[preferenceAnnotationKey] = preference
+			}
+
+			vmis := []*k6tv1.VirtualMachineInstance{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "running",
+						Annotations: annotations,
+					},
+				},
+			}
+
+			countMap := makeVMICountMetricMap(vmis, instanceTypes)
+			Expect(countMap).NotTo(BeNil())
+			Expect(countMap).To(HaveLen(1))
+
+			for metric, count := range countMap {
+				Expect(metric.Preference).To(Equal(expected))
+				Expect(count).To(Equal(uint64(1)))
+			}
+		},
+			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
+			Entry("with managed preference expect its name", k6tv1.PreferenceAnnotation, "p-managed", "p-managed"),
+			Entry("with custom preference expect <other>", k6tv1.PreferenceAnnotation, "p-unmanaged", "<other>"),
+			Entry("with no cluster preference expect <none>", k6tv1.ClusterPreferenceAnnotation, "", "<none>"),
+			Entry("with managed cluster preference expect its name", k6tv1.ClusterPreferenceAnnotation, "cp-managed", "cp-managed"),
+			Entry("with custom cluster preference expect <other>", k6tv1.ClusterPreferenceAnnotation, "cp-unmanaged", "<other>"),
 		)
 	})
 })
