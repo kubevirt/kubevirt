@@ -284,24 +284,6 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	return fmt.Sprintf("%ds", timeout)
 }
 
-func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.SeccompProfile) *k8sv1.PodSecurityContext {
-	psc := &k8sv1.PodSecurityContext{}
-
-	if util.IsNonRootVMI(vmi) {
-		nonRootUser := int64(util.NonRootUID)
-		psc.RunAsUser = &nonRootUser
-		psc.RunAsGroup = &nonRootUser
-		psc.RunAsNonRoot = pointer.Bool(true)
-		psc.FSGroup = &nonRootUser
-	} else {
-		rootUser := int64(util.RootUser)
-		psc.RunAsUser = &rootUser
-	}
-	psc.SeccompProfile = seccomp
-
-	return psc
-}
-
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -511,6 +493,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 
 	}
+	securityContext := &k8sv1.PodSecurityContext{
+		SeccompProfile: podSeccompProfile,
+	}
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -523,7 +508,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		Spec: k8sv1.PodSpec{
 			Hostname:                      hostName,
 			Subdomain:                     vmi.Spec.Subdomain,
-			SecurityContext:               computePodSecurityContext(vmi, podSeccompProfile),
+			SecurityContext:               securityContext,
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,

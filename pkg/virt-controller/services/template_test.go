@@ -3666,19 +3666,12 @@ var _ = Describe("Template", func() {
 		},
 			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
 				return api.NewMinimalVMI("fake-vmi")
-			}, &kubev1.PodSecurityContext{
-				RunAsUser: new(int64),
-			}),
+			}, &kubev1.PodSecurityContext{}),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				return vmi
-			}, &kubev1.PodSecurityContext{
-				RunAsUser:    &nonRootUser,
-				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.Bool(true),
-				FSGroup:      &nonRootUser,
-			}),
+			}, &kubev1.PodSecurityContext{}),
 			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
 				vmi := api.NewMinimalVMI("fake-vmi")
@@ -3690,10 +3683,6 @@ var _ = Describe("Template", func() {
 				}}
 				return vmi
 			}, &kubev1.PodSecurityContext{
-				RunAsUser:    &nonRootUser,
-				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.Bool(true),
-				FSGroup:      &nonRootUser,
 				SELinuxOptions: &kubev1.SELinuxOptions{
 					Type: "virt_launcher.process",
 				},
@@ -3706,12 +3695,7 @@ var _ = Describe("Template", func() {
 					Virtiofs: &v1.FilesystemVirtiofs{},
 				}}
 				return vmi
-			}, &kubev1.PodSecurityContext{
-				RunAsUser:    &nonRootUser,
-				RunAsGroup:   &nonRootUser,
-				RunAsNonRoot: pointer.Bool(true),
-				FSGroup:      &nonRootUser,
-			}),
+			}, &kubev1.PodSecurityContext{}),
 		)
 
 		It("should compute the correct security context when rendering hotplug attachment pods", func() {
