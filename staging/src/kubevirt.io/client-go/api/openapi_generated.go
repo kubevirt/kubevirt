@@ -14767,6 +14767,13 @@ func schema_kubevirtio_api_core_v1_CPU(ref common.ReferenceCallback) common.Open
 							Format:      "int64",
 						},
 					},
+					"maxSockets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxSockets",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"threads": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Threads specifies the number of threads inside the vmi. Must be a value greater or equal 1.",
