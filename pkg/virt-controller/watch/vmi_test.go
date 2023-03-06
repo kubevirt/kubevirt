@@ -1009,7 +1009,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		DescribeTable("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason sync errors",
+		DescribeTable("should never proceed to creating the launcher pod if not all PVCs are there to determine if they are WFFC and/or an import is done",
 			func(syncReason string, volumeSource virtv1.VolumeSource) {
 
 				expectConditions := func(vmi *virtv1.VirtualMachineInstance) {

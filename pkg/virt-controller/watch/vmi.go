@@ -1131,7 +1131,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
 		if !dataVolumesReady {
-			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates or while we wait for PVCs to appear.")
 			return nil
 		}
 		var templatePod *k8sv1.Pod
@@ -1228,12 +1228,14 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
 			volumeReady, volumeWffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes, c.dataVolumeInformer, c.pvcInformer)
 			if err != nil {
-				// Keep existing behavior of missing PVC = ready. This in turn triggers template render, which sets conditions and events, and fails appropriately
 				if _, ok := err.(storagetypes.PvcNotFoundError); ok {
-					continue
+					// due to the eventually consistent nature of controllers, CDI or users may need some time to actually crate the PVC.
+					// We wait for them to appear.
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "PVC %s/%s does not exist, waiting for it to appear", vmi.Namespace, storagetypes.PVCNameFromVirtVolume(&volume))
+					return false, false, &syncErrorImpl{err: fmt.Errorf("PVC %s/%s does not exist, waiting for it to appear", vmi.Namespace, storagetypes.PVCNameFromVirtVolume(&volume)), reason: FailedPvcNotFoundReason}
 				} else {
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "Error determining if volume is ready: %v", err)
-					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if volume is ready %v", err), FailedDataVolumeImportReason}
+					return false, false, &syncErrorImpl{err: fmt.Errorf("Error determining if volume is ready %v", err), reason: FailedDataVolumeImportReason}
 				}
 			}
 			wffc = wffc || volumeWffc

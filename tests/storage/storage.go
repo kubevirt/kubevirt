@@ -1168,7 +1168,7 @@ var _ = SIGDescribe("Storage", func() {
 									WithTransform(getType, Equal(string(k8sv1.PodScheduled))),
 									WithTransform(getReason, Equal(k8sv1.PodReasonUnschedulable)),
 									WithTransform(getStatus, Equal(k8sv1.ConditionFalse)),
-									WithTransform(getMessage, Equal(fmt.Sprintf("failed to render launch manifest: didn't find PVC %v", pvcName))),
+									WithTransform(getMessage, Equal(fmt.Sprintf("PVC %v/%v does not exist, waiting for it to appear", vmi.Namespace, pvcName))),
 								),
 							),
 						)
