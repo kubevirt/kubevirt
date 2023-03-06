@@ -28,14 +28,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	k6tv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const none = "<none>"
+const (
+	none  = "<none>"
+	other = "<other>"
+)
 
 var (
 
@@ -47,7 +51,7 @@ var (
 		"kubevirt_vmi_phase_count",
 		"VMI phase.",
 		[]string{
-			"node", "phase", "os", "workload", "flavor",
+			"node", "phase", "os", "workload", "flavor", "instance_type",
 		},
 		nil,
 	)
@@ -60,19 +64,33 @@ var (
 		},
 		nil,
 	)
+
+	instancetypeVendorLabel        = "instancetype.kubevirt.io/vendor"
+	whitelistedInstanceTypeVendors = map[string]bool{
+		"kubevirt.io": true,
+		"redhat.com":  true,
+	}
 )
 
 type vmiCountMetric struct {
-	Phase    string
-	OS       string
-	Workload string
-	Flavor   string
-	NodeName string
+	Phase        string
+	OS           string
+	Workload     string
+	Flavor       string
+	InstanceType string
+	NodeName     string
 }
 
 type VMICollector struct {
-	vmiInformer   cache.SharedIndexInformer
-	clusterConfig *virtconfig.ClusterConfig
+	vmiInformer                 cache.SharedIndexInformer
+	clusterInstanceTypeInformer cache.SharedIndexInformer
+	instanceTypeInformer        cache.SharedIndexInformer
+	clusterConfig               *virtconfig.ClusterConfig
+}
+
+type vmisInstanceTypes struct {
+	clusterInstanceTypes []*instancetypev1alpha2.VirtualMachineClusterInstancetype
+	instanceTypes        []*instancetypev1alpha2.VirtualMachineInstancetype
 }
 
 func (co *VMICollector) Describe(_ chan<- *prometheus.Desc) {
@@ -80,11 +98,13 @@ func (co *VMICollector) Describe(_ chan<- *prometheus.Desc) {
 }
 
 // does VMI informer stuff
-func SetupVMICollector(vmiInformer cache.SharedIndexInformer, clusterConfig *virtconfig.ClusterConfig) {
+func SetupVMICollector(vmiInformer cache.SharedIndexInformer, clusterInstanceTypeInformer cache.SharedIndexInformer, instanceTypeInformer cache.SharedIndexInformer, clusterConfig *virtconfig.ClusterConfig) {
 	log.Log.Infof("Starting vmi collector")
 	co := &VMICollector{
-		vmiInformer:   vmiInformer,
-		clusterConfig: clusterConfig,
+		vmiInformer:                 vmiInformer,
+		clusterInstanceTypeInformer: clusterInstanceTypeInformer,
+		instanceTypeInformer:        instanceTypeInformer,
+		clusterConfig:               clusterConfig,
 	}
 
 	prometheus.MustRegister(co)
@@ -104,12 +124,31 @@ func (co *VMICollector) Collect(ch chan<- prometheus.Metric) {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	updateVMIsPhase(vmis, ch)
+	updateVMIsPhase(vmis, co.buildVmisInstanceTypes(), ch)
 	co.updateVMIMetrics(vmis, ch)
 	return
 }
 
-func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) {
+func (co *VMICollector) buildVmisInstanceTypes() *vmisInstanceTypes {
+	cachedInstanceTypes := co.instanceTypeInformer.GetIndexer().List()
+	instanceTypes := make([]*instancetypev1alpha2.VirtualMachineInstancetype, len(cachedInstanceTypes))
+	for i, obj := range cachedInstanceTypes {
+		instanceTypes[i] = obj.(*instancetypev1alpha2.VirtualMachineInstancetype)
+	}
+
+	cachedClusterInstanceTypes := co.clusterInstanceTypeInformer.GetIndexer().List()
+	clusterInstanceTypes := make([]*instancetypev1alpha2.VirtualMachineClusterInstancetype, len(cachedClusterInstanceTypes))
+	for i, obj := range cachedClusterInstanceTypes {
+		clusterInstanceTypes[i] = obj.(*instancetypev1alpha2.VirtualMachineClusterInstancetype)
+	}
+
+	return &vmisInstanceTypes{
+		clusterInstanceTypes: clusterInstanceTypes,
+		instanceTypes:        instanceTypes,
+	}
+}
+
+func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string, instanceTypes *vmisInstanceTypes) {
 	if val, ok := annotations[annotationPrefix+"os"]; ok {
 		vmc.OS = val
 	}
@@ -121,40 +160,72 @@ func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string) 
 	if val, ok := annotations[annotationPrefix+"flavor"]; ok {
 		vmc.Flavor = val
 	}
+
+	if val, ok := annotations[k6tv1.InstancetypeAnnotation]; ok {
+		vmc.InstanceType = other
+
+		for _, it := range instanceTypes.instanceTypes {
+			if it.Name == val {
+				vendor := it.Labels[instancetypeVendorLabel]
+				if _, isWhitelisted := whitelistedInstanceTypeVendors[vendor]; isWhitelisted {
+					vmc.InstanceType = val
+					break
+				}
+			}
+		}
+	}
+
+	if val, ok := annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+		vmc.InstanceType = other
+
+		for _, it := range instanceTypes.clusterInstanceTypes {
+			if it.Name == val {
+				vendor := it.Labels[instancetypeVendorLabel]
+				if _, isWhitelisted := whitelistedInstanceTypeVendors[vendor]; isWhitelisted {
+					vmc.InstanceType = val
+					break
+				}
+			}
+		}
+	}
 }
 
-func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
+func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance, instanceTypes *vmisInstanceTypes) vmiCountMetric {
 	vmc := vmiCountMetric{
-		Phase:    strings.ToLower(string(vmi.Status.Phase)),
-		OS:       none,
-		Workload: none,
-		Flavor:   none,
-		NodeName: vmi.Status.NodeName,
+		Phase:        strings.ToLower(string(vmi.Status.Phase)),
+		OS:           none,
+		Workload:     none,
+		Flavor:       none,
+		InstanceType: none,
+		NodeName:     vmi.Status.NodeName,
 	}
-	vmc.UpdateFromAnnotations(vmi.Annotations)
+	vmc.UpdateFromAnnotations(vmi.Annotations, instanceTypes)
 	return vmc
 }
 
-func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
+func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance, instanceTypes *vmisInstanceTypes) map[vmiCountMetric]uint64 {
 	countMap := make(map[vmiCountMetric]uint64)
 
 	for _, vmi := range vmis {
-		vmc := newVMICountMetric(vmi)
+		vmc := newVMICountMetric(vmi, instanceTypes)
 		countMap[vmc]++
 	}
 	return countMap
 }
 
-func updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	countMap := makeVMICountMetricMap(vmis)
+func updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, instanceTypes *vmisInstanceTypes, ch chan<- prometheus.Metric) {
+	log.Log.V(1).Infof("Updating VMIs phase metrics")
+	countMap := makeVMICountMetricMap(vmis, instanceTypes)
+	log.Log.V(1).Infof("phase %+v", countMap)
 
 	for vmc, count := range countMap {
 		mv, err := prometheus.NewConstMetric(
 			vmiCountDesc, prometheus.GaugeValue,
 			float64(count),
-			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor,
+			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType,
 		)
 		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to create metric for VMIs phase")
 			continue
 		}
 		ch <- mv
