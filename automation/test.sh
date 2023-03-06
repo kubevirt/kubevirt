@@ -418,9 +418,8 @@ else
   add_to_label_filter '(!verify-non-root)' '&&'
 fi
 
-if [[ $TARGET =~ centos9 ]]; then
-  add_to_label_filter '(!CustomSELinux)' '&&'
-fi
+# No lane currently supports loading a custom policy
+add_to_label_filter '(!CustomSELinux)' '&&'
 
 # Single-node single-replica test lanes obviously can't run live migrations,
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
