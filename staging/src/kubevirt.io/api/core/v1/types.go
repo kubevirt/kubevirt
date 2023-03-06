@@ -905,6 +905,9 @@ const (
 	// AllowPodBridgeNetworkLiveMigrationAnnotation allow to run live migration when the
 	// vm has the pod networking bind with a bridge
 	AllowPodBridgeNetworkLiveMigrationAnnotation string = "kubevirt.io/allow-pod-bridge-network-live-migration"
+
+	// VirtualMachineGenerationAnnotation is the generation of a Virtual Machine.
+	VirtualMachineGenerationAnnotation string = "kubevirt.io/vm-generation"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1454,6 +1457,18 @@ type VirtualMachineStatus struct {
 	// +nullable
 	// +optional
 	MemoryDumpRequest *VirtualMachineMemoryDumpRequest `json:"memoryDumpRequest,omitempty" optional:"true"`
+
+	// ObservedGeneration is the generation observed by the vmi when started.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty" optional:"true"`
+
+	// DesiredGeneration is the generation which is desired for the VMI.
+	// This will be used in comparisons with ObservedGeneration to understand when
+	// the VMI is out of sync. This will be changed at the same time as
+	// ObservedGeneration to remove errors which could occur if Generation is
+	// updated through an Update() before ObservedGeneration in Status.
+	// +optional
+	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {

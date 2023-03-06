@@ -351,6 +351,8 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
+		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
 	}
 }
 

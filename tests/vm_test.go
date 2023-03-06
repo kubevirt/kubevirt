@@ -312,6 +312,27 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return updatedVM
 		}
 
+		validateGenerationState := func(vm *v1.VirtualMachine, expectedGeneration int, expectedDesiredGeneration int, expectedObservedGeneration int, expectedGenerationAnnotation int) {
+			By("By validating the generation states")
+			EventuallyWithOffset(1, func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				By("Expecting the generation to match")
+				g.Expect(vm.Generation).To(Equal(int64(expectedGeneration)))
+
+				By("Expecting the generation state in the vm status to match")
+				g.Expect(vm.Status.DesiredGeneration).To(Equal(int64(expectedDesiredGeneration)))
+				g.Expect(vm.Status.ObservedGeneration).To(Equal(int64(expectedObservedGeneration)))
+
+				By("Expecting the generation annotation on the vmi to match")
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+
+				g.Expect(vmi.Annotations).Should(HaveKeyWithValue(v1.VirtualMachineGenerationAnnotation, fmt.Sprintf("%v", expectedGenerationAnnotation)))
+			}, 10*time.Second, 1*time.Second).Should(Succeed())
+		}
+
 		DescribeTable("cpu/memory in requests/limits should allow", func(cpu, request string) {
 			vm := tests.NewRandomVirtualMachine(
 				tests.NewRandomVMIWithEphemeralDisk(
@@ -408,6 +429,65 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubevirt.io/test"), "kubevirt internal annotations should be ignored")
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
+		})
+
+		It("should sync the generation annotation on the vmi during restarts", func() {
+			newVM := newVirtualMachine(true)
+
+			Eventually(func() bool {
+				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return newVM.Status.Ready
+			}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+			for i := 1; i <= 3; i++ {
+				// Generation increases twice for each pass, since there is a stop and a
+				// start.
+				expectedGeneration := (i * 2) - 1
+
+				validateGenerationState(newVM, expectedGeneration, expectedGeneration, expectedGeneration, expectedGeneration)
+
+				By("Restarting the VM")
+				newVM = stopVM(newVM)
+				newVM = startVM(newVM)
+			}
+		})
+
+		It("should not update the vmi generation annotation when the template changes", func() {
+			newVM := newVirtualMachine(true)
+
+			Eventually(func() bool {
+				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return newVM.Status.Ready
+			}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("Updating the VM template spec")
+			newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			newVM.Spec.Template.ObjectMeta.Labels["testkey"] = "testvalue"
+			_, err := virtClient.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			validateGenerationState(newVM, 2, 2, 1, 1)
+
+			By("Updating the VM template spec")
+			newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			newVM.Spec.Template.ObjectMeta.Labels["testkey2"] = "testvalue2"
+			_, err = virtClient.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM)
+			Expect(err).ToNot(HaveOccurred())
+
+			validateGenerationState(newVM, 3, 3, 1, 1)
+
+			// Restart the VM to check that the state will once again sync.
+			By("Restarting the VM")
+			newVM = stopVM(newVM)
+			newVM = startVM(newVM)
+
+			validateGenerationState(newVM, 5, 5, 5, 5)
 		})
 
 		DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {

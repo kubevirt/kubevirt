@@ -6735,6 +6735,14 @@ var CRDsValidation map[string]string = map[string]string{
           description: Created indicates if the virtual machine is created in the
             cluster
           type: boolean
+        desiredGeneration:
+          description: DesiredGeneration is the generation which is desired for the
+            VMI. This will be used in comparisons with ObservedGeneration to understand
+            when the VMI is out of sync. This will be changed at the same time as
+            ObservedGeneration to remove errors which could occur if Generation is
+            updated through an Update() before ObservedGeneration in Status.
+          format: int64
+          type: integer
         memoryDumpRequest:
           description: MemoryDumpRequest tracks memory dump request phase and info
             of getting a memory dump to the given pvc
@@ -6770,6 +6778,11 @@ var CRDsValidation map[string]string = map[string]string{
           - claimName
           - phase
           type: object
+        observedGeneration:
+          description: ObservedGeneration is the generation observed by the vmi when
+            started.
+          format: int64
+          type: integer
         printableStatus:
           description: PrintableStatus is a human readable, high-level representation
             of the status of the virtual machine
@@ -24392,6 +24405,15 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Created indicates if the virtual machine is created
                         in the cluster
                       type: boolean
+                    desiredGeneration:
+                      description: DesiredGeneration is the generation which is desired
+                        for the VMI. This will be used in comparisons with ObservedGeneration
+                        to understand when the VMI is out of sync. This will be changed
+                        at the same time as ObservedGeneration to remove errors which
+                        could occur if Generation is updated through an Update() before
+                        ObservedGeneration in Status.
+                      format: int64
+                      type: integer
                     memoryDumpRequest:
                       description: MemoryDumpRequest tracks memory dump request phase
                         and info of getting a memory dump to the given pvc
@@ -24430,6 +24452,11 @@ var CRDsValidation map[string]string = map[string]string{
                       - claimName
                       - phase
                       type: object
+                    observedGeneration:
+                      description: ObservedGeneration is the generation observed by
+                        the vmi when started.
+                      format: int64
+                      type: integer
                     printableStatus:
                       description: PrintableStatus is a human readable, high-level
                         representation of the status of the virtual machine

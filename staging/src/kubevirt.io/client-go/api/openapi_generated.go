@@ -22658,6 +22658,20 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest"),
 						},
 					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedGeneration is the generation observed by the vmi when started.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"desiredGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DesiredGeneration is the generation which is desired for the VMI. This will be used in comparisons with ObservedGeneration to understand when the VMI is out of sync. This will be changed at the same time as ObservedGeneration to remove errors which could occur if Generation is updated through an Update() before ObservedGeneration in Status.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 			},
 		},
