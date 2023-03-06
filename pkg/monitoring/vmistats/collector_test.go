@@ -103,16 +103,18 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 }
 
 var _ = Describe("Utility functions", func() {
+	co := setupTestVMICollector()
+
 	Context("VMI Count map reporting", func() {
 		It("should handle missing VMs", func() {
 			var countMap map[vmiCountMetric]uint64
 
-			countMap = makeVMICountMetricMap(nil, nil)
+			countMap = co.makeVMICountMetricMap(nil)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(BeEmpty())
 
 			vmis := []*k6tv1.VirtualMachineInstance{}
-			countMap = makeVMICountMetricMap(vmis, nil)
+			countMap = co.makeVMICountMetricMap(vmis)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(BeEmpty())
 		})
@@ -188,7 +190,7 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := makeVMICountMetricMap(vmis, nil)
+			countMap := co.makeVMICountMetricMap(vmis)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(HaveLen(3))
 
@@ -225,62 +227,6 @@ var _ = Describe("Utility functions", func() {
 			Expect(countMap[bogus]).To(Equal(uint64(0))) // intentionally bogus key
 		})
 
-		var instanceTypes = &vmisInstanceTypes{
-			instanceTypes: []*instancetypev1alpha2.VirtualMachineInstancetype{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   "i-managed",
-						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "i-unmanaged",
-					},
-				},
-			},
-			clusterInstanceTypes: []*instancetypev1alpha2.VirtualMachineClusterInstancetype{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   "ci-managed",
-						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "XPTO"},
-					},
-				},
-			},
-			preferences: []*instancetypev1alpha2.VirtualMachinePreference{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   "p-managed",
-						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   "p-unmanaged",
-						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "XPTO"},
-					},
-				},
-			},
-			clusterPreferences: []*instancetypev1alpha2.VirtualMachineClusterPreference{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   "cp-managed",
-						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "cp-unmanaged",
-					},
-				},
-			},
-		}
-
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey string, instanceType string, expected string) {
 			annotations := map[string]string{}
 			if instanceType != "" {
@@ -296,8 +242,7 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := makeVMICountMetricMap(vmis, instanceTypes)
-			Expect(countMap).NotTo(BeNil())
+			countMap := co.makeVMICountMetricMap(vmis)
 			Expect(countMap).To(HaveLen(1))
 
 			for metric, count := range countMap {
@@ -328,8 +273,7 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := makeVMICountMetricMap(vmis, instanceTypes)
-			Expect(countMap).NotTo(BeNil())
+			countMap := co.makeVMICountMetricMap(vmis)
 			Expect(countMap).To(HaveLen(1))
 
 			for metric, count := range countMap {
@@ -346,3 +290,49 @@ var _ = Describe("Utility functions", func() {
 		)
 	})
 })
+
+func setupTestVMICollector() *VMICollector {
+	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
+	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
+	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
+	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+
+	_ = instanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineInstancetype{
+		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
+	})
+	_ = instanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineInstancetype{
+		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "some-user"),
+	})
+
+	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineClusterInstancetype{
+		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "kubevirt.io"),
+	})
+	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineClusterInstancetype{
+		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", ""),
+	})
+
+	_ = preferenceInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachinePreference{
+		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "kubevirt.io"),
+	})
+	_ = preferenceInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachinePreference{
+		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "some-vendor.com"),
+	})
+
+	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineClusterPreference{
+		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
+	})
+
+	return &VMICollector{
+		instanceTypeInformer:        instanceTypeInformer,
+		clusterInstanceTypeInformer: clusterInstanceTypeInformer,
+		preferenceInformer:          preferenceInformer,
+		clusterPreferenceInformer:   clusterPreferenceInformer,
+	}
+}
+
+func newObjectMetaForInstancetypes(name, vendor string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:   name,
+		Labels: map[string]string{instancetypeVendorLabel: vendor},
+	}
+}

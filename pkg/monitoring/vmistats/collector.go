@@ -31,6 +31,7 @@ import (
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -65,7 +66,9 @@ var (
 		nil,
 	)
 
-	instancetypeVendorLabel        = "instancetype.kubevirt.io/vendor"
+	instancetypeVendorLabel = "instancetype.kubevirt.io/vendor"
+
+	// vendors whose instance types are whitelisted for telemetry
 	whitelistedInstanceTypeVendors = map[string]bool{
 		"kubevirt.io": true,
 		"redhat.com":  true,
@@ -89,13 +92,6 @@ type VMICollector struct {
 	clusterPreferenceInformer   cache.SharedIndexInformer
 	preferenceInformer          cache.SharedIndexInformer
 	clusterConfig               *virtconfig.ClusterConfig
-}
-
-type vmisInstanceTypes struct {
-	clusterInstanceTypes []*instancetypev1alpha2.VirtualMachineClusterInstancetype
-	instanceTypes        []*instancetypev1alpha2.VirtualMachineInstancetype
-	clusterPreferences   []*instancetypev1alpha2.VirtualMachineClusterPreference
-	preferences          []*instancetypev1alpha2.VirtualMachinePreference
 }
 
 func (co *VMICollector) Describe(_ chan<- *prometheus.Desc) {
@@ -137,45 +133,12 @@ func (co *VMICollector) Collect(ch chan<- prometheus.Metric) {
 		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
 	}
 
-	updateVMIsPhase(vmis, co.buildVmisInstanceTypes(), ch)
+	co.updateVMIsPhase(vmis, ch)
 	co.updateVMIMetrics(vmis, ch)
 	return
 }
 
-func (co *VMICollector) buildVmisInstanceTypes() *vmisInstanceTypes {
-	cachedInstanceTypes := co.instanceTypeInformer.GetIndexer().List()
-	instanceTypes := make([]*instancetypev1alpha2.VirtualMachineInstancetype, len(cachedInstanceTypes))
-	for i, obj := range cachedInstanceTypes {
-		instanceTypes[i] = obj.(*instancetypev1alpha2.VirtualMachineInstancetype)
-	}
-
-	cachedClusterInstanceTypes := co.clusterInstanceTypeInformer.GetIndexer().List()
-	clusterInstanceTypes := make([]*instancetypev1alpha2.VirtualMachineClusterInstancetype, len(cachedClusterInstanceTypes))
-	for i, obj := range cachedClusterInstanceTypes {
-		clusterInstanceTypes[i] = obj.(*instancetypev1alpha2.VirtualMachineClusterInstancetype)
-	}
-
-	cachedPreferences := co.preferenceInformer.GetIndexer().List()
-	preferences := make([]*instancetypev1alpha2.VirtualMachinePreference, len(cachedPreferences))
-	for i, obj := range cachedPreferences {
-		preferences[i] = obj.(*instancetypev1alpha2.VirtualMachinePreference)
-	}
-
-	cachedClusterPreferences := co.clusterPreferenceInformer.GetIndexer().List()
-	clusterPreferences := make([]*instancetypev1alpha2.VirtualMachineClusterPreference, len(cachedClusterPreferences))
-	for i, obj := range cachedClusterPreferences {
-		clusterPreferences[i] = obj.(*instancetypev1alpha2.VirtualMachineClusterPreference)
-	}
-
-	return &vmisInstanceTypes{
-		clusterInstanceTypes: clusterInstanceTypes,
-		instanceTypes:        instanceTypes,
-		clusterPreferences:   clusterPreferences,
-		preferences:          preferences,
-	}
-}
-
-func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string, instanceTypes *vmisInstanceTypes) {
+func (co *VMICollector) UpdateFromAnnotations(vmc *vmiCountMetric, annotations map[string]string) {
 	if val, ok := annotations[annotationPrefix+"os"]; ok {
 		vmc.OS = val
 	}
@@ -188,71 +151,71 @@ func (vmc *vmiCountMetric) UpdateFromAnnotations(annotations map[string]string, 
 		vmc.Flavor = val
 	}
 
-	vmc.setInstancetypeFromAnnotations(annotations, instanceTypes)
-	vmc.setPreferenceFromAnnotations(annotations, instanceTypes)
+	co.setInstancetypeFromAnnotations(vmc, annotations)
+	co.setPreferenceFromAnnotations(vmc, annotations)
 }
 
-func (vmc *vmiCountMetric) setInstancetypeFromAnnotations(annotations map[string]string, instanceTypes *vmisInstanceTypes) {
-	if val, ok := annotations[k6tv1.InstancetypeAnnotation]; ok {
+func (co *VMICollector) setInstancetypeFromAnnotations(vmc *vmiCountMetric, annotations map[string]string) {
+	if instancetypeName, ok := annotations[k6tv1.InstancetypeAnnotation]; ok {
 		vmc.InstanceType = other
 
-		for _, it := range instanceTypes.instanceTypes {
-			if it.Name == val {
-				vendor := it.Labels[instancetypeVendorLabel]
-				if _, isWhitelisted := whitelistedInstanceTypeVendors[vendor]; isWhitelisted {
-					vmc.InstanceType = val
-				}
-				break
-			}
+		obj, ok, err := co.instanceTypeInformer.GetIndexer().GetByKey(instancetypeName)
+		if err != nil || !ok {
+			return
+		}
+
+		vendorName := obj.(*instancetypev1alpha2.VirtualMachineInstancetype).Labels[instancetypeVendorLabel]
+		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
+			vmc.InstanceType = instancetypeName
 		}
 	}
 
-	if val, ok := annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+	if instancetypeName, ok := annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
 		vmc.InstanceType = other
 
-		for _, it := range instanceTypes.clusterInstanceTypes {
-			if it.Name == val {
-				vendor := it.Labels[instancetypeVendorLabel]
-				if _, isWhitelisted := whitelistedInstanceTypeVendors[vendor]; isWhitelisted {
-					vmc.InstanceType = val
-				}
-				break
-			}
+		obj, ok, err := co.clusterInstanceTypeInformer.GetIndexer().GetByKey(instancetypeName)
+		if err != nil || !ok {
+			return
+		}
+
+		vendorName := obj.(*instancetypev1alpha2.VirtualMachineClusterInstancetype).Labels[instancetypeVendorLabel]
+		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
+			vmc.InstanceType = instancetypeName
 		}
 	}
 }
 
-func (vmc *vmiCountMetric) setPreferenceFromAnnotations(annotations map[string]string, instanceTypes *vmisInstanceTypes) {
-	if val, ok := annotations[k6tv1.PreferenceAnnotation]; ok {
+func (co *VMICollector) setPreferenceFromAnnotations(vmc *vmiCountMetric, annotations map[string]string) {
+	if instancetypeName, ok := annotations[k6tv1.PreferenceAnnotation]; ok {
 		vmc.Preference = other
 
-		for _, it := range instanceTypes.preferences {
-			if it.Name == val {
-				vendor := it.Labels[instancetypeVendorLabel]
-				if _, isWhitelisted := whitelistedInstanceTypeVendors[vendor]; isWhitelisted {
-					vmc.Preference = val
-				}
-				break
-			}
+		obj, ok, err := co.preferenceInformer.GetIndexer().GetByKey(instancetypeName)
+		if err != nil || !ok {
+			return
+		}
+
+		vendorName := obj.(*instancetypev1alpha2.VirtualMachinePreference).Labels[instancetypeVendorLabel]
+		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
+			vmc.Preference = instancetypeName
 		}
 	}
 
-	if val, ok := annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
+	if instancetypeName, ok := annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
 		vmc.Preference = other
 
-		for _, it := range instanceTypes.clusterPreferences {
-			if it.Name == val {
-				vendor := it.Labels[instancetypeVendorLabel]
-				if _, isWhitelisted := whitelistedInstanceTypeVendors[vendor]; isWhitelisted {
-					vmc.Preference = val
-				}
-				break
-			}
+		obj, ok, err := co.clusterPreferenceInformer.GetIndexer().GetByKey(instancetypeName)
+		if err != nil || !ok {
+			return
+		}
+
+		vendorName := obj.(*instancetypev1alpha2.VirtualMachineClusterPreference).Labels[instancetypeVendorLabel]
+		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
+			vmc.Preference = instancetypeName
 		}
 	}
 }
 
-func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance, instanceTypes *vmisInstanceTypes) vmiCountMetric {
+func (co *VMICollector) newVMICountMetric(vmi *k6tv1.VirtualMachineInstance) vmiCountMetric {
 	vmc := vmiCountMetric{
 		Phase:        strings.ToLower(string(vmi.Status.Phase)),
 		OS:           none,
@@ -262,23 +225,25 @@ func newVMICountMetric(vmi *k6tv1.VirtualMachineInstance, instanceTypes *vmisIns
 		Preference:   none,
 		NodeName:     vmi.Status.NodeName,
 	}
-	vmc.UpdateFromAnnotations(vmi.Annotations, instanceTypes)
+
+	co.UpdateFromAnnotations(&vmc, vmi.Annotations)
+
 	return vmc
 }
 
-func makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance, instanceTypes *vmisInstanceTypes) map[vmiCountMetric]uint64 {
+func (co *VMICollector) makeVMICountMetricMap(vmis []*k6tv1.VirtualMachineInstance) map[vmiCountMetric]uint64 {
 	countMap := make(map[vmiCountMetric]uint64)
 
 	for _, vmi := range vmis {
-		vmc := newVMICountMetric(vmi, instanceTypes)
+		vmc := co.newVMICountMetric(vmi)
 		countMap[vmc]++
 	}
 	return countMap
 }
 
-func updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, instanceTypes *vmisInstanceTypes, ch chan<- prometheus.Metric) {
+func (co *VMICollector) updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
 	log.Log.V(1).Infof("Updating VMIs phase metrics")
-	countMap := makeVMICountMetricMap(vmis, instanceTypes)
+	countMap := co.makeVMICountMetricMap(vmis)
 	log.Log.V(1).Infof("phase %+v", countMap)
 
 	for vmc, count := range countMap {
