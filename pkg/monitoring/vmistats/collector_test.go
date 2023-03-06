@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -106,12 +107,12 @@ var _ = Describe("Utility functions", func() {
 		It("should handle missing VMs", func() {
 			var countMap map[vmiCountMetric]uint64
 
-			countMap = makeVMICountMetricMap(nil)
+			countMap = makeVMICountMetricMap(nil, nil)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(BeEmpty())
 
 			vmis := []*k6tv1.VirtualMachineInstance{}
-			countMap = makeVMICountMetricMap(vmis)
+			countMap = makeVMICountMetricMap(vmis, nil)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(BeEmpty())
 		})
@@ -187,27 +188,30 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := makeVMICountMetricMap(vmis)
+			countMap := makeVMICountMetricMap(vmis, nil)
 			Expect(countMap).NotTo(BeNil())
 			Expect(countMap).To(HaveLen(3))
 
 			running := vmiCountMetric{
-				Phase:    "running",
-				OS:       "centos8",
-				Workload: "server",
-				Flavor:   "tiny",
+				Phase:        "running",
+				OS:           "centos8",
+				Workload:     "server",
+				Flavor:       "tiny",
+				InstanceType: "<none>",
 			}
 			pending := vmiCountMetric{
-				Phase:    "pending",
-				OS:       "fedora33",
-				Workload: "workstation",
-				Flavor:   "large",
+				Phase:        "pending",
+				OS:           "fedora33",
+				Workload:     "workstation",
+				Flavor:       "large",
+				InstanceType: "<none>",
 			}
 			scheduling := vmiCountMetric{
-				Phase:    "scheduling",
-				OS:       "centos7",
-				Workload: "server",
-				Flavor:   "medium",
+				Phase:        "scheduling",
+				OS:           "centos7",
+				Workload:     "server",
+				Flavor:       "medium",
+				InstanceType: "<none>",
 			}
 			bogus := vmiCountMetric{
 				Phase: "bogus",
@@ -217,5 +221,66 @@ var _ = Describe("Utility functions", func() {
 			Expect(countMap[scheduling]).To(Equal(uint64(2)))
 			Expect(countMap[bogus]).To(Equal(uint64(0))) // intentionally bogus key
 		})
+
+		var instanceTypes = &vmisInstanceTypes{
+			instanceTypes: []*instancetypev1alpha2.VirtualMachineInstancetype{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "i-managed",
+						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "i-unmanaged",
+					},
+				},
+			},
+			clusterInstanceTypes: []*instancetypev1alpha2.VirtualMachineClusterInstancetype{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "ci-managed",
+						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "kubevirt.io"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"instancetype.kubevirt.io/vendor": "XPTO"},
+					},
+				},
+			},
+		}
+
+		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey string, instanceType string, expected string) {
+			annotations := map[string]string{}
+			if instanceType != "" {
+				annotations[instanceTypeAnnotationKey] = instanceType
+			}
+
+			vmis := []*k6tv1.VirtualMachineInstance{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "running",
+						Annotations: annotations,
+					},
+				},
+			}
+
+			countMap := makeVMICountMetricMap(vmis, instanceTypes)
+			Expect(countMap).NotTo(BeNil())
+			Expect(countMap).To(HaveLen(1))
+
+			for metric, count := range countMap {
+				Expect(metric.InstanceType).To(Equal(expected))
+				Expect(count).To(Equal(uint64(1)))
+			}
+		},
+			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
+			Entry("with managed instance type expect its name", k6tv1.InstancetypeAnnotation, "i-managed", "i-managed"),
+			Entry("with custom instance type expect <other>", k6tv1.InstancetypeAnnotation, "i-custom", "<other>"),
+			Entry("with no cluster instance type expect <none>", k6tv1.ClusterInstancetypeAnnotation, "", "<none>"),
+			Entry("with managed cluster instance type expect its name", k6tv1.ClusterInstancetypeAnnotation, "ci-managed", "ci-managed"),
+			Entry("with custom cluster instance type expect <other>", k6tv1.ClusterInstancetypeAnnotation, "ci-custom", "<other>"),
+		)
 	})
 })
