@@ -120,6 +120,10 @@ function _add_common_params() {
         params=" --enable-psa $params"
     fi
 
+    if [ $KUBEVIRT_SINGLE_STACK == "true" ]; then
+        params=" --single-stack $params"
+    fi
+
     if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
         params=" --enable-nfs-csi $params"
     fi
