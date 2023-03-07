@@ -1423,9 +1423,6 @@ status:
 	})
 
 	Context("[rfe_id:273]with oc/kubectl", func() {
-		var err error
-		var vmJson string
-
 		var k8sClient string
 		var workDir string
 		var vmRunningRe *regexp.Regexp
@@ -1439,12 +1436,18 @@ status:
 			vmRunningRe = regexp.MustCompile("Phase.*Running")
 		})
 
-		It("[test_id:243][posneg:negative]should create VM only once", func() {
-			vm := tests.NewRandomVirtualMachine(libvmi.NewAlpine(), true)
+		createVMAndGenerateJson := func(running bool) (*v1.VirtualMachine, string) {
+			vm := tests.NewRandomVirtualMachine(libvmi.NewAlpine(), running)
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 
-			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			vmJson, err := tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+
+			return vm, vmJson
+		}
+
+		It("[test_id:243][posneg:negative]should create VM only once", func() {
+			vm, vmJson := createVMAndGenerateJson(true)
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1468,7 +1471,7 @@ status:
 			vm.Namespace = testsuite.GetTestNamespace(vm)
 			vm.APIVersion = version
 
-			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			vmJson, err := tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 			By("Creating VM using k8s client binary")
@@ -1500,12 +1503,7 @@ status:
 		)
 
 		It("[test_id:264]should create and delete via command line", func() {
-			vmi := libvmi.NewAlpine()
-			thisVm := tests.NewRandomVirtualMachine(vmi, true)
-			thisVm.Namespace = testsuite.GetTestNamespace(thisVm)
-
-			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+			thisVm, vmJson := createVMAndGenerateJson(false)
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1539,11 +1537,7 @@ status:
 
 		Context("should not change anything if dry-run option is passed", func() {
 			It("[test_id:7530]in start command", func() {
-				thisVm := tests.NewRandomVirtualMachine(libvmi.NewAlpine(), true)
-				thisVm.Namespace = testsuite.GetTestNamespace(thisVm)
-
-				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
-				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+				thisVm, vmJson := createVMAndGenerateJson(false)
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1560,12 +1554,7 @@ status:
 			})
 
 			DescribeTable("in stop command", func(flags ...string) {
-				vmi := libvmi.NewAlpine()
-				thisVm := tests.NewRandomVirtualMachine(vmi, true)
-				thisVm.Namespace = testsuite.GetTestNamespace(thisVm)
-
-				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
-				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+				thisVm, vmJson := createVMAndGenerateJson(true)
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1618,12 +1607,7 @@ status:
 			)
 
 			It("[test_id:7528]in restart command", func() {
-				vmi := libvmi.NewAlpine()
-				thisVm := tests.NewRandomVirtualMachine(vmi, true)
-				thisVm.Namespace = testsuite.GetTestNamespace(thisVm)
-
-				vmJson, err = tests.GenerateVMJson(thisVm, workDir)
-				Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+				thisVm, vmJson := createVMAndGenerateJson(true)
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1658,12 +1642,7 @@ status:
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {
-			vmi := libvmi.NewAlpine()
-			thisVm := tests.NewRandomVirtualMachine(vmi, true)
-			thisVm.Namespace = testsuite.GetTestNamespace(thisVm)
-
-			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+			thisVm, vmJson := createVMAndGenerateJson(true)
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
