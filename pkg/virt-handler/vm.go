@@ -35,15 +35,16 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/errors"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
-	"kubevirt.io/kubevirt/pkg/config"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 
@@ -96,7 +97,7 @@ import (
 )
 
 type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error) error
+	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error, networksToPlug ...v1.Network) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 	SetupCompleted(vmi *v1.VirtualMachineInstance) bool
 }
@@ -525,7 +526,7 @@ func (d *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstanc
 	d.netStat.Teardown(vmi)
 }
 
-func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, networksToPlug ...v1.Network) error {
 	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
@@ -547,7 +548,7 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance) 
 			}
 		}
 		return nil
-	})
+	}, networksToPlug...)
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -2712,6 +2713,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
+	var errorTolerantFeaturesError []error
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
 		// give containerDisks some time to become ready before throwing errors on retries
@@ -2809,6 +2811,14 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		if err := d.getMemoryDump(vmi); err != nil {
 			return err
 		}
+
+		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
+			if err := d.hotplugVirtioInterfaces(vmi); err != nil {
+				log.Log.Object(vmi).Error(err.Error())
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
+				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
+			}
+		}
 	}
 
 	smbios := d.clusterConfig.GetSMBIOS()
@@ -2847,7 +2857,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 	}
-	return nil
+	return errors.NewAggregate(errorTolerantFeaturesError)
 }
 
 func (d *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
@@ -3180,4 +3190,13 @@ func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 
 func isIOError(shouldUpdate, domainExists bool, domain *api.Domain) bool {
 	return shouldUpdate && domainExists && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedIOError
+}
+
+func (d *VirtualMachineController) hotplugVirtioInterfaces(vmi *v1.VirtualMachineInstance) error {
+	networksToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
+	if len(networksToHotplug) == 0 {
+		return nil
+	}
+
+	return d.setupNetwork(vmi, networksToHotplug...)
 }

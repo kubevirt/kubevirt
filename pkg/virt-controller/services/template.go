@@ -1236,7 +1236,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	multusAnnotation, err := generateMultusCNIAnnotation(vmi)
+	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi)
 	if err != nil {
 		return nil, err
 	}

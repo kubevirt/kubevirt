@@ -555,6 +555,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/addinterface
   verbs:
   - update
 - apiGroups:
@@ -793,6 +794,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/addinterface
   verbs:
   - update
 - apiGroups:
@@ -812,6 +814,7 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
+  - virtualmachines/addinterface
   verbs:
   - update
 - apiGroups:
@@ -937,6 +940,7 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
+  - virtualmachineinstances/addinterface
   verbs:
   - update
 - apiGroups:
@@ -956,6 +960,7 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
+  - virtualmachines/addinterface
   verbs:
   - update
 - apiGroups:

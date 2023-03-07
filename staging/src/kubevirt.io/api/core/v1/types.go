@@ -574,6 +574,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
+	// PodConfigDone specifies if the corresponding pod interface is properly configured by CNI
+	PodConfigDone bool `json:"podConfigDone,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -1469,6 +1471,11 @@ type VirtualMachineStatus struct {
 	// updated through an Update() before ObservedGeneration in Status.
 	// +optional
 	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
+
+	// InterfaceRequests indicates a list of interfaces added to the VMI template and
+	// hot-plugged on an active running VMI.
+	// +listType=atomic
+	InterfaceRequests []VirtualMachineInterfaceRequest `json:"interfaceRequests,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1496,6 +1503,12 @@ type VirtualMachineStateChangeRequest struct {
 	Data map[string]string `json:"data,omitempty" optional:"true"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
+}
+
+type VirtualMachineInterfaceRequest struct {
+	// AddInterfaceOptions when set indicates a network interface should be added.
+	// The details within this field specify how to add the interface
+	AddInterfaceOptions *AddInterfaceOptions `json:"addInterfaceOptions,omitempty" optional:"true"`
 }
 
 // VirtualMachineCondition represents the state of VirtualMachine
@@ -2179,6 +2192,17 @@ type RemoveVolumeOptions struct {
 	// +optional
 	// +listType=atomic
 	DryRun []string `json:"dryRun,omitempty"`
+}
+
+// AddInterfaceOptions is provided when dynamically hot plugging a network interface
+type AddInterfaceOptions struct {
+	// NetworkName references a NetworkAttachmentDefinition CRD object. Format:
+	// <networkName>, <namespace>/<networkName>. If namespace is not
+	// specified, VMI namespace is assumed.
+	NetworkName string `json:"networkName"`
+
+	// InterfaceName indicates the logical name of the interface.
+	InterfaceName string `json:"interfaceName"`
 }
 
 type TokenBucketRateLimiter struct {

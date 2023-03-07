@@ -148,6 +148,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"interfaceName": "The interface name inside the Virtual Machine",
 		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
 		"queueCount":    "Specifies how many queues are allocated by MultiQueue",
+		"podConfigDone": "PodConfigDone specifies if the corresponding pod interface is properly configured by CNI",
 	}
 }
 
@@ -353,6 +354,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"interfaceRequests":      "InterfaceRequests indicates a list of interfaces added to the VMI template and\nhot-plugged on an active running VMI.\n+listType=atomic",
 	}
 }
 
@@ -376,6 +378,12 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
 		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
+	}
+}
+
+func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"addInterfaceOptions": "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
 	}
 }
 
@@ -655,6 +663,14 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 		"":       "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
 		"name":   "Name represents the name that maps to both the disk and volume that\nshould be removed",
 		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (AddInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+		"networkName":   "NetworkName references a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
+		"interfaceName": "InterfaceName indicates the logical name of the interface.",
 	}
 }
 

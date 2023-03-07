@@ -627,6 +627,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/addinterface
           verbs:
           - update
         - apiGroups:
@@ -865,6 +866,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/addinterface
           verbs:
           - update
         - apiGroups:
@@ -884,6 +886,7 @@ spec:
           - virtualmachines/removevolume
           - virtualmachines/migrate
           - virtualmachines/memorydump
+          - virtualmachines/addinterface
           verbs:
           - update
         - apiGroups:
@@ -1009,6 +1012,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/addinterface
           verbs:
           - update
         - apiGroups:
@@ -1028,6 +1032,7 @@ spec:
           - virtualmachines/removevolume
           - virtualmachines/migrate
           - virtualmachines/memorydump
+          - virtualmachines/addinterface
           verbs:
           - update
         - apiGroups:

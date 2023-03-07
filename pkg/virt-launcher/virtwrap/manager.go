@@ -73,6 +73,7 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netsriov "kubevirt.io/kubevirt/pkg/network/sriov"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -82,8 +83,6 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 )
 
 const (
@@ -993,6 +992,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
 			}
+		}
+	}
+
+	if vmi.IsRunning() {
+		if err := hotplugVirtioInterface(vmi, c, dom, domain); err != nil {
+			return nil, err
 		}
 	}
 

@@ -64,9 +64,9 @@ func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator)
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
 // As the changes are performed in the virt-launcher network namespace, which is relative expensive,
 // an early cache check is performed to avoid executing the same operation again (if the last one completed).
-func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error) error {
+func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error, networksToPlug ...v1.Network) error {
 	id := vmi.UID
-	if _, exists := c.setupCompleted.Load(id); exists {
+	if _, exists := c.setupCompleted.Load(id); len(networksToPlug) == 0 && exists {
 		return nil
 	}
 
@@ -78,7 +78,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetu
 
 	ns := c.nsFactory(launcherPid)
 	err := ns.Do(func() error {
-		return netConfigurator.SetupPodNetworkPhase1(launcherPid)
+		return netConfigurator.SetupPodNetworkPhase1(launcherPid, networksToPlug...)
 	})
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)

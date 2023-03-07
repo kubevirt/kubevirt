@@ -303,6 +303,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneStatus":                                   schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneStatus(ref),
 		"kubevirt.io/api/core/v1.AccessCredential":                                                   schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		"kubevirt.io/api/core/v1.AccessCredentialSecretSource":                                       schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
+		"kubevirt.io/api/core/v1.AddInterfaceOptions":                                                schema_kubevirtio_api_core_v1_AddInterfaceOptions(ref),
 		"kubevirt.io/api/core/v1.AddVolumeOptions":                                                   schema_kubevirtio_api_core_v1_AddVolumeOptions(ref),
 		"kubevirt.io/api/core/v1.AuthorizedKeysFile":                                                 schema_kubevirtio_api_core_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/api/core/v1.BIOS":                                                               schema_kubevirtio_api_core_v1_BIOS(ref),
@@ -494,6 +495,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceSpec":                                         schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceStatus":                                       schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec":                                 schema_kubevirtio_api_core_v1_VirtualMachineInstanceTemplateSpec(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInterfaceRequest":                                     schema_kubevirtio_api_core_v1_VirtualMachineInterfaceRequest(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineList":                                                 schema_kubevirtio_api_core_v1_VirtualMachineList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest":                                    schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineSpec":                                                 schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref),
@@ -14536,6 +14538,34 @@ func schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_api_core_v1_AddInterfaceOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"networkName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkName references a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"interfaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InterfaceName indicates the logical name of the interface.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"networkName", "interfaceName"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_AddVolumeOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21480,6 +21510,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							Format:      "int32",
 						},
 					},
+					"podConfigDone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodConfigDone specifies if the corresponding pod interface is properly configured by CNI",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -22302,6 +22339,26 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceTemplateSpec(ref common
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineInterfaceRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"addInterfaceOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddInterfaceOptions when set indicates a network interface should be added. The details within this field specify how to add the interface",
+							Ref:         ref("kubevirt.io/api/core/v1.AddInterfaceOptions"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.AddInterfaceOptions"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22672,11 +22729,29 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Format:      "int64",
 						},
 					},
+					"interfaceRequests": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "InterfaceRequests indicates a list of interfaces added to the VMI template and hot-plugged on an active running VMI.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/api/core/v1.VirtualMachineInterfaceRequest"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
+			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineInterfaceRequest", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
 	}
 }
 

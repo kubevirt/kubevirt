@@ -6743,6 +6743,31 @@ var CRDsValidation map[string]string = map[string]string{
             updated through an Update() before ObservedGeneration in Status.
           format: int64
           type: integer
+        interfaceRequests:
+          description: InterfaceRequests indicates a list of interfaces added to the
+            VMI template and hot-plugged on an active running VMI.
+          items:
+            properties:
+              addInterfaceOptions:
+                description: AddInterfaceOptions when set indicates a network interface
+                  should be added. The details within this field specify how to add
+                  the interface
+                properties:
+                  interfaceName:
+                    description: InterfaceName indicates the logical name of the interface.
+                    type: string
+                  networkName:
+                    description: 'NetworkName references a NetworkAttachmentDefinition
+                      CRD object. Format: <networkName>, <namespace>/<networkName>.
+                      If namespace is not specified, VMI namespace is assumed.'
+                    type: string
+                required:
+                - interfaceName
+                - networkName
+                type: object
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         memoryDumpRequest:
           description: MemoryDumpRequest tracks memory dump request phase and info
             of getting a memory dump to the given pvc
@@ -10966,6 +10991,10 @@ var CRDsValidation map[string]string = map[string]string{
                 description: Name of the interface, corresponds to name of the network
                   assigned to the interface
                 type: string
+              podConfigDone:
+                description: PodConfigDone specifies if the corresponding pod interface
+                  is properly configured by CNI
+                type: boolean
               queueCount:
                 description: Specifies how many queues are allocated by MultiQueue
                 format: int32
@@ -24414,6 +24443,34 @@ var CRDsValidation map[string]string = map[string]string{
                         ObservedGeneration in Status.
                       format: int64
                       type: integer
+                    interfaceRequests:
+                      description: InterfaceRequests indicates a list of interfaces
+                        added to the VMI template and hot-plugged on an active running
+                        VMI.
+                      items:
+                        properties:
+                          addInterfaceOptions:
+                            description: AddInterfaceOptions when set indicates a
+                              network interface should be added. The details within
+                              this field specify how to add the interface
+                            properties:
+                              interfaceName:
+                                description: InterfaceName indicates the logical name
+                                  of the interface.
+                                type: string
+                              networkName:
+                                description: 'NetworkName references a NetworkAttachmentDefinition
+                                  CRD object. Format: <networkName>, <namespace>/<networkName>.
+                                  If namespace is not specified, VMI namespace is
+                                  assumed.'
+                                type: string
+                            required:
+                            - interfaceName
+                            - networkName
+                            type: object
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     memoryDumpRequest:
                       description: MemoryDumpRequest tracks memory dump request phase
                         and info of getting a memory dump to the given pvc

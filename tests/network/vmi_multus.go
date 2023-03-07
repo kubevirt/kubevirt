@@ -272,8 +272,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking virtual machine instance has two interfaces")
-				Expect(checkInterface(detachedVMI, "eth0")).To(Succeed())
-				Expect(checkInterface(detachedVMI, "eth1")).To(Succeed())
+				Expect(libnet.InterfaceExists(detachedVMI, "eth0")).To(Succeed())
+				Expect(libnet.InterfaceExists(detachedVMI, "eth1")).To(Succeed())
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -410,11 +410,11 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, staticIPVm1)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
-				Expect(checkInterface(vmiOne, ifaceName)).To(Succeed())
+				Expect(libnet.InterfaceExists(vmiOne, ifaceName)).To(Succeed())
 
 				Expect(configureAlpineInterfaceIP(vmiTwo, ifaceName, staticIPVm2)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
-				Expect(checkInterface(vmiTwo, ifaceName)).To(Succeed())
+				Expect(libnet.InterfaceExists(vmiTwo, ifaceName)).To(Succeed())
 				ipAddr := ""
 				if staticIPVm2 != "" {
 					ipAddr, err = libnet.CidrToIP(staticIPVm2)
@@ -436,7 +436,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
 			customMacAddress := "50:00:00:00:90:0d"
-			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
+
+			BeforeEach(func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -445,7 +446,10 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 					libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", ptpSubnetIP2+ptpSubnetMask)))
 				vmiTwo = tests.CreateVmiOnNode(vmiTwo, nodes.Items[0].Name)
+				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
+			})
 
+			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
 				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
@@ -477,7 +481,35 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
-				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
+				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
+			})
+
+			It("vmi with an hotplugged interface has connectivity over the secondary network", func() {
+				By("Creating another VM with only the masquerade interface")
+				vmiOne := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				)
+				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
+				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
+
+				By("hotplugging it an interface connected to the secondary network")
+				const hotpluggedIfaceName = "new-iface"
+				Expect(
+					kubevirt.Client().VirtualMachineInstance(vmiOne.GetNamespace()).AddInterface(
+						context.Background(),
+						vmiOne.GetName(),
+						addIfaceOptions(linuxBridgeNetwork.Multus.NetworkName, hotpluggedIfaceName),
+					),
+				).To(Succeed())
+				Eventually(func() error {
+					return libnet.InterfaceExists(vmiOne, "eth1")
+				}, 30*time.Second, 2*time.Second).Should(Succeed())
+
+				By("Configuring static IP address on the hotplugged interface")
+				Expect(configInterface(vmiOne, "eth1", ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
+
+				By("Ping from the VM with the custom MAC to the other VM.")
 				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
 			})
 		})
@@ -768,17 +800,6 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 	}
 
 	return setInterfaceUp(vmi, interfaceName)
-}
-
-func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName string) error {
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := runSafeCommand(vmi, cmdCheck)
-
-	if err != nil {
-		return fmt.Errorf("could not check interface: interface %s was not found in the VMI %s: %w", interfaceName, vmi.Name, err)
-	}
-
-	return nil
 }
 
 func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) error {

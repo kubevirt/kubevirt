@@ -6,6 +6,7 @@ go_library(
         "cloudinit.go",
         "dns.go",
         "expose_util.go",
+        "interface.go",
         "ipaddress.go",
         "namespace.go",
         "ping.go",

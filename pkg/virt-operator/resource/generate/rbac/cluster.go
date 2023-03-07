@@ -164,6 +164,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
+					"virtualmachineinstances/addinterface",
 				},
 				Verbs: []string{
 					"update",
@@ -193,6 +194,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/removevolume",
 					"virtualmachines/migrate",
 					"virtualmachines/memorydump",
+					"virtualmachines/addinterface",
 				},
 				Verbs: []string{
 					"update",
@@ -342,6 +344,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
+					"virtualmachineinstances/addinterface",
 				},
 				Verbs: []string{
 					"update",
@@ -371,6 +374,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/removevolume",
 					"virtualmachines/migrate",
 					"virtualmachines/memorydump",
+					"virtualmachines/addinterface",
 				},
 				Verbs: []string{
 					"update",
