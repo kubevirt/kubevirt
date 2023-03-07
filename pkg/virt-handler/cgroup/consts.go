@@ -34,6 +34,16 @@ const (
 )
 
 const (
+	// common error messages / formats
+	vmiNotDedicatedErrFmt                    = "vmi %s is expected to be defined with dedicated CPUs"
+	cgroupAlreadyExistsErrFmt                = "creating child cgroup: child cgroup in path %s already exists"
+	handledDedicatedCpusSuccessfully         = "handled dedicated cpus successfully"
+	attachedEmulatorTasksSuccessfully        = "attached emulator tasks successfully"
+	castingToConcreteTypeFailedErrFmt        = "casting of cgroup manager to %s concrete manager failed - this shouldn't happen"
+	initializedEmulatorContainerSuccessfully = "emulator container is successfully initialized for vmi %s/%s"
+)
+
+const (
 	// others consts
 	V1 CgroupVersion = "v1"
 	V2 CgroupVersion = "v2"
@@ -42,6 +52,12 @@ const (
 	detailedLogVerbosity = 4
 
 	cgroupStr = "cgroup"
+)
 
-	cgroupAlreadyExistsErrFmt = "creating child cgroup: child cgroup in path %s already exists"
+const (
+	// emulator container cgroup names
+	EmulatorContainerCgroupAmbassador   = "ambassador"
+	EmulatorContainerCgroupEmulator     = "emulator"
+	EmulatorContainerCgroupVcpu         = "vcpu"
+	EmulatorContainerCgroupHousekeeping = "housekeeping"
 )

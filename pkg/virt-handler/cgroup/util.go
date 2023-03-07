@@ -39,6 +39,10 @@ var (
 type execVirtChrootFunc func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
 type getCurrentlyDefinedRulesFunc func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error)
 
+// For attaching a process/thread via PID/TID
+type attachTaskFunc func(manager Manager, id int) error
+type getManagerIdsFunc func(manager Manager) ([]int, error)
+
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
 // and all of the rules that are currently set. This way rules that are already defined won't be deleted by this
 // current request. Every old rule that is part of the new request will be overridden.
@@ -376,4 +380,66 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance, socket string) (isolationR
 	}
 
 	return isolationRes, nil
+}
+
+func areIntSlicesEqual(s1, s2 []int) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+
+	for i := 0; i < len(s1); i++ {
+		if s1[i] != s2[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func mergeIntSlices(s1, s2 []int) []int {
+	mergedSlice := make([]int, len(s1)+len(s2))
+
+	i := 0
+	appendToSlice := func(element int) {
+		mergedSlice[i] = element
+		i++
+	}
+
+	for _, element := range s1 {
+		appendToSlice(element)
+	}
+	for _, element := range s2 {
+		appendToSlice(element)
+	}
+
+	return mergedSlice
+}
+
+func isSubsetSlice(subset, s []int) bool {
+	for _, subsetElement := range subset {
+		found := false
+
+		for _, sElement := range s {
+			if subsetElement == sElement {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+func closeIntSlice(s []int) []int {
+	clone := make([]int, len(s))
+
+	for i, element := range s {
+		clone[i] = element
+	}
+
+	return clone
 }

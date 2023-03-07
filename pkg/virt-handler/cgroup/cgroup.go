@@ -79,6 +79,32 @@ type Manager interface {
 	// TODO: This is now being implemented at the runc level here: https://github.com/opencontainers/runc/pull/3691
 	// Once the PR merges we should switch to its implementation
 	MakeThreaded() error
+
+	// InitializeEmulatorContainer is responsible for initializing the emulator container's cgroup hierarchy.
+	//
+	// Before this function is called, we have one cgroup per container:
+	// 		compute container 	-> Y shared CPUs
+	// 		emulator container	-> X dedicated CPUs
+	//
+	// After function finishes its operation, the following hierarchy would exist in the emulator container (a tab
+	// signifies children):
+	// 		Root cgroup. Cpuset: [Y shared CPUs, X dedicated CPUs]. Processes/threads: none.
+	// 			Ambassador cgroup. Cpuset: [Y shared CPUs]. Processes/threads: ambassador processes.
+	// 			Emulator cgroup. Cpuset: [Y shared CPUs, X dedicated CPUs]. Processes/threads: none.
+	// 				Vcpu cgroup. Cpuset: [X dedicated CPUs]. Processes/threads: [vcpu1, vcpu2, ..., vcpuN].
+	// 				Housekeeping cgroup. Cpuset: [Y shared CPUs]. Processes/threads: [vnc-worker, io-monitor, etc]
+	//
+	// After the hierarchy is being built, the right processes / threads would be attached to the right cgroups
+	// that would be allocated with the right resources (either shared or dedicated cpuset).
+	//
+	// Some notes and clarifications:
+	// * The "ambassador" process simply opens a socket and accepts connections. This is being done in order to find the process' PID,
+	//   that would lead to finding the cgroup path.
+	// * The "emulator cgroup" doesn't run any processes/threads directly. All of the threads are spread between its children.
+	//
+	// Note: this method is expected to be called from the VMI's compute container manager, for example,
+	// a manager initizlied by NewManagerFromVM().
+	InitializeEmulatorContainer(vmi *v1.VirtualMachineInstance) error
 }
 
 // This is here so that mockgen would create a mock out of it. That way we would have a mocked runc manager.

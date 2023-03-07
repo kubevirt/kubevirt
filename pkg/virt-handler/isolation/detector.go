@@ -211,12 +211,12 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	return nil
 }
 
-var qemuProcessExecutables = []string{"qemu-system", "qemu-kvm"}
+var QemuProcessExecutables = [2]string{"qemu-system", "qemu-kvm"}
 
 // findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
 func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
 	processes = childProcesses(processes, pid)
-	for _, exec := range qemuProcessExecutables {
+	for _, exec := range QemuProcessExecutables {
 		if qemuProcess := lookupProcessByExecutable(processes, exec); qemuProcess != nil {
 			return qemuProcess, nil
 		}

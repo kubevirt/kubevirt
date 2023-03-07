@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
@@ -69,6 +70,14 @@ func newCustomizedV2Manager(runcManager runc_cgroups.Manager, isRootless bool, e
 	}
 
 	return &manager, nil
+}
+
+func getConcreteManagerStructV2(m Manager) (*v2Manager, error) {
+	v2Struct, ok := m.(*v2Manager)
+	if !ok {
+		return nil, fmt.Errorf(castingToConcreteTypeFailedErrFmt, V2)
+	}
+	return v2Struct, nil
 }
 
 func (v *v2Manager) GetBasePathToHostSubsystem(_ string) (string, error) {
@@ -282,4 +291,76 @@ func (v *v2Manager) MakeThreaded() error {
 	}
 
 	return nil
+}
+
+func (v *v2Manager) InitializeEmulatorContainer(vmi *v1.VirtualMachineInstance) error {
+	err := initEmulatorContainerHierarchy(vmi, "")
+	if err != nil {
+		return err
+	}
+
+	rootManager, ambassadorManager, emulatorManager, vcpuManager, hkManager, err := getEmulatorContainerCgroups(vmi, "")
+	if err != nil {
+		return err
+	}
+
+	err = attachTasksToEmulatorContainer(vmi, v, rootManager, ambassadorManager, emulatorManager, vcpuManager, hkManager, v.getAttachProcFunc(), v.getAttachThreadFunc())
+	if err != nil {
+		return err
+	}
+
+	if concreteRootManager, err := getConcreteManagerStructV2(rootManager); err != nil {
+		return err
+	} else {
+		err = concreteRootManager.setSubtreeControl(CgroupSubsystemCpuset)
+		if err != nil {
+			return err
+		}
+	}
+
+	if concreteEmulatorManager, err := getConcreteManagerStructV2(emulatorManager); err != nil {
+		return err
+	} else {
+		err = concreteEmulatorManager.setSubtreeControl(CgroupSubsystemCpuset)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = setDedicatedCpusToEmulatorContainer(v, rootManager, ambassadorManager, emulatorManager, vcpuManager, hkManager, V2)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (v *v2Manager) getAttachProcFunc() attachTaskFunc {
+	return func(manager Manager, id int) error {
+		if concreteManager, err := getConcreteManagerStructV2(manager); err == nil {
+			err = concreteManager.attachTask(id, Process)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+
+		return nil
+	}
+}
+
+func (v *v2Manager) getAttachThreadFunc() attachTaskFunc {
+	return func(manager Manager, id int) error {
+		if concreteManager, err := getConcreteManagerStructV2(manager); err == nil {
+			err = concreteManager.attachTask(id, Thread)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+
+		return nil
+	}
 }
