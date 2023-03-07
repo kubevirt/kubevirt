@@ -129,7 +129,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	Context("[Serial]A mutated VirtualMachine given", Serial, func() {
 
-		var testingMachineType string = "pc-q35-2.7"
+		const testingMachineType = "pc-q35-2.7"
 
 		BeforeEach(func() {
 			kv := util.GetCurrentKv(virtClient)
@@ -150,7 +150,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:3311]should keep the supplied MachineType when created", func() {
 			By("Creating VirtualMachine")
-			explicitMachineType := "pc-q35-3.0"
+			const explicitMachineType = "pc-q35-3.0"
 			template := libvmi.NewCirros()
 			template.Spec.Domain.Machine = &v1.Machine{Type: explicitMachineType}
 			vm := createVM(virtClient, template)
@@ -206,11 +206,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		DescribeTable("cpu/memory in requests/limits should allow", func(cpu, request string) {
+			const oldCpu = "222"
+			const oldMemory = "2222222"
+
 			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
 			vm.Namespace = testsuite.GetTestNamespace(vm)
-			oldCpu := "222"
-			oldMemory := "2222222"
-
 			vm.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
 			vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceCPU] = resource.MustParse(oldCpu)
