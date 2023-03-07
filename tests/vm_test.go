@@ -69,7 +69,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine", decorators.SigCompute, func() {
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var file *os.File
@@ -81,7 +80,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 
 	Context("An invalid VirtualMachine given", func() {
-
 		It("[test_id:1518]should be rejected on POST", func() {
 			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
 			// because we're marshaling this ourselves, we have to make sure
@@ -128,7 +126,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 
 	Context("[Serial]A mutated VirtualMachine given", Serial, func() {
-
 		const testingMachineType = "pc-q35-2.7"
 
 		BeforeEach(func() {
@@ -731,9 +728,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
-
 				By("getting a VM with high TerminationGracePeriod")
-
 				vm := startVM(virtClient, createVM(virtClient, libvmi.NewFedora(
 					libvmi.WithTerminationGracePeriod(600),
 				)))
@@ -768,7 +763,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			It("Should force stop a VMI", func() {
-
 				By("getting a VM with high TerminationGracePeriod")
 				vm := startVM(virtClient, createVM(virtClient, libvmi.New(
 					libvmi.WithResourceMemory("128Mi"),
@@ -779,7 +773,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				terminatationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
+				terminationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
 					for {
 						select {
 						case <-stopCn:
@@ -799,7 +793,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}
 				stopCn := make(chan bool, 1)
 				updated := make(chan bool, 1)
-				go terminatationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
+				go terminationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
 
 				By("Invoking virtctl --force stop")
 				forceStop := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, vm.Name, "--namespace", vm.Namespace, "--force", "--grace-period=0")
@@ -1267,7 +1261,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 480*time.Second, 1*time.Second).Should(BeInPhase(v1.Failed))
 
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to true, the containerStatus of the
-					//   compute container of the virt-launcher pod is kept in the running state.
+					// compute container of the virt-launcher pod is kept in the running state.
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to false or not set, the virt-launcher pod will become failed.
 					By("Verify that the virt-launcher pod or its container is in the expected state")
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
