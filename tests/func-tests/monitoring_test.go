@@ -7,7 +7,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +32,7 @@ import (
 	promApi "github.com/prometheus/client_golang/api"
 	promApiv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promConfig "github.com/prometheus/common/config"
+	promModel "github.com/prometheus/common/model"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
@@ -41,6 +44,12 @@ const (
 	containerImage = "kubevirt/cirros-container-disk-demo"
 )
 
+const (
+	noneImpact float64 = iota
+	warningImpact
+	criticalImpact
+)
+
 var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", func() {
 	flag.Parse()
 
@@ -48,6 +57,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 	var virtCli kubecli.KubevirtClient
 	var promClient promApiv1.API
 	var prometheusRule monitoringv1.PrometheusRule
+	var initialOperatorHealthMetricValue float64
 
 	runbookClient.Timeout = time.Second * 3
 
@@ -58,6 +68,8 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		tests.SkipIfNotOpenShift(virtCli, "Prometheus")
 		promClient = initializePromClient(getPrometheusUrl(virtCli), getAuthorizationTokenForPrometheus(virtCli))
 		prometheusRule = getPrometheusRule(virtCli)
+
+		initialOperatorHealthMetricValue = getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
 	})
 
 	It("Alert rules should have all the required annotations", func() {
@@ -103,6 +115,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		Expect(err).ShouldNot(HaveOccurred())
 
 		verifyAlertExists(promClient, "KubevirtHyperconvergedClusterOperatorCRModification", 60*time.Second)
+		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 
 	It("KubevirtHyperconvergedClusterOperatorUSModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func() {
@@ -115,6 +128,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		updateHCO(virtCli, hco)
 
 		verifyAlertExists(promClient, "KubevirtHyperconvergedClusterOperatorUSModification", 60*time.Second)
+		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 
 	It("NodeStatusMaxImagesExceeded alert should fired when node max images is reached", func() {
@@ -147,6 +161,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		deletePod(virtCli, node)
 
 		verifyAlertExists(promClient, "NodeStatusMaxImagesExceeded", 6*time.Minute)
+		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 })
 
@@ -193,6 +208,27 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 		}
 	}
 	return nil
+}
+
+func verifyOperatorHealthMetricValue(promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
+	systemHealthMetricValue := getMetricValue(promClient, "kubevirt_hco_system_health_status")
+	operatorHealthMetricValue := getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
+
+	expectedOperatorHealthMetricValue := math.Max(alertImpact, math.Max(systemHealthMetricValue, initialOperatorHealthMetricValue))
+	ExpectWithOffset(1, operatorHealthMetricValue).To(Equal(expectedOperatorHealthMetricValue))
+}
+
+func getMetricValue(promClient promApiv1.API, metricName string) float64 {
+	queryResult, _, err := promClient.Query(context.TODO(), metricName, time.Now())
+	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+
+	resultVector := queryResult.(promModel.Vector)
+	ExpectWithOffset(1, resultVector).To(HaveLen(1))
+
+	metricValue, err := strconv.ParseFloat(resultVector[0].Value.String(), 64)
+	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
+
+	return metricValue
 }
 
 func getPrometheusRule(client kubecli.KubevirtClient) monitoringv1.PrometheusRule {
@@ -302,9 +338,9 @@ func getNodeStatusMaxImages(virtCli kubecli.KubevirtClient, nodeName string) (in
 }
 
 func verifyAlertExists(promClient promApiv1.API, alertName string, forDuration time.Duration) {
-	Eventually(func() *promApiv1.Alert {
+	Eventually(func(g Gomega) *promApiv1.Alert {
 		alerts, err := promClient.Alerts(context.TODO())
-		Expect(err).ShouldNot(HaveOccurred())
+		g.Expect(err).ShouldNot(HaveOccurred())
 		alert := getAlertByName(alerts, alertName)
 		return alert
 	}, forDuration, time.Second).ShouldNot(BeNil())
