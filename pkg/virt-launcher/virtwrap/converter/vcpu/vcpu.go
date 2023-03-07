@@ -411,10 +411,27 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 
 func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachineInstance, topology *v1.Topology, cpuset []int, useIOThreads bool) error {
 	var cpuPool VCPUPool
+    requestedToplogy := &api.CPUTopology{
+        Sockets: domain.Spec.CPU.Topology.Sockets,
+        Cores: domain.Spec.CPU.Topology.Cores,
+        Threads: domain.Spec.CPU.Topology.Threads,
+    }
+    
+    if vmi.Spec.Domain.CPU.MaxSockets != 0 {
+        disabledVCPUs := 0
+        for _, vcpu := range domain.Spec.VCPUs.VCPU {
+            if vcpu.Enabled != "yes" {
+                disabledVCPUs += 1
+            }
+        }
+        disabledSockets := uint32(disabledVCPUs) / (requestedToplogy.Cores * requestedToplogy.Threads) 
+        requestedToplogy.Sockets -= uint32(disabledSockets)
+    }
+        
 	if isNumaPassthrough(vmi) {
-		cpuPool = NewStrictCPUPool(domain.Spec.CPU.Topology, topology, cpuset)
+		cpuPool = NewStrictCPUPool(requestedToplogy, topology, cpuset)
 	} else {
-		cpuPool = NewRelaxedCPUPool(domain.Spec.CPU.Topology, topology, cpuset)
+		cpuPool = NewRelaxedCPUPool(requestedToplogy, topology, cpuset)
 	}
 	cpuTune, err := cpuPool.FitCores()
 	if err != nil {
