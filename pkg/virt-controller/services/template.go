@@ -874,7 +874,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch())
+	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -970,22 +970,22 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			}
 		}
 		// Set requested memory equals to overhead memory
-		reqMemDiff.Add(*memoryOverhead)
+		reqMemDiff.Add(memoryOverhead)
 		resources.Requests[k8sv1.ResourceMemory] = *reqMemDiff
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			limMemDiff.Add(*memoryOverhead)
+			limMemDiff.Add(memoryOverhead)
 			resources.Limits[k8sv1.ResourceMemory] = *limMemDiff
 		}
 	} else {
 		// Add overhead memory
 		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
-			memoryRequest.Add(*memoryOverhead)
+			memoryRequest.Add(memoryOverhead)
 		}
 		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
 
 		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			memoryLimit.Add(*memoryOverhead)
+			memoryLimit.Add(memoryOverhead)
 			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
 		}
 	}
@@ -1853,12 +1853,13 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 // The return value is overhead memory quantity
 //
 // Note: This is the best estimation we were able to come up with
-//       and is still not 100% accurate
-func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
+//
+//	and is still not 100% accurate
+func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
-	overhead := resource.NewScaledQuantity(0, resource.Kilo)
+	overhead := *resource.NewScaledQuantity(0, resource.Kilo)
 
 	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
 	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
@@ -1927,12 +1928,24 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource
 		overhead.Add(resource.MustParse("1Mi"))
 	}
 
-	addProbeOverheads(vmi, overhead)
+	addProbeOverheads(vmi, &overhead)
 
 	// Consider memory overhead for SEV guests.
 	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
 	if util.IsSEVVMI(vmi) {
 		overhead.Add(resource.MustParse("256Mi"))
+	}
+
+	// Multiplying the ratio is expected to be the last calculation before returning overhead
+	if additionalOverheadRatio != nil {
+		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
+		if err != nil {
+			// This error should never happen as it's already validated by webhooks
+			log.Log.Warningf("cannot add additional overhead to virt infra overhead calculation: %v", err)
+			return overhead
+		}
+
+		overhead = multiplyMemory(overhead, ratio)
 	}
 
 	return overhead
@@ -2243,4 +2256,12 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return keepLauncherAfterFailure
+}
+
+func multiplyMemory(mem resource.Quantity, multiplication float64) resource.Quantity {
+	overheadAddition := float64(mem.ScaledValue(resource.Kilo)) * (multiplication - 1.0)
+	additionalOverhead := resource.NewScaledQuantity(int64(overheadAddition), resource.Kilo)
+
+	mem.Add(*additionalOverhead)
+	return mem
 }
