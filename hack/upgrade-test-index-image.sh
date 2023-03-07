@@ -106,10 +106,6 @@ echo "----- Get virtctl"
 KV_VERSION=$( ${CMD} get kubevirt.kubevirt.io/kubevirt-kubevirt-hyperconverged -n ${HCO_NAMESPACE} -o=jsonpath="{.status.observedKubeVirtVersion}")
 ARCH=$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/') || windows-amd64.exe
 echo ${ARCH}
-### TODO: remove this once we can consume only kubevirt >= v0.55.0
-# --local-ssh-opts needed to bypass host check is available only starting with kubevirt v0.55.0
-KV_VERSION=v0.55.0
-###
 curl -L -o ~/virtctl https://github.com/kubevirt/kubevirt/releases/download/${KV_VERSION}/virtctl-${KV_VERSION}-${ARCH}
 chmod +x ~/virtctl
 ###################
