@@ -47,7 +47,7 @@ func (n *NodeLabeller) getMinCpuFeature() cpuFeatures {
 	if minCPUModel == "" {
 		minCPUModel = util.DefaultMinCPUModel
 	}
-	return n.cpuInfo.models[minCPUModel]
+	return n.cpuInfo.usableModels[minCPUModel]
 }
 
 func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []string {
@@ -93,11 +93,14 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 		if mode.Name == v1.CPUModeHostModel {
 			n.cpuModelVendor = mode.Vendor.Name
 
-			hostCpuModel := mode.Model[0]
-			if len(mode.Model) > 0 {
+			if len(mode.Model) < 1 {
+				return fmt.Errorf("host model mode is expected to contain a model")
+			}
+			if len(mode.Model) > 1 {
 				log.Log.Warning("host model mode is expected to contain only one model")
 			}
 
+			hostCpuModel := mode.Model[0]
 			n.hostCPUModel.Name = hostCpuModel.Name
 			n.hostCPUModel.fallback = hostCpuModel.Fallback
 
@@ -176,7 +179,7 @@ func (n *NodeLabeller) loadCPUInfo() error {
 		}
 	}
 
-	n.cpuInfo.models = models
+	n.cpuInfo.usableModels = models
 	return nil
 }
 
