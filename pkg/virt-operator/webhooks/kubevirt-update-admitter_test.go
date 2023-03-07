@@ -100,6 +100,32 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			),
 		)
 	})
+
+	Context("with AdditionalGuestMemoryOverheadRatio", func() {
+		DescribeTable("the ratio must be parsable to float", func(unparsableRatio string) {
+			causes := validateGuestToRequestHeadroom(&unparsableRatio)
+			Expect(causes).To(HaveLen(1))
+		},
+			Entry("not a number", "abcdefg"),
+			Entry("number with bad formatting", "1.fd3ggx"),
+		)
+
+		DescribeTable("the ratio must be larger than 1", func(lessThanOneRatio string) {
+			causes := validateGuestToRequestHeadroom(&lessThanOneRatio)
+			Expect(causes).ToNot(BeEmpty())
+		},
+			Entry("0.999", "0.999"),
+			Entry("negative number", "-1.3"),
+		)
+
+		DescribeTable("valid values", func(validRatio string) {
+
+		},
+			Entry("1.0", "1.0"),
+			Entry("5", "5"),
+			Entry("1.123", "1.123"),
+		)
+	})
 })
 
 type kubevirtSpecOption func(*v1.KubeVirtSpec)

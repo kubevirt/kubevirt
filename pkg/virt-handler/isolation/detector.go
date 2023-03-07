@@ -55,7 +55,7 @@ type PodIsolationDetector interface {
 	Allowlist(controller []string) PodIsolationDetector
 
 	// Adjust system resources to run the passed VM
-	AdjustResources(vm *v1.VirtualMachineInstance) error
+	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
 }
 
 const isolationDialTimeout = 5
@@ -107,7 +107,7 @@ func (s *socketBasedIsolationDetector) Allowlist(controller []string) PodIsolati
 	return s
 }
 
-func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
 	if !util.IsVFIOVMI(vm) && !vm.IsRealtimeEnabled() && !util.IsSEVVMI(vm) {
 		return nil
@@ -137,7 +137,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		}
 
 		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH)
+		memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH, additionalOverheadRatio)
 		// Add base memory requested for the VM
 		vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
 		memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
@@ -155,7 +155,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 // AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
 // virt-launcher pod on the given VMI according to its spec.
 // Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
-func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance) error {
+func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
 	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
 		return nil
 	}
@@ -171,7 +171,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	}
 	qemuProcessID := qemuProcess.Pid()
 	// make the best estimate for memory required by libvirt
-	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH)
+	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
 	// Add base memory requested for the VM
 	vmiMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory()
 	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))

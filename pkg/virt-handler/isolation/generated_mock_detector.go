@@ -61,12 +61,12 @@ func (_mr *_MockPodIsolationDetectorRecorder) Allowlist(arg0 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Allowlist", arg0)
 }
 
-func (_m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "AdjustResources", vm)
+func (_m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
+	ret := _m.ctrl.Call(_m, "AdjustResources", vm, additionalOverheadRatio)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockPodIsolationDetectorRecorder) AdjustResources(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AdjustResources", arg0)
+func (_mr *_MockPodIsolationDetectorRecorder) AdjustResources(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AdjustResources", arg0, arg1)
 }
