@@ -121,7 +121,7 @@ KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorConditio
 ### Create a VM ###
 Msg "Create a simple VM on the previous version cluster, before the upgrade"
 ${CMD} create namespace ${VMS_NAMESPACE}
-ssh-keygen -f ./hack/test_ssh -q -N ""
+ssh-keygen -t ecdsa -f ./hack/test_ssh -q -N ""
 cat << END > ./hack/cloud-init.sh
 #!/bin/sh
 export NEW_USER="cirros"
