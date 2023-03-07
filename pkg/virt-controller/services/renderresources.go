@@ -126,6 +126,26 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOp
 	}
 }
 
+func WithGuaranteedQos() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		if renderer.calculatedRequests[k8sv1.ResourceMemory] != renderer.calculatedLimits[k8sv1.ResourceMemory] {
+			renderer.calculatedLimits[k8sv1.ResourceMemory] = renderer.calculatedRequests[k8sv1.ResourceMemory]
+		}
+
+		if renderer.calculatedRequests[k8sv1.ResourceCPU] != renderer.calculatedLimits[k8sv1.ResourceCPU] {
+			renderer.calculatedLimits[k8sv1.ResourceCPU] = renderer.calculatedRequests[k8sv1.ResourceCPU]
+		}
+
+		if renderer.vmRequests[k8sv1.ResourceMemory] != renderer.vmLimits[k8sv1.ResourceMemory] {
+			renderer.vmLimits[k8sv1.ResourceMemory] = renderer.vmRequests[k8sv1.ResourceMemory]
+		}
+
+		if renderer.vmRequests[k8sv1.ResourceCPU] != renderer.vmLimits[k8sv1.ResourceCPU] {
+			renderer.vmLimits[k8sv1.ResourceCPU] = renderer.vmRequests[k8sv1.ResourceCPU]
+		}
+	}
+}
+
 func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmMemory.Hugepages.PageSize)
@@ -199,14 +219,27 @@ func WithCPUPinning(cpu *v1.CPU) ResourceRendererOption {
 
 		// allocate 1 more pcpu if IsolateEmulatorThread request
 		if cpu.IsolateEmulatorThread {
-			emulatorThreadCPU := resource.NewQuantity(1, resource.BinarySI)
-			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
-			limits.Add(*emulatorThreadCPU)
-			renderer.vmLimits[k8sv1.ResourceCPU] = limits
-			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCPU)
-				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
-			}
+			extraCpuOption := WithExtraCpus(1)
+			extraCpuOption(renderer)
+		}
+
+		renderer.vmLimits[k8sv1.ResourceMemory] = *renderer.vmRequests.Memory()
+	}
+}
+
+func WithExtraCpus(extraCpus int) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		if extraCpus <= 0 {
+			return
+		}
+
+		extraCpusQuantity := resource.NewQuantity(int64(extraCpus), resource.BinarySI)
+		limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
+		limits.Add(*extraCpusQuantity)
+		renderer.vmLimits[k8sv1.ResourceCPU] = limits
+		if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
+			cpuRequest.Add(*extraCpusQuantity)
+			renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
 		}
 
 		renderer.vmLimits[k8sv1.ResourceMemory] = *renderer.vmRequests.Memory()

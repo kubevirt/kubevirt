@@ -22,6 +22,7 @@ package services
 import (
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -127,6 +128,8 @@ const (
 )
 
 const customSELinuxType = "virt_launcher.process"
+
+const EmulatorContainerName = "emulator"
 
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
@@ -456,6 +459,10 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 				WithVolumeMounts(sidecarHookVolumeMount()),
 				WithArgs(requestedHookSidecar.Args),
 			).Render(requestedHookSidecar.Command))
+	}
+
+	if vmi.IsCPUDedicated() {
+		containers = append(containers, t.generateEmulatorContainer(vmi, userId))
 	}
 
 	podAnnotations, err := generatePodAnnotations(vmi)
@@ -1030,6 +1037,32 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 	return exporterPod
 }
 
+func (t *templateService) generateEmulatorContainer(vmi *v1.VirtualMachineInstance, userId int64, options ...Option) k8sv1.Container {
+	resourceOptions := []ResourceRendererOption{
+		WithEphemeralStorageRequest(),
+		WithMemoryOverhead(vmi.Spec.Domain.Resources, GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)),
+		WithCPUPinning(vmi.Spec.Domain.CPU),
+	}
+
+	vmiResources := vmi.Spec.Domain.Resources
+	resourceRenderer := NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, resourceOptions...)
+
+	volumeMountOpts := []Option{
+		WithVolumeMounts(mountPath("public", t.virtShareDir)),
+		WithVolumeMounts(mountPath("sockets", filepath.Join(t.virtShareDir, "sockets"))),
+	}
+
+	return newSidecarContainerRenderer(
+		EmulatorContainerName,
+		t.launcherImage,
+		t.clusterConfig.GetImagePullPolicy(),
+		vmi,
+		resourceRenderer.ResourceRequirements(),
+		userId,
+		append(volumeMountOpts, options...)...,
+	).Render([]string{"/usr/bin/emulator-container", "--virt-share-dir", t.virtShareDir})
+}
+
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
 	for _, oldsecret := range secrets {
 		if oldsecret == newsecret {
@@ -1309,11 +1342,11 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 
 func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	alwaysTrue := func(_ *v1.VirtualMachineInstance) bool { return true }
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
-			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
+			NewVMIResourceRule(alwaysTrue, WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
@@ -1322,6 +1355,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(util.IsGPUVMI, WithGPUs(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithGuaranteedQos()),
 		},
 	}
 }

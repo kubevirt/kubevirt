@@ -61,9 +61,9 @@ func (_mr *_MockManagerRecorder) GetCgroupVersion() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCgroupVersion")
 }
 
-func (_m *MockManager) GetCpuSet() (string, error) {
+func (_m *MockManager) GetCpuSet() ([]int, error) {
 	ret := _m.ctrl.Call(_m, "GetCpuSet")
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].([]int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -72,14 +72,14 @@ func (_mr *_MockManagerRecorder) GetCpuSet() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetCpuSet")
 }
 
-func (_m *MockManager) SetCpuSet(subcgroup string, cpulist []int) error {
-	ret := _m.ctrl.Call(_m, "SetCpuSet", subcgroup, cpulist)
+func (_m *MockManager) SetCpuSet(cpulist []int) error {
+	ret := _m.ctrl.Call(_m, "SetCpuSet", cpulist)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockManagerRecorder) SetCpuSet(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetCpuSet", arg0, arg1)
+func (_mr *_MockManagerRecorder) SetCpuSet(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetCpuSet", arg0)
 }
 
 func (_m *MockManager) CreateChildCgroup(name string, subSystems ...string) (Manager, error) {
