@@ -81,7 +81,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				userSpecifiedMemory,
 				userSpecifiedMemory,
-				WithMemoryOverhead(requestedVMRequirements, &memOverhead),
+				WithMemoryOverhead(requestedVMRequirements, memOverhead),
 			)
 			Expect(rr.Requests()).To(HaveKeyWithValue(
 				kubev1.ResourceMemory,
@@ -97,7 +97,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 					Requests:                nil,
 					Limits:                  nil,
 					OvercommitGuestOverhead: true,
-				}, &memOverhead))
+				}, memOverhead))
 				Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, baseMemory))
 				Expect(rr.Limits()).To(HaveKeyWithValue(
 					kubev1.ResourceMemory,
