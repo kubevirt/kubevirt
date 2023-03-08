@@ -35,6 +35,7 @@ function up() {
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     _add_worker_kubeadm_config_patch
     _add_worker_extra_mounts
+    export CONFIG_CPU_MANAGER=true
     kind_up
 
     configure_registry_proxy

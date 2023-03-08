@@ -7,6 +7,7 @@ function detect_cri() {
 }
 
 export CRI_BIN=${CRI_BIN:-$(detect_cri)}
+CONFIG_WORKER_CPU_MANAGER=${CONFIG_WORKER_CPU_MANAGER:-false}
 
 # check CPU arch
 PLATFORM=$(uname -m)
@@ -262,7 +263,9 @@ function _add_workers() {
         cat << EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
 - role: worker
 EOF
-    _add_worker_kubeadm_config_patch
+    if [ $CONFIG_WORKER_CPU_MANAGER == true ]; then
+         _add_worker_kubeadm_config_patch
+    fi
     _add_worker_extra_mounts
     done
 }

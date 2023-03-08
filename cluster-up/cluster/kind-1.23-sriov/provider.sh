@@ -51,6 +51,7 @@ function up() {
     echo ""
 
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+    export CONFIG_WORKER_CPU_MANAGER=true
     kind_up
 
     configure_registry_proxy
