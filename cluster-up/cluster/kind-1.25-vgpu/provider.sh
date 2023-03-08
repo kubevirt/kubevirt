@@ -41,7 +41,7 @@ function up() {
     echo ""
 
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
-    _add_worker_extra_mounts
+    _add_extra_mounts
     kind_up
 
     configure_registry_proxy

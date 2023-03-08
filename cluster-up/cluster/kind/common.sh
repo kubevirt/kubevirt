@@ -227,7 +227,7 @@ function setup_kind() {
     prepare_config
 }
 
-function _add_worker_extra_mounts() {
+function _add_extra_mounts() {
   cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
   extraMounts:
   - containerPath: /var/log/audit
@@ -243,7 +243,7 @@ EOF
   fi
 }
 
-function _add_worker_kubeadm_config_patch() {
+function _add_kubeadm_cpu_manager_config_patch() {
     cat << EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
   kubeadmConfigPatches:
   - |-
@@ -264,9 +264,9 @@ function _add_workers() {
 - role: worker
 EOF
     if [ $CONFIG_WORKER_CPU_MANAGER == true ]; then
-         _add_worker_kubeadm_config_patch
+         _add_kubeadm_cpu_manager_config_patch
     fi
-    _add_worker_extra_mounts
+    _add_extra_mounts
     done
 }
 
