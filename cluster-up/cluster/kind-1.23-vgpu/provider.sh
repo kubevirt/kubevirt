@@ -14,8 +14,8 @@ else
 fi
 
 function set_kind_params() {
-    export KIND_VERSION="${KIND_VERSION:-0.11.1}"
-    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-quay.io/kubevirtci/kindest_node:v1.23.3@sha256:0df8215895129c0d3221cda19847d1296c4f29ec93487339149333bd9d899e5a}"
+    export KIND_VERSION="${KIND_VERSION:-0.17.0}"
+    export KIND_NODE_IMAGE="${KIND_NODE_IMAGE:-quay.io/kubevirtci/kindest-node:v1.25.2@sha256:9be91e9e9cdf116809841fc77ebdb8845443c4c72fe5218f3ae9eb57fdb4bace}"
     export KUBECTL_PATH="${KUBECTL_PATH:-/bin/kubectl}"
 }
 
@@ -41,7 +41,6 @@ function up() {
     echo ""
 
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
-    _add_worker_kubeadm_config_patch
     _add_worker_extra_mounts
     kind_up
 
