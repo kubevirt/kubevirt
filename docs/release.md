@@ -39,24 +39,36 @@ The release schedule is build around a few guiding principles:
 
 ## CI Provider
 
-A pre-condition for the GA of a KubeVirt release is the presence of a KubeVirt CI provider for the correspoding Kubernetes release.
+A pre-condition for the GA of a KubeVirt release is the presence of a KubeVirt CI provider for the corresponding Kubernetes release.
 Around the beta release of the corresponding Kubernetes release, the KubeVirt team will start to work on a KubeVirt CI provider.
-The assumption is, that the KubeVirt CI provider will be available by KubeVirt's enhcanement freeze.
+The assumption is, that the KubeVirt CI provider will be available by KubeVirt's enhancement freeze.
+
+### Introduction of a new CI Provider
+
+The introduction of a new provider has the following phases:
+1. Provider is created
+2. Provider is published
+3. Provider lands in kubevirt/kubevirt
+4. Periodic and presubmit lanes get introduced for the sigs `compute`, `network`, `storage` and `operator`, where
+   1. while the periodics deliver a signal for how KubeVirt and the provider are interacting, the presubmits initially are to be triggered manually, so that teams can work on fixing bugs in either the provider or the KubeVirt code
+   2. at the point when the periodics look stable enough, the presubmits are turned on to run on every PR
+   3. if the signal is looking stable enough, they are made voting
 
 ## Release schedule schema  
 
 This can then be translated into the following KubeVirt release schedule schema:
 
-| Week Number in Kubernetes Release Cycle | KubeVirt Milestone | Note                            |
-|:---------------------------------------:|--------------------|---------------------------------|
-| 14 - 8                                  | Alpha              | KubeVirt alpha.0 on main        |
-| 14 - 4                                  | Beta               | KubeVirt beta.0 on main         |
-| 14 - 4                                  |                    | Start the KubeVirt CI provider  |
-| 14                                      |                    | Kubernetes release              |
-| 14 + 8                                  | Enhancement Freeze | KubeVirt stable branch is cut   |
-| 14 + 9                                  | RC                 | KubeVirt rc.0 on release branch |
-| 14 + 10                                 | RC                 | KubeVirt rc.1 on release branch |
-| 14 + 11                                 | GA                 | KubeVirt GA                     |
+| Week Number in Kubernetes Release Cycle | KubeVirt Milestone | Note                             |
+|:---------------------------------------:|--------------------|----------------------------------|
+|                 14 - 8                  | Alpha              | KubeVirt alpha.0 on main         |
+|                 14 - 4                  | Beta               | KubeVirt beta.0 on main          |
+|                 14 - 4                  |                    | Start the KubeVirt CI provider   |
+|                   14                    |                    | Kubernetes release               |
+|                 14 + 4                  |                    | CI lanes for provider are voting |
+|                 14 + 8                  | Enhancement Freeze | KubeVirt stable branch is cut    |
+|                 14 + 9                  | RC                 | KubeVirt rc.0 on release branch  |
+|                 14 + 10                 | RC                 | KubeVirt rc.1 on release branch  |
+|                 14 + 11                 | GA                 | KubeVirt GA                      |
 
 ## Release branch and backports
 
