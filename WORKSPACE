@@ -280,27 +280,6 @@ load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
 
 container_deps()
 
-# Pull base image fedora31
-# WARNING: please update any automated process to push this image to quay.io
-# instead of index.docker.io
-container_pull(
-    name = "fedora",
-    digest = "sha256:5e2b864cfe165fa7da6606b29a9e60549eb7cc9ae7fb574614110d1494b0f0c2",
-    registry = "quay.io",
-    repository = "kubevirtci/fedora",
-    tag = "31",
-)
-
-# As rpm package in https://dl.fedoraproject.org/pub/fedora/linux/releases/31 is empty, we use fedora 32 here.
-# TODO add fedora image to quay.io
-container_pull(
-    name = "fedora_aarch64",
-    digest = "sha256:425676dd30f2c85ba3593b82040ce03341cd6dc4e38838e57c8bc5eef95b5f81",
-    registry = "index.docker.io",
-    repository = "library/fedora",
-    tag = "32",
-)
-
 # Pull go_image_base
 container_pull(
     name = "go_image_base",
