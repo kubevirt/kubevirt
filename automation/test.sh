@@ -84,6 +84,10 @@ if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
 fi
 
+if [[ $KUBEVIRT_PROVIDER =~ vgpu.* ]]; then
+  export KUBEVIRT_PROVIDER=kind-1.25-vgpu
+fi
+
 if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
