@@ -776,6 +776,7 @@ rules:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/console
+  - virtualmachineinstances/getconsolelog
   - virtualmachineinstances/vnc
   - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/portforward
@@ -922,6 +923,7 @@ rules:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/console
+  - virtualmachineinstances/getconsolelog
   - virtualmachineinstances/vnc
   - virtualmachineinstances/vnc/screenshot
   - virtualmachineinstances/portforward

@@ -20,6 +20,7 @@
 package rest
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -333,4 +334,69 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 			response.WriteHeader(http.StatusInternalServerError)
 		}
 	}
+}
+
+func (t *ConsoleHandler) GetConsoleLogHandler(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, t.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		response.WriteError(code, err)
+		return
+	}
+	consoleLogPath, err := t.getConsoleLogPath(vmi, "virt-consolelog0.log")
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed finding consolelog for %s\n", vmi.Name)
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	logfile, err := os.Open(consoleLogPath)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed reading the file for %s\n", vmi.Name)
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+	defer logfile.Close() //close after checking err
+
+	logBytePool := sync.Pool{
+		New: func() interface{} {
+			lines := make([]byte, 512) // 每次读取 512 个字节
+			return lines
+		},
+	}
+	r := bufio.NewReader(logfile) //提供缓冲区操作文件
+	for {
+		buf := logBytePool.Get().([]byte)
+		n, err := r.Read(buf)
+		buf = buf[:n]
+		if err != nil && err != io.EOF {
+			response.WriteError(http.StatusBadRequest, err)
+		}
+		if n == 0 {
+			break
+		}
+		_, err = response.ResponseWriter.Write(buf)
+		if err != nil {
+			response.WriteError(http.StatusBadRequest, err)
+			return
+		}
+		logBytePool.Put(buf)
+		if err != nil {
+			response.WriteError(http.StatusBadRequest, err)
+			return
+		}
+	}
+}
+
+func (t *ConsoleHandler) getConsoleLogPath(vmi *v1.VirtualMachineInstance, consoleLogName string) (string, error) {
+	result, err := t.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return "", err
+	}
+	consoleLogDir := path.Join("/proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()))
+	consoleLogPath := path.Join(consoleLogDir, consoleLogName)
+	if _, err = os.Stat(consoleLogPath); errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+
+	return consoleLogPath, nil
 }

@@ -2,10 +2,13 @@ package kubecli
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
+	restful "github.com/emicklei/go-restful"
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -30,6 +33,7 @@ const (
 	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
 	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
+	getConsoleLogTemplateURI  = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/getconsolelog"
 )
 
 func NewVirtHandlerClient(virtCli KubevirtClient, httpCli *http.Client) VirtHandlerClient {
@@ -61,9 +65,11 @@ type VirtHandlerConn interface {
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, body io.ReadCloser) error
 	Get(url string) (string, error)
+	GetStream(url string, tlsConfig *tls.Config, response *restful.Response) error
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	GetConsoleLogURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -262,6 +268,42 @@ func (v *virtHandlerConn) Get(url string) (string, error) {
 	return response, nil
 }
 
+func (v *virtHandlerConn) GetStream(url string, tlsConfig *tls.Config, response *restful.Response) error {
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("unexpected return code %s", resp.Status)
+	}
+
+	defer resp.Body.Close()
+
+	buf := make([]byte, 4096)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			break
+		}
+		response.ResponseWriter.Write(buf[:n])
+	}
+	return nil
+}
+
 func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(guestInfoTemplateURI, vmi)
 }
@@ -279,4 +321,8 @@ func (v *virtHandlerConn) UserListURI(vmi *virtv1.VirtualMachineInstance) (strin
 
 func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(filesystemListTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) GetConsoleLogURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(getConsoleLogTemplateURI, vmi)
 }

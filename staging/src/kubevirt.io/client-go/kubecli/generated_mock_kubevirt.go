@@ -1222,6 +1222,16 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddInterface(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddInterface", arg0, arg1, arg2)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) GetConsolelog(name string) error {
+	ret := _m.ctrl.Call(_m, "GetConsolelog", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) GetConsolelog(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetConsolelog", arg0)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller

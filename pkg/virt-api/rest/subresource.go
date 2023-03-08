@@ -190,6 +190,22 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 	response.WriteEntity(v)
 }
 
+func (app *SubresourceAPIApp) httpGetConsoleLogHandler(request *restful.Request, response *restful.Response, validate validation, getURL URLResolver) {
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf(prepConnectionErrFmt, err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	conErr := conn.GetStream(url, app.handlerTLSConfiguration, response)
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+}
+
 // get either the interface with the provided name or the first available interface
 // if no interface is present, return error
 func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -1588,4 +1604,23 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+// GetConsoleLogVMIRequestHandler  handles the subresource for getting console log form a running vm
+func (app *SubresourceAPIApp) GetConsoleLogVMIRequestHandler(request *restful.Request, response *restful.Response) {
+
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiGuestAgentErr))
+		}
+		return nil
+	}
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.GetConsoleLogURI(vmi)
+	}
+	app.httpGetConsoleLogHandler(request, response, validate, getURL)
 }

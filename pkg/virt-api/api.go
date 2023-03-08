@@ -525,6 +525,12 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("getconsolelog")).
+			To(subresourceApp.GetConsoleLogRequestHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version + "GetConsoleLog").
+			Doc("Getting console log for the specified VirtualMachineInstance."))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -621,6 +627,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/addinterface",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/getconsolelog",
 						Namespaced: true,
 					},
 				}
