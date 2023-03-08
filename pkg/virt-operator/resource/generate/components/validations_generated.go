@@ -8090,6 +8090,12 @@ var CRDsValidation map[string]string = map[string]string{
             according to specified TTL Formula is CreationTimestamp + TTL
           format: date-time
           type: string
+        virtualMachineName:
+          description: VirtualMachineName shows the name of the source virtual machine
+            if the source is either a VirtualMachine or a VirtualMachineSnapshot.
+            This is mainly to easily identify the source VirtualMachine in case of
+            a VirtualMachineSnapshot
+          type: string
       type: object
   required:
   - spec

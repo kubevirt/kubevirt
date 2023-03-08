@@ -26,13 +26,14 @@ func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
-		"phase":             "+optional",
-		"links":             "+optional",
-		"tokenSecretRef":    "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
-		"ttlExpirationTime": "The time at which the VM Export will be completely removed according to specified TTL\nFormula is CreationTimestamp + TTL",
-		"serviceName":       "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
-		"conditions":        "+optional\n+listType=atomic",
+		"":                   "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
+		"phase":              "+optional",
+		"links":              "+optional",
+		"tokenSecretRef":     "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
+		"ttlExpirationTime":  "The time at which the VM Export will be completely removed according to specified TTL\nFormula is CreationTimestamp + TTL",
+		"serviceName":        "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
+		"virtualMachineName": "+optional\nVirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or\na VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a\nVirtualMachineSnapshot",
+		"conditions":         "+optional\n+listType=atomic",
 	}
 }
 

@@ -185,7 +185,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 
 func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
 	vmExportCopy := vmExport.DeepCopy()
-
+	vmExportCopy.Status.VirtualMachineName = pointer.StringPtr(ctrl.getVmNameFromVmSnapshot(vmExport))
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getSnapshotVolumeName); err != nil {
 		return 0, err
 	}
