@@ -38,6 +38,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -182,7 +184,8 @@ func CreateFaultyDisk(nodeName, deviceName string) {
 }
 
 func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
-	return CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, "faulty-disks", "ioerrorpvc", "ioerrorpvc")
+	prefix := "ioerror" + rand.String(5)
+	return CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, "faulty-disks", prefix+"-pv", prefix+"-pvc")
 }
 
 func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
