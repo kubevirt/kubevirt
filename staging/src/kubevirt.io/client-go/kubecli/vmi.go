@@ -20,9 +20,11 @@
 package kubecli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -516,4 +518,25 @@ func (v *vmis) AddInterface(ctx context.Context, name string, addInterfaceOption
 	}
 
 	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
+}
+
+func (v *vmis) GetConsolelog(name string) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "getconsolelog")
+	stream, err := v.restClient.Get().RequestURI(uri).Stream(context.Background())
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+	logBuf := bufio.NewReader(stream)
+	for {
+		bytes, err := logBuf.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		fmt.Printf(string(bytes))
+	}
+	return nil
 }

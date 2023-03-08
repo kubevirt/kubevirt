@@ -848,6 +848,7 @@ spec:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/console
+          - virtualmachineinstances/getconsolelog
           - virtualmachineinstances/vnc
           - virtualmachineinstances/vnc/screenshot
           - virtualmachineinstances/portforward
@@ -994,6 +995,7 @@ spec:
           - subresources.kubevirt.io
           resources:
           - virtualmachineinstances/console
+          - virtualmachineinstances/getconsolelog
           - virtualmachineinstances/vnc
           - virtualmachineinstances/vnc/screenshot
           - virtualmachineinstances/portforward

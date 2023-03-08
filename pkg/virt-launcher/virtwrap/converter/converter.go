@@ -1708,6 +1708,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					Type: &serialType,
 					Port: &serialPort,
 				},
+				Log: &api.ConsoleLog{
+					File:   fmt.Sprintf("/var/run/kubevirt-private/%s/virt-consolelog%d.log", vmi.ObjectMeta.UID, serialPort),
+					Append: "off",
+				},
 			},
 		}
 
@@ -1720,6 +1724,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				Source: &api.SerialSource{
 					Mode: "bind",
 					Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
+				},
+				Log: &api.SerialLog{
+					File:   fmt.Sprintf("/var/run/kubevirt-private/%s/virt-consolelog%d.log", vmi.ObjectMeta.UID, serialPort),
+					Append: "off",
 				},
 			},
 		}
