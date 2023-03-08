@@ -71,7 +71,6 @@ import (
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachine", decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var file *os.File
 
 	runStrategyManual := v1.RunStrategyManual
 
@@ -1350,6 +1349,8 @@ spec:
 status:
 `
 				)
+
+				var file *os.File
 
 				BeforeEach(func() {
 					file, err = os.CreateTemp("", "file-*")
