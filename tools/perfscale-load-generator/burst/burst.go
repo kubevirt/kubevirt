@@ -74,7 +74,7 @@ func (b *BurstLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *co
 }
 
 func (b *BurstJob) CreateWorkloads() {
-	log.Log.V(1).Infof("Burst Load Generator CreateWorkloads")
+	log.Log.V(log.HIGH).Infof("Burst Load Generator CreateWorkloads")
 
 	// The watcher must be created before to be able to watch all events related to the objs.
 	// This is important because before creating each obj we need to create a obj watcher for each obj type.
@@ -101,7 +101,7 @@ func (b *BurstJob) CreateWorkloads() {
 }
 
 func (b *BurstJob) DeleteWorkloads() {
-	log.Log.V(1).Infof("Burst Load Generator DeleteWorkloads")
+	log.Log.V(log.HIGH).Infof("Burst Load Generator DeleteWorkloads")
 	objSpec := b.Workload.Object
 	objSample := renderObjSpecTemplate(objSpec, b.UUID)
 	b.createWatcherIfNotExist(objSample)
@@ -136,7 +136,7 @@ func (b *BurstJob) createWatcherIfNotExist(obj *unstructured.Unstructured) {
 }
 
 func (b *BurstJob) Wait() {
-	log.Log.V(1).Infof("Burst Load Generator Wait")
+	log.Log.V(log.HIGH).Infof("Burst Load Generator Wait")
 	return
 }
 

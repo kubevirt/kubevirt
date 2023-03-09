@@ -83,17 +83,17 @@ func (b *SteadyStateLoadGenerator) Delete(virtClient kubecli.KubevirtClient, wor
 func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, workload *config.Workload) {
 	ss := newSteadyStateJob(virtClient, workload, b.UUID)
 	// Ramp up phase, creating all objects, waiting before starting the steady state phase
-	log.Log.V(1).Infof("Starting the Ramp Up Phase")
+	log.Log.V(log.HIGH).Infof("Starting the Ramp Up Phase")
 	ss.CreateWorkloads(ss.Workload.Count)
 
 	// After the Ramp up phase, the steady-state phase will start, creating a churn of object in the cluster,
 	// by deleting X objects and recreating them, until the test timeout.
-	log.Log.V(1).Infof("Starting the Steady State Phase")
+	log.Log.V(log.HIGH).Infof("Starting the Steady State Phase")
 	for {
 		select {
 		case <-b.Done:
 			// The steady state phase finishes when the test times out, and then the ramp down phase deleting all objs
-			log.Log.V(1).Infof("Starting the Ramp Down Phase")
+			log.Log.V(log.HIGH).Infof("Starting the Ramp Down Phase")
 			ss.DeleteWorkloads(ss.Workload.Count)
 			ss.DeleteNamespaces()
 			ss.stopAllWatchers()
@@ -110,7 +110,7 @@ func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, worklo
 }
 
 func (b *SteadyStateJob) CreateWorkloads(replicas int) {
-	log.Log.V(1).Infof("SteadyState Load Generator CreateWorkloads")
+	log.Log.V(log.HIGH).Infof("SteadyState Load Generator CreateWorkloads")
 
 	// The watcher must be created before to be able to watch all events related to the objs.
 	// This is important because before creating each obj we need to create a obj watcher for each obj type.
@@ -136,7 +136,7 @@ func (b *SteadyStateJob) CreateWorkloads(replicas int) {
 }
 
 func (b *SteadyStateJob) DeleteWorkloads(count int) {
-	log.Log.V(1).Infof("SteadyState Load Generator DeleteWorkloads")
+	log.Log.V(log.HIGH).Infof("SteadyState Load Generator DeleteWorkloads")
 	objSpec := b.Workload.Object
 	objSample := renderObjSpecTemplate(objSpec, b.UUID)
 	b.createWatcherIfNotExist(objSample)

@@ -407,7 +407,7 @@ func (m *volumeMounter) mountBlockHotplugVolume(vmi *v1.VirtualMachineInstance, 
 		if err := m.createBlockDeviceFile(targetPath, volume, dev, permissions); err != nil && !os.IsExist(err) {
 			return err
 		}
-		log.DefaultLogger().V(1).Infof("successfully created block device %v", volume)
+		log.DefaultLogger().V(log.HIGH).Infof("successfully created block device %v", volume)
 	} else if err != nil {
 		return err
 	}
@@ -554,7 +554,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		if out, err := mountCommand(sourcePath, target); err != nil {
 			return fmt.Errorf("failed to bindmount hotplug volume source from %v to %v: %v : %v", sourcePath, target, string(out), err)
 		}
-		log.DefaultLogger().V(1).Infof("successfully mounted %v", volume)
+		log.DefaultLogger().V(log.HIGH).Infof("successfully mounted %v", volume)
 	}
 
 	return m.ownershipManager.SetFileOwnership(target)

@@ -36,7 +36,7 @@ import (
 func main() {
 	log.Log.SetVerbosityLevel(flags.Verbosity)
 
-	log.Log.V(1).Infof("Running Load Generator")
+	log.Log.V(log.HIGH).Infof("Running Load Generator")
 
 	workload := config.NewWorkload(flags.WorkloadConfigFile)
 	client := config.NewKubevirtClient()

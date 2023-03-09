@@ -362,11 +362,11 @@ var getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error
 		if name == "" {
 			continue
 		}
-		log.Log.V(1).Infof("Opening DV %s", filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
+		log.Log.V(log.HIGH).Infof("Opening DV %s", filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
 		f, err := os.Open(filepath.Join(manifestCmBasePath, fmt.Sprintf("dv-%s", name)))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				log.Log.V(1).Info("DV not found skipping")
+				log.Log.V(log.HIGH).Info("DV not found skipping")
 				continue
 			}
 			return nil, err

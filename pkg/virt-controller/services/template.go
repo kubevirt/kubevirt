@@ -1114,7 +1114,7 @@ func NewTemplateService(launcherImage string,
 	exporterImage string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
-	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
+	log.Log.V(log.HIGH).Infof("Exporter Image: %s", exporterImage)
 	svc := templateService{
 		launcherImage:              launcherImage,
 		launcherQemuTimeout:        launcherQemuTimeout,

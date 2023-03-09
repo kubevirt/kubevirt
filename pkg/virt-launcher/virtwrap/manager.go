@@ -936,7 +936,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
-		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
+		logger.V(log.HIGH).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -957,7 +957,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		if !allowAttach {
 			continue
 		}
-		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+		logger.V(log.HIGH).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
 		// set drivers cache mode
 		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
 		if err != nil {
@@ -1021,13 +1021,13 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
-		log.DefaultLogger().V(1).Infof("stat error: %v", err)
+		log.DefaultLogger().V(log.HIGH).Infof("stat error: %v", err)
 		return false, err
 	}
 	if (info.Mode() & os.ModeDevice) != 0 {
 		file, err := os.OpenFile(filename, os.O_RDONLY, 0600)
 		if err != nil {
-			log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
+			log.DefaultLogger().V(log.HIGH).Infof("Unable to open file: %v", err)
 			return false, nil
 		}
 		if err := file.Close(); err != nil {

@@ -493,7 +493,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 
 func NewConnectionWithTimeout(uri string, user string, pass string, checkInterval, connectionInterval, connectionTimeout time.Duration) (Connection, error) {
 	logger := log.Log
-	logger.V(1).Infof("Connecting to libvirt daemon: %s", uri)
+	logger.V(log.HIGH).Infof("Connecting to libvirt daemon: %s", uri)
 
 	var err error
 	var virConn *libvirt.Connect
@@ -501,7 +501,7 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 	err = utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
-			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)
+			logger.V(log.HIGH).Infof("Connecting to libvirt daemon failed: %v", err)
 			return false, nil
 		}
 		return true, nil
@@ -509,7 +509,7 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to libvirt daemon: %v", err)
 	}
-	logger.V(1).Info("Connected to libvirt daemon")
+	logger.V(log.HIGH).Info("Connected to libvirt daemon")
 
 	lvConn := &LibvirtConnection{
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,

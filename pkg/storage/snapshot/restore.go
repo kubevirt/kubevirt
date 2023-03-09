@@ -103,7 +103,7 @@ func VmRestoreProgressing(vmRestore *snapshotv1.VirtualMachineRestore) bool {
 
 func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.VirtualMachineRestore) (time.Duration, error) {
 	logger := log.Log.Object(vmRestoreIn)
-	logger.V(1).Infof("Updating VirtualMachineRestore")
+	logger.V(log.HIGH).Infof("Updating VirtualMachineRestore")
 
 	if !VmRestoreProgressing(vmRestoreIn) {
 		return 0, nil

@@ -204,7 +204,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	logger := log.Log
-	logger.V(1).Infof("hostname %s", app.HostOverride)
+	logger.V(log.HIGH).Infof("hostname %s", app.HostOverride)
 	var err error
 
 	// Copy container-disk binary
@@ -551,7 +551,7 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	webService.Route(webService.GET("/dump-profiler").To(componentProfiler.HandleDumpProfiler).Doc("dump profiler results endpoint"))
 
 	mux.Add(webService)
-	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	log.Log.V(log.HIGH).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	mux.Handle("/metrics", promdomain.Handler(app.MaxRequestsInFlight))
 	server := http.Server{
 		Addr:      app.ServiceListen.Address(),

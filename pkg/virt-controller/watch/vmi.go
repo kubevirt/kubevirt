@@ -1760,7 +1760,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		}
 		if wffc {
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
-			logger.V(1).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
+			logger.V(log.HIGH).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
 			syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
 			if syncError != nil {
 				return syncError
