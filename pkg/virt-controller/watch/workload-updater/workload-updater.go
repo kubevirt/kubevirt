@@ -120,6 +120,10 @@ func NewWorkloadUpdateController(
 		clusterConfig:         clusterConfig,
 	}
 
+	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateVmi,
+	})
+
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addKubeVirt,
 		DeleteFunc: c.deleteKubeVirt,
@@ -183,6 +187,29 @@ func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
 func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
 	key, err := c.getKubeVirtKey()
 	if key == "" || err != nil {
+		return
+	}
+
+	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
+}
+
+func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
+    vmi, ok := obj.(*virtv1.VirtualMachineInstance)
+	if !ok {
+		return
+	}
+
+	key, err := c.getKubeVirtKey()
+	if key == "" || err != nil {
+		return
+	}
+
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	if vmi.IsFinal() {
+		return
+	}
+
+	if !condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) || migrationutils.IsMigrating(vmi) {
 		return
 	}
 
@@ -280,6 +307,17 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	return false
 }
 
+func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	if vmi.IsFinal() {
+		return false
+	}
+	if condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) && !migrationutils.IsMigrating(vmi) {
+		return true
+	}
+
+	return false
+}
 func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateData {
 	data := &updateData{}
 
@@ -305,12 +343,15 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 	data.numActiveMigrations = len(migrations)
 
 	objs := c.vmiInformer.GetStore().List()
+    log.Log.Infof("workload updater objs: %v", objs)
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
+		log.Log.Infof("workload updated isOutdated? %v doesRequireMigration? %v", c.isOutdated(vmi),  c.doesRequireMigration(vmi))
 		if !vmi.IsRunning() || vmi.IsFinal() || vmi.DeletionTimestamp != nil {
 			// only consider running VMIs that aren't being shutdown
 			continue
-		} else if !c.isOutdated(vmi) {
+		} else if !c.isOutdated(vmi) && !c.doesRequireMigration(vmi) {
+            log.Log.Object(vmi).Infof("workload updated skiping it")
 			continue
 		}
 
@@ -326,6 +367,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 			continue
 		}
 
+		log.Log.Infof("workload updated automatedMigrationAllowed? %v vmi.IsMigratable()? %v", automatedMigrationAllowed, vmi.IsMigratable())
 		if automatedMigrationAllowed && vmi.IsMigratable() {
 			data.migratableOutdatedVMIs = append(data.migratableOutdatedVMIs, vmi)
 		} else if automatedShutdownAllowed {
@@ -472,6 +514,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	wg.Add(wgLen)
 	errChan := make(chan error, wgLen)
 
+    log.Log.Infof("workload updater - migrationCandidates: %v", migrationCandidates)
 	c.migrationExpectations.ExpectCreations(key, migrateCount)
 	for _, vmi := range migrationCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
