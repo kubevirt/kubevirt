@@ -259,7 +259,7 @@ func (h *NetworkUtilsHandler) GetNFTIPString(ipVersion IPVersion) string {
 func (h *NetworkUtilsHandler) CheckNftables() error {
 	output, err := exec.Command("nft", "list", "ruleset").CombinedOutput()
 	if err != nil {
-		log.Log.V(5).Reason(err).Infof("failed to list nftable ruleset")
+		log.Log.V(log.TRACE).Reason(err).Infof("failed to list nftable ruleset")
 		return fmt.Errorf("failed to list nftable ruleset, error: %s", string(output))
 	}
 

@@ -129,7 +129,7 @@ func (f *FileCertificateManager) Start() {
 				select {
 				case objectUpdated <- struct{}{}:
 				default:
-					log.DefaultLogger().V(5).Infof("Dropping redundant wakeup for cert reload")
+					log.DefaultLogger().V(log.TRACE).Infof("Dropping redundant wakeup for cert reload")
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -153,7 +153,7 @@ sync:
 					select {
 					case objectUpdated <- struct{}{}:
 					default:
-						log.DefaultLogger().V(5).Infof("Dropping redundant wakeup for cert reload")
+						log.DefaultLogger().V(log.TRACE).Infof("Dropping redundant wakeup for cert reload")
 					}
 				}()
 			}

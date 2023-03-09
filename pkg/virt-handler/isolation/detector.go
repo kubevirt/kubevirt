@@ -179,7 +179,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
 		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
 	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
+	log.Log.V(log.TRACE).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
 		qemuProcess, memlockSize.Value())
 
 	return nil

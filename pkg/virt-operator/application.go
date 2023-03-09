@@ -404,7 +404,7 @@ func (app *VirtOperatorApp) Run() {
 					leaderGauge.Set(1)
 					log.Log.Infof("Started leading")
 
-					log.Log.V(5).Info("start monitoring the kubevirt-config configMap")
+					log.Log.V(log.TRACE).Info("start monitoring the kubevirt-config configMap")
 					app.kubeVirtController.checkIfConfigMapStillExists(log.Log, stop)
 
 					// run app
@@ -412,7 +412,7 @@ func (app *VirtOperatorApp) Run() {
 				},
 				OnStoppedLeading: func() {
 					leaderGauge.Set(0)
-					log.Log.V(5).Info("stop monitoring the kubevirt-config configMap")
+					log.Log.V(log.TRACE).Info("stop monitoring the kubevirt-config configMap")
 					golog.Fatal("leaderelection lost")
 				},
 			},

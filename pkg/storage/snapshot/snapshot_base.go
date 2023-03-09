@@ -401,11 +401,11 @@ func (ctrl *VMSnapshotController) handleVMSnapshotContent(obj interface{}) {
 
 		if content.Spec.VirtualMachineSnapshotName != nil {
 			k := cacheKeyFunc(content.Namespace, *content.Spec.VirtualMachineSnapshotName)
-			log.Log.V(5).Infof("enqueued vmsnapshot %q for sync", k)
+			log.Log.V(log.TRACE).Infof("enqueued vmsnapshot %q for sync", k)
 			ctrl.vmSnapshotQueue.Add(k)
 		}
 
-		log.Log.V(5).Infof(enqueuedForSyncFmt, objName)
+		log.Log.V(log.TRACE).Infof(enqueuedForSyncFmt, objName)
 		ctrl.vmSnapshotContentQueue.Add(objName)
 	}
 }

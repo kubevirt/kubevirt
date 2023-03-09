@@ -1196,11 +1196,11 @@ func (c *KubeVirtController) checkIfConfigMapStillExists(logger *log.FilteredLog
 	msg := fmt.Sprintf("the %s configMap is still deployed. KubeVirt does not support this configMap and it can be safely removed", obsoleteCmName)
 
 	go wait.Until(func() {
-		logger.V(5).Info("read the kubevirt-config configMap. if exist, emmit an event")
+		logger.V(log.TRACE).Info("read the kubevirt-config configMap. if exist, emmit an event")
 		cm, err := c.clientset.CoreV1().ConfigMaps(c.operatorNamespace).Get(ctx, obsoleteCmName, getOpts)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				logger.V(5).Info("The obsolete kubevirt-config configMap could not be found. good.")
+				logger.V(log.TRACE).Info("The obsolete kubevirt-config configMap could not be found. good.")
 			} else {
 				logger.Errorf("can't get the kubevirt-config configMap %v", err)
 			}
