@@ -50,7 +50,7 @@ func (ctrl *VMExportController) handlePVC(obj interface{}) {
 		}
 
 		for _, key := range keys {
-			log.Log.V(3).Infof("Adding VMExport due to pvc %s", pvcKey)
+			log.Log.V(log.DEBUG).Infof("Adding VMExport due to pvc %s", pvcKey)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}
@@ -146,7 +146,7 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 	}
 
 	if len(sourceVolumes.volumes) == 0 {
-		log.Log.V(3).Info("PVC(s) not found, updating status to not found")
+		log.Log.V(log.DEBUG).Info("PVC(s) not found, updating status to not found")
 		updateCondition(vmExportCopy.Status.Conditions, newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason, sourceVolumes.availableMessage))
 	} else {
 		updateCondition(vmExportCopy.Status.Conditions, ctrl.pvcConditionFromPVC(sourceVolumes.volumes))

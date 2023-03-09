@@ -174,7 +174,7 @@ func TestVerbosity(t *testing.T) {
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 
 	logCalled = false
-	log.V(3).Log("This is a verbosity level 3 message")
+	log.V(log.DEBUG).Log("This is a verbosity level 3 message")
 	assert(t, logCalled, "Log entry (V=3) should have been recorded")
 
 	// once again, this call should do nothing.

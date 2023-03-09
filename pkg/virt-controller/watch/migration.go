@@ -312,7 +312,7 @@ func (c *MigrationController) execute(key string) error {
 		var err error
 
 		if migration.DeletionTimestamp == nil {
-			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
+			logger.V(log.DEBUG).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
 			err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
 		}
 		// nothing to process for a migration that's being deleted

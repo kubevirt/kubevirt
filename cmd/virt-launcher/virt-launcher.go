@@ -245,13 +245,13 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 		case <-ticker:
 			panic(fmt.Errorf("timed out waiting for domain to be defined"))
 		case <-domainCheckTicker:
-			log.Log.V(3).Infof("Periodically checking for domain with UUID")
+			log.Log.V(log.DEBUG).Infof("Periodically checking for domain with UUID")
 			domain := detectDomainWithUUID(domainManager)
 			if domain != nil {
 				return domain
 			}
 		case <-events:
-			log.Log.V(3).Infof("Checking for domain with UUID due to incoming libvirt event")
+			log.Log.V(log.DEBUG).Infof("Checking for domain with UUID due to incoming libvirt event")
 			domain := detectDomainWithUUID(domainManager)
 			if domain != nil {
 				return domain

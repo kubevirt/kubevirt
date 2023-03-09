@@ -116,7 +116,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			return err
 		}
 	} else {
-		logger.V(3).Info("Setting up TCP proxies to support incoming legacy VMI migration")
+		logger.V(log.DEBUG).Info("Setting up TCP proxies to support incoming legacy VMI migration")
 		loopbackAddress := ip.GetLoopbackAddress()
 
 		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration(vmi))
@@ -139,7 +139,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	// since the source vmi is paused, add the vmi uuid to the pausedVMIs as
 	// after the migration this vmi should remain paused.
 	if vmiHasCondition(vmi, v1.VirtualMachineInstancePaused) {
-		logger.V(3).Info("adding vmi uuid to pausedVMIs list on the target")
+		logger.V(log.DEBUG).Info("adding vmi uuid to pausedVMIs list on the target")
 		l.paused.add(vmi.UID)
 	}
 

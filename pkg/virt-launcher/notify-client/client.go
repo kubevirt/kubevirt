@@ -290,7 +290,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 
 		if domain.Status.Status == prevStatus && domain.Status.Reason == prevReason {
 			// Status hasn't changed so log only in higher verbosity.
-			log.Log.V(3).Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
+			log.Log.V(log.DEBUG).Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
 		} else {
 			log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
 		}

@@ -504,7 +504,7 @@ func (m *migrationProxy) Start() error {
 				select {
 				case <-stopChan:
 					// If the stopChan is closed, then this is expected. Log at a lesser debug level
-					m.logger.Reason(err).V(3).Infof("stopChan is closed. Listener exited with expected error.")
+					m.logger.Reason(err).V(log.DEBUG).Infof("stopChan is closed. Listener exited with expected error.")
 				default:
 					m.logger.Reason(err).Error("proxy unix socket listener returned error.")
 				}

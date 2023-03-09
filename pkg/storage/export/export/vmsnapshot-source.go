@@ -62,7 +62,7 @@ func (ctrl *VMExportController) handleVMSnapshot(obj interface{}) {
 			return
 		}
 		for _, key := range keys {
-			log.Log.V(3).Infof("Adding VMExport due to VMSnapshot %s", snapshotKey)
+			log.Log.V(log.DEBUG).Infof("Adding VMExport due to VMSnapshot %s", snapshotKey)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}
@@ -204,7 +204,7 @@ func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1
 func (ctrl *VMExportController) getVmNameFromVmSnapshot(vmExport *exportv1.VirtualMachineExport) string {
 	if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
 		if vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExport.Namespace, vmExport.Spec.Source.Name); err != nil {
-			log.Log.V(3).Infof("Error getting snapshot %v", err)
+			log.Log.V(log.DEBUG).Infof("Error getting snapshot %v", err)
 			return ""
 		} else if exists {
 			return vmSnapshot.Spec.Source.Name

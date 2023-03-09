@@ -157,7 +157,7 @@ func translateError(e *vsv1.VolumeSnapshotError) *snapshotv1.Error {
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (time.Duration, error) {
-	log.Log.V(3).Infof("Updating VirtualMachineSnapshot %s/%s", vmSnapshot.Namespace, vmSnapshot.Name)
+	log.Log.V(log.DEBUG).Infof("Updating VirtualMachineSnapshot %s/%s", vmSnapshot.Namespace, vmSnapshot.Name)
 	var retry time.Duration
 
 	source, err := ctrl.getSnapshotSource(vmSnapshot)
@@ -182,7 +182,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 						return 0, err
 					}
 
-					log.Log.V(3).Infof("Attempt to lock source returned: %t", locked)
+					log.Log.V(log.DEBUG).Infof("Attempt to lock source returned: %t", locked)
 
 					retry = snapshotRetryInterval
 				} else {
@@ -260,7 +260,7 @@ func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.Vir
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
-	log.Log.V(3).Infof("Updating VirtualMachineSnapshotContent %s/%s", content.Namespace, content.Name)
+	log.Log.V(log.DEBUG).Infof("Updating VirtualMachineSnapshotContent %s/%s", content.Namespace, content.Name)
 
 	var volumeSnapshotStatus []snapshotv1.VolumeSnapshotStatus
 	var deletedSnapshots, skippedSnapshots []string
@@ -287,7 +287,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 	}
 
 	if vmSnapshotContentDeleting(content) {
-		log.Log.V(3).Infof("Content deleting %s/%s", content.Namespace, content.Name)
+		log.Log.V(log.DEBUG).Infof("Content deleting %s/%s", content.Namespace, content.Name)
 		return contentDeletionInterval, nil
 
 	}
@@ -323,13 +323,13 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 			}
 
 			if vmSnapshot == nil || vmSnapshotDeleting(vmSnapshot) {
-				log.Log.V(3).Infof("Not creating snapshot %s because vm snapshot is deleted", vsName)
+				log.Log.V(log.DEBUG).Infof("Not creating snapshot %s because vm snapshot is deleted", vsName)
 				skippedSnapshots = append(skippedSnapshots, vsName)
 				continue
 			}
 
 			if currentlyError {
-				log.Log.V(3).Infof("Not creating snapshot %s because in error state", vsName)
+				log.Log.V(log.DEBUG).Infof("Not creating snapshot %s because in error state", vsName)
 				skippedSnapshots = append(skippedSnapshots, vsName)
 				continue
 			}
@@ -800,12 +800,12 @@ func updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapsh
 }
 
 func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.VirtualMachine) error {
-	log.Log.V(3).Infof("Update volume snapshot status for VM [%s/%s]", vm.Namespace, vm.Name)
+	log.Log.V(log.DEBUG).Infof("Update volume snapshot status for VM [%s/%s]", vm.Namespace, vm.Name)
 
 	vmCopy := vm.DeepCopy()
 	var statuses []kubevirtv1.VolumeSnapshotStatus
 	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
-		log.Log.V(3).Infof("Update volume snapshot status for volume [%s]", volume.Name)
+		log.Log.V(log.DEBUG).Infof("Update volume snapshot status for volume [%s]", volume.Name)
 		status := ctrl.getVolumeSnapshotStatus(vmCopy, &vmCopy.Spec.Template.Spec.Volumes[i])
 		statuses = append(statuses, status)
 	}
@@ -869,7 +869,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForPVC(pvcKey string) (stri
 	}
 
 	if !exists {
-		log.Log.V(3).Infof("PVC not in cache [%s]", pvcKey)
+		log.Log.V(log.DEBUG).Infof("PVC not in cache [%s]", pvcKey)
 		return "", fmt.Errorf("PVC not found")
 	}
 	pvc := obj.(*corev1.PersistentVolumeClaim)
@@ -920,7 +920,7 @@ func (ctrl *VMSnapshotController) getStorageClassNameForDV(namespace string, dvN
 	}
 
 	if !exists {
-		log.Log.V(3).Infof("DV is not in cache [%s]", key)
+		log.Log.V(log.DEBUG).Infof("DV is not in cache [%s]", key)
 		return ctrl.getStorageClassNameForPVC(key)
 	}
 

@@ -520,7 +520,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 			continue
 		}
 
-		log.Log.V(3).Infof("List domains from sock %s", socketFile)
+		log.Log.V(log.DEBUG).Infof("List domains from sock %s", socketFile)
 		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to connect to cmd client socket")
@@ -550,7 +550,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 
 func (d *DomainWatcher) List(_ k8sv1.ListOptions) (runtime.Object, error) {
 
-	log.Log.V(3).Info("Synchronizing domains")
+	log.Log.V(log.DEBUG).Info("Synchronizing domains")
 	err := d.startBackground()
 	if err != nil {
 		return nil, err

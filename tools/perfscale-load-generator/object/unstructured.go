@@ -64,7 +64,7 @@ func ListObjects(virtCli kubecli.KubevirtClient, resourceKind string, listOpts *
 		Do(context.Background()).
 		Into(result)
 	if err != nil {
-		log.Log.V(3).Infof("error listing obj(s) %s, err: %v", resourceKind, err)
+		log.Log.V(log.DEBUG).Infof("error listing obj(s) %s, err: %v", resourceKind, err)
 		return nil, err
 	}
 	return result, err
@@ -80,12 +80,12 @@ func DeleteNObjectsInNamespaces(virtCli kubecli.KubevirtClient, resourceKind str
 		return
 	}
 
-	log.Log.V(3).Infof("Number of %s to delete: %d", resourceKind, len(result.Items))
+	log.Log.V(log.DEBUG).Infof("Number of %s to delete: %d", resourceKind, len(result.Items))
 	for i, item := range result.Items {
 		if i > n {
 			return
 		}
-		log.Log.V(3).Infof("Deleting obj %s", item.GetName())
+		log.Log.V(log.DEBUG).Infof("Deleting obj %s", item.GetName())
 		DeleteObject(virtCli, item, resourceKind, gracePeriod)
 	}
 }

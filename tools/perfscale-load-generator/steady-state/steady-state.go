@@ -179,7 +179,7 @@ func (b *SteadyStateJob) createWatcherIfNotExist(objSpec *unstructured.Unstructu
 func (b *SteadyStateJob) Wait() {
 	timePassed := time.Since(b.startedTime)
 	remainingTime := b.Workload.Timeout.Duration - timePassed
-	log.Log.V(3).Infof("Wait %f seconds before recreating %d objs. Remaining %f seconds to finish the test", b.minChurnSleep.Seconds(), b.Workload.Churn, remainingTime.Seconds())
+	log.Log.V(log.DEBUG).Infof("Wait %f seconds before recreating %d objs. Remaining %f seconds to finish the test", b.minChurnSleep.Seconds(), b.Workload.Churn, remainingTime.Seconds())
 	time.Sleep(b.minChurnSleep.Duration)
 }
 

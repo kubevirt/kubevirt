@@ -537,7 +537,7 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	if !isMounted {
 		sourcePath, err := m.getSourcePodFilePath(sourceUID, vmi, volume)
 		if err != nil {
-			log.DefaultLogger().V(3).Infof("Error getting source path: %v", err)
+			log.DefaultLogger().V(log.DEBUG).Infof("Error getting source path: %v", err)
 			// We are eating the error to avoid spamming the log with errors, it might take a while for the volume
 			// to get mounted on the node, and this will error until the volume is mounted.
 			return nil

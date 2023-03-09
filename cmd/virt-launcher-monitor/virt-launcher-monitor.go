@@ -127,7 +127,7 @@ func RunAndMonitor(containerDiskDir string) (int, error) {
 				}
 
 			default:
-				log.Log.V(3).Log("signalling virt-launcher to shut down")
+				log.Log.V(log.DEBUG).Log("signalling virt-launcher to shut down")
 				err := cmd.Process.Signal(syscall.SIGTERM)
 				sig.Signal()
 				if err != nil {

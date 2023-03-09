@@ -136,7 +136,7 @@ func (ctrl *VMRestoreController) vmRestoreWorker() {
 
 func (ctrl *VMRestoreController) processVMRestoreWorkItem() bool {
 	return watchutil.ProcessWorkItem(ctrl.vmRestoreQueue, func(key string) (time.Duration, error) {
-		log.Log.V(3).Infof("vmRestore worker processing key [%s]", key)
+		log.Log.V(log.DEBUG).Infof("vmRestore worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.VMRestoreInformer.GetStore().GetByKey(key)
 		if !exists || err != nil {
@@ -164,7 +164,7 @@ func (ctrl *VMRestoreController) handleVMRestore(obj interface{}) {
 			return
 		}
 
-		log.Log.V(3).Infof("enqueued %q for sync", objName)
+		log.Log.V(log.DEBUG).Infof("enqueued %q for sync", objName)
 		ctrl.vmRestoreQueue.Add(objName)
 	}
 }
@@ -182,7 +182,7 @@ func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
 
 		objName := cacheKeyFunc(dv.Namespace, restoreName)
 
-		log.Log.V(3).Infof("Handling DV %s/%s, Restore %s", dv.Namespace, dv.Name, objName)
+		log.Log.V(log.DEBUG).Infof("Handling DV %s/%s, Restore %s", dv.Namespace, dv.Name, objName)
 		ctrl.vmRestoreQueue.Add(objName)
 	}
 }
@@ -200,7 +200,7 @@ func (ctrl *VMRestoreController) handlePVC(obj interface{}) {
 
 		objName := cacheKeyFunc(pvc.Namespace, restoreName)
 
-		log.Log.V(3).Infof("Handling PVC %s/%s, Restore %s", pvc.Namespace, pvc.Name, objName)
+		log.Log.V(log.DEBUG).Infof("Handling PVC %s/%s, Restore %s", pvc.Namespace, pvc.Name, objName)
 		ctrl.vmRestoreQueue.Add(objName)
 	}
 }

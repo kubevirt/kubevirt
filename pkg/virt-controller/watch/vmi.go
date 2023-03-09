@@ -651,7 +651,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if allDeleted {
-			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
+			log.Log.V(log.DEBUG).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 			if vmiCopy.Labels != nil {
 				delete(vmiCopy.Labels, virtv1.OutdatedLauncherImageLabel)
@@ -782,7 +782,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/volumeStatus", "value": %s }`, string(oldVolumeStatus)))
 			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/volumeStatus", "value": %s }`, string(newVolumeStatus)))
 		}
-		log.Log.V(3).Object(oldVMI).Infof("Patching Volume Status")
+		log.Log.V(log.DEBUG).Object(oldVMI).Infof("Patching Volume Status")
 	}
 	// We don't own the object anymore, so patch instead of update
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
@@ -800,7 +800,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions)))
 		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
 
-		log.Log.V(3).Object(oldVMI).Infof("Patching VMI conditions")
+		log.Log.V(log.DEBUG).Object(oldVMI).Infof("Patching VMI conditions")
 	}
 
 	if !equality.Semantic.DeepEqual(newVMI.Status.ActivePods, oldVMI.Status.ActivePods) {
@@ -816,7 +816,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/activePods", "value": %s }`, string(oldPods)))
 		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/activePods", "value": %s }`, string(newPods)))
 
-		log.Log.V(3).Object(oldVMI).Infof("Patching VMI activePods")
+		log.Log.V(log.DEBUG).Object(oldVMI).Infof("Patching VMI activePods")
 	}
 
 	if newVMI.Status.LauncherContainerImageVersion != oldVMI.Status.LauncherContainerImageVersion {
@@ -857,7 +857,7 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) ([]byte, err
 			return nil, err
 		}
 		patchOps = append(patchOps, generateInterfaceStatusPatchRequest(oldInterfaceStatus, newInterfaceStatus)...)
-		log.Log.V(3).Object(oldVMI).Infof("Patching Interface Status")
+		log.Log.V(log.DEBUG).Object(oldVMI).Infof("Patching Interface Status")
 	}
 
 	if len(patchOps) == 0 {
@@ -961,7 +961,7 @@ func (c *VMIController) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInsta
 	}
 
 	if len(patchBytes) > 0 {
-		log.Log.V(3).Object(pod).Infof("Patching pod conditions")
+		log.Log.V(log.DEBUG).Object(pod).Infof("Patching pod conditions")
 
 		_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{}, "status")
 		// We could not retry if the "test" fails but we have no sane way to detect that right now:
@@ -1125,19 +1125,19 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 		// let's check if we already have topology hints or if we are still waiting for them
 		if vmi.Status.TopologyHints == nil && c.topologyHinter.IsTscFrequencyRequired(vmi) {
-			log.Log.V(3).Object(vmi).Infof("Delaying pod creation until topology hints are set")
+			log.Log.V(log.DEBUG).Object(vmi).Infof("Delaying pod creation until topology hints are set")
 			return nil
 		}
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
 		if !dataVolumesReady {
-			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
+			log.Log.V(log.DEBUG).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
 		var templatePod *k8sv1.Pod
 		var err error
 		if isWaitForFirstConsumer {
-			log.Log.V(3).Object(vmi).Infof("Scheduling temporary pod for WaitForFirstConsumer DV")
+			log.Log.V(log.DEBUG).Object(vmi).Infof("Scheduling temporary pod for WaitForFirstConsumer DV")
 			templatePod, err = c.templateService.RenderLaunchManifestNoVm(vmi)
 		} else {
 			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
@@ -1769,7 +1769,7 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		}
 		if !ready {
 			// Volume not ready, skip until it is.
-			logger.V(3).Infof("Skipping hotplugged volume: %s, not ready", volume.Name)
+			logger.V(log.DEBUG).Infof("Skipping hotplugged volume: %s, not ready", volume.Name)
 			continue
 		}
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
@@ -2139,9 +2139,9 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 	// To avoid conflicts, we only allow having one CDI instance
 	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
 		if cdiInstances > 1 {
-			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrMultipleCdiInstances).Infof(storagetypes.FSOverheadMsg)
+			log.Log.V(log.DEBUG).Object(pvc).Reason(storagetypes.ErrMultipleCdiInstances).Infof(storagetypes.FSOverheadMsg)
 		} else {
-			log.Log.V(3).Object(pvc).Reason(storagetypes.ErrFailedToFindCdi).Infof(storagetypes.FSOverheadMsg)
+			log.Log.V(log.DEBUG).Object(pvc).Reason(storagetypes.ErrFailedToFindCdi).Infof(storagetypes.FSOverheadMsg)
 		}
 		return storagetypes.DefaultFSOverhead, nil
 	}

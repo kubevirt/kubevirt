@@ -213,7 +213,7 @@ func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) ui
 	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if queueNumber > multiQueueMaxQueues {
-		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
+		log.Log.V(log.DEBUG).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
 		queueNumber = multiQueueMaxQueues
 	}
 	return queueNumber

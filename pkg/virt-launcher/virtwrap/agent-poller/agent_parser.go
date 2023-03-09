@@ -235,7 +235,7 @@ func parseAgent(agentReply string) (AgentInfo, error) {
 		return AgentInfo{}, err
 	}
 
-	log.Log.V(3).Infof("guest agent info: %v", gaInfo)
+	log.Log.V(log.DEBUG).Infof("guest agent info: %v", gaInfo)
 
 	return gaInfo, nil
 }

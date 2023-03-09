@@ -25,7 +25,7 @@ func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVeri
 		"--user", "qemu", "--memory", memoryLimit, "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
 	)
-	log.Log.V(3).Infof("fetching image info. running command: %s", cmd.String())
+	log.Log.V(log.DEBUG).Infof("fetching image info. running command: %s", cmd.String())
 	out, err := cmd.Output()
 	if err != nil {
 		if e, ok := err.(*exec.ExitError); ok {

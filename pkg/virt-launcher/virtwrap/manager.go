@@ -1136,7 +1136,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 
 func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
 	if !disk.ExpandDisksEnabled {
-		log.DefaultLogger().V(3).Infof("Not expanding disks, ExpandDisks featuregate disabled")
+		log.DefaultLogger().V(log.DEBUG).Infof("Not expanding disks, ExpandDisks featuregate disabled")
 		return false
 	}
 	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
@@ -1369,7 +1369,7 @@ func (l *LibvirtDomainManager) scheduleSafetyVMIUnfreeze(vmi *v1.VirtualMachineI
 			vmi.Name, unfreezeTimeout)
 		l.UnfreezeVMI(vmi)
 	case <-l.cancelSafetyUnfreezeChan:
-		log.Log.V(3).Infof("Canceling schedualed Unfreeze for vmi %s", vmi.Name)
+		log.Log.V(log.DEBUG).Infof("Canceling schedualed Unfreeze for vmi %s", vmi.Name)
 		// aborted
 	}
 }

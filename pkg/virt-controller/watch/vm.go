@@ -1836,7 +1836,7 @@ func (c *VMController) removeVMIFinalizer(vmi *virtv1.VirtualMachineInstance) er
 		return nil
 	}
 
-	log.Log.V(3).Object(vmi).Infof("VMI is in a final state. Removing VM controller finalizer")
+	log.Log.V(log.DEBUG).Object(vmi).Infof("VMI is in a final state. Removing VM controller finalizer")
 	newVmi := vmi.DeepCopy()
 	controller.RemoveFinalizer(newVmi, virtv1.VirtualMachineControllerFinalizer)
 	ops, err := c.getPatchFinalizerOps(vmi, newVmi)
@@ -1853,7 +1853,7 @@ func (c *VMController) removeVMFinalizer(vm *virtv1.VirtualMachine, finalizer st
 		return vm, nil
 	}
 
-	log.Log.V(3).Object(vm).Infof("Removing VM controller finalizer: %s", finalizer)
+	log.Log.V(log.DEBUG).Object(vm).Infof("Removing VM controller finalizer: %s", finalizer)
 	newVm := vm.DeepCopy()
 	controller.RemoveFinalizer(newVm, finalizer)
 	ops, err := c.getPatchFinalizerOps(vm, newVm)
@@ -1870,7 +1870,7 @@ func (c *VMController) addVMFinalizer(vm *virtv1.VirtualMachine, finalizer strin
 		return vm, nil
 	}
 
-	log.Log.V(3).Object(vm).Infof("Adding VM controller finalizer: %s", finalizer)
+	log.Log.V(log.DEBUG).Object(vm).Infof("Adding VM controller finalizer: %s", finalizer)
 	newVm := vm.DeepCopy()
 	controller.AddFinalizer(newVm, finalizer)
 	ops, err := c.getPatchFinalizerOps(vm, newVm)
@@ -2517,7 +2517,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		} else if dataVolumesReady || runStrategy == virtv1.RunStrategyHalted {
 			syncErr = c.startStop(vm, vmi)
 		} else {
-			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
+			log.Log.Object(vm).V(log.DEBUG).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
 		}
 	}
 

@@ -53,7 +53,7 @@ func (ctrl *VMExportController) handleVMExport(obj interface{}) {
 			log.Log.Errorf(failedKeyFromObjectFmt, err, vmExport)
 			return
 		}
-		log.Log.V(3).Infof(enqueuedForSyncFmt, objName)
+		log.Log.V(log.DEBUG).Infof(enqueuedForSyncFmt, objName)
 		ctrl.vmExportQueue.Add(objName)
 	}
 }
@@ -71,7 +71,7 @@ func (ctrl *VMExportController) handleVM(obj interface{}) {
 			return
 		}
 		for _, key := range keys {
-			log.Log.V(3).Infof("Adding VMExport due to vm %s", vmKey)
+			log.Log.V(log.DEBUG).Infof("Adding VMExport due to vm %s", vmKey)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}
@@ -92,14 +92,14 @@ func (ctrl *VMExportController) handleVMI(obj interface{}) {
 				return
 			}
 			for _, key := range keys {
-				log.Log.V(3).Infof("Adding VMExport due to VM %s", vmKey)
+				log.Log.V(log.DEBUG).Infof("Adding VMExport due to VM %s", vmKey)
 				ctrl.vmExportQueue.Add(key)
 			}
 			return
 		}
 		pvcs := ctrl.getPVCsFromVMI(vmi)
 		for _, pvc := range pvcs {
-			log.Log.V(3).Infof("Adding VMExport due to PVC %s/%s", pvc.Namespace, pvc.Name)
+			log.Log.V(log.DEBUG).Infof("Adding VMExport due to PVC %s/%s", pvc.Namespace, pvc.Name)
 			ctrl.handlePVC(pvc)
 		}
 	}
@@ -132,7 +132,7 @@ func (ctrl *VMExportController) getVMFromVMI(vmi *virtv1.VirtualMachineInstance)
 	if ownerRef != nil {
 		if ownerRef.Kind == "VirtualMachine" && ownerRef.APIVersion == virtv1.GroupVersion.String() {
 			if vm, exists, err := ctrl.getVm(vmi.Namespace, ownerRef.Name); !exists || err != nil {
-				log.Log.V(3).Infof("Unable to get owner VM %s/%s for VMI %s/%s", vmi.Namespace, ownerRef.Name, vmi.Namespace, vmi.Name)
+				log.Log.V(log.DEBUG).Infof("Unable to get owner VM %s/%s for VMI %s/%s", vmi.Namespace, ownerRef.Name, vmi.Namespace, vmi.Name)
 			} else {
 				return vm
 			}
@@ -157,7 +157,7 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 	if err != nil {
 		return &sourceVolumes{}, err
 	}
-	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
+	log.Log.V(log.DEBUG).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
 	if len(pvcs) > 0 && !allPopulated {
 		return &sourceVolumes{
 			volumes:          pvcs,

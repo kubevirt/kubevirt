@@ -1465,7 +1465,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	var expectedPvcSize *resource.Quantity
 	var overheadErr error
 	if cdiConfig == nil {
-		log.Log.Object(vmi).V(3).Infof(storagetypes.FSOverheadMsg)
+		log.Log.Object(vmi).V(log.DEBUG).Infof(storagetypes.FSOverheadMsg)
 		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingDefaultFSOverhead(expectedMemoryDumpSize)
 	} else {
 		expectedPvcSize, overheadErr = storagetypes.GetSizeIncludingFSOverhead(expectedMemoryDumpSize, pvc.Spec.StorageClassName, pvc.Spec.VolumeMode, cdiConfig)

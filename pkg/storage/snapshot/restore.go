@@ -375,7 +375,7 @@ func (t *vmRestoreTarget) Ready() (bool, error) {
 		return true, nil
 	}
 
-	log.Log.Object(t.vmRestore).V(3).Info("Checking VM ready")
+	log.Log.Object(t.vmRestore).V(log.DEBUG).Info("Checking VM ready")
 
 	rs, err := t.vm.RunStrategy()
 	if err != nil {
@@ -407,7 +407,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 }
 
 func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
-	log.Log.Object(t.vmRestore).V(3).Info("Reconciling VM")
+	log.Log.Object(t.vmRestore).V(log.DEBUG).Info("Reconciling VM")
 
 	if t.doesTargetVMExist() && hasLastRestoreAnnotation(t.vmRestore, t.vm) {
 		return false, nil
@@ -866,7 +866,7 @@ func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.Virtu
 		return vm, nil
 	}
 
-	log.Log.V(3).Object(vm).Infof("patching restore target. VM: %s. patches: %+v", vm.Name, patches)
+	log.Log.V(log.DEBUG).Object(vm).Infof("patching restore target. VM: %s. patches: %+v", vm.Name, patches)
 
 	marshalledVM, err := json.Marshal(vm)
 	if err != nil {
@@ -891,7 +891,7 @@ func patchVM(vm *kubevirtv1.VirtualMachine, patches []string) (*kubevirtv1.Virtu
 		return vm, fmt.Errorf("cannot unmarshal modified marshalled vm %s: %v", string(modifiedMarshalledVM), err)
 	}
 
-	log.Log.V(3).Object(vm).Infof("patching restore target completed. Modified VM: %s", string(modifiedMarshalledVM))
+	log.Log.V(log.DEBUG).Object(vm).Infof("patching restore target completed. Modified VM: %s", string(modifiedMarshalledVM))
 
 	return vm, nil
 }

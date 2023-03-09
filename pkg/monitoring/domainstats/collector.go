@@ -56,7 +56,7 @@ func NewConcurrentCollector(MaxRequestsPerKey int) *ConcurrentCollector {
 
 func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration) ([]string, bool) {
 	socketToVMIs := cc.socketMapper(vmis)
-	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
+	log.Log.V(log.DEBUG).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
 	var busyScrapers sync.WaitGroup
 
 	skipped := []string{}
@@ -81,7 +81,7 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 	}()
 	select {
 	case <-c:
-		log.Log.V(3).Infof("Collection successful")
+		log.Log.V(log.DEBUG).Infof("Collection successful")
 	case <-time.After(timeout):
 		log.Log.Warning("Collection timeout")
 		completed = false

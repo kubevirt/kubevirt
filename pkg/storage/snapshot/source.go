@@ -96,13 +96,13 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		}
 
 		if len(pods) > 0 {
-			log.Log.V(3).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
+			log.Log.V(log.DEBUG).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
 			return false, nil
 		}
 	}
 
 	if s.vm.Status.SnapshotInProgress != nil && *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
-		log.Log.V(3).Infof("Snapshot %s in progress", *s.vm.Status.SnapshotInProgress)
+		log.Log.V(log.DEBUG).Infof("Snapshot %s in progress", *s.vm.Status.SnapshotInProgress)
 		return false, nil
 	}
 
@@ -335,7 +335,7 @@ func (s *vmSnapshotSource) Freeze() error {
 		return err
 	}
 
-	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
+	log.Log.V(log.DEBUG).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
 	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
@@ -357,7 +357,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 		return err
 	}
 
-	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
+	log.Log.V(log.DEBUG).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
 
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
 	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)

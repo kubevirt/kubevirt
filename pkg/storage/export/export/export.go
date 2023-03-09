@@ -366,7 +366,7 @@ func (ctrl *VMExportController) vmExportWorker() {
 
 func (ctrl *VMExportController) processVMExportWorkItem() bool {
 	return watchutil.ProcessWorkItem(ctrl.vmExportQueue, func(key string) (time.Duration, error) {
-		log.Log.V(3).Infof("vmExport worker processing key [%s]", key)
+		log.Log.V(log.DEBUG).Infof("vmExport worker processing key [%s]", key)
 
 		storeObj, exists, err := ctrl.VMExportInformer.GetStore().GetByKey(key)
 		if !exists || err != nil {
@@ -395,7 +395,7 @@ func (ctrl *VMExportController) handlePod(obj interface{}) {
 			return
 		}
 		if exists {
-			log.Log.V(3).Infof("Adding VMExport due to pod %s", key)
+			log.Log.V(log.DEBUG).Infof("Adding VMExport due to pod %s", key)
 			ctrl.vmExportQueue.Add(key)
 		}
 	}
@@ -414,7 +414,7 @@ func (ctrl *VMExportController) handleService(obj interface{}) {
 			return
 		}
 		if exists {
-			log.Log.V(3).Infof("Adding VMExport due to service %s", serviceKey)
+			log.Log.V(log.DEBUG).Infof("Adding VMExport due to service %s", serviceKey)
 			ctrl.vmExportQueue.Add(serviceKey)
 		}
 	}
@@ -445,7 +445,7 @@ func (ctrl *VMExportController) handleKubeVirt(oldObj, newObj interface{}) {
 func (ctrl *VMExportController) getPVCsFromName(namespace, name string) *corev1.PersistentVolumeClaim {
 	pvc, exists, err := ctrl.getPvc(namespace, name)
 	if err != nil {
-		log.Log.V(3).Infof("Error getting pvc by name %v", err)
+		log.Log.V(log.DEBUG).Infof("Error getting pvc by name %v", err)
 		return nil
 	}
 	if exists {
@@ -455,7 +455,7 @@ func (ctrl *VMExportController) getPVCsFromName(namespace, name string) *corev1.
 }
 
 func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachineExport) (time.Duration, error) {
-	log.Log.V(3).Infof("Updating VirtualMachineExport %s/%s", vmExport.Namespace, vmExport.Name)
+	log.Log.V(log.DEBUG).Infof("Updating VirtualMachineExport %s/%s", vmExport.Namespace, vmExport.Name)
 
 	if vmExport.DeletionTimestamp != nil {
 		return 0, nil
@@ -607,7 +607,7 @@ func (ctrl *VMExportController) createCertSecret(vmExport *exportv1.VirtualMachi
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	} else {
-		log.Log.V(3).Infof("Created new exporter pod secret")
+		log.Log.V(log.DEBUG).Infof("Created new exporter pod secret")
 		ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, secretCreatedEvent, "Created exporter pod secret")
 	}
 	return nil
@@ -738,7 +738,7 @@ func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.Virt
 		return nil, err
 	} else if !exists {
 		service := ctrl.createServiceManifest(vmExport)
-		log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
+		log.Log.V(log.DEBUG).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
 		service, err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
 		if err == nil {
 			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
@@ -798,7 +798,7 @@ func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachine
 }
 
 func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
-	log.Log.V(3).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
+	log.Log.V(log.DEBUG).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
 		log.Log.Errorf("error %v", err)
@@ -809,7 +809,7 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 			return nil, err
 		}
 
-		log.Log.V(3).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
+		log.Log.V(log.DEBUG).Infof("Creating new exporter pod %s/%s", manifest.Namespace, manifest.Name)
 		pod, err := ctrl.Client.CoreV1().Pods(vmExport.Namespace).Create(context.Background(), manifest, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
@@ -1106,7 +1106,7 @@ func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolu
 	if ownerRef.Kind == datavolumeGVK.Kind && ownerRef.APIVersion == datavolumeGVK.GroupVersion().String() {
 		obj, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(controller.NamespacedKey(pvc.GetNamespace(), ownerRef.Name))
 		if err != nil {
-			log.Log.V(3).Infof("Error getting DataVolume %v", err)
+			log.Log.V(log.DEBUG).Infof("Error getting DataVolume %v", err)
 		}
 		if exists {
 			dv, ok := obj.(*cdiv1.DataVolume)
