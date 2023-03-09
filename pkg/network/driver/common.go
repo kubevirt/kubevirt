@@ -300,7 +300,7 @@ func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (str
 }
 
 func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
-	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
+	log.Log.V(log.FIXME).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := converter.GetResolvConfDetailsFromPod()
 	if err != nil {
 		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
@@ -378,7 +378,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 
 func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
 	tap, err := netlink.LinkByName(tapName)
-	log.Log.V(4).Infof("Looking for tap device: %s", tapName)
+	log.Log.V(log.FIXME).Infof("Looking for tap device: %s", tapName)
 	if err != nil {
 		return fmt.Errorf("could not find tap device %s; %v", tapName, err)
 	}

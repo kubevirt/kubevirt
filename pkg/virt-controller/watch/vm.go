@@ -227,7 +227,7 @@ func (c *VMController) Execute() bool {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachine %v", key)
+		log.Log.V(log.FIXME).Infof("processed VirtualMachine %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -248,7 +248,7 @@ func (c *VMController) execute(key string) error {
 
 	logger := log.Log.Object(vm)
 
-	logger.V(4).Info("Started processing vm")
+	logger.V(log.FIXME).Info("Started processing vm")
 
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
@@ -299,7 +299,7 @@ func (c *VMController) execute(key string) error {
 		return err
 	}
 	if !exist {
-		logger.V(4).Infof("VirtualMachineInstance not found in cache %s", key)
+		logger.V(log.FIXME).Infof("VirtualMachineInstance not found in cache %s", key)
 		vmi = nil
 	} else {
 		vmi = vmiObj.(*virtv1.VirtualMachineInstance)
@@ -675,7 +675,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 		log.Log.Object(vm).Errorf(fetchingVMKeyErrFmt, err)
 		return &syncErrorImpl{err, FailedCreateReason}
 	}
-	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
+	log.Log.Object(vm).V(log.FIXME).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
 	switch runStrategy {
 	case virtv1.RunStrategyAlways:
@@ -693,7 +693,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				// The VirtualMachineInstance can fail or be finished. The job of this controller
 				// is keep the VirtualMachineInstance running, therefore it restarts it.
 				// restarting VirtualMachineInstance by stopping it and letting it start in next step
-				log.Log.Object(vm).V(4).Info(stoppingVmMsg)
+				log.Log.Object(vm).V(log.FIXME).Info(stoppingVmMsg)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
@@ -761,7 +761,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	case virtv1.RunStrategyManual:
 		// For this RunStrategy, VMI's will be started/stopped/restarted using api endpoints only
 		if vmi != nil {
-			log.Log.Object(vm).V(4).Info("VMI exists")
+			log.Log.Object(vm).V(log.FIXME).Info("VMI exists")
 
 			if forceStop := hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
@@ -1450,7 +1450,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 
 	existingUUID := vmi.Spec.Domain.Firmware.UUID
 	if existingUUID != "" {
-		logger.V(4).Infof("Using existing UUID '%s'", existingUUID)
+		logger.V(log.FIXME).Infof("Using existing UUID '%s'", existingUUID)
 		return
 	}
 
@@ -1525,7 +1525,7 @@ func (c *VMController) getMatchingControllers(vmi *virtv1.VirtualMachineInstance
 func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
-	log.Log.Object(vmi).V(4).Info("VirtualMachineInstance added.")
+	log.Log.Object(vmi).V(log.FIXME).Info("VirtualMachineInstance added.")
 
 	if vmi.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new vmi shows up in a state that
@@ -1536,11 +1536,11 @@ func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 
 	// If it has a ControllerRef, that's all that matters.
 	if controllerRef := v1.GetControllerOf(vmi); controllerRef != nil {
-		log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
+		log.Log.Object(vmi).V(log.FIXME).Info("Looking for VirtualMachineInstance Ref")
 		vm := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if vm == nil {
 			// not managed by us
-			log.Log.Object(vmi).V(4).Infof("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
+			log.Log.Object(vmi).V(log.FIXME).Infof("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
 			return
 		}
 		vmKey, err := controller.KeyFunc(vm)
@@ -1548,7 +1548,7 @@ func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 			log.Log.Object(vmi).Errorf("Cannot parse key of VM: %s for VirtualMachineInstance: %s", vm.Name, vmi.Name)
 			return
 		}
-		log.Log.Object(vmi).V(4).Infof("VirtualMachineInstance created because %s was added.", vmi.Name)
+		log.Log.Object(vmi).V(log.FIXME).Infof("VirtualMachineInstance created because %s was added.", vmi.Name)
 		c.expectations.CreationObserved(vmKey)
 		c.enqueueVm(vm)
 		return
@@ -1562,7 +1562,7 @@ func (c *VMController) addVirtualMachineInstance(obj interface{}) {
 	if len(vms) == 0 {
 		return
 	}
-	log.Log.V(4).Object(vmi).Infof("Orphan VirtualMachineInstance created")
+	log.Log.V(log.FIXME).Object(vmi).Infof("Orphan VirtualMachineInstance created")
 	for _, vm := range vms {
 		c.enqueueVm(vm)
 	}
@@ -1611,7 +1611,7 @@ func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 		if vm == nil {
 			return
 		}
-		log.Log.V(4).Object(curVMI).Infof("VirtualMachineInstance updated")
+		log.Log.V(log.FIXME).Object(curVMI).Infof("VirtualMachineInstance updated")
 		c.enqueueVm(vm)
 		// TODO: MinReadySeconds in the VirtualMachineInstance will generate an Available condition to be added in
 		// Update once we support the available conect on the rs
@@ -1628,7 +1628,7 @@ func (c *VMController) updateVirtualMachineInstance(old, cur interface{}) {
 	if len(vms) == 0 {
 		return
 	}
-	log.Log.V(4).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
+	log.Log.V(log.FIXME).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
 	for _, vm := range vms {
 		c.enqueueVm(vm)
 	}
@@ -1763,7 +1763,7 @@ func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 	if controllerRef := v1.GetControllerOf(dataVolume); controllerRef != nil {
 		if vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef); vm != nil {
 			vmOwner = vm.Name
-			log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
+			log.Log.V(log.FIXME).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
 			c.enqueueVm(vm)
 		}
 	}
@@ -1783,7 +1783,7 @@ func (c *VMController) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 		for _, obj := range objs {
 			vm := obj.(*virtv1.VirtualMachine)
 			if vm.Name != vmOwner {
-				log.Log.V(4).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
+				log.Log.V(log.FIXME).Object(dataVolume).Infof("DataVolume updated for vm %s", vm.Name)
 				c.enqueueVm(vm)
 			}
 		}
@@ -2271,7 +2271,7 @@ func (c *VMController) processFailureCondition(vm *virtv1.VirtualMachine, vmi *v
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {
 		if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineFailure) {
-			log.Log.Object(vm).V(4).Info("Removing failure")
+			log.Log.Object(vm).V(log.FIXME).Info("Removing failure")
 			vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineFailure)
 		}
 		// nothing to do
@@ -2305,7 +2305,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 			_, err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(context.Background(), vm.GetName(), &v1.GetOptions{})
 			if err != nil && apiErrors.IsNotFound(err) {
 				// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
-				log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
+				log.Log.Object(vm).V(log.FIXME).Infof("No VMI. Clearing stop request")
 				return true
 			}
 		} else {
@@ -2318,14 +2318,14 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 			} else if *stateChange.UID != vmi.UID {
 				// If there is a VMI, but the UID doesn't match, then it
 				// must have been previously stopped, so the stopRequest can be cleared
-				log.Log.Object(vm).V(4).Infof("VMI's UID doesn't match. clearing stop request")
+				log.Log.Object(vm).V(log.FIXME).Infof("VMI's UID doesn't match. clearing stop request")
 				return true
 			}
 		}
 	case virtv1.StartRequest:
 		// If the current VMI is running, then it has been started.
 		if vmi != nil {
-			log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
+			log.Log.Object(vm).V(log.FIXME).Infof("VMI exists. clearing start request")
 			return true
 		}
 	}

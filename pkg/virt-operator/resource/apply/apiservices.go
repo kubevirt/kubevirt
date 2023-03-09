@@ -67,7 +67,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 	insecureSame := cachedAPIService.Spec.InsecureSkipTLSVerify == apiService.Spec.InsecureSkipTLSVerify
 	// there was no change to metadata, the service and priorities were right
 	if !*modified && serviceSame && prioritySame && insecureSame && certsSame {
-		log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
+		log.Log.V(log.FIXME).Infof("apiservice %v is up-to-date", apiService.GetName())
 
 		return nil
 	}
@@ -86,7 +86,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 	if err != nil {
 		return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
 	}
-	log.Log.V(4).Infof("apiservice %v updated", apiService.GetName())
+	log.Log.V(log.FIXME).Infof("apiservice %v updated", apiService.GetName())
 
 	return nil
 }

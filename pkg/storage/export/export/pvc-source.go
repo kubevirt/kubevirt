@@ -135,7 +135,7 @@ func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.Virtu
 	var requeue time.Duration
 
 	if !sourceVolumes.isSourceAvailable() && len(sourceVolumes.volumes) > 0 {
-		log.Log.V(4).Infof("Source is not available %s, requeuing", sourceVolumes.availableMessage)
+		log.Log.V(log.FIXME).Infof("Source is not available %s, requeuing", sourceVolumes.availableMessage)
 		requeue = requeueTime
 	}
 

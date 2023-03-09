@@ -144,7 +144,7 @@ func (c *NodeController) Execute() bool {
 		log.Log.Reason(err).Infof("reenqueuing node %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed node %v", key)
+		log.Log.V(log.FIXME).Infof("processed node %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -295,7 +295,7 @@ func (c *NodeController) requeueIfExists(key string, node *v1.Node) {
 
 func (c *NodeController) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredLogger) error {
 	c.recorder.Event(node, v1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
-	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
+	logger.V(log.FIXME).Infof("Marking node %s as unresponsive", node.Name)
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
 	_, err := c.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})

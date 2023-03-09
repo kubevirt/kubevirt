@@ -609,7 +609,7 @@ func (c *KubeVirtController) Execute() bool {
 		log.Log.Reason(err).Errorf("reenqueuing KubeVirt %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed KubeVirt %v", key)
+		log.Log.V(log.FIXME).Infof("processed KubeVirt %v", key)
 		c.queue.Forget(key)
 	}
 	return true

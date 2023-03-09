@@ -438,7 +438,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		Mode:           migrationMode,
 	}
 	l.metadataCache.Migration.Store(m)
-	log.Log.V(4).Infof("initialize migration metadata: %v", m)
+	log.Log.V(log.FIXME).Infof("initialize migration metadata: %v", m)
 	return false, nil
 }
 
@@ -491,7 +491,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 
 	logger := log.Log
 	if !failed {
-		logger = logger.V(4)
+		logger = logger.V(log.FIXME)
 	}
 	logger.Infof("set migration result in metadata: %s", l.metadataCache.Migration.String())
 	return nil
@@ -759,7 +759,7 @@ func (m *migrationMonitor) startMonitor() {
 
 // logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
 func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
-	logger.V(4).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dB DataRemaining:%dB DataTotal:%dB `+
+	logger.V(log.FIXME).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dB DataRemaining:%dB DataTotal:%dB `+
 		`MemoryProcessed:%dB MemoryRemaining:%dB MemoryTotal:%dB MemoryBandwidth:%dB/s DirtyRate:%dB/s `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dB ExpectedDowntime:%dms `+
 		`DiskBps:%d`,
@@ -951,5 +951,5 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
 		migrationMetadata.Mode = mode
 	})
-	log.Log.V(4).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
+	log.Log.V(log.FIXME).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
 }

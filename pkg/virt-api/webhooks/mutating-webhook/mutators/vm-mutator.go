@@ -73,7 +73,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	}
 
 	// Set VM defaults
-	log.Log.Object(&vm).V(4).Info("Apply defaults")
+	log.Log.Object(&vm).V(log.FIXME).Info("Apply defaults")
 
 	if err = mutator.inferDefaultInstancetype(&vm); err != nil {
 		log.Log.Reason(err).Error("admission failed, unable to set default instancetype")

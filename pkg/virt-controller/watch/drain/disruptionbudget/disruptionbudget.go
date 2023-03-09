@@ -194,7 +194,7 @@ func (c *DisruptionBudgetController) addPodDisruptionBudget(obj interface{}) {
 	if err != nil {
 		return
 	}
-	log.Log.V(4).Object(pdb).Infof("PodDisruptionBudget created")
+	log.Log.V(log.FIXME).Object(pdb).Infof("PodDisruptionBudget created")
 	c.podDisruptionBudgetExpectations.CreationObserved(vmiKey)
 	c.enqueueVirtualMachine(vmi)
 }
@@ -236,7 +236,7 @@ func (c *DisruptionBudgetController) updatePodDisruptionBudget(old, cur interfac
 	if vmi == nil {
 		return
 	}
-	log.Log.V(4).Object(curPodDisruptionBudget).Infof("PodDisruptionBudget updated")
+	log.Log.V(log.FIXME).Object(curPodDisruptionBudget).Infof("PodDisruptionBudget updated")
 	c.enqueueVirtualMachine(vmi)
 	return
 }
@@ -345,7 +345,7 @@ func (c *DisruptionBudgetController) Execute() bool {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
+		log.Log.V(log.FIXME).Infof("processed VirtualMachineInstance %v", key)
 		c.Queue.Forget(key)
 	}
 	return true

@@ -153,7 +153,7 @@ func (h *HeartBeat) do() {
 	if !h.clusterConfig.MediatedDevicesHandlingDisabled() {
 		h.deviceManagerController.RefreshMediatedDeviceTypes()
 	}
-	log.DefaultLogger().V(4).Infof("Heartbeat sent")
+	log.DefaultLogger().V(log.FIXME).Infof("Heartbeat sent")
 }
 
 func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
@@ -177,10 +177,10 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 	}
 
 	if v, ok := cpuManagerOptions["policyName"]; ok && v == "static" {
-		log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
+		log.DefaultLogger().V(log.FIXME).Infof("Node has CPU Manager running")
 		return true
 	} else {
-		log.DefaultLogger().V(4).Infof("Node has CPU Manager not runnning")
+		log.DefaultLogger().V(log.FIXME).Infof("Node has CPU Manager not runnning")
 		return false
 	}
 }

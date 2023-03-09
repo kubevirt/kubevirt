@@ -393,7 +393,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 			}
 		}
 	}
-	log.DefaultLogger().Object(vmi).V(4).Info("all containerdisks are ready")
+	log.DefaultLogger().Object(vmi).V(log.FIXME).Info("all containerdisks are ready")
 	return true, nil
 }
 

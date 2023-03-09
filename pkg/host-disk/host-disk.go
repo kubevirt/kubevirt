@@ -130,18 +130,18 @@ func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolu
 	// If a PVC is used in a Filesystem (passthough), it should not be mapped as a HostDisk and a image file should
 	// not be created.
 	if _, isPassthoughFSVolume := passthoughFSVolumes[volumeName]; isPassthoughFSVolume {
-		log.Log.V(4).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volumeName)
+		log.Log.V(log.FIXME).Infof("this volume %s is mapped as a filesystem passthrough, will not be replaced by HostDisk", volumeName)
 		return true
 	}
 
 	if hotplugVolumes[volumeName] {
-		log.Log.V(4).Infof("this volume %s is hotplugged, will not be replaced by HostDisk", volumeName)
+		log.Log.V(log.FIXME).Infof("this volume %s is hotplugged, will not be replaced by HostDisk", volumeName)
 		return true
 	}
 
 	volumeStatus, ok := pvcVolume[volumeName]
 	if !ok || types.IsPVCBlock(volumeStatus.PersistentVolumeClaimInfo.VolumeMode) {
-		log.Log.V(4).Infof("this volume %s is block, will not be replaced by HostDisk", volumeName)
+		log.Log.V(log.FIXME).Infof("this volume %s is block, will not be replaced by HostDisk", volumeName)
 		// This is not a disk on a file system, so skip it.
 		return true
 	}

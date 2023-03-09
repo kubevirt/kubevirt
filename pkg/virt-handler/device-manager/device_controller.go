@@ -197,7 +197,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	if len(hostDevs.PciHostDevices) != 0 {
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range hostDevs.PciHostDevices {
-			log.Log.V(4).Infof("Permitted PCI device in the cluster, ID: %s, resourceName: %s, externalProvider: %t",
+			log.Log.V(log.FIXME).Infof("Permitted PCI device in the cluster, ID: %s, resourceName: %s, externalProvider: %t",
 				strings.ToLower(pciDev.PCIVendorSelector),
 				pciDev.ResourceName,
 				pciDev.ExternalResourceProvider)
@@ -207,7 +207,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 			}
 		}
 		for pciResourceName, pciDevices := range discoverPermittedHostPCIDevices(supportedPCIDeviceMap) {
-			log.Log.V(4).Infof("Discovered PCIs %d devices on the node for the resource: %s", len(pciDevices), pciResourceName)
+			log.Log.V(log.FIXME).Infof("Discovered PCIs %d devices on the node for the resource: %s", len(pciDevices), pciResourceName)
 			// add a device plugin only for new devices
 			permittedDevices = append(permittedDevices, NewPCIDevicePlugin(pciDevices, pciResourceName))
 		}
@@ -215,7 +215,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	if len(hostDevs.MediatedDevices) != 0 {
 		supportedMdevsMap := make(map[string]string)
 		for _, supportedMdev := range hostDevs.MediatedDevices {
-			log.Log.V(4).Infof("Permitted mediated device in the cluster, ID: %s, resourceName: %s",
+			log.Log.V(log.FIXME).Infof("Permitted mediated device in the cluster, ID: %s, resourceName: %s",
 				supportedMdev.MDEVNameSelector,
 				supportedMdev.ResourceName)
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
@@ -226,7 +226,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		}
 		for mdevTypeName, mdevUUIDs := range discoverPermittedHostMediatedDevices(supportedMdevsMap) {
 			mdevResourceName := supportedMdevsMap[mdevTypeName]
-			log.Log.V(4).Infof("Discovered mediated device on the node, type: %s, resourceName: %s", mdevTypeName, mdevResourceName)
+			log.Log.V(log.FIXME).Infof("Discovered mediated device on the node, type: %s, resourceName: %s", mdevTypeName, mdevResourceName)
 
 			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
 		}

@@ -97,7 +97,7 @@ func updateVMIMigrationPhaseTransitionTimeFromCreationTimeHistogramVec(histogram
 
 	diffSeconds, err := getTransitionTimeSeconds(newVMIMigration)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(log.FIXME).Infof(transTimeErrFmt, err)
 		return
 	}
 

@@ -242,11 +242,11 @@ func (app *SubresourceAPIApp) vmiInterfacePatch(vmName string, namespace string,
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmName, err)
 	} else if patch == "" {
-		log.Log.Object(vmi).V(4).Infof("Empty patch; nothing to do for VMI %s/%s", namespace, vmName)
+		log.Log.Object(vmi).V(log.FIXME).Infof("Empty patch; nothing to do for VMI %s/%s", namespace, vmName)
 		return nil
 	}
 
-	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
+	log.Log.Object(vmi).V(log.FIXME).Infof("Patching VMI: %s", patch)
 	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		var statusError *errors.StatusError
@@ -273,7 +273,7 @@ func (app *SubresourceAPIApp) vmInterfacePatchStatus(vmName string, namespace st
 		return nil
 	}
 
-	log.Log.Object(vm).V(4).Infof("Patching VM: %s", patch)
+	log.Log.Object(vm).V(log.FIXME).Infof("Patching VM: %s", patch)
 	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {

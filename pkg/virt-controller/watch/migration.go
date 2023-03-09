@@ -217,7 +217,7 @@ func (c *MigrationController) Execute() bool {
 		log.Log.Reason(err).Infof("reenqueuing Migration %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed Migration %v", key)
+		log.Log.V(log.FIXME).Infof("processed Migration %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -327,7 +327,7 @@ func (c *MigrationController) execute(key string) error {
 
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && vmiExists
 
-	logger.V(4).Infof("processing migration: needsSync %t, hasVMI %t, targetPod len %d", needsSync, vmiExists, len(targetPods))
+	logger.V(log.FIXME).Infof("processing migration: needsSync %t, hasVMI %t, targetPod len %d", needsSync, vmiExists, len(targetPods))
 
 	var syncErr error
 
@@ -639,7 +639,7 @@ func (c *MigrationController) expandPDB(pdb *policyv1.PodDisruptionBudget, vmi *
 	minAvailable := 2
 
 	if pdb.Spec.MinAvailable.IntValue() == minAvailable && pdb.Labels[virtv1.MigrationNameLabel] == vmim.Name {
-		log.Log.V(4).Object(vmi).Infof("PDB has been already expanded")
+		log.Log.V(log.FIXME).Object(vmi).Infof("PDB has been already expanded")
 		return nil
 	}
 
@@ -932,7 +932,7 @@ func (c *MigrationController) handleTargetPodCreation(key string, migration *vir
 			// before proceeding we have to check that the k8s pdb controller has processed
 			// the pdb expansion and is actually protecting the VMI migration
 			if !isMigrationProtected(pdb) {
-				log.Log.V(4).Object(migration).Infof("Waiting for the pdb-controller to protect the migration pods, postponing migration start")
+				log.Log.V(log.FIXME).Object(migration).Infof("Waiting for the pdb-controller to protect the migration pods, postponing migration start")
 				return nil
 			}
 		}
@@ -1357,7 +1357,7 @@ func (c *MigrationController) addPod(obj interface{}) {
 	if err != nil {
 		return
 	}
-	log.Log.V(4).Object(pod).Infof("Pod created")
+	log.Log.V(log.FIXME).Object(pod).Infof("Pod created")
 	c.podExpectations.CreationObserved(migrationKey)
 	c.enqueueMigration(migration)
 }
@@ -1399,7 +1399,7 @@ func (c *MigrationController) updatePod(old, cur interface{}) {
 	if migration == nil {
 		return
 	}
-	log.Log.V(4).Object(curPod).Infof("Pod updated")
+	log.Log.V(log.FIXME).Object(curPod).Infof("Pod updated")
 	c.enqueueMigration(migration)
 	return
 }
@@ -1461,7 +1461,7 @@ func (c *MigrationController) updatePDB(old, cur interface{}) {
 		vmim := obj.(*virtv1.VirtualMachineInstanceMigration)
 
 		if vmim.Name == migrationName {
-			log.Log.V(4).Object(curPDB).Infof("PDB updated")
+			log.Log.V(log.FIXME).Object(curPDB).Infof("PDB updated")
 			c.enqueueMigration(vmim)
 		}
 	}
@@ -1598,7 +1598,7 @@ func (c *MigrationController) updateVMI(old, cur interface{}) {
 		return
 	}
 	for _, migration := range migrations {
-		log.Log.V(4).Object(curVMI).Infof("vmi updated for migration %s", migration.Name)
+		log.Log.V(log.FIXME).Object(curVMI).Infof("vmi updated for migration %s", migration.Name)
 		c.enqueueMigration(migration)
 	}
 }
@@ -1625,7 +1625,7 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 		return
 	}
 	for _, migration := range migrations {
-		log.Log.V(4).Object(vmi).Infof("vmi deleted for migration %s", migration.Name)
+		log.Log.V(log.FIXME).Object(vmi).Infof("vmi deleted for migration %s", migration.Name)
 		c.enqueueMigration(migration)
 	}
 }

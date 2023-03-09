@@ -112,7 +112,7 @@ func (mon *monitor) refresh() {
 		return
 	}
 
-	log.Log.V(4).Infof("Refreshing. domainName %s pid %d", mon.domainName, mon.pid)
+	log.Log.V(log.FIXME).Infof("Refreshing. domainName %s pid %d", mon.domainName, mon.pid)
 
 	expired := mon.isGracePeriodExpired()
 

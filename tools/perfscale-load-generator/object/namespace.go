@@ -81,7 +81,7 @@ func WaitForDeleteNamespaces(virtCli kubecli.KubevirtClient, timeout time.Durati
 		if len(ns.Items) == 0 {
 			return true, nil
 		}
-		log.Log.V(4).Infof("Waiting for %d namespaces labeled with %s to be removed", len(ns.Items), listOpts.LabelSelector)
+		log.Log.V(log.FIXME).Infof("Waiting for %d namespaces labeled with %s to be removed", len(ns.Items), listOpts.LabelSelector)
 		return false, nil
 	})
 }

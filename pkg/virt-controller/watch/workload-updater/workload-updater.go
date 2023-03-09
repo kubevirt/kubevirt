@@ -255,7 +255,7 @@ func (c *WorkloadUpdateController) Execute() bool {
 		log.Log.Reason(err).Infof("reenqueuing workload updates for KubeVirt %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed workload updates for KubeVirt %v", key)
+		log.Log.V(log.FIXME).Infof("processed workload updates for KubeVirt %v", key)
 		c.queue.Forget(key)
 	}
 	return true

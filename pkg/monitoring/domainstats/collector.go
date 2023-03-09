@@ -68,7 +68,7 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 			continue
 		}
 
-		log.Log.V(4).Infof("Source %s responsive, scraping", key)
+		log.Log.V(log.FIXME).Infof("Source %s responsive, scraping", key)
 		busyScrapers.Add(1)
 		go cc.collectFromSource(scraper, &busyScrapers, key, vmi)
 	}
@@ -87,7 +87,7 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 		completed = false
 	}
 
-	log.Log.V(4).Infof("Collection completed")
+	log.Log.V(log.FIXME).Infof("Collection completed")
 
 	return skipped, completed
 }
@@ -96,9 +96,9 @@ func (cc *ConcurrentCollector) collectFromSource(scraper MetricsScraper, wg *syn
 	defer wg.Done()
 	defer cc.releaseKey(socket)
 
-	log.Log.V(4).Infof("Getting stats from source %s", socket)
+	log.Log.V(log.FIXME).Infof("Getting stats from source %s", socket)
 	scraper.Scrape(socket, vmi)
-	log.Log.V(4).Infof("Updated stats from source %s", socket)
+	log.Log.V(log.FIXME).Infof("Updated stats from source %s", socket)
 }
 
 func (cc *ConcurrentCollector) reserveKey(key string) bool {

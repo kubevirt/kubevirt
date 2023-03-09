@@ -51,7 +51,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 
 			log.Log.Infof("SecurityContextConstraints %s updated", scc.Name)
 		} else {
-			log.Log.V(4).Infof("SCC %s is up to date", scc.Name)
+			log.Log.V(log.FIXME).Infof("SCC %s is up to date", scc.Name)
 		}
 
 	}

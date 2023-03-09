@@ -74,7 +74,7 @@ func SingleClientDHCPv6Server(clientIP net.IP, serverIfaceName string) error {
 }
 
 func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6.DHCPv6) {
-	log.Log.V(4).Info("DHCPv6 serving a new request")
+	log.Log.V(log.FIXME).Info("DHCPv6 serving a new request")
 
 	// TODO if we extend the server to support bridge binding, we need to filter out non-vm requests
 
@@ -96,15 +96,15 @@ func (h *DHCPv6Handler) buildResponse(msg dhcpv6.DHCPv6) (*dhcpv6.Message, error
 	dhcpv6Msg := msg.(*dhcpv6.Message)
 	switch dhcpv6Msg.Type() {
 	case dhcpv6.MessageTypeSolicit:
-		log.Log.V(4).Info("DHCPv6 - the request has message type Solicit")
+		log.Log.V(log.FIXME).Info("DHCPv6 - the request has message type Solicit")
 		if dhcpv6Msg.GetOneOption(dhcpv6.OptionRapidCommit) == nil {
 			response, err = dhcpv6.NewAdvertiseFromSolicit(dhcpv6Msg, h.modifiers...)
 		} else {
-			log.Log.V(4).Info("DHCPv6 - replying with rapid commit")
+			log.Log.V(log.FIXME).Info("DHCPv6 - replying with rapid commit")
 			response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
 		}
 	default:
-		log.Log.V(4).Info("DHCPv6 - non Solicit request received")
+		log.Log.V(log.FIXME).Info("DHCPv6 - non Solicit request received")
 		response, err = dhcpv6.NewReplyFromMessage(dhcpv6Msg, h.modifiers...)
 	}
 

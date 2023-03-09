@@ -205,7 +205,7 @@ func (l *podNIC) discoverAndStoreCache() error {
 
 	dhcpConfig := l.infraConfigurator.GenerateNonRecoverableDHCPConfig()
 	if dhcpConfig != nil {
-		log.Log.V(4).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
+		log.Log.V(log.FIXME).Infof("The generated dhcpConfig: %s", dhcpConfig.String())
 		err := cache.WriteDHCPInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.podInterfaceName, dhcpConfig)
 		if err != nil {
 			return fmt.Errorf("failed to save DHCP configuration: %w", err)
@@ -214,7 +214,7 @@ func (l *podNIC) discoverAndStoreCache() error {
 
 	domainIface := l.infraConfigurator.GenerateNonRecoverableDomainIfaceSpec()
 	if domainIface != nil {
-		log.Log.V(4).Infof("The generated libvirt domain interface: %+v", *domainIface)
+		log.Log.V(log.FIXME).Infof("The generated libvirt domain interface: %+v", *domainIface)
 		if err := l.storeCachedDomainIface(*domainIface); err != nil {
 			return fmt.Errorf("failed to save libvirt domain interface: %w", err)
 		}
@@ -240,7 +240,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 			log.Log.Reason(err).Errorf("failed to get a dhcp configuration for: %s", l.podInterfaceName)
 			return err
 		}
-		log.Log.V(4).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
+		log.Log.V(log.FIXME).Infof("The imported dhcpConfig: %s", dhcpConfig.String())
 		if err := l.dhcpConfigurator.EnsureDHCPServerStarted(l.podInterfaceName, *dhcpConfig, l.vmiSpecIface.DHCPOptions); err != nil {
 			log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for: %s", l.podInterfaceName)
 			panic(err)

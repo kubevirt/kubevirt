@@ -130,7 +130,7 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 	}
 
 	if len(patchOps) == 0 {
-		log.Log.V(4).Infof("service %v is up-to-date", service.GetName())
+		log.Log.V(log.FIXME).Infof("service %v is up-to-date", service.GetName())
 		return false, nil
 	}
 
@@ -216,7 +216,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &secret.ObjectMeta, version, imageRegistry, id, true)
 
-	log.DefaultLogger().V(4).Infof("checking certificate %v", secret.Name)
+	log.DefaultLogger().V(log.FIXME).Infof("checking certificate %v", secret.Name)
 
 	cachedSecret, exists, err := r.getSecret(secret)
 	if err != nil {
@@ -261,7 +261,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 	resourcemerge.EnsureObjectMeta(modified, &cachedSecret.ObjectMeta, secret.ObjectMeta)
 
 	if !*modified && !rotateCertificate {
-		log.Log.V(4).Infof("secret %v is up-to-date", secret.GetName())
+		log.Log.V(log.FIXME).Infof("secret %v is up-to-date", secret.GetName())
 		return crt, nil
 	}
 
@@ -476,7 +476,7 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 	// there was no change to metadata
 	if !*modified {
 		// Up to date
-		log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
+		log.Log.V(log.FIXME).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
 		return nil
 	}
 
@@ -582,7 +582,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 		return nil, nil
 	}
 
-	log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name)
+	log.DefaultLogger().V(log.FIXME).Infof("checking ca config map %v", configMap.Name)
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
@@ -617,7 +617,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 	resourcemerge.EnsureObjectMeta(modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
 
 	if !*modified && !updateBundle {
-		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
+		log.Log.V(log.FIXME).Infof("configMap %v is up-to-date", configMap.GetName())
 		return []byte(configMap.Data[components.CABundleKey]), nil
 	}
 

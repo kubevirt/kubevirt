@@ -55,7 +55,7 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	// Do some CPU arch specific setting.
 	if IsARM64() {
-		log.Log.V(4).Info("Apply Arm64 specific setting")
+		log.Log.V(log.FIXME).Info("Apply Arm64 specific setting")
 		SetArm64Defaults(spec)
 	} else {
 		SetAmd64Defaults(spec)
@@ -66,7 +66,7 @@ func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtual
 func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
 	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
 	// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
-	log.Log.V(4).Info("Set HyperV dependencies")
+	log.Log.V(log.FIXME).Info("Set HyperV dependencies")
 	if err := SetHypervFeatureDependencies(spec); err != nil {
 		// HyperV is a special case. If our best-effort attempt fails, we should leave
 		// rejection to be performed later on in the validating webhook, and continue here.
@@ -152,7 +152,7 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
 			}
 			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-			log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
+			log.Log.V(log.FIXME).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
 		}
 	}
 	if cpuRequest := clusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {

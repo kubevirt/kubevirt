@@ -140,7 +140,7 @@ func (c *VMIReplicaSet) Execute() bool {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstanceReplicaSet %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineInstanceReplicaSet %v", key)
+		log.Log.V(log.FIXME).Infof("processed VirtualMachineInstanceReplicaSet %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -241,7 +241,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 }
 
 func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance) error {
-	log.Log.V(4).Object(rs).Info("Scale")
+	log.Log.V(log.FIXME).Object(rs).Info("Scale")
 	diff := c.calcDiff(rs, vmis)
 
 	rsKey, err := controller.KeyFunc(rs)
@@ -264,7 +264,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 	wg.Add(abs(diff))
 
 	if diff > 0 {
-		log.Log.V(4).Object(rs).Info("Delete excess VM's")
+		log.Log.V(log.FIXME).Object(rs).Info("Delete excess VM's")
 		// We have to delete VMIs, use a very simple selection strategy for now
 		// TODO: Possible deletion order: not yet running VMIs < migrating VMIs < other
 		deleteCandidates := vmis[0:diff]
@@ -287,7 +287,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 		}
 
 	} else if diff < 0 {
-		log.Log.V(4).Object(rs).Info("Add missing VM's")
+		log.Log.V(log.FIXME).Object(rs).Info("Add missing VM's")
 		// We have to create VMIs
 		c.expectations.ExpectCreations(rsKey, abs(diff))
 		basename := c.getVirtualMachineBaseName(rs)
@@ -438,7 +438,7 @@ func (c *VMIReplicaSet) addVirtualMachine(obj interface{}) {
 		if err != nil {
 			return
 		}
-		log.Log.V(4).Object(vmi).Infof("VirtualMachineInstance created")
+		log.Log.V(log.FIXME).Object(vmi).Infof("VirtualMachineInstance created")
 		c.expectations.CreationObserved(rsKey)
 		c.enqueueReplicaSet(rs)
 		return
@@ -452,7 +452,7 @@ func (c *VMIReplicaSet) addVirtualMachine(obj interface{}) {
 	if len(rss) == 0 {
 		return
 	}
-	log.Log.V(4).Object(vmi).Infof("Orphan VirtualMachineInstance created")
+	log.Log.V(log.FIXME).Object(vmi).Infof("Orphan VirtualMachineInstance created")
 	for _, rs := range rss {
 		c.enqueueReplicaSet(rs)
 	}
@@ -501,7 +501,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 		if rs == nil {
 			return
 		}
-		log.Log.V(4).Object(curVMI).Infof("VirtualMachineInstance updated")
+		log.Log.V(log.FIXME).Object(curVMI).Infof("VirtualMachineInstance updated")
 		c.enqueueReplicaSet(rs)
 		// TODO: MinReadySeconds in the VirtualMachineInstance will generate an Available condition to be added in
 		// Update once we support the available conect on the rs
@@ -515,7 +515,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 		if len(rss) == 0 {
 			return
 		}
-		log.Log.V(4).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
+		log.Log.V(log.FIXME).Object(curVMI).Infof("Orphan VirtualMachineInstance updated")
 		for _, rs := range rss {
 			c.enqueueReplicaSet(rs)
 		}
@@ -799,7 +799,7 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 	var wg sync.WaitGroup
 	wg.Add(abs(diff))
 
-	log.Log.V(4).Object(rs).Info("Delete finished VM's")
+	log.Log.V(log.FIXME).Object(rs).Info("Delete finished VM's")
 	deleteCandidates := vmis[0:diff]
 	c.expectations.ExpectDeletions(rsKey, controller.VirtualMachineInstanceKeys(deleteCandidates))
 	for i := 0; i < diff; i++ {

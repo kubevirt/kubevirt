@@ -275,7 +275,7 @@ func (c *VMIController) Execute() bool {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
+		log.Log.V(log.FIXME).Infof("processed VirtualMachineInstance %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -1269,7 +1269,7 @@ func (c *VMIController) updatePVC(old, cur interface{}) {
 	}
 
 	for _, vmi := range vmis {
-		log.Log.V(4).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
+		log.Log.V(log.FIXME).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
 	}
 }
@@ -1286,7 +1286,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		return
 	}
 	for _, vmi := range vmis {
-		log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi %s", vmi.Name)
+		log.Log.V(log.FIXME).Object(dataVolume).Infof("DataVolume created for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
 	}
 }
@@ -1318,7 +1318,7 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		return
 	}
 	for _, vmi := range vmis {
-		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmi.Name)
+		log.Log.V(log.FIXME).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
 	}
 }
@@ -1345,7 +1345,7 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 		return
 	}
 	for _, vmi := range vmis {
-		log.Log.V(4).Object(dataVolume).Infof("DataVolume deleted for vmi %s", vmi.Name)
+		log.Log.V(log.FIXME).Object(dataVolume).Infof("DataVolume deleted for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
 	}
 }
@@ -1370,7 +1370,7 @@ func (c *VMIController) addPod(obj interface{}) {
 	if err != nil {
 		return
 	}
-	log.Log.V(4).Object(pod).Infof("Pod created")
+	log.Log.V(log.FIXME).Object(pod).Infof("Pod created")
 	c.podExpectations.CreationObserved(vmiKey)
 	c.enqueueVirtualMachine(vmi)
 }
@@ -1412,7 +1412,7 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 	if vmi == nil {
 		return
 	}
-	log.Log.V(4).Object(curPod).Infof("Pod updated")
+	log.Log.V(log.FIXME).Object(curPod).Infof("Pod updated")
 	c.enqueueVirtualMachine(vmi)
 	return
 }
@@ -2197,7 +2197,7 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 	if err != nil {
 		return err
 	}
-	log.Log.Object(pod).V(4).Infof(
+	log.Log.Object(pod).V(log.FIXME).Infof(
 		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
 		podAnnotations[networkv1.NetworkAttachmentAnnot],
 		multusAnnotations,

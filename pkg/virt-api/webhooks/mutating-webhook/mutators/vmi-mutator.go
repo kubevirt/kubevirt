@@ -79,17 +79,17 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		}
 
 		// Set VirtualMachineInstance defaults
-		log.Log.Object(newVMI).V(4).Info("Apply defaults")
+		log.Log.Object(newVMI).V(log.FIXME).Info("Apply defaults")
 		if err = webhooks.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
 		if newVMI.IsRealtimeEnabled() {
-			log.Log.V(4).Info("Add realtime node label selector")
+			log.Log.V(log.FIXME).Info("Add realtime node label selector")
 			addNodeSelector(newVMI, v1.RealtimeLabel)
 		}
 		if util.IsSEVVMI(newVMI) {
-			log.Log.V(4).Info("Add SEV node label selector")
+			log.Log.V(log.FIXME).Info("Add SEV node label selector")
 			addNodeSelector(newVMI, v1.SEVLabel)
 		}
 

@@ -72,7 +72,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	terminationSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.Termination, route.Spec.TLS.Termination)
 	certSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.DestinationCACertificate, route.Spec.TLS.DestinationCACertificate)
 	if !*modified && kindSame && nameSame && terminationSame && certSame {
-		log.Log.V(4).Infof("route %v is up-to-date", route.GetName())
+		log.Log.V(log.FIXME).Infof("route %v is up-to-date", route.GetName())
 
 		return nil
 	}
@@ -91,7 +91,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	if err != nil {
 		return fmt.Errorf("unable to patch route %+v: %v", route, err)
 	}
-	log.Log.V(4).Infof("route %v updated", route.GetName())
+	log.Log.V(log.FIXME).Infof("route %v updated", route.GetName())
 
 	return nil
 }

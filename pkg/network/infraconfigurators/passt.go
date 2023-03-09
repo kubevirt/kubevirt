@@ -27,14 +27,14 @@ func (b *PasstPodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache.
 }
 
 func (b *PasstPodNetworkConfigurator) PreparePodNetworkInterface() error {
-	log.Log.V(4).Info("Configuring ping group range")
+	log.Log.V(log.FIXME).Info("Configuring ping group range")
 	err := b.handler.ConfigurePingGroupRange()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure ping group range")
 		return err
 	}
 	// bugs.passt.top/show_bug.cgi?id=15 and bugs.passt.top/show_bug.cgi?id=18 are resolved
-	log.Log.V(4).Info("Configuring unprivilegedPortStart to 0")
+	log.Log.V(log.FIXME).Info("Configuring unprivilegedPortStart to 0")
 	err = b.handler.ConfigureUnprivilegedPortStart("0")
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure unprivilegedPortStart")

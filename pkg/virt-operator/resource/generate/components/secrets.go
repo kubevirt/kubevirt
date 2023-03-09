@@ -359,7 +359,7 @@ func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, renewBefor
 		}
 	}
 
-	log.DefaultLogger().V(4).Infof("Certificate with common name '%s' expiration is %v, rotation deadline is %v", cert.Leaf.Subject.CommonName, certNotAfter, deadline)
+	log.DefaultLogger().V(log.FIXME).Infof("Certificate with common name '%s' expiration is %v, rotation deadline is %v", cert.Leaf.Subject.CommonName, certNotAfter, deadline)
 	return deadline
 }
 

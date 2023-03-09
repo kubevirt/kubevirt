@@ -96,7 +96,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	if !*modified &&
 		*existingCopy.Spec.Replicas == *deployment.Spec.Replicas &&
 		existingCopy.GetGeneration() == expectedGeneration {
-		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
+		log.Log.V(log.FIXME).Infof("deployment %v is up-to-date", deployment.GetName())
 		return deployment, nil
 	}
 
@@ -237,7 +237,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			log.Log.Infof("daemonSet %v updated", newDS.GetName())
 			status = CanaryUpgradeStatusUpgradingDaemonSet
 		} else {
-			log.Log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
+			log.Log.V(log.FIXME).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
 			status = CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
 		done = false
@@ -307,7 +307,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
-		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
+		log.Log.V(log.FIXME).Infof("daemonset %v is up-to-date", daemonSet.GetName())
 		return true, nil
 	}
 
@@ -376,7 +376,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	if !*modified &&
 		existingCopy.Spec.MinAvailable.IntValue() == podDisruptionBudget.Spec.MinAvailable.IntValue() &&
 		existingCopy.ObjectMeta.Generation == expectedGeneration {
-		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
+		log.Log.V(log.FIXME).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 		return nil
 	}
 

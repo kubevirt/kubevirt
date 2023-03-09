@@ -308,15 +308,15 @@ func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachi
 
 func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
 	logger := log.DefaultLogger()
-	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
+	logger.V(log.FIXME).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != types.UID("") {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
-			logger.V(4).Infof("Mounting block volume: %s", volumeName)
+			logger.V(log.FIXME).Infof("Mounting block volume: %s", volumeName)
 			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record); err != nil {
 				return fmt.Errorf("failed to mount block hotplug volume %s: %v", volumeName, err)
 			}
 		} else {
-			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
+			logger.V(log.FIXME).Infof("Mounting file system volume: %s", volumeName)
 			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
 				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
 			}
@@ -443,7 +443,7 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.Name == volumeName && volumeStatus.HotplugVolume != nil {
 			if volumeStatus.Phase != v1.VolumeReady {
-				log.DefaultLogger().V(4).Infof("Volume %s is not ready, but the target block device exists", volumeName)
+				log.DefaultLogger().V(log.FIXME).Infof("Volume %s is not ready, but the target block device exists", volumeName)
 			}
 			return volumeStatus.Phase == v1.VolumeReady
 		}

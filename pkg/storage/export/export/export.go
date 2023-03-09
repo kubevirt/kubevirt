@@ -494,7 +494,7 @@ func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineEx
 	if err != nil {
 		return 0, err
 	}
-	log.Log.V(4).Infof("Source volumes %v", sourceVolumes)
+	log.Log.V(log.FIXME).Infof("Source volumes %v", sourceVolumes)
 
 	pod, err := ctrl.manageExporterPod(vmExport, service, sourceVolumes)
 	if err != nil {

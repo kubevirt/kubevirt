@@ -322,7 +322,7 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 		case err := <-watcher.Errors:
 			logger.Reason(err).Errorf("error watching devices and device plugin directory")
 		case event := <-watcher.Events:
-			logger.V(4).Infof("health Event: %v", event)
+			logger.V(log.FIXME).Infof("health Event: %v", event)
 			if event.Name == devicePath {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {

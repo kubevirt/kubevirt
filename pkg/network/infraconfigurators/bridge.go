@@ -90,7 +90,7 @@ func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache
 	}
 
 	if b.ipamEnabled && len(b.podIfaceRoutes) > 0 {
-		log.Log.V(4).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
+		log.Log.V(log.FIXME).Infof("got to add %d routes to the DhcpConfig", len(b.podIfaceRoutes))
 		b.decorateDhcpConfigRoutes(dhcpConfig)
 	}
 	return dhcpConfig
@@ -176,7 +176,7 @@ func (b *BridgePodNetworkConfigurator) learnInterfaceRoutes() error {
 }
 
 func (b *BridgePodNetworkConfigurator) decorateDhcpConfigRoutes(dhcpConfig *cache.DHCPConfig) {
-	log.Log.V(4).Infof("the default route is: %s", b.podIfaceRoutes[0].String())
+	log.Log.V(log.FIXME).Infof("the default route is: %s", b.podIfaceRoutes[0].String())
 	dhcpConfig.Gateway = b.podIfaceRoutes[0].Gw
 	if len(b.podIfaceRoutes) > 1 {
 		dhcpRoutes := virtnetlink.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)

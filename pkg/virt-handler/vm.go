@@ -953,7 +953,7 @@ func (d *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 	if domain != nil {
 		for _, channel := range domain.Spec.Devices.Channels {
 			if channel.Target != nil {
-				log.Log.V(4).Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
+				log.Log.V(log.FIXME).Infof("Channel: %s, %s", channel.Target.Name, channel.Target.State)
 				if channel.Target.Name == "org.qemu.guest_agent.0" {
 					if channel.Target.State == "connected" {
 						channelConnected = true
@@ -1483,7 +1483,7 @@ func (c *VirtualMachineController) Execute() bool {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineInstance %v", key)
+		log.Log.V(log.FIXME).Infof("processed VirtualMachineInstance %v", key)
 		c.Queue.Forget(key)
 	}
 	return true
@@ -2174,7 +2174,7 @@ func (d *VirtualMachineController) handleVMIShutdown(vmi *v1.VirtualMachineInsta
 	if domain.Status.Status != api.Shutdown {
 		return d.shutdownVMI(vmi, client, timeLeft)
 	}
-	log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
+	log.Log.V(log.FIXME).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
 	return nil
 }
 

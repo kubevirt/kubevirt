@@ -238,7 +238,7 @@ func applyPresets(vmi *kubev1.VirtualMachineInstance, presetInformer cache.Share
 	}
 
 	if len(presets) == 0 {
-		log.Log.Object(vmi).V(4).Infof("Unable to find any preset that can be accepted to the VMI %s", vmi.Name)
+		log.Log.Object(vmi).V(log.FIXME).Infof("Unable to find any preset that can be accepted to the VMI %s", vmi.Name)
 		return nil
 	}
 
@@ -254,7 +254,7 @@ func applyPresets(vmi *kubev1.VirtualMachineInstance, presetInformer cache.Share
 				log.Log.Object(vmi).Warningf("Some settings were not applied for VirtualMachineInstancePreset '%s': %v", preset.Name, err)
 			}
 			annotateVMI(vmi, preset)
-			log.Log.Object(vmi).V(4).Infof("Apply preset %s", preset.Name)
+			log.Log.Object(vmi).V(log.FIXME).Infof("Apply preset %s", preset.Name)
 		} else {
 			log.Log.Object(vmi).Warningf("Unable to apply VirtualMachineInstancePreset '%s': %v", preset.Name, err)
 		}

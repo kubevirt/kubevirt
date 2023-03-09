@@ -94,7 +94,7 @@ func SetupVMICollector(vmiInformer cache.SharedIndexInformer, clusterConfig *vir
 func (co *VMICollector) Collect(ch chan<- prometheus.Metric) {
 	cachedObjs := co.vmiInformer.GetIndexer().List()
 	if len(cachedObjs) == 0 {
-		log.Log.V(4).Infof("No VMIs detected")
+		log.Log.V(log.FIXME).Infof("No VMIs detected")
 		return
 	}
 

@@ -71,7 +71,7 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 	specChanged := changeRbacExistingByRequired(existingCopy, required)
 
 	if !*metaChanged && !specChanged {
-		log.Log.V(4).Infof("%v %v already exists", roleTypeName, requiredMeta.GetName())
+		log.Log.V(log.FIXME).Infof("%v %v already exists", roleTypeName, requiredMeta.GetName())
 		return nil
 	}
 

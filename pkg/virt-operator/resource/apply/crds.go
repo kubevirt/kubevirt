@@ -102,7 +102,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 	resourcemerge.EnsureObjectMeta(modified, &cachedCrd.ObjectMeta, crd.ObjectMeta)
 	// there was no change to metadata, the generation was right
 	if !*modified && cachedCrd.GetGeneration() == expectedGeneration {
-		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+		log.Log.V(log.FIXME).Infof("crd %v is up-to-date", crd.GetName())
 		return nil
 	}
 
@@ -165,6 +165,6 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 		return nil
 	}
 
-	log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+	log.Log.V(log.FIXME).Infof("crd %v is up-to-date", crd.GetName())
 	return nil
 }

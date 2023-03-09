@@ -150,7 +150,7 @@ func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiIn
 			case <-ticker.C:
 				cachedObjs := vmiInformer.GetIndexer().List()
 				if len(cachedObjs) == 0 {
-					log.Log.V(4).Infof("No VMIs detected")
+					log.Log.V(log.FIXME).Infof("No VMIs detected")
 					continue
 				}
 

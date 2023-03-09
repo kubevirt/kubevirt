@@ -151,7 +151,7 @@ func (c *PoolController) addVMIHandler(obj interface{}) {
 		return
 	}
 
-	log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
+	log.Log.Object(vmi).V(log.FIXME).Info("Looking for VirtualMachineInstance Ref")
 	vm := c.resolveVMIControllerRef(vmi.Namespace, vmiControllerRef)
 	if vm == nil {
 		// VMI is not controlled by a VM
@@ -241,7 +241,7 @@ func (c *PoolController) addVMHandler(obj interface{}) {
 		if err != nil {
 			return
 		}
-		log.Log.V(4).Object(vm).Infof("VirtualMachine created")
+		log.Log.V(log.FIXME).Object(vm).Infof("VirtualMachine created")
 		c.expectations.CreationObserved(poolKey)
 		c.enqueuePool(pool)
 		return
@@ -283,7 +283,7 @@ func (c *PoolController) updateVMHandler(old, cur interface{}) {
 		if pool == nil {
 			return
 		}
-		log.Log.V(4).Object(curVM).Infof("VirtualMachine updated")
+		log.Log.V(log.FIXME).Object(curVM).Infof("VirtualMachine updated")
 		c.enqueuePool(pool)
 		return
 	}
@@ -1180,7 +1180,7 @@ func (c *PoolController) Execute() bool {
 		log.Log.Reason(err).Infof("reenqueuing pool %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed pool %v", key)
+		log.Log.V(log.FIXME).Infof("processed pool %v", key)
 		c.queue.Forget(key)
 	}
 	return true

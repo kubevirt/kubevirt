@@ -104,7 +104,7 @@ func updateVMIPhaseTransitionTimeHistogramVec(histogramVec *prometheus.Histogram
 
 	diffSeconds, err := getTransitionTimeSeconds(false, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(log.FIXME).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -147,7 +147,7 @@ func updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec *prom
 
 	diffSeconds, err := getTransitionTimeSeconds(true, false, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(log.FIXME).Infof(transTimeErrFmt, err)
 		return
 	}
 
@@ -172,7 +172,7 @@ func updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec *prom
 
 	diffSeconds, err := getTransitionTimeSeconds(false, true, oldVMI, newVMI)
 	if err != nil {
-		log.Log.V(4).Infof(transTimeErrFmt, err)
+		log.Log.V(log.FIXME).Infof(transTimeErrFmt, err)
 		return
 	}
 

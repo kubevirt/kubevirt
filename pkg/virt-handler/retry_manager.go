@@ -82,7 +82,7 @@ func (f *FailRetryManager) newState(now time.Time) *retryState {
 // and if true return the duration of the delay as well.
 func (f *FailRetryManager) ShouldDelay(key string, isFailure func() bool) (bool, time.Duration) {
 	if !isFailure() {
-		log.Log.V(4).Infof("%s: Not a failure", key)
+		log.Log.V(log.FIXME).Infof("%s: Not a failure", key)
 		return false, 0
 	}
 
@@ -98,7 +98,7 @@ func (f *FailRetryManager) ShouldDelay(key string, isFailure func() bool) (bool,
 	// From this moment we wait for `maxFailResponseTime` amount of time.
 	if state == nil {
 		f.retryStates[key] = f.newState(now)
-		log.Log.V(4).Infof("%s: First failure. Creating a new state and do not delay.", key)
+		log.Log.V(log.FIXME).Infof("%s: First failure. Creating a new state and do not delay.", key)
 		return false, 0
 	}
 
@@ -113,20 +113,20 @@ func (f *FailRetryManager) ShouldDelay(key string, isFailure func() bool) (bool,
 		if state.lastRun.Add(f.maxFailResponseTime).After(now) {
 			// This is a failure due to previous try.
 			state.lastRunFailed = true
-			log.Log.V(4).Infof("%s: Received failure withing %f seconds.", key, f.maxFailResponseTime.Seconds())
-			log.Log.V(4).Infof("%s: Delaying: %t", key, state.nextRun.After(now))
+			log.Log.V(log.FIXME).Infof("%s: Received failure withing %f seconds.", key, f.maxFailResponseTime.Seconds())
+			log.Log.V(log.FIXME).Infof("%s: Delaying: %t", key, state.nextRun.After(now))
 			return state.nextRun.After(now), state.nextRun.Sub(now)
 		} else {
 			// This is a new failure. Reset the status.
 			f.retryStates[key] = f.newState(now)
-			log.Log.V(4).Infof("%s: New failure detected. Resetting the state and do not delay.", key)
+			log.Log.V(log.FIXME).Infof("%s: New failure detected. Resetting the state and do not delay.", key)
 			return false, 0
 		}
 	}
 
 	// If this function has been triggered too early we delay the processing of the remaining backoff amount of time.
 	if !now.After(state.nextRun) {
-		log.Log.V(4).Infof("%s: Delaying vm processing for %f.", key, state.nextRun.Sub(now).Seconds())
+		log.Log.V(log.FIXME).Infof("%s: Delaying vm processing for %f.", key, state.nextRun.Sub(now).Seconds())
 		return true, state.nextRun.Sub(now)
 	}
 
@@ -138,7 +138,7 @@ func (f *FailRetryManager) ShouldDelay(key string, isFailure func() bool) (bool,
 	state.nextRun = now.Add(state.waitInterval)
 	state.lastRun = now
 	state.lastRunFailed = false
-	log.Log.V(4).Infof("%s: Backoff increased. New backoff time is %f", key, state.waitInterval.Seconds())
+	log.Log.V(log.FIXME).Infof("%s: Backoff increased. New backoff time is %f", key, state.waitInterval.Seconds())
 	return false, 0
 }
 
@@ -153,7 +153,7 @@ func (f *FailRetryManager) Run(stopCh chan struct{}) {
 				defer f.stateLock.Unlock()
 				for key, state := range f.retryStates {
 					if !state.lastRunFailed && time.Now().After(state.lastRun.Add(f.maxFailResponseTime)) {
-						log.Log.V(4).Infof("%s: Resetting the state", key)
+						log.Log.V(log.FIXME).Infof("%s: Resetting the state", key)
 						delete(f.retryStates, key)
 					}
 				}

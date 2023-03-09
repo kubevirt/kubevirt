@@ -224,7 +224,7 @@ func (n *NodeLabeller) getStructureFromXMLFile(path string, structure interface{
 		return err
 	}
 
-	n.logger.V(4).Infof("node-labeller - loading data from xml file: %#v", string(rawFile))
+	n.logger.V(log.FIXME).Infof("node-labeller - loading data from xml file: %#v", string(rawFile))
 
 	return xml.Unmarshal(rawFile, structure)
 }

@@ -73,7 +73,7 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	log.Log.Object(vmClone).V(4).Info(fmt.Sprintf("Mutating clone %s. Patch: %s", vmClone.Name, string(patchBytes)))
+	log.Log.Object(vmClone).V(log.FIXME).Info(fmt.Sprintf("Mutating clone %s. Patch: %s", vmClone.Name, string(patchBytes)))
 
 	jsonPatchType := admissionv1.PatchTypeJSONPatch
 	return &admissionv1.AdmissionResponse{

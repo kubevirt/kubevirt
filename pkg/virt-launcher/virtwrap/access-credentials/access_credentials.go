@@ -381,7 +381,7 @@ func (l *AccessCredentialManager) reportAccessCredentialResult(succeeded bool, m
 		Message:   message,
 	}
 	l.metadataCache.AccessCredential.Store(acMetadata)
-	log.Log.V(4).Infof("Access credential set in metadata: %v", acMetadata)
+	log.Log.V(log.FIXME).Infof("Access credential set in metadata: %v", acMetadata)
 	return
 }
 
