@@ -729,6 +729,20 @@ func (SeccompConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (MemoryOverCommitmentProfile) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "MemoryOverCommitmentProfile holds memory over commitment profile for Kubevirt.",
+		"strategy": "+kubebuilder:validation:Enum=Off;Baseline;Insecure",
+	}
+}
+
+func (MemoryOverCommitment) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "MemoryOverCommitment holds memory over commitment fields",
+		"freePageReporting": "FreePageReporting enable or disable the free page reporting of\nmemory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.\nThis will have effect only if AutoattachMemBalloon is not false.\nDefault: false",
+	}
+}
+
 func (TLSConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "TLSConfiguration holds TLS options",

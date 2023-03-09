@@ -837,6 +837,27 @@ var CRDsValidation map[string]string = map[string]string{
             memBalloonStatsPeriod:
               format: int32
               type: integer
+            memoryOverCommitmentProfile:
+              description: MemoryOverCommitmentProfile holds memory over commitment
+                profile for Kubevirt.
+              properties:
+                custom:
+                  description: MemoryOverCommitment holds memory over commitment fields
+                  properties:
+                    freePageReporting:
+                      description: 'FreePageReporting enable or disable the free page
+                        reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                        This will have effect only if AutoattachMemBalloon is not
+                        false. Default: false'
+                      type: boolean
+                  type: object
+                strategy:
+                  enum:
+                  - "Off"
+                  - Baseline
+                  - Insecure
+                  type: string
+              type: object
             migrations:
               description: MigrationConfiguration holds migration options. Can be
                 overridden for specific groups of VMs though migration policies. Visit
@@ -5767,6 +5788,17 @@ var CRDsValidation map[string]string = map[string]string{
                                 x86_64 architecture valid values are 1Gi and 2Mi.
                               type: string
                           type: object
+                        memoryOverCommitment:
+                          description: MemoryOverCommitment holds memory over commitment
+                            fields like freePageReporting
+                          properties:
+                            freePageReporting:
+                              description: 'FreePageReporting enable or disable the
+                                free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                                This will have effect only if AutoattachMemBalloon
+                                is not false. Default: false'
+                              type: boolean
+                          type: object
                       type: object
                     resources:
                       description: Resources describes the Compute Resources required
@@ -10001,6 +10033,17 @@ var CRDsValidation map[string]string = map[string]string{
                         architecture valid values are 1Gi and 2Mi.
                       type: string
                   type: object
+                memoryOverCommitment:
+                  description: MemoryOverCommitment holds memory over commitment fields
+                    like freePageReporting
+                  properties:
+                    freePageReporting:
+                      description: 'FreePageReporting enable or disable the free page
+                        reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                        This will have effect only if AutoattachMemBalloon is not
+                        false. Default: false'
+                      type: boolean
+                  type: object
               type: object
             resources:
               description: Resources describes the Compute Resources required by this
@@ -12506,6 +12549,17 @@ var CRDsValidation map[string]string = map[string]string{
                         architecture valid values are 1Gi and 2Mi.
                       type: string
                   type: object
+                memoryOverCommitment:
+                  description: MemoryOverCommitment holds memory over commitment fields
+                    like freePageReporting
+                  properties:
+                    freePageReporting:
+                      description: 'FreePageReporting enable or disable the free page
+                        reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                        This will have effect only if AutoattachMemBalloon is not
+                        false. Default: false'
+                      type: boolean
+                  type: object
               type: object
             resources:
               description: Resources describes the Compute Resources required by this
@@ -14641,6 +14695,17 @@ var CRDsValidation map[string]string = map[string]string{
                               description: PageSize specifies the hugepage size, for
                                 x86_64 architecture valid values are 1Gi and 2Mi.
                               type: string
+                          type: object
+                        memoryOverCommitment:
+                          description: MemoryOverCommitment holds memory over commitment
+                            fields like freePageReporting
+                          properties:
+                            freePageReporting:
+                              description: 'FreePageReporting enable or disable the
+                                free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                                This will have effect only if AutoattachMemBalloon
+                                is not false. Default: false'
+                              type: boolean
                           type: object
                       type: object
                     resources:
@@ -18646,6 +18711,18 @@ var CRDsValidation map[string]string = map[string]string{
                                         size, for x86_64 architecture valid values
                                         are 1Gi and 2Mi.
                                       type: string
+                                  type: object
+                                memoryOverCommitment:
+                                  description: MemoryOverCommitment holds memory over
+                                    commitment fields like freePageReporting
+                                  properties:
+                                    freePageReporting:
+                                      description: 'FreePageReporting enable or disable
+                                        the free page reporting of memory balloon
+                                        device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                                        This will have effect only if AutoattachMemBalloon
+                                        is not false. Default: false'
+                                      type: boolean
                                   type: object
                               type: object
                             resources:
@@ -23369,6 +23446,18 @@ var CRDsValidation map[string]string = map[string]string{
                                             size, for x86_64 architecture valid values
                                             are 1Gi and 2Mi.
                                           type: string
+                                      type: object
+                                    memoryOverCommitment:
+                                      description: MemoryOverCommitment holds memory
+                                        over commitment fields like freePageReporting
+                                      properties:
+                                        freePageReporting:
+                                          description: 'FreePageReporting enable or
+                                            disable the free page reporting of memory
+                                            balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                                            This will have effect only if AutoattachMemBalloon
+                                            is not false. Default: false'
+                                          type: boolean
                                       type: object
                                   type: object
                                 resources:

@@ -17095,6 +17095,9 @@
       "type": "integer",
       "format": "int64"
      },
+     "memoryOverCommitmentProfile": {
+      "$ref": "#/definitions/v1.MemoryOverCommitmentProfile"
+     },
      "migrations": {
       "$ref": "#/definitions/v1.MigrationConfiguration"
      },
@@ -17474,6 +17477,10 @@
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
+     },
+     "memoryOverCommitment": {
+      "description": "MemoryOverCommitment holds memory over commitment fields like freePageReporting",
+      "$ref": "#/definitions/v1.MemoryOverCommitment"
      }
     }
    },
@@ -17494,6 +17501,28 @@
      "readOnly": {
       "description": "Will force the ReadOnly setting in VolumeMounts. Default false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.MemoryOverCommitment": {
+    "description": "MemoryOverCommitment holds memory over commitment fields",
+    "type": "object",
+    "properties": {
+     "freePageReporting": {
+      "description": "FreePageReporting enable or disable the free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device. This will have effect only if AutoattachMemBalloon is not false. Default: false",
+      "type": "boolean"
+     }
+    }
+   },
+   "v1.MemoryOverCommitmentProfile": {
+    "description": "MemoryOverCommitmentProfile holds memory over commitment profile for Kubevirt.",
+    "type": "object",
+    "properties": {
+     "custom": {
+      "$ref": "#/definitions/v1.MemoryOverCommitment"
+     },
+     "strategy": {
+      "type": "string"
      }
     }
    },

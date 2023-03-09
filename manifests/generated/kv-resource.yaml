@@ -360,6 +360,28 @@ spec:
                   memBalloonStatsPeriod:
                     format: int32
                     type: integer
+                  memoryOverCommitmentProfile:
+                    description: MemoryOverCommitmentProfile holds memory over commitment
+                      profile for Kubevirt.
+                    properties:
+                      custom:
+                        description: MemoryOverCommitment holds memory over commitment
+                          fields
+                        properties:
+                          freePageReporting:
+                            description: 'FreePageReporting enable or disable the
+                              free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                              This will have effect only if AutoattachMemBalloon is
+                              not false. Default: false'
+                            type: boolean
+                        type: object
+                      strategy:
+                        enum:
+                        - "Off"
+                        - Baseline
+                        - Insecure
+                        type: string
+                    type: object
                   migrations:
                     description: MigrationConfiguration holds migration options. Can
                       be overridden for specific groups of VMs though migration policies.
@@ -3122,6 +3144,28 @@ spec:
                   memBalloonStatsPeriod:
                     format: int32
                     type: integer
+                  memoryOverCommitmentProfile:
+                    description: MemoryOverCommitmentProfile holds memory over commitment
+                      profile for Kubevirt.
+                    properties:
+                      custom:
+                        description: MemoryOverCommitment holds memory over commitment
+                          fields
+                        properties:
+                          freePageReporting:
+                            description: 'FreePageReporting enable or disable the
+                              free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                              This will have effect only if AutoattachMemBalloon is
+                              not false. Default: false'
+                            type: boolean
+                        type: object
+                      strategy:
+                        enum:
+                        - "Off"
+                        - Baseline
+                        - Insecure
+                        type: string
+                    type: object
                   migrations:
                     description: MigrationConfiguration holds migration options. Can
                       be overridden for specific groups of VMs though migration policies.

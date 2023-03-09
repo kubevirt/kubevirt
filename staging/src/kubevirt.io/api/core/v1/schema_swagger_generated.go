@@ -197,9 +197,10 @@ func (CPUFeature) SwaggerDoc() map[string]string {
 
 func (Memory) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "Memory allows specifying the VirtualMachineInstance memory features.",
-		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
-		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"":                     "Memory allows specifying the VirtualMachineInstance memory features.",
+		"hugepages":            "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"guest":                "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"memoryOverCommitment": "MemoryOverCommitment holds memory over commitment fields like freePageReporting\n+optional",
 	}
 }
 

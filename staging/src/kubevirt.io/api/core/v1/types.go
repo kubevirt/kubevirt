@@ -2274,6 +2274,7 @@ type KubeVirtConfiguration struct {
 	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
 	TLSConfiguration               *TLSConfiguration                 `json:"tlsConfiguration,omitempty"`
 	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
+	MemoryOverCommitmentProfile    *MemoryOverCommitmentProfile      `json:"memoryOverCommitmentProfile,omitempty"`
 }
 
 type SMBiosConfiguration struct {
@@ -2312,6 +2313,33 @@ type SeccompConfiguration struct {
 	// VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none
 	VirtualMachineInstanceProfile *VirtualMachineInstanceProfile `json:"virtualMachineInstanceProfile,omitempty"`
 }
+
+// MemoryOverCommitmentProfile holds memory over commitment profile for Kubevirt.
+type MemoryOverCommitmentProfile struct {
+	// +kubebuilder:validation:Enum=Off;Baseline;Insecure
+	Strategy *Strategy             `json:"strategy,omitempty"`
+	Custom   *MemoryOverCommitment `json:"custom,omitempty"`
+}
+
+// MemoryOverCommitment holds memory over commitment fields
+type MemoryOverCommitment struct {
+	// FreePageReporting enable or disable the free page reporting of
+	// memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+	// This will have effect only if AutoattachMemBalloon is not false.
+	// Default: false
+	FreePageReporting *bool `json:"freePageReporting,omitempty"`
+}
+
+type Strategy string
+
+const (
+	// Off with freePageReporting enabled.
+	Off Strategy = "Off"
+	// Baseline is a good baseline with freePageReporting enabled.
+	Baseline Strategy = "Baseline"
+	// Insecure should only be used with trusted workloads.
+	Insecure Strategy = "Insecure"
+)
 
 // TLSConfiguration holds TLS options
 type TLSConfiguration struct {

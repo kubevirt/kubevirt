@@ -370,6 +370,9 @@ type Memory struct {
 	// Defaults to the requested memory in the resources section if not specified.
 	// + optional
 	Guest *resource.Quantity `json:"guest,omitempty"`
+	// MemoryOverCommitment holds memory over commitment fields like freePageReporting
+	// +optional
+	MemoryOverCommitment *MemoryOverCommitment `json:"memoryOverCommitment,omitempty"`
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
