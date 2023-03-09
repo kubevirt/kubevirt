@@ -77,6 +77,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"runtimeUser":                   "RuntimeUser is used to determine what user will be used in launcher\n+optional",
 		"VSOCKCID":                      "VSOCKCID is used to track the allocated VSOCK CID in the VM.\n+optional",
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
+		"currentCPUTopology":            "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
 	}
 }
 
@@ -328,6 +329,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"maxSockets":          "MaxSocket represents the number of sockets a VirtualMachine may have",
 	}
 }
 

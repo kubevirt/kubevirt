@@ -4854,6 +4854,11 @@ func (in *VirtualMachineInstanceStatus) DeepCopyInto(out *VirtualMachineInstance
 		*out = new(uint32)
 		**out = **in
 	}
+	if in.CurrentCPUTopology != nil {
+		in, out := &in.CurrentCPUTopology, &out.CurrentCPUTopology
+		*out = new(CPU)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
@@ -5002,6 +5007,11 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.MaxSockets != nil {
+		in, out := &in.MaxSockets, &out.MaxSockets
+		*out = new(uint32)
+		**out = **in
 	}
 	return
 }

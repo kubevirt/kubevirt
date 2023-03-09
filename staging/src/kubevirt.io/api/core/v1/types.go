@@ -269,6 +269,9 @@ type VirtualMachineInstanceStatus struct {
 	// SELinuxContext is the actual SELinux context of the virt-launcher pod
 	// +optional
 	SelinuxContext string `json:"selinuxContext,omitempty"`
+	// CPU allow specified the detailed CPU topology inside the vmi.
+	// +optional
+	CurrentCPUTopology *CPU `json:"currentCPUTopology,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -485,6 +488,8 @@ const (
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses dedicated CPU and emulator thread isolation
 	VirtualMachineInstanceReasonDedicatedCPU = "DedicatedCPUNotLiveMigratable"
+	// Indicates that the VMI is in progress of Hot vCPU Plug/UnPlug
+	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
 )
 
 const (
@@ -1352,6 +1357,9 @@ type VirtualMachineSpec struct {
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
+
+	//MaxSocket represents the number of sockets a VirtualMachine may have
+	MaxSockets *uint32 `json:"maxSockets,omitempty"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible

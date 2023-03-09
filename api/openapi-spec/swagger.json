@@ -19415,6 +19415,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceCondition"
       }
      },
+     "currentCPUTopology": {
+      "description": "CPU allow specified the detailed CPU topology inside the vmi.",
+      "$ref": "#/definitions/v1.CPU"
+     },
      "evacuationNodeName": {
       "description": "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want to evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.",
       "type": "string"
@@ -19602,6 +19606,11 @@
      "instancetype": {
       "description": "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
       "$ref": "#/definitions/v1.InstancetypeMatcher"
+     },
+     "maxSockets": {
+      "description": "MaxSocket represents the number of sockets a VirtualMachine may have",
+      "type": "integer",
+      "format": "int64"
      },
      "preference": {
       "description": "PreferenceMatcher references a set of preference that is used to fill fields in Template",
