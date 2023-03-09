@@ -26,7 +26,7 @@ import (
 	authorization "k8s.io/api/authorization/v1"
 	"k8s.io/klog/v2"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // SubjectAccessReviewsProxy proxies calls to work with SubjectAccessReviews

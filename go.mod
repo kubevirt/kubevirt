@@ -78,7 +78,7 @@ require (
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
-	kubevirt.io/containerized-data-importer v1.40.0
+	kubevirt.io/containerized-data-importer v1.55.0
 	kubevirt.io/containerized-data-importer-api v1.55.0
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 	kubevirt.io/qe-tools v0.1.8
@@ -159,7 +159,6 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	kubevirt.io/controller-lifecycle-operator-sdk v0.2.1-0.20210723143736-64585ea1d1bd // indirect
 	mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157 // indirect
 	sigs.k8s.io/controller-runtime v0.11.1 // indirect
 	sigs.k8s.io/json v0.0.0-20211020170558-c049b76a60c6 // indirect
