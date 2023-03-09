@@ -36,7 +36,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool, ifacesToPlug ...v1.Interface) ([]api.Interface, error) {
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, ifacesToPlug ...v1.Interface) ([]api.Interface, error) {
+	isVirtioNetProhibited, err := c.IsVirtIONetProhibited()
+	if err != nil {
+		return nil, err
+	}
+
 	var domainInterfaces []api.Interface
 
 	networks := indexNetworksByName(vmi.Spec.Networks)
@@ -64,7 +69,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 		// if AllowEmulation unset and at least one NIC model is virtio,
 		// /dev/vhost-net must be present as we should have asked for it.
-		if ifaceType == v1.VirtIO && virtioNetProhibited {
+		if ifaceType == v1.VirtIO && isVirtioNetProhibited {
 			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 

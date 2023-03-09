@@ -46,7 +46,7 @@ func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, converterContext *co
 			return fmt.Errorf("could not find a matching interface for network: %s", network.Name)
 		}
 
-		domainInterfaces, err := converter.CreateDomainInterfaces(vmi, domain, converterContext, converter.IsVirtioNetProhibited(), ifaceToHotplug)
+		domainInterfaces, err := converter.CreateDomainInterfaces(vmi, domain, converterContext, ifaceToHotplug)
 		if err != nil {
 			return err
 		}
