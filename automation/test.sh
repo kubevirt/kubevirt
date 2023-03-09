@@ -355,6 +355,23 @@ spec:
 EOF
 fi
 
+# add_to_label_filter appends the given label and separator to
+# $label_filter which is passed to Ginkgo --filter-label flag.
+# How to use:
+# - Run tests with label
+#     add_to_label_filter '(mylabel)' ','
+# - Dont run tests with label:
+#     add_to_label_filter '(!mylabel)' '&&'
+add_to_label_filter() {
+  local label=$1
+  local separator=$2
+  if [[ -z $label_filter ]]; then
+    label_filter="${1}"
+  else
+    label_filter="${label_filter}${separator}${1}"
+  fi
+}
+
 # Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
 if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
@@ -366,11 +383,13 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
+    label_filter='(sig-network)'
     # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
     if [[ $TARGET =~ no-istio ]]; then
-      label_filter='(sig-network && !Istio)'
-    else
-      label_filter='(sig-network)'
+      add_to_label_filter "(!Istio)" "&&"
+    fi
+    if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
+      add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
@@ -402,16 +421,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU))'
   fi
 fi
-
-add_to_label_filter() {
-  local label=$1
-  local separator=$2
-  if [[ -z $label_filter ]]; then
-    label_filter="${1}"
-  else
-    label_filter="${label_filter}${separator}${1}"
-  fi
-}
 
 if [[ $KUBEVIRT_NONROOT =~ true ]]; then
   add_to_label_filter '(verify-non-root)' ','
