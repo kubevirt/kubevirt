@@ -1143,7 +1143,7 @@ func (d *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		volume, ok := volumes[disk.Name]
 		if !ok {
-			log.DefaultLogger().V(2).Warningf("No matching volume with name %s found", disk.Name)
+			log.DefaultLogger().Warningf("No matching volume with name %s found", disk.Name)
 			continue
 		}
 
