@@ -50,6 +50,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -86,11 +87,13 @@ import (
 )
 
 const (
-	failedSyncGuestTime             = "failed to sync guest time"
-	failedGetDomain                 = "Getting the domain failed."
-	failedGetDomainState            = "Getting the domain state failed."
-	failedDomainMemoryDump          = "Domain memory dump failed"
-	affectLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
+	failedSyncGuestTime                       = "failed to sync guest time"
+	failedGetDomain                           = "Getting the domain failed."
+	failedGetDomainState                      = "Getting the domain state failed."
+	failedDomainMemoryDump                    = "Domain memory dump failed"
+	affectDeviceLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
+	affectDomainLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_AFFECT_LIVE | libvirt.DOMAIN_AFFECT_CONFIG
+	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DOMAIN_VCPU_LIVE | libvirt.DOMAIN_VCPU_CONFIG
 )
 
 const maxConcurrentHotplugHostDevices = 1
@@ -128,6 +131,7 @@ type DomainManager interface {
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	GetQemuVersion() (string, error)
+	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 }
 
 type LibvirtDomainManager struct {
@@ -211,6 +215,20 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
 	return &manager, nil
+}
+
+func getDomain(dom cli.VirDomain) (*api.Domain, error) {
+	var domain api.Domain
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return &domain, err
+	}
+	err = xml.Unmarshal([]byte(xmlstr), &domain)
+	if err != nil {
+		return &domain, err
+	}
+
+	return &domain, nil
 }
 
 func getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
@@ -350,6 +368,83 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(
 // FinalizeVirtualMachineMigration finalized the migration after the migration has completed and vmi is running on target pod.
 func (l *LibvirtDomainManager) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
 	return l.finalizeMigrationTarget(vmi)
+}
+
+// UpdateVCPUs plugs or unplugs vCPUs on a running domain
+func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	const errMsgPrefix = "failed to update vCPUs"
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+	defer dom.Free()
+	var topology *cmdv1.Topology
+
+	logger := log.Log.Object(vmi)
+
+	vcpuTopology := vcpu.GetCPUTopology(vmi)
+	vcpuCount := vcpu.CalculateRequestedVCPUs(vcpuTopology)
+	// hot plug/unplug vCPUs
+	if err := dom.SetVcpusFlags(uint(vcpuCount),
+		affectDomainVCPULiveAndConfigLibvirtFlags); err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
+	if vmi.IsCPUDedicated() {
+		useIOThreads := false
+		if options != nil && options.Topology != nil {
+			topology = options.Topology
+		}
+
+		podCPUSet, err := util.GetPodCPUSet()
+		if err != nil {
+			logger.Reason(err).Error("failed to read pod cpuset.")
+			return fmt.Errorf("failed to read pod cpuset: %v", err)
+		}
+
+		domain, err := getDomain(dom)
+		if err != nil {
+			return fmt.Errorf("%s: %v", errMsgPrefix, err)
+		}
+
+		if domain.Spec.CPUTune != nil && len(domain.Spec.CPUTune.IOThreadPin) > 0 {
+			useIOThreads = true
+		}
+
+		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
+		if err != nil {
+			return fmt.Errorf("%s: %v", errMsgPrefix, err)
+		}
+
+		for _, vcpupin := range domain.Spec.CPUTune.VCPUPin {
+			vcpu := vcpupin.VCPU
+			cpuSet := vcpupin.CPUSet
+			pcpu, _ := strconv.Atoi(cpuSet)
+			cpuMap := make([]bool, int(pcpu)+1)
+			cpuMap[int(pcpu)] = true
+			err = dom.PinVcpuFlags(uint(vcpu), cpuMap, affectDomainLiveAndConfigLibvirtFlags)
+			if err != nil {
+				return fmt.Errorf("%s: %v", errMsgPrefix, err)
+			}
+		}
+		if domain.Spec.CPUTune.EmulatorPin != nil {
+			isolCpu, _ := strconv.Atoi(domain.Spec.CPUTune.EmulatorPin.CPUSet)
+			cpuMap := make([]bool, isolCpu+1)
+			cpuMap[int(isolCpu)] = true
+			err = dom.PinEmulator(cpuMap, affectDomainLiveAndConfigLibvirtFlags)
+			if err != nil {
+				return fmt.Errorf("%s: %v", errMsgPrefix, err)
+			}
+		}
+
+	}
+	return nil
 }
 
 // HotplugHostDevices attach host-devices to running domain, currently only SRIOV host-devices are supported.
@@ -943,7 +1038,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			logger.Reason(err).Error("marshalling detached disk failed")
 			return nil, err
 		}
-		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
+		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
 			return nil, err
@@ -974,7 +1069,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			logger.Reason(err).Error("marshalling attached disk failed")
 			return nil, err
 		}
-		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectLiveAndConfigLibvirtFlags)
+		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
 			return nil, err
