@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -54,10 +56,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
 const (
@@ -720,6 +722,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 		if err := c.updateInterfaceStatus(vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
+		}
+
+		if c.requireCPUHotplug(vmiCopy) {
+			c.syncCPUHotplug(vmiCopy)
 		}
 
 	case vmi.IsScheduled():
@@ -2323,4 +2329,33 @@ func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterface
 		fmt.Sprintf(`{ "op": "test", "path": "/status/interfaces", "value": %s }`, string(oldInterfaceStatus)),
 		fmt.Sprintf(`{ "op": "add", "path": "/status/interfaces", "value": %s }`, string(newInterfaceStatus)),
 	}
+}
+
+func (c *VMIController) syncCPUHotplug(vmi *virtv1.VirtualMachineInstance) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	condition := virtv1.VirtualMachineInstanceCondition{
+		Type:   virtv1.VirtualMachineInstanceVCPUChange,
+		Status: k8sv1.ConditionTrue,
+	}
+	if !vmiConditions.HasCondition(vmi, condition.Type) {
+		vmiConditions.UpdateCondition(vmi, &condition)
+		log.Log.Object(vmi).V(4).Infof("hot plug cpu vmi %s", vmi.Name)
+	}
+
+}
+
+func (c *VMIController) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi.Status.CurrentCPUTopology == nil ||
+		vmi.Spec.Domain.CPU == nil ||
+		vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		return false
+	}
+
+	cpuTopoLogyFromStatus := &virtv1.CPU{
+		Cores:   vmi.Status.CurrentCPUTopology.Cores,
+		Sockets: vmi.Status.CurrentCPUTopology.Sockets,
+		Threads: vmi.Status.CurrentCPUTopology.Threads,
+	}
+
+	return hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU) != hardware.GetNumberOfVCPUs(cpuTopoLogyFromStatus)
 }

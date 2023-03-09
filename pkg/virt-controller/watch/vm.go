@@ -30,9 +30,10 @@ import (
 	"strings"
 	"time"
 
-	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
@@ -102,6 +103,7 @@ const (
 
 const (
 	HotPlugVolumeErrorReason           = "HotPlugVolumeError"
+	HotPlugCPUErrorReason              = "HotPlugCPUError"
 	MemoryDumpErrorReason              = "MemoryDumpError"
 	FailedUpdateErrorReason            = "FailedUpdateError"
 	FailedCreateReason                 = "FailedCreate"
@@ -576,6 +578,52 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, v1.UpdateOptions{}); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (c *VMController) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	test := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vmi.Spec.Domain.CPU.Sockets), 10))
+	update := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/cpu/sockets", "value": %s}`, strconv.FormatUint(uint64(vm.Spec.Template.Spec.Domain.CPU.Sockets), 10))
+	patch := fmt.Sprintf("[%s, %s]", test, update)
+
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+
+	return err
+}
+
+func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		return nil
+	}
+
+	if vm.Spec.LiveUpdateFeatures == nil {
+		return nil
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU == nil {
+		return nil
+	}
+
+	vmTemplVCPUs := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU)
+	vmiVCPUs := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+	if vmTemplVCPUs == vmiVCPUs {
+		return nil
+	}
+
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	if vmiConditions.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceVCPUChange, k8score.ConditionTrue) {
+		return fmt.Errorf("another CPU hotplug is in progress")
+	}
+
+	if migrations.IsMigrating(vmi) {
+		return fmt.Errorf("CPU hotplug is not allowed while VMI is migrating")
+	}
+
+	if err := c.VMICPUsPatch(vm, vmi); err != nil {
+		log.Log.Object(vmi).Errorf("unable to patch vmi to add cpu topology status: %v", err)
+		return err
 	}
 
 	return nil
@@ -2583,6 +2631,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			if err != nil {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling memory dump request: %v", err), MemoryDumpErrorReason}
 			}
+		}
+
+		err = c.handleCPUChangeRequest(vmCopy, vmi)
+		if err != nil {
+			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
 		}
 
 		if syncErr == nil {
