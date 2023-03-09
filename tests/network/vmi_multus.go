@@ -45,6 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
@@ -438,6 +439,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 			customMacAddress := "50:00:00:00:90:0d"
 
 			BeforeEach(func() {
+				tests.EnableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
