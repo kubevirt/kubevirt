@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -677,6 +678,21 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
+		// handle vCPU hot plug/unplug
+		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.MaxSockets != 0 && vmi.Status.CurrentCPUTopology != nil {
+			if hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU) != hardware.GetNumberOfVCPUs(vmi.Status.CurrentCPUTopology) {
+				condition := virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceVCPUChange,
+					Status: k8sv1.ConditionTrue,
+				}
+				if !conditionManager.HasCondition(vmiCopy, condition.Type) {
+					vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+				}
+			}
+			log.Log.V(1).Object(vmi).Infof("hot plug cpu vmi %s", vmi.Name)
+
+		}
+
 	case vmi.IsScheduled():
 		// Nothing here
 		break
@@ -1174,6 +1190,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if !isTempPod(pod) && isPodReady(pod) {
+
 		if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 			networkPCIMapAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(
 				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],
