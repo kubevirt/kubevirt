@@ -235,7 +235,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
-		"autoattachSerialConsole":    "Whether to attach the default serial console or not.\nSerial console access will not be available if set to false. Defaults to true.",
+		"autoattachSerialConsole":    "Whether to attach the default virtio-serial console or not.\nSerial console access will not be available if set to false. Defaults to true.",
 		"autoattachMemBalloon":       "Whether to attach the Memory balloon device with default period.\nPeriod can be adjusted in virt-config.\nDefaults to true.\n+optional",
 		"autoattachInputDevice":      "Whether to attach an Input Device.\nDefaults to false.\n+optional",
 		"autoattachVSOCK":            "Whether to attach the VSOCK CID to the VM or not.\nVSOCK access will be available if set to true. Defaults to false.",

@@ -4995,9 +4995,9 @@ var CRDsValidation map[string]string = map[string]string{
                             Defaults to true.
                           type: boolean
                         autoattachSerialConsole:
-                          description: Whether to attach the default serial console
-                            or not. Serial console access will not be available if
-                            set to false. Defaults to true.
+                          description: Whether to attach the default virtio-serial
+                            console or not. Serial console access will not be available
+                            if set to false. Defaults to true.
                           type: boolean
                         autoattachVSOCK:
                           description: Whether to attach the VSOCK CID to the VM or
@@ -9279,9 +9279,9 @@ var CRDsValidation map[string]string = map[string]string{
                     to true.
                   type: boolean
                 autoattachSerialConsole:
-                  description: Whether to attach the default serial console or not.
-                    Serial console access will not be available if set to false. Defaults
-                    to true.
+                  description: Whether to attach the default virtio-serial console
+                    or not. Serial console access will not be available if set to
+                    false. Defaults to true.
                   type: boolean
                 autoattachVSOCK:
                   description: Whether to attach the VSOCK CID to the VM or not. VSOCK
@@ -11784,9 +11784,9 @@ var CRDsValidation map[string]string = map[string]string{
                     to true.
                   type: boolean
                 autoattachSerialConsole:
-                  description: Whether to attach the default serial console or not.
-                    Serial console access will not be available if set to false. Defaults
-                    to true.
+                  description: Whether to attach the default virtio-serial console
+                    or not. Serial console access will not be available if set to
+                    false. Defaults to true.
                   type: boolean
                 autoattachVSOCK:
                   description: Whether to attach the VSOCK CID to the VM or not. VSOCK
@@ -13870,9 +13870,9 @@ var CRDsValidation map[string]string = map[string]string{
                             Defaults to true.
                           type: boolean
                         autoattachSerialConsole:
-                          description: Whether to attach the default serial console
-                            or not. Serial console access will not be available if
-                            set to false. Defaults to true.
+                          description: Whether to attach the default virtio-serial
+                            console or not. Serial console access will not be available
+                            if set to false. Defaults to true.
                           type: boolean
                         autoattachVSOCK:
                           description: Whether to attach the VSOCK CID to the VM or
@@ -17825,7 +17825,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     Defaults to true.
                                   type: boolean
                                 autoattachSerialConsole:
-                                  description: Whether to attach the default serial
+                                  description: Whether to attach the default virtio-serial
                                     console or not. Serial console access will not
                                     be available if set to false. Defaults to true.
                                   type: boolean
@@ -22518,7 +22518,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         interface. Defaults to true.
                                       type: boolean
                                     autoattachSerialConsole:
-                                      description: Whether to attach the default serial
+                                      description: Whether to attach the default virtio-serial
                                         console or not. Serial console access will
                                         not be available if set to false. Defaults
                                         to true.

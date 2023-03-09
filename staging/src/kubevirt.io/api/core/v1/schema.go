@@ -418,7 +418,7 @@ type Devices struct {
 	// Whether to attach the default graphics device or not.
 	// VNC will not be available if set to false. Defaults to true.
 	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
-	// Whether to attach the default serial console or not.
+	// Whether to attach the default virtio-serial console or not.
 	// Serial console access will not be available if set to false. Defaults to true.
 	AutoattachSerialConsole *bool `json:"autoattachSerialConsole,omitempty"`
 	// Whether to attach the Memory balloon device with default period.

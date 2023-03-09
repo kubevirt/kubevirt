@@ -16064,7 +16064,7 @@
       "type": "boolean"
      },
      "autoattachSerialConsole": {
-      "description": "Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.",
+      "description": "Whether to attach the default virtio-serial console or not. Serial console access will not be available if set to false. Defaults to true.",
       "type": "boolean"
      },
      "autoattachVSOCK": {

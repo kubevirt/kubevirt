@@ -15775,7 +15775,7 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 					},
 					"autoattachSerialConsole": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.",
+							Description: "Whether to attach the default virtio-serial console or not. Serial console access will not be available if set to false. Defaults to true.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
