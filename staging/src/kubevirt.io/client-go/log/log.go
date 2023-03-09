@@ -20,7 +20,6 @@
 package log
 
 import (
-	"errors"
 	goflag "flag"
 	"fmt"
 	"io"
@@ -61,6 +60,19 @@ var LogLevelNames = map[LogLevel]string{
 	ERROR:   "error",
 	FATAL:   "fatal",
 }
+
+const (
+	ALWAYS int = iota
+	HIGH
+	DEFAULT
+	DEBUG
+	FIXME
+	TRACE
+	DUMP
+	_
+	_
+	RARE
+)
 
 var lock sync.Mutex
 
@@ -106,7 +118,7 @@ func MakeLogger(logger log.Logger) *FilteredLogger {
 
 	defaultVerbosity = getDefaultVerbosity()
 	// This verbosity will be used for info logs without setting a custom verbosity level
-	defaultCurrentVerbosity := 2
+	defaultCurrentVerbosity := DEFAULT
 
 	return &FilteredLogger{
 		logger:                logger,
@@ -282,18 +294,17 @@ func (l *FilteredLogger) SetLogLevel(filterLevel LogLevel) error {
 }
 
 func (l *FilteredLogger) SetVerbosityLevel(level int) error {
-	if level >= 0 {
-		l.verbosityLevel = level
-	} else {
-		return errors.New("Verbosity setting must not be negative")
+	if level < ALWAYS || level > RARE {
+		return fmt.Errorf("Verbosity setting out of range %d-%d", ALWAYS, RARE)
 	}
+	l.verbosityLevel = level
 	return nil
 }
 
 // It would be consistent to return an error from this function, but
 // a multi-value function would break the primary use case: log.V(2).Info()....
 func (l FilteredLogger) V(level int) *FilteredLogger {
-	if level >= 0 {
+	if level >= ALWAYS && level <= RARE {
 		l.currentVerbosityLevel = level
 	}
 	return &l
