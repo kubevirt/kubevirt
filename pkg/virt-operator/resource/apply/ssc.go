@@ -40,7 +40,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 				return fmt.Errorf("unable to create SCC %+v: %v", scc, err)
 			}
 
-			log.Log.V(2).Infof("SCC %v created", scc.Name)
+			log.Log.Infof("SCC %v created", scc.Name)
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
 			injectOperatorMetadata(r.kv, &scc.ObjectMeta, version, imageRegistry, id, true)
@@ -49,7 +49,7 @@ func (r *Reconciler) createOrUpdateSCC() error {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
 			}
 
-			log.Log.V(2).Infof("SecurityContextConstraints %s updated", scc.Name)
+			log.Log.Infof("SecurityContextConstraints %s updated", scc.Name)
 		} else {
 			log.Log.V(4).Infof("SCC %s is up to date", scc.Name)
 		}

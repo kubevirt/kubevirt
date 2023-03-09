@@ -139,7 +139,7 @@ func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error
 		return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
 	}
 
-	log.Log.V(2).Infof("service %v patched", service.GetName())
+	log.Log.Infof("service %v patched", service.GetName())
 	return false, nil
 }
 
@@ -204,7 +204,7 @@ func deleteService(service *corev1.Service, kvKey string, expectations *util.Exp
 		return err
 	}
 
-	log.Log.V(2).Infof("service %v deleted. It must be re-created", service.GetName())
+	log.Log.Infof("service %v deleted. It must be re-created", service.GetName())
 	return nil
 }
 
@@ -275,7 +275,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitin
 		return nil, fmt.Errorf("unable to patch secret %+v: %v", secret, err)
 	}
 
-	log.Log.V(2).Infof("secret %v updated", secret.GetName())
+	log.Log.Infof("secret %v updated", secret.GetName())
 
 	return crt, nil
 }
@@ -466,7 +466,7 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 			r.expectations.ServiceAccount.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
 		}
-		log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
+		log.Log.Infof("serviceaccount %v created", sa.GetName())
 		return nil
 	}
 
@@ -491,7 +491,7 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 		return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
 	}
 
-	log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
+	log.Log.Infof("serviceaccount %v updated", sa.GetName())
 
 	return nil
 }
@@ -610,7 +610,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 		}
 
 		configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
-		log.Log.Reason(err).V(2).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
+		log.Log.Reason(err).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
 	}
 
 	modified := resourcemerge.BoolPtr(false)
@@ -631,7 +631,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimit
 		return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
 	}
 
-	log.Log.V(2).Infof("configMap %v updated", configMap.GetName())
+	log.Log.Infof("configMap %v updated", configMap.GetName())
 
 	return []byte(configMap.Data[components.CABundleKey]), nil
 }

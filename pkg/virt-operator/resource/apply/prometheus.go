@@ -45,7 +45,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 			return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
 		}
 
-		log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
+		log.Log.Infof("serviceMonitor %v created", serviceMonitor.GetName())
 		return nil
 	}
 
@@ -80,7 +80,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
 	}
 
-	log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
+	log.Log.Infof("serviceMonitor %v updated", serviceMonitor.GetName())
 
 	return nil
 }
@@ -127,7 +127,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 			return fmt.Errorf("unable to create PrometheusRule %+v: %v", prometheusRule, err)
 		}
 
-		log.Log.V(2).Infof("PrometheusRule %v created", prometheusRule.GetName())
+		log.Log.Infof("PrometheusRule %v created", prometheusRule.GetName())
 		return nil
 	}
 
@@ -158,7 +158,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 		return fmt.Errorf("unable to patch PrometheusRule %+v: %v", prometheusRule, err)
 	}
 
-	log.Log.V(2).Infof("PrometheusRule %v updated", prometheusRule.GetName())
+	log.Log.Infof("PrometheusRule %v updated", prometheusRule.GetName())
 
 	return nil
 }

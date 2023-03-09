@@ -459,7 +459,7 @@ func (app *VirtControllerApp) shouldChangeRateLimiter() {
 	qps := config.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst := config.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
-	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
+	log.Log.Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
 }
 
 // Update virt-controller log verbosity on relevant config changes
@@ -468,7 +468,7 @@ func (vca *VirtControllerApp) shouldChangeLogVerbosity() {
 	if err := log.Log.SetVerbosityLevel(int(verbosity)); err != nil {
 		log.Log.Warningf("failed up update log verbosity to %d: %v", verbosity, err)
 	} else {
-		log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+		log.Log.Infof("set log verbosity to %d", verbosity)
 	}
 }
 

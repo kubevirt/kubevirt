@@ -121,7 +121,7 @@ func (b *SteadyStateJob) CreateWorkloads(replicas int) {
 
 	// Create all replicas
 	for r := 1; r <= replicas; r++ {
-		log.Log.V(2).Infof("Replica %d of %d with idx %d", r, replicas, b.objIdx)
+		log.Log.Infof("Replica %d of %d with idx %d", r, replicas, b.objIdx)
 		_, err := objUtil.CreateObjectReplica(b.virtClient, objSpec, &b.objIdx, b.UUID)
 		if err != nil {
 			continue
@@ -145,7 +145,7 @@ func (b *SteadyStateJob) DeleteWorkloads(count int) {
 	objType := objUtil.GetObjectResource(objSample)
 	labels := objSample.GetLabels()
 	jobUUID := labels[config.WorkloadUUIDLabel]
-	log.Log.V(2).Infof("Deleting %d objects for job %s", count, jobUUID)
+	log.Log.Infof("Deleting %d objects for job %s", count, jobUUID)
 	objUtil.DeleteNObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadUUIDLabel, jobUUID), count)
 
 	// Wait all objects be Deleted. In the case of VMI, deleted means the succeded phase.
@@ -154,11 +154,11 @@ func (b *SteadyStateJob) DeleteWorkloads(count int) {
 		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
 	}
 
-	log.Log.V(2).Infof("Deleted %d obj(s) for job %s", count, jobUUID)
+	log.Log.Infof("Deleted %d obj(s) for job %s", count, jobUUID)
 }
 
 func (b *SteadyStateJob) DeleteNamespaces() {
-	log.Log.V(2).Infof("Clean up, deleting all created namespaces")
+	log.Log.Infof("Clean up, deleting all created namespaces")
 	objUtil.CleanupNamespaces(b.virtClient, 30*time.Minute, config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
 	objUtil.WaitForDeleteNamespaces(b.virtClient, 30*time.Minute, *config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
 }

@@ -79,6 +79,6 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 		return err
 	}
 
-	log.Log.V(2).Infof("generated Ignition file %s", ignitionFile)
+	log.Log.Infof("generated Ignition file %s", ignitionFile)
 	return nil
 }

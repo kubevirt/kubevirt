@@ -85,7 +85,7 @@ func (b *BurstJob) CreateWorkloads() {
 
 	// Create all replicas
 	for r := 1; r <= b.Workload.Count; r++ {
-		log.Log.V(2).Infof("Replica %d of %d", r, b.Workload.Count)
+		log.Log.Infof("Replica %d of %d", r, b.Workload.Count)
 		idx := r
 		_, err := objUtil.CreateObjectReplica(b.virtClient, objSpec, &idx, b.UUID)
 		if err != nil {
@@ -110,7 +110,7 @@ func (b *BurstJob) DeleteWorkloads() {
 	objType := objUtil.GetObjectResource(objSample)
 	labels := objSample.GetLabels()
 	jobUUID := labels[config.WorkloadUUIDLabel]
-	log.Log.V(2).Infof("Deleting %d objects for job %s", b.Workload.Count, jobUUID)
+	log.Log.Infof("Deleting %d objects for job %s", b.Workload.Count, jobUUID)
 	objUtil.DeleteNObjectsInNamespaces(b.virtClient, objType, config.GetListOpts(config.WorkloadUUIDLabel, jobUUID), b.Workload.Count)
 
 	// Wait all objects be Deleted. In the case of VMI, deleted means the succeded phase.
@@ -119,7 +119,7 @@ func (b *BurstJob) DeleteWorkloads() {
 		objWatcher.WaitDeletion(b.Workload.Timeout.Duration)
 	}
 
-	log.Log.V(2).Infof("All workloads for job have been deleted")
+	log.Log.Infof("All workloads for job have been deleted")
 }
 
 func (b *BurstJob) createWatcherIfNotExist(obj *unstructured.Unstructured) {

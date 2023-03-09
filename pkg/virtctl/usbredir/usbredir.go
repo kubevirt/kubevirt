@@ -118,13 +118,13 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 
 		usbredirConn, err := ln.Accept()
 		if err != nil {
-			log.Log.V(2).Infof("Failed to accept connection: %s", err.Error())
+			log.Log.Infof("Failed to accept connection: %s", err.Error())
 			streamResChan <- err
 			return
 		}
 		defer usbredirConn.Close()
 
-		log.Log.V(2).Infof("Connected to %s at %v", usbredirClient, time.Now().Sub(start))
+		log.Log.Infof("Connected to %s at %v", usbredirClient, time.Now().Sub(start))
 
 		// write to local usbredir from pipeOutReader
 		go func() {
@@ -164,7 +164,7 @@ func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) e
 		if err != nil {
 			log.Log.Errorf("Failed to execut %v due %v, output: %v", bin, err, string(output))
 		} else {
-			log.Log.V(2).Infof("%v output: %v", bin, string(output))
+			log.Log.Infof("%v output: %v", bin, string(output))
 		}
 		usbredirExecResChan <- err
 	}()

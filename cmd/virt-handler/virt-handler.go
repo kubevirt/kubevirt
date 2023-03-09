@@ -495,7 +495,7 @@ func (app *virtHandlerApp) installCustomSELinuxPolicy(se selinux.SELinux) {
 func (app *virtHandlerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
 	log.Log.SetVerbosityLevel(int(verbosity))
-	log.Log.V(2).Infof("set verbosity to %d", verbosity)
+	log.Log.Infof("set verbosity to %d", verbosity)
 }
 
 // Update virt-handler rate limiter
@@ -504,7 +504,7 @@ func (app *virtHandlerApp) shouldChangeRateLimiter() {
 	qps := config.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst := config.HandlerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
-	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
+	log.Log.Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
 }
 
 // Install the SELinux policy when the feature gate that disables it gets removed

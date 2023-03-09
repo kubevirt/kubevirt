@@ -103,7 +103,7 @@ func (r *Reconciler) backupRBAC(obj runtime.Object, name, UID, imageTag, imageRe
 	}
 
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
-	log.Log.V(2).Infof("backup %v %v created", kind, name)
+	log.Log.Infof("backup %v %v created", kind, name)
 	return nil
 }
 

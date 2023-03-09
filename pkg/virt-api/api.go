@@ -1080,7 +1080,7 @@ func (app *virtAPIApp) configModificationCallback() {
 func (app *virtAPIApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtAPIVerbosity(app.host)
 	log.Log.SetVerbosityLevel(int(verbosity))
-	log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+	log.Log.Infof("set log verbosity to %d", verbosity)
 }
 
 // Update virt-handler rate limiter
@@ -1089,11 +1089,11 @@ func (app *virtAPIApp) shouldChangeRateLimiter() {
 	qps := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst := config.APIConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
 	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
-	log.Log.V(2).Infof("setting rate limiter for the API to %v QPS and %v Burst", qps, burst)
+	log.Log.Infof("setting rate limiter for the API to %v QPS and %v Burst", qps, burst)
 	qps = config.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst = config.WebhookConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
 	app.reloadableWebhookRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
-	log.Log.V(2).Infof("setting rate limiter for webhooks to %v QPS and %v Burst", qps, burst)
+	log.Log.Infof("setting rate limiter for webhooks to %v QPS and %v Burst", qps, burst)
 }
 
 func (app *virtAPIApp) AddFlags() {

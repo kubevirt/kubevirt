@@ -206,14 +206,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		// is marked to be deleted and the content is not ready yet
 		// - no point of keeping an unready content
 		if shouldDeleteContent(vmSnapshot, content) {
-			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
+			log.Log.Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				return 0, err
 			}
 		} else {
-			log.Log.V(2).Infof("NOT deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
+			log.Log.Infof("NOT deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 		}
 	}
 

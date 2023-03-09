@@ -58,7 +58,7 @@ func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, o
 		return nil, fmt.Errorf("unable to patch crd %+v: %v", crd, err)
 	}
 
-	log.Log.V(2).Infof("crd %v updated", name)
+	log.Log.Infof("crd %v updated", name)
 	return crd, nil
 }
 
@@ -91,7 +91,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		}
 
 		SetGeneration(&r.kv.Status.Generations, createdCRD)
-		log.Log.V(2).Infof("crd %v created", crd.GetName())
+		log.Log.Infof("crd %v created", crd.GetName())
 		return nil
 	}
 

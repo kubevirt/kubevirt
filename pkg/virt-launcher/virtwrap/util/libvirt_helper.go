@@ -130,7 +130,7 @@ func ConvReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 
 // base64.StdEncoding.EncodeToString
 func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec string) (cli.VirDomain, error) {
-	log.Log.Object(vmi).V(2).Infof("Domain XML generated. Base64 dump %s", base64.StdEncoding.EncodeToString([]byte(wantedSpec)))
+	log.Log.Object(vmi).Infof("Domain XML generated. Base64 dump %s", base64.StdEncoding.EncodeToString([]byte(wantedSpec)))
 	dom, err := virConn.DomainDefineXML(wantedSpec)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Defining the VirtualMachineInstance failed.")

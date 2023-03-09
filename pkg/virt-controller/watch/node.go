@@ -250,7 +250,7 @@ func (c *NodeController) updateVMIWithFailedStatus(vmis []*virtv1.VirtualMachine
 
 func (c *NodeController) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) error {
 	c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
-	logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
+	logger.Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
 
 	patchBytes, err := generateFailedVMIPatch(vmi.Status.Reason)
 	if err != nil {

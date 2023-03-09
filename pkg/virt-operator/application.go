@@ -458,7 +458,7 @@ func (app *VirtOperatorApp) shouldChangeLogVerbosity() {
 	if err := log.Log.SetVerbosityLevel(int(verbosity)); err != nil {
 		log.Log.Warningf("failed up update log verbosity to %d: %v", verbosity, err)
 	} else {
-		log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+		log.Log.Infof("set log verbosity to %d", verbosity)
 	}
 }
 

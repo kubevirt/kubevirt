@@ -653,7 +653,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		}
 
 		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
-		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
+		log.Log.Object(vmi).Infof("Patching VMI: %s", bodyString)
 		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)

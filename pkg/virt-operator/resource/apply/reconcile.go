@@ -292,7 +292,7 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 func haveApiDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ApiDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
 			// not rolled out yet
 			return false
 		}
@@ -304,7 +304,7 @@ func haveApiDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeV
 func haveControllerDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ControllerDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
 			// not rolled out yet
 			return false
 		}
@@ -316,7 +316,7 @@ func haveControllerDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v
 func haveExportProxyDeploymentsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.ExportProxyDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
-			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			log.Log.Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
 			// not rolled out yet
 			return false
 		}
@@ -328,7 +328,7 @@ func haveExportProxyDeploymentsRolledOver(targetStrategy *install.Strategy, kv *
 func haveDaemonSetsRolledOver(targetStrategy *install.Strategy, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, daemonSet := range targetStrategy.DaemonSets() {
 		if !util.DaemonsetIsReady(kv, daemonSet, stores) {
-			log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
+			log.Log.Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
 			// not rolled out yet
 			return false
 		}
@@ -420,7 +420,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 		r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 		return fmt.Errorf("unable to create validation webhook: %v", err)
 	}
-	log.Log.V(2).Infof("Validation webhook created for image %s and registry %s", version, imageRegistry)
+	log.Log.Infof("Validation webhook created for image %s and registry %s", version, imageRegistry)
 
 	return nil
 }

@@ -359,7 +359,7 @@ func main() {
 	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {
 		if verbosity, err := strconv.Atoi(verbosityStr); err == nil {
 			log.Log.SetVerbosityLevel(verbosity)
-			log.Log.V(2).Infof("set log verbosity to %d", verbosity)
+			log.Log.Infof("set log verbosity to %d", verbosity)
 		} else {
 			log.Log.Warningf("failed to set log verbosity. The value of logVerbosity label should be an integer, got %s instead.", verbosityStr)
 		}

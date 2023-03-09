@@ -118,7 +118,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	SetGeneration(&kv.Status.Generations, deployment)
-	log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
+	log.Log.Infof("deployment %v updated", deployment.GetName())
 
 	return deployment, nil
 }
@@ -234,7 +234,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if err != nil {
 				return false, fmt.Errorf("unable to update daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
-			log.Log.V(2).Infof("daemonSet %v updated", newDS.GetName())
+			log.Log.Infof("daemonSet %v updated", newDS.GetName())
 			status = CanaryUpgradeStatusUpgradingDaemonSet
 		} else {
 			log.Log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
@@ -250,7 +250,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			return false, err, CanaryUpgradeStatusFailed
 		}
 		SetGeneration(&r.kv.Status.Generations, newDS)
-		log.Log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
+		log.Log.Infof("daemonSet %v is ready", newDS.GetName())
 		done, status = true, CanaryUpgradeStatusSuccessful
 	}
 	return done, nil, status
@@ -360,7 +360,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 			r.expectations.PodDisruptionBudget.LowerExpectations(r.kvKey, 1, 0)
 			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
-		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
+		log.Log.Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
 		SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 
 		return nil
@@ -397,7 +397,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	}
 
 	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
-	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
+	log.Log.Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
 	return nil
 }

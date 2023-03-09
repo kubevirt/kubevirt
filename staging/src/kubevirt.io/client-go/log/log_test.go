@@ -380,7 +380,7 @@ func TestLogVerbosity(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
-	log.V(2).Log("msg", "test")
+	log.Log("msg", "test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
@@ -393,7 +393,7 @@ func TestMsgVerbosity(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
-	log.V(2).msg("test")
+	log.msg("test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
@@ -405,7 +405,7 @@ func TestMsgfVerbosity(t *testing.T) {
 	log := MakeLogger(MockLogger{})
 	log.SetLogLevel(INFO)
 	log.SetVerbosityLevel(2)
-	log.V(2).msgf("%s", "test")
+	log.msgf("%s", "test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")

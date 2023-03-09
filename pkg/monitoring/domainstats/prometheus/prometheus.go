@@ -633,7 +633,7 @@ func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachine
 		return
 	}
 	if !exists || vmStats.DomainStats.Name == "" {
-		log.Log.V(2).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
+		log.Log.Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
 		return
 	}
 

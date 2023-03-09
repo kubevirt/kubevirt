@@ -245,7 +245,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	}
 
 	SetGeneration(&r.kv.Status.Generations, webhook)
-	log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.Name)
+	log.Log.Infof("validatingwebhoookconfiguration %v updated", webhook.Name)
 
 	return nil
 }
@@ -308,7 +308,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		}
 
 		SetGeneration(&r.kv.Status.Generations, webhook)
-		log.Log.V(2).Infof("mutatingwebhoookconfiguration %v created", webhook.Name)
+		log.Log.Infof("mutatingwebhoookconfiguration %v created", webhook.Name)
 		return nil
 	}
 
@@ -349,7 +349,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	}
 
 	SetGeneration(&r.kv.Status.Generations, webhook)
-	log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.Name)
+	log.Log.Infof("mutatingwebhoookconfiguration %v updated", webhook.Name)
 
 	return nil
 }

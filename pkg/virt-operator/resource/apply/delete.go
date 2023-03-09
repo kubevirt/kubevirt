@@ -84,7 +84,7 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
 					return fmt.Errorf("unable to delete validation webhook: %v", err)
 				}
-				log.Log.V(2).Infof("Temporary blocking validation webhook %s deleted", webhook.Name)
+				log.Log.Infof("Temporary blocking validation webhook %s deleted", webhook.Name)
 			}
 		}
 	}

@@ -111,7 +111,7 @@ func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVol
 	file := getPVCDiskImgPath(volumeName, "disk.img")
 	capacity := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
 	// The host-disk must be 1MiB-aligned. If the volume specifies a misaligned size, shrink it down to the nearest multiple of 1MiB
-	size := util.AlignImageSizeTo1MiB(capacity.Value(), log.Log.V(2))
+	size := util.AlignImageSizeTo1MiB(capacity.Value(), log.Log)
 	if size == 0 {
 		return fmt.Errorf("the size for volume %s is too low, must be at least 1MiB", volumeName)
 	}

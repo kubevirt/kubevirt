@@ -61,7 +61,7 @@ func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 		return
 	}
 	if !exists || vmStats.Name == "" {
-		log.Log.V(2).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
+		log.Log.Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
 		return
 	}
 

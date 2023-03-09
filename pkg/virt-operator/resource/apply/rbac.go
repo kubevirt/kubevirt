@@ -57,7 +57,7 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 		if err != nil {
 			return fmt.Errorf("unable to create %v %+v: %v", roleTypeName, required, err)
 		}
-		log.Log.V(2).Infof("%v %v created", roleTypeName, requiredMeta.GetName())
+		log.Log.Infof("%v %v created", roleTypeName, requiredMeta.GetName())
 		return nil
 	}
 
@@ -80,7 +80,7 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 	if err != nil {
 		return fmt.Errorf("unable to update %v %+v: %v", roleTypeName, required, err)
 	}
-	log.Log.V(2).Infof("%v %v updated", roleTypeName, requiredMeta.GetName())
+	log.Log.Infof("%v %v updated", roleTypeName, requiredMeta.GetName())
 
 	return nil
 }

@@ -426,7 +426,7 @@ func (m *VirtualMachineControllerRefManager) AdoptVirtualMachineInstance(vmi *vi
 // ReleaseVirtualMachineInstance sends a patch to free the virtual machine from the control of the controller.
 // It returns the error if the patching fails. 404 and 422 errors are ignored.
 func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachineInstance(vmi *virtv1.VirtualMachineInstance) error {
-	log.Log.V(2).Object(vmi).Infof("patching vmi to remove its controllerRef to %s/%s:%s",
+	log.Log.Object(vmi).Infof("patching vmi to remove its controllerRef to %s/%s:%s",
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
 	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)
@@ -469,7 +469,7 @@ func (m *VirtualMachineControllerRefManager) AdoptVirtualMachine(vm *virtv1.Virt
 // ReleaseVirtualMachine sends a patch to free the virtual machine from the control of the controller.
 // It returns the error if the patching fails. 404 and 422 errors are ignored.
 func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vm *virtv1.VirtualMachine) error {
-	log.Log.V(2).Object(vm).Infof("patching vm to remove its controllerRef to %s/%s:%s",
+	log.Log.Object(vm).Infof("patching vm to remove its controllerRef to %s/%s:%s",
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
 	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)
@@ -512,7 +512,7 @@ func (m *VirtualMachineControllerRefManager) AdoptDataVolume(dataVolume *cdiv1.D
 // ReleaseDataVolume sends a patch to free the dataVolume from the control of the controller.
 // It returns the error if the patching fails. 404 and 422 errors are ignored.
 func (m *VirtualMachineControllerRefManager) ReleaseDataVolume(dataVolume *cdiv1.DataVolume) error {
-	log.Log.V(2).Object(dataVolume).Infof("patching dataVolume to remove its controllerRef to %s/%s:%s",
+	log.Log.Object(dataVolume).Infof("patching dataVolume to remove its controllerRef to %s/%s:%s",
 		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
 	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
 	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)

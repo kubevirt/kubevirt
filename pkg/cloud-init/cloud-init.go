@@ -550,7 +550,7 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 		return err
 	}
 
-	log.Log.V(2).Infof("generated empty iso file %s", iso)
+	log.Log.Infof("generated empty iso file %s", iso)
 	return nil
 }
 
@@ -574,7 +574,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		iso = GetIsoFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.NoCloudMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+			log.Log.Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
 			data.NoCloudMetaData = &NoCloudMetadata{
 				InstanceID: cloudInitUUIDFromVMI(vmi),
 			}
@@ -592,7 +592,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.ConfigDriveMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+			log.Log.Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
 			instanceId := fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace)
 			data.ConfigDriveMetaData = &ConfigDriveMetadata{
 				InstanceID: instanceId,
@@ -671,6 +671,6 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		return err
 	}
 
-	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
+	log.Log.Infof("generated nocloud iso file %s", iso)
 	return nil
 }

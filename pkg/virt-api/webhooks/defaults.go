@@ -73,7 +73,7 @@ func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
 		// Please note this means that partial changes may have been performed.
 		// This is OK since each dependency must be atomic and independent (in ACID sense),
 		// so the VMI configuration is still legal.
-		log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
+		log.Log.Infof("Failed to set HyperV dependencies: %s", err)
 	}
 }
 
