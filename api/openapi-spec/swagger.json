@@ -16131,6 +16131,9 @@
      }
     }
    },
+   "v1.DisableFreePageReporting": {
+    "type": "object"
+   },
    "v1.Disk": {
     "type": "object",
     "required": [
@@ -17129,6 +17132,9 @@
      "virtualMachineInstancesPerNode": {
       "type": "integer",
       "format": "int32"
+     },
+     "virtualMachineOptions": {
+      "$ref": "#/definitions/v1.VirtualMachineOptions"
      },
      "vmStateStorageClass": {
       "description": "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
@@ -19613,6 +19619,16 @@
      "startTimestamp": {
       "description": "StartTimestamp represents the time the memory dump started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
+   "v1.VirtualMachineOptions": {
+    "description": "VirtualMachineOptions holds the cluster level information regarding the virtual machine.",
+    "type": "object",
+    "properties": {
+     "disableFreePageReporting": {
+      "description": "DisableFreePageReporting disable the free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device. This will have effect only if AutoattachMemBalloon is not false and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.",
+      "$ref": "#/definitions/v1.DisableFreePageReporting"
      }
     }
    },

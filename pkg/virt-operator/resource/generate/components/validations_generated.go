@@ -1130,6 +1130,18 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             virtualMachineInstancesPerNode:
               type: integer
+            virtualMachineOptions:
+              description: VirtualMachineOptions holds the cluster level information
+                regarding the virtual machine.
+              properties:
+                disableFreePageReporting:
+                  description: DisableFreePageReporting disable the free page reporting
+                    of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                    This will have effect only if AutoattachMemBalloon is not false
+                    and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages),
+                    in which free page reporting is always disabled.
+                  type: object
+              type: object
             vmStateStorageClass:
               description: VMStateStorageClass is the name of the storage class to
                 use for the PVCs created to preserve VM state, like TPM. The storage

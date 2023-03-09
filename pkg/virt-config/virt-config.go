@@ -423,3 +423,7 @@ func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
 func (c *ClusterConfig) GetVMStateStorageClass() string {
 	return c.GetConfig().VMStateStorageClass
 }
+
+func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
+	return c.GetConfig().VirtualMachineOptions != nil && c.GetConfig().VirtualMachineOptions.DisableFreePageReporting != nil
+}
