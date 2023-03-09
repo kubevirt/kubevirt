@@ -9,6 +9,7 @@ linters-settings:
     forbid:
       - Log.*\.V(.*).*Error[f]?(.*)
       - Log.*\.V(.*).*Warning[f]?(.*)
+      - Log.*\.V\([0-9]\).*Info[f]?(.*)
 
 linters:
   disable-all: true
