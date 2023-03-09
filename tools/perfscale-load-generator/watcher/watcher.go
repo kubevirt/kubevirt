@@ -215,7 +215,7 @@ func (w *ObjListWatcher) WaitRunning(timeout time.Duration) error {
 			if count == w.desiredObjRunningCount {
 				return nil
 			}
-			log.Log.V(6).Infof("Waiting %d %v to be Running", (w.desiredObjRunningCount - count), w.ResourceKind)
+			log.Log.V(log.DUMP).Infof("Waiting %d %v to be Running", (w.desiredObjRunningCount - count), w.ResourceKind)
 		}
 	}
 }
@@ -235,7 +235,7 @@ func (w *ObjListWatcher) WaitDeletion(timeout time.Duration) error {
 			if count == 0 {
 				return nil
 			}
-			log.Log.V(6).Infof("Still %d %v waiting to be Garbage Collected", count, w.ResourceKind)
+			log.Log.V(log.DUMP).Infof("Still %d %v waiting to be Garbage Collected", count, w.ResourceKind)
 		}
 	}
 }
