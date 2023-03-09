@@ -72,7 +72,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var newVM *v1.VirtualMachine
 	var file *os.File
 
 	runStrategyManual := v1.RunStrategyManual
@@ -84,18 +83,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("An invalid VirtualMachine given", func() {
 
 		It("[test_id:1518]should be rejected on POST", func() {
-			newVM := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
+			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(), false)
 			// because we're marshaling this ourselves, we have to make sure
 			// we're using the same version the virtClient is using.
-			newVM.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
+			vm.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
 
-			jsonBytes, err := json.Marshal(newVM)
+			jsonBytes, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 
 			// change the name of a required field (like domain) so validation will fail
 			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(newVM)).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(vm)).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do(context.Background())
 			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
@@ -109,9 +108,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
-			newVM := tests.NewRandomVirtualMachine(template, false)
+			vm := tests.NewRandomVirtualMachine(template, false)
 
-			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(newVM)).Body(newVM).Do(context.Background())
+			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(testsuite.GetTestNamespace(vm)).Body(vm).Do(context.Background())
 
 			// Verify validation failed.
 			statusCode := 0
@@ -172,17 +171,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineWithRunStrategy := func(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-			newVM := tests.NewRandomVirtualMachine(libvmi.NewCirros(
+			vm := tests.NewRandomVirtualMachine(libvmi.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			), false)
-			newVM.Spec.Running = nil
-			newVM.Spec.RunStrategy = &runStrategy
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
 
-			newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(newVM)).Create(context.Background(), newVM)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			return newVM
+			return vm
 		}
 
 		validateGenerationState := func(vm *v1.VirtualMachine, expectedGeneration int, expectedDesiredGeneration int, expectedObservedGeneration int, expectedGenerationAnnotation int) {
@@ -293,45 +292,45 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("should sync the generation annotation on the vmi during restarts", func() {
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			for i := 1; i <= 3; i++ {
 				// Generation increases twice for each pass, since there is a stop and a
 				// start.
 				expectedGeneration := (i * 2)
 
-				validateGenerationState(newVM, expectedGeneration, expectedGeneration, expectedGeneration, expectedGeneration)
+				validateGenerationState(vm, expectedGeneration, expectedGeneration, expectedGeneration, expectedGeneration)
 
 				By("Restarting the VM")
-				newVM = startVM(virtClient, stopVM(virtClient, newVM))
+				vm = startVM(virtClient, stopVM(virtClient, vm))
 			}
 		})
 
 		It("should not update the vmi generation annotation when the template changes", func() {
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			By("Updating the VM template spec")
-			newVM.Spec.Template.ObjectMeta.Labels["testkey"] = "testvalue"
-			_, err := virtClient.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM)
+			vm.Spec.Template.ObjectMeta.Labels["testkey"] = "testvalue"
+			_, err := virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			validateGenerationState(newVM, 3, 3, 2, 2)
+			validateGenerationState(vm, 3, 3, 2, 2)
 
 			By("Updating the VM template spec")
-			newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			newVM.Spec.Template.ObjectMeta.Labels["testkey2"] = "testvalue2"
-			_, err = virtClient.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM)
+			vm.Spec.Template.ObjectMeta.Labels["testkey2"] = "testvalue2"
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			validateGenerationState(newVM, 4, 4, 2, 2)
+			validateGenerationState(vm, 4, 4, 2, 2)
 
 			// Restart the VM to check that the state will once again sync.
 			By("Restarting the VM")
-			newVM = startVM(virtClient, stopVM(virtClient, newVM))
+			vm = startVM(virtClient, stopVM(virtClient, vm))
 
-			validateGenerationState(newVM, 6, 6, 6, 6)
+			validateGenerationState(vm, 6, 6, 6, 6)
 		})
 
 		DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {
@@ -347,11 +346,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
 			template, dv := createTemplate()
 			defer libstorage.DeleteDataVolume(&dv)
-			newVM := startVM(virtClient, createVM(virtClient, template))
+			vm := startVM(virtClient, createVM(virtClient, template))
 			// Delete it
-			Expect(virtClient.VirtualMachine(newVM.Namespace).Delete(context.Background(), newVM.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
 			// Wait until VMI is gone
-			Eventually(ThisVMIWith(newVM.Namespace, newVM.Name), 300*time.Second, 2*time.Second).ShouldNot(Exist())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 2*time.Second).ShouldNot(Exist())
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmi.NewCirros(), nil }),
 			Entry("[Serial][storage-req]with Filesystem Disk", Serial, decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
@@ -359,48 +358,48 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			By("Getting owner references")
-			vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.OwnerReferences).ToNot(BeEmpty())
 
 			// Delete it
 			orphanPolicy := k8smetav1.DeletePropagationOrphan
 			By("Deleting VM")
-			Expect(virtClient.VirtualMachine(newVM.Namespace).
-				Delete(context.Background(), newVM.Name, &k8smetav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+			Expect(virtClient.VirtualMachine(vm.Namespace).
+				Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 			// Wait until the virtual machine is deleted
 			By("Waiting for VM to delete")
-			Eventually(ThisVM(newVM), 300*time.Second, 1*time.Second).ShouldNot(Exist())
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).ShouldNot(Exist())
 
 			By("Verifying orphaned VMI still exists")
-			vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.OwnerReferences).To(BeEmpty())
 		})
 
 		It("[test_id:1523]should recreate VirtualMachineInstance if it gets deleted", func() {
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
-			currentVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(virtClient.VirtualMachineInstance(newVM.Namespace).Delete(context.Background(), newVM.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vm.Namespace).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
 
-			Eventually(ThisVMI(currentVMI), 240*time.Second, 1*time.Second).Should(beRestarted(currentVMI.UID))
+			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
 		})
 
 		It("[test_id:1524]should recreate VirtualMachineInstance if the VirtualMachineInstance's pod gets deleted", func() {
 			By("Start a new VM")
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
-			firstVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			firstVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// get the pod backing the VirtualMachineInstance
 			By("Getting the pod backing the VirtualMachineInstance")
-			pods, err := virtClient.CoreV1().Pods(newVM.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(firstVMI))
+			pods, err := virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(firstVMI))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 			firstPod := pods.Items[0]
@@ -408,19 +407,19 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
 			Eventually(func() error {
-				return virtClient.CoreV1().Pods(newVM.Namespace).Delete(context.Background(), firstPod.Name, k8smetav1.DeleteOptions{})
+				return virtClient.CoreV1().Pods(vm.Namespace).Delete(context.Background(), firstPod.Name, k8smetav1.DeleteOptions{})
 			}, 120*time.Second, 1*time.Second).Should(Succeed())
 
 			// Wait on the VMI controller to create a new VirtualMachineInstance
 			By("Waiting for a new VirtualMachineInstance to spawn")
-			Eventually(ThisVMIWith(newVM.Namespace, newVM.Name), 120*time.Second, 1*time.Second).Should(beRestarted(firstVMI.UID))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(beRestarted(firstVMI.UID))
 
 			// sanity check that the test ran correctly by
 			// verifying a different Pod backs the VMI as well.
 			By("Verifying a new pod backs the VMI")
-			curVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			currentVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			pods, err = virtClient.CoreV1().Pods(newVM.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(curVMI))
+			pods, err = virtClient.CoreV1().Pods(vm.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(currentVMI))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).To(HaveLen(1))
 			pod := pods.Items[0]
@@ -447,10 +446,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", func() {
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			By("Updating the VM template spec")
-			updatedVM := newVM.DeepCopy()
+			updatedVM := vm.DeepCopy()
 			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 				corev1.ResourceMemory: resource.MustParse("4096Ki"),
 			}
@@ -458,18 +457,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting the old VirtualMachineInstance spec still running")
-			vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmiMemory := vmi.Spec.Domain.Resources.Requests.Memory()
-			vmMemory := newVM.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+			vmMemory := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
 			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 
 			By("Restarting the VM")
-			newVM = startVM(virtClient, stopVM(virtClient, newVM))
+			vm = startVM(virtClient, stopVM(virtClient, vm))
 
 			By("Expecting updated spec running")
-			vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vmiMemory = vmi.Spec.Domain.Resources.Requests.Memory()
@@ -479,11 +478,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		It("[test_id:1528]should survive guest shutdown, multiple times", func() {
 			By("Creating new VM, not running")
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 			for i := 0; i < 3; i++ {
 				By("Getting the running VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Obtaining the serial console")
@@ -503,22 +502,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("should create vm revision when starting vm", func() {
-			newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+			vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
-			vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", newVM.UID, newVM.Generation)
+			expectedVMRevisionName := fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
-			cr, err := virtClient.AppsV1().ControllerRevisions(newVM.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
+			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(2)))
 			vmRevision := &v1.VirtualMachine{}
 			err = json.Unmarshal(cr.Data.Raw, vmRevision)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(vmRevision.Spec).To(Equal(newVM.Spec))
+			Expect(vmRevision.Spec).To(Equal(vm.Spec))
 		})
 
 		It("should delete old vm revision and create new one when restarting vm", func() {
@@ -535,9 +534,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Stopping the VM")
 			vm = stopVM(virtClient, vm)
 
-			updatedVM := vm
+			updatedVM := vm.DeepCopy()
 			Eventually(func() error {
-				updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				updatedVM, err = virtClient.VirtualMachine(updatedVM.Namespace).Get(context.Background(), updatedVM.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
@@ -676,54 +675,54 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
 				By("getting a VM")
-				newVM := createVM(virtClient, libvmi.NewCirros())
+				vm := createVM(virtClient, libvmi.NewCirros())
 
 				By("Invoking virtctl start")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", newVM.Namespace, newVM.Name)
+				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 				Expect(startCommand()).To(Succeed())
 
 				By("Getting the status of the VM")
-				Eventually(ThisVM(newVM), 360*time.Second, 1*time.Second).Should(beReady())
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 				By("Getting the running VirtualMachineInstance")
-				Eventually(ThisVMIWith(newVM.Namespace, newVM.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).Should(BeRunning())
 
 				By("Ensuring a second invocation should fail")
-				Expect(startCommand()).To(MatchError(fmt.Sprintf(`Error starting VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is already running`, newVM.Name)))
+				Expect(startCommand()).To(MatchError(fmt.Sprintf(`Error starting VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is already running`, vm.Name)))
 			})
 
 			It("[test_id:1530]should stop a VirtualMachineInstance once", func() {
 				By("getting a VM")
-				newVM := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
+				vm := startVM(virtClient, createVM(virtClient, libvmi.NewCirros()))
 
 				By("Invoking virtctl stop")
-				stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", newVM.Namespace, newVM.Name)
+				stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
 				Expect(stopCommand()).To(Succeed())
 
 				By("Ensuring VM is not running")
-				Eventually(ThisVM(newVM), 360*time.Second, 1*time.Second).Should(And(Not(beCreated()), Not(beReady())))
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(And(Not(beCreated()), Not(beReady())))
 
 				By("Ensuring the VirtualMachineInstance is removed")
-				Eventually(ThisVMIWith(newVM.Namespace, newVM.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
 
 				By("Ensuring a second invocation should fail")
-				Expect(stopCommand()).To(MatchError(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
+				Expect(stopCommand()).To(MatchError(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, vm.Name)))
 			})
 
 			It("[test_id:6310]should start a VirtualMachineInstance in paused state", func() {
 				By("getting a VM")
-				newVM := createVM(virtClient, libvmi.NewCirros())
+				vm := createVM(virtClient, libvmi.NewCirros())
 
 				By("Invoking virtctl start")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", newVM.Namespace, newVM.Name, "--paused")
+				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name, "--paused")
 				Expect(startCommand()).To(Succeed())
 
 				By("Getting the status of the VM")
-				Eventually(ThisVM(newVM), 360*time.Second, 1*time.Second).Should(beCreated())
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beCreated())
 
 				By("Getting running VirtualMachineInstance with paused condition")
 				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
 					Eventually(ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstancePaused))
@@ -743,14 +742,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Invoking virtctl --force restart")
-				forceRestart := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", newVM.Namespace, "--force", newVM.Name, "--grace-period=0")
+				forceRestart := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, "--force", vm.Name, "--grace-period=0")
 				Expect(forceRestart()).To(Succeed())
 
 				zeroGracePeriod := int64(0)
 				// Checks if the old VMI Pod still exists after force-restart command
-
 				Eventually(func() string {
-					pod, err := tests.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, newVM.Namespace, "")
+					pod, err := tests.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vm.Namespace, "")
 					if err != nil {
 						return err.Error()
 					}
@@ -763,7 +761,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
 
 				By("Comparing the new UID and CreationTimeStamp with the old one")
-				newVMI, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(newVMI.CreationTimestamp).ToNot(Equal(vmi.CreationTimestamp))
 				Expect(newVMI.UID).ToNot(Equal(vmi.UID))
@@ -772,13 +770,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("Should force stop a VMI", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
-				newVM := startVM(virtClient, createVM(virtClient, libvmi.New(
+				vm := startVM(virtClient, createVM(virtClient, libvmi.New(
 					libvmi.WithResourceMemory("128Mi"),
 					libvmi.WithTerminationGracePeriod(1600),
 				)))
 
 				By("setting up a watch for vmi")
-				lw, err := virtClient.VirtualMachineInstance(newVM.Namespace).Watch(context.Background(), metav1.ListOptions{})
+				lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				terminatationGracePeriodUpdated := func(stopCn <-chan bool, eventsCn <-chan watch.Event, updated chan<- bool) {
@@ -789,7 +787,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						case e := <-eventsCn:
 							vmi, ok := e.Object.(*v1.VirtualMachineInstance)
 							Expect(ok).To(BeTrue())
-							if vmi.Name != newVM.Name {
+							if vmi.Name != vm.Name {
 								continue
 							}
 
@@ -804,11 +802,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				go terminatationGracePeriodUpdated(stopCn, lw.ResultChan(), updated)
 
 				By("Invoking virtctl --force stop")
-				forceStop := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, newVM.Name, "--namespace", newVM.Namespace, "--force", "--grace-period=0")
+				forceStop := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, vm.Name, "--namespace", vm.Namespace, "--force", "--grace-period=0")
 				Expect(forceStop()).To(Succeed())
 
 				By("Ensuring the VirtualMachineInstance is removed")
-				Eventually(ThisVMIWith(newVM.Namespace, newVM.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
 
 				Expect(updated).To(Receive(), "vmi should be updated")
 				stopCn <- true
@@ -817,61 +815,61 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("Using RunStrategyAlways", func() {
 				It("[test_id:3163]should stop a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Invoking virtctl stop")
-					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
 					Expect(stopCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is removed")
-					Eventually(ThisVMIWith(virtualMachine.Namespace, virtualMachine.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
-					Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
+					Expect(vm.Status.StateChangeRequests).To(BeEmpty())
 				})
 
 				It("[test_id:3164]should restart a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Getting VMI's UUID")
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Invoking virtctl restart")
-					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, vm.Name)
 					Expect(restartCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
 					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
-					Eventually(ThisVM(virtualMachine), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 				})
 
 				It("[test_id:3165]should restart a succeeded VMI", func() {
 					By("creating a VM with RunStategyRunning")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -892,20 +890,20 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Skip("Migration tests require at least 2 nodes")
 					}
 					By("creating a VM with RunStrategyAlways")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Invoking virtctl migrate")
-					migrateCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_MIGRATE, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					migrateCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_MIGRATE, "--namespace", vm.Namespace, vm.Name)
 					Expect(migrateCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is migrated")
 					Eventually(func() bool {
-						nextVMI, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						return nextVMI.Status.MigrationState != nil && nextVMI.Status.MigrationState.Completed
+						return vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed
 					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 				})
 
@@ -915,18 +913,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Skip("Migration tests require at least 2 nodes")
 					}
 					By("creating a VM with RunStrategyAlways")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Invoking virtctl migrate with dry-run option")
-					migrateCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_MIGRATE, "--dry-run", "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					migrateCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_MIGRATE, "--dry-run", "--namespace", vm.Namespace, vm.Name)
 					Expect(migrateCommand()).To(Succeed())
 
 					By("Check that no migration was actually created")
 					Consistently(func() bool {
-						_, err = virtClient.VirtualMachineInstanceMigration(virtualMachine.Namespace).Get(virtualMachine.Name, &metav1.GetOptions{})
+						_, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 						return errors.IsNotFound(err)
 					}, 60*time.Second, 5*time.Second).Should(BeTrue(), "migration should not be created in a dry run mode")
 				})
@@ -935,63 +933,63 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("Using RunStrategyRerunOnFailure", func() {
 				It("[test_id:2186] should stop a running VM", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Invoking virtctl stop")
-					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
 					Expect(stopCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is removed")
-					Eventually(ThisVMIWith(virtualMachine.Namespace, virtualMachine.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
+					Expect(vm.Status.StateChangeRequests).To(BeEmpty())
 				})
 
 				It("[test_id:2187] should restart a running VM", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Getting VMI's UUID")
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Invoking virtctl restart")
-					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, vm.Name)
 					Expect(restartCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
 					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyRerunOnFailure))
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyRerunOnFailure))
 
 					By("Ensuring stateChangeRequests list gets cleared")
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
-					Eventually(ThisVM(newVM), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 				})
 
 				It("[test_id:2188] should not remove a succeeded VMI", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
 					By("Waiting for VMI to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1008,46 +1006,46 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					// At this point, explicitly test that a start command will delete an existing
 					// VMI in the Succeeded phase.
 					By("Invoking virtctl start")
-					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(restartCommand()).To(Succeed())
 
 					By("Waiting for StartRequest to be cleared")
-					Eventually(ThisVM(virtualMachine), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 				})
 			})
 
 			Context("Using RunStrategyHalted", func() {
 				It("[test_id:2037] should start a stopped VM", func() {
 					By("creating a VM with RunStrategyHalted")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
 
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
+					Expect(vm.Status.StateChangeRequests).To(BeEmpty())
 				})
 			})
 
 			Context("Using RunStrategyOnce", func() {
 				It("[Serial] Should leave a failed VMI", Serial, func() {
 					By("creating a VM with RunStrategyOnce")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("killing qemu process")
@@ -1060,17 +1058,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Consistently(ThisVMI(vmi), 60*time.Second, 5*time.Second).Should(BeInPhase(v1.Failed))
 
 					By("Ensuring the VirtualMachine remains Ready=false")
-					Consistently(ThisVM(virtualMachine), 60*time.Second, 5*time.Second).Should(Not(beReady()))
+					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(beReady()))
 				})
 
 				It("Should leave a succeeded VMI", func() {
 					By("creating a VM with RunStrategyOnce")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyOnce)
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(console.LoginToCirros(vmi)).To(Succeed())
 
@@ -1087,63 +1085,63 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Consistently(ThisVMI(vmi), 60*time.Second, 5*time.Second).Should(HaveSucceeded())
 
 					By("Ensuring the VirtualMachine remains Ready=false")
-					Consistently(ThisVM(virtualMachine), 60*time.Second, 5*time.Second).Should(Not(beReady()))
+					Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(beReady()))
 				})
 			})
 
 			Context("Using RunStrategyManual", func() {
 				It("[test_id:2036] should start", func() {
 					By("creating a VM with RunStrategyManual")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(newVM.Status.StateChangeRequests).To(BeEmpty())
+					Expect(vm.Status.StateChangeRequests).To(BeEmpty())
 				})
 
 				It("[test_id:2189] should stop", func() {
 					By("creating a VM with RunStrategyManual")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
 					Expect(stopCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is removed")
-					Eventually(ThisVMIWith(virtualMachine.Namespace, virtualMachine.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
+					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
 
 					By("Ensuring stateChangeRequests list is cleared")
-					Eventually(ThisVM(virtualMachine), 30*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 				})
 
 				It("[test_id:6311]should start in paused state", func() {
 					By("creating a VM with RunStrategyManual")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
 					By("Invoking virtctl start")
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name, "--paused")
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name, "--paused")
 					Expect(startCommand()).To(Succeed())
 
 					By("Getting the status of the VM")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beCreated())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beCreated())
 
 					By("Getting running VirtualMachineInstance with paused condition")
 					Eventually(func() bool {
-						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
 						Eventually(ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstancePaused))
@@ -1153,11 +1151,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				It("[test_id:2035] should restart", func() {
 					By("creating a VM with RunStrategyManual")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
-					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
-					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
+					stopCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name)
+					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, vm.Name)
 
 					By("Invoking virtctl restart should fail")
 					Expect(restartCommand()).ToNot(Succeed())
@@ -1166,25 +1164,25 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 240*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(beReady())
 
 					By("Invoking virtctl stop")
 					Expect(stopCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is stopped")
-					Eventually(ThisVM(virtualMachine), 240*time.Second, 1*time.Second).Should(Not(beCreated()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(beCreated()))
 
 					By("Waiting state change request to clear for stopped VM")
-					Eventually(ThisVM(virtualMachine), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 
 					By("Invoking virtctl start")
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
 					By("Getting VMI's UUID")
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Invoking virtctl restart")
@@ -1193,28 +1191,28 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Ensuring the VirtualMachineInstance is restarted")
 					Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(beRestarted(vmi.UID))
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
+					Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+					Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
 
 					By("Ensuring stateChangeRequests list gets cleared")
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
-					Eventually(ThisVM(newVM), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 				})
 
 				It("[test_id:2190] should not remove a succeeded VMI", func() {
 					By("creating a VM with RunStrategyManual")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+					vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 
-					vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(context.Background(), virtualMachine.Name, &k8smetav1.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -1231,14 +1229,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					// At this point, explicitly test that a start command will delete an existing
 					// VMI in the Succeeded phase.
 					By("Invoking virtctl start")
-					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(restartCommand()).To(Succeed())
 
 					By("Waiting for StartRequest to be cleared")
-					Eventually(ThisVM(virtualMachine), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(haveStateChangeRequests()))
 
 					By("Waiting for VM to be ready")
-					Eventually(ThisVM(virtualMachine), 360*time.Second, 1*time.Second).Should(beReady())
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(beReady())
 				})
 				DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
 					// The estimated execution time of one test is 400 seconds.
@@ -1247,33 +1245,34 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
 
 					By("Creating a VM with RunStrategyManual")
-					newVM := tests.NewRandomVirtualMachine(vmi, false)
-					newVM.Spec.Running = nil
-					newVM.Spec.RunStrategy = &runStrategyManual
+					vm := tests.NewRandomVirtualMachine(vmi, false)
+					vm.Spec.Running = nil
+					vm.Spec.RunStrategy = &runStrategyManual
 
 					By("Annotate the VM with regard for leaving launcher pod after qemu exit")
-					newVM.Spec.Template.ObjectMeta.Annotations = map[string]string{
+					vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
 						v1.KeepLauncherAfterFailureAnnotation: keepLauncher,
 					}
-					newVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(newVM)).Create(context.Background(), newVM)
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Starting the VMI with virtctl")
-					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", newVM.Namespace, newVM.Name)
+					startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 					Expect(startCommand()).To(Succeed())
 
 					By("Waiting for VM to be in Starting status")
-					Eventually(ThisVM(newVM), 160*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusStarting))
+					Eventually(ThisVM(vm), 160*time.Second, 1*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusStarting))
 
 					By("Waiting for VMI to fail")
-					Eventually(ThisVMIWith(newVM.Namespace, newVM.Name), 480*time.Second, 1*time.Second).Should(BeInPhase(v1.Failed))
+					Eventually(ThisVMIWith(vm.Namespace, vm.Name), 480*time.Second, 1*time.Second).Should(BeInPhase(v1.Failed))
 
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to true, the containerStatus of the
 					//   compute container of the virt-launcher pod is kept in the running state.
 					// If the annotation v1.KeepLauncherAfterFailureAnnotation is set to false or not set, the virt-launcher pod will become failed.
 					By("Verify that the virt-launcher pod or its container is in the expected state")
-					newVMI, _ := virtClient.VirtualMachineInstance(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
-					launcherPod, err := libvmi.GetPodByVirtualMachineInstance(newVMI, newVM.Namespace)
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					launcherPod, err := libvmi.GetPodByVirtualMachineInstance(vmi, vm.Namespace)
 					Expect(err).ToNot(HaveOccurred())
 
 					if toKeep, _ := strconv.ParseBool(keepLauncher); toKeep {
@@ -1295,8 +1294,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("Using expand command", func() {
+				var vm *v1.VirtualMachine
+
 				BeforeEach(func() {
-					newVM = createRunningVM(virtClient, libvmi.NewCirros())
+					vm = createRunningVM(virtClient, libvmi.NewCirros())
 				})
 
 				It("should fail without arguments", func() {
@@ -1305,7 +1306,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("should expand vm", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", newVM.Namespace, "--vm", newVM.Name)
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--vm", vm.Name)
 					Expect(expandCommand()).To(Succeed())
 				})
 
@@ -1315,7 +1316,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				DescribeTable("should expand vm with", func(formatName string) {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", newVM.Namespace, "--output", formatName, "--vm", newVM.Name)
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--output", formatName, "--vm", vm.Name)
 					Expect(expandCommand()).To(Succeed())
 				},
 					Entry("supported format output json", virtctl.JSON),
@@ -1323,7 +1324,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				)
 
 				It("should fail with unsupported output format", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", newVM.Namespace, "--output", "fakeJson", "--vm", newVM.Name)
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", vm.Namespace, "--output", "fakeJson", "--vm", vm.Name)
 					Expect(expandCommand()).To(MatchError("error not supported output format defined: fakeJson"))
 				})
 			})
@@ -1409,13 +1410,12 @@ status:
 			vm, vmJson := createVMAndGenerateJson(true)
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
-			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
+			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying VM is created")
-			newVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "New VM was not created")
-			Expect(newVM.Name).To(Equal(vm.Name), "New VM was not created")
 
 			By("Creating the VM again")
 			_, stdErr, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1462,73 +1462,73 @@ status:
 		)
 
 		It("[test_id:264]should create and delete via command line", func() {
-			thisVm, vmJson := createVMAndGenerateJson(false)
+			vm, vmJson := createVMAndGenerateJson(false)
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Invoking virtctl start")
-			startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", thisVm.Namespace, thisVm.Name)
+			startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, vm.Name)
 			Expect(startCommand()).To(Succeed())
 
 			By("Waiting for VMI to start")
-			Eventually(ThisVMIWith(thisVm.Namespace, thisVm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
 			By("Checking that VM is running")
-			stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+			stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 
 			By("Deleting VM using k8s client binary")
-			_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", vm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the VM gets deleted")
-			waitForResourceDeletion(k8sClient, "vms", thisVm.GetName())
+			waitForResourceDeletion(k8sClient, "vms", vm.GetName())
 
 			By("Verifying pod gets deleted")
-			expectedPodName := getExpectedPodName(thisVm)
+			expectedPodName := getExpectedPodName(vm)
 			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
 		})
 
 		Context("should not change anything if dry-run option is passed", func() {
 			It("[test_id:7530]in start command", func() {
-				thisVm, vmJson := createVMAndGenerateJson(false)
+				vm, vmJson := createVMAndGenerateJson(false)
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Invoking virtctl start with dry-run option")
-				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				startCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_START, "--namespace", vm.Namespace, "--dry-run", vm.Name)
 				Expect(startCommand()).To(Succeed())
 
-				_, err = virtClient.VirtualMachineInstance(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
 			DescribeTable("in stop command", func(flags ...string) {
-				thisVm, vmJson := createVMAndGenerateJson(true)
+				vm, vmJson := createVMAndGenerateJson(true)
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(thisVm.Namespace, thisVm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
 				By("Getting current vmi instance")
-				originalVMI, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				originalVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting current vm instance")
-				originalVM, err := virtClient.VirtualMachine(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				originalVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				var args = []string{virtctl.COMMAND_STOP, "--namespace", thisVm.Namespace, thisVm.Name, "--dry-run"}
+				var args = []string{virtctl.COMMAND_STOP, "--namespace", vm.Namespace, vm.Name, "--dry-run"}
 				if flags != nil {
 					args = append(args, flags...)
 				}
@@ -1537,22 +1537,22 @@ status:
 				Expect(stopCommand()).To(Succeed())
 
 				By("Checking that VM is still running")
-				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 
 				By("Checking VM Running spec does not change")
-				actualVm, err := virtClient.VirtualMachine(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				actualVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(actualVm.Spec.Running).To(BeEquivalentTo(originalVM.Spec.Running))
-				actualRunStrategy, err := actualVm.RunStrategy()
+				Expect(actualVM.Spec.Running).To(BeEquivalentTo(originalVM.Spec.Running))
+				actualRunStrategy, err := actualVM.RunStrategy()
 				Expect(err).ToNot(HaveOccurred())
 				originalRunStrategy, err := originalVM.RunStrategy()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
 
 				By("Checking VMI TerminationGracePeriodSeconds does not change")
-				actualVMI, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				actualVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
 				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
@@ -1563,62 +1563,60 @@ status:
 			)
 
 			It("[test_id:7528]in restart command", func() {
-				thisVm, vmJson := createVMAndGenerateJson(true)
+				vm, vmJson := createVMAndGenerateJson(true)
 
 				By("Creating VM using k8s client binary")
 				_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(thisVm.Namespace, thisVm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
 				By("Getting current vmi instance")
-				currentVmi, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				creationTime := currentVmi.ObjectMeta.CreationTimestamp
-				VMIUuid := currentVmi.ObjectMeta.UID
 
 				By("Invoking virtctl restart with dry-run option")
-				restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", thisVm.Namespace, "--dry-run", thisVm.Name)
+				restartCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_RESTART, "--namespace", vm.Namespace, "--dry-run", vm.Name)
 				Expect(restartCommand()).To(Succeed())
 
 				By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
-				newVMI, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(context.Background(), thisVm.Name, &k8smetav1.GetOptions{})
+				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(creationTime).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
-				Expect(VMIUuid).To(Equal(newVMI.ObjectMeta.UID))
+				Expect(vmi.ObjectMeta.CreationTimestamp).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
+				Expect(vmi.ObjectMeta.UID).To(Equal(newVMI.ObjectMeta.UID))
 				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
 
 				By("Checking that VM is running")
-				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+				stdout, _, err := clientcmd.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
 			})
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {
-			thisVm, vmJson := createVMAndGenerateJson(true)
+			vm, vmJson := createVMAndGenerateJson(true)
 
 			By("Creating VM using k8s client binary")
 			_, _, err := clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
-			Eventually(ThisVMIWith(thisVm.Namespace, thisVm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 
 			By("Deleting VM using k8s client binary")
-			_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			_, _, err = clientcmd.RunCommand(k8sClient, "delete", "vm", vm.GetName())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the VM gets deleted")
-			waitForResourceDeletion(k8sClient, "vms", thisVm.GetName())
+			waitForResourceDeletion(k8sClient, "vms", vm.GetName())
 
 			By("Creating same VM using k8s client binary and same manifest")
 			_, _, err = clientcmd.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to start")
-			Eventually(ThisVMIWith(thisVm.Namespace, thisVm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 		})
 
 		It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", func() {
@@ -1707,7 +1705,7 @@ status:
 			Consistently(func() error {
 				// get the VM and verify the failure count is less than 4 over a minute,
 				// indicating that backoff is occuring
-				vm, err := virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				if vm.Status.StartFailure == nil {
@@ -1721,10 +1719,10 @@ status:
 
 			By("Updating the VMI template to correct the crash loop")
 			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				delete(updatedVM.Spec.Template.ObjectMeta.Annotations, v1.FuncTestLauncherFailFastAnnotation)
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
+				delete(vm.Spec.Template.ObjectMeta.Annotations, v1.FuncTestLauncherFailFastAnnotation)
+				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm)
 				return err
 			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -1734,19 +1732,19 @@ status:
 
 		It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
 			By("Creating VirtualMachine")
-			newVM := createRunningVM(virtClient, libvmi.NewCirros(
+			vm := createRunningVM(virtClient, libvmi.NewCirros(
 				libvmi.WithAnnotation(v1.FuncTestLauncherFailFastAnnotation, ""),
 			))
 
 			By("waiting for crash loop state")
-			Eventually(ThisVM(newVM), 60*time.Second, 5*time.Second).Should(beInCrashLoop())
+			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(beInCrashLoop())
 
 			By("Invoking virtctl stop while in a crash loop")
-			stopCmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, newVM.Name, "--namespace", newVM.Namespace)
+			stopCmd := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_STOP, vm.Name, "--namespace", vm.Namespace)
 			Expect(stopCmd()).To(Succeed())
 
 			By("Waiting on crash loop status to be removed.")
-			Eventually(ThisVM(newVM), 120*time.Second, 5*time.Second).Should(notBeInCrashLoop())
+			Eventually(ThisVM(vm), 120*time.Second, 5*time.Second).Should(notBeInCrashLoop())
 		})
 	})
 
