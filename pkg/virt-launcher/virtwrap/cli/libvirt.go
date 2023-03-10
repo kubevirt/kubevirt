@@ -508,6 +508,9 @@ type VirDomain interface {
 	AbortJob() error
 	Free() error
 	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error
+	PinVcpuFlags(vcpu uint, cpuMap []bool, flags libvirt.DomainModificationImpact) error
+	PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error
+	SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

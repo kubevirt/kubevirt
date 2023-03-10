@@ -593,3 +593,33 @@ func (_m *MockVirDomain) CoreDumpWithFormat(to string, format libvirt.DomainCore
 func (_mr *_MockVirDomainRecorder) CoreDumpWithFormat(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CoreDumpWithFormat", arg0, arg1, arg2)
 }
+
+func (_m *MockVirDomain) PinVcpuFlags(vcpu uint, cpuMap []bool, flags libvirt.DomainModificationImpact) error {
+	ret := _m.ctrl.Call(_m, "PinVcpuFlags", vcpu, cpuMap, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) PinVcpuFlags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PinVcpuFlags", arg0, arg1, arg2)
+}
+
+func (_m *MockVirDomain) PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error {
+	ret := _m.ctrl.Call(_m, "PinEmulator", cpumap, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) PinEmulator(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PinEmulator", arg0, arg1)
+}
+
+func (_m *MockVirDomain) SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error {
+	ret := _m.ctrl.Call(_m, "SetVcpusFlags", vcpu, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) SetVcpusFlags(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVcpusFlags", arg0, arg1)
+}
