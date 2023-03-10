@@ -592,9 +592,6 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = string(migration.Name)
 
-	// TODO libvirt requires unique host names for each target and source
-	templatePod.Spec.Hostname = ""
-
 	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
 		node, err := c.getNodeForVMI(vmi)
