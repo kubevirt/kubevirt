@@ -106,6 +106,12 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	}
 
+	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.MemoryOverCommitmentProfile, newKV.Spec.Configuration.MemoryOverCommitmentProfile) {
+		if newKV.Spec.Configuration.MemoryOverCommitmentProfile != nil {
+			results = append(results, validateMemoryOverCommitment(newKV.Spec.Configuration.MemoryOverCommitmentProfile)...)
+		}
+	}
+
 	if newKV.Spec.Infra != nil {
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
@@ -289,6 +295,24 @@ func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConf
 
 	return statuses
 
+}
+
+func validateMemoryOverCommitment(memoryOverCommitmentProfile *v1.MemoryOverCommitmentProfile) []metav1.StatusCause {
+	var statuses []metav1.StatusCause
+
+	if memoryOverCommitmentProfile == nil {
+		return statuses
+	}
+
+	if memoryOverCommitmentProfile.Strategy != nil && memoryOverCommitmentProfile.Custom != nil {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "It is not possible to specify both Strategy and Custom fields",
+			Field:   "spec.configuration.memoryOverCommitmentProfile",
+		})
+	}
+
+	return statuses
 }
 
 func validateWorkloadPlacement(namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {

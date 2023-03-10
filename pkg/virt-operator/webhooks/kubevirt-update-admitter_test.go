@@ -23,6 +23,8 @@ import (
 	"crypto/tls"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -128,6 +130,23 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				1,
 			),
 		)
+	})
+
+	Context("with memoryOverCommitmentProfile", func() {
+		It("should reject when both Custom and Strategy are defined", func() {
+			strategy := v1.Baseline
+			memoryOverCommitmentProfile := &v1.MemoryOverCommitmentProfile{
+				Strategy: &strategy,
+				Custom:   &v1.MemoryOverCommitment{},
+			}
+			causes := validateMemoryOverCommitment(memoryOverCommitmentProfile)
+
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal("It is not possible to specify both Strategy and Custom fields"))
+			Expect(causes[0].Field).To(Equal("spec.configuration.memoryOverCommitmentProfile"))
+
+		})
 	})
 
 	Context("with AdditionalGuestMemoryOverheadRatio", func() {
