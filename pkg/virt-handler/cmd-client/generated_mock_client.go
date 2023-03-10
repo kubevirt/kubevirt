@@ -300,3 +300,13 @@ func (_m *MockLauncherClient) GetQemuVersion() (string, error) {
 func (_mr *_MockLauncherClientRecorder) GetQemuVersion() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQemuVersion")
 }
+
+func (_m *MockLauncherClient) SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineCPUs", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", arg0, arg1)
+}
