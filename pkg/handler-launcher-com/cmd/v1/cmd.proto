@@ -28,6 +28,7 @@ service Cmd {
   rpc Exec(ExecRequest) returns (ExecResponse) {}
   rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
+  rpc SyncVirtualMachineCPUs(VMIRequest) returns (Response) {}
 }
 
 message VMI {

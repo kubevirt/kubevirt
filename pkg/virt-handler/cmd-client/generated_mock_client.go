@@ -289,3 +289,13 @@ func (_m *MockLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineIns
 func (_mr *_MockLauncherClientRecorder) VirtualMachineMemoryDump(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineMemoryDump", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineCPUs", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", arg0, arg1)
+}
