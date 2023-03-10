@@ -997,7 +997,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	}
 
 	if vmi.IsRunning() {
-		if err := hotplugVirtioInterface(vmi, dom, &api.Domain{Spec: oldSpec}, domain); err != nil {
+		networkInterfaceManager := newVirtIOInterfaceManager(
+			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}))
+		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: oldSpec}, domain); err != nil {
 			return nil, err
 		}
 	}
