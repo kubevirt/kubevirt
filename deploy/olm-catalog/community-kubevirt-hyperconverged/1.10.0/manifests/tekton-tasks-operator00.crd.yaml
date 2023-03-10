@@ -1,0 +1,105 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  name: tektontasks.tektontasks.kubevirt.io
+spec:
+  group: tektontasks.kubevirt.io
+  names:
+    kind: TektonTasks
+    listKind: TektonTasksList
+    plural: tektontasks
+    singular: tektontasks
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: TektonTasks is the Schema for the tektontasks API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TektonTasksSpec defines the desired state of TektonTasks
+            properties:
+              featureGates:
+                description: FeatureGates defines feature gate for tto operator
+                properties:
+                  deployTektonTaskResources:
+                    type: boolean
+                type: object
+              pipelines:
+                description: Pipelines defines variables for configuration of pipelines
+                properties:
+                  namespace:
+                    type: string
+                type: object
+            type: object
+          status:
+            description: TektonTasksStatus defines the observed state of TektonTasks
+            properties:
+              conditions:
+                description: A list of current conditions of the resource
+                items:
+                  description: Condition represents the state of the operator's reconciliation
+                    functionality.
+                  properties:
+                    lastHeartbeatTime:
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: ConditionType is the state of the operator's reconciliation
+                        functionality.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the latest generation observed
+                  by the operator.
+                format: int64
+                type: integer
+              observedVersion:
+                description: The observed version of the resource
+                type: string
+              operatorVersion:
+                description: The version of the resource as defined by the operator
+                type: string
+              paused:
+                description: Paused is true when the operator notices paused annotation.
+                type: boolean
+              phase:
+                description: Phase is the current phase of the deployment
+                type: string
+              targetVersion:
+                description: The desired version of the resource
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
