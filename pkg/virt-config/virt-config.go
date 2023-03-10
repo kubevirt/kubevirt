@@ -370,3 +370,48 @@ func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
 
 	return false
 }
+
+// GetFreePageReporting return the freePageReporting value from MemoryOvercommitmentProfile
+// If the Profile is not set, the default value will be used, hence false.
+// If Strategy is used, freePageReporting will always be enabled.
+// If Custom is used instead of Strategy, freePageReporting will be enabled if it is explicitly set.
+func (c *ClusterConfig) GetFreePageReporting() bool {
+	config := c.GetConfig()
+	if config.MemoryOverCommitmentProfile == nil {
+		return false
+	}
+
+	if config.MemoryOverCommitmentProfile.Strategy != nil {
+		// freePageReporting is enabled in all strategies
+		return true
+	}
+
+	if config.MemoryOverCommitmentProfile.Custom != nil {
+		return config.MemoryOverCommitmentProfile.Custom.FreePageReporting != nil && *config.MemoryOverCommitmentProfile.Custom.FreePageReporting
+	}
+
+	return false
+}
+
+// ComputeMemoryOverCommitment return the MemoryOverCommitment fields.
+// If Strategy is defined, fields are computed from the Strategy used
+// Otherwise, the plain Custom properties will be used
+func (c *ClusterConfig) ComputeMemoryOverCommitment() *v1.MemoryOverCommitment {
+	config := c.GetConfig()
+	if config.MemoryOverCommitmentProfile == nil {
+		return nil
+	}
+
+	if config.MemoryOverCommitmentProfile.Strategy != nil {
+		memoryOverCommitment := &v1.MemoryOverCommitment{}
+		freePageReporting := c.GetFreePageReporting()
+		memoryOverCommitment.FreePageReporting = &freePageReporting
+		return memoryOverCommitment
+	}
+
+	if config.MemoryOverCommitmentProfile.Custom != nil {
+		return config.MemoryOverCommitmentProfile.Custom
+	}
+
+	return nil
+}

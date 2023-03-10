@@ -811,6 +811,18 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		if len(options.DisksInfo) > 0 {
 			l.disksInfo = options.DisksInfo
 		}
+
+		if options.MemoryOverCommitment != nil {
+			c.MemoryOverCommitment = options.MemoryOverCommitment
+		} else {
+			c.MemoryOverCommitment = &cmdv1.MemoryOverCommitment{}
+		}
+		if vmi.Spec.Domain.Memory != nil &&
+			vmi.Spec.Domain.Memory.MemoryOverCommitment != nil &&
+			vmi.Spec.Domain.Memory.MemoryOverCommitment.FreePageReporting != nil {
+
+			c.MemoryOverCommitment.FreePageReporting = *vmi.Spec.Domain.Memory.MemoryOverCommitment.FreePageReporting
+		}
 	}
 	c.DisksInfo = l.disksInfo
 

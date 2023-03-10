@@ -156,6 +156,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 					Slot:     "0x00",
 					Function: "0x0",
 				},
+				FreePageReporting: "off",
 			}
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be default memballoon device")
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
@@ -193,6 +194,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 					Slot:     "0x00",
 					Function: "0x0",
 				},
+				FreePageReporting: "off",
 			}),
 			Entry("[test_id:4558]with period 0", uint32(0), api.MemBalloon{
 				Model: "virtio-non-transitional",
@@ -203,6 +205,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 					Slot:     "0x00",
 					Function: "0x0",
 				},
+				FreePageReporting: "off",
 			}),
 		)
 

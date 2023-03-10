@@ -117,6 +117,7 @@ type ConverterContext struct {
 	Topology              *cmdv1.Topology
 	ExpandDisksEnabled    bool
 	UseLaunchSecurity     bool
+	MemoryOverCommitment  *cmdv1.MemoryOverCommitment
 }
 
 func contains(volumes []string, name string) bool {
@@ -1141,6 +1142,15 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		if c.UseLaunchSecurity {
 			ballooning.Driver = &api.MemBalloonDriver{
 				IOMMU: "on",
+			}
+		}
+
+		if c.MemoryOverCommitment != nil {
+			switch c.MemoryOverCommitment.FreePageReporting {
+			case true:
+				ballooning.FreePageReporting = "on"
+			case false:
+				ballooning.FreePageReporting = "off"
 			}
 		}
 	}

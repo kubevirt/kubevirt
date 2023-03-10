@@ -15,6 +15,7 @@ func virtualMachineOptions(
 	capabilities *api.Capabilities,
 	disksInfo map[string]*containerdisk.DiskInfo,
 	expandDisksEnabled bool,
+	memoryOverCommitment *v1.MemoryOverCommitment,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
@@ -30,6 +31,12 @@ func virtualMachineOptions(
 			Manufacturer: smbios.Manufacturer,
 			Sku:          smbios.Sku,
 			Version:      smbios.Version,
+		}
+	}
+	if memoryOverCommitment != nil {
+		options.MemoryOverCommitment = &cmdv1.MemoryOverCommitment{}
+		if memoryOverCommitment.FreePageReporting != nil {
+			options.MemoryOverCommitment.FreePageReporting = *memoryOverCommitment.FreePageReporting
 		}
 	}
 	return options
