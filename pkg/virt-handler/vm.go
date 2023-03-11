@@ -709,6 +709,13 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		// record that we've seen the domain populated on the target's node
 		log.Log.Object(vmi).Info("The target node received the migrated domain")
 		vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
+
+		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
+		// perform hotplug host-devices on post migration.
+		if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to adjust qemu process memory limits")
+		}
+
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -950,10 +957,13 @@ func (d *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	}
 
 	if condManager.HasCondition(vmi, v1.VirtualMachineInstanceFinalizeMigration) {
-		err := d.finalizeMigration(vmi)
-		if err == nil {
-			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceFinalizeMigration)
+		if err := d.finalizeMigration(vmi); err != nil {
+			log.Log.Object(vmi).Reason(err).V(3).Errorf("Post migration finalization has failed")
 		}
+		// remove the condition regrdless
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceFinalizeMigration)
+		// remove the VCPU change condition as the process is over
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
 	}
 }
 
@@ -3103,10 +3113,16 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
-	// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
-	// perform hotplug host-devices on post migration.
-	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
-		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
+	// handle vCPU plug/unplug
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, map[string]*containerdisk.DiskInfo{}, d.clusterConfig.ExpandDisksEnabled())
+	if err := client.SyncVirtualMachineCPUs(vmi, options); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		// add event
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
+	} else {
+		// if the vcpu change has been successful, remove the temporary
+		// CurrentCPUTopology
+		vmi.Status.CurrentCPUTopology = nil
 	}
 
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {

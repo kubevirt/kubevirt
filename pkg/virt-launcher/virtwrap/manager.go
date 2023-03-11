@@ -216,20 +216,6 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	return &manager, nil
 }
 
-func getDomain(dom cli.VirDomain) (*api.Domain, error) {
-	var domain api.Domain
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return &domain, err
-	}
-	err = xml.Unmarshal([]byte(xmlstr), &domain)
-	if err != nil {
-		return &domain, err
-	}
-
-	return &domain, nil
-}
-
 func getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	var newSpec api.DomainSpec
 	xmlstr, err := dom.GetXMLDesc(0)
@@ -407,10 +393,17 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			return fmt.Errorf("failed to read pod cpuset: %v", err)
 		}
 
-		domain, err := getDomain(dom)
+		domain, err := util.NewDomain(dom)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
+
+		spec, err := getDomainSpec(dom)
+		if err != nil {
+			return fmt.Errorf("%s: %v", errMsgPrefix, err)
+		}
+
+		domain.Spec = *spec
 
 		if domain.Spec.CPUTune != nil && len(domain.Spec.CPUTune.IOThreadPin) > 0 {
 			useIOThreads = true
