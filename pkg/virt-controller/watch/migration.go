@@ -394,6 +394,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	vmiConditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	migrationCopy := migration.DeepCopy()
 
 	podExists, attachmentPodExists := len(pods) > 0, false
@@ -535,7 +536,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				migrationCopy.Status.Phase = virtv1.MigrationRunning
 			}
 		case virtv1.MigrationRunning:
-			if vmi.Status.MigrationState.Completed {
+			if vmi.Status.MigrationState.Completed &&
+				!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) {
 				migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
 				log.Log.Object(migration).Infof("VMI reported migration succeeded.")
