@@ -3364,41 +3364,65 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("Using defaultRuntimeClass", func() {
-			It("Should set a runtimeClassName on launcher pod, if configured", func() {
-				config, kvInformer, svc = configFactory(defaultArch)
-				runtimeClassName := "customRuntime"
-				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DefaultRuntimeClass = runtimeClassName
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "namespace",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
+			Context("when RuntimeClassName is set on the VMI spec", func() {
+				var vmi v1.VirtualMachineInstance
+				configuredRuntimeClassName := "new-customRuntime"
+				BeforeEach(func() {
+					vmi = v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "namespace",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							RuntimeClassName: &configuredRuntimeClassName,
+						},
+					}
+				})
+				It("Should set the runtimeClassName on launcher pod", func() {
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(configuredRuntimeClassName))
+				})
 			})
 
-			It("Should leave runtimeClassName unset on pod, if not configured", func() {
-				config, kvInformer, svc = configFactory(defaultArch)
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "namespace",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{},
-				}
+			Context("when RuntimeClassName is not set on the VMI spec", func() {
+				It("Should set a default runtimeClassName on launcher pod, if configured", func() {
+					config, kvInformer, svc = configFactory(defaultArch)
+					runtimeClassName := "customRuntime"
+					kvConfig := kv.DeepCopy()
+					kvConfig.Spec.Configuration.DefaultRuntimeClass = runtimeClassName
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.RuntimeClassName).To(BeNil())
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "namespace",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
+				})
+
+				It("Should leave runtimeClassName unset on pod, if not configured", func() {
+					config, kvInformer, svc = configFactory(defaultArch)
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "namespace",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.RuntimeClassName).To(BeNil())
+				})
 			})
 		})
 

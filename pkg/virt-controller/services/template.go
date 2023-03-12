@@ -160,6 +160,15 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
+func setRuntimeClassNameForPod(vmiRuntimeClassName *string, defaultRuntimeClassName string, pod *k8sv1.Pod) {
+	if vmiRuntimeClassName != nil {
+		pod.Spec.RuntimeClassName = vmiRuntimeClassName
+	} else if defaultRuntimeClassName != "" {
+		// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
+		pod.Spec.RuntimeClassName = &defaultRuntimeClassName
+	}
+}
+
 func setNodeAffinityForPod(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	setNodeAffinityForHostModelCpuModel(vmi, pod)
 	setNodeAffinityForbiddenFeaturePolicy(vmi, pod)
@@ -540,11 +549,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	alignPodMultiCategorySecurity(&pod, vmi, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled(), t.clusterConfig.CustomSELinuxPolicyDisabled())
 
-	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
-	runtimeClassName := t.clusterConfig.GetDefaultRuntimeClass()
-	if runtimeClassName != "" {
-		pod.Spec.RuntimeClassName = &runtimeClassName
-	}
+	setRuntimeClassNameForPod(vmi.Spec.RuntimeClassName, t.clusterConfig.GetDefaultRuntimeClass(), &pod)
 
 	if vmi.Spec.PriorityClassName != "" {
 		pod.Spec.PriorityClassName = vmi.Spec.PriorityClassName
