@@ -37,10 +37,6 @@ import (
 )
 
 func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool, ifacesToPlug ...v1.Interface) ([]api.Interface, error) {
-	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
-		return nil, err
-	}
-
 	var domainInterfaces []api.Interface
 
 	networks := indexNetworksByName(vmi.Spec.Networks)
@@ -158,18 +154,6 @@ func GetInterfaceType(iface *v1.Interface) string {
 		return iface.Model
 	}
 	return v1.VirtIO
-}
-
-func validateNetworksTypes(networks []v1.Network) error {
-	for _, network := range networks {
-		switch {
-		case network.Pod != nil && network.Multus != nil:
-			return fmt.Errorf("network %s must have only one network type", network.Name)
-		case network.Pod == nil && network.Multus == nil:
-			return fmt.Errorf("network %s must have a network type", network.Name)
-		}
-	}
-	return nil
 }
 
 func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
