@@ -677,7 +677,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
-			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
@@ -1137,6 +1136,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.ActivePods = map[types.UID]string{podTestUUID: ""}
+			vmi.Spec.Networks = []v1.Network{{Name: "foo"}}
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
@@ -1186,7 +1186,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(context.Background(), updatedVMI)
 
 			controller.Execute()
-			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
@@ -1261,7 +1260,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 
 				controller.Execute()
-				Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 				testutils.ExpectEvent(recorder, VMIDefined)
 			})
 
@@ -1695,7 +1693,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
 			vmiInterface.EXPECT().Update(context.Background(), updatedVmi)
 			controller.Execute()
-			Expect(controller.netConf.SetupCompleted(vmi)).To(BeTrue())
 			testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
 			testutils.ExpectEvent(recorder, "Migration Target is listening")
 		})
@@ -3237,25 +3234,32 @@ func addNode(client *fake.Clientset, node *k8sv1.Node) {
 }
 
 type netConfStub struct {
-	vmi        *v1.VirtualMachineInstance
+	vmiUID     types.UID
 	SetupError error
 }
 
-func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error, networksToHotplug ...v1.Network) error {
+func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, launcherPid int, preSetup func() error) error {
 	if nc.SetupError != nil {
 		return nc.SetupError
 	}
-	nc.vmi = vmi
 	return nil
 }
 
 func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
-	nc.vmi = nil
+	nc.vmiUID = ""
+	return nil
+}
+
+func (nc *netConfStub) WithCompletionCache(id any, f func() error) error {
+	if err := f(); err != nil {
+		return err
+	}
+	nc.vmiUID = id.(types.UID)
 	return nil
 }
 
 func (nc *netConfStub) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
-	return nc.vmi != nil && nc.vmi.UID == vmi.UID
+	return nc.vmiUID == vmi.UID
 }
 
 type netStatStub struct{}

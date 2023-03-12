@@ -96,8 +96,9 @@ import (
 )
 
 type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, launcherPid int, preSetup func() error, networksToPlug ...v1.Network) error
+	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
+	WithCompletionCache(id any, f func() error) error
 	SetupCompleted(vmi *v1.VirtualMachineInstance) bool
 }
 
@@ -524,7 +525,11 @@ func (d *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstanc
 	d.netStat.Teardown(vmi)
 }
 
-func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, networksToPlug ...v1.Network) error {
+func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, networks []v1.Network) error {
+	if len(networks) == 0 {
+		return nil
+	}
+
 	isolationRes, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
@@ -534,7 +539,7 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	return d.netConf.Setup(vmi, isolationRes.Pid(), func() error {
+	return d.netConf.Setup(vmi, networks, isolationRes.Pid(), func() error {
 		if virtutil.WantVirtioNetDevice(vmi) {
 			if err := d.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
@@ -546,7 +551,7 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 			}
 		}
 		return nil
-	}, networksToPlug...)
+	})
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -2580,7 +2585,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	if err := d.setupNetwork(vmi); err != nil {
+	if err := d.netConf.WithCompletionCache(vmi.UID, func() error { return d.setupNetwork(vmi, vmi.Spec.Networks) }); err != nil {
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
@@ -2744,7 +2749,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.setupNetwork(vmi); err != nil {
+		if err := d.netConf.WithCompletionCache(vmi.UID, func() error { return d.setupNetwork(vmi, vmi.Spec.Networks) }); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 
@@ -2821,7 +2826,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			if err := d.hotplugVirtioInterfaces(vmi); err != nil {
+			if err := d.setupNetwork(vmi, netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)); err != nil {
 				log.Log.Object(vmi).Error(err.Error())
 				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
 				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
@@ -3198,13 +3203,4 @@ func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 
 func isIOError(shouldUpdate, domainExists bool, domain *api.Domain) bool {
 	return shouldUpdate && domainExists && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedIOError
-}
-
-func (d *VirtualMachineController) hotplugVirtioInterfaces(vmi *v1.VirtualMachineInstance) error {
-	networksToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
-	if len(networksToHotplug) == 0 {
-		return nil
-	}
-
-	return d.setupNetwork(vmi, networksToHotplug...)
 }
