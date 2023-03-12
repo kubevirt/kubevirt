@@ -169,7 +169,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					mtu, err = strconv.Atoi(output)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(mtu > 1000).To(BeTrue())
+					Expect(mtu).To(BeNumerically(">", 1000))
 
 					payloadSize = mtu - ipHeaderSize
 				}

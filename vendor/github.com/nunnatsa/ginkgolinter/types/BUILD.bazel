@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "boolean.go",
-        "suppress.go",
+        "config.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/nunnatsa/ginkgolinter/types",
     importpath = "github.com/nunnatsa/ginkgolinter/types",

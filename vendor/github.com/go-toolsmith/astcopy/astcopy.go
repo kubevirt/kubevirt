@@ -346,21 +346,6 @@ func FieldList(x *ast.FieldList) *ast.FieldList {
 	return &cp
 }
 
-// FuncType returns x deep copy.
-// Copy of nil argument is nil.
-func FuncType(x *ast.FuncType) *ast.FuncType {
-	if x == nil {
-		return nil
-	}
-	cp := *x
-	cp.Params = FieldList(x.Params)
-	cp.Results = FieldList(x.Results)
-	if typeParams := typeparams.ForFuncType(x); typeParams != nil {
-		*typeparams.ForFuncType(&cp) = *FieldList(typeParams)
-	}
-	return &cp
-}
-
 // InterfaceType returns x deep copy.
 // Copy of nil argument is nil.
 func InterfaceType(x *ast.InterfaceType) *ast.InterfaceType {
@@ -432,23 +417,6 @@ func ValueSpec(x *ast.ValueSpec) *ast.ValueSpec {
 	cp.Type = copyExpr(x.Type)
 	cp.Doc = CommentGroup(x.Doc)
 	cp.Comment = CommentGroup(x.Comment)
-	return &cp
-}
-
-// TypeSpec returns x deep copy.
-// Copy of nil argument is nil.
-func TypeSpec(x *ast.TypeSpec) *ast.TypeSpec {
-	if x == nil {
-		return nil
-	}
-	cp := *x
-	cp.Name = Ident(x.Name)
-	cp.Type = copyExpr(x.Type)
-	cp.Doc = CommentGroup(x.Doc)
-	cp.Comment = CommentGroup(x.Comment)
-	if typeParams := typeparams.ForTypeSpec(x); typeParams != nil {
-		*typeparams.ForTypeSpec(&cp) = *FieldList(typeParams)
-	}
 	return &cp
 }
 

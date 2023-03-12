@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -88,14 +89,14 @@ func waitForVMIPhase(ctx context.Context, phases []v1.VirtualMachineInstancePhas
 
 	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
 	// FIXME the event order is wrong. First the document should be updated
-	gomega.EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
+	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) v1.VirtualMachineInstancePhase {
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-		gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
+		g.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 
-		gomega.Expect(vmi.Status.Phase == v1.Succeeded).To(gomega.BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+		g.Expect(vmi).ToNot(matcher.HaveSucceeded(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
 		// May need to wait for Failed state
 		if !waitForFail {
-			gomega.Expect(vmi.Status.Phase == v1.Failed).To(gomega.BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
+			g.Expect(vmi).ToNot(matcher.BeInPhase(v1.Failed), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
 		}
 		return vmi.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(gomega.BeElementOf(phases), timeoutMsg)

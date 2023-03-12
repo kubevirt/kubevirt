@@ -186,7 +186,7 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 		ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		nodesToUpdate := ds.Status.DesiredNumberScheduled
-		Expect(nodesToUpdate > 0).To(BeTrue())
+		Expect(nodesToUpdate).To(BeNumerically(">", 0))
 
 		go dsInformer.Run(stopCh)
 		cache.WaitForCacheSync(stopCh, dsInformer.HasSynced)

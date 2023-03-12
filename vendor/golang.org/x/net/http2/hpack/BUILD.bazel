@@ -6,6 +6,7 @@ go_library(
         "encode.go",
         "hpack.go",
         "huffman.go",
+        "static_table.go",
         "tables.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/net/http2/hpack",

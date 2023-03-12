@@ -1509,7 +1509,7 @@ spec:
 			By("Check that KubeVirt CR has empty imagePullSecrets")
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(kv.Spec.ImagePullSecrets).To(HaveLen(0))
+			Expect(kv.Spec.ImagePullSecrets).To(BeEmpty())
 
 			By("Ensuring that all virt components have empty image pull secrets")
 			checkVirtComponents(nil)
