@@ -131,6 +131,13 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 		}
 	}
 
+	getAffinityForTargetNode := func(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
+		nodeAffinityRuleForVmiToFill, err := affinityToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
+		return &v1.Affinity{
+			NodeAffinity: nodeAffinityRuleForVmiToFill,
+		}, err
+	}
+
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
 
@@ -148,23 +155,17 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 	Context("Migration to/from memory overcommitted nodes", decorators.SigComputeMigrations, func() {
 		It("Postcopy Migration of vmi that is dirtying(stress-ng) more memory than the source node's memory", func() {
-			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-			sourceNode := nodes[0]
-			targetNode := nodes[1]
-			totalMemKib := getTotalMemSizeInKib(sourceNode)
-
-			availableMemSizeKib := getAvailableMemSizeInKib(sourceNode)
-			availableSwapSizeKib := getSwapFreeSizeInKib(sourceNode)
-			swapSizeKib := getSwapSizeInKib(sourceNode)
+			sourceNode, targetNode, err := getValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			Expect(err).ToNot(HaveOccurred(), "should be able to get valid source and target nodes for migartion")
+			totalMemKib := getTotalMemSizeInKib(*sourceNode)
+			availableMemSizeKib := getAvailableMemSizeInKib(*sourceNode)
+			availableSwapSizeKib := getSwapFreeSizeInKib(*sourceNode)
+			swapSizeKib := getSwapSizeInKib(*sourceNode)
 			swapSizeToUseKib := min(maxSwapSizeToUseKib, int(swapPartToUse*float64(availableSwapSizeKib)))
 
 			Expect(availableSwapSizeKib).Should(BeNumerically(">", maxSwapSizeToUseKib), "not enough available swap space")
 			//use more memory than what node can handle without swap memory
 			memToUseInTheVmKib := availableMemSizeKib + swapSizeToUseKib
-
-			//add label the node so we could schedule the vmi to it through node selector
-			libnode.AddLabelToNode(sourceNode.Name, "swaptest", "swaptest")
-			defer libnode.RemoveLabelFromNode(sourceNode.Name, "swaptest")
 
 			By("Allowing post-copy")
 			kv := util.GetCurrentKv(virtClient)
@@ -179,7 +180,11 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmiMemSizeMi := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTheVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 
 			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-			vmi.Spec.NodeSelector = map[string]string{"swaptest": "swaptest"}
+			nodeAffinityRule, err := affinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmi.Spec.Affinity = &v1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
 			vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
@@ -192,14 +197,10 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 
 			By("The workloads in the node should consume more memory than the memory size eventually.")
 			Eventually(func() int {
-				usedMemoryWithOutSwap := totalMemKib - getAvailableMemSizeInKib(sourceNode)
-				usedSwapMemory := swapSizeKib - getSwapFreeSizeInKib(sourceNode)
+				usedMemoryWithOutSwap := totalMemKib - getAvailableMemSizeInKib(*sourceNode)
+				usedSwapMemory := swapSizeKib - getSwapFreeSizeInKib(*sourceNode)
 				return usedMemoryWithOutSwap + usedSwapMemory
 			}, 240*time.Second, 1*time.Second).Should(BeNumerically(">", totalMemKib))
-
-			//add the test label to the target node
-			libnode.AddLabelToNode(targetNode.Name, "swaptest", "swaptest")
-			defer libnode.RemoveLabelFromNode(targetNode.Name, "swaptest")
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -224,27 +225,24 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
-			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-			targetNode := nodes[0]
-			sourceNode := nodes[1]
-
+			sourceNode, targetNode, err := getValidSourceNodeAndTargetNodeForHostModelMigration(virtClient)
+			Expect(err).ToNot(HaveOccurred(), "should be able to get valid source and target nodes for migartion")
 			vmMemoryRequestkib := 512000
-			availableMemSizeKib := getAvailableMemSizeInKib(targetNode)
-			availableSwapSizeKib := getSwapFreeSizeInKib(targetNode)
+			availableMemSizeKib := getAvailableMemSizeInKib(*targetNode)
+			availableSwapSizeKib := getSwapFreeSizeInKib(*targetNode)
 			swapSizeToUsekib := min(maxSwapSizeToUseKib, int(swapPartToUse*float64(availableSwapSizeKib)))
 
 			//make sure that the vm migrate data to swap space (leave enough space for the vm that we will migrate)
 			memToUseInTargetNodeVmKib := availableMemSizeKib + swapSizeToUsekib - vmMemoryRequestkib
 
-			//add label the node so we could schedule the vmi to it through the targert node selector
-			libnode.AddLabelToNode(targetNode.Name, "swaptest", "swaptest")
-			defer libnode.RemoveLabelFromNode(targetNode.Name, "swaptest")
-
 			//The vmi should have more memory than memToUseInTheVm
 			vmiMemSize := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTargetNodeVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 			vmiMemReq := resource.MustParse(fmt.Sprintf("%dMi", vmMemoryRequestkib/bytesInKib))
 			vmiToFillTargetNodeMem := tests.NewRandomFedoraVMIWithGuestAgent()
-			vmiToFillTargetNodeMem.Spec.NodeSelector = map[string]string{"swaptest": "swaptest"}
+			//we want vmiToFillTargetNodeMem to land on the target node to achieve memory-overcommitment in target
+			affinityRuleForVmiToFill, err := getAffinityForTargetNode(targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToFillTargetNodeMem.Spec.Affinity = affinityRuleForVmiToFill
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.OvercommitGuestOverhead = true
 			vmiToFillTargetNodeMem.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSize}
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
@@ -258,18 +256,17 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			vmiToMigrate := tests.NewRandomFedoraVMIWithGuestAgent()
-			vmiToMigrate.Spec.NodeSelector = map[string]string{"swaptestmigrate": "swaptestmigrate"}
+			nodeAffinityRule, err := affinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate.Spec.Affinity = &v1.Affinity{
+				NodeAffinity: nodeAffinityRule,
+			}
 			vmiToMigrate.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
-			libnode.AddLabelToNode(sourceNode.Name, "swaptestmigrate", "swaptestmigrate")
-			defer libnode.RemoveLabelFromNode(sourceNode.Name, "swaptestmigrate")
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
 			vmiToMigrate = runVMIAndExpectLaunch(vmiToMigrate, 240)
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
-			//add label the target node so the vm could be scheduled to it
-			libnode.AddLabelToNode(targetNode.Name, "swaptestmigrate", "swaptestmigrate")
-			defer libnode.RemoveLabelFromNode(targetNode.Name, "swaptestmigrate")
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -277,11 +274,11 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			By("The workloads in the node should consume more memory than the memory size eventually.")
-			swapSizeKib := getSwapSizeInKib(targetNode)
-			totalMemKib := getTotalMemSizeInKib(targetNode)
+			swapSizeKib := getSwapSizeInKib(*targetNode)
+			totalMemKib := getTotalMemSizeInKib(*targetNode)
 			Eventually(func() int {
-				usedMemoryWithOutSwap := totalMemKib - getAvailableMemSizeInKib(targetNode)
-				usedSwapMemory := swapSizeKib - getSwapFreeSizeInKib(targetNode)
+				usedMemoryWithOutSwap := totalMemKib - getAvailableMemSizeInKib(*targetNode)
+				usedSwapMemory := swapSizeKib - getSwapFreeSizeInKib(*targetNode)
 				return usedMemoryWithOutSwap + usedSwapMemory
 			}, 240*time.Second, 1*time.Second).Should(BeNumerically(">", totalMemKib),
 				"at this point the node should has use more memory than totalMemKib "+
