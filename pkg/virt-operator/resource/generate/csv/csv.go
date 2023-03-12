@@ -55,6 +55,7 @@ type NewClusterServiceVersionData struct {
 	VirtExportProxySha    string
 	VirtExportServerSha   string
 	GsSha                 string
+	RunbookURLTemplate    string
 	Replicas              int
 	IconBase64            string
 	ReplacesCsvVersion    string
@@ -169,6 +170,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtExportProxySha,
 		data.VirtExportServerSha,
 		data.GsSha,
+		data.RunbookURLTemplate,
 		data.VirtApiImage,
 		data.VirtControllerImage,
 		data.VirtHandlerImage,

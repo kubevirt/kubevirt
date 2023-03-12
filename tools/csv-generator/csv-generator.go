@@ -48,6 +48,7 @@ func main() {
 	exportProxySha := flag.String("exportProxySha", "", "virt-exportproxy image sha. "+shaEnvDeprecationMsg)
 	exportServerSha := flag.String("exportServerSha", "", "virt-exportserver image sha. "+shaEnvDeprecationMsg)
 	gsSha := flag.String("gsSha", "", "libguestfs-tools image sha")
+	runbookURLTemplate := flag.String("", "", "")
 	kubeVirtLogo := flag.String("kubevirtLogo", "", "kubevirt logo data in base64")
 	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
 	replacesCsvVersion := flag.String("replacesCsvVersion", "", "the CSV version being replaced by this generated CSV")
@@ -80,6 +81,7 @@ func main() {
 		VirtExportProxySha:    *exportProxySha,
 		VirtExportServerSha:   *exportServerSha,
 		GsSha:                 *gsSha,
+		RunbookURLTemplate:    *runbookURLTemplate,
 		ReplacesCsvVersion:    *replacesCsvVersion,
 		IconBase64:            *kubeVirtLogo,
 		Replicas:              2,

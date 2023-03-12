@@ -48,6 +48,7 @@ const (
 	VirtExportProxyImageEnvName  = "VIRT_EXPORTPROXY_IMAGE"
 	VirtExportServerImageEnvName = "VIRT_EXPORTSERVER_IMAGE"
 	GsImageEnvName               = "GS_IMAGE"
+	RunbookURLTemplate           = "RUNBOOK_URL_TEMPLATE"
 
 	// The below Shasum variables would be ignored if Image env vars are being used.
 	// Deprecated, use VirtApiImageEnvName instead
