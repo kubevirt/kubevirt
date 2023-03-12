@@ -38,6 +38,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"dnsPolicy":                     "Set DNS policy for the pod.\nDefaults to \"ClusterFirst\".\nValid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.\nDNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.\nTo have DNS options set along with hostNetwork, you have to specify DNS policy\nexplicitly to 'ClusterFirstWithHostNet'.\n+optional",
 		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
 		"accessCredentials":             "Specifies a set of public keys to inject into the vm guest\n+listType=atomic\n+optional",
+		"runtimeClassName":              "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used\nto run the virt-launcher pod.  If no RuntimeClass resource matches the named class, the virt-launcher pod will not be run.\nIf unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an\nempty definition that uses the default runtime handler.\nMore info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class\nThis is a beta feature as of Kubernetes v1.14.\n+optional",
 	}
 }
 

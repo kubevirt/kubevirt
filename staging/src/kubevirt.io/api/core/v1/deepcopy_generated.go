@@ -4782,6 +4782,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.RuntimeClassName != nil {
+		in, out := &in.RuntimeClassName, &out.RuntimeClassName
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

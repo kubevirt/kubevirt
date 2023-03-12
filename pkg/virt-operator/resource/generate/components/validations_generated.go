@@ -6117,6 +6117,16 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                   type: object
+                runtimeClassName:
+                  description: 'RuntimeClassName refers to a RuntimeClass object in
+                    the node.k8s.io group, which should be used to run the virt-launcher
+                    pod.  If no RuntimeClass resource matches the named class, the
+                    virt-launcher pod will not be run. If unset or empty, the "legacy"
+                    RuntimeClass will be used, which is an implicit class with an
+                    empty definition that uses the default runtime handler. More info:
+                    https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
+                    This is a beta feature as of Kubernetes v1.14.'
+                  type: string
                 schedulerName:
                   description: If specified, the VMI will be dispatched by specified
                     scheduler. If not specified, the VMI will be dispatched by default
@@ -10333,6 +10343,15 @@ var CRDsValidation map[string]string = map[string]string{
               format: int32
               type: integer
           type: object
+        runtimeClassName:
+          description: 'RuntimeClassName refers to a RuntimeClass object in the node.k8s.io
+            group, which should be used to run the virt-launcher pod.  If no RuntimeClass
+            resource matches the named class, the virt-launcher pod will not be run.
+            If unset or empty, the "legacy" RuntimeClass will be used, which is an
+            implicit class with an empty definition that uses the default runtime
+            handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
+            This is a beta feature as of Kubernetes v1.14.'
+          type: string
         schedulerName:
           description: If specified, the VMI will be dispatched by specified scheduler.
             If not specified, the VMI will be dispatched by default scheduler.
@@ -14992,6 +15011,16 @@ var CRDsValidation map[string]string = map[string]string{
                       format: int32
                       type: integer
                   type: object
+                runtimeClassName:
+                  description: 'RuntimeClassName refers to a RuntimeClass object in
+                    the node.k8s.io group, which should be used to run the virt-launcher
+                    pod.  If no RuntimeClass resource matches the named class, the
+                    virt-launcher pod will not be run. If unset or empty, the "legacy"
+                    RuntimeClass will be used, which is an implicit class with an
+                    empty definition that uses the default runtime handler. More info:
+                    https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
+                    This is a beta feature as of Kubernetes v1.14.'
+                  type: string
                 schedulerName:
                   description: If specified, the VMI will be dispatched by specified
                     scheduler. If not specified, the VMI will be dispatched by default
@@ -19012,6 +19041,16 @@ var CRDsValidation map[string]string = map[string]string{
                               format: int32
                               type: integer
                           type: object
+                        runtimeClassName:
+                          description: 'RuntimeClassName refers to a RuntimeClass
+                            object in the node.k8s.io group, which should be used
+                            to run the virt-launcher pod.  If no RuntimeClass resource
+                            matches the named class, the virt-launcher pod will not
+                            be run. If unset or empty, the "legacy" RuntimeClass will
+                            be used, which is an implicit class with an empty definition
+                            that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
+                            This is a beta feature as of Kubernetes v1.14.'
+                          type: string
                         schedulerName:
                           description: If specified, the VMI will be dispatched by
                             specified scheduler. If not specified, the VMI will be
@@ -23745,6 +23784,17 @@ var CRDsValidation map[string]string = map[string]string{
                                   format: int32
                                   type: integer
                               type: object
+                            runtimeClassName:
+                              description: 'RuntimeClassName refers to a RuntimeClass
+                                object in the node.k8s.io group, which should be used
+                                to run the virt-launcher pod.  If no RuntimeClass
+                                resource matches the named class, the virt-launcher
+                                pod will not be run. If unset or empty, the "legacy"
+                                RuntimeClass will be used, which is an implicit class
+                                with an empty definition that uses the default runtime
+                                handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class
+                                This is a beta feature as of Kubernetes v1.14.'
+                              type: string
                             schedulerName:
                               description: If specified, the VMI will be dispatched
                                 by specified scheduler. If not specified, the VMI

@@ -22105,6 +22105,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 					},
+					"runtimeClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run the virt-launcher pod.  If no RuntimeClass resource matches the named class, the virt-launcher pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},
