@@ -111,25 +111,20 @@ func generateVMInterfaceRequestPatch(vm *v1.VirtualMachine, interfaceRequest *v1
 
 func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMachineInterfaceRequest, vmCopy *v1.VirtualMachine) {
 	canonicalIfaceName := dynamicIfaceName(ifaceRequest)
-	if ifaceRequest.AddInterfaceOptions != nil {
-		existingIface := filterInterfaceRequests(
-			vm.Status.InterfaceRequests,
-			func(ifaceReq v1.VirtualMachineInterfaceRequest) bool {
-				return dynamicIfaceName(&ifaceReq) == canonicalIfaceName
-			},
-		)
+	existingIface := filterInterfaceRequests(
+		vm.Status.InterfaceRequests,
+		func(ifaceReq v1.VirtualMachineInterfaceRequest) bool {
+			return dynamicIfaceName(&ifaceReq) == canonicalIfaceName
+		},
+	)
 
-		if len(existingIface) == 0 {
-			vmCopy.Status.InterfaceRequests = append(vm.Status.InterfaceRequests, *ifaceRequest)
-		}
+	if len(existingIface) == 0 {
+		vmCopy.Status.InterfaceRequests = append(vm.Status.InterfaceRequests, *ifaceRequest)
 	}
 }
 
 func dynamicIfaceName(plugRequest *v1.VirtualMachineInterfaceRequest) string {
-	if plugRequest.AddInterfaceOptions != nil {
-		return plugRequest.AddInterfaceOptions.InterfaceName
-	}
-	panic(fmt.Errorf("must provide the `AddInterfaceOptions.InterfaceName` attribute"))
+	return plugRequest.AddInterfaceOptions.InterfaceName
 }
 
 func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
