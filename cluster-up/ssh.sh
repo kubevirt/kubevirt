@@ -23,7 +23,7 @@ if [ -z "$node" ]; then
     exit 1
 fi
 
-if [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then
+if [[ $KUBEVIRT_PROVIDER =~ kind.* ]] || [[ $KUBEVIRT_PROVIDER =~ k3d.* ]]; then
     _ssh_into_node "$@"
 else
     ${_cli} --prefix $provider_prefix ssh "$@"
