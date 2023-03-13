@@ -981,14 +981,15 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		panic(err)
 	}
 	storageClassName := "local"
+	url := fmt.Sprintf("docker://%s/%s:%s", DockerPrefix, imageAlpine, DockerTag)
 	dataVolumeSpec := v1.DataVolumeTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "alpine-dv",
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
-				HTTP: &cdiv1.DataVolumeSourceHTTP{
-					URL: fmt.Sprintf("docker://%s/%s:%s", DockerPrefix, imageAlpine, DockerTag),
+				Registry: &cdiv1.DataVolumeSourceRegistry{
+					URL: &url,
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
