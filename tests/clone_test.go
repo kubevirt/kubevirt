@@ -470,7 +470,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 
 		})
 
-		Context("with more complicated VM", func() {
+		Context("[sig-storage]with more complicated VM", func() {
 
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 				return expectVMRunnable(vm, console.LoginToAlpine)
