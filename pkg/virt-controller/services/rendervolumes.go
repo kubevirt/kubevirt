@@ -148,18 +148,6 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 				}
 			}
 
-			if volume.ConfigMap != nil {
-				renderer.handleConfigMap(volume)
-			}
-
-			if volume.Secret != nil {
-				renderer.handleSecret(volume)
-			}
-
-			if volume.DownwardAPI != nil {
-				renderer.handleDownwardAPI(volume)
-			}
-
 			if volume.DownwardMetrics != nil {
 				renderer.handleDownwardMetrics(volume)
 			}
@@ -174,6 +162,47 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 
 			if volume.CloudInitConfigDrive != nil {
 				renderer.handleCloudInitConfigDrive(volume)
+			}
+		}
+		return nil
+	}
+}
+
+func withVMIConfigVolumes(vmiDisks []v1.Disk, vmiVolumes []v1.Volume) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		volumes := make(map[string]v1.Volume)
+		for _, volume := range vmiVolumes {
+			volumes[volume.Name] = volume
+
+			if volume.Secret != nil {
+				renderer.addSecretVolume(volume)
+			}
+
+			if volume.ConfigMap != nil {
+				renderer.addConfigMapVolume(volume)
+			}
+
+			if volume.DownwardAPI != nil {
+				renderer.addDownwardAPIVolume(volume)
+			}
+		}
+
+		for _, disk := range vmiDisks {
+			volume, ok := volumes[disk.Name]
+			if !ok {
+				continue
+			}
+
+			if volume.Secret != nil {
+				renderer.addSecretVolumeMount(volume)
+			}
+
+			if volume.ConfigMap != nil {
+				renderer.addConfigMapVolumeMount(volume)
+			}
+
+			if volume.DownwardAPI != nil {
+				renderer.addDownwardAPIVolumeMount(volume)
 			}
 		}
 		return nil
@@ -496,12 +525,7 @@ func (vr *VolumeRenderer) handleHostDisk(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) handleSecret(volume v1.Volume) {
-	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-		Name:      volume.Name,
-		MountPath: config.GetSecretSourcePath(volume.Name),
-		ReadOnly:  true,
-	})
+func (vr *VolumeRenderer) addSecretVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
@@ -513,12 +537,15 @@ func (vr *VolumeRenderer) handleSecret(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) handleConfigMap(volume v1.Volume) {
+func (vr *VolumeRenderer) addSecretVolumeMount(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: config.GetConfigMapSourcePath(volume.Name),
+		MountPath: config.GetSecretSourcePath(volume.Name),
 		ReadOnly:  true,
 	})
+}
+
+func (vr *VolumeRenderer) addConfigMapVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
@@ -530,13 +557,15 @@ func (vr *VolumeRenderer) handleConfigMap(volume v1.Volume) {
 	})
 }
 
-func (vr *VolumeRenderer) handleDownwardAPI(volume v1.Volume) {
-	// attach a Secret to the pod
+func (vr *VolumeRenderer) addConfigMapVolumeMount(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
-		MountPath: config.GetDownwardAPISourcePath(volume.Name),
+		MountPath: config.GetConfigMapSourcePath(volume.Name),
 		ReadOnly:  true,
 	})
+}
+
+func (vr *VolumeRenderer) addDownwardAPIVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
@@ -544,6 +573,14 @@ func (vr *VolumeRenderer) handleDownwardAPI(volume v1.Volume) {
 				Items: volume.DownwardAPI.Fields,
 			},
 		},
+	})
+}
+
+func (vr *VolumeRenderer) addDownwardAPIVolumeMount(volume v1.Volume) {
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      volume.Name,
+		MountPath: config.GetDownwardAPISourcePath(volume.Name),
+		ReadOnly:  true,
 	})
 }
 
