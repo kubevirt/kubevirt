@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
+	"kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -41,6 +42,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(vm.NewCommand())
+	cmd.AddCommand(preference.NewCommand())
 	cmd.AddCommand(instancetype.NewCommand())
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
