@@ -353,6 +353,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 		Resources: resources,
 		SecurityContext: &kubev1.SecurityContext{
 			RunAsUser:                &userId,
+			RunAsGroup:               &userId,
 			RunAsNonRoot:             &nonRoot,
 			AllowPrivilegeEscalation: &noPrivilegeEscalation,
 			Capabilities: &kubev1.Capabilities{
