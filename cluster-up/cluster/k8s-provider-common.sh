@@ -57,12 +57,23 @@ function deploy_cnao() {
         $kubectl create -f /opt/cnao/operator.yaml
 
         if [ "$KUBVIRT_WITH_CNAO_SKIP_CONFIG" != "true" ]; then
-            $kubectl create -f /opt/cnao/network-addons-config-example.cr.yaml
+            create_network_addons_config
         fi
 
         # Install whereabouts on CNAO lanes
         $kubectl create -f /opt/whereabouts
     fi
+}
+
+function create_network_addons_config() {
+    local nac="/opt/cnao/network-addons-config-example.cr.yaml"
+    if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ]; then
+        local no_multus_nac="/opt/cnao/no-multus-nac.yaml"
+        $ssh node01 -- "awk '!/multus/' ${nac} | sudo tee ${no_multus_nac}"
+        nac=${no_multus_nac}
+    fi
+
+     $kubectl apply -f ${nac}
 }
 
 function wait_for_cnao_ready() {
@@ -71,6 +82,18 @@ function wait_for_cnao_ready() {
         if [ "$KUBVIRT_WITH_CNAO_SKIP_CONFIG" != "true" ]; then
             $kubectl wait networkaddonsconfig cluster --for condition=Available --timeout=200s
         fi
+    fi
+}
+
+function deploy_multus() {
+    if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ]; then
+        $kubectl create -f /opt/multus/multus.yaml
+    fi
+}
+
+function wait_for_multus_ready() {
+    if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ]; then
+        $kubectl rollout status -n kube-system ds/kube-multus-ds --timeout=200s
     fi
 }
 
@@ -179,10 +202,11 @@ function up() {
     configure_memory_overcommitment_behavior
 
     deploy_cnao
+    deploy_multus
     deploy_istio
     deploy_cdi
 
-    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready; do
+    until wait_for_cnao_ready && wait_for_istio_ready && wait_for_cdi_ready && wait_for_multus_ready; do
         echo "Waiting for cluster components..."
         sleep 5
     done
