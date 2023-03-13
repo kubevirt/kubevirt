@@ -38,11 +38,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 
 	"kubevirt.io/kubevirt/pkg/config"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -2793,7 +2793,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			}
 		}
 		for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-			socketPath, err := isolation.SafeJoin(isolationRes, services.VirtioFSSocketPath(fs.Name))
+			socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
 			if err != nil {
 				return err
 			}

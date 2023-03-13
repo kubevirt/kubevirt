@@ -3,8 +3,8 @@ package converter
 import (
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 func convertFileSystems(fileSystems []v1.Filesystem) []api.FilesystemDevice {
@@ -23,7 +23,7 @@ func convertFileSystems(fileSystems []v1.Filesystem) []api.FilesystemDevice {
 					Queue: "1024",
 				},
 				Source: &api.FilesystemSource{
-					Socket: services.VirtioFSSocketPath(fs.Name),
+					Socket: virtiofs.VirtioFSSocketPath(fs.Name),
 				},
 				Target: &api.FilesystemTarget{
 					Dir: fs.Name,

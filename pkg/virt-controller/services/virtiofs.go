@@ -2,8 +2,6 @@ package services
 
 import (
 	"fmt"
-	"path/filepath"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
@@ -90,15 +88,10 @@ func virtioFSMountPoint(volumeName string) string {
 	return fmt.Sprintf("/%s", volumeName)
 }
 
-func VirtioFSSocketPath(volumeName string) string {
-	socketName := fmt.Sprintf("%s.sock", volumeName)
-	return filepath.Join(virtiofs.VirtioFSContainersMountBaseDir, socketName)
-}
-
 func generateContainerFromVolume(volume *v1.Volume, image string) k8sv1.Container {
 	resources := resourcesForVirtioFSContainer(false, false)
 
-	socketPathArg := fmt.Sprintf("--socket-path=%s", VirtioFSSocketPath(volume.Name))
+	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("source=%s", virtioFSMountPoint(volume.Name))
 	args := []string{socketPathArg, "-o", sourceArg, "-o", "sandbox=chroot", "-o", "xattr", "-o", "xattrmap=:map::user.virtiofsd.:"}
 
