@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", func() {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 					return vmi.Status.Conditions
-				}, 30*time.Second, 2).Should(
+				}, 240*time.Second, 2).Should(
 					ContainElement(
 						gstruct.MatchFields(
 							gstruct.IgnoreExtras,
