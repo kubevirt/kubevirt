@@ -1560,39 +1560,82 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[Serial]using defaultRuntimeClass configuration", Serial, func() {
-			var runtimeClassName string
+		Context("[Serial]using RuntimeClass configuration", Serial, func() {
+			var defaultRuntimeClassName, runtimeClassName string
 
 			BeforeEach(func() {
 				// use random runtime class to avoid collisions with cleanup where a
 				// runtime class is still in the process of being deleted because pod
 				// cleanup is still in progress
+				defaultRuntimeClassName = "fake-default-runtime-class" + "-" + rand.String(5)
+				By("Creating a runtime class for default VMIs")
+				Expect(createRuntimeClass(defaultRuntimeClassName, "fake-handler")).To(Succeed())
+
 				runtimeClassName = "fake-runtime-class" + "-" + rand.String(5)
-				By("Creating a runtime class")
+				By("Creating a runtime class for specific VMIs")
 				Expect(createRuntimeClass(runtimeClassName, "fake-handler")).To(Succeed())
 			})
 
 			AfterEach(func() {
-				By("Cleaning up runtime class")
+				By("Cleaning up runtime classes")
+				Expect(deleteRuntimeClass(defaultRuntimeClassName)).To(Succeed())
 				Expect(deleteRuntimeClass(runtimeClassName)).To(Succeed())
 			})
 
-			It("should apply runtimeClassName to pod when set", func() {
-				By("Configuring a default runtime class")
-				config := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-				config.DefaultRuntimeClass = runtimeClassName
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
-
-				By("Creating a new VMI")
+			It("should set the VMI spec runtimeClassName on the pod", func() {
+				By("Creating a new VMI with specific RuntimeClassName")
 				vmi := tests.NewRandomVMI()
+				vmi.Spec.RuntimeClassName = &runtimeClassName
 				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
 				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
 				vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
 
-				By("Checking for presence of runtimeClassName")
+				By("Checking for presence of VMI spec runtimeClassName")
 				pod := tests.GetPodByVirtualMachineInstance(vmi)
 				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
 				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
+			})
+
+			Context("and a defaultRuntimeClassName is set on Kubevirt CR", func() {
+				BeforeEach(func() {
+					By("Configuring a default runtime class on Kubevirt CR")
+					config := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+					config.DefaultRuntimeClass = defaultRuntimeClassName
+					tests.UpdateKubeVirtConfigValueAndWait(*config)
+				})
+				AfterEach(func() {
+					By("Cleaning up default runtime class on Kubevirt CR")
+					config := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+					config.DefaultRuntimeClass = ""
+					tests.UpdateKubeVirtConfigValueAndWait(*config)
+				})
+
+				It("should apply default defaultRuntimeClassName to pod when not set on the VMI spec", func() {
+					By("Creating a new VMI")
+					vmi := tests.NewRandomVMI()
+					// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
+					wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
+					vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
+
+					By("Checking for presence of defaultRuntimeClassName")
+					pod := tests.GetPodByVirtualMachineInstance(vmi)
+					Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
+					Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(defaultRuntimeClassName))
+				})
+
+				It("should override the default defaultRuntimeClassName on the pod", func() {
+					By("Creating a new VMI with specific RuntimeClassName")
+					vmi := tests.NewRandomVMI()
+					vmi.Spec.RuntimeClassName = &runtimeClassName
+					// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
+					wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
+					vmi = tests.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
+
+					By("Checking for presence of VMI spec runtimeClassName")
+					pod := tests.GetPodByVirtualMachineInstance(vmi)
+					Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
+					Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
+				})
 			})
 		})
 		It("should not apply runtimeClassName to pod when not set", func() {
