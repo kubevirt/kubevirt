@@ -2,6 +2,7 @@ package heartbeat
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -9,6 +10,8 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes/fake"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -45,14 +48,54 @@ var _ = Describe("Heartbeat", func() {
 				node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return node.Labels
-			}).Should(And(
-				HaveKeyWithValue(virtv1.NodeSchedulable, "true"),
-			))
+			}).Should(HaveKeyWithValue(virtv1.NodeSchedulable, "true"))
 			close(stopChan)
 			<-done
 			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, "false"))
+		})
+	})
+
+	Context("when node is tainted with NoSchedule", func() {
+		It("should keep node as not schedulable", func() {
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode")
+			stopChan := make(chan struct{})
+			heartbeat.Run(30*time.Second, stopChan)
+
+			By("Ensuring the node is schedulable")
+			Eventually(func() map[string]string {
+				node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return node.Labels
+			}).Should(HaveKeyWithValue(virtv1.NodeSchedulable, "true"))
+
+			By("Tainting node with NoSchedule")
+			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			old, err := json.Marshal(node)
+			Expect(err).ToNot(HaveOccurred())
+			new := node.DeepCopy()
+			new.Spec.Taints = append(new.Spec.Taints, v1.Taint{
+				Key:    "node-role.kubernetes.io/master",
+				Effect: v1.TaintEffectNoSchedule,
+			})
+
+			newJson, err := json.Marshal(new)
+			Expect(err).ToNot(HaveOccurred())
+
+			dataBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = fakeClient.CoreV1().Nodes().Patch(context.Background(), "mynode", types.StrategicMergePatchType, dataBytes, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() map[string]string {
+				node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return node.Labels
+			}, 2*time.Minute).Should(HaveKeyWithValue(virtv1.NodeSchedulable, "false"))
 		})
 	})
 

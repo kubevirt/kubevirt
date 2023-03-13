@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -103,6 +104,22 @@ func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
 	return done
 }
 
+func (h *HeartBeat) hasNoScheduleTaint() bool {
+	node, err := h.clientset.Nodes().Get(context.Background(), h.host, metav1.GetOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Can't get node %s", h.host)
+		return false
+	}
+
+	for _, taint := range node.Spec.Taints {
+		if taint.Effect == k8sv1.TaintEffectNoSchedule {
+			return true
+		}
+	}
+
+	return false
+}
+
 // waitForDevicePlugins gives the device plugins additional time to successfully connect to the kubelet.
 // If the connection can not be established it just delays the heartbeat start for devicePluginWaitTimeout.
 func (h *HeartBeat) waitForDevicePlugins(stopCh chan struct{}) {
@@ -124,7 +141,7 @@ func (h *HeartBeat) do() {
 	}
 
 	kubevirtSchedulable := "true"
-	if !h.deviceManagerController.Initialized() {
+	if !h.deviceManagerController.Initialized() || h.hasNoScheduleTaint() {
 		kubevirtSchedulable = "false"
 	}
 
