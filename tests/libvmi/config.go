@@ -68,6 +68,34 @@ func WithDownwardAPIDisk(name string) Option {
 	}
 }
 
+func WithConfigMapFs(configMapName, volumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newConfigMapVolume(configMapName, volumeName, ""))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, newVirtiofsFilesystem(volumeName))
+	}
+}
+
+func WithSecretFs(secretName, volumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newSecretVolume(secretName, volumeName, ""))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, newVirtiofsFilesystem(volumeName))
+	}
+}
+
+func WithServiceAccountFs(serviceAccountName, volumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newServiceAccountVolume(serviceAccountName, volumeName))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, newVirtiofsFilesystem(volumeName))
+	}
+}
+
+func WithDownwardAPIFs(name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, newDownwardAPIVolume(name))
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, newVirtiofsFilesystem(name))
+	}
+}
+
 func newSecretVolume(secretName, volumeName, label string) v1.Volume {
 	return v1.Volume{
 		Name: volumeName,
