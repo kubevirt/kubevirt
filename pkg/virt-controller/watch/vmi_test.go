@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"k8s.io/utils/pointer"
@@ -3245,24 +3247,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("VMI without interfaces on spec does not generate new interface status", api.NewMinimalVMI(vmName)),
 				Entry("VMI with an interface on spec (not matched on status) generates new interface status",
 					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-					PodVmIfaceStatus{
-						vmIfaceStatus: &v1.VirtualMachineInstanceNetworkInterface{Name: ifaceName},
-					}),
+					PodVmIfaceStatus{}),
 				Entry("VMI with an interface on spec (matched on status) does not generate new interface status",
 					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), ifaceName),
 					PodVmIfaceStatus{
 						vmIfaceStatus: simpleIfaceStatus(ifaceName),
 					}),
 				Entry("VMI with an interface on spec (matched on status) with the pod interface ready",
-					newVMIWithOneIfaceStatus(
-						newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
-						ifaceName,
-					),
+					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
 					PodVmIfaceStatus{
 						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
 						podIfaceStatus: &networkv1.NetworkStatus{
 							Name:      "meganet",
 							Interface: "net1",
+						},
+					}),
+				Entry("VMI with a guest agent interface",
+					newVMIWithGuestAgentInterface(
+						newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
+						ifaceName,
+					),
+					PodVmIfaceStatus{
+						vmIfaceStatus: &virtv1.VirtualMachineInstanceNetworkInterface{
+							InterfaceName: ifaceName,
+							InfoSource:    vmispec.InfoSourceGuestAgent,
 						},
 					}))
 		})
@@ -3573,7 +3581,14 @@ func readyHotpluggedIfaceStatus(
 ) *virtv1.VirtualMachineInstanceNetworkInterface {
 	return &virtv1.VirtualMachineInstanceNetworkInterface{
 		Name:          ifaceName,
-		InterfaceName: ifaceName,
 		PodConfigDone: true,
 	}
+}
+
+func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName string) *virtv1.VirtualMachineInstance {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
+		InterfaceName: ifaceName,
+		InfoSource:    vmispec.InfoSourceGuestAgent,
+	})
+	return vmi
 }

@@ -2216,16 +2216,13 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 }
 
 func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	originalVMIStatus := vmi.Status.DeepCopy().Interfaces
-	indexedVMIStatus := indexIfaceStatus(originalVMIStatus)
+	indexedVMIStatus := indexIfaceStatus(vmi.Status.Interfaces)
 
-	var newStatus []virtv1.VirtualMachineInstanceNetworkInterface
 	ifaceNamingScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 	indexedPodIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
 	for _, network := range vmi.Spec.Networks {
-		status := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name}
-		if existingIfaceStatus, ok := indexedVMIStatus[network.Name]; ok {
-			status = existingIfaceStatus
+		if _, alreadyPresentInVMIStatus := indexedVMIStatus[network.Name]; alreadyPresentInVMIStatus {
+			continue
 		}
 
 		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
@@ -2233,13 +2230,17 @@ func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance
 			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		if _, found := indexedPodIfaces[podIfaceName]; found {
-			status.PodConfigDone = true
+		if _, isPodInterfaceAvailable := indexedPodIfaces[podIfaceName]; !isPodInterfaceAvailable {
+			continue
 		}
-		newStatus = append(newStatus, status)
+		status := virtv1.VirtualMachineInstanceNetworkInterface{
+			Name:          network.Name,
+			PodConfigDone: true,
+		}
+
+		vmi.Status.Interfaces = append(vmi.Status.Interfaces, status)
 	}
 
-	vmi.Status.Interfaces = newStatus
 	return nil
 }
 
