@@ -72,7 +72,7 @@ func WithCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
 // WithFilesystemPVC specifies a filesystem backed by a PVC to be used.
 func WithFilesystemPVC(claimName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addFilesystem(vmi, newFilesystem(claimName))
+		addFilesystem(vmi, newVirtiofsFilesystem(claimName))
 		addVolume(vmi, newPersistentVolumeClaimVolume(claimName, claimName))
 	}
 }
@@ -80,7 +80,7 @@ func WithFilesystemPVC(claimName string) Option {
 // WithFilesystemDV specifies a filesystem backed by a DV to be used.
 func WithFilesystemDV(dataVolumeName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		addFilesystem(vmi, newFilesystem(dataVolumeName))
+		addFilesystem(vmi, newVirtiofsFilesystem(dataVolumeName))
 		addVolume(vmi, newDataVolume(dataVolumeName, dataVolumeName))
 	}
 }
@@ -163,7 +163,7 @@ func newCDRom(name string, bus v1.DiskBus) v1.Disk {
 	}
 }
 
-func newFilesystem(name string) v1.Filesystem {
+func newVirtiofsFilesystem(name string) v1.Filesystem {
 	return v1.Filesystem{
 		Name:     name,
 		Virtiofs: &v1.FilesystemVirtiofs{},
