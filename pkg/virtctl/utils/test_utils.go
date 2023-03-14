@@ -166,10 +166,10 @@ func GetVMEStatus(volumes []exportv1.VirtualMachineExportVolume, secretName stri
 	}
 }
 
-func WaitExportCompleteDefault(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration, string) error {
+func WaitExportCompleteDefault(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration) error {
 	return nil
 }
 
-func WaitExportCompleteError(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration, string) error {
+func WaitExportCompleteError(kubecli.KubevirtClient, *vmexport.VMExportInfo, time.Duration, time.Duration) error {
 	return fmt.Errorf("processing failed: Test error")
 }
