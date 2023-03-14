@@ -484,7 +484,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
 			})
 
-			It("vmi with an hotplugged interface has connectivity over the secondary network", func() {
+			It("vmi with an hotplugged interface has connectivity over the secondary network", decorators.InPlaceHotplugNICs, func() {
 				By("Creating another VM with only the masquerade interface")
 				vmiOne := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
