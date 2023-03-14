@@ -1263,10 +1263,14 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 func UpdateVeleroBackupHookPodAnnotations(vmi *v1.VirtualMachineInstance, podAnnotations map[string]string) {
 	if !guestAgentConnected(vmi) {
-		podAnnotations[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-		podAnnotations[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = ""
-		podAnnotations[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-		podAnnotations[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = ""
+		for _, key := range []string{
+			VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION,
+			VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION,
+			VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION,
+			VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION,
+		} {
+			delete(podAnnotations, key)
+		}
 	} else {
 		podAnnotations[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
 		podAnnotations[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(

@@ -813,6 +813,46 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 	})
 
+	Context("with velero backup hook annotaion", func() {
+		It("should got empty hook command when GuestAgent is not connected", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			prependInjectPodPatch(pod)
+			controller.Execute()
+			Expect(pod.Annotations).ToNot(HaveKey(services.VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION))
+			Expect(pod.Annotations).ToNot(HaveKey(services.VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION))
+			Expect(pod.Annotations).ToNot(HaveKey(services.VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION))
+			Expect(pod.Annotations).ToNot(HaveKey(services.VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION))
+		})
+		It("should got freeze hook command when GuestAgent is connected", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:          virtv1.VirtualMachineInstanceAgentConnected,
+				LastProbeTime: metav1.Now(),
+				Status:        k8sv1.ConditionTrue,
+			})
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+
+			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+			prependInjectPodPatch(pod)
+			controller.Execute()
+			Expect(pod.Annotations).To(HaveKeyWithValue(services.VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION, "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"default\"]"))
+			Expect(pod.Annotations).To(HaveKeyWithValue(services.VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION, "compute"))
+			Expect(pod.Annotations).To(HaveKeyWithValue(services.VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION, "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"default\"]"))
+			Expect(pod.Annotations).To(HaveKeyWithValue(services.VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION, "compute"))
+		})
+	})
+
 	Context("On valid VirtualMachineInstance given", func() {
 		It("should create a corresponding Pod on VirtualMachineInstance creation", func() {
 			vmi := NewPendingVirtualMachine("testvmi")

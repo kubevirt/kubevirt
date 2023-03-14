@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -757,6 +758,20 @@ func preparePodPatch(oldPod, newPod *k8sv1.Pod) ([]byte, error) {
 		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
 	}
 
+	if !reflect.DeepEqual(oldPod.Annotations, newPod.Annotations) {
+		newAnnotations, err := json.Marshal(newPod.Annotations)
+		if err != nil {
+			return nil, err
+		}
+		oldAnnotations, err := json.Marshal(oldPod.Annotations)
+		if err != nil {
+			return nil, err
+		}
+
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s }`, string(oldAnnotations)))
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s }`, string(newAnnotations)))
+	}
+
 	if len(patchOps) == 0 {
 		return nil, nil
 	}
@@ -1216,16 +1231,35 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		if pod.DeletionTimestamp == nil {
-			newAnnotations := pod.ObjectMeta.DeepCopy().Annotations
-			services.UpdateVeleroBackupHookPodAnnotations(vmi, newAnnotations)
-			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
-			if err != nil {
-				return &syncErrorImpl{err, FailedPodPatchReason}
+			if patchedPod, err := c.syncVeleroBackupHookAnnotation(vmi, pod); err != nil {
+				return &syncErrorImpl{fmt.Errorf("failed to sync velero backup hook pod annotations: %v", err), FailedPodPatchReason}
+			} else {
+				*pod = *patchedPod
 			}
-			*pod = *patchedPod
 		}
 	}
 	return nil
+}
+
+func (c *VMIController) syncVeleroBackupHookAnnotation(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
+	podCopy := pod.DeepCopy()
+	services.UpdateVeleroBackupHookPodAnnotations(vmi, podCopy.Annotations)
+	patchBytes, err := preparePodPatch(pod, podCopy)
+	if err != nil {
+		return nil, fmt.Errorf("error preparing pod patch: %v", err)
+	} else if len(patchBytes) == 0 {
+		return pod, nil
+	}
+
+	log.Log.V(3).Object(pod).Infof("Patching pod annotations")
+
+	patchedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, []byte(patchBytes), v1.PatchOptions{})
+	if err != nil {
+		log.Log.Object(pod).Errorf("Patching of pod annotations failed: %v", err)
+		return nil, fmt.Errorf("patching of pod annotations failed: %v", err)
+	}
+
+	return patchedPod, nil
 }
 
 func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, syncError) {
