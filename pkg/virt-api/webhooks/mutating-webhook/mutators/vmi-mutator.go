@@ -177,5 +177,5 @@ func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
 	if vmi.Spec.NodeSelector == nil {
 		vmi.Spec.NodeSelector = map[string]string{}
 	}
-	vmi.Spec.NodeSelector[label] = ""
+	vmi.Spec.NodeSelector[label] = "true"
 }

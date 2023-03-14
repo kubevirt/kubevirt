@@ -311,11 +311,11 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 		n.logger.Reason(err).Error("failed to identify if a node is capable of running realtime workloads")
 	}
 	if capable {
-		newLabels[kubevirtv1.RealtimeLabel] = ""
+		newLabels[kubevirtv1.RealtimeLabel] = "true"
 	}
 
 	if n.SEV.Supported == "yes" {
-		newLabels[kubevirtv1.SEVLabel] = ""
+		newLabels[kubevirtv1.SEVLabel] = "true"
 	}
 
 	return newLabels

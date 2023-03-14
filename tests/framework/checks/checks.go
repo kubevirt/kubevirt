@@ -33,10 +33,8 @@ func IsCPUManagerPresent(node *v1.Node) bool {
 
 func IsRealtimeCapable(node *v1.Node) bool {
 	gomega.Expect(node).ToNot(gomega.BeNil())
-	for label, _ := range node.Labels {
-		if label == v12.RealtimeLabel {
-			return true
-		}
+	if val, ok := node.Labels[v12.RealtimeLabel]; ok && val == "true" {
+		return true
 	}
 	return false
 }
@@ -67,10 +65,8 @@ func HasFeature(feature string) bool {
 
 func IsSEVCapable(node *v1.Node) bool {
 	gomega.Expect(node).ToNot(gomega.BeNil())
-	for label, _ := range node.Labels {
-		if label == v12.SEVLabel {
-			return true
-		}
+	if val, ok := node.Labels[v12.SEVLabel]; ok && val == "true" {
+		return true
 	}
 	return false
 }

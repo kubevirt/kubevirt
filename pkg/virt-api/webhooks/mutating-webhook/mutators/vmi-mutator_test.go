@@ -1041,7 +1041,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.RealtimeLabel: ""}))
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.RealtimeLabel: "true"}))
 	})
 	It("should not add realtime node label selector when no realtime workload", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: nil}
@@ -1053,14 +1053,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: "true"}))
 	})
 
 	It("should add SEV node label selector with SEV workload", func() {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.SEVLabel: ""}))
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.SEVLabel: "true"}))
 	})
 
 	It("should not add SEV node label selector when no SEV workload", func() {
@@ -1074,6 +1074,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
+		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: "true"}))
 	})
 })
