@@ -47,15 +47,15 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 		case *instancetypev1alpha2.VirtualMachineInstancetype:
 			ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachineInstancetype to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineInstancetype"))
-			clusterInstancetype, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), (*instancetypev1alpha2.VirtualMachineClusterInstancetype)(obj), metav1.CreateOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			return &clusterInstancetype.Spec, nil
-		case *instancetypev1alpha2.VirtualMachineClusterInstancetype:
-			ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterInstancetype to be created")
-			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterInstancetype"))
 			instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), (*instancetypev1alpha2.VirtualMachineInstancetype)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &instancetype.Spec, nil
+		case *instancetypev1alpha2.VirtualMachineClusterInstancetype:
+			ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterInstancetype to be created")
+			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterInstancetype"))
+			clusterInstancetype, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), (*instancetypev1alpha2.VirtualMachineClusterInstancetype)(obj), metav1.CreateOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			return &clusterInstancetype.Spec, nil
 		default:
 			return nil, fmt.Errorf("object must be VirtualMachineInstance or VirtualMachineClusterInstancetype")
 		}
