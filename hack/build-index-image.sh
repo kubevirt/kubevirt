@@ -31,6 +31,10 @@ function create_index_image() {
     mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${CURRENT_VERSION}-unstable
     CURRENT_VERSION=${CURRENT_VERSION}-unstable
     PREV_VERSION=${PREV_VERSION}-unstable
+  elif [[ "${UNSTABLE}" == "FBCUNSTABLE" ]]; then
+    mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${CURRENT_VERSION}-fbc-unstable
+    CURRENT_VERSION=${CURRENT_VERSION}-fbc-unstable
+    PREV_VERSION=${PREV_VERSION}-fbc-unstable
   fi
   BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
   INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
@@ -46,6 +50,8 @@ function create_index_image() {
     # Currently, ci-operator does not support index images with file-based catalogs.
     # To maintain CI functionality, we'll keep using SQLite-based catalogs for the unstable tags
     # until FBC handling will be implemented in openshift ci-operator.
+    # With FBCUNSTABLE the unstable index image will be built as FBC based and named
+    # -fbc-unstable to enable the transition to FBC only
     # shellcheck disable=SC2086
     ${OPM} index add --bundles "${BUNDLE_IMAGE_NAME}" ${INDEX_IMAGE_PARAM} --tag "${INDEX_IMAGE_NAME}" -u podman --mode semver
   else
