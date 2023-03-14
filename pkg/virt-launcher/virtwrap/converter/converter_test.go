@@ -3309,6 +3309,35 @@ var _ = Describe("Converter", func() {
 			expectTsc(domain, false)
 		})
 	})
+
+	Context("with MemoryOverCommitment", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		})
+
+		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(memoryOverCommitment *cmdv1.MemoryOverCommitment, expectedValue string) {
+			c = &ConverterContext{
+				MemoryOverCommitment: memoryOverCommitment,
+				AllowEmulation:       true,
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedValue))
+		},
+			Entry("when true", &cmdv1.MemoryOverCommitment{FreePageReporting: true}, "on"),
+			Entry("when false", &cmdv1.MemoryOverCommitment{FreePageReporting: false}, "off"),
+			Entry("when empty", &cmdv1.MemoryOverCommitment{}, "off"),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {

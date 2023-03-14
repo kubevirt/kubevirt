@@ -232,6 +232,65 @@ var _ = Describe("test configuration", func() {
 		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
 	)
 
+	Context("when memoryOverCommitmentProfile", func() {
+		var (
+			strategyBaseline = v1.Baseline
+			strategyOff      = v1.Off
+			strategyInsecure = v1.Insecure
+		)
+
+		testComputeMemoryOverCommitment := func(memoryOverCommitmentProfile *v1.MemoryOverCommitmentProfile, result *v1.MemoryOverCommitment) {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MemoryOverCommitmentProfile: memoryOverCommitmentProfile,
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: "Deployed",
+				},
+			})
+			computedMemoryOverCommitment := clusterConfig.ComputeMemoryOverCommitment()
+			Expect(computedMemoryOverCommitment).To(BeEquivalentTo(result))
+		}
+
+		It("is not specified, ComputeMemoryOverCommitment should return nil", func() {
+			testComputeMemoryOverCommitment(nil, nil)
+		})
+
+		DescribeTable("with Strategy", func(memoryOverCommitmentProfile *v1.MemoryOverCommitmentProfile, result *v1.MemoryOverCommitment) {
+			testComputeMemoryOverCommitment(memoryOverCommitmentProfile, result)
+		},
+			Entry("Baseline, ComputeMemoryOverCommitment should return MemoryOverCommitment with freePageReporting enabled",
+				&v1.MemoryOverCommitmentProfile{Strategy: &strategyBaseline},
+				&v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(true)}),
+			Entry("Off, ComputeMemoryOverCommitment should return MemoryOverCommitment with freePageReporting enabled",
+				&v1.MemoryOverCommitmentProfile{Strategy: &strategyOff},
+				&v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(true)}),
+			Entry("Insecure, ComputeMemoryOverCommitment should return MemoryOverCommitment with freePageReporting enabled",
+				&v1.MemoryOverCommitmentProfile{Strategy: &strategyInsecure},
+				&v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(true)}),
+		)
+
+		DescribeTable("with Custom", func(memoryOverCommitmentProfile *v1.MemoryOverCommitmentProfile, result *v1.MemoryOverCommitment) {
+			testComputeMemoryOverCommitment(memoryOverCommitmentProfile, result)
+		},
+			Entry("with no freePageReporting specified, ComputeMemoryOverCommitment should return MemoryOverCommitment with freePageReporting empty",
+				&v1.MemoryOverCommitmentProfile{Custom: &v1.MemoryOverCommitment{}},
+				&v1.MemoryOverCommitment{}),
+			Entry("with freePageReporting true, ComputeMemoryOverCommitment should return MemoryOverCommitment with freePageReporting enabled",
+				&v1.MemoryOverCommitmentProfile{Custom: &v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(true)}},
+				&v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(true)}),
+			Entry("with freePageReporting false, ComputeMemoryOverCommitment should return MemoryOverCommitment with freePageReporting disabled",
+				&v1.MemoryOverCommitmentProfile{Custom: &v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(false)}},
+				&v1.MemoryOverCommitment{FreePageReporting: pointer.Bool(false)}),
+		)
+	})
+
 	// deprecated
 	DescribeTable(" when supportedGuestAgentVersions", func(value []string, result []string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{

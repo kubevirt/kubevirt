@@ -104,7 +104,7 @@ var _ = Describe("Manager", func() {
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
 	})
 
-	expectedDomainFor := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+	expectedDomainFor := func(vmi *v1.VirtualMachineInstance, memoryOverCommitment *cmdv1.MemoryOverCommitment) *api.DomainSpec {
 		domain := &api.Domain{}
 		hotplugVolumes := make(map[string]v1.VolumeStatus)
 		permanentVolumes := make(map[string]v1.VolumeStatus)
@@ -116,6 +116,10 @@ var _ = Describe("Manager", func() {
 			}
 		}
 
+		if memoryOverCommitment == nil {
+			memoryOverCommitment = &cmdv1.MemoryOverCommitment{}
+		}
+
 		c := &converter.ConverterContext{
 			Architecture:         runtime.GOARCH,
 			VirtualMachine:       vmi,
@@ -123,7 +127,7 @@ var _ = Describe("Manager", func() {
 			SMBios:               &cmdv1.SMBios{},
 			HotplugVolumes:       hotplugVolumes,
 			PermanentVolumes:     permanentVolumes,
-			MemoryOverCommitment: &cmdv1.MemoryOverCommitment{},
+			MemoryOverCommitment: memoryOverCommitment,
 		}
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -138,7 +142,7 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
@@ -159,7 +163,7 @@ var _ = Describe("Manager", func() {
 			vmi.Spec.StartStrategy = &strategy
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
@@ -181,7 +185,7 @@ var _ = Describe("Manager", func() {
 			userData := "fake\nuser\ndata\n"
 			networkData := ""
 			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
@@ -201,7 +205,7 @@ var _ = Describe("Manager", func() {
 			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
@@ -217,7 +221,7 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -234,7 +238,7 @@ var _ = Describe("Manager", func() {
 				// Make sure that we always free the domain after use
 				mockDomain.EXPECT().Free()
 				vmi := newVMI(testNamespace, testVmName)
-				domainSpec := expectedDomainFor(vmi)
+				domainSpec := expectedDomainFor(vmi, nil)
 				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 				Expect(err).NotTo(HaveOccurred())
 
@@ -256,7 +260,7 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -273,7 +277,7 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).NotTo(HaveOccurred())
 
@@ -514,7 +518,7 @@ var _ = Describe("Manager", func() {
 				},
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			domainSpec.Devices.Disks = []api.Disk{
 				{
 					Device: "disk",
@@ -616,7 +620,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
@@ -745,7 +749,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			detachDisk := api.Disk{
@@ -855,7 +859,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
@@ -934,7 +938,7 @@ var _ = Describe("Manager", func() {
 				return false, nil
 			}
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
 			checkIfDiskReadyToUse = func(filename string) (bool, error) {
@@ -971,6 +975,124 @@ var _ = Describe("Manager", func() {
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
+		})
+		Context(", freePageReporting", func() {
+			DescribeTable("should be", func(clusterMemoryOverCommitment *cmdv1.MemoryOverCommitment, vmiMemory *v1.Memory, expectedFreePageReporting bool) {
+				var (
+					expectedDomainMemoryOverCommitment *cmdv1.MemoryOverCommitment
+					expectedXMLValue                   string
+				)
+				if expectedFreePageReporting {
+					expectedDomainMemoryOverCommitment = &cmdv1.MemoryOverCommitment{FreePageReporting: true}
+					expectedXMLValue = "on"
+				} else {
+					expectedDomainMemoryOverCommitment = &cmdv1.MemoryOverCommitment{FreePageReporting: false}
+					expectedXMLValue = "off"
+				}
+
+				mockDomain.EXPECT().Free()
+				vmi := newVMI(testNamespace, testVmName)
+				vmi.Spec.Domain.Memory = vmiMemory
+				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				domainSpec := expectedDomainFor(vmi, expectedDomainMemoryOverCommitment)
+				xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+				Expect(err).ToNot(HaveOccurred())
+				checkIfDiskReadyToUse = func(filename string) (bool, error) {
+					Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "hpvolume1.img")))
+					return true, nil
+				}
+				mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).Return(mockDomain, nil)
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+				mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain), nil)
+				manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache)
+				newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, MemoryOverCommitment: clusterMemoryOverCommitment})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newspec).ToNot(BeNil())
+				Expect(newspec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedXMLValue))
+			},
+				Entry("disabled if both cluster and vmi MemoryOverCommitment is not specified",
+					nil,
+					nil,
+					false,
+				),
+				Entry("enabled if cluster freePageReporting is true, and vmi one is not specified",
+					&cmdv1.MemoryOverCommitment{
+						FreePageReporting: true,
+					},
+					nil,
+					true,
+				),
+				Entry("disabled if cluster freePageReporting is false, and vmi one is not specified",
+					&cmdv1.MemoryOverCommitment{
+						FreePageReporting: false,
+					},
+					nil,
+					false,
+				),
+				Entry("enabled if cluster freePageReporting is not specified, and vmi one is true",
+					nil,
+					&v1.Memory{
+						MemoryOverCommitment: &v1.MemoryOverCommitment{
+							FreePageReporting: pointer.Bool(true),
+						},
+					},
+					true,
+				),
+				Entry("disabled if cluster freePageReporting is not specified, and vmi one is false",
+					nil,
+					&v1.Memory{
+						MemoryOverCommitment: &v1.MemoryOverCommitment{
+							FreePageReporting: pointer.Bool(false),
+						},
+					},
+					false,
+				),
+				Entry("enabled if cluster freePageReporting is true, and vmi one is true",
+					&cmdv1.MemoryOverCommitment{
+						FreePageReporting: true,
+					},
+					&v1.Memory{
+						MemoryOverCommitment: &v1.MemoryOverCommitment{
+							FreePageReporting: pointer.Bool(true),
+						},
+					},
+					true,
+				),
+				Entry("disabled if cluster freePageReporting is true, and vmi one is false",
+					&cmdv1.MemoryOverCommitment{
+						FreePageReporting: true,
+					},
+					&v1.Memory{
+						MemoryOverCommitment: &v1.MemoryOverCommitment{
+							FreePageReporting: pointer.Bool(false),
+						},
+					},
+					false,
+				),
+				Entry("enabled if cluster freePageReporting is false, and vmi one is true",
+					&cmdv1.MemoryOverCommitment{
+						FreePageReporting: false,
+					},
+					&v1.Memory{
+						MemoryOverCommitment: &v1.MemoryOverCommitment{
+							FreePageReporting: pointer.Bool(true),
+						},
+					},
+					true,
+				),
+				Entry("disabled if cluster freePageReporting is false, and vmi one is false",
+					&cmdv1.MemoryOverCommitment{
+						FreePageReporting: false,
+					},
+					&v1.Memory{
+						MemoryOverCommitment: &v1.MemoryOverCommitment{
+							FreePageReporting: pointer.Bool(false),
+						},
+					},
+					false,
+				),
+			)
 		})
 	})
 	Context("test marking graceful shutdown", func() {
@@ -1402,7 +1524,7 @@ var _ = Describe("Manager", func() {
 			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
@@ -1669,7 +1791,7 @@ var _ = Describe("Manager", func() {
 
 			vmi := newVMI(testNamespace, testVmName)
 
-			domainSpec := expectedDomainFor(vmi)
+			domainSpec := expectedDomainFor(vmi, nil)
 
 			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
@@ -1771,7 +1893,7 @@ var _ = Describe("Manager", func() {
 				}},
 		)
 
-		domainSpec := expectedDomainFor(vmi)
+		domainSpec := expectedDomainFor(vmi, nil)
 		xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 		Expect(err).NotTo(HaveOccurred())
 
