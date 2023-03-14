@@ -32,7 +32,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -43,17 +42,13 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = SIGDescribe("nic-hotplug", Serial, func() {
+var _ = SIGDescribe("nic-hotplug", func() {
 	const (
 		bridgeName  = "supadupabr"
 		ifaceName   = "iface1"
 		networkName = "skynet"
 		vmIfaceName = "eth1"
 	)
-
-	BeforeEach(func() {
-		tests.EnableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
-	})
 
 	Context("a running VMI", func() {
 		var vmi *v1.VirtualMachineInstance
