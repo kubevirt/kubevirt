@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -757,6 +758,50 @@ var _ = Describe("Restore controller", func() {
 				controller.processVMRestoreWorkItem()
 				testutils.ExpectEvent(recorder, "VirtualMachineRestoreComplete")
 			})
+
+			DescribeTable("reconcileDataVolumes should", func(dvExists bool, phase cdiv1.DataVolumePhase, expectedRes bool) {
+				r := createRestoreWithOwner()
+				vm := createModifiedVM()
+				setLastRestoreAnnotation(r, vm)
+				pvc := corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:   testNamespace,
+						Name:        vm.Spec.DataVolumeTemplates[0].Name,
+						Annotations: map[string]string{populatedForPVCAnnotation: vm.Spec.DataVolumeTemplates[0].Name},
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						StorageClassName: &storageClassName,
+					},
+				}
+				if dvExists {
+					dv := &cdiv1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      vm.Spec.DataVolumeTemplates[0].Name,
+							Namespace: testNamespace,
+						},
+						Status: cdiv1.DataVolumeStatus{
+							Phase: phase,
+						},
+					}
+					dataVolumeSource.Add(dv)
+					pvc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(dv, schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1beta1", Kind: "DataVolume"})}
+				}
+				pvcSource.Add(&pvc)
+
+				vmRestoreSource.Add(r)
+				addVM(vm)
+				targetVM, err := controller.getTarget(r)
+				Expect(err).ShouldNot(HaveOccurred())
+				targetVM.UpdateTarget(vm)
+				res, err := targetVM.Reconcile()
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(res).To(Equal(expectedRes))
+			},
+				Entry("return false when dv phase succeeded", true, cdiv1.Succeeded, false),
+				Entry("return false when dv phase WFFC", true, cdiv1.WaitForFirstConsumer, false),
+				Entry("return true when dv phase pending", true, cdiv1.Pending, true),
+				Entry("return true when dv doesnt exists", false, cdiv1.PhaseUnset, true),
+			)
 
 			Context("target VM is different than source VM", func() {
 
