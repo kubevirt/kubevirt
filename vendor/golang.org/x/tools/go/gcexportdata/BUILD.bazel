@@ -9,5 +9,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/go/gcexportdata",
     importpath = "golang.org/x/tools/go/gcexportdata",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/golang.org/x/tools/go/internal/gcimporter:go_default_library"],
+    deps = ["//vendor/golang.org/x/tools/internal/gcimporter:go_default_library"],
 )

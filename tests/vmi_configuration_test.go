@@ -754,7 +754,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking if pod memory usage is > 64Mi")
-				Expect(m > 67108864).To(BeTrue(), "67108864 B = 64 Mi")
+				Expect(m).To(BeNumerically(">", 67108864), "67108864 B = 64 Mi")
 			})
 
 		})
@@ -2425,7 +2425,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking if pod memory usage is > 80Mi")
-				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
+				Expect(m).To(BeNumerically(">", 83886080), "83886080 B = 80 Mi")
 			})
 			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
 

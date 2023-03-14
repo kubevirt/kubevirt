@@ -11,5 +11,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/go/analysis",
     importpath = "golang.org/x/tools/go/analysis",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/golang.org/x/tools/internal/analysisinternal:go_default_library"],
 )

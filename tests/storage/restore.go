@@ -984,7 +984,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			verifyRestore := func(restoreToNewVM bool, originalDVName string) {
 				if restoreToNewVM {
 					checkNewVMEquality()
-					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+					Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				} else {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(originalDVName))
@@ -1296,7 +1296,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				if restoreToNewVM {
 					checkNewVMEquality()
-					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(0))
+					Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 				} else {
 					Expect(restore.Status.DeletedDataVolumes).To(HaveLen(1))
 					Expect(restore.Status.DeletedDataVolumes).To(ContainElement(dvName))

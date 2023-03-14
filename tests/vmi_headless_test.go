@@ -130,11 +130,10 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				memDiff := normalComputeContainer.Resources.Requests.Memory()
 				memDiff.Sub(*computeContainer.Resources.Requests.Memory())
 
-				Expect(memDiff.ScaledValue(resource.Mega) > 15).To(BeTrue(),
-					fmt.Sprintf("memory difference between headless (%s) and normal (%s) is %dM, but should be roughly 16M",
-						computeContainer.Resources.Requests.Memory(),
-						normalComputeContainer.Resources.Requests.Memory(),
-						memDiff.ScaledValue(resource.Mega)))
+				Expect(memDiff.ScaledValue(resource.Mega)).To(BeNumerically(">", 15), "memory difference between headless (%s) and normal (%s) is %dM, but should be roughly 16M",
+					computeContainer.Resources.Requests.Memory(),
+					normalComputeContainer.Resources.Requests.Memory(),
+					memDiff.ScaledValue(resource.Mega))
 			})
 
 			It("[test_id:738][posneg:negative]should not connect to VNC", func() {
