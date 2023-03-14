@@ -588,7 +588,7 @@ func (c *VMController) saveCurrentVMICPUCsPatch(vm *virtv1.VirtualMachine, vmi *
 	}
 
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, &v1.PatchOptions{})
-	log.Log.Object(vmi).V(1).Infof("in handleCPUChangeRequest patched: %v", err)
+	log.Log.Object(vmi).V(1).Infof("in saveCurrentVMICPUCsPatch patched: %v", err)
 
 	newJson, err := json.Marshal(vm.Spec.Template.Spec.Domain.CPU)
 	if err != nil {
@@ -609,10 +609,10 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	log.Log.Object(vm).V(1).Infof("in handleCPUChangeRequest, VMCPU %v, VMICPU: %v", vm.Spec.Template.Spec.Domain.CPU, vmi.Spec.Domain.CPU)
-	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU == nil {
+	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi == nil || vmi.Spec.Domain.CPU == nil {
 		return nil
 	}
+	log.Log.Object(vm).V(1).Infof("in handleCPUChangeRequest, VMCPU %v, VMICPU: %v", vm.Spec.Template.Spec.Domain.CPU, vmi.Spec.Domain.CPU)
 
 	vmTemplvCPUs := vm.Spec.Template.Spec.Domain.CPU.Sockets * vm.Spec.Template.Spec.Domain.CPU.Cores * vm.Spec.Template.Spec.Domain.CPU.Threads
 	vmiTopology := vmi.Spec.Domain.CPU.Sockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads

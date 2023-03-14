@@ -67,7 +67,7 @@ func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, converterContext *co
 			return err
 		}
 
-		if err := dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); err != nil {
+		if err := dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
 			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", network.Name, err)
 			return err
 		}

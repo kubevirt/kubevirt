@@ -1207,6 +1207,25 @@ func (d *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func (d *VirtualMachineController) updateVCPUs(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) error {
+	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceVCPUChange) {
+		return nil
+	}
+	client, err := d.getVerifiedLauncherClient(vmi)
+	if err != nil {
+		return fmt.Errorf("%s: %v", "failed to get client", err)
+	}
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, map[string]*containerdisk.DiskInfo{}, d.clusterConfig.ExpandDisksEnabled())
+	err = client.SyncVirtualMachineCPUs(vmi, options)
+	if err != nil {
+		return fmt.Errorf("%s: %v", "failed to CPU hotplug", err)
+	}
+	vmi.Status.CurrentCPUTopology = nil
+	condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+
+	return nil
+}
+
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -1253,6 +1272,11 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		return err
 	}
 	d.updatePausedConditions(vmi, domain, condManager)
+	// CPU hotplug
+	err = d.updateVCPUs(vmi, condManager)
+	if err != nil {
+		return err
+	}
 
 	// Handle sync error
 	var criticalNetErr *neterrors.CriticalNetworkError

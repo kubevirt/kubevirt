@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/stringify"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/client-go/log"
@@ -643,4 +645,19 @@ func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (siz
 		}
 	}
 	return 0, "b", false, nil
+}
+
+func GenerateAPIVCPUs(vcpuCount, enabledCpuCount uint32) *api.VCPUs {
+	VCPUs := &api.VCPUs{}
+	for id := uint32(0); id < vcpuCount; id++ {
+		isEnabled := id < enabledCpuCount
+		isHotpluggable := !isEnabled
+		vcpu := api.VCPUsVCPU{
+			ID:           id,
+			Enabled:      stringify.BoolToYesNo(&isEnabled, true),
+			Hotpluggable: stringify.BoolToYesNo(&isHotpluggable, false),
+		}
+		VCPUs.VCPU = append(VCPUs.VCPU, vcpu)
+	}
+	return VCPUs
 }

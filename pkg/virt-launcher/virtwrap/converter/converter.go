@@ -36,6 +36,8 @@ import (
 	"strings"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/stringify"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"golang.org/x/sys/unix"
@@ -1008,29 +1010,29 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 			newTimer := api.Timer{Name: "rtc"}
 			newTimer.Track = string(source.Timer.RTC.Track)
 			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
-			newTimer.Present = boolToYesNo(source.Timer.RTC.Enabled, true)
+			newTimer.Present = stringify.BoolToYesNo(source.Timer.RTC.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.PIT != nil {
 			newTimer := api.Timer{Name: "pit"}
-			newTimer.Present = boolToYesNo(source.Timer.PIT.Enabled, true)
+			newTimer.Present = stringify.BoolToYesNo(source.Timer.PIT.Enabled, true)
 			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.KVM != nil {
 			newTimer := api.Timer{Name: "kvmclock"}
-			newTimer.Present = boolToYesNo(source.Timer.KVM.Enabled, true)
+			newTimer.Present = stringify.BoolToYesNo(source.Timer.KVM.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.HPET != nil {
 			newTimer := api.Timer{Name: "hpet"}
-			newTimer.Present = boolToYesNo(source.Timer.HPET.Enabled, true)
+			newTimer.Present = stringify.BoolToYesNo(source.Timer.HPET.Enabled, true)
 			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.Hyperv != nil {
 			newTimer := api.Timer{Name: "hypervclock"}
-			newTimer.Present = boolToYesNo(source.Timer.Hyperv.Enabled, true)
+			newTimer.Present = stringify.BoolToYesNo(source.Timer.Hyperv.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 	}
@@ -1041,7 +1043,7 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
-			State: boolToOnOff(source.Enabled, true),
+			State: stringify.BoolToOnOff(source.Enabled, true),
 		}
 	}
 	return nil
@@ -1071,13 +1073,13 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 	if source.KVM != nil {
 		features.KVM = &api.FeatureKVM{
 			Hidden: &api.FeatureState{
-				State: boolToOnOff(&source.KVM.Hidden, false),
+				State: stringify.BoolToOnOff(&source.KVM.Hidden, false),
 			},
 		}
 	}
 	if source.Pvspinlock != nil {
 		features.PVSpinlock = &api.FeaturePVSpinlock{
-			State: boolToOnOff(source.Pvspinlock.Enabled, true),
+			State: stringify.BoolToOnOff(source.Pvspinlock.Enabled, true),
 		}
 	}
 	return nil
@@ -1086,13 +1088,13 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) error {
 	if source.Spinlocks != nil {
 		hyperv.Spinlocks = &api.FeatureSpinlocks{
-			State:   boolToOnOff(source.Spinlocks.Enabled, true),
+			State:   stringify.BoolToOnOff(source.Spinlocks.Enabled, true),
 			Retries: source.Spinlocks.Retries,
 		}
 	}
 	if source.VendorID != nil {
 		hyperv.VendorID = &api.FeatureVendorID{
-			State: boolToOnOff(source.VendorID.Enabled, true),
+			State: stringify.BoolToOnOff(source.VendorID.Enabled, true),
 			Value: source.VendorID.VendorID,
 		}
 	}
@@ -1118,12 +1120,12 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 	}
 
 	result := &api.SyNICTimer{
-		State: boolToOnOff(syNICTimer.Enabled, true),
+		State: stringify.BoolToOnOff(syNICTimer.Enabled, true),
 	}
 
 	if syNICTimer.Direct != nil {
 		result.Direct = &api.FeatureState{
-			State: boolToOnOff(syNICTimer.Direct.Enabled, true),
+			State: stringify.BoolToOnOff(syNICTimer.Direct.Enabled, true),
 		}
 	}
 	return result
@@ -1216,18 +1218,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmiCPU.MaxSockets != 0 {
-		VCPUs := &api.VCPUs{}
-		for id := uint32(0); id < cpuCount; id++ {
-			isEnabled := id < enabledCpuCount
-			isHotpluggable := !isEnabled
-			vcpu := api.VCPUsVCPU{
-				ID:           uint32(id),
-				Enabled:      boolToYesNo(&isEnabled, true),
-				Hotpluggable: boolToYesNo(&isHotpluggable, false),
-			}
-			VCPUs.VCPU = append(VCPUs.VCPU, vcpu)
-		}
-		domain.Spec.VCPUs = VCPUs
+		domain.Spec.VCPUs = vcpu.GenerateAPIVCPUs(cpuCount, enabledCpuCount)
 	}
 
 	kvmPath := "/dev/kvm"
@@ -1259,7 +1250,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			domain.Spec.OS.BootLoader = &api.Loader{
 				Path:     c.EFIConfiguration.EFICode,
 				ReadOnly: "yes",
-				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+				Secure:   stringify.BoolToYesNo(&c.EFIConfiguration.SecureLoader, false),
 				Type:     "pflash",
 			}
 
@@ -1846,28 +1837,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func boolToOnOff(value *bool, defaultOn bool) string {
-	return boolToString(value, defaultOn, "on", "off")
-}
-
-func boolToYesNo(value *bool, defaultYes bool) string {
-	return boolToString(value, defaultYes, "yes", "no")
-}
-
-func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
-	toString := func(value bool) string {
-		if value {
-			return positive
-		}
-		return negative
-	}
-
-	if value == nil {
-		return toString(defaultPositive)
-	}
-	return toString(*value)
 }
 
 func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {

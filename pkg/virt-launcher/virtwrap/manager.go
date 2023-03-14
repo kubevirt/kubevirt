@@ -417,6 +417,12 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			useIOThreads = true
 		}
 
+		domain.Spec.CPU.Topology = vcpuTopology
+		vmiCPU := vmi.Spec.Domain.CPU
+		if vmiCPU.MaxSockets != 0 {
+			vcpu.GenerateAPIVCPUs(vcpuCount, vcpuTopology.Sockets*vcpuTopology.Cores*vcpuTopology.Threads)
+		}
+
 		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
