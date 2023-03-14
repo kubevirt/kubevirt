@@ -71,6 +71,7 @@ type restoreTarget interface {
 	Own(obj metav1.Object)
 	UpdateDoneRestore() (bool, error)
 	UpdateRestoreInProgress() error
+	UpdateTarget(obj metav1.Object)
 }
 
 type vmRestoreTarget struct {
@@ -405,6 +406,10 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	return t.reconcileDataVolumes()
 }
 
+func (t *vmRestoreTarget) UpdateTarget(obj metav1.Object) {
+	t.vm = obj.(*kubevirtv1.VirtualMachine)
+}
+
 func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("Reconciling VM")
 
@@ -575,7 +580,7 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	t.vm = newVM
+	t.UpdateTarget(newVM)
 
 	if err = t.claimInstancetypeControllerRevisionsOwnership(t.vm); err != nil {
 		return false, err
@@ -593,7 +598,7 @@ func (t *vmRestoreTarget) reconcileDataVolumes() (bool, error) {
 			return false, err
 		}
 		if dv != nil {
-			waitingDV = dv.Status.Phase != v1beta1.Succeeded
+			waitingDV = dv.Status.Phase != v1beta1.Succeeded && dv.Status.Phase != v1beta1.WaitForFirstConsumer
 			continue
 		}
 		if createdDV, err = t.createDataVolume(dvt); err != nil {
