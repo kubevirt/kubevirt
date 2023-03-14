@@ -2,7 +2,7 @@ package vmexport_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -277,7 +277,6 @@ var _ = Describe("vmexport", func() {
 			Entry("Using 'create' with invalid flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.INSECURE_FLAG, virtctlvmexport.CREATE), []string{virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), virtctlvmexport.INSECURE_FLAG}),
 			Entry("Using 'delete' with export type", virtctlvmexport.ErrIncompatibleExportType, []string{virtctlvmexport.DELETE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test")}),
 			Entry("Using 'delete' with invalid flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.INSECURE_FLAG, virtctlvmexport.DELETE), []string{virtctlvmexport.DELETE, vmexportName, virtctlvmexport.INSECURE_FLAG}),
-			Entry("Using 'download' without required flags", fmt.Sprintf(virtctlvmexport.ErrRequiredFlag, virtctlvmexport.OUTPUT_FLAG, virtctlvmexport.DOWNLOAD), []string{virtctlvmexport.DOWNLOAD, vmexportName}),
 		)
 
 		AfterEach(func() {
@@ -517,13 +516,11 @@ var _ = Describe("vmexport", func() {
 			Expect(err.Error()).Should(Equal(errString))
 		},
 			Entry("No arguments", "argument validation failed"),
-			Entry("Missing arg", "argument validation failed", virtctlvmexport.MANIFEST),
-			Entry("More arguments than expected", "argument validation failed", virtctlvmexport.MANIFEST, virtctlvmexport.DELETE, vmexportName),
-			Entry("Using 'manifest' without export type", virtctlvmexport.ErrSupportedExportType, virtctlvmexport.MANIFEST, vmexportName),
-			Entry("Using 'manifest' with pvc flag", virtctlvmexport.ErrSupportedExportType, virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test")),
-			Entry("Using 'manifest' with output flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.OUTPUT_FLAG, virtctlvmexport.MANIFEST), virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.OUTPUT_FLAG, "file")),
-			Entry("Using 'manifest' with volume type", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.VOLUME_FLAG, virtctlvmexport.MANIFEST), virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.VOLUME_FLAG, "volume")),
-			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),
+			Entry("Missing arg", "argument validation failed", virtctlvmexport.DOWNLOAD, virtctlvmexport.MANIFEST_FLAG),
+			Entry("More arguments than expected", "argument validation failed", virtctlvmexport.DOWNLOAD, virtctlvmexport.DELETE, virtctlvmexport.MANIFEST_FLAG, vmexportName),
+			Entry("Using 'manifest' with pvc flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.PVC_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.PVC_FLAG, "test")),
+			Entry("Using 'manifest' with volume type", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.VOLUME_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.VOLUME_FLAG, "volume")),
+			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),
 		)
 
 		DescribeTable("should successfully create VirtualMachineExport if proper arg supplied", func(arg, headerValue string) {
@@ -532,7 +529,7 @@ var _ = Describe("vmexport", func() {
 				Expect(headers).To(ContainElements(headerValue))
 				resp := http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader("data")),
+					Body:       io.NopCloser(strings.NewReader("data")),
 				}
 				return &resp, nil
 			}
@@ -557,7 +554,7 @@ var _ = Describe("vmexport", func() {
 
 				return true, vme, nil
 			})
-			args := []string{commandName, virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.VM_FLAG, "test")}
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test")}
 			if arg != "" {
 				args = append(args, arg)
 			}
@@ -577,7 +574,7 @@ var _ = Describe("vmexport", func() {
 				calls++
 				resp := http.Response{
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader("data")),
+					Body:       io.NopCloser(strings.NewReader("data")),
 				}
 				return &resp, nil
 			}
@@ -605,7 +602,7 @@ var _ = Describe("vmexport", func() {
 
 				return true, vme, nil
 			})
-			args := []string{commandName, virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.VM_FLAG, "test")}
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test")}
 			if arg != "" {
 				args = append(args, arg)
 			}
@@ -623,7 +620,7 @@ var _ = Describe("vmexport", func() {
 				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
 				resp := http.Response{
 					StatusCode: http.StatusBadRequest,
-					Body:       ioutil.NopCloser(strings.NewReader("")),
+					Body:       io.NopCloser(strings.NewReader("")),
 				}
 				return &resp, nil
 			}
@@ -651,7 +648,7 @@ var _ = Describe("vmexport", func() {
 
 				return true, vme, nil
 			})
-			args := []string{commandName, virtctlvmexport.MANIFEST, vmexportName, setflag(virtctlvmexport.VM_FLAG, "test")}
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test")}
 			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
