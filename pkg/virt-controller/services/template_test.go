@@ -406,9 +406,9 @@ var _ = Describe("Template", func() {
 					"test":                                    "shouldBeInPod",
 					hooks.HookSidecarListAnnotationName:       `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 					"pre.hook.backup.velero.io/container":     "compute",
-					"pre.hook.backup.velero.io/command":       "[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"pre.hook.backup.velero.io/command":       "",
 					"post.hook.backup.velero.io/container":    "compute",
-					"post.hook.backup.velero.io/command":      "[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"testvmi\", \"--namespace\", \"testns\"]",
+					"post.hook.backup.velero.io/command":      "",
 					"kubevirt.io/migrationTransportUnix":      "true",
 					"kubectl.kubernetes.io/default-container": "compute",
 				}))

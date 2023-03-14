@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
@@ -1251,21 +1252,38 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
 		annotationsSet[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
-	annotationsSet[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-	annotationsSet[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
-		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
-		vmi.GetObjectMeta().GetName(),
-		vmi.GetObjectMeta().GetNamespace())
-	annotationsSet[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
-	annotationsSet[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
-		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
-		vmi.GetObjectMeta().GetName(),
-		vmi.GetObjectMeta().GetNamespace())
+
+	UpdateVeleroBackupHookPodAnnotations(vmi, annotationsSet)
 
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
 	return annotationsSet, nil
+}
+
+func UpdateVeleroBackupHookPodAnnotations(vmi *v1.VirtualMachineInstance, podAnnotations map[string]string) {
+	if !guestAgentConnected(vmi) {
+		podAnnotations[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+		podAnnotations[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = ""
+		podAnnotations[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+		podAnnotations[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = ""
+	} else {
+		podAnnotations[VELERO_PREBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+		podAnnotations[VELERO_PREBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+			"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+			vmi.GetObjectMeta().GetName(),
+			vmi.GetObjectMeta().GetNamespace())
+		podAnnotations[VELERO_POSTBACKUP_HOOK_CONTAINER_ANNOTATION] = "compute"
+		podAnnotations[VELERO_POSTBACKUP_HOOK_COMMAND_ANNOTATION] = fmt.Sprintf(
+			"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
+			vmi.GetObjectMeta().GetName(),
+			vmi.GetObjectMeta().GetNamespace())
+	}
+}
+
+func guestAgentConnected(vmi *v1.VirtualMachineInstance) bool {
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	return condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
 }
 
 func lookupMultusDefaultNetworkName(networks []v1.Network) string {

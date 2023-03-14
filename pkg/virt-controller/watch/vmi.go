@@ -1214,6 +1214,16 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				}
 			}
 		}
+
+		if pod.DeletionTimestamp == nil {
+			newAnnotations := pod.ObjectMeta.DeepCopy().Annotations
+			services.UpdateVeleroBackupHookPodAnnotations(vmi, newAnnotations)
+			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+			if err != nil {
+				return &syncErrorImpl{err, FailedPodPatchReason}
+			}
+			*pod = *patchedPod
+		}
 	}
 	return nil
 }
