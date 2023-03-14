@@ -190,7 +190,7 @@ func (c *createInstancetype) usage() string {
   {{ProgramName}} create instancetype --cpu 2 --memory 256Mi | kubectl create -f -`
 }
 
-func (c *createInstancetype) newInstancetype(cmd *cobra.Command) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+func (c *createInstancetype) newInstancetype(cmd *cobra.Command) *instancetypev1alpha2.VirtualMachineInstancetype {
 	return &instancetypev1alpha2.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineInstancetype",
@@ -207,10 +207,10 @@ func (c *createInstancetype) newInstancetype(cmd *cobra.Command) (*instancetypev
 				Guest: resource.MustParse(c.memory),
 			},
 		},
-	}, nil
+	}
 }
 
-func (c *createInstancetype) newClusterInstancetype(cmd *cobra.Command) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+func (c *createInstancetype) newClusterInstancetype(cmd *cobra.Command) *instancetypev1alpha2.VirtualMachineClusterInstancetype {
 	return &instancetypev1alpha2.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineClusterInstancetype",
@@ -227,7 +227,7 @@ func (c *createInstancetype) newClusterInstancetype(cmd *cobra.Command) (*instan
 				Guest: resource.MustParse(c.memory),
 			},
 		},
-	}, nil
+	}
 }
 
 func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) error {
@@ -256,6 +256,7 @@ func (c *createInstancetype) validateFlags() error {
 
 func (c *createInstancetype) run(cmd *cobra.Command) error {
 	var out []byte
+	var err error
 
 	c.setDefaults(cmd)
 
@@ -264,10 +265,7 @@ func (c *createInstancetype) run(cmd *cobra.Command) error {
 	}
 
 	if c.namespaced {
-		instancetype, err := c.newInstancetype(cmd)
-		if err != nil {
-			return err
-		}
+		instancetype := c.newInstancetype(cmd)
 
 		if err = c.applyFlags(cmd, &instancetype.Spec); err != nil {
 			return err
@@ -278,10 +276,7 @@ func (c *createInstancetype) run(cmd *cobra.Command) error {
 			return err
 		}
 	} else {
-		clusterInstancetype, err := c.newClusterInstancetype(cmd)
-		if err != nil {
-			return err
-		}
+		clusterInstancetype := c.newClusterInstancetype(cmd)
 
 		if err = c.applyFlags(cmd, &clusterInstancetype.Spec); err != nil {
 			return err
