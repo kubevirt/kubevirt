@@ -27,17 +27,17 @@ UNSTABLE=$2
 function create_index_image() {
   CURRENT_VERSION=$1
   PREV_VERSION=$2
-  if [[ "${UNSTABLE}" == "UNSTABLE" ]]; then
+  INITIAL_VERSION=${CURRENT_VERSION}
+  if [[ "${UNSTABLE}" == "UNSTABLE" ]] || [[ "${UNSTABLE}" == "FBCUNSTABLE" ]]; then
     mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${CURRENT_VERSION}-unstable
     CURRENT_VERSION=${CURRENT_VERSION}-unstable
     PREV_VERSION=${PREV_VERSION}-unstable
-  elif [[ "${UNSTABLE}" == "FBCUNSTABLE" ]]; then
-    mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${CURRENT_VERSION}-fbc-unstable
-    CURRENT_VERSION=${CURRENT_VERSION}-fbc-unstable
-    PREV_VERSION=${PREV_VERSION}-fbc-unstable
   fi
   BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
   INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${CURRENT_VERSION}"
+  if [[ "${UNSTABLE}" == "FBCUNSTABLE" ]]; then
+    INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${INITIAL_VERSION}-fbc-unstable"
+  fi
 
   podman build -t "${BUNDLE_IMAGE_NAME}" -f bundle.Dockerfile --build-arg "VERSION=${CURRENT_VERSION}" .
   podman push "${BUNDLE_IMAGE_NAME}"
@@ -60,6 +60,8 @@ function create_index_image() {
   fi
 
   podman push "${INDEX_IMAGE_NAME}"
+
+  mv ${PACKAGE_NAME}/${CURRENT_VERSION} ${PACKAGE_NAME}/${INITIAL_VERSION}
 }
 
 function create_file_based_catalog() {
