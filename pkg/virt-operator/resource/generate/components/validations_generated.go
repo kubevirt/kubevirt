@@ -1053,10 +1053,13 @@ var CRDsValidation map[string]string = map[string]string{
                   type:
                     type: string
                 required:
+                - resources
                 - type
                 type: object
               type: array
-              x-kubernetes-list-type: atomic
+              x-kubernetes-list-map-keys:
+              - type
+              x-kubernetes-list-type: map
             supportedGuestAgentVersions:
               description: deprecated
               items:

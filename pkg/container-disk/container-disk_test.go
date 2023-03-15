@@ -174,7 +174,7 @@ var _ = Describe("ContainerDisk", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.ContainerDisk,
-							Resources: &k8sv1.ResourceRequirements{
+							Resources: k8sv1.ResourceRequirements{
 								Requests: req,
 								Limits:   lim,
 							},
@@ -228,7 +228,7 @@ var _ = Describe("ContainerDisk", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.ContainerDisk,
-							Resources: &k8sv1.ResourceRequirements{
+							Resources: k8sv1.ResourceRequirements{
 								Requests: req,
 								Limits:   lim,
 							},

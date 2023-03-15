@@ -17729,7 +17729,10 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					"supportContainerResources": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
@@ -20081,7 +20084,7 @@ func schema_kubevirtio_api_core_v1_SupportContainerResources(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"type"},
+				Required: []string{"type", "resources"},
 			},
 		},
 		Dependencies: []string{

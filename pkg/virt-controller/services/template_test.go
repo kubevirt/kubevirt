@@ -1528,7 +1528,7 @@ var _ = Describe("Template", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.SideCar,
-							Resources: &kubev1.ResourceRequirements{
+							Resources: kubev1.ResourceRequirements{
 								Requests: kubev1.ResourceList{},
 								Limits:   kubev1.ResourceList{},
 							},
@@ -3367,7 +3367,7 @@ var _ = Describe("Template", func() {
 					SupportContainerResources: []v1.SupportContainerResources{
 						{
 							Type: v1.VirtioFS,
-							Resources: &kubev1.ResourceRequirements{
+							Resources: kubev1.ResourceRequirements{
 								Requests: kubev1.ResourceList{},
 								Limits:   kubev1.ResourceList{},
 							},
