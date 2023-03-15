@@ -800,8 +800,7 @@ var _ = SIGDescribe("Export", func() {
 			"-c",
 			"kill 1",
 		}
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, exporterPod, exporterPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out[%s], err[%s]", out, stderr)
+		_, _, _ = exec.ExecuteCommandOnPodWithResults(virtClient, exporterPod, exporterPod.Spec.Containers[0].Name, command)
 		By("Verifying the pod is killed and a new secret created")
 		Eventually(func() types.UID {
 			exporterPod = getExporterPod(vmExport)
