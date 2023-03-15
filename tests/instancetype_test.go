@@ -892,6 +892,44 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			),
+			Entry(", DataVolumeSourceRef without namespace and DataSource",
+				&cdiv1beta1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datavolume-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						SourceRef: &cdiv1beta1.DataVolumeSourceRef{
+							Name:      dataSourceName,
+							Kind:      "DataSource",
+							Namespace: nil,
+						},
+						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
+						Storage: &cdiv1beta1.StorageSpec{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									"storage": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+				&cdiv1beta1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datasource-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataSourceSpec{
+						Source: cdiv1beta1.DataSourceSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Name:      pvcSourceName,
+								Namespace: util.NamespaceTestDefault,
+							},
+						},
+					},
+				},
+			),
 			Entry(", DataVolumeSourceRef and DataSource with annotations",
 				&cdiv1beta1.DataVolume{
 					ObjectMeta: metav1.ObjectMeta{
@@ -903,6 +941,50 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Name:      dataSourceName,
 							Kind:      "DataSource",
 							Namespace: &util.NamespaceTestDefault,
+						},
+						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
+						Storage: &cdiv1beta1.StorageSpec{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+							Resources: k8sv1.ResourceRequirements{
+								Requests: k8sv1.ResourceList{
+									"storage": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				},
+				&cdiv1beta1.DataSource{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datasource-",
+						Namespace:    util.NamespaceTestDefault,
+						Annotations: map[string]string{
+							instancetypeapi.DefaultInstancetypeLabel:     instancetypeName,
+							instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
+							instancetypeapi.DefaultPreferenceLabel:       preferenceName,
+							instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
+						},
+					},
+					Spec: cdiv1beta1.DataSourceSpec{
+						Source: cdiv1beta1.DataSourceSource{
+							PVC: &cdiv1beta1.DataVolumeSourcePVC{
+								Name:      pvcSourceName,
+								Namespace: util.NamespaceTestDefault,
+							},
+						},
+					},
+				},
+			),
+			Entry(", DataVolumeSourceRef without namespace and DataSource with annotations",
+				&cdiv1beta1.DataVolume{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "datavolume-",
+						Namespace:    util.NamespaceTestDefault,
+					},
+					Spec: cdiv1beta1.DataVolumeSpec{
+						SourceRef: &cdiv1beta1.DataVolumeSourceRef{
+							Name:      dataSourceName,
+							Kind:      "DataSource",
+							Namespace: nil,
 						},
 						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
 						Storage: &cdiv1beta1.StorageSpec{
