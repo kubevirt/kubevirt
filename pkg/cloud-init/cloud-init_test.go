@@ -103,6 +103,9 @@ var _ = Describe("CloudInit", func() {
 		Context("verify meta-data model", func() {
 			It("should match the generated configdrive metadata", func() {
 				exampleJSONParsed := `{
+  "instance-type": "fake.fake-instancetype",
+  "instance-id": "fake.fake-namespace",
+  "local-hostname": "fake",
   "instance_type": "fake.fake-instancetype",
   "instance_id": "fake.fake-namespace",
   "local_hostname": "fake",
@@ -146,6 +149,8 @@ var _ = Describe("CloudInit", func() {
 			})
 			It("should match the generated configdrive metadata for hostdev with numaNode", func() {
 				exampleJSONParsed := `{
+  "instance-id": "fake.fake-namespace",
+  "local-hostname": "fake",
   "instance_id": "fake.fake-namespace",
   "local_hostname": "fake",
   "uuid": "fake.fake-namespace",
@@ -181,6 +186,58 @@ var _ = Describe("CloudInit", func() {
 				}
 
 				metadataStruct := ConfigDriveMetadata{
+					InstanceID:    "fake.fake-namespace",
+					LocalHostname: "fake",
+					UUID:          "fake.fake-namespace",
+					Devices:       &devices,
+					PublicSSHKeys: map[string]string{"0": "somekey"},
+				}
+				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
+				Expect(err).ToNot(HaveOccurred())
+				fmt.Println("expected: ", string(buf))
+				fmt.Println("exmapleJsob: ", exampleJSONParsed)
+
+				Expect(string(buf)).To(Equal(exampleJSONParsed))
+			})
+			It("should match the generated configdrive metadata pointer for hostdev with numaNode", func() {
+				exampleJSONParsed := `{
+  "instance-id": "fake.fake-namespace",
+  "local-hostname": "fake",
+  "instance_id": "fake.fake-namespace",
+  "local_hostname": "fake",
+  "uuid": "fake.fake-namespace",
+  "devices": [
+    {
+      "type": "hostdev",
+      "bus": "pci",
+      "address": "0000:65:10:0",
+      "numaNode": 1,
+      "alignedCPUs": [
+        0,
+        1
+      ],
+      "tags": [
+        "testtag1"
+      ]
+    }
+  ],
+  "public_keys": {
+    "0": "somekey"
+  }
+}`
+				devices := []DeviceData{
+					{
+						Type:        HostDevMetadataType,
+						Bus:         api.AddressPCI,
+						Address:     "0000:65:10:0",
+						MAC:         "",
+						NumaNode:    uint32(1),
+						AlignedCPUs: []uint32{0, 1},
+						Tags:        []string{"testtag1"},
+					},
+				}
+
+				metadataStruct := &ConfigDriveMetadata{
 					InstanceID:    "fake.fake-namespace",
 					LocalHostname: "fake",
 					UUID:          "fake.fake-namespace",
