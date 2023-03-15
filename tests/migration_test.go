@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/xml"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -3182,6 +3183,51 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Entry("should override cluster-wide policy if defined", true),
 				Entry("should not affect cluster-wide policy if not defined", false),
 			)
+
+		})
+
+		Context("with freePageReporting", func() {
+			It("should be able to migrate", func() {
+				vmi := libvmi.NewAlpineWithTestTooling(
+					libvmi.WithMasqueradeNetworking()...,
+				)
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					MemoryOverCommitment: &v1.MemoryOverCommitment{
+						FreePageReporting: pointer.Bool(true),
+					},
+				}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				domSpec := &api.DomainSpec{}
+				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
+
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				vmi = tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				domXml, err = tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				domSpec = &api.DomainSpec{}
+				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
 
 		})
 	})
