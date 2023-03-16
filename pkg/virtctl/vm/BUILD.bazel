@@ -13,6 +13,7 @@ go_library(
         "restart.go",
         "start.go",
         "stop.go",
+        "user_list.go",
         "vm.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/vm",
