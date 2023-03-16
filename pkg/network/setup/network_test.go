@@ -55,12 +55,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
-				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID)
+				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID, vmi.Spec.Networks)
 				Expect(err).To(MatchError("Network not implemented"))
 			})
 			It("should propagate errors when phase2 is called", func() {
 				var domain *api.Domain
-				err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain)
+				err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
 				Expect(err).To(MatchError("Network not implemented"))
 			})
 		})
@@ -72,7 +72,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				iface := v1.DefaultBridgeNetworkInterface()
 				defaultNet := v1.DefaultPodNetwork()
 				launcherPID := 0
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
 					vmi:              vm,
@@ -94,7 +94,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(BeEmpty())
 			})
@@ -106,7 +106,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmi.Spec.Networks = []v1.Network{*cniNet}
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
 					vmi:              vmi,
@@ -173,7 +173,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator)
 				launcherPID := 0
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID)
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ContainElements([]podNIC{
 					{
@@ -244,7 +244,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				const expectedPodIfaceName = "net1"
 				Expect(vmNetworkConfigurator.getPhase1NICs(
 					&launcherPID,
-					networkToHotplug(ifaceToHotplug),
+					[]v1.Network{networkToHotplug(ifaceToHotplug)},
 				)).To(ConsistOf(podNIC{
 					vmi:              vmi,
 					podInterfaceName: expectedPodIfaceName,

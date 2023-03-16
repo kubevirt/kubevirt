@@ -576,7 +576,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
-	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain)
+	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}

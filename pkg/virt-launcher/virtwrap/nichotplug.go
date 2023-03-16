@@ -52,7 +52,7 @@ func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, converterContext *co
 		}
 
 		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainInterfaces...)
-		if err := vmConfigurator.SetupPodNetworkPhase2(domain, network); err != nil {
+		if err := vmConfigurator.SetupPodNetworkPhase2(domain, []v1.Network{network}); err != nil {
 			return err
 		}
 
