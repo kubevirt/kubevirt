@@ -25,11 +25,14 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/util"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -54,10 +57,12 @@ const (
 
 var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
-	var err error
-	var virtClient kubecli.KubevirtClient
+	var (
+		err        error
+		virtClient kubecli.KubevirtClient
 
-	var vmi *v1.VirtualMachineInstance
+		vmi *v1.VirtualMachineInstance
+	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -79,14 +84,72 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			return &vmiPods.Items[0], true, nil
 		}
 
-		Context("with SM BIOS hook sidecar", func() {
-			It("[test_id:3155]should successfully start with hook sidecar annotation", func() {
+		Context("set sidecar resources", func() {
+			var originalConfig v1.KubeVirtConfiguration
+			BeforeEach(func() {
+				originalConfig = *util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+			})
+
+			AfterEach(func() {
+				tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+			})
+
+			It("[test_id:3155][serial]should successfully start with hook sidecar annotation", Serial, func() {
+				resources := k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("1m"),
+						k8sv1.ResourceMemory: resource.MustParse("10M"),
+					},
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("201m"),
+						k8sv1.ResourceMemory: resource.MustParse("74M"),
+					},
+				}
+				config := originalConfig.DeepCopy()
+				config.SupportContainerResources = []v1.SupportContainerResources{
+					{
+						Type:      v1.SideCar,
+						Resources: resources,
+					},
+				}
+				tests.UpdateKubeVirtConfigValueAndWait(*config)
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
+				By("Finding virt-launcher pod")
+				var virtlauncherPod *k8sv1.Pod
+				Eventually(func() *k8sv1.Pod {
+					podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+					if err != nil {
+						return nil
+					}
+					for _, pod := range podList.Items {
+						for _, ownerRef := range pod.GetOwnerReferences() {
+							if ownerRef.UID == vmi.GetUID() {
+								virtlauncherPod = &pod
+								break
+							}
+						}
+					}
+					return virtlauncherPod
+				}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+				Expect(virtlauncherPod.Spec.Containers).To(HaveLen(3))
+				foundContainer := false
+				for _, container := range virtlauncherPod.Spec.Containers {
+					if container.Name == "hook-sidecar-0" {
+						foundContainer = true
+						Expect(container.Resources.Requests.Cpu().Value()).To(Equal(resources.Requests.Cpu().Value()))
+						Expect(container.Resources.Requests.Memory().Value()).To(Equal(resources.Requests.Memory().Value()))
+						Expect(container.Resources.Limits.Cpu().Value()).To(Equal(resources.Limits.Cpu().Value()))
+						Expect(container.Resources.Limits.Memory().Value()).To(Equal(resources.Limits.Memory().Value()))
+					}
+				}
+				Expect(foundContainer).To(BeTrue())
 			})
+		})
 
+		Context("with SM BIOS hook sidecar", func() {
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)

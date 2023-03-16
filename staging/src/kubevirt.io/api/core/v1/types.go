@@ -2299,14 +2299,14 @@ type SMBiosConfiguration struct {
 type SupportContainerType string
 
 const (
-	// HotplugAttachment is the container resources of the hotplug attachment pod
-	HotplugAttachment SupportContainerType = "hotplug-attachment"
+	// HotplugAttachment is the container resources of the hotplug attachment pod used to hotplug a disk
+	HotplugAttachment SupportContainerType = "hotplug-disk"
 	// ContainerDisk is the container resources used to attach a container disk to the Virtual Machine
 	ContainerDisk SupportContainerType = "container-disk"
 	// VirtioFS is the container resources used to attach a virtio-fs volume to the Virtual Machine
-	VirtioFS SupportContainerType = "virtio-fs"
+	VirtioFS SupportContainerType = "virtiofs"
 	// SideCar is the container resources for a side car
-	SideCar SupportContainerType = "side-car"
+	SideCar SupportContainerType = "sidecar"
 )
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.

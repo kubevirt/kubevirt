@@ -1325,7 +1325,6 @@ var _ = SIGDescribe("Hotplug", func() {
 			if !exists {
 				Skip("Skip test when RWXBlock storage class is not present")
 			}
-			By("reducing the throughput on controller")
 			originalConfig = *util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 		})
 
