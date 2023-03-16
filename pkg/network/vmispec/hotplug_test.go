@@ -152,7 +152,7 @@ func dummyVMIWithMultipleNetworksAndIfacesOnSpec(networkName string, nadName str
 func dummyVMIWithAttachmentToPlug(networkName string, netAttachDefName string, guestIfaceName string) *v1.VirtualMachineInstance {
 	vmi := dummyVMIWithoutStatus(networkName, netAttachDefName)
 	vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-		{Name: networkName, InterfaceName: guestIfaceName, PodConfigDone: true},
+		{Name: networkName, InterfaceName: guestIfaceName, InfoSource: vmispec.InfoSourceMultusStatus},
 	}
 	return vmi
 }
@@ -160,7 +160,7 @@ func dummyVMIWithAttachmentToPlug(networkName string, netAttachDefName string, g
 func dummyVMIWithAttachmentAlreadyAvailableOnDomain(networkName string, netAttachDefName string, guestIfaceName string) *v1.VirtualMachineInstance {
 	vmi := dummyVMIWithAttachmentToPlug(networkName, netAttachDefName, guestIfaceName)
 	for i := range vmi.Status.Interfaces {
-		vmi.Status.Interfaces[i].InfoSource = vmispec.InfoSourceDomain
+		vmi.Status.Interfaces[i].InfoSource = vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus)
 	}
 	return vmi
 }
@@ -171,7 +171,7 @@ func dummyVMIWithStatusOnly(networkName string, ifaceName string) *v1.VirtualMac
 		{
 			Name:          networkName,
 			InterfaceName: ifaceName,
-			PodConfigDone: true,
+			InfoSource:    vmispec.InfoSourceMultusStatus,
 		},
 	}
 	return vmi

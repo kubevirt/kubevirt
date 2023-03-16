@@ -2216,42 +2216,28 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 }
 
 func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	indexedVMIStatus := indexIfaceStatus(vmi.Status.Interfaces)
-
 	ifaceNamingScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
-	indexedPodIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
+	indexedMultusStatusIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
 	for _, network := range vmi.Spec.Networks {
-		if _, alreadyPresentInVMIStatus := indexedVMIStatus[network.Name]; alreadyPresentInVMIStatus {
-			continue
-		}
-
+		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
 		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
 		if !wasFound {
 			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		if _, isPodInterfaceAvailable := indexedPodIfaces[podIfaceName]; !isPodInterfaceAvailable {
-			continue
+		if _, exists := indexedMultusStatusIfaces[podIfaceName]; exists {
+			if vmiIfaceStatus == nil {
+				vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
+					Name:       network.Name,
+					InfoSource: vmispec.InfoSourceMultusStatus,
+				})
+			} else {
+				vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			}
 		}
-		status := virtv1.VirtualMachineInstanceNetworkInterface{
-			Name:          network.Name,
-			PodConfigDone: true,
-		}
-
-		vmi.Status.Interfaces = append(vmi.Status.Interfaces, status)
 	}
 
 	return nil
-}
-
-func indexIfaceStatus(oldIfaceStatus []virtv1.VirtualMachineInstanceNetworkInterface) map[string]virtv1.VirtualMachineInstanceNetworkInterface {
-	indexedIfaceStatus := make(map[string]virtv1.VirtualMachineInstanceNetworkInterface)
-	for _, ifaceStatus := range oldIfaceStatus {
-		if ifaceStatus.Name != "" {
-			indexedIfaceStatus[ifaceStatus.Name] = ifaceStatus
-		}
-	}
-	return indexedIfaceStatus
 }
 
 func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterfaceStatus []byte) []string {

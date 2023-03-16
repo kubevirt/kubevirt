@@ -78,15 +78,24 @@ func (c *NetStat) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, 
 }
 
 // UpdateStatus calculates the vmi.Status.Interfaces based on the following data sets:
-// - Pod interface cache: interfaces data (IP/s) collected from the cache (which was populated during the network setup).
-// - domain.Spec: interfaces configuration as seen by the (libvirt) domain.
-// - domain.Status.Interfaces: interfaces reported by the guest agent (empty if Qemu agent not running).
+//   - Pod interface cache: interfaces data (IP/s) collected from the cache (which was populated during the network setup).
+//   - domain.Spec: interfaces configuration as seen by the (libvirt) domain.
+//   - domain.Status.Interfaces: interfaces reported by the guest agent (empty if Qemu agent not running).
+//   - Multus status: Interfaces reported by multus on the pod annotation.
+//     The virt-controller updates the VMI interfaces status my setting the infoSource field.
+//
 // Podnet nic has to be the first one in vmi.Status.Interfaces list to match vmi crd wide columns definition
 func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain == nil {
 		return nil
 	}
 
+	multusStatusNetworksByName := netvmispec.IndexInterfacesFromStatus(
+		vmi.Status.Interfaces,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+		},
+	)
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 
 	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
@@ -120,6 +129,13 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, netvmispec.LookupPodNetwork(vmi.Spec.Networks))
 	if primaryInterfaceStatus != nil {
 		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
+	}
+
+	for ifaceIndex, ifaceStatus := range interfacesStatus {
+		if _, exists := multusStatusNetworksByName[ifaceStatus.Name]; exists {
+			interfacesStatus[ifaceIndex].InfoSource = netvmispec.AddInfoSource(
+				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+		}
 	}
 
 	vmi.Status.Interfaces = interfacesStatus
@@ -174,11 +190,10 @@ func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.Vir
 
 	for _, domainSpecIface := range domainSpecIfaces {
 		vmiStatusIfaces = append(vmiStatusIfaces, v1.VirtualMachineInstanceNetworkInterface{
-			Name:          domainSpecIface.Alias.GetName(),
-			MAC:           domainSpecIface.MAC.MAC,
-			InfoSource:    netvmispec.InfoSourceDomain,
-			QueueCount:    domainInterfaceQueues(domainSpecIface.Driver),
-			PodConfigDone: true,
+			Name:       domainSpecIface.Alias.GetName(),
+			MAC:        domainSpecIface.MAC.MAC,
+			InfoSource: netvmispec.InfoSourceDomain,
+			QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
 		})
 	}
 	return vmiStatusIfaces
@@ -197,9 +212,8 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 
 	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, sriov.AliasPrefix) {
 		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
-			Name:          hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
-			InfoSource:    netvmispec.InfoSourceDomain,
-			PodConfigDone: true,
+			Name:       hostDevice.Alias.GetName()[len(sriov.AliasPrefix):],
+			InfoSource: netvmispec.InfoSourceDomain,
 		}
 		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
 			vmiStatusIface.MAC = iface.MacAddress

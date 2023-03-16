@@ -3576,12 +3576,10 @@ func simpleIfaceStatus(ifaceName string) *virtv1.VirtualMachineInstanceNetworkIn
 	}
 }
 
-func readyHotpluggedIfaceStatus(
-	ifaceName string,
-) *virtv1.VirtualMachineInstanceNetworkInterface {
+func readyHotpluggedIfaceStatus(ifaceName string) *virtv1.VirtualMachineInstanceNetworkInterface {
 	return &virtv1.VirtualMachineInstanceNetworkInterface{
-		Name:          ifaceName,
-		PodConfigDone: true,
+		Name:       ifaceName,
+		InfoSource: vmispec.InfoSourceMultusStatus,
 	}
 }
 

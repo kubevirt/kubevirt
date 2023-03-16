@@ -21498,7 +21498,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 					},
 					"infoSource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
+							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -21508,13 +21508,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							Description: "Specifies how many queues are allocated by MultiQueue",
 							Type:        []string{"integer"},
 							Format:      "int32",
-						},
-					},
-					"podConfigDone": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PodConfigDone specifies if the corresponding pod interface is properly configured by CNI",
-							Type:        []string{"boolean"},
-							Format:      "",
 						},
 					},
 				},

@@ -570,12 +570,10 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
-	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
+	// Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
-	// PodConfigDone specifies if the corresponding pod interface is properly configured by CNI
-	PodConfigDone bool `json:"podConfigDone,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {

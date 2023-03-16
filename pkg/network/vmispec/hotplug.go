@@ -27,7 +27,7 @@ import (
 
 func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachineInstanceNetworkInterface) []v1.Network {
 	var networksToHotplug []v1.Network
-	indexedIfacesFromStatus := indexedInterfacesFromStatus(
+	indexedIfacesFromStatus := IndexInterfacesFromStatus(
 		interfaceStatus,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 			return true
@@ -41,7 +41,7 @@ func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachin
 	return networksToHotplug
 }
 
-func indexedInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
+func IndexInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
 	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
 	for _, iface := range interfaces {
 		if p(iface) {
@@ -53,12 +53,11 @@ func indexedInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkIn
 
 func NetworksToHotplugWhosePodIfacesAreReady(vmi *v1.VirtualMachineInstance) []v1.Network {
 	var networksToHotplug []v1.Network
-	interfacesToHoplug := indexedInterfacesFromStatus(
+	interfacesToHoplug := IndexInterfacesFromStatus(
 		vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			return ifaceStatus.PodConfigDone && !strings.Contains(
-				ifaceStatus.InfoSource, InfoSourceDomain,
-			)
+			return strings.Contains(ifaceStatus.InfoSource, InfoSourceMultusStatus) &&
+				!strings.Contains(ifaceStatus.InfoSource, InfoSourceDomain)
 		},
 	)
 
