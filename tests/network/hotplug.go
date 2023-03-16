@@ -234,10 +234,11 @@ var _ = SIGDescribe("nic-hotplug", decorators.InPlaceHotplugNICs, func() {
 				),
 			).To(Succeed())
 
-			var err error
-			vm, err = kubevirt.Client().VirtualMachine(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Spec.Template.Spec.Networks).To(
+			Eventually(func() []v1.Network {
+				vm, err := kubevirt.Client().VirtualMachine(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return vm.Spec.Template.Spec.Networks
+			}, 30*time.Second).Should(
 				ConsistOf(
 					*v1.DefaultPodNetwork(),
 					v1.Network{
