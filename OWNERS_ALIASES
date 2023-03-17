@@ -45,16 +45,24 @@ aliases:
       - alicefr
       - 0xFelix
       - lyarwood
-  test-reviewers:
+
+  #
+  # SIG Test
+  #
+  sig-test-reviewers:
       - jerry7z
       - kbidarkar
-  test-approvers:
+  sig-test-approvers:
       - kbidarkar
       - phoracek
       - enp0s3
       - xpivarc
       - acardace
-  network-reviewers:
+
+  #
+  # SIG Network
+  #
+  sig-network-reviewers:
       - AlonaKaplan
       - EdDev
       - RamLavi
@@ -64,9 +72,13 @@ aliases:
       - phoracek
       - qinqon
       - rhrazdil
-  network-approvers:
+  sig-network-approvers:
       - AlonaKaplan
-  scale-approvers:
+
+  #
+  # SIG Scale
+  #
+  sig-scale-approvers:
       - rthallisey
-  scale-reviewers:
+  sig-scale-reviewers:
       - rthallisey
