@@ -138,6 +138,7 @@ http_archive(
     strip_prefix = "bazeldnf-0.5.5",
     urls = [
         "https://github.com/rmohr/bazeldnf/archive/v0.5.5.tar.gz",
+        "https://storage.googleapis.com/builddeps/bb4210a87f3f2006edb90fbade6df682979dc0330565f2550373f3eb012d928b",
     ],
 )
 
