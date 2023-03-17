@@ -285,6 +285,42 @@ var _ = Describe("IsolationResult", func() {
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root/", tmpDir, "long/filesystem")))
 			})
 
+			It("Should find the mount by persistent volume name", func() {
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/pv1"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/pv2"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/pv3"), os.ModePerm)).To(Succeed())
+				initMountsMock(mockIsolationResultContainer, []*mount.Info{
+					{
+						Major:      1,
+						Minor:      1,
+						Mountpoint: "/pvc",
+						Root:       "/",
+					},
+				})
+				initMountsMock(mockIsolationResultNode, []*mount.Info{
+					{
+						Major:      1,
+						Minor:      1,
+						Mountpoint: "/pv1",
+						Root:       "/",
+					}, {
+						Major:      1,
+						Minor:      1,
+						Mountpoint: "/pv2",
+						Root:       "/",
+					}, {
+						Major:      1,
+						Minor:      1,
+						Mountpoint: "/pv3",
+						Root:       "/",
+					},
+				})
+
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "/pvc", "pv2")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root/", tmpDir, "pv2")))
+			})
+
 			It("Should fail when the device does not exist", func() {
 				initMountsMock(mockIsolationResultContainer, []*mount.Info{rootMountPoint})
 				initMountsMock(mockIsolationResultNode, []*mount.Info{

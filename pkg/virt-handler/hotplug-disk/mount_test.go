@@ -148,6 +148,7 @@ var _ = Describe("HotplugVolume", func() {
 			parent isolation.IsolationResult,
 			_ isolation.IsolationResult,
 			findmntInfo FindmntInfo,
+			pvName string,
 		) (*safepath.Path, error) {
 			path, err := parent.MountRoot()
 			Expect(err).ToNot(HaveOccurred())
@@ -525,6 +526,7 @@ var _ = Describe("HotplugVolume", func() {
 			m             *volumeMounter
 			err           error
 			vmi           *v1.VirtualMachineInstance
+			volume        *v1.VolumeStatus
 			record        *vmiMountTargetRecord
 			targetPodPath *safepath.Path
 		)
@@ -542,6 +544,16 @@ var _ = Describe("HotplugVolume", func() {
 			activePods := make(map[types.UID]string, 0)
 			activePods["abcd"] = "host"
 			vmi.Status.ActivePods = activePods
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name: "pvc",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeName: "pv",
+					},
+				},
+			}
+
+			volume = &vmi.Status.VolumeStatus[0]
 
 			targetPodPath, err = newDir(tempDir, "abcd/volumes/kubernetes.io~empty-dir/hotplug-disks")
 			Expect(err).ToNot(HaveOccurred())
@@ -587,13 +599,13 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
-			file, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
+			file, err := m.getSourcePodFilePath("ghfjk", vmi, volume)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeRelative(file.Raw())).To(Equal(unsafepath.UnsafeAbsolute(path.Raw())))
 		})
 
 		It("getSourcePodFile should return error if no UID", func() {
-			_, err := m.getSourcePodFilePath("", vmi, "")
+			_, err := m.getSourcePodFilePath("", vmi, &v1.VolumeStatus{})
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -603,7 +615,7 @@ var _ = Describe("HotplugVolume", func() {
 			sourcePodBasePath = func(podUID types.UID) (*safepath.Path, error) {
 				return path, nil
 			}
-			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
+			_, err = m.getSourcePodFilePath("ghfjk", vmi, &v1.VolumeStatus{})
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -619,7 +631,7 @@ var _ = Describe("HotplugVolume", func() {
 				}
 			}
 
-			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
+			_, err = m.getSourcePodFilePath("ghfjk", vmi, &v1.VolumeStatus{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("isolation error"))
 		})
@@ -633,7 +645,7 @@ var _ = Describe("HotplugVolume", func() {
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
 				return []byte(""), fmt.Errorf("findmnt error")
 			}
-			_, err = m.getSourcePodFilePath("ghfjk", vmi, "")
+			_, err = m.getSourcePodFilePath("ghfjk", vmi, &v1.VolumeStatus{})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("findmnt error"))
 		})
@@ -648,7 +660,7 @@ var _ = Describe("HotplugVolume", func() {
 				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(expectedPath.Raw()))), nil
 			}
 
-			res, err := m.getSourcePodFilePath("ghfjk", vmi, "pvc")
+			res, err := m.getSourcePodFilePath("ghfjk", vmi, volume)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeRelative(res.Raw())).To(Equal(unsafepath.UnsafeAbsolute(expectedPath.Raw())))
 		})
@@ -663,9 +675,9 @@ var _ = Describe("HotplugVolume", func() {
 			diskFile, err := newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
 			Expect(err).ToNot(HaveOccurred())
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+				return []byte(fmt.Sprintf(findmntByVolumeRes, "pvc", unsafepath.UnsafeAbsolute(path.Raw()))), nil
 			}
-			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
+			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "pvc.img")
 			Expect(err).ToNot(HaveOccurred())
 			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
 				Expect(unsafepath.UnsafeRelative(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(diskFile.Raw())))
@@ -674,7 +686,7 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
 
-			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record, false)
+			err = m.mountFileSystemHotplugVolume(vmi, volume, types.UID(sourcePodUID), record, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(record.MountTargetEntries).To(HaveLen(1))
 			Expect(record.MountTargetEntries[0].TargetFile).To(Equal(unsafepath.UnsafeAbsolute(targetFilePath.Raw())))
