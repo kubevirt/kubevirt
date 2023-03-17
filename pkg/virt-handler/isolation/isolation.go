@@ -194,7 +194,7 @@ func MountInfoRoot(r IsolationResult) (mountinfo *mount.Info, err error) {
 
 // parentMountInfoFor takes the mountInfo record of a container (child) and
 // attempts to locate a mountpoint containing it on the parent.
-func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info) (*mount.Info, error) {
+func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info, pvName string) (*mount.Info, error) {
 	mounts, err := parent.Mounts(func(m *mount.Info) (bool, bool) {
 		return m.Major != mountInfo.Major || m.Minor != mountInfo.Minor ||
 			!strings.HasPrefix(mountInfo.Root, m.Root), false
@@ -210,17 +210,25 @@ func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info) (*mount.I
 		sort.SliceStable(mounts, func(i, j int) bool {
 			return len(mounts[i].Root) > len(mounts[j].Root)
 		})
+
+		if pvName != "" {
+			for _, m := range mounts {
+				if strings.Contains(m.Mountpoint, pvName) {
+					return m, nil
+				}
+			}
+		}
 	}
 
 	return mounts[0], nil
 }
 
-func ParentPathForMount(parent IsolationResult, child IsolationResult, mountPoint string) (*safepath.Path, error) {
+func ParentPathForMount(parent IsolationResult, child IsolationResult, mountPoint string, pvName string) (*safepath.Path, error) {
 	childMountInfo, err := mountInfoFor(child, mountPoint)
 	if err != nil {
 		return nil, err
 	}
-	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo)
+	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo, pvName)
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +246,8 @@ func ParentPathForMount(parent IsolationResult, child IsolationResult, mountPoin
 
 // ParentPathForRootMount takes a container (child) and composes a path to
 // the root mount point in the context of the parent.
-func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*safepath.Path, error) {
-	return ParentPathForMount(parent, child, "/")
+func ParentPathForRootMount(parent, child IsolationResult) (*safepath.Path, error) {
+	return ParentPathForMount(parent, child, "/", "")
 }
 
 func SafeJoin(res IsolationResult, elems ...string) (*safepath.Path, error) {

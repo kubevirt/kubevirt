@@ -17580,6 +17580,10 @@
      "volumeMode": {
       "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.",
       "type": "string"
+     },
+     "volumeName": {
+      "description": "VolumeName is the binding reference to the PersistentVolume backing this claim.",
+      "type": "string"
      }
     }
    },

@@ -130,8 +130,9 @@ var (
 		parent isolation.IsolationResult,
 		child isolation.IsolationResult,
 		findmntInfo FindmntInfo,
+		pvName string,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Target)
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Target, pvName)
 	}
 )
 
@@ -306,19 +307,19 @@ func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachi
 	return nil
 }
 
-func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volumeName string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
+func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volume *v1.VolumeStatus, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
 	logger := log.DefaultLogger()
-	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
+	logger.V(4).Infof("Hotplug check volume name: %s", volume.Name)
 	if sourceUID != types.UID("") {
-		if m.isBlockVolume(&vmi.Status, volumeName) {
-			logger.V(4).Infof("Mounting block volume: %s", volumeName)
-			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record); err != nil {
-				return fmt.Errorf("failed to mount block hotplug volume %s: %v", volumeName, err)
+		if m.isBlockVolume(&vmi.Status, volume.Name) {
+			logger.V(4).Infof("Mounting block volume: %s", volume.Name)
+			if err := m.mountBlockHotplugVolume(vmi, volume.Name, sourceUID, record); err != nil {
+				return fmt.Errorf("failed to mount block hotplug volume %s: %v", volume.Name, err)
 			}
 		} else {
-			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
-			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
-				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
+			logger.V(4).Infof("Mounting file system volume: %s", volume.Name)
+			if err := m.mountFileSystemHotplugVolume(vmi, volume, sourceUID, record, mountDirectory); err != nil {
+				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volume.Name, err)
 			}
 		}
 	}
@@ -350,7 +351,8 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		if sourceUID == types.UID("") {
 			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory); err != nil {
+
+		if err := m.mountHotplugVolume(vmi, &volumeStatus, sourceUID, record, mountDirectory); err != nil {
 			return err
 		}
 	}
@@ -513,7 +515,7 @@ func (m *volumeMounter) createBlockDeviceFile(basePath *safepath.Path, deviceNam
 	}
 }
 
-func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
+func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume *v1.VolumeStatus, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
@@ -522,9 +524,9 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 	var target *safepath.Path
 	var err error
 	if mountDirectory {
-		target, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume, true)
+		target, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume.Name, true)
 	} else {
-		target, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume, true)
+		target, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume.Name, true)
 	}
 	if err != nil {
 		return err
@@ -576,13 +578,13 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 	return types.UID("")
 }
 
-func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (*safepath.Path, error) {
+func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume *v1.VolumeStatus) (*safepath.Path, error) {
 	iso := isolationDetector("/path")
 	isoRes, err := iso.DetectForSocket(vmi, socketPath(sourceUID))
 	if err != nil {
 		return nil, err
 	}
-	findmounts, err := LookupFindmntInfoByVolume(volume, isoRes.Pid())
+	findmounts, err := LookupFindmntInfoByVolume(volume.Name, isoRes.Pid())
 	if err != nil {
 		return nil, err
 	}
@@ -593,9 +595,9 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	}
 
 	for _, findmnt := range findmounts {
-		if filepath.Base(findmnt.Target) == volume {
+		if filepath.Base(findmnt.Target) == volume.Name {
 			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
+			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt, volume.PersistentVolumeClaimInfo.VolumeName)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err

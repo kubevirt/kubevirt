@@ -279,6 +279,10 @@ type PersistentVolumeClaimInfo struct {
 	// +optional
 	AccessModes []k8sv1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
 
+	// VolumeName is the binding reference to the PersistentVolume backing this claim.
+	// +optional
+	VolumeName string `json:"volumeName,omitempty"`
+
 	// VolumeMode defines what type of volume is required by the claim.
 	// Value of Filesystem is implied when not included in claim spec.
 	// +optional

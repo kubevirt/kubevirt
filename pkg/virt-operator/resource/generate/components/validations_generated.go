@@ -11253,6 +11253,10 @@ var CRDsValidation map[string]string = map[string]string{
                       by the claim. Value of Filesystem is implied when not included
                       in claim spec.
                     type: string
+                  volumeName:
+                    description: VolumeName is the binding reference to the PersistentVolume
+                      backing this claim.
+                    type: string
                 type: object
               phase:
                 description: Phase is the phase

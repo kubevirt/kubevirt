@@ -2067,6 +2067,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
 				status.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfo{
 					AccessModes:  pvc.Spec.AccessModes,
+					VolumeName:   pvc.Spec.VolumeName,
 					VolumeMode:   pvc.Spec.VolumeMode,
 					Capacity:     pvc.Status.Capacity,
 					Requests:     pvc.Spec.Resources.Requests,
