@@ -226,7 +226,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
 	cmd.Flags().StringVar(&manifestOutputFormat, "manifest-output-format", "", "Manifest output format, defaults to Yaml. Valid options are yaml or json")
-	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use instead of the external URL in the export status")
+	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -526,18 +526,12 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 		links       *exportv1.VirtualMachineExportLink
 	)
 
-	if vmeInfo.ServiceURL == "" {
-		if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil {
-			return "", fmt.Errorf("unable to access the manifest info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
-		}
+	if vmeInfo.ServiceURL == "" && vmexport.Status.Links != nil && vmexport.Status.Links.External != nil {
 		links = vmexport.Status.Links.External
-	} else {
-		if vmexport.Status.Links == nil || vmexport.Status.Links.Internal == nil {
-			return "", fmt.Errorf("unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
-		}
+	} else if vmexport.Status.Links != nil && vmexport.Status.Links.Internal != nil {
 		links = vmexport.Status.Links.Internal
 	}
-	if len(links.Volumes) <= 0 {
+	if links == nil || len(links.Volumes) <= 0 {
 		return "", fmt.Errorf("unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
 	}
 	volumeNumber := len(links.Volumes)
@@ -549,17 +543,14 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 		if volumeNumber == 1 || exportVolume.Name == vmeInfo.VolumeName {
 			for _, format := range exportVolume.Formats {
 				// We always attempt to find and get the compressed file URL, so we only break the loop when one is found
+				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz || format.Format == exportv1.KubeVirtRaw {
+					downloadUrl, err = replaceUrlWithServiceUrl(format.Url, vmeInfo)
+					if err != nil {
+						return "", err
+					}
+				}
 				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz {
-					downloadUrl, err = replaceUrlWithServiceUrl(format.Url, vmeInfo)
-					if err != nil {
-						return "", err
-					}
 					break
-				} else if format.Format == exportv1.KubeVirtRaw {
-					downloadUrl, err = replaceUrlWithServiceUrl(format.Url, vmeInfo)
-					if err != nil {
-						return "", err
-					}
 				}
 			}
 		}
