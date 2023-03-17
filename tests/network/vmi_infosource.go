@@ -96,28 +96,30 @@ var _ = SIGDescribe("Infosource", func() {
 		})
 
 		It("should have the expected entries in vmi status", func() {
+			infoSourceDomainAndMultusStatus := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus)
+			infoSourceDomainAndGAAndMultusStatus := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
+
 			expectedInterfaces := []kvirtv1.VirtualMachineInstanceNetworkInterface{
 				{
-					InfoSource:    netvmispec.InfoSourceDomain,
-					MAC:           primaryInterfaceMac,
-					Name:          primaryNetwork,
-					QueueCount:    network.DefaultInterfaceQueueCount,
-					PodConfigDone: true,
+					InfoSource: netvmispec.InfoSourceDomain,
+					MAC:        primaryInterfaceMac,
+					Name:       primaryNetwork,
+					QueueCount: network.DefaultInterfaceQueueCount,
 				},
 				{
-					InfoSource:    netvmispec.InfoSourceDomainAndGA,
+					InfoSource:    infoSourceDomainAndGAAndMultusStatus,
 					InterfaceName: "eth1",
 					MAC:           secondaryInterface1Mac,
 					Name:          secondaryInterface1Name,
 					QueueCount:    network.DefaultInterfaceQueueCount,
-					PodConfigDone: true,
 				},
 				{
-					InfoSource:    netvmispec.InfoSourceDomain,
-					MAC:           secondaryInterface2Mac,
-					Name:          secondaryInterface2Name,
-					QueueCount:    network.DefaultInterfaceQueueCount,
-					PodConfigDone: true,
+					InfoSource: infoSourceDomainAndMultusStatus,
+					MAC:        secondaryInterface2Mac,
+					Name:       secondaryInterface2Name,
+					QueueCount: network.DefaultInterfaceQueueCount,
 				},
 				{
 					InfoSource:    netvmispec.InfoSourceGuestAgent,

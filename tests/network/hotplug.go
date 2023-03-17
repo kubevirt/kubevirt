@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -311,9 +313,9 @@ func interfaceStatusFromInterfaceNames(ifaceNames ...string) []v1.VirtualMachine
 		ifaceStatus = append(ifaceStatus, v1.VirtualMachineInstanceNetworkInterface{
 			Name:          ifaceName,
 			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
-			InfoSource:    "domain, guest-agent",
-			QueueCount:    1,
-			PodConfigDone: true,
+			InfoSource: vmispec.NewInfoSource(
+				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
+			QueueCount: 1,
 		})
 	}
 	return ifaceStatus
