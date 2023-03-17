@@ -2532,8 +2532,8 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			if err := c.handleInterfaceRequests(vmCopy, vmi); err != nil {
 				log.Log.Object(vm).Errorf("error encountered while handling network interface hotplug request: %v", err)
 				ifaceHotplugError = &syncErrorImpl{
-					err:    fmt.Errorf("error encountered while handling volume hotplug requests: %v", err),
-					reason: HotPlugVolumeErrorReason,
+					err:    fmt.Errorf("error encountered while handling network interface hotplug requests: %v", err),
+					reason: HotPlugNetworkInterfaceErrorReason,
 				}
 			}
 		}
