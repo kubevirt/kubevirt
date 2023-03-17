@@ -82,3 +82,9 @@ aliases:
       - rthallisey
   sig-scale-reviewers:
       - rthallisey
+
+  #
+  # SIG Storage
+  #
+  sig-storage-approvers: {}
+  sig-storage-reviewers: {}
