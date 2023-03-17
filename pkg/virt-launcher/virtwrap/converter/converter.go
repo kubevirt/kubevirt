@@ -1221,18 +1221,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	virtioNetProhibited := false
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.AllowEmulation); err != nil {
-		return err
-	} else if softwareEmulation {
-		logger := log.DefaultLogger()
-		logger.Infof("In-kernel virtio-net device emulation '%s' not present. Falling back to QEMU userland emulation.", vhostNetPath)
-	} else if IsVirtioNetProhibited() {
-		virtioNetProhibited = true
-	} else if err != nil {
-		return err
-	}
-
 	newChannel := Add_Agent_To_api_Channel()
 	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
 
@@ -1777,7 +1765,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domainInterfaces, err := CreateDomainInterfaces(vmi, domain, c, virtioNetProhibited)
+	domainInterfaces, err := CreateDomainInterfaces(vmi, domain, c)
 	if err != nil {
 		return err
 	}
@@ -1975,7 +1963,16 @@ func GracePeriod(vmi *v1.VirtualMachineInstance) int64 {
 	return gracePeriodSeconds
 }
 
-func IsVirtioNetProhibited() bool {
-	_, err := os.Stat(vhostNetPath)
-	return errors.Is(err, os.ErrNotExist)
+func (c *ConverterContext) IsVirtIONetProhibited() (bool, error) {
+	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.AllowEmulation); err != nil {
+		return false, err
+	} else if softwareEmulation {
+		logger := log.DefaultLogger()
+		logger.Infof("In-kernel virtio-net device emulation '%s' not present. Falling back to QEMU userland emulation.", vhostNetPath)
+	} else if _, err := os.Stat(vhostNetPath); errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+	return false, nil
 }
