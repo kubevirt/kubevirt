@@ -88,3 +88,13 @@ aliases:
   #
   sig-storage-approvers: {}
   sig-storage-reviewers: {}
+
+  #
+  # SMEs
+  #
+  sme-live-migration: {}
+  sme-api-and-controllers: {}
+  sme-scheduling-and-node-plumbing: {}
+  sme-scale-and-observability: {}
+  sme-ci-and-test-framework: {}
+  sme-release-and-buildsystem: {}
