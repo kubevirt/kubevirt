@@ -778,7 +778,7 @@ func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	if !isValidEvictionStrategy(evictionStrategy) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
+			Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *evictionStrategy),
 			Field:   field.Child("evictionStrategy").String(),
 		})
 	}
