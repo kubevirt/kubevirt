@@ -34,8 +34,11 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -44,7 +47,11 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = SIGDescribe("nic-hotplug", func() {
+var _ = SIGDescribe("nic-hotplug", decorators.InPlaceHotplugNICs, func() {
+	BeforeEach(func() {
+		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+	})
+
 	const (
 		bridgeName  = "supadupabr"
 		ifaceName   = "iface1"

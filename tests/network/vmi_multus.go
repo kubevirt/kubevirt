@@ -45,6 +45,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
@@ -484,7 +486,9 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
 			})
 
-			It("vmi with an hotplugged interface has connectivity over the secondary network", func() {
+			It("vmi with an hotplugged interface has connectivity over the secondary network", decorators.InPlaceHotplugNICs, func() {
+				Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+
 				By("Creating another VM with only the masquerade interface")
 				vmiOne := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
