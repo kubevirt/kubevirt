@@ -108,7 +108,6 @@ var istioTests = func(vmType VmType) {
 		namespace = testsuite.GetTestNamespace(nil)
 		if vmType == Passt {
 			Expect(checks.HasFeature(virtconfig.PasstGate)).To(BeTrue())
-			namespace = testsuite.NamespacePrivileged
 		}
 	})
 
