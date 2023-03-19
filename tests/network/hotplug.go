@@ -117,6 +117,48 @@ var _ = SIGDescribe("nic-hotplug", decorators.InPlaceHotplugNICs, func() {
 			tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
 		})
+
+		It("has connectivity over the secondary network", func() {
+			const subnetMask = "/24"
+			const ip1 = "10.1.1.1"
+			const ip2 = "10.1.1.2"
+
+			var err error
+			vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Configuring static IP address on the hotplugged interface inside the guest")
+			Expect(configInterface(vmi, vmIfaceName, ip1+subnetMask)).To(Succeed())
+
+			By("creating another VM connected to the same secondary network")
+			net := v1.Network{
+				Name: ifaceName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: networkName,
+					},
+				},
+			}
+
+			iface := v1.Interface{
+				Name: ifaceName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			}
+
+			anotherVmi := libvmi.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(iface),
+				libvmi.WithNetwork(&net),
+				libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", ip2+subnetMask)))
+			anotherVmi = tests.CreateVmiOnNode(anotherVmi, vmi.Status.NodeName)
+			libwait.WaitUntilVMIReady(anotherVmi, console.LoginToFedora)
+
+			By("Ping from the VM with hotplugged interface to the other VM")
+			Expect(libnet.PingFromVMConsole(vmi, ip2)).To(Succeed())
+		})
 	})
 
 	Context("a running VM", func() {
