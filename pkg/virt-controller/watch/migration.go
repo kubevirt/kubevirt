@@ -335,7 +335,7 @@ func (c *MigrationController) execute(key string) error {
 		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
-	err = c.updateStatus(migration, vmi, targetPods)
+	err = c.updateStatus(migration, vmi, targetPods, syncErr)
 	if err != nil {
 		return err
 	}
@@ -389,7 +389,7 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 
 }
 
-func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
+func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
 
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
@@ -508,6 +508,13 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				} else {
 					migrationCopy.Status.Phase = virtv1.MigrationScheduling
 				}
+			} else if syncError != nil && strings.Contains(syncError.Error(), "exceeded quota") && !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
+				condition := virtv1.VirtualMachineInstanceMigrationCondition{
+					Type:          virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota,
+					Status:        k8sv1.ConditionTrue,
+					LastProbeTime: v1.Now(),
+				}
+				migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 			}
 		case virtv1.MigrationScheduling:
 			if isPodReady(pod) {

@@ -510,6 +510,7 @@ type VirtualMachineInstanceMigrationConditionType string
 const (
 	// VirtualMachineInstanceMigrationAbortRequested indicates that live migration abort has been requested
 	VirtualMachineInstanceMigrationAbortRequested VirtualMachineInstanceMigrationConditionType = "migrationAbortRequested"
+	VirtualMachineInstanceMigrationRejectedByResourceQuota VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
 )
 
 type VirtualMachineInstanceCondition struct {
