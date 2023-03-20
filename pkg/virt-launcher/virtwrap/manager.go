@@ -1646,7 +1646,7 @@ func (l *LibvirtDomainManager) GetQemuVersion() (string, error) {
 
 func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
-	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
+	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
 	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
 }
