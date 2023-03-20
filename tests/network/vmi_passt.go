@@ -67,7 +67,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
@@ -87,7 +87,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)
 
-					serverVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), serverVMI)
+					serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI)
 					Expect(err).ToNot(HaveOccurred())
 					serverVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(serverVMI)
 					Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
@@ -134,7 +134,7 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						)
 
-						clientVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), clientVMI)
+						clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
 						Expect(err).ToNot(HaveOccurred())
 						clientVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
 						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
@@ -219,7 +219,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 							libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding()),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						)
-						clientVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), clientVMI)
+						clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI)
 						Expect(err).ToNot(HaveOccurred())
 						clientVMI = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(clientVMI)
 						Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
@@ -255,7 +255,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 					libvmi.WithPasstInterfaceWithPort(),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -280,7 +280,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 				Expect(err).ToNot(HaveOccurred())
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespacePrivileged).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
