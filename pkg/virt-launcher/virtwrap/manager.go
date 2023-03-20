@@ -389,66 +389,64 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 
 	vcpuTopology := vcpu.GetCPUTopology(vmi)
 	vcpuCount := vcpu.CalculateRequestedVCPUs(vcpuTopology)
+
 	// hot plug/unplug vCPUs
 	if err := dom.SetVcpusFlags(uint(vcpuCount),
 		affectDomainVCPULiveAndConfigLibvirtFlags); err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
-	if vmi.IsCPUDedicated() {
-		useIOThreads := false
-		if options != nil && options.Topology != nil {
-			topology = options.Topology
-		}
+	// Adjust guest vcpu config
+	useIOThreads := false
+	if options != nil && options.Topology != nil {
+		topology = options.Topology
+	}
 
-		podCPUSet, err := util.GetPodCPUSet()
-		if err != nil {
-			logger.Reason(err).Error("failed to read pod cpuset.")
-			return fmt.Errorf("failed to read pod cpuset: %v", err)
-		}
+	podCPUSet, err := util.GetPodCPUSet()
+	if err != nil {
+		logger.Reason(err).Error("failed to read pod cpuset.")
+		return fmt.Errorf("failed to read pod cpuset: %v", err)
+	}
 
-		domain, err := getDomain(dom)
+	domain, err := getDomain(dom)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	if domain.Spec.CPUTune != nil && len(domain.Spec.CPUTune.IOThreadPin) > 0 {
+		useIOThreads = true
+	}
+
+	domain.Spec.CPU.Topology = vcpuTopology
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU.MaxSockets != 0 {
+		domain.Spec.VCPUs = vcpu.GenerateAPIVCPUs(vcpuCount, vcpuTopology.Sockets*vcpuTopology.Cores*vcpuTopology.Threads)
+	}
+
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	for _, vcpupin := range domain.Spec.CPUTune.VCPUPin {
+		vcpu := vcpupin.VCPU
+		cpuSet := vcpupin.CPUSet
+		pcpu, _ := strconv.Atoi(cpuSet)
+		cpuMap := make([]bool, int(pcpu)+1)
+		cpuMap[pcpu] = true
+		err = dom.PinVcpuFlags(uint(vcpu), cpuMap, affectDomainLiveAndConfigLibvirtFlags)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
-
-		if domain.Spec.CPUTune != nil && len(domain.Spec.CPUTune.IOThreadPin) > 0 {
-			useIOThreads = true
-		}
-
-		domain.Spec.CPU.Topology = vcpuTopology
-		vmiCPU := vmi.Spec.Domain.CPU
-		if vmiCPU.MaxSockets != 0 {
-			vcpu.GenerateAPIVCPUs(vcpuCount, vcpuTopology.Sockets*vcpuTopology.Cores*vcpuTopology.Threads)
-		}
-
-		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
+	}
+	if domain.Spec.CPUTune.EmulatorPin != nil {
+		isolCpu, _ := strconv.Atoi(domain.Spec.CPUTune.EmulatorPin.CPUSet)
+		cpuMap := make([]bool, isolCpu+1)
+		cpuMap[isolCpu] = true
+		err = dom.PinEmulator(cpuMap, affectDomainLiveAndConfigLibvirtFlags)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
-
-		for _, vcpupin := range domain.Spec.CPUTune.VCPUPin {
-			vcpu := vcpupin.VCPU
-			cpuSet := vcpupin.CPUSet
-			pcpu, _ := strconv.Atoi(cpuSet)
-			cpuMap := make([]bool, int(pcpu)+1)
-			cpuMap[int(pcpu)] = true
-			err = dom.PinVcpuFlags(uint(vcpu), cpuMap, affectDomainLiveAndConfigLibvirtFlags)
-			if err != nil {
-				return fmt.Errorf("%s: %v", errMsgPrefix, err)
-			}
-		}
-		if domain.Spec.CPUTune.EmulatorPin != nil {
-			isolCpu, _ := strconv.Atoi(domain.Spec.CPUTune.EmulatorPin.CPUSet)
-			cpuMap := make([]bool, isolCpu+1)
-			cpuMap[int(isolCpu)] = true
-			err = dom.PinEmulator(cpuMap, affectDomainLiveAndConfigLibvirtFlags)
-			if err != nil {
-				return fmt.Errorf("%s: %v", errMsgPrefix, err)
-			}
-		}
-
 	}
 	return nil
 }

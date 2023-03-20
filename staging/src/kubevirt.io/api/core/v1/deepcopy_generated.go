@@ -5008,11 +5008,6 @@ func (in *VirtualMachineSpec) DeepCopyInto(out *VirtualMachineSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.MaxSockets != nil {
-		in, out := &in.MaxSockets, &out.MaxSockets
-		*out = new(uint32)
-		**out = **in
-	}
 	return
 }
 

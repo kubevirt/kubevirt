@@ -569,7 +569,6 @@ func (c *VMController) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) 
 }
 
 func (c *VMController) saveCurrentVMICPUCsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.CurrentCPUTopology = vmi.Spec.Domain.CPU
 
@@ -578,17 +577,17 @@ func (c *VMController) saveCurrentVMICPUCsPatch(vm *virtv1.VirtualMachine, vmi *
 		return err
 	}
 
-	log.Log.Object(vmi).V(1).Infof("in saveCurrentVMICPUCsPatch, Json: %s", string(oldJson))
 	patchOps := fmt.Sprintf(`{ "op": "add", "path": "/status/currentCPUTopology", "value": %s}`, string(oldJson))
 	patchBytes := controller.GeneratePatchBytes([]string{patchOps})
 
-	log.Log.Object(vmi).V(1).Infof("in handleCPUChangeRequest patch: %v", patchBytes)
 	if len(patchBytes) == 0 {
 		return nil
 	}
 
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, &v1.PatchOptions{})
-	log.Log.Object(vmi).V(1).Infof("in saveCurrentVMICPUCsPatch patched: %v", err)
+	if err != nil {
+		return err
+	}
 
 	newJson, err := json.Marshal(vm.Spec.Template.Spec.Domain.CPU)
 	if err != nil {
@@ -599,25 +598,23 @@ func (c *VMController) saveCurrentVMICPUCsPatch(vm *virtv1.VirtualMachine, vmi *
 	update := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/cpu", "value": %s}`, string(newJson))
 	patch := fmt.Sprintf("[%s, %s]", test, update)
 	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+
 	return err
 }
 
 func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-
-	log.Log.Object(vm).V(1).Infof("in handleCPUChangeRequest, maxsockets %v", vm.Spec.MaxSockets)
-	if vm.Spec.MaxSockets == nil {
+	if vm == nil || vm.Spec.Template == nil || vm.Spec.Template.Spec.Domain.CPU == nil ||
+		vmi == nil || vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.MaxSockets == 0 {
 		return nil
 	}
 
-	if vm.Spec.Template.Spec.Domain.CPU == nil || vmi == nil || vmi.Spec.Domain.CPU == nil {
-		return nil
-	}
-	log.Log.Object(vm).V(1).Infof("in handleCPUChangeRequest, VMCPU %v, VMICPU: %v", vm.Spec.Template.Spec.Domain.CPU, vmi.Spec.Domain.CPU)
+	vmCPU := vm.Spec.Template.Spec.Domain.CPU
+	vmCPUs := vmCPU.Sockets * vmCPU.Cores * vmCPU.Threads
 
-	vmTemplvCPUs := vm.Spec.Template.Spec.Domain.CPU.Sockets * vm.Spec.Template.Spec.Domain.CPU.Cores * vm.Spec.Template.Spec.Domain.CPU.Threads
-	vmiTopology := vmi.Spec.Domain.CPU.Sockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads
-	log.Log.Object(vm).V(1).Infof("in handleCPUChangeRequest, vmTemplvCPUs %v, vmiTopology: %v", vmTemplvCPUs, vmiTopology)
-	if vmTemplvCPUs == vmiTopology {
+	vmiCPU := vmi.Spec.Domain.CPU
+	vmiCPUs := vmiCPU.Sockets * vmiCPU.Cores * vmiCPU.Threads
+
+	if vmCPUs == vmiCPUs {
 		return nil
 	}
 

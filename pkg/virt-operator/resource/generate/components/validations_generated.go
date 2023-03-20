@@ -3745,11 +3745,6 @@ var CRDsValidation map[string]string = map[string]string{
                 is applied to the VirtualMachineInstance.
               type: string
           type: object
-        maxSockets:
-          description: MaxSocket represents the number of sockets a VirtualMachine
-            may have
-          format: int32
-          type: integer
         preference:
           description: PreferenceMatcher references a set of preference that is used
             to fill fields in Template
@@ -16563,11 +16558,6 @@ var CRDsValidation map[string]string = map[string]string{
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
                   type: object
-                maxSockets:
-                  description: MaxSocket represents the number of sockets a VirtualMachine
-                    may have
-                  format: int32
-                  type: integer
                 preference:
                   description: PreferenceMatcher references a set of preference that
                     is used to fill fields in Template
@@ -21189,11 +21179,6 @@ var CRDsValidation map[string]string = map[string]string{
                             is applied to the VirtualMachineInstance.
                           type: string
                       type: object
-                    maxSockets:
-                      description: MaxSocket represents the number of sockets a VirtualMachine
-                        may have
-                      format: int32
-                      type: integer
                     preference:
                       description: PreferenceMatcher references a set of preference
                         that is used to fill fields in Template

@@ -22527,13 +22527,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 							},
 						},
 					},
-					"maxSockets": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MaxSocket represents the number of sockets a VirtualMachine may have",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
 				},
 				Required: []string{"template"},
 			},

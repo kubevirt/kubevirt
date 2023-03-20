@@ -689,8 +689,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
 				}
 			}
-			log.Log.V(1).Object(vmi).Infof("hot plug cpu vmi %s", vmi.Name)
-
 		}
 
 	case vmi.IsScheduled():
@@ -1190,7 +1188,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	}
 
 	if !isTempPod(pod) && isPodReady(pod) {
-
 		if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 			networkPCIMapAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(
 				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],

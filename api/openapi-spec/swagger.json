@@ -19607,11 +19607,6 @@
       "description": "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
       "$ref": "#/definitions/v1.InstancetypeMatcher"
      },
-     "maxSockets": {
-      "description": "MaxSocket represents the number of sockets a VirtualMachine may have",
-      "type": "integer",
-      "format": "int64"
-     },
      "preference": {
       "description": "PreferenceMatcher references a set of preference that is used to fill fields in Template",
       "$ref": "#/definitions/v1.PreferenceMatcher"
