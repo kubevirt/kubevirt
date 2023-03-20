@@ -82,6 +82,7 @@ var _ = Describe("Migration watcher", func() {
 	var pdbInformer cache.SharedIndexInformer
 	var migrationPolicyInformer cache.SharedIndexInformer
 	var namespaceStore cache.Store
+	var resourceQuotaInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -260,6 +261,7 @@ var _ = Describe("Migration watcher", func() {
 		go nodeInformer.Run(stop)
 		go pdbInformer.Run(stop)
 		go migrationPolicyInformer.Run(stop)
+		go resourceQuotaInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
@@ -267,7 +269,9 @@ var _ = Describe("Migration watcher", func() {
 			migrationInformer.HasSynced,
 			nodeInformer.HasSynced,
 			pdbInformer.HasSynced,
+			resourceQuotaInformer.HasSynced,
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
+
 	}
 
 	initController := func(kvConfig *virtv1.KubeVirtConfiguration) {
@@ -282,6 +286,7 @@ var _ = Describe("Migration watcher", func() {
 			pvcInformer,
 			pdbInformer,
 			migrationPolicyInformer,
+			resourceQuotaInformer,
 			recorder,
 			virtClient,
 			config,
@@ -305,6 +310,7 @@ var _ = Describe("Migration watcher", func() {
 		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
+		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		namespaceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		recorder = record.NewFakeRecorder(100)
