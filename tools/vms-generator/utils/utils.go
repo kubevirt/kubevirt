@@ -25,6 +25,9 @@ import (
 	"os"
 	"strings"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+	"kubevirt.io/client-go/kubecli"
+
 	k8sv1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,6 +41,8 @@ import (
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -112,6 +117,8 @@ const VmPoolCirros = "vm-pool-cirros"
 const VmiPresetSmall = "vmi-preset-small"
 
 const VmiMigration = "migration-job"
+
+const MigrationPolicyName = "example-migration-policy"
 
 const (
 	imageAlpine     = "alpine-container-disk-demo"
@@ -1133,6 +1140,22 @@ func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 			VMIName: VmiMigratable,
 		},
 	}
+}
+
+func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
+	policy := kubecli.NewMinimalMigrationPolicy(MigrationPolicyName)
+	policy.Spec = v1alpha1.MigrationPolicySpec{
+		AllowAutoConverge:       k6tpointer.P(false),
+		BandwidthPerMigration:   k6tpointer.P(resource.MustParse("2000Mi")),
+		CompletionTimeoutPerGiB: k6tpointer.P(int64(123456789)),
+		AllowPostCopy:           k6tpointer.P(false),
+		Selectors: &v1alpha1.Selectors{
+			NamespaceSelector:              map[string]string{"namespace-key": "namespace-value"},
+			VirtualMachineInstanceSelector: map[string]string{"vmi-key": "vmi-value"},
+		},
+	}
+
+	return policy
 }
 
 func GetVMIPresetSmall() *v1.VirtualMachineInstancePreset {
