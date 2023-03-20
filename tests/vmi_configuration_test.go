@@ -548,6 +548,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				config := kv.Spec.Configuration
 				config.DeveloperConfiguration.MemoryOvercommit = 200
+				config.AdditionalGuestMemoryOverheadRatio = nil
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 			})
 
@@ -556,8 +557,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				guestMemory := resource.MustParse("4096M")
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-				runningVMI := tests.RunVMI(vmi, 30)
-				Expect(runningVMI.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
+
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				computeContainer := tests.GetComputeContainerOfPod(vmiPod)
+
+				virtOverhead := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+
+				expectedComputeMemoryRequest := resource.MustParse("2048M")
+				expectedComputeMemoryRequest.Add(virtOverhead)
+				actualComputeMemoryRequest := computeContainer.Resources.Requests.Memory()
+				Expect(actualComputeMemoryRequest.Cmp(expectedComputeMemoryRequest)).To(Equal(0), "compute memory (%s) expects to equal %s", actualComputeMemoryRequest.String(), expectedComputeMemoryRequest.String())
 			})
 		})
 
