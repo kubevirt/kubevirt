@@ -28,9 +28,11 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 
 
 if [ ${CI} == "true" ]; then
-  _delay="$(( ( RANDOM % 180 )))"
-  echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
-  sleep ${_delay}
+  if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
+    _delay="$(( ( RANDOM % 180 )))"
+    echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
+    sleep ${_delay}
+  fi
 fi
 
 if [ -z $TARGET ]; then
@@ -91,7 +93,9 @@ if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
 fi
 
 if [[ $TARGET =~ sriov.* ]]; then
-  export KUBEVIRT_NUM_NODES=3
+  if [[ $TARGET =~ kind.* ]]; then
+    export KUBEVIRT_NUM_NODES=3
+  fi
   export KUBEVIRT_DEPLOY_CDI="false"
 elif [[ $TARGET =~ vgpu.* ]]; then
   export KUBEVIRT_NUM_NODES=1
@@ -240,7 +244,9 @@ export NAMESPACE="${NAMESPACE:-kubevirt}"
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
-make cluster-down
+if [ "$CI" != "true" ]; then
+  make cluster-down
+fi
 
 # Create .bazelrc to use remote cache
 cat >ci.bazelrc <<EOF
@@ -320,7 +326,7 @@ kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
-if [[ $TARGET =~ .*kind.* ]]; then
+if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
