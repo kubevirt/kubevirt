@@ -74,9 +74,10 @@ var MigrationGroupVersionResource = metav1.GroupVersionResource{
 }
 
 type Informers struct {
-	VMIPresetInformer  cache.SharedIndexInformer
-	VMRestoreInformer  cache.SharedIndexInformer
-	DataSourceInformer cache.SharedIndexInformer
+	VMIPresetInformer       cache.SharedIndexInformer
+	NamespaceLimitsInformer cache.SharedIndexInformer
+	VMRestoreInformer       cache.SharedIndexInformer
+	DataSourceInformer      cache.SharedIndexInformer
 }
 
 func IsKubeVirtServiceAccount(serviceAccount string) bool {

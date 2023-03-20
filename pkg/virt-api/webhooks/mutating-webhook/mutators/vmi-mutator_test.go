@@ -55,9 +55,12 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var vmi *v1.VirtualMachineInstance
 	var preset *v1.VirtualMachineInstancePreset
 	var presetInformer cache.SharedIndexInformer
+	var namespaceLimit *k8sv1.LimitRange
+	var namespaceLimitInformer cache.SharedIndexInformer
 	var kvInformer cache.SharedIndexInformer
 	var mutator *VMIsMutator
 
+	memoryLimit := "128M"
 	cpuModelFromConfig := "Haswell"
 	machineTypeFromConfig := "pc-q35-3.0"
 	cpuReq := resource.MustParse("800m")
@@ -166,9 +169,25 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
 		presetInformer.GetIndexer().Add(preset)
 
+		namespaceLimit = &k8sv1.LimitRange{
+			Spec: k8sv1.LimitRangeSpec{
+				Limits: []k8sv1.LimitRangeItem{
+					{
+						Type: k8sv1.LimitTypeContainer,
+						Default: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse(memoryLimit),
+						},
+					},
+				},
+			},
+		}
+		namespaceLimitInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
+		namespaceLimitInformer.GetIndexer().Add(namespaceLimit)
+
 		mutator = &VMIsMutator{}
 		mutator.ClusterConfig, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 		mutator.VMIPresetInformer = presetInformer
+		mutator.NamespaceLimitsInformer = namespaceLimitInformer
 	})
 
 	It("should apply presets on VMI create", func() {
@@ -184,12 +203,18 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
 	})
 
+	It("should apply namespace limit ranges on VMI create", func() {
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
+	})
+
 	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {
 		// no limits wanted on this test, to not copy the limit to requests
 		defer func() {
 			webhooks.Arch = rt.GOARCH
 		}()
 		webhooks.Arch = arch
+		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
@@ -205,6 +230,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			webhooks.Arch = rt.GOARCH
 		}()
 		webhooks.Arch = arch
+		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
@@ -537,6 +563,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {
 		// no limits wanted on this test, to not copy the limit to requests
+		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
@@ -556,6 +583,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
 		// no limits wanted on this test, to not copy the limit to requests
+		mutator.NamespaceLimitsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
 		Expect(vmiSpec.Domain.Memory.Hugepages.PageSize).To(Equal("3072M"))
