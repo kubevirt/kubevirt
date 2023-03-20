@@ -20,13 +20,24 @@
 package util
 
 import (
+	"encoding/binary"
+	"fmt"
+	"hash"
+	"hash/fnv"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+)
+
+const (
+	ControllerRevisionHashLabelKey = "controller-revision-hash"
 )
 
 func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Stores) bool {
@@ -192,4 +203,45 @@ func PodIsCrashLooping(pod *k8sv1.Pod) bool {
 	}
 
 	return haveContainersCrashed(pod.Status.ContainerStatuses)
+}
+
+func PodRolledOut(newDs, cachedDs *appsv1.DaemonSet, pod *k8sv1.Pod) bool {
+	if pod.Annotations == nil {
+		return false
+	}
+
+	hash, ok := pod.Annotations[ControllerRevisionHashLabelKey]
+	if !ok || hash != ComputeHash(&newDs.Spec.Template, cachedDs.Status.CollisionCount) {
+		return false
+	}
+
+	return true
+}
+
+func ComputeHash(template *k8sv1.PodTemplateSpec, collisionCount *int32) string {
+	podTemplateSpecHasher := fnv.New32a()
+	deepHashObject(podTemplateSpecHasher, *template)
+
+	// Add collisionCount in the hash if it exists.
+	if collisionCount != nil {
+		collisionCountBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint32(collisionCountBytes, uint32(*collisionCount))
+		podTemplateSpecHasher.Write(collisionCountBytes)
+	}
+
+	return rand.SafeEncodeString(fmt.Sprint(podTemplateSpecHasher.Sum32()))
+}
+
+// DeepHashObject writes specified object to hash using the spew library
+// which follows pointers and prints actual values of the nested objects
+// ensuring the hash does not change when a pointer changes.
+func deepHashObject(hasher hash.Hash, objectToWrite interface{}) {
+	hasher.Reset()
+	printer := spew.ConfigState{
+		Indent:         " ",
+		SortKeys:       true,
+		DisableMethods: true,
+		SpewKeys:       true,
+	}
+	printer.Fprintf(hasher, "%#v", objectToWrite)
 }

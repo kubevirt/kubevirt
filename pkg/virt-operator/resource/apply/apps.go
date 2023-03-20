@@ -5,18 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/kubecli"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -176,14 +175,18 @@ func (r *Reconciler) getCanaryPods(daemonSet *appsv1.DaemonSet) []*corev1.Pod {
 	return canaryPods
 }
 
-func (r *Reconciler) howManyUpdatedAndReadyPods(daemonSet *appsv1.DaemonSet) int32 {
+func (r *Reconciler) howManyUpdatedAndReadyPods(newDaemonset, cachedDaemonset *appsv1.DaemonSet) int32 {
 	var updatedReadyPods int32
 
 	for _, obj := range r.stores.InfrastructurePodCache.List() {
 		pod := obj.(*corev1.Pod)
 		owner := metav1.GetControllerOf(pod)
 
-		if owner != nil && owner.Name == daemonSet.Name && util.PodIsUpToDate(pod, r.kv) && util.PodIsReady(pod) {
+		if owner != nil &&
+			owner.Name == cachedDaemonset.Name &&
+			util.PodIsUpToDate(pod, r.kv) &&
+			util.PodIsReady(pod) &&
+			util.PodRolledOut(newDaemonset, cachedDaemonset, pod) {
 			updatedReadyPods++
 		}
 	}
@@ -202,7 +205,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
 	if isDaemonSetUpdated {
-		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(cachedDaemonSet)
+		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(newDS, cachedDaemonSet)
 	}
 
 	switch {

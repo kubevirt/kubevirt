@@ -239,6 +239,7 @@ var _ = Describe("Apply Apps", func() {
 						v1.InstallStrategyVersionAnnotation:    version,
 						v1.InstallStrategyRegistryAnnotation:   registry,
 						v1.InstallStrategyIdentifierAnnotation: id,
+						"controller-revision-hash":             util.ComputeHash(&daemonSet.Spec.Template, nil),
 					},
 				},
 				Status: corev1.PodStatus{
@@ -255,6 +256,16 @@ var _ = Describe("Apply Apps", func() {
 			pod := createDaemonSetPod(kv, daemonSet, corev1.PodRunning, false)
 			pod.Status.ContainerStatuses[0].RestartCount = 1
 			return pod
+		}
+
+		markHandlerCanaryInProgress := func(deamonSet *appsv1.DaemonSet) {
+			daemonSet.Status.DesiredNumberScheduled = 1
+			daemonSet.Status.NumberReady = 0
+			pod := createDaemonSetPod(kv, daemonSet, corev1.PodRunning, true)
+			pod.Annotations["controller-revision-hash"] = "abc123"
+			mockPodCacheStore.ListFunc = func() []interface{} {
+				return []interface{}{pod}
+			}
 		}
 
 		markHandlerReady := func(deamonSet *appsv1.DaemonSet) {
@@ -578,7 +589,7 @@ var _ = Describe("Apply Apps", func() {
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
 						addCustomTargetDeployment(kv, currentDs)
-						markHandlerNotReady(daemonSet)
+						markHandlerCanaryInProgress(daemonSet)
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
