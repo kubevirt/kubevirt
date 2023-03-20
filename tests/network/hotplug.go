@@ -44,91 +44,126 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = SIGDescribe("nic-hotplug", decorators.InPlaceHotplugNICs, func() {
+const (
+	linuxBridgeName = "supadupabr"
+	ifaceName       = "iface1"
+	networkName     = "skynet"
+	vmIfaceName     = "eth1"
+)
+
+type hotplugMethod string
+
+const (
+	migrationBased hotplugMethod = "migrationBased"
+	inPlace        hotplugMethod = "inPlace"
+)
+
+var _ = SIGDescribe("nic-hotplug", func() {
+	verifyHotplug := func(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+		if plugMethod == migrationBased {
+			migrate(vmi)
+		}
+
+		EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
+			return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+		}, 30*time.Second).Should(
+			ConsistOf(interfaceStatusFromInterfaceNames(ifaceName)))
+
+		var err error
+		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+		ExpectWithOffset(1, err).NotTo(HaveOccurred())
+		return vmi
+	}
+
 	BeforeEach(func() {
 		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
 	})
 
-	const (
-		bridgeName  = "supadupabr"
-		ifaceName   = "iface1"
-		networkName = "skynet"
-		vmIfaceName = "eth1"
-	)
-
 	Context("a running VMI", func() {
-		var vmi *v1.VirtualMachineInstance
+		var hotPluggedVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewAlpineWithTestTooling(libvmi.WithMasqueradeNetworking()...), 60)
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			Expect(
-				createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, networkName, bridgeName),
-			).To(Succeed())
-			err := libnet.InterfaceExists(vmi, vmIfaceName)
-			Expect(err).To(HaveOccurred())
+			By("running a VMI")
+			hotPluggedVMI = tests.RunVMIAndExpectLaunch(libvmi.NewAlpineWithTestTooling(libvmi.WithMasqueradeNetworking()...), 60)
+			ExpectWithOffset(1, console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
 
-			Expect(
-				kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+			By("creating a NAD")
+			ExpectWithOffset(1,
+				createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), networkName, linuxBridgeName),
+			).To(Succeed())
+
+			By("hotplugging an interface to the VMI")
+			err := libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)
+			ExpectWithOffset(1, err).To(HaveOccurred())
+
+			ExpectWithOffset(1,
+				kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.GetNamespace()).AddInterface(
 					context.Background(),
-					vmi.GetName(),
+					hotPluggedVMI.GetName(),
 					addIfaceOptions(networkName, ifaceName),
 				),
 			).To(Succeed())
-
-			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-				return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-			}, 30*time.Second).Should(
-				ConsistOf(interfaceStatusFromInterfaceNames(ifaceName)))
 		})
 
-		It("can be hotplugged a network interface", func() {
-			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
-		})
+		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
 
-		It("cannot hotplug multiple network interfaces for a q35 machine type by default", func() {
+		DescribeTable("cannot hotplug multiple network interfaces for a q35 machine type by default", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			const secondHotpluggedIfaceName = "iface2"
 			Expect(
-				kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).AddInterface(
+				kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.GetNamespace()).AddInterface(
 					context.Background(),
-					vmi.GetName(),
+					hotPluggedVMI.GetName(),
 					addIfaceOptions(networkName, secondHotpluggedIfaceName),
 				),
 			).To(Succeed())
+
+			if plugMethod == migrationBased {
+				migrate(hotPluggedVMI)
+			}
 			Eventually(func() []corev1.Event {
-				events, err := kubevirt.Client().CoreV1().Events(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{})
+				events, err := kubevirt.Client().CoreV1().Events(hotPluggedVMI.GetNamespace()).List(context.Background(), metav1.ListOptions{})
 				ExpectWithOffset(1, err).NotTo(HaveOccurred())
 				return events.Items
 			}, 30*time.Second).Should(
 				WithTransform(
 					filterVMISyncErrorEvents,
 					ContainElement(noPCISlotsAvailableError())))
-		})
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
 
-		It("can migrate a VMI with hotplugged interfaces", func() {
-			checks.SkipIfMigrationIsNotPossible()
+		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
 
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := tests.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
-			tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
-			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
-		})
+			migrate(hotPluggedVMI)
+			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
 
-		It("has connectivity over the secondary network", func() {
+		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+
 			const subnetMask = "/24"
 			const ip1 = "10.1.1.1"
 			const ip2 = "10.1.1.2"
 
-			var err error
-			vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
 			By("Configuring static IP address on the hotplugged interface inside the guest")
-			Expect(configInterface(vmi, vmIfaceName, ip1+subnetMask)).To(Succeed())
+			Expect(configInterface(hotPluggedVMI, vmIfaceName, ip1+subnetMask)).To(Succeed())
 
 			By("creating another VM connected to the same secondary network")
 			net := v1.Network{
@@ -153,107 +188,87 @@ var _ = SIGDescribe("nic-hotplug", decorators.InPlaceHotplugNICs, func() {
 				libvmi.WithInterface(iface),
 				libvmi.WithNetwork(&net),
 				libvmi.WithCloudInitNoCloudNetworkData(cloudInitNetworkDataWithStaticIPsByDevice("eth1", ip2+subnetMask)))
-			anotherVmi = tests.CreateVmiOnNode(anotherVmi, vmi.Status.NodeName)
+			anotherVmi = tests.CreateVmiOnNode(anotherVmi, hotPluggedVMI.Status.NodeName)
 			libwait.WaitUntilVMIReady(anotherVmi, console.LoginToFedora)
 
 			By("Ping from the VM with hotplugged interface to the other VM")
-			Expect(libnet.PingFromVMConsole(vmi, ip2)).To(Succeed())
-		})
+			Expect(libnet.PingFromVMConsole(hotPluggedVMI, ip2)).To(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
 	})
 
 	Context("a running VM", func() {
-		var vm *v1.VirtualMachine
+		var hotPluggedVM *v1.VirtualMachine
+		var hotPluggedVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			Expect(
-				createBridgeNetworkAttachmentDefinition(util.NamespaceTestDefault, networkName, bridgeName),
-			).To(Succeed())
-			vm = newVMWithOneInterface()
-
+			By("Creating a VM")
+			hotPluggedVM = newVMWithOneInterface()
 			var err error
-			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
-			var vmi *v1.VirtualMachineInstance
-			Eventually(func() error {
+			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
+			EventuallyWithOffset(1, func() error {
 				var err error
-				vmi, err = kubevirt.Client().VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
 				return err
 			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-		})
+			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
 
-		It("can be hotplugged a network interface", func() {
-			Expect(
-				kubevirt.Client().VirtualMachine(vm.GetNamespace()).AddInterface(
+			By("Creating a NAD")
+			ExpectWithOffset(1,
+				createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), networkName, linuxBridgeName),
+			).To(Succeed())
+
+			By("Hotplugging an interface to the VM")
+			ExpectWithOffset(1,
+				kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).AddInterface(
 					context.Background(),
-					vm.GetName(),
+					hotPluggedVM.GetName(),
 					addIfaceOptions(networkName, ifaceName),
 				),
 			).To(Succeed())
+		})
 
-			vmi, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
+		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
+
+		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			By("restarting the VM")
+			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
+				context.Background(),
+				hotPluggedVM.GetName(),
+				&v1.RestartOptions{},
+			)).To(Succeed())
+
+			By("asserting a new VMI is created, and running")
+			Eventually(func() v1.VirtualMachineInstancePhase {
+				newVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.Name, &metav1.GetOptions{})
+				if err != nil || hotPluggedVMI.UID == newVMI.UID {
+					hotPluggedVMI.GetNamespace()
+					return v1.VmPhaseUnset
+				}
+				return newVMI.Status.Phase
+			}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+			var err error
+			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
+			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
 
-			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-				return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-			}, 30*time.Second).Should(
-				ConsistOf(interfaceStatusFromInterfaceNames(ifaceName)))
-			Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
-		})
-
-		When("an interface is hotplugged into the VM", func() {
-			BeforeEach(func() {
-				By("hot-plugging an interface to the VM")
-				Expect(
-					kubevirt.Client().VirtualMachine(vm.GetNamespace()).AddInterface(
-						context.Background(),
-						vm.GetName(),
-						addIfaceOptions(networkName, ifaceName),
-					),
-				).To(Succeed())
-
-				vmi, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("asserting the corresponding VMI reports the interface in the status")
-				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
-					var err error
-
-					vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-				}, 30*time.Second).Should(
-					ConsistOf(interfaceStatusFromInterfaceNames(ifaceName)))
-
-				By("asserting the guest (via console) features the hot-plugged interface")
-				Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
-
-				By("restarting the VM")
-				Expect(kubevirt.Client().VirtualMachine(vm.GetNamespace()).Restart(
-					context.Background(),
-					vm.GetName(),
-					&v1.RestartOptions{},
-				)).To(Succeed())
-
-				By("asserting a new VMI is created, and running")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					newVMI, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-					if err != nil || vmi.UID == newVMI.UID {
-						return v1.VmPhaseUnset
-					}
-					return newVMI.Status.Phase
-				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-			})
-
-			It("hotplugged interfaces are available after the VM is restarted", func() {
-				vmi, err := kubevirt.Client().VirtualMachineInstance(vm.GetNamespace()).Get(context.Background(), vm.GetName(), &metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(libnet.InterfaceExists(vmi, vmIfaceName)).To(Succeed())
-			})
-		})
+			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.GetNamespace()).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
 	})
 
 	Context("a stopped VM", func() {
@@ -307,7 +322,7 @@ var _ = SIGDescribe("nic-hotplug", decorators.InPlaceHotplugNICs, func() {
 
 func vmiCurrentInterfaces(vmiNamespace, vmiName string) []v1.VirtualMachineInstanceNetworkInterface {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, &metav1.GetOptions{})
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	ExpectWithOffset(2, err).NotTo(HaveOccurred())
 	return secondaryInterfaces(vmi)
 }
 
@@ -411,4 +426,11 @@ func cleanMACAddressesFromSpec(status []v1.Interface) []v1.Interface {
 		status[i].MacAddress = ""
 	}
 	return status
+}
+
+func migrate(vmi *v1.VirtualMachineInstance) {
+	By("migrating the VMI")
+	migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+	migrationUID := tests.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
+	tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 }
