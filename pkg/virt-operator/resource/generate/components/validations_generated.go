@@ -6369,8 +6369,9 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: Name represents the name of the DataVolume
-                              in the same namespace
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace. After PVC population the DataVolume
+                              is garbage collected by default.
                             type: string
                         required:
                         - name
@@ -6908,8 +6909,9 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: Name represents the name of the DataVolume
-                              in the same namespace
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace. After PVC population the DataVolume
+                              is garbage collected by default.
                             type: string
                         required:
                         - name
@@ -10459,8 +10461,9 @@ var CRDsValidation map[string]string = map[string]string{
                       hotplugged and hotunplugged.
                     type: boolean
                   name:
-                    description: Name represents the name of the DataVolume in the
-                      same namespace
+                    description: Name of both the DataVolume and the PVC in the same
+                      namespace. After PVC population the DataVolume is garbage collected
+                      by default.
                     type: string
                 required:
                 - name
@@ -14955,8 +14958,9 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: Name represents the name of the DataVolume
-                              in the same namespace
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace. After PVC population the DataVolume
+                              is garbage collected by default.
                             type: string
                         required:
                         - name
@@ -18977,8 +18981,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       volume can be hotplugged and hotunplugged.
                                     type: boolean
                                   name:
-                                    description: Name represents the name of the DataVolume
-                                      in the same namespace
+                                    description: Name of both the DataVolume and the
+                                      PVC in the same namespace. After PVC population
+                                      the DataVolume is garbage collected by default.
                                     type: string
                                 required:
                                 - name
@@ -23675,8 +23680,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           the volume can be hotplugged and hotunplugged.
                                         type: boolean
                                       name:
-                                        description: Name represents the name of the
-                                          DataVolume in the same namespace
+                                        description: Name of both the DataVolume and
+                                          the PVC in the same namespace. After PVC
+                                          population the DataVolume is garbage collected
+                                          by default.
                                         type: string
                                     required:
                                     - name
@@ -24266,8 +24273,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           the volume can be hotplugged and hotunplugged.
                                         type: boolean
                                       name:
-                                        description: Name represents the name of the
-                                          DataVolume in the same namespace
+                                        description: Name of both the DataVolume and
+                                          the PVC in the same namespace. After PVC
+                                          population the DataVolume is garbage collected
+                                          by default.
                                         type: string
                                     required:
                                     - name
