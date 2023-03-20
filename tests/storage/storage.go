@@ -196,7 +196,7 @@ var _ = SIGDescribe("Storage", func() {
 
 		})
 
-		Context("with faulty disk", func() {
+		Context("[QUARANTINE] with faulty disk", func() {
 
 			var (
 				nodeName   string
