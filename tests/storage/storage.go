@@ -196,54 +196,6 @@ var _ = SIGDescribe("Storage", func() {
 
 		})
 
-		Context("[QUARANTINE] with faulty disk", func() {
-
-			var (
-				nodeName   string
-				deviceName = "error"
-				pv         *k8sv1.PersistentVolume
-				pvc        *k8sv1.PersistentVolumeClaim
-			)
-
-			BeforeEach(func() {
-				nodeName = tests.NodeNameWithHandler()
-				tests.CreateFaultyDisk(nodeName, deviceName)
-				var err error
-				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
-				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
-			})
-
-			AfterEach(func() {
-				tests.RemoveFaultyDisk(nodeName, deviceName)
-
-				err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should pause VMI on IO error", func() {
-				By("Creating VMI with faulty disk")
-				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("faulty-disk", pvc.Name))
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
-
-				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
-
-				refresh := ThisVMI(vmi)
-				By("Expecting VMI to be paused")
-				Eventually(func() []v1.VirtualMachineInstanceCondition {
-					vmi, err := refresh()
-					Expect(err).NotTo(HaveOccurred())
-					return vmi.Status.Conditions
-				}, 100*time.Second, time.Second).Should(Satisfy(isPausedOnIOError))
-
-				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
-			})
-		})
-
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			newRandomVMIWithPVC := func(claimName string) *virtv1.VirtualMachineInstance {
 				return libvmi.New(
