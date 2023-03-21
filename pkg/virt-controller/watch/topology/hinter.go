@@ -76,6 +76,6 @@ func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
 	return frequencies
 }
 
-func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, arch string, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
+func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
 	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, clusterConfig: clusterConfig}
 }
