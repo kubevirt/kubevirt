@@ -142,18 +142,20 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName, address, device string
 
 				pvc *k8sv1.PersistentVolumeClaim
+				pv  *k8sv1.PersistentVolume
 			)
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateErrorDisk(nodeName)
 				var err error
-				_, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
+				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 
 			AfterEach(func() {
 				tests.RemoveSCSIDisk(nodeName, address)
+				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			It("should pause VMI on IO error", func() {
@@ -1365,6 +1367,7 @@ var _ = SIGDescribe("Storage", func() {
 			var (
 				nodeName, address, device string
 				pvc                       *k8sv1.PersistentVolumeClaim
+				pv                        *k8sv1.PersistentVolume
 			)
 			addPVCLunDisk := func(vmi *virtv1.VirtualMachineInstance, deviceName, claimName string) {
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
@@ -1391,12 +1394,13 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateSCSIDisk(nodeName, []string{})
 				var err error
-				_, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
+				pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 			})
 
 			AfterEach(func() {
 				tests.RemoveSCSIDisk(nodeName, address)
+				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			It("should run the VMI", func() {
