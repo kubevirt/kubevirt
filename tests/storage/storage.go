@@ -137,7 +137,7 @@ var _ = SIGDescribe("Storage", func() {
 				}
 			}
 		}
-		Context("with error disk", func() {
+		Context("[Serial]with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
 
@@ -1363,7 +1363,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("with lun disk", func() {
+		Context("[Serial]with lun disk", Serial, func() {
 			var (
 				nodeName, address, device string
 				pvc                       *k8sv1.PersistentVolumeClaim
