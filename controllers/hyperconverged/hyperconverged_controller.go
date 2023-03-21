@@ -292,6 +292,9 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 
 	// Fetch the HyperConverged instance
 	instance, err := r.getHyperConverged(hcoRequest)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	hcoRequest.Instance = instance
 
