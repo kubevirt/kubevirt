@@ -1816,9 +1816,9 @@ func ExpectResourceVersionToBeLessEqualThanConfigVersion(resourceVersion, config
 }
 
 func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 15*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 15*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 15*time.Second)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
 }
 
 func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
@@ -1959,7 +1959,7 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
+	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
