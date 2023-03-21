@@ -2364,7 +2364,9 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 				continue
 			}
 
-			log.Log.Object(vmi).Infof("migration is block migration because of %s volume", volume.Name)
+			if vmi.Status.MigrationMethod == "" || vmi.Status.MigrationMethod == v1.LiveMigration {
+				log.Log.Object(vmi).Infof("migration is block migration because of %s volume", volume.Name)
+			}
 			blockMigrate = true
 		}
 	}
