@@ -147,8 +147,8 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 			if err := cmd.Start(); err != nil {
 				return err
 			}
-			waitForPortForwardCmd(stdout, sourcePort, targetPort)
-			defer killPortForwardCommand(cmd)
+			WaitForPortForwardCmd(stdout, sourcePort, targetPort)
+			defer KillPortForwardCommand(cmd)
 
 			url := fmt.Sprintf("http://localhost:%d", sourcePort)
 			resp := doHttpRequest(url, endpoint, token)
@@ -243,7 +243,7 @@ func getMonitoringNs(cli kubecli.KubevirtClient) string {
 	return "monitoring"
 }
 
-func waitForPortForwardCmd(stdout io.ReadCloser, src, dst int) {
+func WaitForPortForwardCmd(stdout io.ReadCloser, src, dst int) {
 	Eventually(func() string {
 		tmp := make([]byte, 1024)
 		_, err := stdout.Read(tmp)
@@ -253,7 +253,7 @@ func waitForPortForwardCmd(stdout io.ReadCloser, src, dst int) {
 	}, 30*time.Second, 1*time.Second).Should(ContainSubstring(fmt.Sprintf("Forwarding from 127.0.0.1:%d -> %d", src, dst)))
 }
 
-func killPortForwardCommand(portForwardCmd *exec.Cmd) error {
+func KillPortForwardCommand(portForwardCmd *exec.Cmd) error {
 	if portForwardCmd == nil {
 		return nil
 	}

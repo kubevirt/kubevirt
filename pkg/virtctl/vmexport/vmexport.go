@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -57,14 +58,26 @@ const (
 	DOWNLOAD = "download"
 
 	// Available vmexport flags
-	OUTPUT_FLAG   = "--output"
-	VOLUME_FLAG   = "--volume"
-	VM_FLAG       = "--vm"
-	SNAPSHOT_FLAG = "--snapshot"
-	INSECURE_FLAG = "--insecure"
-	KEEP_FLAG     = "--keep-vme"
-	PVC_FLAG      = "--pvc"
-	TTL_FLAG      = "--ttl"
+	OUTPUT_FLAG         = "--output"
+	VOLUME_FLAG         = "--volume"
+	VM_FLAG             = "--vm"
+	SNAPSHOT_FLAG       = "--snapshot"
+	INSECURE_FLAG       = "--insecure"
+	KEEP_FLAG           = "--keep-vme"
+	PVC_FLAG            = "--pvc"
+	TTL_FLAG            = "--ttl"
+	MANIFEST_FLAG       = "--manifest"
+	OUTPUT_FORMAT_FLAG  = "--manifest-output-format"
+	SERVICE_URL_FLAG    = "--service-url"
+	INCLUDE_SECRET_FLAG = "--include-secret"
+
+	// Possible output format for manifests
+	OUTPUT_FORMAT_JSON = "json"
+	OUTPUT_FORMAT_YAML = "yaml"
+
+	ACCEPT           = "Accept"
+	APPLICATION_YAML = "application/yaml"
+	APPLICATION_JSON = "application/json"
 
 	// processingWaitInterval is the time interval used to wait for a virtualMachineExport to be ready
 	processingWaitInterval = 2 * time.Second
@@ -79,13 +92,17 @@ const (
 	secretTokenLenght = 20
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
-	ErrRequiredFlag = "Need to specify the '%s' flag when using '%s'"
+	ErrRequiredFlag = "need to specify the '%s' flag when using '%s'"
 	// ErrIncompatibleFlag serves as error message when an incompatible flag is used
-	ErrIncompatibleFlag = "The '%s' flag is incompatible with '%s'"
+	ErrIncompatibleFlag = "the '%s' flag is incompatible with '%s'"
 	// ErrRequiredExportType serves as error message when no export kind is provided
-	ErrRequiredExportType = "Need to specify export kind when attempting to create a VirtualMachineExport [--pvc|--vm|--snapshot]"
+	ErrRequiredExportType = "need to specify export kind when attempting to create a VirtualMachineExport [--pvc|--vm|--snapshot]"
 	// ErrIncompatibleExportType serves as error message when an export kind is provided with an incompatible argument
-	ErrIncompatibleExportType = "Should not specify export kind"
+	ErrIncompatibleExportType = "should not specify export kind"
+	// ErrIncompatibleExportTypeManifest serves as error message when a PVC kind is defined when getting manifest
+	ErrIncompatibleExportTypeManifest = "cannot get manifest for PVC export"
+	// ErrInvalidValue ensures that the value provided in a flag is one of the acceptable values
+	ErrInvalidValue = "%s is not a valid value, acceptable values are %s"
 
 	// progressBarCycle is a const used to store the cycle displayed in the progress bar when downloading the exported volume
 	progressBarCycle = `"[___________________]" "[==>________________]" "[====>______________]" "[======>____________]" "[========>__________]" "[==========>________]" "[============>______]" "[==============>____]" "[================>__]" "[==================>]"`
@@ -93,15 +110,19 @@ const (
 
 var (
 	// Flags
-	vm           string
-	snapshot     string
-	pvc          string
-	outputFile   string
-	insecure     bool
-	keepVme      bool
-	shouldCreate bool
-	volumeName   string
-	ttl          string
+	vm                   string
+	snapshot             string
+	pvc                  string
+	outputFile           string
+	insecure             bool
+	keepVme              bool
+	shouldCreate         bool
+	includeSecret        bool
+	exportManifest       bool
+	serviceUrl           string
+	volumeName           string
+	ttl                  string
+	manifestOutputFormat string
 )
 
 type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
@@ -115,19 +136,25 @@ type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duratio
 var ExportProcessingComplete exportCompleteFunc = waitForVirtualMachineExport
 
 type VMExportInfo struct {
-	ShouldCreate bool
-	Insecure     bool
-	KeepVme      bool
-	OutputFile   string
-	VolumeName   string
-	Namespace    string
-	Name         string
-	ExportSource k8sv1.TypedLocalObjectReference
-	TTL          metav1.Duration
+	ShouldCreate   bool
+	Insecure       bool
+	KeepVme        bool
+	IncludeSecret  bool
+	ExportManifest bool
+	OutputFile     string
+	OutputWriter   io.Writer
+	VolumeName     string
+	Namespace      string
+	Name           string
+	OutputFormat   string
+	ServiceURL     string
+	ExportSource   k8sv1.TypedLocalObjectReference
+	TTL            metav1.Duration
 }
 
 type command struct {
 	clientConfig clientcmd.ClientConfig
+	cmd          *cobra.Command
 }
 
 var exportFunction exportFunc
@@ -166,8 +193,13 @@ func usage() string {
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
   
 	# Create a VirtualMachineExport and download the requested volume from it
-	{{ProgramName}} vmexport download vm1-export --vm=vm1 --volume=volume1 --output=disk.img.gz`
+	{{ProgramName}} vmexport download vm1-export --vm=vm1 --volume=volume1 --output=disk.img.gz
 
+	# Create a VirtualMachineExport and get the VirtualMachine manifest in Yaml format
+	{{ProgramName}} vmexport download vm1-export --vm=vm1 --manifest
+
+	# Get the VirtualMachine manifest in Yaml format from an existing VirtualMachineExport including CDI header secret
+	{{ProgramName}} vmexport download existing-export --include-secret --manifest`
 	return usage
 }
 
@@ -179,7 +211,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 		Example: usage(),
 		Args:    templates.ExactArgs("vmexport", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			v := command{clientConfig: clientConfig}
+			v := command{clientConfig: clientConfig, cmd: cmd}
 			return v.run(args)
 		},
 	}
@@ -193,6 +225,10 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
 	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
+	cmd.Flags().StringVar(&manifestOutputFormat, "manifest-output-format", "", "Manifest output format, defaults to Yaml. Valid options are yaml or json")
+	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
+	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
+	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -201,8 +237,12 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 // run serves as entrypoint for the vmexport command
 func (c *command) run(args []string) error {
 	var vmeInfo VMExportInfo
-	if err := parseExportArguments(args, &vmeInfo); err != nil {
+	if err := c.parseExportArguments(args, &vmeInfo); err != nil {
 		return err
+	}
+	// If writing to a file, the OutputWriter will also be a Closer
+	if closer, ok := vmeInfo.OutputWriter.(io.Closer); ok && vmeInfo.OutputFile != "" {
+		defer util.CloseIOAndCheckErr(closer, nil)
 	}
 
 	namespace, _, err := c.clientConfig.Namespace()
@@ -213,7 +253,7 @@ func (c *command) run(args []string) error {
 
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
 	if err != nil {
-		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
+		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
 	// Finally, run the vmexport function (create|delete|download)
@@ -227,7 +267,7 @@ func (c *command) run(args []string) error {
 // parseExportArguments parses and validates vmexport arguments and flags. These arguments should always be:
 //  1. The vmexport function (create|delete|download)
 //  2. The VirtualMachineExport name
-func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
+func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	funcName := strings.ToLower(args[0])
 
 	// Assign the appropiate vmexport function and make sure the used flags are compatible
@@ -248,7 +288,7 @@ func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 			return err
 		}
 	default:
-		return fmt.Errorf("Invalid function '%s'", funcName)
+		return fmt.Errorf("invalid function '%s'", funcName)
 	}
 
 	// VirtualMachineExport name
@@ -257,10 +297,24 @@ func parseExportArguments(args []string, vmeInfo *VMExportInfo) error {
 	// We store the flags in a struct to avoid relying on global variables
 	vmeInfo.ExportSource = getExportSource()
 	vmeInfo.OutputFile = outputFile
+	// User wants the output in a file, create
+	if outputFile != "" {
+		output, err := os.Create(vmeInfo.OutputFile)
+		if err != nil {
+			return err
+		}
+		vmeInfo.OutputWriter = output
+	} else {
+		vmeInfo.OutputWriter = c.cmd.OutOrStdout()
+	}
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
 	vmeInfo.VolumeName = volumeName
+	vmeInfo.ServiceURL = serviceUrl
+	vmeInfo.OutputFormat = manifestOutputFormat
+	vmeInfo.IncludeSecret = includeSecret
+	vmeInfo.ExportManifest = exportManifest
 	vmeInfo.TTL = metav1.Duration{}
 	if ttl != "" {
 		duration, err := time.ParseDuration(ttl)
@@ -332,7 +386,7 @@ func DeleteVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExport
 		if !k8serrors.IsNotFound(err) {
 			return err
 		}
-		fmt.Printf("VirtualMachineExport '%s/%s' does not exist", vmeInfo.Namespace, vmeInfo.Name)
+		fmt.Printf("VirtualMachineExport '%s/%s' does not exist\n", vmeInfo.Namespace, vmeInfo.Name)
 		return nil
 	}
 
@@ -350,7 +404,7 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 		}
 	}
 
-	if !vmeInfo.KeepVme {
+	if !vmeInfo.KeepVme && !vmeInfo.ExportManifest {
 		defer DeleteVirtualMachineExport(client, vmeInfo)
 	}
 
@@ -364,14 +418,60 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 		return err
 	}
 	if vmexport == nil {
-		return fmt.Errorf("Unable to get '%s/%s' VirtualMachineExport", vmeInfo.Namespace, vmeInfo.Name)
+		return fmt.Errorf("unable to get '%s/%s' VirtualMachineExport", vmeInfo.Namespace, vmeInfo.Name)
 	}
 
-	// Download the exported volume
-	if err := downloadVolume(client, vmexport, vmeInfo); err != nil {
+	if vmeInfo.ExportManifest {
+		// Grab the VM Manifest and display it.
+		if err := getVirtualMachineManifest(client, vmexport, vmeInfo); err != nil {
+			return err
+		}
+	} else {
+		// Download the exported volume
+		if err := downloadVolume(client, vmexport, vmeInfo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func printRequestBody(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo, manifestUrl string, headers map[string]string) error {
+	resp, err := HandleHTTPRequest(client, vmexport, manifestUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, headers)
+	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
+	// Check server response
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+	bodyAll, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(vmeInfo.OutputWriter, "%s", bodyAll)
+	return nil
+}
+
+func getVirtualMachineManifest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) error {
+	manifestMap, err := GetManifestUrlsFromVirtualMachineExport(vmexport, vmeInfo)
+	if err != nil {
+		return err
+	}
+	headers := make(map[string]string)
+	headers[ACCEPT] = APPLICATION_YAML
+	if strings.ToLower(vmeInfo.OutputFormat) == OUTPUT_FORMAT_JSON {
+		headers[ACCEPT] = APPLICATION_JSON
+	}
+	if err := printRequestBody(client, vmexport, vmeInfo, manifestMap[exportv1.AllManifests], headers); err != nil {
+		return err
+	}
+	if vmeInfo.IncludeSecret {
+		if err := printRequestBody(client, vmexport, vmeInfo, manifestMap[exportv1.AuthHeader], headers); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -383,7 +483,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 		return err
 	}
 
-	resp, err := handleHTTPRequest(client, vmexport, downloadUrl, vmeInfo.Insecure)
+	resp, err := HandleHTTPRequest(client, vmexport, downloadUrl, vmeInfo.Insecure, vmeInfo.ServiceURL, nil)
 	if err != nil {
 		return err
 	}
@@ -391,57 +491,105 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 
 	// Check server response
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Bad status: %s", resp.Status)
+		return fmt.Errorf("bad status: %s", resp.Status)
 	}
-
-	output, err := os.Create(vmeInfo.OutputFile)
-	if err != nil {
-		return err
-	}
-	defer util.CloseIOAndCheckErr(output, nil)
 
 	// Lastly, copy the file to the expected output
-	if err := copyFileWithProgressBar(output, resp); err != nil {
+	if err := copyFileWithProgressBar(vmeInfo.OutputWriter, resp); err != nil {
 		return err
 	}
 
-	fmt.Println("Download finished succesfully")
+	// Prevent this output ending up in the stdout
+	if vmeInfo.OutputFile != "" {
+		fmt.Println("Download finished succesfully")
+	}
 	return nil
+}
+
+func replaceUrlWithServiceUrl(manifestUrl string, vmeInfo *VMExportInfo) (string, error) {
+	// Replace internal URL with specified URL
+	manUrl, err := url.Parse(manifestUrl)
+	if err != nil {
+		return "", err
+	}
+	if vmeInfo.ServiceURL != "" {
+		manUrl.Host = vmeInfo.ServiceURL
+	}
+	return manUrl.String(), nil
 }
 
 // GetUrlFromVirtualMachineExport inspects the VirtualMachineExport status to fetch the extected URL
 func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (string, error) {
-	var downloadUrl string
+	var (
+		downloadUrl string
+		err         error
+		links       *exportv1.VirtualMachineExportLink
+	)
 
-	if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil || len(vmexport.Status.Links.External.Volumes) <= 0 {
-		return "", fmt.Errorf("Unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+	if vmeInfo.ServiceURL == "" && vmexport.Status.Links != nil && vmexport.Status.Links.External != nil {
+		links = vmexport.Status.Links.External
+	} else if vmexport.Status.Links != nil && vmexport.Status.Links.Internal != nil {
+		links = vmexport.Status.Links.Internal
 	}
-
-	volumeNumber := len(vmexport.Status.Links.External.Volumes)
+	if links == nil || len(links.Volumes) <= 0 {
+		return "", fmt.Errorf("unable to access the volume info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+	}
+	volumeNumber := len(links.Volumes)
 	if volumeNumber > 1 && vmeInfo.VolumeName == "" {
-		return "", fmt.Errorf("Detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", vmexport.Namespace, vmexport.Name)
+		return "", fmt.Errorf("detected more than one downloadable volume in '%s/%s' VirtualMachineExport: Select the expected volume using the --volume flag", vmexport.Namespace, vmexport.Name)
 	}
-
-	for _, exportVolume := range vmexport.Status.Links.External.Volumes {
+	for _, exportVolume := range links.Volumes {
 		// Access the requested volume
 		if volumeNumber == 1 || exportVolume.Name == vmeInfo.VolumeName {
 			for _, format := range exportVolume.Formats {
 				// We always attempt to find and get the compressed file URL, so we only break the loop when one is found
+				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz || format.Format == exportv1.KubeVirtRaw {
+					downloadUrl, err = replaceUrlWithServiceUrl(format.Url, vmeInfo)
+					if err != nil {
+						return "", err
+					}
+				}
 				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz {
-					downloadUrl = format.Url
 					break
-				} else if format.Format == exportv1.KubeVirtRaw {
-					downloadUrl = format.Url
 				}
 			}
 		}
 	}
 
 	if downloadUrl == "" {
-		return "", fmt.Errorf("Unable to get a valid URL from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+		return "", fmt.Errorf("unable to get a valid URL from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
 	}
 
 	return downloadUrl, nil
+}
+
+// GetManifestUrlsFromVirtualMachineExport retrieves the manifest URLs from VirtualMachineExport status
+func GetManifestUrlsFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vmeInfo *VMExportInfo) (map[exportv1.ExportManifestType]string, error) {
+	res := make(map[exportv1.ExportManifestType]string, 0)
+	if vmeInfo.ServiceURL == "" {
+		if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil || len(vmexport.Status.Links.External.Manifests) == 0 {
+			return nil, fmt.Errorf("unable to access the manifest info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+		}
+
+		for _, manifest := range vmexport.Status.Links.External.Manifests {
+			res[manifest.Type] = manifest.Url
+		}
+	} else {
+		if vmexport.Status.Links == nil || vmexport.Status.Links.Internal == nil || len(vmexport.Status.Links.Internal.Manifests) == 0 {
+			return nil, fmt.Errorf("unable to access the manifest info from '%s/%s' VirtualMachineExport", vmexport.Namespace, vmexport.Name)
+		}
+
+		for _, manifest := range vmexport.Status.Links.Internal.Manifests {
+			// Replace internal URL with specified URL
+			manUrl, err := url.Parse(manifest.Url)
+			if err != nil {
+				return nil, err
+			}
+			manUrl.Host = vmeInfo.ServiceURL
+			res[manifest.Type] = manUrl.String()
+		}
+	}
+	return res, nil
 }
 
 // waitForVirtualMachineExport waits for the VirtualMachineExport status and external links to be ready
@@ -461,31 +609,47 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 		}
 
 		if vmexport.Status.Phase != exportv1.Ready {
-			fmt.Printf("Waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
+			fmt.Printf("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
 			return false, nil
 		}
 
-		if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil {
-			fmt.Printf("Waiting for VM Export %s external links to be available...\n", vmeInfo.Name)
-			return false, nil
+		if vmeInfo.ServiceURL == "" {
+			if vmexport.Status.Links == nil || vmexport.Status.Links.External == nil {
+				fmt.Printf("waiting for VM Export %s external links to be available...\n", vmeInfo.Name)
+				return false, nil
+			}
+		} else {
+			if vmexport.Status.Links == nil || vmexport.Status.Links.Internal == nil {
+				fmt.Printf("waiting for VM Export %s internal links to be available...\n", vmeInfo.Name)
+				return false, nil
+			}
 		}
-
-		fmt.Printf("Processing completed successfully\n")
 		return true, nil
 	})
 
 	return err
 }
 
-// handleHTTPRequest generates the GET request with proper certificate handling
-func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool) (*http.Response, error) {
+// HandleHTTPRequestFunc function used to handle http requests
+type HandleHTTPRequestFunc func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error)
+
+// instance of function used to handle http requests
+var HandleHTTPRequest HandleHTTPRequestFunc = handleHTTPGetRequest
+
+// handleHTTPGetRequest generates the GET request with proper certificate handling
+func handleHTTPGetRequest(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 	token, err := getTokenFromSecret(client, vmexport)
 	if err != nil {
 		return nil, err
 	}
 
+	var cert string
 	// Create new certPool and append our external SSL certificate
-	cert := vmexport.Status.Links.External.Cert
+	if exportURL == "" {
+		cert = vmexport.Status.Links.External.Cert
+	} else {
+		cert = vmexport.Status.Links.Internal.Cert
+	}
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM([]byte(cert))
 	transport := &http.Transport{
@@ -495,6 +659,9 @@ func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.Virtual
 
 	// Generate and do the request
 	req, _ := http.NewRequest("GET", downloadUrl, nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	req.Header.Set(exportTokenHeader, token)
 
 	return httpClient.Do(req)
@@ -502,7 +669,7 @@ func handleHTTPRequest(client kubecli.KubevirtClient, vmexport *exportv1.Virtual
 
 // getHTTPClient assigns the default, non-mocked HTTP client
 func getHTTPClient(transport *http.Transport, insecure bool) *http.Client {
-	if insecure == true {
+	if insecure {
 		transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: insecure,
@@ -515,7 +682,7 @@ func getHTTPClient(transport *http.Transport, insecure bool) *http.Client {
 }
 
 // copyFileWithProgressBar serves as a wrapper to copy the file with a progress bar
-func copyFileWithProgressBar(output *os.File, resp *http.Response) error {
+func copyFileWithProgressBar(output io.Writer, resp *http.Response) error {
 	barTemplate := fmt.Sprintf(`{{ "Downloading file:" }} {{counters . }} {{ cycle . %s }} {{speed . }}`, progressBarCycle)
 
 	// start bar based on our template
@@ -624,6 +791,9 @@ func handleCreateFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, CREATE)
 	}
+	if serviceUrl != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
+	}
 
 	return nil
 }
@@ -646,6 +816,9 @@ func handleDeleteFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, DELETE)
 	}
+	if serviceUrl != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
+	}
 
 	return nil
 }
@@ -657,8 +830,19 @@ func handleDownloadFlags() error {
 		shouldCreate = true
 	}
 
-	if outputFile == "" {
-		return fmt.Errorf(ErrRequiredFlag, OUTPUT_FLAG, DOWNLOAD)
+	if exportManifest {
+		if volumeName != "" {
+			return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, MANIFEST_FLAG)
+		}
+
+		manifestOutputFormat = strings.ToLower(manifestOutputFormat)
+		if manifestOutputFormat != OUTPUT_FORMAT_JSON && manifestOutputFormat != OUTPUT_FORMAT_YAML && manifestOutputFormat != "" {
+			return fmt.Errorf(ErrInvalidValue, OUTPUT_FORMAT_FLAG, "json/yaml")
+		}
+
+		if pvc != "" {
+			return fmt.Errorf(ErrIncompatibleFlag, PVC_FLAG, MANIFEST_FLAG)
+		}
 	}
 
 	return nil
