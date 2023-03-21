@@ -25,9 +25,12 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -4514,7 +4517,71 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 		})
 	})
+	Context("ResourceQuota rejection", func() {
+		It("[Serial] Should contain condition when migrating with quota that doesn't have resources for both source and target", Serial, func() {
+			vmiRequest := resource.MustParse("200Mi")
+			vmi := libvmi.NewCirros(
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithResourceMemory(vmiRequest.String()),
+			)
+
+			vmiRequest.Add(resource.MustParse("50Mi")) //add 50Mi memoryOverHead to make sure vmi creation won't be blocked
+			enoughMemoryToStartVmiButNotEnoughForMigration := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+			enoughMemoryToStartVmiButNotEnoughForMigration.Add(vmiRequest)
+			resourcesToLimit := k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse(enoughMemoryToStartVmiButNotEnoughForMigration.String()),
+			}
+
+			By("Creating ResourceQuota with enough memory for the vmi but not enough for migration")
+			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
+			_ = createResourceQuota(resourceQuota, 90*time.Second)
+
+			By("Starting the VirtualMachineInstance")
+			_ = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("Trying to migrate the VirtualMachineInstance")
+			migration := tests.NewRandomMigration(vmi.Name, testsuite.GetTestNamespace(vmi))
+			migration = tests.RunMigration(virtClient, migration)
+			Eventually(func() error {
+				migration, migerr := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+				if migerr != nil {
+					return migerr
+				}
+				for _, cond := range migration.Status.Conditions {
+					if cond.Type == v1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
+						return nil
+					}
+				}
+				return fmt.Errorf("migration doesn't contain migrationRejectedByResourceQuota condition")
+			}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		})
+	})
 })
+
+func createResourceQuota(resourceQuota *k8sv1.ResourceQuota, timeout time.Duration) *k8sv1.ResourceQuota {
+	virtCli := kubevirt.Client()
+
+	var obj *k8sv1.ResourceQuota
+	var err error
+	Eventually(func() error {
+		obj, err = virtCli.CoreV1().ResourceQuotas(resourceQuota.Namespace).Create(context.Background(), resourceQuota, metav1.CreateOptions{})
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	return obj
+}
+
+func newResourceQuota(hardResourcesLimitation k8sv1.ResourceList, namespace string) *k8sv1.ResourceQuota {
+	return &k8sv1.ResourceQuota{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "test-quota",
+		},
+		Spec: k8sv1.ResourceQuotaSpec{
+			Hard: hardResourcesLimitation,
+		},
+	}
+}
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	vmi := tests.NewRandomFedoraVMIWithGuestAgent()
