@@ -116,6 +116,7 @@ go_test(
         "config_test.go",
         "console_test.go",
         "container_disk_test.go",
+        "cpu_hotplug_test.go",
         "credentials_test.go",
         "dryrun_test.go",
         "hyperv_test.go",
