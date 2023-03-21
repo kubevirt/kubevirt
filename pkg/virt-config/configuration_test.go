@@ -133,7 +133,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is empty, GetNodeSelectors should return the default", map[string]string{}, nil),
 	)
 
-	DescribeTable(" when machineType", func(cpuArch string, machineType string, result string) {
+	DescribeTable(" when machineType", func(cpuArch string, machineTypeAMD64 string, machineTypeARM64 string, machineTypePPC64le string, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -141,20 +141,25 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					MachineType: machineType,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeAMD64},
+						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeARM64},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypePPC64le},
+					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
 				Phase: "Deployed",
 			},
 		}, cpuArch)
-
-		Expect(clusterConfig.GetMachineType()).To(Equal(result))
+		Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(result))
 	},
-		Entry("when set, GetMachineType should return the value", "", "pc-q35-3.0", "pc-q35-3.0"),
-		Entry("when unset, GetMachineType should return the default with amd64", "amd64", "", virtconfig.DefaultAMD64MachineType),
-		Entry("when unset, GetMachineType should return the default with arm64", "arm64", "", virtconfig.DefaultAARCH64MachineType),
-		Entry("when unset, GetMachineType should return the default with ppc64le", "ppc64le", "", virtconfig.DefaultPPC64LEMachineType),
+		Entry("when amd64 set, GetMachineType should return the value", "amd64", "pc-q35-3.0", "", "", "pc-q35-3.0"),
+		Entry("when arm64 set, GetMachineType should return the value", "arm64", "", "virt", "", "virt"),
+		Entry("when ppc64le set, GetMachineType should return the value", "ppc64le", "", "", "pseries", "pseries"),
+		Entry("when amd64 unset, GetMachineType should return the default with amd64", "amd64", "", "", "", virtconfig.DefaultAMD64MachineType),
+		Entry("when arm64 unset, GetMachineType should return the default with arm64", "arm64", "", "", "", virtconfig.DefaultAARCH64MachineType),
+		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", virtconfig.DefaultPPC64LEMachineType),
 	)
 
 	DescribeTable(" when cpuModel", func(value string, result string) {
@@ -205,7 +210,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when negative, GetCPUAllocationRatio should return the default", -150, virtconfig.DefaultCPUAllocationRatio),
 	)
 
-	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachines []string, result []string) {
+	DescribeTable(" when emulatedMachines", func(cpuArch string, emuMachinesAMD64 []string, emuMachinesARM64 []string, emuMachinesAPC64le64 []string, result []string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -213,23 +218,29 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					EmulatedMachines: emuMachines,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAMD64},
+						Arm64:   &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesARM64},
+						Ppc64le: &v1.ArchSpecificConfiguration{EmulatedMachines: emuMachinesAPC64le64},
+					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
 				Phase: "Deployed",
 			},
 		}, cpuArch)
-		emulatedMachines := clusterConfig.GetEmulatedMachines()
+		emulatedMachines := clusterConfig.GetEmulatedMachines(cpuArch)
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
-		Entry("when set, GetEmulatedMachines should return the value", "", []string{"q35", "i440*"}, []string{"q35", "i440*"}),
-		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with arm64", "arm64", []string{}, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
-		Entry("when unset, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
-		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
+		Entry("when amd64 set, GetEmulatedMachines should return the value", "amd64", []string{"q35", "i440*"}, nil, nil, []string{"q35", "i440*"}),
+		Entry("when arm64 set, GetEmulatedMachines should return the value", "arm64", nil, []string{"virt*"}, nil, []string{"virt*"}),
+		Entry("when ppc64le set, GetEmulatedMachines should return the value", "ppc64le", nil, nil, []string{"pseries*"}, []string{"pseries*"}),
+		Entry("when unset, GetEmulatedMachines should return the defaults with amd64", "amd64", nil, nil, nil, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with amd64", "amd64", []string{}, []string{}, []string{}, strings.Split(virtconfig.DefaultAMD64EmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with arm64", "arm64", nil, nil, nil, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with arm64", "arm64", []string{}, []string{}, []string{}, strings.Split(virtconfig.DefaultAARCH64EmulatedMachines, ",")),
+		Entry("when unset, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", nil, nil, nil, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
+		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, []string{}, []string{}, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
 	)
 
 	// deprecated
@@ -356,11 +367,6 @@ var _ = Describe("test configuration", func() {
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeEquivalentTo(2))
 	})
 
-	It("should contain a default machine type that is supported by default", func() {
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-		Expect(clusterConfig.GetMachineType()).To(testutils.SatisfyAnyRegexp(clusterConfig.GetEmulatedMachines()))
-	})
-
 	DescribeTable("SMBIOS values", func(value *v1.SMBiosConfiguration, result *cmdv1.SMBios) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			SMBIOSConfig: value,
@@ -390,7 +396,7 @@ var _ = Describe("test configuration", func() {
 		Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
 	)
 
-	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKey string, result string) {
+	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKeyAMD64 string, ovmfPathKeyARM64 string, ovmfPathKeyPPC64le64 string, result string) {
 
 		kv := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -399,7 +405,11 @@ var _ = Describe("test configuration", func() {
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					OVMFPath: ovmfPathKey,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyAMD64},
+						Arm64:   &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyARM64},
+						Ppc64le: &v1.ArchSpecificConfiguration{OVMFPath: ovmfPathKeyPPC64le64},
+					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
@@ -408,13 +418,15 @@ var _ = Describe("test configuration", func() {
 		}
 
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
-		ovmfPath := clusterConfig.GetOVMFPath()
+		ovmfPath := clusterConfig.GetOVMFPath(cpuArch)
 		Expect(ovmfPath).To(Equal(result))
 	},
-		Entry("when set, GetOVMFPath should return the value", "", "/usr/share/ovmf/x64", "/usr/share/ovmf/x64"),
-		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", virtconfig.DefaultARCHOVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", virtconfig.DefaultAARCH64OVMFPath),
-		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", virtconfig.DefaultARCHOVMFPath),
+		Entry("when amd64 set, GetOVMFPath should return the value", "amd64", "/usr/share/ovmf/x64", "", "", "/usr/share/ovmf/x64"),
+		Entry("when arm64 set, GetOVMFPath should return the value", "arm64", "", "/usr/share/AAVMF", "", "/usr/share/AAVMF"),
+		Entry("when ppc64le set, GetOVMFPath should return the value", "ppc64le", "", "", "/usr/share/ovmf/x64", "/usr/share/ovmf/x64"),
+		Entry("when unset, GetOVMFPath should return the default with amd64", "amd64", "", "", "", virtconfig.DefaultARCHOVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with arm64", "arm64", "", "", "", virtconfig.DefaultAARCH64OVMFPath),
+		Entry("when unset, GetOVMFPath should return the default with ppc64le", "ppc64le", "", "", "", virtconfig.DefaultARCHOVMFPath),
 	)
 
 	It("verifies that SetConfigModifiedCallback works as expected ", func() {

@@ -94,15 +94,15 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
 		serviceAccount == fmt.Sprintf("%s:%s", prefix, components.ControllerServiceAccountName)
 }
 
-func IsARM64() bool {
-	if Arch == "arm64" {
+func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	if vmiSpec.Architecture == "arm64" {
 		return true
 	}
 	return false
 }
 
-func IsPPC64() bool {
-	if Arch == "ppc64le" {
+func IsPPC64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	if vmiSpec.Architecture == "ppc64le" {
 		return true
 	}
 	return false

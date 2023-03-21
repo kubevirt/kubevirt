@@ -390,6 +390,7 @@ var _ = Describe("Template", func() {
 								DisableHotplug: true,
 							},
 						},
+						Architecture: arch,
 					},
 				})
 				Expect(err).ToNot(HaveOccurred())
@@ -457,6 +458,7 @@ var _ = Describe("Template", func() {
 			},
 				Entry("on amd64", "amd64", "/usr/share/OVMF"),
 				Entry("on arm64", "arm64", "/usr/share/AAVMF"),
+				Entry("on ppc64le", "ppc64le", "/usr/share/OVMF"),
 			)
 		})
 		Context("with SELinux types", func() {
@@ -1132,7 +1134,7 @@ var _ = Describe("Template", func() {
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 				}
-				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{NodeSelector: nodeSelector, Domain: v1.DomainSpec{
+				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{Architecture: arch, NodeSelector: nodeSelector, Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -1898,6 +1900,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
+						Architecture: arch,
 					},
 				}
 
@@ -1936,6 +1939,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
+						Architecture: arch,
 					},
 				}
 
@@ -1970,6 +1974,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
+						Architecture: arch,
 					},
 				}
 
@@ -2009,6 +2014,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
+						Architecture: arch,
 					},
 				}
 				vmi.Spec.Domain.Devices = v1.Devices{
@@ -2190,6 +2196,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
+						Architecture: arch,
 					},
 				}
 
@@ -2266,6 +2273,7 @@ var _ = Describe("Template", func() {
 								},
 							},
 						},
+						Architecture: arch,
 					},
 				}
 

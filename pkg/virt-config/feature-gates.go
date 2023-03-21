@@ -67,6 +67,7 @@ const (
 	PersistentReservation = "PersistentReservation"
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
+	Multiarchitecture = "MultiArchitecture"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -220,4 +221,7 @@ func (config *ClusterConfig) PersistentReservationEnabled() bool {
 
 func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 	return config.isFeatureGateEnabled(VMPersistentState)
+}
+func (config *ClusterConfig) MultiArchitectureEnabled() bool {
+	return config.isFeatureGateEnabled(Multiarchitecture)
 }

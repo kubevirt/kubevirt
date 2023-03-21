@@ -340,6 +340,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	resources := resourceRenderer.ResourceRequirements()
 
+	ovmfPath := t.clusterConfig.GetOVMFPath(vmi.Spec.Architecture)
+
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
 	if err != nil {
@@ -364,7 +366,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--container-disk-dir", t.containerDiskDir,
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-			"--ovmf-path", t.clusterConfig.GetOVMFPath(),
+			"--ovmf-path", ovmfPath,
 		}
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
@@ -450,6 +452,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if virtiofsContainers != nil {
 		containers = append(containers, virtiofsContainers...)
 	}
+
+	// Override arch node selector based on architecture of VMI
+	vmi.Spec.NodeSelector[k8sv1.LabelArchStable] = strings.ToLower(vmi.Spec.Architecture)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(

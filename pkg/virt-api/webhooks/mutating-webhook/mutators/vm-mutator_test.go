@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	rt "runtime"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -68,7 +69,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	machineTypeFromConfig := "pc-q35-3.0"
 
-	admitVM := func() *admissionv1.AdmissionResponse {
+	admitVM := func(arch string) *admissionv1.AdmissionResponse {
+		vm.Spec.Template.Spec.Architecture = arch
 		vmBytes, err := json.Marshal(vm)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VM")
@@ -84,8 +86,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		return mutator.Mutate(ar)
 	}
 
-	getVMSpecMetaFromResponse := func() (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
-		resp := admitVM()
+	getVMSpecMetaFromResponse := func(arch string) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
+		resp := admitVM(arch)
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VM spec from the response")
@@ -162,28 +164,37 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	})
 
 	It("should apply defaults on VM create", func() {
-		vmSpec, _ := getVMSpecMetaFromResponse()
-		if webhooks.IsPPC64() {
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+		if webhooks.IsPPC64(&vmSpec.Template.Spec) {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
-		} else if webhooks.IsARM64() {
+		} else if webhooks.IsARM64(&vmSpec.Template.Spec) {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("virt"))
 		} else {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}
 	})
 
-	It("should apply configurable defaults on VM create", func() {
+	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppcle64MachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					MachineType: machineTypeFromConfig,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{MachineType: amd64MachineType},
+						Arm64:   &v1.ArchSpecificConfiguration{MachineType: arm64MachineType},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: ppcle64MachineType},
+					},
 				},
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
-	})
+
+	},
+		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", machineTypeFromConfig),
+		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", machineTypeFromConfig),
+		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, machineTypeFromConfig),
+	)
 
 	It("should not override specified properties with defaults on VM create", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
@@ -196,7 +207,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
 	})
 
@@ -232,7 +243,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(vm.Spec.Template.Spec.Domain.Machine.Type))
 	})
 
@@ -267,7 +278,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 	})
 
@@ -285,7 +296,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			},
 		})
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 	})
 
@@ -293,7 +304,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: "foobar",
 		}
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
 	})
 
@@ -301,7 +312,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: "foobar",
 		}
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
 	})
 
@@ -327,7 +338,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Name: preference.Name,
 		}
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(preference.Spec.Machine.PreferredMachineType))
 	})
 
@@ -353,7 +364,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		for _, dv := range vmSpec.DataVolumeTemplates {
 			Expect(*dv.Spec.PVC.StorageClassName).To(Equal(preference.Spec.Volumes.PreferredStorageClassName))
 		}
@@ -391,7 +402,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		vmSpec, _ := getVMSpecMetaFromResponse()
+		vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 		for _, dv := range vmSpec.DataVolumeTemplates {
 			Expect(*dv.Spec.PVC.StorageClassName).To(Equal(storageClass))
 		}
@@ -729,7 +740,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
@@ -766,7 +777,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
@@ -816,7 +827,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
@@ -875,7 +886,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			})
 
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
@@ -932,7 +943,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
@@ -1046,7 +1057,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
 			Expect(vmSpec.Preference).To(Equal(expectedPreferenceMatcher))
 		},
@@ -1101,7 +1112,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			// Remove all volumes to cause the failure
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
 
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("unable to find volume %s to infer defaults", inferVolumeName))
 		},
@@ -1125,7 +1136,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Name:         inferVolumeName,
 				VolumeSource: volumeSource,
 			}}
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring(messageSubstring))
 		},
@@ -1223,7 +1234,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported"))
 		},
@@ -1265,7 +1276,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("unable to infer defaults from DataVolumeSourceRef as Kind foo is not supported"))
 		},
@@ -1317,7 +1328,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC"))
 		},
@@ -1355,7 +1366,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring("unable to find required %s label on the volume", requiredLabel))
 		},
@@ -1397,7 +1408,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			if instancetypeMatcher != nil {
 				Expect(vmSpec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
 			}
@@ -1434,7 +1445,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					},
 				},
 			}}
-			vmSpec, _ := getVMSpecMetaFromResponse()
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			Expect(vmSpec.Instancetype).To(Equal(&v1.InstancetypeMatcher{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
@@ -1444,6 +1455,12 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Kind: defaultInferedKindFromPVC,
 			}))
 		})
+	})
+
+	It("should default architecture to compiled architecture when not provided", func() {
+		// provide empty string for architecture so that default will apply
+		vmSpec, _ := getVMSpecMetaFromResponse("")
+		Expect(vmSpec.Template.Spec.Architecture).To(Equal(rt.GOARCH))
 	})
 
 	Context("failure tests", func() {
@@ -1493,7 +1510,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail if", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, expectedField, expectedMessage string) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			resp := admitVM()
+			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring(expectedMessage))
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))

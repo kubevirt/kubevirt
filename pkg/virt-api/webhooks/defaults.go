@@ -54,7 +54,7 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 
 func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	// Do some CPU arch specific setting.
-	if IsARM64() {
+	if IsARM64(spec) {
 		log.Log.V(4).Info("Apply Arm64 specific setting")
 		SetArm64Defaults(spec)
 	} else {
@@ -78,6 +78,7 @@ func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
 }
 
 func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
+	setDefaultArchitecture(clusterConfig, spec)
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
 	setDefaultGuestCPUTopology(clusterConfig, spec)
@@ -90,7 +91,7 @@ func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 }
 
 func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	machineType := clusterConfig.GetMachineType()
+	machineType := clusterConfig.GetMachineType(spec.Architecture)
 
 	if machine := spec.Domain.Machine; machine != nil {
 		if machine.Type == "" {
@@ -99,6 +100,7 @@ func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.Vir
 	} else {
 		spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
+
 }
 
 func setDefaultPullPoliciesOnContainerDisks(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
@@ -207,5 +209,11 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 		} else {
 			spec.Domain.CPU.Model = v1.DefaultCPUModel
 		}
+	}
+}
+
+func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Architecture == "" {
+		spec.Architecture = clusterConfig.GetDefaultArchitecture()
 	}
 }

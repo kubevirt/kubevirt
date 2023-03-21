@@ -120,6 +120,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	mutator.setDefaultInstancetypeKind(&vm)
 	mutator.setDefaultPreferenceKind(&vm)
 	preferenceSpec := mutator.getPreferenceSpec(&vm)
+	mutator.setDefaultArchitecture(&vm)
 	mutator.setDefaultMachineType(&vm, preferenceSpec)
 	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
 
@@ -185,7 +186,7 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferen
 
 	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
 	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
-		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
+		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType(vm.Spec.Template.Spec.Architecture)
 	}
 }
 
@@ -289,6 +290,12 @@ func validateMatcherUpdate(oldMatcher, newMatcher v1.Matcher) error {
 		}
 	}
 	return nil
+}
+
+func (mutator *VMsMutator) setDefaultArchitecture(vm *v1.VirtualMachine) {
+	if vm.Spec.Template.Spec.Architecture == "" {
+		vm.Spec.Template.Spec.Architecture = mutator.ClusterConfig.GetDefaultArchitecture()
+	}
 }
 
 func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {

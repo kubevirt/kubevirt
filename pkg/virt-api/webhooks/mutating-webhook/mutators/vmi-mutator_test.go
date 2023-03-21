@@ -62,7 +62,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	machineTypeFromConfig := "pc-q35-3.0"
 	cpuReq := resource.MustParse("800m")
 
-	admitVMI := func() *admissionv1.AdmissionResponse {
+	admitVMI := func(arch string) *admissionv1.AdmissionResponse {
+		vmi.Spec.Architecture = arch
 		vmiBytes, err := json.Marshal(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VMI")
@@ -80,8 +81,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		return mutator.Mutate(ar)
 	}
 
-	getMetaSpecStatusFromAdmit := func() (*k8smetav1.ObjectMeta, *v1.VirtualMachineInstanceSpec, *v1.VirtualMachineInstanceStatus) {
-		resp := admitVMI()
+	getMetaSpecStatusFromAdmit := func(arch string) (*k8smetav1.ObjectMeta, *v1.VirtualMachineInstanceSpec, *v1.VirtualMachineInstanceStatus) {
+		resp := admitVMI(arch)
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VMI spec from the response")
@@ -172,7 +173,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("should apply presets on VMI create", func() {
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
 		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
 	})
@@ -186,19 +187,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {
 		// no limits wanted on this test, to not copy the limit to requests
-		defer func() {
-			webhooks.Arch = rt.GOARCH
-		}()
-		webhooks.Arch = arch
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
+
+		if webhooks.IsPPC64(vmiSpec) {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
+		} else if webhooks.IsARM64(vmiSpec) {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.CPUModeHostPassthrough))
+		} else {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
+		}
+
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
 	},
-		Entry("on amd64", "amd64", v1.DefaultCPUModel),
-		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough),
-		Entry("on ppc64le", "ppc64le", v1.DefaultCPUModel),
-	)
+		Entry("when architecture is amd64", "amd64"),
+		Entry("when architecture is arm64", "arm64"),
+		Entry("when architecture is ppcle64", "ppcle64"),
+		Entry("when architecture is not specified", ""))
 
 	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {
 		defer func() {
@@ -208,15 +218,17 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					CPUModel:    cpuModelFromConfig,
-					MachineType: machineTypeFromConfig,
-					CPURequest:  &cpuReq,
+					CPUModel:   cpuModelFromConfig,
+					CPURequest: &cpuReq,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+					},
 				},
 			},
 		})
 
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
 	},
@@ -228,7 +240,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 	DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
 		vmi.Spec.Volumes = given
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Volumes).To(Equal(expected))
 	},
 		Entry("set the ImagePullPolicy to Always if :latest is specified",
@@ -417,7 +429,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			})
 
-			_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+			_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 			switch expectedIface {
 			case "bridge":
 				Expect(vmiSpec.Domain.Devices.Interfaces[0].Bridge).NotTo(BeNil())
@@ -435,7 +447,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
 		vmi.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
 		vmi.Spec.Networks = append([]v1.Network{}, networks...)
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		if len(interfaces) == 0 {
 			Expect(vmiSpec.Domain.Devices.Interfaces).To(BeNil())
 		} else {
@@ -468,7 +480,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Name: missingVolumeName,
 			},
 		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Devices.Disks).To(HaveLen(2))
 		Expect(vmiSpec.Domain.Devices.Disks[0].Name).To(Equal(presentVolumeName))
 		Expect(vmiSpec.Domain.Devices.Disks[1].Name).To(Equal(missingVolumeName))
@@ -504,7 +516,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
 		vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
 
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(vmi.Spec.Domain.CPU.Model))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(vmi.Spec.Domain.Machine.Type))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(vmi.Spec.Domain.Resources.Requests.Cpu()))
@@ -516,7 +528,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 			k8sv1.ResourceCPU: resource.MustParse("2200m"),
 		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 
 		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(1)), "Expect cores")
 		Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(uint32(3)), "Expect sockets")
@@ -528,7 +540,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 			k8sv1.ResourceCPU: resource.MustParse("2.3"),
 		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 
 		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(1)), "Expect cores")
 		Expect(vmiSpec.Domain.CPU.Sockets).To(Equal(uint32(3)), "Expect sockets")
@@ -549,7 +561,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		guestMemory := resource.MustParse("3072M")
 		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("3072M"))
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
 	})
@@ -557,7 +569,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
 		// no limits wanted on this test, to not copy the limit to requests
 		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Memory.Hugepages.PageSize).To(Equal("3072M"))
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("3072M"))
 	})
@@ -568,13 +580,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		guestMemory := resource.MustParse("4096M")
 		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("512M"))
 		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("4096M"))
 	})
 
 	It("should apply foreground finalizer on VMI create", func() {
-		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 	})
 
@@ -585,7 +597,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				k8sv1.ResourceCPU: resource.MustParse("1"),
 			},
 		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("1"))
 		Expect(vmiSpec.Domain.Resources.Limits.Cpu().String()).To(Equal("1"))
 	})
@@ -597,7 +609,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				k8sv1.ResourceMemory: resource.MustParse("64M"),
 			},
 		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 	})
@@ -610,7 +622,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 		}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(*(vmiSpec.Domain.Features.Hyperv.VPIndex.Enabled)).To(BeTrue())
 		Expect(*(vmiSpec.Domain.Features.Hyperv.SyNIC.Enabled)).To(BeTrue())
 		Expect(*(vmiSpec.Domain.Features.Hyperv.SyNICTimer.Enabled)).To(BeTrue())
@@ -790,23 +802,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	// Check following convert for ARM64
 	// 1. should convert CPU model to host-passthrough
 	// 2. should convert default bootloader to UEFI non secureboot
-	It("should convert cpu model and UEFI boot on ARM64", func() {
-		defer func() {
-			webhooks.Arch = rt.GOARCH
-		}()
+	It("should convert cpu model, AutoattachGraphicsDevice and UEFI boot on ARM64", func() {
 		// turn on arm validation/mutation
-		webhooks.Arch = "arm64"
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit("arm64")
 		Expect(*(vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot)).To(BeFalse())
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
 	})
 
 	DescribeTable("should convert disk bus to virtio or scsi on ARM64", func(given v1.Disk, diskType string, expectedBus v1.DiskBus) {
-		defer func() {
-			webhooks.Arch = rt.GOARCH
-		}()
-		// turn on arm validation/mutation
-		webhooks.Arch = "arm64"
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "a",
 			VolumeSource: v1.VolumeSource{
@@ -816,7 +819,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		})
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, given)
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit("arm64")
 
 		getDiskDeviceBus := func(device string) v1.DiskBus {
 			switch device {
@@ -1028,37 +1031,37 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 
 		It("Should not tag vmi as non-root ", func() {
-			_, _, status := getMetaSpecStatusFromAdmit()
+			_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
 			Expect(status.RuntimeUser).To(BeZero())
 		})
 	})
 	It("Should tag vmi as non-root ", func() {
-		_, _, status := getMetaSpecStatusFromAdmit()
+		_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(status.RuntimeUser).NotTo(BeZero())
 	})
 
 	It("should add realtime node label selector with realtime workload", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.RealtimeLabel: ""}))
 	})
 	It("should not add realtime node label selector when no realtime workload", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: nil}
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
 	})
 	It("should not overwrite existing node label selectors with realtime workload", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
 	})
 
 	It("should add SEV node label selector with SEV workload", func() {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.SEVLabel: ""}))
 	})
@@ -1066,14 +1069,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should not add SEV node label selector when no SEV workload", func() {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
 	})
 
 	It("should not overwrite existing node label selectors with SEV workload", func() {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
 		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
 	})
 })

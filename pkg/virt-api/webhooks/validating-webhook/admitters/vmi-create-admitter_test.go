@@ -493,9 +493,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance spec", func() {
 		It("should accept valid machine type", func() {
 			vmi := api.NewMinimalVMI("testvmi")
-			if webhooks.IsPPC64() {
+			if webhooks.IsPPC64(&vmi.Spec) {
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
-			} else if webhooks.IsARM64() {
+			} else if webhooks.IsARM64(&vmi.Spec) {
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
 			} else {
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
