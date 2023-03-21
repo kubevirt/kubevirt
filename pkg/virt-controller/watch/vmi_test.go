@@ -2976,6 +2976,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Features: []virtv1.CPUFeature{
 					{
@@ -2990,6 +2991,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
 					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},
