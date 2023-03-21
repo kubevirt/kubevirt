@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("should include deprecation warning in response when presets are applied to VMI", func() {
-		resp := admitVMI()
+		resp := admitVMI(vmi.Spec.Architecture)
 		Expect(resp.Allowed).To(BeTrue())
 		Expect(resp.Warnings).ToNot(BeEmpty())
 		Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
@@ -192,23 +192,20 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		if webhooks.IsPPC64(vmiSpec) {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		} else if webhooks.IsARM64(vmiSpec) {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.CPUModeHostPassthrough))
 		} else {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
-			Expect(vmiSpec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel))
 		}
 
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
 	},
-		Entry("when architecture is amd64", "amd64"),
-		Entry("when architecture is arm64", "arm64"),
-		Entry("when architecture is ppcle64", "ppcle64"),
-		Entry("when architecture is not specified", ""))
+		Entry("when architecture is amd64", "amd64", v1.DefaultCPUModel),
+		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough),
+		Entry("when architecture is ppcle64", "ppcle64", v1.DefaultCPUModel),
+		Entry("when architecture is not specified", "", v1.DefaultCPUModel))
 
 	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {
 		defer func() {
@@ -491,7 +488,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Name: "default-0",
 		}}
 
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Domain.Devices.Inputs).To(HaveLen(1))
 		Expect(vmiSpec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
 		Expect(vmiSpec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))

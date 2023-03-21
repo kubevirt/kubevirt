@@ -291,7 +291,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					MachineType: machineTypeFromConfig,
+					ArchitectureConfiguration: &v1.ArchConfiguration{
+						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+					},
 				},
 			},
 		})
