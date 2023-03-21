@@ -39,6 +39,7 @@ const (
 	contentTypeAnnotation           = "cdi.kubevirt.io/storage.contentType"
 	podPhaseAnnotation              = "cdi.kubevirt.io/storage.pod.phase"
 	podReadyAnnotation              = "cdi.kubevirt.io/storage.pod.ready"
+	deleteAfterCompletionAnnotation = "cdi.kubevirt.io/storage.deleteAfterCompletion"
 )
 
 const (
@@ -148,6 +149,17 @@ var _ = Describe("ImageUpload", func() {
 			uploadRequestAnnotation: "",
 			podPhaseAnnotation:      "Succeeded",
 			podReadyAnnotation:      "false",
+		}
+		return spec
+	}
+
+	pvcSpecWithGarbageCollection := func() *v1.PersistentVolumeClaim {
+		spec := pvcSpec()
+		spec.Annotations = map[string]string{
+			deleteAfterCompletionAnnotation: "true",
+			uploadRequestAnnotation:         "",
+			podPhaseAnnotation:              "Succeeded",
+			podReadyAnnotation:              "false",
 		}
 		return spec
 	}
@@ -615,7 +627,16 @@ var _ = Describe("ImageUpload", func() {
 	})
 
 	Context("Upload fails", func() {
-		It("PVC already uploaded", func() {
+		It("DV already uploaded and garbagecollected", func() {
+			testInit(http.StatusOK, pvcSpecWithGarbageCollection())
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("DataVolume already garbage-collected"))
+		})
+
+		It("PVC already exists independently of the DV", func() {
 			testInit(http.StatusOK, pvcSpecWithUploadSucceeded())
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
