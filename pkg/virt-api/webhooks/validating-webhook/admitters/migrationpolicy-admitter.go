@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -93,6 +95,15 @@ func (admitter *MigrationPolicyAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 				Field:   sourceField.Child("bandwidthPerMigration").String(),
 			})
 		}
+	}
+
+	err = validating_webhooks.ValidateParallelMigrationThreads(spec.ParallelMigrationThreads)
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: err.Error(),
+			Field:   sourceField.Child("parallelMigrationThreads").String(),
+		})
 	}
 
 	if len(causes) > 0 {

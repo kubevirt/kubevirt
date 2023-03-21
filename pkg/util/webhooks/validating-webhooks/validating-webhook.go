@@ -91,3 +91,15 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
 		return
 	}
 }
+
+func ValidateParallelMigrationThreads(parallelMigrationThreads *uint) error {
+	if parallelMigrationThreads == nil {
+		return nil
+	}
+
+	if *parallelMigrationThreads <= 1 {
+		return fmt.Errorf("parallel migration threads must be larger than 1, but it equals to %d", *parallelMigrationThreads)
+	}
+
+	return nil
+}

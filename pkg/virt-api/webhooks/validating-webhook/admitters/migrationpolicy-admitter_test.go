@@ -42,6 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/client-go/kubecli"
+
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
@@ -78,6 +80,14 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("negative CompletionTimeoutPerGiB",
 			migrationsv1.MigrationPolicySpec{CompletionTimeoutPerGiB: pointer.Int64Ptr(-1)},
 		),
+
+		Entry("ParallelMigrationThreads equals 0",
+			migrationsv1.MigrationPolicySpec{ParallelMigrationThreads: k6tpointer.P(uint(0))},
+		),
+
+		Entry("ParallelMigrationThreads equals 1",
+			migrationsv1.MigrationPolicySpec{ParallelMigrationThreads: k6tpointer.P(uint(1))},
+		),
 	)
 
 	DescribeTable("should accept migration policy with", func(policySpec migrationsv1.MigrationPolicySpec) {
@@ -102,6 +112,10 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 
 		Entry("zero BandwidthPerMigration",
 			migrationsv1.MigrationPolicySpec{BandwidthPerMigration: resource.NewScaledQuantity(0, 1)},
+		),
+
+		Entry("larger than 1 ParallelMigrationThreads",
+			migrationsv1.MigrationPolicySpec{ParallelMigrationThreads: k6tpointer.P(uint(123))},
 		),
 
 		Entry("empty spec",

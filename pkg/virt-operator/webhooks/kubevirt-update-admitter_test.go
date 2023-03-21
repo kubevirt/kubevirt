@@ -23,6 +23,8 @@ import (
 	"crypto/tls"
 	"fmt"
 
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -153,6 +155,21 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("1.0", "1.0"),
 			Entry("5", "5"),
 			Entry("1.123", "1.123"),
+		)
+	})
+
+	Context("with MigrationConfiguration", func() {
+		DescribeTable("ParallelMigrationThreads should be allowed only if larger than 1", func(parallelMigrationThreads *uint, isValid bool) {
+			causes := validateMigrationConfigs(&v1.MigrationConfiguration{ParallelMigrationThreads: parallelMigrationThreads})
+			if isValid {
+				Expect(causes).To(BeEmpty())
+			} else {
+				Expect(causes).To(HaveLen(1))
+			}
+		},
+			Entry("ParallelMigrationThreads == 0: should deny", k6tpointer.P(uint(0)), false),
+			Entry("ParallelMigrationThreads == 1: should deny", k6tpointer.P(uint(1)), false),
+			Entry("ParallelMigrationThreads == 123: should allow", k6tpointer.P(uint(123)), true),
 		)
 	})
 })

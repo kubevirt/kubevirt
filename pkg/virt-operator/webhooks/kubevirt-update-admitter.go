@@ -78,6 +78,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
+	results = append(results, validateMigrationConfigs(newKV.Spec.Configuration.MigrationConfiguration)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -463,6 +464,18 @@ func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.Status
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("ratio provided, %s, cannot be smaller than 1.0", ratioStr),
+		})
+	}
+
+	return
+}
+
+func validateMigrationConfigs(migrationConfigs *v1.MigrationConfiguration) (causes []metav1.StatusCause) {
+	err := validating_webhooks.ValidateParallelMigrationThreads(migrationConfigs.ParallelMigrationThreads)
+	if err != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: err.Error(),
 		})
 	}
 
