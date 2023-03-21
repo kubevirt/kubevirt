@@ -621,14 +621,17 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
-	if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
-		psaErr := fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, psaErr)
-		return psaErr
-	} else if err != nil {
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
+	if err != nil {
+		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
+			err = fmt.Errorf("failed to create target pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, err)
+
+		} else {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
+			err = fmt.Errorf("failed to create vmi migration target pod: %v", err)
+		}
 		c.podExpectations.CreationObserved(key)
-		return fmt.Errorf("failed to create vmi migration target pod: %v", err)
+		return err
 	}
 	log.Log.Object(vmi).Infof("Created migration target pod %s/%s with uuid %s for migration %s with uuid %s", pod.Namespace, pod.Name, string(pod.UID), migration.Name, string(migration.UID))
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created migration target pod %s", pod.Name)
