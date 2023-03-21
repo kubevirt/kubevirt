@@ -2971,18 +2971,18 @@ spec:
 			const expectedSeccompProfilePath = "/proc/1/root/var/lib/kubelet/seccomp/kubevirt/kubevirt.json"
 
 			enableKubevirtProfile := func(enable bool) {
+				nodeName = libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
+
+				By("Removing profile if present")
+				_, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/rm", "-f", expectedSeccompProfilePath})
+				Expect(err).NotTo(HaveOccurred())
+
 				By(fmt.Sprintf("Configuring KubevirtSeccompProfile feature gate to %t", enable))
 				if enable {
 					tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
 				} else {
 					tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
 				}
-
-				nodeName = libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
-
-				By("Removing profile if present")
-				_, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/rm", "-f", expectedSeccompProfilePath})
-				Expect(err).NotTo(HaveOccurred())
 
 				vmProfile := &v1.VirtualMachineInstanceProfile{
 					CustomProfile: &v1.CustomProfile{
