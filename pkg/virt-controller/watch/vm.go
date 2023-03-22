@@ -47,7 +47,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1387,7 +1387,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	return vmi
 }
 
-func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec) error {
+func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 
 	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
@@ -2615,7 +2615,7 @@ func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 	)
 }
 
-func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference != nil {
 		preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
 		if err != nil {

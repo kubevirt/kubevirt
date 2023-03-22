@@ -30,7 +30,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -155,7 +155,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	}
 }
 
-func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *v1alpha2.VirtualMachinePreferenceSpec {
+func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *instancetypev1beta1.VirtualMachinePreferenceSpec {
 	preferenceSpec, err := mutator.InstancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
 		// Log but ultimately swallow any preference lookup errors here and let the validating webhook handle them
@@ -166,7 +166,7 @@ func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *v1alpha2.Vi
 	return preferenceSpec
 }
 
-func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *v1alpha2.VirtualMachinePreferenceSpec) {
+func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
 	// Nothing to do, let's the validating webhook fail later
 	if vm.Spec.Template == nil {
 		return
@@ -190,7 +190,7 @@ func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferen
 	}
 }
 
-func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *v1alpha2.VirtualMachinePreferenceSpec) {
+func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
 	// Nothing to do, let's the validating webhook fail later
 	if vm.Spec.Template == nil {
 		return

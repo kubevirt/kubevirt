@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k6tv1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -292,33 +292,33 @@ var _ = Describe("Utility functions", func() {
 })
 
 func setupTestVMICollector() *VMICollector {
-	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineInstancetype{})
-	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterInstancetype{})
-	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachinePreference{})
-	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1alpha2.VirtualMachineClusterPreference{})
+	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
-	_ = instanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineInstancetype{
+	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
 	})
-	_ = instanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineInstancetype{
+	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "some-user"),
 	})
 
-	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineClusterInstancetype{
+	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "kubevirt.io"),
 	})
-	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineClusterInstancetype{
+	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", ""),
 	})
 
-	_ = preferenceInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachinePreference{
+	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
 		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "kubevirt.io"),
 	})
-	_ = preferenceInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachinePreference{
+	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
 		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "some-vendor.com"),
 	})
 
-	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1alpha2.VirtualMachineClusterPreference{
+	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
 	})
 
