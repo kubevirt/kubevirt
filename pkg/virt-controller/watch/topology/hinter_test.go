@@ -2,7 +2,6 @@ package topology
 
 import (
 	"fmt"
-	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
 	g "github.com/onsi/gomega"
@@ -191,7 +190,7 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 					},
 				},
 			},
-			Architecture: runtime.GOARCH,
+			Architecture: "amd64",
 		},
 		Status: virtv1.VirtualMachineInstanceStatus{
 			NodeName:      nodename,
