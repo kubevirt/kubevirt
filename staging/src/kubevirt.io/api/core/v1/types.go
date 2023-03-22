@@ -2199,8 +2199,8 @@ type AddInterfaceOptions struct {
 	// specified, VMI namespace is assumed.
 	NetworkAttachmentDefinitionName string `json:"networkAttachmentDefinitionName"`
 
-	// InterfaceName indicates the logical name of the interface.
-	InterfaceName string `json:"interfaceName"`
+	// Name indicates the logical name of the interface.
+	Name string `json:"name"`
 }
 
 type TokenBucketRateLimiter struct {

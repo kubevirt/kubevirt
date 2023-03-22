@@ -14552,15 +14552,15 @@ func schema_kubevirtio_api_core_v1_AddInterfaceOptions(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
-					"interfaceName": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "InterfaceName indicates the logical name of the interface.",
+							Description: "Name indicates the logical name of the interface.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"networkAttachmentDefinitionName", "interfaceName"},
+				Required: []string{"networkAttachmentDefinitionName", "name"},
 			},
 		},
 	}

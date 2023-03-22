@@ -222,11 +222,11 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		},
 			Entry("VM with a valid add interface request", &v1.AddInterfaceOptions{
 				NetworkAttachmentDefinitionName: networkToHotplug,
-				InterfaceName:                   ifaceToHotplug,
+				Name:                            ifaceToHotplug,
 			}, successfulMockScenarioForVM),
 			Entry("VMI with a valid add interface request", &v1.AddInterfaceOptions{
 				NetworkAttachmentDefinitionName: networkToHotplug,
-				InterfaceName:                   ifaceToHotplug,
+				Name:                            ifaceToHotplug,
 			}, successfulMockScenarioForVMI),
 		)
 
@@ -239,14 +239,14 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		},
 			Entry("VM with an invalid add interface request missing a network name", &v1.AddInterfaceOptions{
-				InterfaceName: ifaceToHotplug,
+				Name: ifaceToHotplug,
 			}, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
 			Entry("VM with an invalid add interface request missing the interface name", &v1.AddInterfaceOptions{
 				NetworkAttachmentDefinitionName: networkToHotplug,
 			}, failedMockScenarioForVM, virtconfig.HotplugNetworkIfacesGate),
 			Entry("VM with a valid add interface request but no feature gate", &v1.AddInterfaceOptions{
 				NetworkAttachmentDefinitionName: networkToHotplug,
-				InterfaceName:                   ifaceToHotplug,
+				Name:                            ifaceToHotplug,
 			}, failedMockScenarioForVM),
 		)
 
@@ -267,7 +267,7 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 					&v1.VirtualMachineInterfaceRequest{
 						AddInterfaceOptions: &v1.AddInterfaceOptions{
 							NetworkAttachmentDefinitionName: networkToHotplug,
-							InterfaceName:                   ifaceToHotplug,
+							Name:                            ifaceToHotplug,
 						},
 					},
 				),
@@ -293,34 +293,34 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 				&v1.VirtualMachineInterfaceRequest{
 					AddInterfaceOptions: &v1.AddInterfaceOptions{
 						NetworkAttachmentDefinitionName: networkToHotplug,
-						InterfaceName:                   ifaceToHotplug,
+						Name:                            ifaceToHotplug,
 					},
 				},
 				nil,
-				fmt.Sprintf(`[{ "op": "test", "path": "/status/interfaceRequests", "value": null}, { "op": "add", "path": "/status/interfaceRequests", "value": [{"addInterfaceOptions":{"networkAttachmentDefinitionName":%q,"interfaceName":%q}}]}]`, networkToHotplug, ifaceToHotplug)),
+				fmt.Sprintf(`[{ "op": "test", "path": "/status/interfaceRequests", "value": null}, { "op": "add", "path": "/status/interfaceRequests", "value": [{"addInterfaceOptions":{"networkAttachmentDefinitionName":%q,"name":%q}}]}]`, networkToHotplug, ifaceToHotplug)),
 			Entry("add interface request when interface requests already exists",
 				&v1.VirtualMachineInterfaceRequest{
 					AddInterfaceOptions: &v1.AddInterfaceOptions{
 						NetworkAttachmentDefinitionName: networkToHotplug,
-						InterfaceName:                   ifaceToHotplug,
+						Name:                            ifaceToHotplug,
 					},
 				},
 				[]v1.VirtualMachineInterfaceRequest{
 					{
 						AddInterfaceOptions: &v1.AddInterfaceOptions{
 							NetworkAttachmentDefinitionName: existingNetworkName,
-							InterfaceName:                   existingIfaceName,
+							Name:                            existingIfaceName,
 						},
 					},
 				},
-				fmt.Sprintf(`[{ "op": "test", "path": "/status/interfaceRequests", "value": [{"addInterfaceOptions":{"networkAttachmentDefinitionName":%[1]q,"interfaceName":%[2]q}}]}, { "op": "add", "path": "/status/interfaceRequests", "value": [{"addInterfaceOptions":{"networkAttachmentDefinitionName":%[1]q,"interfaceName":%[2]q}},{"addInterfaceOptions":{"networkAttachmentDefinitionName":%[3]q,"interfaceName":%[4]q}}]}]`, existingNetworkName, existingIfaceName, networkToHotplug, ifaceToHotplug)),
+				fmt.Sprintf(`[{ "op": "test", "path": "/status/interfaceRequests", "value": [{"addInterfaceOptions":{"networkAttachmentDefinitionName":%[1]q,"name":%[2]q}}]}, { "op": "add", "path": "/status/interfaceRequests", "value": [{"addInterfaceOptions":{"networkAttachmentDefinitionName":%[1]q,"name":%[2]q}},{"addInterfaceOptions":{"networkAttachmentDefinitionName":%[3]q,"name":%[4]q}}]}]`, existingNetworkName, existingIfaceName, networkToHotplug, ifaceToHotplug)),
 			Entry("empty add interface request",
 				&v1.VirtualMachineInterfaceRequest{AddInterfaceOptions: nil},
 				[]v1.VirtualMachineInterfaceRequest{
 					{
 						AddInterfaceOptions: &v1.AddInterfaceOptions{
 							NetworkAttachmentDefinitionName: existingNetworkName,
-							InterfaceName:                   existingIfaceName,
+							Name:                            existingIfaceName,
 						},
 					},
 				}, ""))
@@ -333,7 +333,7 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 				{
 					AddInterfaceOptions: &v1.AddInterfaceOptions{
 						NetworkAttachmentDefinitionName: networkToHotplug,
-						InterfaceName:                   ifaceToHotplug,
+						Name:                            ifaceToHotplug,
 					},
 				},
 			}
@@ -342,7 +342,7 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 				generateVMInterfaceRequestPatch(vm, &v1.VirtualMachineInterfaceRequest{
 					AddInterfaceOptions: &v1.AddInterfaceOptions{
 						NetworkAttachmentDefinitionName: networkToHotplug,
-						InterfaceName:                   ifaceToHotplug,
+						Name:                            ifaceToHotplug,
 					},
 				}),
 			).To(BeEmpty())

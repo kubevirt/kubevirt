@@ -669,7 +669,7 @@ func (AddInterfaceOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
 		"networkAttachmentDefinitionName": "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:\n<networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not\nspecified, VMI namespace is assumed.",
-		"interfaceName":                   "InterfaceName indicates the logical name of the interface.",
+		"name":                            "Name indicates the logical name of the interface.",
 	}
 }
 

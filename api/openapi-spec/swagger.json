@@ -15463,11 +15463,11 @@
     "type": "object",
     "required": [
      "networkAttachmentDefinitionName",
-     "interfaceName"
+     "name"
     ],
     "properties": {
-     "interfaceName": {
-      "description": "InterfaceName indicates the logical name of the interface.",
+     "name": {
+      "description": "Name indicates the logical name of the interface.",
       "type": "string"
      },
      "networkAttachmentDefinitionName": {

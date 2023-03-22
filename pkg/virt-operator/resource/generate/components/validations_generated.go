@@ -6753,8 +6753,8 @@ var CRDsValidation map[string]string = map[string]string{
                   should be added. The details within this field specify how to add
                   the interface
                 properties:
-                  interfaceName:
-                    description: InterfaceName indicates the logical name of the interface.
+                  name:
+                    description: Name indicates the logical name of the interface.
                     type: string
                   networkAttachmentDefinitionName:
                     description: 'NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition
@@ -6762,7 +6762,7 @@ var CRDsValidation map[string]string = map[string]string{
                       If namespace is not specified, VMI namespace is assumed.'
                     type: string
                 required:
-                - interfaceName
+                - name
                 - networkAttachmentDefinitionName
                 type: object
             type: object
@@ -24450,9 +24450,9 @@ var CRDsValidation map[string]string = map[string]string{
                               network interface should be added. The details within
                               this field specify how to add the interface
                             properties:
-                              interfaceName:
-                                description: InterfaceName indicates the logical name
-                                  of the interface.
+                              name:
+                                description: Name indicates the logical name of the
+                                  interface.
                                 type: string
                               networkAttachmentDefinitionName:
                                 description: 'NetworkAttachmentDefinitionName references
@@ -24462,7 +24462,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   assumed.'
                                 type: string
                             required:
-                            - interfaceName
+                            - name
                             - networkAttachmentDefinitionName
                             type: object
                         type: object

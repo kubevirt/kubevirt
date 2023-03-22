@@ -124,7 +124,7 @@ func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMach
 }
 
 func dynamicIfaceName(plugRequest *v1.VirtualMachineInterfaceRequest) string {
-	return plugRequest.AddInterfaceOptions.InterfaceName
+	return plugRequest.AddInterfaceOptions.Name
 }
 
 func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
@@ -216,8 +216,8 @@ func (app *SubresourceAPIApp) newInterfaceRequest(request *restful.Request) (v1.
 	if opts.NetworkAttachmentDefinitionName == "" {
 		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("AddInterfaceOptions requires `networkAttachmentDefinitionName` to be set")
 	}
-	if opts.InterfaceName == "" {
-		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("AddInterfaceOptions requires `interfaceName` to be set")
+	if opts.Name == "" {
+		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("AddInterfaceOptions requires `name` to be set")
 	}
 
 	return v1.VirtualMachineInterfaceRequest{AddInterfaceOptions: opts}, nil
