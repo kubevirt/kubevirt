@@ -32,6 +32,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/kubevirt/tests/libnode"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"regexp"
@@ -84,7 +86,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -2970,6 +2971,18 @@ spec:
 
 			const expectedSeccompProfilePath = "/proc/1/root/var/lib/kubelet/seccomp/kubevirt/kubevirt.json"
 
+			enableSeccompFeature := func() {
+				//Disable feature first to simulate addition
+				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+			}
+
+			disableSeccompFeature := func() {
+				//Enable feature first to simulate removal
+				tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+			}
+
 			enableKubevirtProfile := func(enable bool) {
 				nodeName = libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
 
@@ -2979,9 +2992,9 @@ spec:
 
 				By(fmt.Sprintf("Configuring KubevirtSeccompProfile feature gate to %t", enable))
 				if enable {
-					tests.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+					enableSeccompFeature()
 				} else {
-					tests.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+					disableSeccompFeature()
 				}
 
 				vmProfile := &v1.VirtualMachineInstanceProfile{
@@ -3005,7 +3018,7 @@ spec:
 			It("should install Kubevirt policy", func() {
 				enableKubevirtProfile(true)
 
-				By("Expectig to see the profile")
+				By("Expecting to see the profile")
 				Eventually(func() error {
 					_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
 					return err
@@ -3015,7 +3028,7 @@ spec:
 			It("should not install Kubevirt policy", func() {
 				enableKubevirtProfile(false)
 
-				By("Expectig to not see the profile")
+				By("Expecting to not see the profile")
 				Consistently(func() error {
 					_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
 					return err
