@@ -392,7 +392,7 @@ func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpe
 			Name: request.AddInterfaceOptions.InterfaceName,
 			NetworkSource: v1.NetworkSource{
 				Multus: &v1.MultusNetwork{
-					NetworkName: request.AddInterfaceOptions.NetworkName,
+					NetworkName: request.AddInterfaceOptions.NetworkAttachmentDefinitionName,
 				},
 			},
 		}

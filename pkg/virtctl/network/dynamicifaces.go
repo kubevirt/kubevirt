@@ -104,8 +104,8 @@ func (dic *dynamicIfacesCmd) addInterface(vmName string, networkName string, ifa
 			context.Background(),
 			vmName,
 			&v1.AddInterfaceOptions{
-				NetworkName:   networkName,
-				InterfaceName: ifaceName,
+				NetworkAttachmentDefinitionName: networkName,
+				InterfaceName:                   ifaceName,
 			},
 		)
 	}
@@ -113,8 +113,8 @@ func (dic *dynamicIfacesCmd) addInterface(vmName string, networkName string, ifa
 		context.Background(),
 		vmName,
 		&v1.AddInterfaceOptions{
-			NetworkName:   networkName,
-			InterfaceName: ifaceName,
+			NetworkAttachmentDefinitionName: networkName,
+			InterfaceName:                   ifaceName,
 		},
 	)
 }

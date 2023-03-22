@@ -142,7 +142,7 @@ func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, requ
 			Name: canonicalIfaceName,
 			NetworkSource: v1.NetworkSource{
 				Multus: &v1.MultusNetwork{
-					NetworkName: request.AddInterfaceOptions.NetworkName,
+					NetworkName: request.AddInterfaceOptions.NetworkAttachmentDefinitionName,
 				},
 			},
 		}
@@ -213,8 +213,8 @@ func (app *SubresourceAPIApp) newInterfaceRequest(request *restful.Request) (v1.
 		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("`networkName` and `interfaceName` are expected")
 	}
 
-	if opts.NetworkName == "" {
-		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("AddInterfaceOptions requires `networkName` to be set")
+	if opts.NetworkAttachmentDefinitionName == "" {
+		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("AddInterfaceOptions requires `networkAttachmentDefinitionName` to be set")
 	}
 	if opts.InterfaceName == "" {
 		return v1.VirtualMachineInterfaceRequest{}, fmt.Errorf("AddInterfaceOptions requires `interfaceName` to be set")

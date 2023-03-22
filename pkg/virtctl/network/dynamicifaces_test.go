@@ -128,7 +128,7 @@ func mockVMIAddInterfaceEndpoints(vmi *kubecli.MockVirtualMachineInstanceInterfa
 		Return(vmi).
 		Times(1)
 	vmi.EXPECT().AddInterface(context.Background(), vmName, gomock.Any()).DoAndReturn(func(arg0, arg1, arg2 interface{}) interface{} {
-		Expect(arg2.(*v1.AddInterfaceOptions).NetworkName).To(Equal(networkName))
+		Expect(arg2.(*v1.AddInterfaceOptions).NetworkAttachmentDefinitionName).To(Equal(networkName))
 		Expect(arg2.(*v1.AddInterfaceOptions).InterfaceName).To(Equal(ifaceName))
 		return nil
 	})
@@ -141,7 +141,7 @@ func mockVMAddInterfaceEndpoints(vm *kubecli.MockVirtualMachineInterface, vmName
 		Return(vm).
 		Times(1)
 	vm.EXPECT().AddInterface(context.Background(), vmName, gomock.Any()).DoAndReturn(func(arg0, arg1, arg2 interface{}) interface{} {
-		Expect(arg2.(*v1.AddInterfaceOptions).NetworkName).To(Equal(networkName))
+		Expect(arg2.(*v1.AddInterfaceOptions).NetworkAttachmentDefinitionName).To(Equal(networkName))
 		Expect(arg2.(*v1.AddInterfaceOptions).InterfaceName).To(Equal(ifaceName))
 		return nil
 	})

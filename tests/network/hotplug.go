@@ -329,8 +329,8 @@ func vmiCurrentInterfaces(vmiNamespace, vmiName string) []v1.VirtualMachineInsta
 
 func addIfaceOptions(networkName, ifaceName string) *v1.AddInterfaceOptions {
 	return &v1.AddInterfaceOptions{
-		NetworkName:   networkName,
-		InterfaceName: ifaceName,
+		NetworkAttachmentDefinitionName: networkName,
+		InterfaceName:                   ifaceName,
 	}
 }
 

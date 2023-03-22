@@ -6756,14 +6756,14 @@ var CRDsValidation map[string]string = map[string]string{
                   interfaceName:
                     description: InterfaceName indicates the logical name of the interface.
                     type: string
-                  networkName:
-                    description: 'NetworkName references a NetworkAttachmentDefinition
-                      CRD object. Format: <networkName>, <namespace>/<networkName>.
+                  networkAttachmentDefinitionName:
+                    description: 'NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition
+                      CRD object. Format: <networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>.
                       If namespace is not specified, VMI namespace is assumed.'
                     type: string
                 required:
                 - interfaceName
-                - networkName
+                - networkAttachmentDefinitionName
                 type: object
             type: object
           type: array
@@ -24454,15 +24454,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: InterfaceName indicates the logical name
                                   of the interface.
                                 type: string
-                              networkName:
-                                description: 'NetworkName references a NetworkAttachmentDefinition
-                                  CRD object. Format: <networkName>, <namespace>/<networkName>.
+                              networkAttachmentDefinitionName:
+                                description: 'NetworkAttachmentDefinitionName references
+                                  a NetworkAttachmentDefinition CRD object. Format:
+                                  <networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>.
                                   If namespace is not specified, VMI namespace is
                                   assumed.'
                                 type: string
                             required:
                             - interfaceName
-                            - networkName
+                            - networkAttachmentDefinitionName
                             type: object
                         type: object
                       type: array

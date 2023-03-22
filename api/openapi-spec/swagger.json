@@ -15462,7 +15462,7 @@
     "description": "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
     "type": "object",
     "required": [
-     "networkName",
+     "networkAttachmentDefinitionName",
      "interfaceName"
     ],
     "properties": {
@@ -15470,8 +15470,8 @@
       "description": "InterfaceName indicates the logical name of the interface.",
       "type": "string"
      },
-     "networkName": {
-      "description": "NetworkName references a NetworkAttachmentDefinition CRD object. Format: \u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not specified, VMI namespace is assumed.",
+     "networkAttachmentDefinitionName": {
+      "description": "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format: \u003cnetworkAttachmentDefinitionName\u003e, \u003cnamespace\u003e/\u003cnetworkAttachmentDefinitionName\u003e. If namespace is not specified, VMI namespace is assumed.",
       "type": "string"
      }
     }
