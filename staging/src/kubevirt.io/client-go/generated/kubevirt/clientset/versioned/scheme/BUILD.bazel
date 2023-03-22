@@ -13,6 +13,7 @@ go_library(
         "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1alpha2:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
