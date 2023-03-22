@@ -188,6 +188,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string) {
 		// no limits wanted on this test, to not copy the limit to requests
 
+		if arch == "" {
+			if rt.GOARCH == "amd64" {
+				cpuModel = v1.DefaultCPUModel
+			} else {
+				cpuModel = v1.CPUModeHostPassthrough
+			}
+		}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
 
 		if webhooks.IsPPC64(vmiSpec) {
@@ -212,20 +219,23 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			webhooks.Arch = rt.GOARCH
 		}()
 		webhooks.Arch = arch
+
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					CPUModel:   cpuModelFromConfig,
 					CPURequest: &cpuReq,
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Ppc64le: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 					},
 				},
 			},
 		})
 
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
+		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
 	},
