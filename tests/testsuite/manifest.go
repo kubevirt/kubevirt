@@ -111,7 +111,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	uri := composeResourceURI(object)
 	uri = path.Join(uri, object.GetName())
 
-	policy := metav1.DeletePropagationBackground
+	policy := metav1.DeletePropagationForeground
 	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
 
 	log.DefaultLogger().Infof("Calling DELETE on testing manifest: %s", uri)
