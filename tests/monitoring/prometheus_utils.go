@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -57,6 +58,22 @@ func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	}
 
 	return result.Alerts.Alerts, nil
+}
+
+func waitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue int64) {
+	waitForMetricValueWithLabels(client, metric, expectedValue, nil)
+}
+
+func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue int64, labels map[string]string) {
+	EventuallyWithOffset(1, func() int {
+		v, err := getMetricValueWithLabels(client, metric, labels)
+		if err != nil {
+			return -1
+		}
+		i, err := strconv.Atoi(v)
+		Expect(err).ToNot(HaveOccurred())
+		return i
+	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
 }
 
 func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (string, error) {
