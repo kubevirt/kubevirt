@@ -85,9 +85,9 @@ var _ = Describe("[Serial][sig-operator]virt-handler canary upgrade", Serial, de
 			return err
 		})
 
-		Eventually(func() bool {
+		Eventually(func(g Gomega) bool {
 			ds, err := virtCli.AppsV1().DaemonSets(originalKV.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady && ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue() == 1
 		}, 60*time.Second, 1*time.Second).Should(BeTrue(), "waiting for virt-handler to be ready")
 	})

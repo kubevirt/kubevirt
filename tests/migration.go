@@ -129,32 +129,24 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 	// By design, changing migration settings trigger a re-creation of the virt-handler pods, amongst other things.
 	//   However, even if SetDedicatedMigrationNetwork() calls UpdateKubeVirtConfigValueAndWait(), VMIs can still get scheduled on outdated virt-handler pods.
 	//   Waiting for all "old" virt-handlers to disappear ensures test VMIs will be created on updated virt-handler pods.
-	Eventually(func() bool {
+	Eventually(func(g Gomega) {
 		for _, pod := range virtHandlerPods.Items {
 			_, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-			if err == nil {
-				return false
-			}
+			g.Expect(err).ShouldNot(HaveOccurred())
 		}
-		return true
-	}, 180*time.Second, 10*time.Second).Should(BeTrue(), "Some virt-handler pods survived the migration settings change")
+	}, 180*time.Second, 10*time.Second).Should(Succeed(), "Some virt-handler pods survived the migration settings change")
 
 	// Ensure all virt-handlers are ready
-	Eventually(func() bool {
+	Eventually(func(g Gomega) {
 		newVirtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
-		if len(newVirtHandlerPods.Items) != len(virtHandlerPods.Items) {
-			return false
-		}
-		Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
+		g.Expect(err).ToNot(HaveOccurred(), "Failed to list the virt-handler pods")
+		g.Expect(newVirtHandlerPods.Items).Should(HaveLen(len(virtHandlerPods.Items)))
+
 		for _, pod := range newVirtHandlerPods.Items {
 			// TODO implement list option to condition matcher
-			if success, err := matcher.HaveConditionTrue(k8sv1.PodReady).Match(pod); !success {
-				Expect(err).ToNot(HaveOccurred())
-				return false
-			}
+			g.Expect(pod).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 		}
-		return true
-	}, 180*time.Second, 10*time.Second).Should(BeTrue(), "Some virt-handler pods never became ready")
+	}, 180*time.Second, 10*time.Second).Should(Succeed(), "Some virt-handler pods never became ready")
 
 	return res
 }

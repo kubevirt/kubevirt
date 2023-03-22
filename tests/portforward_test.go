@@ -63,13 +63,10 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 			tunnel kubecli.StreamInterface
 			err    error
 		)
-		Eventually(func() error {
+		Eventually(func(g Gomega) {
 			tunnel, err = virtClient.VirtualMachineInstance(vmi.Namespace).PortForward(vmi.Name, 22, "tcp")
-			if err != nil {
-				return err
-			}
-			return nil
-		}, 12*60*time.Second, 2).ShouldNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
+		}, 12*60*time.Second, 2).Should(Succeed())
 
 		inReader, in := io.Pipe()
 		var out bytes.Buffer

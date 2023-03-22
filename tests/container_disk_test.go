@@ -155,9 +155,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) bool {
 					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceSynchronized && condition.Status == k8sv1.ConditionFalse {
 							return strings.Contains(condition.Message, "failed to invoke qemu-img")

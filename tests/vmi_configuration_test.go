@@ -161,10 +161,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmi.NewAlpine()
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
-			Eventually(func() kubev1.PodQOSClass {
+			Eventually(func(g Gomega) kubev1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.IsFinal()).To(BeFalse())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vmi.IsFinal()).To(BeFalse())
 				if vmi.Status.QOSClass == nil {
 					return ""
 				}
@@ -190,10 +190,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
-			Eventually(func() kubev1.PodQOSClass {
+			Eventually(func(g Gomega) kubev1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.IsFinal()).To(BeFalse())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vmi.IsFinal()).To(BeFalse())
 				if vmi.Status.QOSClass == nil {
 					return ""
 				}
@@ -216,10 +216,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
-			Eventually(func() kubev1.PodQOSClass {
+			Eventually(func(g Gomega) kubev1.PodQOSClass {
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.IsFinal()).To(BeFalse())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(vmi.IsFinal()).To(BeFalse())
 				if vmi.Status.QOSClass == nil {
 					return ""
 				}
@@ -1128,9 +1128,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					var vmiCondition v1.VirtualMachineInstanceCondition
-					Eventually(func() bool {
+					Eventually(func(g Gomega) bool {
 						vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(hugepagesVmi)).Get(context.Background(), hugepagesVmi.Name, &metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
+						g.Expect(err).ToNot(HaveOccurred())
 
 						for _, cond := range vmi.Status.Conditions {
 							if cond.Type == v1.VirtualMachineInstanceConditionType(kubev1.PodScheduled) && cond.Status == kubev1.ConditionFalse {
@@ -1204,9 +1204,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				var freshVMI *v1.VirtualMachineInstance
 
 				By("VMI has the guest agent connected condition")
-				Eventually(func() []v1.VirtualMachineInstanceCondition {
+				Eventually(func(g Gomega) []v1.VirtualMachineInstanceCondition {
 					freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					g.Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 					return freshVMI.Status.Conditions
 				}, 240*time.Second, 2).Should(
 					ContainElement(
@@ -1310,15 +1310,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				var err error
 
 				By("Expecting the Guest VM information")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) bool {
 					updatedVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, &getOptions)
-					if err != nil {
-						return false
-					}
+					g.Expect(err).ToNot(HaveOccurred())
+
 					return updatedVmi.Status.GuestOSInfo.Name != ""
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in vmi status")
 
-				Expect(err).ToNot(HaveOccurred())
 				Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
 			})
 
@@ -1326,12 +1324,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the Guest VM information")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) bool {
 					guestInfo, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).GuestOsInfo(context.Background(), agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return guestInfo.Hostname != "" &&
 						guestInfo.Timezone != "" &&
@@ -1370,12 +1365,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
 				By("Expecting the Guest VM information")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) bool {
 					userList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).UserList(context.Background(), agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
 
@@ -1386,12 +1378,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the Guest VM information")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) bool {
 					fsList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).FilesystemList(context.Background(), agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != ""
 
@@ -2234,9 +2223,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			var vmiCondition v1.VirtualMachineInstanceCondition
 			// TODO
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 
 				for _, cond := range vmi.Status.Conditions {
 					if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
@@ -2296,9 +2285,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("setting the cpumanager label back to false")
-				Eventually(func() string {
+				Eventually(func(g Gomega) string {
 					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					return n.Labels[v1.CPUManager]
 				}, 3*time.Minute, 2*time.Second).Should(Equal("false"))
 			})
@@ -3013,7 +3002,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						"rss,command",
 					})
 				return err
-			}, time.Second, 50*time.Millisecond).Should(BeNil(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
+			}, time.Second, 50*time.Millisecond).Should(Succeed(), fmt.Sprintf(errorMassageFormat, stdout, stderr, err))
 
 			By("Parsing the output of ps")
 			processRss := make(map[string]resource.Quantity)

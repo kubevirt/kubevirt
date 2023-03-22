@@ -220,9 +220,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() int {
+			Eventually(func(g Gomega) int {
 				metrics, err = getDownwardMetrics(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				return getTimeFromMetrics(metrics)
 			}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 			Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
@@ -286,18 +286,18 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
 
 			By("checking that the ca bundle gets propagated to the validating webhook")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				webhook, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				if len(webhook.Webhooks) > 0 {
 					return containsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
 				}
 				return false
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 			By("checking that the ca bundle gets propagated to the mutating webhook")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				webhook, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				if len(webhook.Webhooks) > 0 {
 					return containsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
 				}
@@ -305,9 +305,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("checking that the ca bundle gets propagated to the apiservice")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				apiService, err := aggregatorClient.ApiregistrationV1().APIServices().Get(context.Background(), fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				return containsCrt(apiService.Spec.CABundle, newCA)
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
@@ -327,16 +327,16 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			Expect(err).ToNot(HaveOccurred())
 
 			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
-			Eventually(func() (rotated bool) {
+			Eventually(func(g Gomega) (rotated bool) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				g.Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
 			}, 120*time.Second).Should(BeTrue())
 		})
@@ -622,14 +622,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			var ep *k8sv1.Endpoints
 			By("finding Prometheus endpoint")
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				ep, err = virtClient.CoreV1().Endpoints("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
+				g.Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
 
-				if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
-					return false
-				}
-				return true
+				return len(ep.Subsets) > 0 && len(ep.Subsets[0].Addresses) > 0
 			}, 10*time.Second, time.Second).Should(BeTrue())
 
 			promIP := ep.Subsets[0].Addresses[0].IP
@@ -706,11 +703,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			var metrics map[string]float64
 			var lines []string
 
-			Eventually(func() map[string]float64 {
+			Eventually(func(g Gomega) map[string]float64 {
 				out := getKubevirtVMMetrics(ip)
 				lines = takeMetricsWithPrefix(out, metricSubstring)
 				metrics, err = parseMetricsToMap(lines)
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				return metrics
 			}, 30*time.Second, 2*time.Second).ShouldNot(BeEmpty())
 
@@ -1163,18 +1160,18 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				// TODO: It can be race condition when newly deployed pod receive leadership, in this case we will need
 				// to reduce Deployment replica before destroying the pod and to restore it after the test
 				By("Destroying the leading controller pod")
-				Eventually(func() string {
+				Eventually(func(g Gomega) string {
 					leaderPodName := getLeader()
 
-					Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(Succeed())
+					g.Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(Succeed())
 
-					Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
+					g.Eventually(getLeader).WithPolling(time.Second * 5).WithTimeout(time.Second * 30).ShouldNot(Equal(leaderPodName))
 
 					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), getLeader(), metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return leaderPod.Name
-				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
+				}).WithTimeout(90 * time.Second).WithPolling(5 * time.Second).Should(Equal(newLeaderPod.Name))
 
 				Expect(matcher.ThisPod(newLeaderPod)()).To(matcher.HaveConditionTrue(k8sv1.PodReady))
 
@@ -1214,9 +1211,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			wakeNodeLabellerUp(virtClient)
 
 			for _, node := range nodesWithKVM {
-				Eventually(func() error {
+				Eventually(func(g Gomega) error {
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					if _, exists := node.Labels[nonExistingCPUModelLabel]; exists {
 						return fmt.Errorf("node %s is expected to not have label key %s", node.Name, nonExistingCPUModelLabel)
@@ -1447,9 +1444,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				expectSerialRun()
 				var events *k8sv1.EventList
 
-				Eventually(func() []k8sv1.Event {
+				Eventually(func(g Gomega) []k8sv1.Event {
 					events, err = virtClient.CoreV1().Events(namespace).List(context.Background(), eventListOpts)
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return events.Items
 				}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
@@ -1469,9 +1466,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				}
 
 				By("Expecting alert to be removed")
-				Eventually(func() []k8sv1.Event {
+				Eventually(func(g Gomega) []k8sv1.Event {
 					events, err := virtClient.CoreV1().Events(namespace).List(context.Background(), eventListOpts)
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return events.Items
 				}, 30*time.Second, 1*time.Second).Should(BeEmpty())
@@ -1495,14 +1492,12 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				kvConfig.ObsoleteCPUModels[obsoleteModel] = true
 				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(err).ShouldNot(HaveOccurred())
 
 					_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
-					if exists {
-						return fmt.Errorf("node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
-					}
+					g.Expect(exists).Should(BeFalse(), "node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
 
 					obsoleteModelLabelFound := false
 					for labelKey, _ := range node.Labels {
@@ -1511,12 +1506,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 							break
 						}
 					}
-					if !obsoleteModelLabelFound {
-						return fmt.Errorf("node %s is expected to have a label with %s substring. this means node-labeller is not enabled for the node", node.Name, v1.NodeHostModelIsObsoleteLabel)
-					}
 
-					return nil
-				}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+					g.Expect(obsoleteModelLabelFound).Should(BeTrue(), "node %s is expected to have a label with %s substring. this means node-labeller is not enabled for the node", node.Name, v1.NodeHostModelIsObsoleteLabel)
+				}, 30*time.Second, time.Second).Should(Succeed())
 			})
 
 			AfterEach(func() {
@@ -1524,9 +1516,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 				deleteEvents(eventListOpts, events)
 
-				Eventually(func() error {
+				Eventually(func(g Gomega) error {
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(err).ShouldNot(HaveOccurred())
 
 					obsoleteHostModelLabel := false
 					for labelKey, _ := range node.Labels {
@@ -1540,7 +1532,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 					}
 
 					return nil
-				}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+				}, 30*time.Second, time.Second).Should(Succeed())
 			})
 
 			It("[Serial]should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
@@ -1556,16 +1548,16 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that the VMI failed")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) string {
 					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					for _, condition := range vmi.Status.Conditions {
 						if condition.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && condition.Status == k8sv1.ConditionFalse {
-							return strings.Contains(condition.Message, "didn't match Pod's node affinity/selector")
+							return condition.Message
 						}
 					}
-					return false
-				}, 3*time.Minute, 2*time.Second).Should(BeTrue())
+					return ""
+				}, 3*time.Minute, 2*time.Second).Should(ContainSubstring("didn't match Pod's node affinity/selector"))
 
 				By("Expecting for an alert to be triggered")
 				eventListOpts = metav1.ListOptions{
@@ -1673,9 +1665,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 					return true, ""
 				})
 
-				Eventually(func() error {
+				Eventually(func(g Gomega) error {
 					node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodesWithKVM[0].Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					for key := range node.Annotations {
 						if strings.Contains(key, nodelabellerutil.DeprecatedLabellerNamespaceAnnotation) {

@@ -544,11 +544,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for a VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the new VirtualMachine")
-			Eventually(func() string {
+			Eventually(func(g Gomega) string {
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, &metav1.GetOptions{})
-				if err != nil {
-					return ""
-				}
+				g.Expect(err).ToNot(HaveOccurred())
 				return newVM.Spec.Instancetype.RevisionName
 			}, 300*time.Second, 1*time.Second).ShouldNot(BeEmpty())
 
@@ -703,12 +701,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		}
 
 		waitPVCBound := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.PersistentVolumeClaim {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) k8sv1.PersistentVolumeClaimPhase {
 				var err error
 				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return pvc.Status.Phase == k8sv1.ClaimBound
-			}, 180*time.Second, time.Second).Should(BeTrue())
+				g.Expect(err).ToNot(HaveOccurred())
+				return pvc.Status.Phase
+			}, 180*time.Second, time.Second).Should(Equal(k8sv1.ClaimBound))
 			return pvc
 		}
 

@@ -175,9 +175,9 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
-		Eventually(func() clonev1alpha1.VirtualMachineClonePhase {
+		Eventually(func(g Gomega) clonev1alpha1.VirtualMachineClonePhase {
 			vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			g.Expect(err).ShouldNot(HaveOccurred())
 
 			return vmClone.Status.Phase
 		}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
@@ -305,9 +305,9 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 			It("simple clone with snapshot source", func() {
 				By("Creating a VM")
 				sourceVM = createVM()
-				Eventually(func() virtv1.VirtualMachinePrintableStatus {
+				Eventually(func(g Gomega) virtv1.VirtualMachinePrintableStatus {
 					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, &v1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					return sourceVM.Status.PrintableStatus
 				}, 30*time.Second, 1*time.Second).Should(Equal(virtv1.VirtualMachineStatusStopped))

@@ -433,14 +433,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		By("Waiting until the Migration is Running")
 
-		Eventually(func() bool {
+		Eventually(func(g Gomega) bool {
 			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
-			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+			g.Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
 			if migration.Status.Phase == v1.MigrationRunning {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				if vmi.Status.MigrationState.Completed != true {
 					return true
 				}
@@ -462,9 +462,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Waiting until the Migration is Running")
-		Eventually(func() bool {
+		Eventually(func(g Gomega) bool {
 			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 			return migration.Status.Phase == v1.MigrationRunning
 		}, timeout, 1*time.Second).Should(BeTrue())
 
@@ -482,12 +482,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		By("Waiting until the Migration Completes")
 
 		uid := ""
-		Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+		Eventually(func(g Gomega) v1.VirtualMachineInstanceMigrationPhase {
 			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
 			phase := migration.Status.Phase
-			Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
+			g.Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 
 			uid = string(migration.UID)
 			return phase
@@ -528,22 +528,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}
 
 		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
-		Eventually(func() error {
+		Eventually(func(g Gomega) {
 			out := getKubevirtVMMetricsFunc(ip)
 			lines := takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
 			metrics, err := parseMetricsToMap(lines)
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
-			if len(metrics) == 0 {
-				return fmt.Errorf("no metrics with kubevirt_migrate_vmi prefix are found")
-			}
+			g.Expect(metrics).ShouldNot(BeEmpty(), "no metrics with kubevirt_migrate_vmi prefix are found")
 
-			if err := validateNoZeroMetrics(metrics); err != nil {
-				return err
-			}
-
-			return nil
-		}, 100*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			g.Expect(validateNoZeroMetrics(metrics)).To(Succeed())
+		}, 100*time.Second, 1*time.Second).Should(Succeed())
 	}
 
 	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
@@ -585,9 +579,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		// This can be removed in the future if these functions are used with great caution.
 		expectSerialRun()
 
-		Eventually(func() []k8sv1.Event {
+		Eventually(func(g Gomega) []k8sv1.Event {
 			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).List(context.Background(), eventListOpts)
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
 			return events.Items
 		}, 30*time.Second, 1*time.Second).Should(HaveLen(expectedEventsAmount))
@@ -598,9 +592,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		// This can be removed in the future if these functions are used with great caution.
 		expectSerialRun()
 
-		Eventually(func() []k8sv1.Event {
+		Eventually(func(g Gomega) []k8sv1.Event {
 			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).List(context.Background(), eventListOpts)
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
 			return events.Items
 		}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
@@ -614,9 +608,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Expecting alert to be removed")
-		Eventually(func() []k8sv1.Event {
+		Eventually(func(g Gomega) []k8sv1.Event {
 			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).List(context.Background(), eventListOpts)
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
 			return events.Items
 		}, 30*time.Second, 1*time.Second).Should(BeEmpty())
@@ -942,9 +936,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Ensuring migration is using Live Migration method")
-				Eventually(func() v1.VirtualMachineInstanceMigrationMethod {
+				Eventually(func(g Gomega) v1.VirtualMachineInstanceMigrationMethod {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
+					g.Expect(err).ShouldNot(HaveOccurred())
 					return vmi.Status.MigrationMethod
 				}, 20*time.Second, 1*time.Second).Should(Equal(v1.LiveMigration), "migration method is expected to be Live Migration")
 			})
@@ -965,16 +959,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("checking if the metrics are still updated after the migration")
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					_, err := getDownwardMetrics(vmi)
-					return err
-				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+					g.Expect(err).ShouldNot(HaveOccurred())
+				}, 20*time.Second, 1*time.Second).Should(Succeed())
 				metrics, err := getDownwardMetrics(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				timestamp := getTimeFromMetrics(metrics)
-				Eventually(func() int {
+				Eventually(func(g Gomega) int {
 					metrics, err := getDownwardMetrics(vmi)
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					return getTimeFromMetrics(metrics)
 				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 
@@ -1118,9 +1112,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					tests.ConfirmMigrationDataIsStored(virtClient, migration, vmi)
 
 					By("Check if Migrated VMI has updated IP and IPs fields")
-					Eventually(func() error {
+					Eventually(func(g Gomega) error {
 						newvmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
+						g.Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
 						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
 					}, 180*time.Second, time.Second).Should(Succeed(), "Should have updated IP and IPs fields")
@@ -1326,16 +1320,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 1*time.Minute, 10*time.Second).Should(Succeed())
 
 				By("Migration should fail eventually due to pending target pod timeout")
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
+					g.Expect(err).ShouldNot(HaveOccurred())
 
-					if migration.Status.Phase != v1.MigrationFailed {
-						return fmt.Errorf("Waiting on migration with phase %s to reach phase Failed", migration.Status.Phase)
-					}
-					return nil
+					g.Expect(migration.Status.Phase).Should(Equal(v1.MigrationFailed), "Waiting on migration with phase %s to reach phase Failed", migration.Status.Phase)
 				}, 2*time.Minute, 5*time.Second).Should(Succeed(), "migration creation should fail")
 
 				// delete VMI
@@ -1387,16 +1376,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 1*time.Minute, 10*time.Second).Should(Succeed())
 
 				By("Migration should fail eventually due to pending target pod timeout")
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
+					g.Expect(err).ShouldNot(HaveOccurred())
 
-					if migration.Status.Phase != v1.MigrationFailed {
-						return fmt.Errorf("Waiting on migration with phase %s to reach phase Failed", migration.Status.Phase)
-					}
-					return nil
+					g.Expect(migration.Status.Phase).Should(Equal(v1.MigrationFailed), "Waiting on migration with phase %s to reach phase Failed", migration.Status.Phase)
 				}, 2*time.Minute, 5*time.Second).Should(Succeed(), "migration creation should fail")
 
 				// delete VMI
@@ -1488,7 +1472,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// get current time on the node
 					output := tests.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
 					expectedTime := strings.TrimSpace(output)
-					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
+					log.DefaultLogger().Infof("expected time: %v", expectedTime)
 
 					By("Checking that the guest has an updated time")
 					return console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -2025,19 +2009,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 
 					By("Waiting for the proxy connection details to appear")
-					Eventually(func() bool {
+					Eventually(func(g Gomega) {
 						migratingVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						if migratingVMI.Status.MigrationState == nil {
-							return false
-						}
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(migratingVMI.Status.MigrationState).ToNot(BeNil())
 
-						if migratingVMI.Status.MigrationState.TargetNodeAddress == "" || len(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 {
-							return false
-						}
+						g.Expect(migratingVMI.Status.MigrationState.TargetNodeAddress).ShouldNot(BeEmpty())
+						g.Expect(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts).ShouldNot(BeEmpty())
+
 						vmi = migratingVMI
-						return true
-					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
@@ -2105,19 +2086,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the proxy connection details to appear")
-					Eventually(func() bool {
+					Eventually(func(g Gomega) {
 						migratingVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						if migratingVMI.Status.MigrationState == nil {
-							return false
-						}
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(migratingVMI.Status.MigrationState).ShouldNot(BeNil())
 
-						if migratingVMI.Status.MigrationState.TargetNodeAddress == "" || len(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts) == 0 {
-							return false
-						}
+						g.Expect(migratingVMI.Status.MigrationState.TargetNodeAddress).ShouldNot(BeEmpty())
+						g.Expect(migratingVMI.Status.MigrationState.TargetDirectMigrationNodePorts).ShouldNot(BeEmpty())
+
 						vmi = migratingVMI
-						return true
-					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					}, 60*time.Second, 1*time.Second).Should(Succeed())
 
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
@@ -2362,16 +2340,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 
 				By("Waiting for virt-handler to come back online")
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
+					g.Expect(err).ShouldNot(HaveOccurred())
 
-					if handler.Status.DesiredNumberScheduled == handler.Status.NumberAvailable {
-						return nil
-					}
-					return fmt.Errorf("waiting for virt-handler pod to come back online")
+					g.Expect(handler.Status.DesiredNumberScheduled).Should(Equal(handler.Status.NumberAvailable),
+						"waiting for virt-handler pod to come back online")
 				}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
 
 				By("Starting new migration and waiting for it to succeed")
@@ -2409,18 +2383,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// check VMI, confirm migration state
 					confirmVMIPostMigrationFailed(vmi, migrationUID)
 
-					Eventually(func() error {
+					Eventually(func(g Gomega) {
 						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						if pod.Status.Phase == k8sv1.PodFailed || pod.Status.Phase == k8sv1.PodSucceeded {
-							return nil
-						}
-
-						return fmt.Errorf("still waiting on target pod to complete, current phase is %s", pod.Status.Phase)
+						g.Expect(pod.Status.Phase).Should(Or(Equal(k8sv1.PodFailed), Equal(k8sv1.PodSucceeded)), "still waiting on target pod to complete")
 					}, 10*time.Second, time.Second).Should(Succeed(), "Target pod should exit quickly after migration fails.")
 				}
 
@@ -2454,18 +2424,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationFailed(vmi, migrationUID)
 
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
-					if pod.Status.Phase == k8sv1.PodFailed || pod.Status.Phase == k8sv1.PodSucceeded {
-						return nil
-					}
-
-					return fmt.Errorf("still waiting on target pod to complete, current phase is %s", pod.Status.Phase)
+					g.Expect(pod.Status.Phase).Should(Or(Equal(k8sv1.PodFailed), Equal(k8sv1.PodSucceeded)), "still waiting on target pod to complete")
 				}, 10*time.Second, time.Second).Should(Succeed(), "Target pod should exit quickly after migration fails.")
 
 				// delete VMI
@@ -2493,12 +2459,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for Migration to reach Preparing Target Phase")
-				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+				Eventually(func(g Gomega) v1.VirtualMachineInstanceMigrationPhase {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					phase := migration.Status.Phase
-					Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
+					g.Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 					return phase
 				}, 120, 1*time.Second).Should(Equal(v1.MigrationPreparingTarget))
 
@@ -2512,23 +2478,19 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Expecting VMI migration failure")
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(vmi.Status.MigrationState).ToNot(BeNil())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.Status.MigrationState).ToNot(BeNil())
 
-					if !vmi.Status.MigrationState.Failed {
-						return fmt.Errorf("Waiting on vmi's migration state to be marked as failed")
-					}
+					g.Expect(vmi.Status.MigrationState.Failed).Should(BeTrue(), "Waiting on vmi's migration state to be marked as failed")
 
 					// once set to failed, we expect start and end times and completion to be set as well.
-					Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
-					Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
-					Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
-
-					return nil
+					g.Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+					g.Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+					g.Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
 				}, 120*time.Second, time.Second).Should(Succeed(), "vmi's migration state should be finalized as failed after target pod exits")
 
 				// delete VMI
@@ -2576,12 +2538,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for Migration to reach Preparing Target Phase")
-				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+				Eventually(func(g Gomega) v1.VirtualMachineInstanceMigrationPhase {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					phase := migration.Status.Phase
-					Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
+					g.Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 					return phase
 				}, 120, 1*time.Second).Should(Equal(v1.MigrationPreparingTarget))
 
@@ -2602,16 +2564,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 										continue
 									}
 									// Wait for the iso to be created
-									Eventually(func() error {
+									Eventually(func(g Gomega) {
 										output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "[[ -f " + volPath + " ]] && echo found || true"})
-										if err != nil {
-											return err
-										}
-										if !strings.Contains(output, "found") {
-											return fmt.Errorf("%s never appeared", volPath)
-										}
-										return nil
-									}, 30*time.Second, time.Second).Should(Not(HaveOccurred()))
+										g.Expect(err).ToNot(HaveOccurred())
+										g.Expect(output).To(ContainSubstring("found"), "%s never appeared", volPath)
+									}, 30*time.Second, time.Second).Should(Succeed())
 									output, err := tests.RunCommandOnVmiTargetPod(vmi, []string{"/bin/bash", "-c", "/usr/bin/stat --printf=%s " + volPath})
 									Expect(err).ToNot(HaveOccurred())
 									Expect(strconv.Atoi(output)).To(Equal(int(volStatus.Size)), "ISO file for volume %s is not the right size", volume.Name)
@@ -2783,9 +2740,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 
 				By("Waiting until the Migration has UID")
-				Eventually(func() bool {
+				Eventually(func(g Gomega) bool {
 					migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					return migration.UID != ""
 				}, timeout, 1*time.Second).Should(BeTrue())
 
@@ -3040,13 +2997,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}
 					node = libnode.AddLabelToNode(node.Name, fakeHostModelLabel, "true")
 
-					Eventually(func() bool {
+					Eventually(func(g Gomega) {
 						node, err = virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-						Expect(err).ShouldNot(HaveOccurred())
-
-						labelValue, ok := node.Labels[v1.HostModelCPULabel+"fake-model"]
-						return ok && labelValue == "true"
-					}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Node should have fake host model")
+						g.Expect(err).ShouldNot(HaveOccurred())
+						g.Expect(node.Labels).To(HaveKeyWithValue(v1.HostModelCPULabel+"fake-model", "true"))
+					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Node should have fake host model")
 
 					By("Starting the migration")
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -3230,26 +3185,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 				By("Ensuring the VMI has migrated and lives on another node")
-				Eventually(func() error {
+				Eventually(func(g Gomega) {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.Status.NodeName).ShouldNot(Equal(vmiNodeOrig), "VMI is still on the same node")
+					g.Expect(vmi.Status.MigrationState).ToNot(BeNil(), "VMI did not migrate yet")
+					g.Expect(vmi.Status.MigrationState.SourceNode).Should(Equal(vmiNodeOrig), "VMI did not migrate yet")
+					g.Expect(vmi.Status.EvacuationNodeName).Should(BeEmpty(), "VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
+				}, 360*time.Second, 1*time.Second).Should(Succeed())
 
-					if vmi.Status.NodeName == vmiNodeOrig {
-						return fmt.Errorf("VMI is still on the same node")
-					}
-
-					if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
-						return fmt.Errorf("VMI did not migrate yet")
-					}
-
-					if vmi.Status.EvacuationNodeName != "" {
-						return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
-					}
-
-					return nil
-				}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 				resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
@@ -3262,9 +3206,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(err).ToNot(HaveOccurred())
 
 					By("checking that the PDB appeared")
-					Eventually(func() []policyv1.PodDisruptionBudget {
+					Eventually(func(g Gomega) []policyv1.PodDisruptionBudget {
 						pdbs, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-						Expect(err).ToNot(HaveOccurred())
+						g.Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 					By("waiting for VMI")
@@ -3273,9 +3217,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					By("deleting the VMI")
 					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
-					Eventually(func() []policyv1.PodDisruptionBudget {
+					Eventually(func(g Gomega) []policyv1.PodDisruptionBudget {
 						pdbs, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-						Expect(err).ToNot(HaveOccurred())
+						g.Expect(err).ToNot(HaveOccurred())
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 					Eventually(func() bool {
@@ -3340,11 +3284,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Waiting until we have two available pods")
 				var pods *k8sv1.PodList
-				Eventually(func() []k8sv1.Pod {
+				Eventually(func(g Gomega) []k8sv1.Pod {
 					labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, vmi.GetUID())
 					fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
 					pods, err = virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					return pods.Items
 				}, 90*time.Second, 500*time.Millisecond).Should(HaveLen(2))
 
@@ -3355,10 +3299,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
 				getOptions := metav1.GetOptions{}
-				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+				Eventually(func(g Gomega) v1.VirtualMachineInstanceMigrationPhase {
 					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, &getOptions)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
 					for _, p := range pods.Items {
 						pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), p.Name, getOptions)
 						if err != nil || pod.Status.Phase != k8sv1.PodRunning {
@@ -3368,7 +3312,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						deleteOptions := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{ResourceVersion: &pod.ResourceVersion}}
 						eviction := &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
 						err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), eviction)
-						Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
+						g.Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 					}
 					return currentMigration.Status.Phase
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
@@ -3408,36 +3352,24 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					temporaryNodeDrain(node)
 
 					// verify VMI migrated and lives on another node now.
-					Eventually(func() error {
+					Eventually(func(g Gomega) {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						} else if vmi.Status.EvacuationNodeName != "" {
-							return fmt.Errorf("evacuation node name is still set on the VMI")
-						}
+						g.Expect(err).ShouldNot(HaveOccurred())
+						g.Expect(vmi.Status.NodeName).ShouldNot(Equal(node), "VMI still exist on the same node")
+						g.Expect(vmi.Status.MigrationState).ToNot(BeNil(), "VMI did not migrate yet")
+						g.Expect(vmi.Status.MigrationState.SourceNode).To(Equal(node), "VMI did not migrate yet")
+						g.Expect(vmi.Status.EvacuationNodeName).To(BeEmpty(), "evacuation node name is still set on the VMI")
 
 						// VMI should still be running at this point. If it
 						// isn't, then there's nothing to be waiting on.
-						Expect(vmi.Status.Phase).To(Equal(v1.Running))
+						g.Expect(vmi.Status.Phase).To(Equal(v1.Running))
+					}, 180*time.Second, 1*time.Second).Should(Succeed())
 
-						return nil
-					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-					Consistently(func() error {
+					Consistently(func(g Gomega) {
 						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
-						if err != nil {
-							return err
-						}
-						if len(migrations.Items) > 1 {
-							return fmt.Errorf("should have only 1 migration issued for evacuation of 1 VM")
-						}
-						return nil
-					}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
+						g.Expect(err).ShouldNot(HaveOccurred())
+						g.Expect(migrations.Items).Should(Or(BeEmpty(), HaveLen(1)), "should have only 1 migration issued for evacuation of 1 VM")
+					}, 20*time.Second, 1*time.Second).Should(Succeed())
 				})
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
@@ -3463,22 +3395,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					temporaryNodeDrain(node)
 
 					// verify VMI migrated and lives on another node now.
-					Eventually(func() error {
+					Eventually(func(g Gomega) {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						}
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(vmi.Status.NodeName).ShouldNot(Equal(node), "VMI still exist on the same node")
+						g.Expect(vmi.Status.MigrationState).ShouldNot(BeNil(), "VMI did not migrate yet")
+						g.Expect(vmi.Status.MigrationState.SourceNode).Should(Equal(node), "VMI did not migrate yet")
 
 						// VMI should still be running at this point. If it
 						// isn't, then there's nothing to be waiting on.
-						Expect(vmi.Status.Phase).To(Equal(v1.Running))
-
-						return nil
-					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+						g.Expect(vmi.Status.Phase).To(Equal(v1.Running))
+					}, 180*time.Second, 1*time.Second).Should(Succeed())
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
@@ -3502,17 +3429,13 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					temporaryNodeDrain(node)
 
 					// verify VMI migrated and lives on another node now.
-					Eventually(func() error {
+					Eventually(func(g Gomega) {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						}
-						return nil
-					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+						g.Expect(err).ShouldNot(HaveOccurred())
+						g.Expect(vmi.Status.NodeName).ShouldNot(Equal(node), "VMI still exist on the same node")
+						g.Expect(vmi.Status.MigrationState).ShouldNot(BeNil(), "VMI did not migrate yet")
+						g.Expect(vmi.Status.MigrationState.SourceNode).Should(Equal(node), "VMI did not migrate yet")
+					}, 180*time.Second, 1*time.Second).Should(Succeed())
 				})
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
@@ -3592,34 +3515,22 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					By("Verify expected vmis migrated after node drain completes")
 					// verify migrated where expected to migrate.
-					Eventually(func() error {
-						vmi, err := virtClient.VirtualMachineInstance(vmi_evict1.Namespace).Get(context.Background(), vmi_evict1.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						}
-
-						vmi, err = virtClient.VirtualMachineInstance(vmi_evict2.Namespace).Get(context.Background(), vmi_evict2.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
+					Eventually(func(g Gomega) error {
+						for _, vmiEvict := range []*v1.VirtualMachineInstance{vmi_evict1, vmi_evict2} {
+							vmi, err := virtClient.VirtualMachineInstance(vmiEvict.Namespace).Get(context.Background(), vmiEvict.Name, &metav1.GetOptions{})
+							g.Expect(err).ShouldNot(HaveOccurred())
+							g.Expect(vmi.Status.NodeName).ShouldNot(Equal(node), "VMI still exist on the same node")
+							g.Expect(vmi.Status.MigrationState).ShouldNot(BeNil(), "VMI did not migrate yet")
+							g.Expect(vmi.Status.MigrationState.SourceNode).Should(Equal(node), "VMI did not migrate yet")
 						}
 
 						// This VMI should be terminated
 						vmi, err = virtClient.VirtualMachineInstance(vmi_noevict.Namespace).Get(context.Background(), vmi_noevict.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						}
+						g.Expect(err).ShouldNot(HaveOccurred())
+						g.Expect(vmi.Status.NodeName).ShouldNot(Equal(node), "VMI still exist on the same node")
+
 						// this VM should not have migrated. Instead it should have been shutdown and started on the other node.
-						Expect(vmi.Status.MigrationState).To(BeNil())
+						g.Expect(vmi.Status.MigrationState).To(BeNil())
 						return nil
 					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -3659,17 +3570,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				libnode.Taint(sourceNode.Name, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 				By("waiting until migration kicks in")
-				Eventually(func() int {
+				Eventually(func(g Gomega) {
 					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
-
-					return len(runningMigrations)
-				}, 2*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(migrations.FilterRunningMigrations(migrationList.Items)).ShouldNot(BeEmpty())
+				}, 2*time.Minute, 1*time.Second).Should(Succeed())
 
 				By("checking that all VMIs were migrated, and we never see more than two running migrations in parallel")
-				Eventually(func() []string {
+				Eventually(func(g Gomega) []string {
 					var nodes []string
 					for _, vmi := range vmis {
 						vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
@@ -3677,10 +3585,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}
 
 					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 
 					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
-					Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
+					g.Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
 
 					return nodes
 				}, 4*time.Minute, 1*time.Second).Should(ConsistOf(
@@ -3692,16 +3600,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Checking that all migrated VMIs have the new pod IP address on VMI status")
 				for _, vmi := range vmis {
-					Eventually(func() error {
+					Eventually(func(g Gomega) {
 						newvmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
+						g.Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
-						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
+						g.Expect(libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)).To(Succeed())
 					}, time.Minute, time.Second).Should(Succeed(), "Should match PodIP with latest VMI Status after migration")
 				}
 			})
 		})
-
 	})
 
 	Context("[test_id:8482] Migration Metrics", func() {
@@ -3756,26 +3663,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 					By("Ensuring the VMI has migrated and lives on another node")
-					Eventually(func() error {
+					Eventually(func(g Gomega) {
 						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						}
-
-						if vmi.Status.NodeName == vmiNodeOrig {
-							return fmt.Errorf("VMI is still on the same node")
-						}
-
-						if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
-							return fmt.Errorf("VMI did not migrate yet")
-						}
-
-						if vmi.Status.EvacuationNodeName != "" {
-							return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
-						}
-
-						return nil
-					}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+						g.Expect(err).ShouldNot(HaveOccurred())
+						g.Expect(vmi.Status.NodeName).ShouldNot(Equal(vmiNodeOrig), "VMI is still on the same node")
+						g.Expect(vmi.Status.MigrationState).ShouldNot(BeNil(), "VMI did not migrate yet")
+						g.Expect(vmi.Status.MigrationState.SourceNode).Should(Equal(vmiNodeOrig), "VMI did not migrate yet")
+						g.Expect(vmi.Status.EvacuationNodeName).Should(BeEmpty(), "VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
+					}, 360*time.Second, 1*time.Second).Should(Succeed())
 					resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 					Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
@@ -4559,13 +4454,11 @@ func stopNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1
 	libnode.AddAnnotationToNode(nodeName, key, value)
 
 	By(fmt.Sprintf("Expecting node %s to include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
-	Eventually(func() bool {
+	Eventually(func(g Gomega) {
 		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		value, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
-		return exists && value == "true"
-	}, 30*time.Second, time.Second).Should(BeTrue(), fmt.Sprintf("node %s is expected to have annotation %s", nodeName, v1.LabellerSkipNodeAnnotation))
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(node.Annotations).Should(HaveKeyWithValue(v1.LabellerSkipNodeAnnotation, "true"))
+	}, 30*time.Second, time.Second).Should(Succeed(), fmt.Sprintf("node %s is expected to have annotation %s", nodeName, v1.LabellerSkipNodeAnnotation))
 
 	return node
 }
@@ -4598,28 +4491,15 @@ func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 	wakeNodeLabellerUp(virtClient)
 
 	By(fmt.Sprintf("Expecting node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
-	Eventually(func() error {
+	Eventually(func(g Gomega) {
 		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
+		g.Expect(err).ShouldNot(HaveOccurred())
+		g.Expect(node.Annotations).ShouldNot(HaveKey(v1.LabellerSkipNodeAnnotation), "node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
 
-		_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
-		if exists {
-			return fmt.Errorf("node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
-		}
-
-		foundHostModelLabel := false
-		for labelKey := range node.Labels {
-			if strings.HasPrefix(labelKey, v1.HostModelCPULabel) {
-				foundHostModelLabel = true
-				break
-			}
-		}
-		if !foundHostModelLabel {
-			return fmt.Errorf("node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", nodeName, v1.HostModelCPULabel)
-		}
-
-		return nil
-	}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+		g.Expect(node.Labels).Should(
+			HaveKey(HavePrefix(v1.HostModelCPULabel)),
+			"node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", nodeName, v1.HostModelCPULabel)
+	}, 30*time.Second, time.Second).Should(Succeed())
 
 	return node
 }

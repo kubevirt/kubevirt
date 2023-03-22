@@ -476,25 +476,17 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 			By("expecting the creation of a mediated device")
 			mdevUUIDPath := fmt.Sprintf(mdevUUIDPathFmt, pciId, uuidRegex)
-			Eventually(func() error {
+			Eventually(func(g Gomega) {
 				uuidPath, _, err := runBashCmd("ls -d " + mdevUUIDPath + " | head -1")
-				if err != nil {
-					return err
-				}
-				if uuidPath == "" {
-					return fmt.Errorf("no UUID found at %s", mdevUUIDPath)
-				}
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(uuidPath).ShouldNot(BeEmpty(), "no UUID found at %s", mdevUUIDPath)
 				uuid := strings.TrimSpace(filepath.Base(uuidPath))
 				mdevTypePath := fmt.Sprintf(mdevTypePathFmt, pciId, uuid)
 				effectiveTypePath, _, err := runBashCmd("readlink -e " + mdevTypePath)
-				if err != nil {
-					return err
-				}
-				if filepath.Base(effectiveTypePath) != mdevType {
-					return fmt.Errorf("%s != %s", filepath.Base(effectiveTypePath), mdevType)
-				}
-				return nil
-			}, 5*time.Minute, time.Second).ShouldNot(HaveOccurred())
+				g.Expect(err).ShouldNot(HaveOccurred())
+
+				g.Expect(effectiveTypePath).Should(Equal(mdevType))
+			}, 5*time.Minute, time.Second).Should(Succeed())
 		})
 	})
 })

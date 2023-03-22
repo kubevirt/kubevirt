@@ -228,11 +228,9 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			addr := fmt.Sprintf("127.0.0.1:%s", testPort)
 
 			// Run this under Eventually so we don't dial connection before proxy has started
-			Eventually(func() error {
+			Eventually(func(g Gomega) {
 				nc, err := net.Dial("tcp", addr)
-				if err != nil {
-					return err
-				}
+				g.Expect(err).ShouldNot(HaveOccurred())
 				defer nc.Close()
 
 				ch := make(chan vnc.ServerMessage)
@@ -242,12 +240,10 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 					ServerMessageCh: ch,
 					ServerMessages:  []vnc.ServerMessage{new(vnc.FramebufferUpdateMessage)},
 				})
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				defer c.Close()
-				Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
-
-				return nil
-			}, 60*time.Second).ShouldNot(HaveOccurred())
+				g.Expect(c.DesktopName).To(ContainSubstring(vmi.Name))
+			}, 60*time.Second).Should(Succeed())
 		})
 
 		It("should allow creating a VNC screenshot in PNG format", func() {
@@ -259,16 +255,16 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 			xres, yres := getResolution(domain)
 			// Sometimes we can see initially a 640x480 resolution if we connect very early
 			By("gathering screenshots until we are past the first boot screen and see the expected 720x400 resolution")
-			Eventually(func() image.Image {
+			Eventually(func(g Gomega) image.Image {
 				cmd := clientcmd.NewVirtctlCommand("vnc", "screenshot", "--namespace", vmi.Namespace, "--file", filePath, vmi.Name)
-				Expect(cmd.Execute()).To(Succeed())
+				g.Expect(cmd.Execute()).To(Succeed())
 
 				f, err := os.Open(filePath)
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				defer f.Close()
 
 				img, err := png.Decode(f)
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				return img
 			}, 10*time.Second).Should(HaveResolution(xres, yres))
 		})
