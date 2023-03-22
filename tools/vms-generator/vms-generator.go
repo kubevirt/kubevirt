@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/tools/util"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -147,6 +149,10 @@ func main() {
 		utils.VmTemplateWindows: utils.GetTemplateWindows(),
 	}
 
+	var migrationPolicies = map[string]*v1alpha1.MigrationPolicy{
+		utils.MigrationPolicyName: utils.GetMigrationPolicy(),
+	}
+
 	handleError := func(err error) {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err)
@@ -244,6 +250,10 @@ func main() {
 	}
 
 	for name, obj := range priorityClasses {
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range migrationPolicies {
 		handleError(dumpObject(name, *obj))
 	}
 }
