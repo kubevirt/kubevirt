@@ -1279,6 +1279,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	d.updateGuestInfoFromDomain(vmi, domain)
 	d.updateVolumeStatusesFromDomain(vmi, domain)
 	d.updateFSFreezeStatus(vmi, domain)
+	d.updateMachineType(vmi, domain)
 	err = d.netStat.UpdateStatus(vmi, domain)
 	if err != nil {
 		return err
@@ -3258,4 +3259,13 @@ func (d *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 
 func isIOError(shouldUpdate, domainExists bool, domain *api.Domain) bool {
 	return shouldUpdate && domainExists && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedIOError
+}
+
+func (d *VirtualMachineController) updateMachineType(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil || vmi == nil {
+		return
+	}
+	if domain.Spec.OS.Type.Machine != "" {
+		vmi.Status.Machine = &v1.Machine{Type: domain.Spec.OS.Type.Machine}
+	}
 }

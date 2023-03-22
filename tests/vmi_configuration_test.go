@@ -1811,6 +1811,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
+
+			Expect(vmi.Status.Machine).ToNot(BeNil())
+			Expect(vmi.Status.Machine.Type).To(Equal(runningVMISpec.OS.Type.Machine))
 		})
 
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {

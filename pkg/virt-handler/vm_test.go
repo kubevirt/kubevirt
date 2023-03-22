@@ -680,6 +680,48 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
+		It("should update the qemu machine type on the VMI status", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.OS.Type.Machine = "q35-123"
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Machine = &v1.Machine{Type: "q35-123"}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
+
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).DoAndReturn(func(_ context.Context, obj interface{}) (*v1.VirtualMachineInstance, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				Expect(vmi.Status.Machine).To(Equal(updatedVMI.Status.Machine))
+				return vmi, nil
+			})
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+
+			controller.Execute()
+		})
+
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
