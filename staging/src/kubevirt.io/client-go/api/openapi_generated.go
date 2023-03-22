@@ -22377,11 +22377,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Format:      "",
 						},
 					},
+					"machine": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Machine shows the final resulting qemu machine type. This can be different than the machine type selected in the spec, due to qemus machine type alias mechanism.",
+							Ref:         ref("kubevirt.io/api/core/v1.Machine"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 

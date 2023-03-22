@@ -77,6 +77,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"runtimeUser":                   "RuntimeUser is used to determine what user will be used in launcher\n+optional",
 		"VSOCKCID":                      "VSOCKCID is used to track the allocated VSOCK CID in the VM.\n+optional",
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
+		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
 	}
 }
 
