@@ -106,7 +106,7 @@ func AdjustKubeVirtResource() {
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,
 		virtconfig.VSOCKGate,
-		virtconfig.KubevirtSeccompProfile,
+		//virtconfig.KubevirtSeccompProfile,
 		virtconfig.HotplugNetworkIfacesGate,
 	)
 	if flags.DisableCustomSELinuxPolicy {
