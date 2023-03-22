@@ -60,6 +60,30 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),
 	)
 
+	Context("tolerations with eviction strategies", func() {
+		var strategyMigrate = v1.EvictionStrategyLiveMigrate
+		var strategyNone = v1.EvictionStrategyNone
+		var strategyExternal = v1.EvictionStrategyExternal
+		evStrategyPath := test.Child("evictionStrategy")
+
+		DescribeTable("it should allow", func(evStrategy *v1.EvictionStrategy) {
+			resp := validateEvictionStrategy(test, evStrategy)
+			Expect(resp).To(BeEmpty())
+		},
+			Entry("evictionStrategy to be set to LiveMigrate", &strategyMigrate),
+			Entry("evictionStrategy to be set None", &strategyNone),
+			Entry("evictionStrategy to be set External", &strategyExternal),
+			Entry("evictionStrategy to be set nil", nil),
+		)
+
+		It("should not allow unknown eviction strategies", func() {
+			strategy := v1.EvictionStrategy("fantasy")
+			resp := validateEvictionStrategy(evStrategyPath, &strategy)
+			Expect(resp).To(HaveLen(1))
+			Expect(resp[0].Message).To(Equal("test.evictionStrategy is set with an unrecognized option: fantasy"))
+		})
+	})
+
 	DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
 		causes := validateCustomizeComponents(cc)
 		Expect(causes).To(HaveLen(expectedCauses))

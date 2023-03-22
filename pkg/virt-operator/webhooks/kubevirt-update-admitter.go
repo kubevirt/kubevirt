@@ -106,6 +106,11 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 
 	}
 
+	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.EvictionStrategy, newKV.Spec.Configuration.EvictionStrategy) {
+		results = append(results,
+			validateEvictionStrategy(field.NewPath("spec").Child("configuration", "evictionStrategy"), newKV.Spec.Configuration.EvictionStrategy)...)
+	}
+
 	if newKV.Spec.Infra != nil {
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
@@ -252,6 +257,26 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 		return statuses
 	}
 
+	return statuses
+}
+
+func isValidEvictionStrategy(evictionStrategy *v1.EvictionStrategy) bool {
+	return evictionStrategy == nil ||
+		*evictionStrategy == v1.EvictionStrategyLiveMigrate ||
+		*evictionStrategy == v1.EvictionStrategyNone ||
+		*evictionStrategy == v1.EvictionStrategyExternal
+
+}
+
+func validateEvictionStrategy(field *field.Path, evStrategy *v1.EvictionStrategy) []metav1.StatusCause {
+	statuses := []metav1.StatusCause{}
+	if !isValidEvictionStrategy(evStrategy) {
+		statuses = append(statuses, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   field.String(),
+			Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.String(), *evStrategy),
+		})
+	}
 	return statuses
 }
 
