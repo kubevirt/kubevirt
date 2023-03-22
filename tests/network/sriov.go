@@ -711,7 +711,9 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	// Running multi sriov jobs with Kind, DinD is resource extensive, causing DeadlineExceeded transient warning
 	// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
 	// see https://github.com/kubevirt/kubevirt/issues/5027
-	warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
+	warningsIgnoreList := []string{
+		"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded",
+		"server error. command SyncVMI failed: \"timed out waiting for the condition\""}
 	libwait.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
 
 	virtClient := kubevirt.Client()
