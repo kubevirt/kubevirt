@@ -983,7 +983,7 @@ var _ = SIGDescribe("Export", func() {
 		)
 	})
 
-	Context("Ingress", func() {
+	Context("[Serial]Ingress", Serial, func() {
 		const (
 			tlsSecretName = "test-tls"
 		)
