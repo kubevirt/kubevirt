@@ -4287,7 +4287,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 	})
 
-	Context("[Serial]with a dedicated migration network", Serial, func() {
+	Context("[Serial][QUARANTINE] with a dedicated migration network", Serial, func() {
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
