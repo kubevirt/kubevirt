@@ -1960,7 +1960,7 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	randPort := strconv.Itoa(4321 + rand.Intn(6000))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
+	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
