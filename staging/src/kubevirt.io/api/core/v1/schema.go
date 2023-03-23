@@ -1212,6 +1212,8 @@ type DHCPOptions struct {
 	// If specified will pass extra DHCP options for private use, range: 224-254
 	// +optional
 	PrivateOptions []DHCPPrivateOptions `json:"privateOptions,omitempty"`
+	// If specified will ban nic's dhcp server
+	BanDHCP bool `json:"banDHCP,omitempty"`
 }
 
 func (d *DHCPOptions) UnmarshalJSON(data []byte) error {
