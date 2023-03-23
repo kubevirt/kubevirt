@@ -19,8 +19,9 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1alpha1/types.
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1/types.go
 
-deepcopy-gen --input-dirs kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/export/v1alpha1,kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/pool/v1alpha1,kubevirt.io/api/migrations/v1alpha1,kubevirt.io/api/clone/v1alpha1,kubevirt.io/api/core/v1 \
+deepcopy-gen --input-dirs kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/export/v1alpha1,kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/pool/v1alpha1,kubevirt.io/api/migrations/v1alpha1,kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1,kubevirt.io/api/clone/v1alpha1,kubevirt.io/api/core/v1 \
     --bounding-dirs kubevirt.io/api \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
@@ -29,7 +30,7 @@ defaulter-gen --input-dirs kubevirt.io/api/core/v1 \
     --output-package kubevirt.io/api/core/v1 \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-openapi-gen --input-dirs kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/api/core/v1,kubevirt.io/api/export/v1alpha1,kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/pool/v1alpha1,kubevirt.io/api/migrations/v1alpha1,kubevirt.io/api/clone/v1alpha1 \
+openapi-gen --input-dirs kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1,k8s.io/apimachinery/pkg/util/intstr,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/api/core/v1,kubevirt.io/api/export/v1alpha1,kubevirt.io/api/snapshot/v1alpha1,kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/pool/v1alpha1,kubevirt.io/api/migrations/v1alpha1,kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1,kubevirt.io/api/clone/v1alpha1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package kubevirt.io/client-go/api/ \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt >${KUBEVIRT_DIR}/api/api-rule-violations.list
@@ -109,6 +110,9 @@ deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
 
     #include clone
     GOFLAGS= controller-gen crd paths=../api/clone/v1alpha1/
+
+    #include virtualMachineMigrationResourceQuota
+    GOFLAGS= controller-gen crd paths=../api/virtualMachineMigrationResourceQuota/v1alpha1/
 
     #remove some weird stuff from controller-gen
     cd config/crd
