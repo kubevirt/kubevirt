@@ -25,6 +25,8 @@ import (
 	"os"
 	"sync"
 
+	virtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/virtualmachinemigrationresourcequota/v1alpha1"
+
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
 	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
@@ -210,6 +212,11 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	VMMigrationResourceQuotaClient, err := virtualmachinemigrationresourcequotav1alpha1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -227,6 +234,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		dynamicClient,
 		migrationsClient,
 		cloneClient,
+		VMMigrationResourceQuotaClient,
 		coreClient,
 	}, nil
 }
@@ -406,6 +414,11 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	VMMigrationResourceQuotaClient, err := virtualmachinemigrationresourcequotav1alpha1.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -423,6 +436,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		dynamicClient,
 		migrationsClient,
 		cloneClient,
+		VMMigrationResourceQuotaClient,
 		coreClient,
 	}, nil
 }

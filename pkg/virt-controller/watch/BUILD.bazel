@@ -61,6 +61,7 @@ go_library(
         "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",

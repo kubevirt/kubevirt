@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/migration"
@@ -272,6 +274,7 @@ func init() {
 	utilruntime.Must(exportv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clonev1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme.Scheme))
 
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)

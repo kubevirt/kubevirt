@@ -74,6 +74,7 @@ import (
 	v1alpha17 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	v1alpha18 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	v1alpha19 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	v1alpha110 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/virtualmachinemigrationresourcequota/v1alpha1"
 	versioned2 "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	versioned3 "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 	version "kubevirt.io/client-go/version"
@@ -288,6 +289,16 @@ func (_m *MockKubevirtClient) VirtualMachineClone(namespace string) v1alpha15.Vi
 
 func (_mr *_MockKubevirtClientRecorder) VirtualMachineClone(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClone", arg0)
+}
+
+func (_m *MockKubevirtClient) VirtualMachineMigrationResourceQuota(namespace string) v1alpha110.VirtualMachineMigrationResourceQuotaInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachineMigrationResourceQuota", namespace)
+	ret0, _ := ret[0].(v1alpha110.VirtualMachineMigrationResourceQuotaInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VirtualMachineMigrationResourceQuota(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineMigrationResourceQuota", arg0)
 }
 
 func (_m *MockKubevirtClient) ClusterProfiler() *ClusterProfiler {

@@ -22,6 +22,9 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/api/virtualMachineMigrationResourceQuota"
+	"kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1"
+
 	"kubevirt.io/api/clone"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
@@ -54,19 +57,20 @@ const (
 )
 
 var (
-	VIRTUALMACHINE                   = "virtualmachines." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
-	VIRTUALMACHINEINSTANCE           = "virtualmachineinstances." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
-	VIRTUALMACHINEINSTANCEPRESET     = "virtualmachineinstancepresets." + virtv1.VirtualMachineInstancePresetGroupVersionKind.Group
-	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
-	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
-	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
-	VIRTUALMACHINEPOOL               = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
-	VIRTUALMACHINESNAPSHOT           = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
-	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
-	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
-	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
-	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
-	PreserveUnknownFieldsFalse       = false
+	VIRTUALMACHINE                       = "virtualmachines." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCE               = "virtualmachineinstances." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCEPRESET         = "virtualmachineinstancepresets." + virtv1.VirtualMachineInstancePresetGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCEREPLICASET     = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
+	VIRTUALMACHINEINSTANCEMIGRATION      = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
+	KUBEVIRT                             = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	VIRTUALMACHINEPOOL                   = "virtualmachinepools." + poolv1.SchemeGroupVersion.Group
+	VIRTUALMACHINESNAPSHOT               = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
+	VIRTUALMACHINESNAPSHOTCONTENT        = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
+	VIRTUALMACHINEEXPORT                 = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
+	MIGRATIONPOLICY                      = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
+	VIRTUALMACHINECLONE                  = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
+	VIRTUALMACHINEMIGRATIONRESOURCEQUOTA = "virtualmachinemigrationresourcequotas." + v1alpha1.VirtualMachineMigrationResourceQuotaKind.Group
+	PreserveUnknownFieldsFalse           = false
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -809,6 +813,46 @@ func NewVirtualMachineCloneCrd() (*extv1.CustomResourceDefinition, error) {
 			{Name: "Phase", Type: "string", JSONPath: phaseJSONPath},
 			{Name: "SourceVirtualMachine", Type: "string", JSONPath: ".spec.source.name"},
 			{Name: "TargetVirtualMachine", Type: "string", JSONPath: ".spec.target.name"},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineMigrationResourceQuotaCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = VIRTUALMACHINEMIGRATIONRESOURCEQUOTA
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: v1alpha1.VirtualMachineMigrationResourceQuotaKind.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    v1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: extv1.NamespaceScoped,
+
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     virtualMachineMigrationResourceQuota.ResourceVMResourceQuotaPlural,
+			Singular:   virtualMachineMigrationResourceQuota.ResourceVMResourceQuotaSingular,
+			ShortNames: []string{"vmmrq", "vmmrqs"},
+			Kind:       v1alpha1.VirtualMachineMigrationResourceQuotaKind.Kind,
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd,
+		&extv1.CustomResourceSubresources{
+			Status: &extv1.CustomResourceSubresourceStatus{},
 		},
 	)
 	if err != nil {

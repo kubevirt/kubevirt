@@ -39,6 +39,8 @@ import (
 	fakepoolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1/fake"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	fakesnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1/fake"
+	virtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/virtualmachinemigrationresourcequota/v1alpha1"
+	fakevirtualmachinemigrationresourcequotav1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/virtualmachinemigrationresourcequota/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -121,4 +123,9 @@ func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
 func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
 	return &fakesnapshotv1alpha1.FakeSnapshotV1alpha1{Fake: &c.Fake}
+}
+
+// VirtualMachineMigrationResourceQuotaV1alpha1 retrieves the VirtualMachineMigrationResourceQuotaV1alpha1Client
+func (c *Clientset) VirtualMachineMigrationResourceQuotaV1alpha1() virtualmachinemigrationresourcequotav1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Interface {
+	return &fakevirtualmachinemigrationresourcequotav1alpha1.FakeVirtualMachineMigrationResourceQuotaV1alpha1{Fake: &c.Fake}
 }

@@ -23,14 +23,15 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"

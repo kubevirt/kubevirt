@@ -86,8 +86,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 75
-	patchCount    = 50
+	resourceCount = 76
+	patchCount    = 51
 	updateCount   = 26
 )
 
@@ -1221,7 +1221,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineInstancetypeCrd,
 		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
-		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
+		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd, components.NewVirtualMachineMigrationResourceQuotaCrd,
 	}
 	for _, f := range functions {
 		crd, err := f()

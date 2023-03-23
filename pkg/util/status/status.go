@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"kubevirt.io/api/virtualMachineMigrationResourceQuota/v1alpha1"
+
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -232,6 +234,9 @@ func (u *updater) updateStatusUnstructured(obj runtime.Object) (err error) {
 	case *poolv1.VirtualMachinePool:
 		oldObj := obj.(*poolv1.VirtualMachinePool)
 		_, err = u.cli.VirtualMachinePool(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
+	case *v1alpha1.VirtualMachineMigrationResourceQuota:
+		oldObj := obj.(*v1alpha1.VirtualMachineMigrationResourceQuota)
+		_, err = u.cli.VirtualMachineMigrationResourceQuota(oldObj.Namespace).UpdateStatus(context.Background(), oldObj, metav1.UpdateOptions{})
 	default:
 		panic(unknownObj)
 	}
@@ -341,6 +346,24 @@ func (v *CloneStatusUpdater) UpdateStatus(vmClone *clonev1alpha1.VirtualMachineC
 
 func NewCloneStatusUpdater(cli kubecli.KubevirtClient) *CloneStatusUpdater {
 	return &CloneStatusUpdater{
+		updater: updater{
+			lock:        sync.Mutex{},
+			subresource: true,
+			cli:         cli,
+		},
+	}
+}
+
+type VMMRQStatusUpdater struct {
+	updater
+}
+
+func (v *VMMRQStatusUpdater) UpdateStatus(vmmrq *v1alpha1.VirtualMachineMigrationResourceQuota) error {
+	return v.update(vmmrq)
+}
+
+func NewVMMRQStatusUpdater(cli kubecli.KubevirtClient) *VMMRQStatusUpdater {
+	return &VMMRQStatusUpdater{
 		updater: updater{
 			lock:        sync.Mutex{},
 			subresource: true,

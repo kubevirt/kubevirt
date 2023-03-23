@@ -31,6 +31,8 @@ import (
 	"net"
 	"time"
 
+	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/virtualmachinemigrationresourcequota/v1alpha1"
+
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
 	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
@@ -80,6 +82,7 @@ type KubevirtClient interface {
 	ExpandSpec(namespace string) ExpandSpecInterface
 	ServerVersion() ServerVersionInterface
 	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
+	VirtualMachineMigrationResourceQuota(namespace string) v1alpha1.VirtualMachineMigrationResourceQuotaInterface
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
 	RestClient() *rest.RESTClient
@@ -99,22 +102,23 @@ type KubevirtClient interface {
 }
 
 type kubevirt struct {
-	master                  string
-	kubeconfig              string
-	restClient              *rest.RESTClient
-	config                  *rest.Config
-	generatedKubeVirtClient *generatedclient.Clientset
-	cdiClient               *cdiclient.Clientset
-	networkClient           *networkclient.Clientset
-	extensionsClient        *extclient.Clientset
-	secClient               *secv1.SecurityV1Client
-	routeClient             *routev1.RouteV1Client
-	discoveryClient         *discovery.DiscoveryClient
-	prometheusClient        *promclient.Clientset
-	snapshotClient          *k8ssnapshotclient.Clientset
-	dynamicClient           dynamic.Interface
-	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
-	cloneClient             *clonev1alpha1.CloneV1alpha1Client
+	master                         string
+	kubeconfig                     string
+	restClient                     *rest.RESTClient
+	config                         *rest.Config
+	generatedKubeVirtClient        *generatedclient.Clientset
+	cdiClient                      *cdiclient.Clientset
+	networkClient                  *networkclient.Clientset
+	extensionsClient               *extclient.Clientset
+	secClient                      *secv1.SecurityV1Client
+	routeClient                    *routev1.RouteV1Client
+	discoveryClient                *discovery.DiscoveryClient
+	prometheusClient               *promclient.Clientset
+	snapshotClient                 *k8ssnapshotclient.Clientset
+	dynamicClient                  dynamic.Interface
+	migrationsClient               *migrationsv1.MigrationsV1alpha1Client
+	cloneClient                    *clonev1alpha1.CloneV1alpha1Client
+	VMMigrationResourceQuotaClient *v1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Client
 	*kubernetes.Clientset
 }
 
@@ -216,6 +220,14 @@ func (k kubevirt) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMac
 
 func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
+}
+
+func (k kubevirt) VirtualMachineMigrationResourceQuota(namespace string) v1alpha1.VirtualMachineMigrationResourceQuotaInterface {
+	return k.generatedKubeVirtClient.VirtualMachineMigrationResourceQuotaV1alpha1().VirtualMachineMigrationResourceQuotas(namespace)
+}
+
+func (k kubevirt) VirtualMachineMigrationResourceQuotaClient() *v1alpha1.VirtualMachineMigrationResourceQuotaV1alpha1Client {
+	return k.VMMigrationResourceQuotaClient
 }
 
 type StreamOptions struct {

@@ -15966,6 +15966,137 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"virtualmachinemigrationresourcequota": `openAPIV3Schema:
+  description: VirtualMachineMigrationResourceQuota defines resources that should
+    be reserved for a VMI migration
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      properties:
+        additionalMigrationResources:
+          additionalProperties:
+            anyOf:
+            - type: integer
+            - type: string
+            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+            x-kubernetes-int-or-string: true
+          description: AdditionalMigrationResources specifies the extra resources
+            needed during virtual machine migration, above the resourceQuota limit.
+            This field helps ensure a successful migration by allowing you to define
+            the additional resources required, such as CPU, memory, and storage.
+          type: object
+      type: object
+    status:
+      properties:
+        additionalMigrationResources:
+          additionalProperties:
+            anyOf:
+            - type: integer
+            - type: string
+            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+            x-kubernetes-int-or-string: true
+          description: AdditionalMigrationResources specifies the extra resources
+            needed during virtual machine migration, above the resourceQuota limit.
+            This field helps ensure a successful migration by allowing you to define
+            the additional resources required, such as CPU, memory, and storage.
+          type: object
+        creationTime:
+          format: date-time
+          nullable: true
+          type: string
+        migrationsToBlockingResourceQuotas:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+        originalBlockingResourceQuotas:
+          items:
+            properties:
+              name:
+                type: string
+              spec:
+                description: ResourceQuotaSpec defines the desired hard limits to
+                  enforce for Quota.
+                properties:
+                  hard:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'hard is the set of desired hard limits for each
+                      named resource. More info: https://kubernetes.io/docs/concepts/policy/resource-quotas/'
+                    type: object
+                  scopeSelector:
+                    description: scopeSelector is also a collection of filters like
+                      scopes that must match each object tracked by a quota but expressed
+                      using ScopeSelectorOperator in combination with possible values.
+                      For a resource to match, both scopes AND scopeSelector (if specified
+                      in spec), must be matched.
+                    properties:
+                      matchExpressions:
+                        description: A list of scope selector requirements by scope
+                          of the resources.
+                        items:
+                          description: A scoped-resource selector requirement is a
+                            selector that contains values, a scope name, and an operator
+                            that relates the scope name and values.
+                          properties:
+                            operator:
+                              description: Represents a scope's relationship to a
+                                set of values. Valid operators are In, NotIn, Exists,
+                                DoesNotExist.
+                              type: string
+                            scopeName:
+                              description: The name of the scope that the selector
+                                applies to.
+                              type: string
+                            values:
+                              description: An array of string values. If the operator
+                                is In or NotIn, the values array must be non-empty.
+                                If the operator is Exists or DoesNotExist, the values
+                                array must be empty. This array is replaced during
+                                a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - operator
+                          - scopeName
+                          type: object
+                        type: array
+                    type: object
+                  scopes:
+                    description: A collection of filters that must match each object
+                      tracked by a quota. If not specified, the quota matches all
+                      objects.
+                    items:
+                      description: A ResourceQuotaScope defines a filter that must
+                        match each object tracked by a quota
+                      type: string
+                    type: array
+                type: object
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"virtualmachinepool": `openAPIV3Schema:
   description: VirtualMachinePool resource contains a VirtualMachine configuration
     that can be used to replicate multiple VirtualMachine resources.
