@@ -262,7 +262,7 @@ func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 
 func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	var dhcpConfigurator dhcpconfigurator.Configurator
-	if l.vmiSpecIface.DHCPOptions != nil && l.vmiSpecIface.DHCPOptions.BanDHCP {
+	if l.vmiSpecIface.DHCPOptions != nil && l.vmiSpecIface.DHCPOptions.Disable {
 		return dhcpConfigurator
 	}
 	if l.vmiSpecIface.Bridge != nil {
