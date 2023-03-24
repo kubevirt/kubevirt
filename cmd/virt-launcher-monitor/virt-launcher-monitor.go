@@ -20,6 +20,7 @@
 package main
 
 import (
+	"errors"
 	goflag "flag"
 	"fmt"
 	"net/http"
@@ -32,12 +33,7 @@ import (
 	"syscall"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/net"
-
 	"github.com/spf13/pflag"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 
 	"kubevirt.io/client-go/log"
 )
@@ -166,15 +162,28 @@ func RunAndMonitor(containerDiskDir string) (int, error) {
 		}
 
 		// Wait for 10 seconds for the qemu process to disappear
-		err = utilwait.PollImmediate(1*time.Second, 10*time.Second, func() (bool, error) {
-			pid, _ := findPid(qemuProcessCommandPrefix)
-			if pid == 0 {
-				return true, nil
+		timeout := time.After(10 * time.Second)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		period := make(chan struct{}, 1)
+
+		go func() {
+			period <- struct{}{}
+			for range ticker.C {
+				period <- struct{}{}
 			}
-			return false, nil
-		})
-		if err != nil {
-			return 1, err
+		}()
+
+		for {
+			select {
+			case <-timeout:
+				return 1, err
+			case <-period:
+				pid, _ := findPid(qemuProcessCommandPrefix)
+				if pid == 0 {
+					return exitCode, nil
+				}
+			}
 		}
 	}
 	return exitCode, nil
@@ -195,16 +204,50 @@ func RemoveContents(dir string) error {
 	return nil
 }
 
+type isRetriable func(error) bool
+type function func() error
+
+func retryOnError(shouldRetry isRetriable, f function) error {
+	var lastErr error
+	retries := 4
+	sleep := 10 * time.Millisecond
+
+	backOff := func() time.Duration {
+		const factor = 5
+		sleep *= time.Duration(factor)
+		return sleep
+	}
+
+	for retries > 0 {
+		err := f()
+		if err != nil {
+			if !shouldRetry(err) {
+				return err
+			}
+			lastErr = err
+		} else {
+			return nil
+		}
+		time.Sleep(backOff())
+		retries--
+	}
+
+	return lastErr
+}
+
 func terminateIstioProxy() {
 	httpClient := &http.Client{Timeout: httpRequestTimeout}
 	if istioProxyPresent(httpClient) {
+		serviceUnavailable := fmt.Errorf("service unavailable")
 		isRetriable := func(err error) bool {
-			if net.IsConnectionReset(err) || net.IsConnectionRefused(err) || k8serrors.IsServiceUnavailable(err) {
-				return true
+			var errno syscall.Errno
+			if errors.As(err, &errno) {
+				return errno == syscall.ECONNRESET || errno == syscall.ECONNREFUSED
 			}
-			return false
+			return serviceUnavailable == err
+
 		}
-		err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
+		err := retryOnError(isRetriable, func() error {
 			resp, err := httpClient.Post(fmt.Sprintf("http://localhost:%d/quitquitquit", envoyMergedPrometheusTelemetryPort), "", nil)
 			if err != nil {
 				log.Log.Reason(err).Error("failed to request istio-proxy termination, retrying...")
@@ -214,6 +257,9 @@ func terminateIstioProxy() {
 			defer resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				log.Log.Errorf("status code received: %d", resp.StatusCode)
+				if resp.StatusCode == http.StatusServiceUnavailable {
+					return serviceUnavailable
+				}
 				return err
 			}
 
@@ -227,13 +273,14 @@ func terminateIstioProxy() {
 
 func istioProxyPresent(httpClient *http.Client) bool {
 	isRetriable := func(err error) bool {
-		if net.IsConnectionReset(err) || net.IsConnectionRefused(err) {
-			return true
+		var errno syscall.Errno
+		if errors.As(err, &errno) {
+			return errno == syscall.ECONNRESET || errno == syscall.ECONNREFUSED
 		}
 
 		return false
 	}
-	err := retry.OnError(retry.DefaultBackoff, isRetriable, func() error {
+	err := retryOnError(isRetriable, func() error {
 		resp, err := httpClient.Get(fmt.Sprintf("http://localhost:%d/healthz/ready", envoyHealthCheckPort))
 		if err != nil {
 			log.Log.Reason(err).V(4).Info("error when checking for istio-proxy presence")
@@ -246,11 +293,7 @@ func istioProxyPresent(httpClient *http.Client) bool {
 		}
 		return fmt.Errorf("received response from non-istio health server: %s", resp.Header.Get("server"))
 	})
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
 func findPid(commandNamePrefix string) (int, error) {
