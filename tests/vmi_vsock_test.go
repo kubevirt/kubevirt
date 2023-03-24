@@ -54,6 +54,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 	var err error
 
 	BeforeEach(func() {
+		tests.EnableFeatureGate(virtconfig.VSOCKGate)
 		checks.SkipTestIfNoFeatureGate(virtconfig.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})
