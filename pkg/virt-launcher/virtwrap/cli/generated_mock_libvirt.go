@@ -188,6 +188,17 @@ func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2)
 }
 
+func (_m *MockConnection) GetQemuVersion() (string, error) {
+	ret := _m.ctrl.Call(_m, "GetQemuVersion")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) GetQemuVersion() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQemuVersion")
+}
+
 // Mock of Stream interface
 type MockStream struct {
 	ctrl     *gomock.Controller

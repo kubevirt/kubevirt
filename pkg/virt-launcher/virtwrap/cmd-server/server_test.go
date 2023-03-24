@@ -273,6 +273,19 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.FinalizeVirtualMachineMigration(vmi)).ToNot(Succeed())
 		})
 
+		It("should get the qemu version", func() {
+			server := &Launcher{
+				domainManager: domainManager,
+			}
+			var mockedQemuVersion = "7.2.0"
+			domainManager.EXPECT().GetQemuVersion().Return(mockedQemuVersion, nil)
+			request := &cmdv1.EmptyRequest{}
+			qemuVersion, err := server.GetQemuVersion(context.TODO(), request)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mockedQemuVersion).To(Equal(qemuVersion.GetVersion()))
+		})
+
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"
@@ -375,7 +388,9 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
+
 		})
+
 	})
 
 	Describe("Version mismatch", func() {

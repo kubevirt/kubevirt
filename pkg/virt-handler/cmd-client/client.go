@@ -26,6 +26,7 @@ package cmdclient
 */
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -103,6 +104,7 @@ type LauncherClient interface {
 	GuestPing(string, int32) error
 	Close()
 	VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	GetQemuVersion() (string, error)
 }
 
 type VirtLauncherClient struct {
@@ -364,9 +366,18 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	err = handleError(err, cmdName, response)
 	return err
 }
-
+func IsUnimplemented(err error) bool {
+	if grpcStatus, ok := status.FromError(err); ok {
+		if grpcStatus.Code() == codes.Unimplemented {
+			return true
+		}
+	}
+	return false
+}
 func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	if IsDisconnected(err) {
+		return err
+	} else if IsUnimplemented(err) {
 		return err
 	} else if err != nil {
 		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
@@ -558,6 +569,28 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 		exists = true
 	}
 	return domain, exists, nil
+}
+
+func (c *VirtLauncherClient) GetQemuVersion() (string, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	versionResponse, err := c.v1client.GetQemuVersion(ctx, request)
+	var response *cmdv1.Response
+	if versionResponse != nil {
+		response = versionResponse.Response
+	}
+	if err = handleError(err, "GetQemuVersion", response); err != nil {
+		return "", err
+	}
+
+	if versionResponse != nil && versionResponse.Version != "" {
+		return versionResponse.Version, nil
+	}
+
+	log.Log.Reason(err).Error("error getting the qemu version")
+	return "", errors.New("error getting the qemu version")
 }
 
 func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {

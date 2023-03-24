@@ -28,6 +28,12 @@ service Cmd {
   rpc Exec(ExecRequest) returns (ExecResponse) {}
   rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
+  rpc GetQemuVersion(EmptyRequest) returns (QemuVersionResponse){}
+}
+
+message QemuVersionResponse {
+  Response response = 1;
+  string version = 2;
 }
 
 message VMI {

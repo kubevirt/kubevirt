@@ -416,6 +416,21 @@ func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.D
 	return response, nil
 }
 
+func (l *Launcher) GetQemuVersion(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.QemuVersionResponse, error) {
+	response := &cmdv1.QemuVersionResponse{
+		Response: &cmdv1.Response{},
+	}
+
+	if version, err := l.domainManager.GetQemuVersion(); err != nil {
+		response.Response.Message = getErrorMessage(err)
+	} else {
+		response.Response.Success = true
+		response.Version = version
+	}
+
+	return response, nil
+}
+
 func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
 
 	response := &cmdv1.DomainStatsResponse{
