@@ -45,8 +45,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/assert"
 	"kubevirt.io/kubevirt/tests/console"
@@ -481,37 +479,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
-
-				By("Ping from the VM with the custom MAC to the other VM.")
-				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())
-			})
-
-			It("vmi with an hotplugged interface has connectivity over the secondary network", decorators.InPlaceHotplugNICs, func() {
-				Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
-
-				By("Creating another VM with only the masquerade interface")
-				vmiOne := libvmi.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				)
-				vmiOne = tests.CreateVmiOnNode(vmiOne, nodes.Items[0].Name)
-				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
-
-				By("hotplugging it an interface connected to the secondary network")
-				const hotpluggedIfaceName = "new-iface"
-				Expect(
-					kubevirt.Client().VirtualMachineInstance(vmiOne.GetNamespace()).AddInterface(
-						context.Background(),
-						vmiOne.GetName(),
-						addIfaceOptions(linuxBridgeNetwork.Multus.NetworkName, hotpluggedIfaceName),
-					),
-				).To(Succeed())
-				Eventually(func() error {
-					return libnet.InterfaceExists(vmiOne, "eth1")
-				}, 30*time.Second, 2*time.Second).Should(Succeed())
-
-				By("Configuring static IP address on the hotplugged interface")
-				Expect(configInterface(vmiOne, "eth1", ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
 				Expect(libnet.PingFromVMConsole(vmiOne, ptpSubnetIP2)).To(Succeed())

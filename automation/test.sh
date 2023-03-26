@@ -396,6 +396,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     fi
     if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
       add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
+    else
+      add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
