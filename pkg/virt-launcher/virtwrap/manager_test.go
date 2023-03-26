@@ -1519,10 +1519,17 @@ var _ = Describe("Manager", func() {
 			isBlockMigration := migrationType == "block"
 			isVmiPaused := migrationType == "paused"
 
+			var parallelMigrationThreads *uint = nil
+			if migrationType == "parallel" {
+				var fakeNumberOfThreads uint = 123
+				parallelMigrationThreads = &fakeNumberOfThreads
+			}
+
 			options := &cmdclient.MigrationOptions{
-				UnsafeMigration:   migrationType == "unsafe",
-				AllowAutoConverge: migrationType == "autoConverge",
-				AllowPostCopy:     migrationType == "postCopy",
+				UnsafeMigration:          migrationType == "unsafe",
+				AllowAutoConverge:        migrationType == "autoConverge",
+				AllowPostCopy:            migrationType == "postCopy",
+				ParallelMigrationThreads: parallelMigrationThreads,
 			}
 
 			flags := generateMigrationFlags(isBlockMigration, isVmiPaused, options)
@@ -1542,7 +1549,10 @@ var _ = Describe("Manager", func() {
 			if migrationType == "paused" {
 				expectedMigrateFlags |= libvirt.MIGRATE_PAUSED
 			}
-			Expect(flags).To(Equal(expectedMigrateFlags))
+			if migrationType == "parallel" {
+				expectedMigrateFlags |= libvirt.MIGRATE_PARALLEL
+			}
+			Expect(flags).To(Equal(expectedMigrateFlags), "libvirt migration flags are not set as expected")
 		},
 		Entry("with block migration", "block"),
 		Entry("without block migration", "live"),
@@ -1550,6 +1560,7 @@ var _ = Describe("Manager", func() {
 		Entry("migration auto converge", "autoConverge"),
 		Entry("migration using postcopy", "postCopy"),
 		Entry("migration of paused vmi", "paused"),
+		Entry("migration with parallel threads", "parallel"),
 	)
 
 	DescribeTable("on successful list all domains",

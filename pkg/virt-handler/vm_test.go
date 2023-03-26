@@ -2973,6 +2973,46 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(reason).To(Equal(agentSupported))
 		})
 	})
+
+	Context("Migration options", func() {
+		It("multi-threaded qemu migrations", func() {
+			const threadCount uint = 123
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Running
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+			}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			vmi.Annotations = map[string]string{cmdclient.MultiThreadedQemuMigrationAnnotation: fmt.Sprintf("%d", threadCount)}
+
+			client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+				Expect(options.ParallelMigrationThreads).ToNot(BeNil())
+				Expect(*options.ParallelMigrationThreads).To(Equal(threadCount))
+			}).Times(1).Return(nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, VMIMigrating)
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
