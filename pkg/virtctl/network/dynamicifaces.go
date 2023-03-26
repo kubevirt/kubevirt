@@ -36,7 +36,7 @@ import (
 const (
 	HotplugCmdName = "addinterface"
 
-	ifaceNameArg                       = "iface-name"
+	ifaceNameArg                       = "name"
 	networkAttachmentDefinitionNameArg = "network-attachment-definition-name"
 )
 
@@ -78,10 +78,10 @@ func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 
 func usageAddInterface() string {
 	usage := `  #Dynamically attach a network interface to a running VM.
-  {{ProgramName}} addinterface <vmi-name> --network-attachment-definition-name <network-attachment-definition name> --iface-name <iface name>
+  {{ProgramName}} addinterface <vmi-name> --network-attachment-definition-name <network-attachment-definition name> --name <iface name>
 
   #Dynamically attach a network interface to a running VM and persisting it in the VM spec. At next VM restart the network interface will be attached like any other network interface.
-  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --iface-name <iface name> --persist
+  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --name <iface name> --persist
   `
 	return usage
 }
@@ -98,14 +98,14 @@ func newDynamicIfaceCmd(clientCfg clientcmd.ClientConfig, persistState bool) (*d
 	return &dynamicIfacesCmd{kvClient: virtClient, isPersistent: persistState, namespace: namespace}, nil
 }
 
-func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefinitionName string, ifaceName string) error {
+func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefinitionName string, name string) error {
 	if dic.isPersistent {
 		return dic.kvClient.VirtualMachine(dic.namespace).AddInterface(
 			context.Background(),
 			vmName,
 			&v1.AddInterfaceOptions{
 				NetworkAttachmentDefinitionName: networkAttachmentDefinitionName,
-				Name:                            ifaceName,
+				Name:                            name,
 			},
 		)
 	}
@@ -114,7 +114,7 @@ func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefini
 		vmName,
 		&v1.AddInterfaceOptions{
 			NetworkAttachmentDefinitionName: networkAttachmentDefinitionName,
-			Name:                            ifaceName,
+			Name:                            name,
 		},
 	)
 }
