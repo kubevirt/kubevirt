@@ -69,6 +69,8 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
+const MultiThreadedQemuMigrationAnnotation = "kubevirt.io/multiThreadedQemuMigration"
+
 type MigrationOptions struct {
 	Bandwidth                resource.Quantity
 	ProgressTimeout          int64

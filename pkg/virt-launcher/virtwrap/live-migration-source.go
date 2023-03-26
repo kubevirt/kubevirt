@@ -817,7 +817,7 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	}
 
 	parallelMigrationSet := false
-	parallelMigrationThreads := 1
+	var parallelMigrationThreads int
 	if options.ParallelMigrationThreads != nil {
 		parallelMigrationSet = true
 		parallelMigrationThreads = int(*options.ParallelMigrationThreads)
