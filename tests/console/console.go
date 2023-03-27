@@ -226,7 +226,16 @@ func NewExpecter(
 	if err != nil {
 		return nil, nil, err
 	}
-	timeout -= time.Since(startTime)
+	serialConsoleCreateDuration := time.Since(startTime)
+	if timeout-serialConsoleCreateDuration <= 0 {
+		return nil, nil,
+			fmt.Errorf(
+				"creation of SerialConsole took %s - longer than given expecter timeout %s",
+				serialConsoleCreateDuration.String(),
+				timeout.String(),
+			)
+	}
+	timeout -= serialConsoleCreateDuration
 
 	go func() {
 		resCh <- con.Stream(kubecli.StreamOptions{
