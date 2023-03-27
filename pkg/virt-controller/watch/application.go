@@ -36,6 +36,7 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/pool"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
@@ -168,7 +169,7 @@ type VirtControllerApp struct {
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
-	poolController *PoolController
+	poolController *pool.PoolController
 	poolInformer   cache.SharedIndexInformer
 
 	vmController *VMController
@@ -644,7 +645,7 @@ func (vca *VirtControllerApp) initReplicaSet() {
 
 func (vca *VirtControllerApp) initPool() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinepool-controller")
-	vca.poolController = NewPoolController(vca.clientSet,
+	vca.poolController = pool.NewPoolController(vca.clientSet,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,

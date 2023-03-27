@@ -16,7 +16,7 @@
  *
  */
 
-package watch
+package pool
 
 import (
 	"context"
@@ -38,15 +38,78 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	"kubevirt.io/client-go/api"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 )
+
+func now() *metav1.Time {
+	now := metav1.Now()
+	return &now
+}
+
+func markVmAsReady(vm *v1.VirtualMachine) {
+	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
+}
+
+func markAsReady(vmi *v1.VirtualMachineInstance) {
+	virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
+}
+
+func virtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
+		Spec: v1.VirtualMachineSpec{
+			Running: &started,
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   vmi.ObjectMeta.Name,
+					Labels: vmi.ObjectMeta.Labels,
+				},
+				Spec: vmi.Spec,
+			},
+		},
+		Status: v1.VirtualMachineStatus{
+			Conditions: []v1.VirtualMachineCondition{
+				{
+					Type:   v1.VirtualMachineReady,
+					Status: k8sv1.ConditionFalse,
+					Reason: "VMINotExists",
+				},
+			},
+		},
+	}
+	return vm
+}
+
+func defaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	vmi := api.NewMinimalVMI(vmiName)
+	vmi.GenerateName = "prettyrandom"
+	vmi.Status.Phase = v1.Running
+	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer)
+	vm := virtualMachineFromVMI(vmName, vmi, started)
+	vm.Finalizers = append(vm.Finalizers, v1.VirtualMachineControllerFinalizer)
+	vmi.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
+	}}
+	virtcontroller.SetLatestApiVersionAnnotation(vmi)
+	virtcontroller.SetLatestApiVersionAnnotation(vm)
+	return vm, vmi
+}
+
+func defaultVirtualMachine(started bool) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+	return defaultVirtualMachineWithNames(started, "testvmi", "testvmi")
+}
 
 var _ = Describe("Pool", func() {
 
@@ -54,10 +117,10 @@ var _ = Describe("Pool", func() {
 
 		namespace := "test"
 		baseName := "my-pool"
-		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 
 		for _, name := range existing {
-			vm, _ := DefaultVirtualMachine(true)
+			vm, _ := defaultVirtualMachine(true)
 			vm.Name = name
 			vm.Namespace = namespace
 			vm.GenerateName = ""
@@ -121,13 +184,13 @@ var _ = Describe("Pool", func() {
 			mockQueue.Wait()
 		}
 
-		addVM := func(vm *virtv1.VirtualMachine) {
+		addVM := func(vm *v1.VirtualMachine) {
 			mockQueue.ExpectAdds(1)
 			vmSource.Add(vm)
 			mockQueue.Wait()
 		}
 
-		addVMI := func(vm *virtv1.VirtualMachineInstance, expectQueue bool) {
+		addVMI := func(vm *v1.VirtualMachineInstance, expectQueue bool) {
 			if expectQueue {
 				mockQueue.ExpectAdds(1)
 			}
@@ -281,12 +344,12 @@ var _ = Describe("Pool", func() {
 			vmi.Namespace = vm.Namespace
 			vmi.Labels = vm.Spec.Template.ObjectMeta.Labels
 			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
+				Controller:         pointer.P(true),
+				BlockOwnerDeletion: pointer.P(true),
 			}}
 
 			markVmAsReady(vm)
@@ -302,7 +365,7 @@ var _ = Describe("Pool", func() {
 			vmiInterface.EXPECT().Delete(context.Background(), gomock.Any(), gomock.Any()).Times(0)
 			vmInterface.EXPECT().Update(context.Background(), gomock.Any()).MaxTimes(1).Do(func(ctx context.Context, arg interface{}) {
 				newVM := arg.(*v1.VirtualMachine)
-				revisionName := newVM.Labels[virtv1.VirtualMachinePoolRevisionName]
+				revisionName := newVM.Labels[v1.VirtualMachinePoolRevisionName]
 				Expect(revisionName).To(Equal(newPoolRevision.Name))
 			}).Return(vm, nil)
 
@@ -346,15 +409,15 @@ var _ = Describe("Pool", func() {
 			vmi.Namespace = vm.Namespace
 			vmi.Labels = mapCopy(vm.Spec.Template.ObjectMeta.Labels)
 			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
 				Name:               vm.ObjectMeta.Name,
 				UID:                vm.ObjectMeta.UID,
-				Controller:         &t,
-				BlockOwnerDeletion: &t,
+				Controller:         pointer.P(true),
+				BlockOwnerDeletion: pointer.P(true),
 			}}
 
-			vmi.Labels[virtv1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
+			vmi.Labels[v1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
 
 			addPool(pool)
 			addVM(vm)
@@ -746,7 +809,7 @@ func PoolFromVM(name string, vm *v1.VirtualMachine, replicas int32) *poolv1.Virt
 func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine) {
 	vmi := api.NewMinimalVMI("testvmi")
 	vmi.Labels = map[string]string{}
-	vm := VirtualMachineFromVMI(vmi.Name, vmi, true)
+	vm := virtualMachineFromVMI(vmi.Name, vmi, true)
 	vm.Labels = map[string]string{}
 	vm.Labels["selector"] = "value"
 

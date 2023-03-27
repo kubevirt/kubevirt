@@ -4693,7 +4693,3 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 func DefaultVirtualMachine(started bool) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) {
 	return DefaultVirtualMachineWithNames(started, "testvmi", "testvmi")
 }
-
-func markVmAsReady(vm *virtv1.VirtualMachine) {
-	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
-}

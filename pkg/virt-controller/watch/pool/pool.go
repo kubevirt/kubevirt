@@ -1,4 +1,4 @@
-package watch
+package pool
 
 import (
 	"context"
@@ -68,6 +68,21 @@ const (
 
 	SuccessfulPausedPoolReason = "SuccessfulPaused"
 	SuccessfulResumePoolReason = "SuccessfulResume"
+)
+
+const (
+	// FailedDeleteVirtualMachineReason is added in an event and in a pool condition
+	// when a virtual machine for a pool is failed to be deleted.
+	FailedDeleteVirtualMachineReason = "FailedDelete"
+	// SuccessfulDeleteVirtualMachineReason is added in an event when a virtual machine for a pool
+	// is successfully deleted.
+	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
+	// SuccessfulCreateVirtualMachineReason is added in an event when a virtual machine for a pool
+	// is successfully created.
+	SuccessfulCreateVirtualMachineReason = "SuccessfulCreate"
+	// FailedCreateVirtualMachineReason is added in an event and in a pool condition
+	// when a virtual machine for a pool is failed to be created.
+	FailedCreateVirtualMachineReason = "FailedCreate"
 )
 
 var virtControllerPoolWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
@@ -783,6 +798,35 @@ func (c *PoolController) scaleOut(pool *poolv1.VirtualMachinePool, count int) er
 	}
 
 	return nil
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func min(x int, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x int, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func limit(x int, burstReplicas uint) int {
+	replicas := int(burstReplicas)
+	if x <= 0 {
+		return max(x, -replicas)
+	}
+	return min(x, replicas)
 }
 
 func (c *PoolController) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (common.SyncError, bool) {
