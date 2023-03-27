@@ -36,8 +36,8 @@ import (
 const (
 	HotplugCmdName = "addinterface"
 
-	ifaceNameArg   = "iface-name"
-	networkNameArg = "network-name"
+	ifaceNameArg                       = "name"
+	networkAttachmentDefinitionNameArg = "network-attachment-definition-name"
 )
 
 var (
@@ -67,8 +67,8 @@ func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 		},
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.Flags().StringVar(&networkAttachmentDefinitionName, networkNameArg, "", "The referenced network-attachment-definition name. Format:\n<netName>, <ns>/<netName>")
-	_ = cmd.MarkFlagRequired(networkNameArg)
+	cmd.Flags().StringVar(&networkAttachmentDefinitionName, networkAttachmentDefinitionNameArg, "", "The referenced network-attachment-definition name. Format:\n<networkAttachmentDefinitionName>, <ns>/<networkAttachmentDefinitionName>")
+	_ = cmd.MarkFlagRequired(networkAttachmentDefinitionNameArg)
 	cmd.Flags().StringVar(&ifaceName, ifaceNameArg, "", "Logical name of the interface to be plugged")
 	_ = cmd.MarkFlagRequired(ifaceNameArg)
 	cmd.Flags().BoolVar(&persist, "persist", false, "When set, the added interface will be persisted in the VM spec (if it exists)")
@@ -78,10 +78,10 @@ func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 
 func usageAddInterface() string {
 	usage := `  #Dynamically attach a network interface to a running VM.
-  {{ProgramName}} addinterface <vmi-name> --network-name <net name> --iface-name <iface name>
+  {{ProgramName}} addinterface <vmi-name> --network-attachment-definition-name <network-attachment-definition name> --name <iface name>
 
   #Dynamically attach a network interface to a running VM and persisting it in the VM spec. At next VM restart the network interface will be attached like any other network interface.
-  {{ProgramName}} addinterface <vm-name> --network-name <net name> --iface-name <iface name> --persist
+  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --name <iface name> --persist
   `
 	return usage
 }
@@ -98,14 +98,14 @@ func newDynamicIfaceCmd(clientCfg clientcmd.ClientConfig, persistState bool) (*d
 	return &dynamicIfacesCmd{kvClient: virtClient, isPersistent: persistState, namespace: namespace}, nil
 }
 
-func (dic *dynamicIfacesCmd) addInterface(vmName string, networkName string, ifaceName string) error {
+func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefinitionName string, name string) error {
 	if dic.isPersistent {
 		return dic.kvClient.VirtualMachine(dic.namespace).AddInterface(
 			context.Background(),
 			vmName,
 			&v1.AddInterfaceOptions{
-				NetworkName:   networkName,
-				InterfaceName: ifaceName,
+				NetworkAttachmentDefinitionName: networkAttachmentDefinitionName,
+				Name:                            name,
 			},
 		)
 	}
@@ -113,8 +113,8 @@ func (dic *dynamicIfacesCmd) addInterface(vmName string, networkName string, ifa
 		context.Background(),
 		vmName,
 		&v1.AddInterfaceOptions{
-			NetworkName:   networkName,
-			InterfaceName: ifaceName,
+			NetworkAttachmentDefinitionName: networkAttachmentDefinitionName,
+			Name:                            name,
 		},
 	)
 }

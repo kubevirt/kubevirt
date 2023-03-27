@@ -2637,7 +2637,7 @@ func (c *VMController) handleInterfaceRequests(vm *virtv1.VirtualMachine, vmi *v
 			continue
 		}
 
-		if _, exists := interfaceMap[ifaceRequest.AddInterfaceOptions.InterfaceName]; exists {
+		if _, exists := interfaceMap[ifaceRequest.AddInterfaceOptions.Name]; exists {
 			continue
 		}
 
@@ -2665,7 +2665,7 @@ func (c *VMController) trimDoneInterfaceRequests(vm *virtv1.VirtualMachine) {
 		removeRequest := false
 
 		if request.AddInterfaceOptions != nil {
-			ifaceName = request.AddInterfaceOptions.InterfaceName
+			ifaceName = request.AddInterfaceOptions.Name
 			added = true
 		}
 

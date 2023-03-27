@@ -3149,9 +3149,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi.Spec.Networks = append(
 					vmi.Spec.Networks,
 					virtv1.Network{
-						Name: req.InterfaceName,
+						Name: req.Name,
 						NetworkSource: virtv1.NetworkSource{
-							Multus: &virtv1.MultusNetwork{NetworkName: req.NetworkName},
+							Multus: &virtv1.MultusNetwork{NetworkName: req.NetworkAttachmentDefinitionName},
 						},
 					})
 			}
@@ -3177,8 +3177,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			It("cannot handle dynamic network attachment when adding an interface", func() {
 				fakeHotPlugRequest(vmi, []virtv1.AddInterfaceOptions{{
-					NetworkName:   "net1",
-					InterfaceName: "iface1",
+					NetworkAttachmentDefinitionName: "net1",
+					Name:                            "iface1",
 				}})
 				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(HaveOccurred())
 			})
@@ -3201,19 +3201,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 				Entry("hotplug a single interface",
 					[]virtv1.AddInterfaceOptions{{
-						NetworkName:   "net1",
-						InterfaceName: "iface1",
+						NetworkAttachmentDefinitionName: "net1",
+						Name:                            "iface1",
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
 						`[{"interface":"net1","name":"net1","namespace":"default"}]`)),
 				Entry("hotplug multiple interfaces",
 					[]virtv1.AddInterfaceOptions{{
-						NetworkName:   "net1",
-						InterfaceName: "iface1",
+						NetworkAttachmentDefinitionName: "net1",
+						Name:                            "iface1",
 					}, {
-						NetworkName:   "net1",
-						InterfaceName: "iface2",
+						NetworkAttachmentDefinitionName: "net1",
+						Name:                            "iface2",
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,

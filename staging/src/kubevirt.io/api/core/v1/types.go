@@ -2194,13 +2194,13 @@ type RemoveVolumeOptions struct {
 
 // AddInterfaceOptions is provided when dynamically hot plugging a network interface
 type AddInterfaceOptions struct {
-	// NetworkName references a NetworkAttachmentDefinition CRD object. Format:
-	// <networkName>, <namespace>/<networkName>. If namespace is not
+	// NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:
+	// <networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not
 	// specified, VMI namespace is assumed.
-	NetworkName string `json:"networkName"`
+	NetworkAttachmentDefinitionName string `json:"networkAttachmentDefinitionName"`
 
-	// InterfaceName indicates the logical name of the interface.
-	InterfaceName string `json:"interfaceName"`
+	// Name indicates the logical name of the interface.
+	Name string `json:"name"`
 }
 
 type TokenBucketRateLimiter struct {

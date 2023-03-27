@@ -384,21 +384,21 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) 
 
 func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
 	existingIface := vmispec.FilterInterfacesSpec(vmiSpec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.Name == request.AddInterfaceOptions.InterfaceName
+		return iface.Name == request.AddInterfaceOptions.Name
 	})
 
 	if len(existingIface) == 0 {
 		newNetwork := v1.Network{
-			Name: request.AddInterfaceOptions.InterfaceName,
+			Name: request.AddInterfaceOptions.Name,
 			NetworkSource: v1.NetworkSource{
 				Multus: &v1.MultusNetwork{
-					NetworkName: request.AddInterfaceOptions.NetworkName,
+					NetworkName: request.AddInterfaceOptions.NetworkAttachmentDefinitionName,
 				},
 			},
 		}
 
 		newIface := v1.Interface{
-			Name:                   request.AddInterfaceOptions.InterfaceName,
+			Name:                   request.AddInterfaceOptions.Name,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 		}
 

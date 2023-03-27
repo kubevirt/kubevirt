@@ -14545,22 +14545,22 @@ func schema_kubevirtio_api_core_v1_AddInterfaceOptions(ref common.ReferenceCallb
 				Description: "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"networkName": {
+					"networkAttachmentDefinitionName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NetworkName references a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed.",
+							Description: "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format: <networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not specified, VMI namespace is assumed.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"interfaceName": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "InterfaceName indicates the logical name of the interface.",
+							Description: "Name indicates the logical name of the interface.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"networkName", "interfaceName"},
+				Required: []string{"networkAttachmentDefinitionName", "name"},
 			},
 		},
 	}
