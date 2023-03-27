@@ -79,6 +79,11 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 	}
 
+	var verb uint = 4
+	kv.Spec.Configuration.DeveloperConfiguration.LogVerbosity = &v1.LogVerbosity{
+		VirtHandler: verb,
+	}
+
 	if kv.Spec.Configuration.DeveloperConfiguration.FeatureGates == nil {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{}
 	}

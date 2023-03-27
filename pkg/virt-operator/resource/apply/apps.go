@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/utils/pointer"
 
@@ -202,7 +204,11 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	var status CanaryUpgradeStatus
 	done := false
 
-	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
+	isDaemonSetUpdated :=
+		util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) &&
+			!forceUpdate &&
+			r.isRolledOut(cachedDaemonSet, newDS)
+
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
 	if isDaemonSetUpdated {
 		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(newDS, cachedDaemonSet)
@@ -429,4 +435,9 @@ func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 	}
 
 	return replicas, nil
+}
+
+func (r *Reconciler) isRolledOut(cachedDaemonSet, newDS *appsv1.DaemonSet) bool {
+	return equality.Semantic.DeepEqual(cachedDaemonSet.Spec.Selector, newDS.Spec.Selector) &&
+		equality.Semantic.DeepEqual(cachedDaemonSet.Spec.Template.Spec, newDS.Spec.Template.Spec)
 }
