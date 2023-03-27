@@ -228,7 +228,12 @@ func NewExpecter(
 	}
 	serialConsoleCreateDuration := time.Since(startTime)
 	if timeout-serialConsoleCreateDuration <= 0 {
-		return nil, nil, fmt.Errorf("creation of SerialConsole took %s - longer than given expecter timeout %s", serialConsoleCreateDuration.String(), timeout.String())
+		return nil, nil,
+			fmt.Errorf(
+				"creation of SerialConsole took %s - longer than given expecter timeout %s",
+				serialConsoleCreateDuration.String(),
+				timeout.String(),
+			)
 	}
 	timeout -= serialConsoleCreateDuration
 
