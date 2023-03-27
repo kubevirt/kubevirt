@@ -2259,43 +2259,55 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				cfg := getCurrentKv()
 				var timeout int64 = 5
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
-					ProgressTimeout:         &timeout,
 					CompletionTimeoutPerGiB: &timeout,
 					BandwidthPerMigration:   resource.NewMilliQuantity(1, resource.BinarySI),
 				}
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
-			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+			Context("without progress", func() {
 
-				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				BeforeEach(func() {
+					cfg := getCurrentKv()
+					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
+						ProgressTimeout:         pointer.Int64(5),
+						CompletionTimeoutPerGiB: pointer.Int64(5),
+						BandwidthPerMigration:   resource.NewMilliQuantity(1, resource.BinarySI),
+					}
+					tests.UpdateKubeVirtConfigValueAndWait(cfg)
+				})
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				It("[test_id:2227] should abort a vmi migration", func() {
+					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+					By("Starting the VirtualMachineInstance")
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectFailure(migration, 180)
+					// Need to wait for cloud init to finish and start the agent inside the vmi.
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				// check VMI, confirm migration state
-				confirmVMIPostMigrationFailed(vmi, migrationUID)
+					runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
 
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+					// execute a migration, wait for finalized state
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := runMigrationAndExpectFailure(migration, 180)
 
-				By("Waiting for VMI to disappear")
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+					// check VMI, confirm migration state
+					confirmVMIPostMigrationFailed(vmi, migrationUID)
+
+					// delete VMI
+					By("Deleting the VMI")
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+					By("Waiting for VMI to disappear")
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				})
+
 			})
-
 			It("[test_id:6978] Should detect a failed migration", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
