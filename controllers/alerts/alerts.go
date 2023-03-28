@@ -186,9 +186,9 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 func createNodeStatusMaxImagesExceededAlertRule() monitoringv1.Rule {
 	return monitoringv1.Rule{
 		Alert: nodeStatusMaxImagesExceededAlert,
-		Expr:  intstr.FromString("kubevirt_hco_node_status_max_images != -1 and kubevirt_hco_node_number_of_images >= kubevirt_hco_node_status_max_images"),
+		Expr:  intstr.FromString("count ((kubevirt_hco_node_status_max_images != -1 and kubevirt_hco_node_number_of_images >= kubevirt_hco_node_status_max_images) and on () kubevirt_hco_hyperconverged_cr_exists == 1) > 0"),
 		Annotations: map[string]string{
-			"summary":     "Node {{ $labels.node }} contains more images than the configured maximum number of images reportable in the node status",
+			"summary":     "{{ $value }} node(s) contain more images than the configured maximum number of images reportable in the node status",
 			"runbook_url": nodeStatusMaxImagesExceededRunbookUrl,
 		},
 		For: "5m",
