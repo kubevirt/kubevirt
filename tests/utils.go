@@ -32,7 +32,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -1336,7 +1335,7 @@ func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, er
 	}
 
 	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vm.Name))
-	err = ioutil.WriteFile(jsonFile, data, 0644)
+	err = os.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
 	}
@@ -1974,7 +1973,7 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // GetCertsForPods returns the used certificates for all pods matching  the label selector

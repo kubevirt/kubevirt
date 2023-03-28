@@ -26,7 +26,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -922,11 +922,11 @@ spec:
 `, version, restoreName, vmYaml.vmName, snapshotName)
 
 					snapshotYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
-					err = ioutil.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
+					err = os.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
 					Expect(err).ToNot(HaveOccurred())
 
 					restoreYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
-					err = ioutil.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
+					err = os.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
 					Expect(err).ToNot(HaveOccurred())
 
 					vmSnapshots = append(vmSnapshots, vmSnapshotDef{
@@ -1015,7 +1015,7 @@ spec:
 `, version, version, version, i, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
 
 				yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
-				err = ioutil.WriteFile(yamlFile, []byte(vmYaml), 0644)
+				err = os.WriteFile(yamlFile, []byte(vmYaml), 0644)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmYamls[version] = &vmYamlDefinition{
@@ -2555,7 +2555,7 @@ spec:
 					gzreader, err := gzip.NewReader(bytes.NewReader(data))
 					Expect(err).ToNot(HaveOccurred())
 
-					decompressed, err := ioutil.ReadAll(gzreader)
+					decompressed, err := io.ReadAll(gzreader)
 					Expect(err).ToNot(HaveOccurred())
 
 					data = decompressed

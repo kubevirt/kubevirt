@@ -23,7 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -387,7 +387,7 @@ func enrichError(httpErr error, resp *http.Response) error {
 		return httpErr
 	}
 	// decode, but if the result is Status return that as an error instead.
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
