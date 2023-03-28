@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -157,7 +159,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 			By("Migrating VMIs")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_pending", 0)
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_scheduling", 0)
@@ -188,7 +190,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
-			migration = tests.RunMigration(virtClient, migration)
+			migration = libmigration.RunMigration(virtClient, migration)
 
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_scheduling", 1)
 

@@ -24,6 +24,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -75,7 +77,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, decorators.Requires
 			By("Migrating the VMI")
 			checks.SkipIfMigrationIsNotPossible()
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			By("Ensuring the TPM is still functional and its state carried over")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

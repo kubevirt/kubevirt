@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -187,10 +189,10 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 		It("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
 			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
-			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migration = libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			// check VMI, confirm migration state
-			tests.ConfirmVMIPostMigration(virtClient, clientVMI, migration)
+			libmigration.ConfirmVMIPostMigration(virtClient, clientVMI, migration)
 		})
 
 		Context("with live traffic", func() {
@@ -260,7 +262,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 
 			It("should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
-				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				_ = libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
 				// will be reachable only when the original launcher pod terminates.
 				Eventually(func() error {

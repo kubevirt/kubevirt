@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -69,7 +71,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 		migrateVMI := func(vmi *v1.VirtualMachineInstance) {
 			By("Migrating the VMI")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 		}
 

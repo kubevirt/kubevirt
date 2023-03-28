@@ -70,7 +70,7 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
+func AddNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	vmi.Spec.Affinity = &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
@@ -850,7 +850,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:1635]the vmi with tolerations should be scheduled", func() {
 				vmi := libvmi.NewCirros()
 				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
-				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
+				AddNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -858,7 +858,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:1636]the vmi without tolerations should not be scheduled", func() {
 				vmi := libvmi.NewCirros()
-				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
+				AddNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
@@ -886,7 +886,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
 				vmi := libvmi.NewCirros()
-				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
+				AddNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -898,7 +898,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
 				vmi := libvmi.NewCirros()
-				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
+				AddNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -907,7 +907,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
 
 				vmiB := libvmi.NewCirros()
-				addNodeAffinityToVMI(vmiB, nodes.Items[0].Name)
+				AddNodeAffinityToVMI(vmiB, nodes.Items[0].Name)
 
 				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
@@ -1273,7 +1273,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				// Add node affinity first to test later on that although there is node affinity to
 				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
-				addNodeAffinityToVMI(vmi, node.Name)
+				AddNodeAffinityToVMI(vmi, node.Name)
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
