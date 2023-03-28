@@ -40,17 +40,18 @@ import (
 )
 
 const (
-	COMMAND_START          = "start"
-	COMMAND_STOP           = "stop"
-	COMMAND_RESTART        = "restart"
-	COMMAND_MIGRATE        = "migrate"
-	COMMAND_MIGRATE_CANCEL = "migrate-cancel"
-	COMMAND_GUESTOSINFO    = "guestosinfo"
-	COMMAND_USERLIST       = "userlist"
-	COMMAND_FSLIST         = "fslist"
-	COMMAND_ADDVOLUME      = "addvolume"
-	COMMAND_REMOVEVOLUME   = "removevolume"
-	COMMAND_EXPAND         = "expand"
+	COMMAND_START           = "start"
+	COMMAND_STOP            = "stop"
+	COMMAND_RESTART         = "restart"
+	COMMAND_MIGRATE         = "migrate"
+	COMMAND_MIGRATE_CANCEL  = "migrate-cancel"
+	COMMAND_GUESTOSINFO     = "guestosinfo"
+	COMMAND_USERLIST        = "userlist"
+	COMMAND_FSLIST          = "fslist"
+	COMMAND_ADDVOLUME       = "addvolume"
+	COMMAND_REMOVEVOLUME    = "removevolume"
+	COMMAND_EXPAND          = "expand"
+	COMMAND_GET_CONSOLE_LOG = "getconsolelog"
 
 	volumeNameArg         = "volume-name"
 	notDefinedGracePeriod = -1
@@ -276,6 +277,29 @@ func NewExpandCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive(filePathArg, vmArg)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
+}
+
+func NewGetConsoleLogCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "getconsolelog (VMI)",
+		Short:   "Get console log of a virtual machine instance.",
+		Example: usageGetConsoleLog(),
+		Args:    templates.ExactArgs("getconsolelog", 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_GET_CONSOLE_LOG, clientConfig: clientConfig}
+			return c.Run(args)
+		},
+	}
+
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func usageGetConsoleLog() string {
+	usage := `  # Get the console log of VirtualMachineInstance 'myvmi':
+  {{ProgramName}} getconsolelog myvmi`
+
+	return usage
 }
 
 func getVolumeSourceFromVolume(volumeName, namespace string, virtClient kubecli.KubevirtClient) (*v1.HotplugVolumeSource, error) {
@@ -653,6 +677,12 @@ func (o *Command) Run(args []string) error {
 		return removeVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_EXPAND:
 		return expandVirtualMachine(namespace, virtClient, o)
+	case COMMAND_GET_CONSOLE_LOG:
+		err := virtClient.VirtualMachineInstance(namespace).GetConsolelog(vmiName)
+		if err != nil {
+			return fmt.Errorf("Error gettint console log of VirtualMachineInstance %s, %v", vmiName, err)
+		}
+		return nil
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)

@@ -677,6 +677,7 @@ type Serial struct {
 	Type   string        `xml:"type,attr"`
 	Target *SerialTarget `xml:"target,omitempty"`
 	Source *SerialSource `xml:"source,omitempty"`
+	Log    *SerialLog    `xml:"log,omitempty"`
 	Alias  *Alias        `xml:"alias,omitempty"`
 }
 
@@ -689,6 +690,11 @@ type SerialSource struct {
 	Path string `xml:"path,attr,omitempty"`
 }
 
+type SerialLog struct {
+	File   string `xml:"file,attr,omitempty"`
+	Append string `xml:"append,attr,omitempty"`
+}
+
 // END Serial -----------------------------
 
 // BEGIN Console -----------------------------
@@ -697,6 +703,7 @@ type Console struct {
 	Type   string         `xml:"type,attr"`
 	Target *ConsoleTarget `xml:"target,omitempty"`
 	Source *ConsoleSource `xml:"source,omitempty"`
+	Log    *ConsoleLog    `xml:"log,omitempty"`
 	Alias  *Alias         `xml:"alias,omitempty"`
 }
 
@@ -708,6 +715,11 @@ type ConsoleTarget struct {
 type ConsoleSource struct {
 	Mode string `xml:"mode,attr,omitempty"`
 	Path string `xml:"path,attr,omitempty"`
+}
+
+type ConsoleLog struct {
+	File   string `xml:"file,attr,omitempty"`
+	Append string `xml:"append,attr,omitempty"`
 }
 
 // END Serial -----------------------------
