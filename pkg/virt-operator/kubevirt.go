@@ -23,14 +23,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -61,6 +59,11 @@ const (
 	obsoleteCMReason           = "ObsoleteConfigMapExists"
 )
 
+type strategyCacheEntry struct {
+	key   string
+	value *install.Strategy
+}
+
 type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
 	queue                workqueue.RateLimitingInterface
@@ -70,8 +73,7 @@ type KubeVirtController struct {
 	stores               util.Stores
 	informers            util.Informers
 	kubeVirtExpectations util.Expectations
-	installStrategyMutex sync.Mutex
-	installStrategyMap   map[string]*install.Strategy
+	latestStrategy       atomic.Value
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
 	statusUpdater        *status.KVStatusUpdater
@@ -123,9 +125,9 @@ func NewKubeVirtController(
 			Secrets:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secret")),
 			ConfigMap:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
 		},
-		installStrategyMap: make(map[string]*install.Strategy),
-		operatorNamespace:  operatorNamespace,
-		statusUpdater:      status.NewKubeVirtStatusUpdater(clientset),
+
+		operatorNamespace: operatorNamespace,
+		statusUpdater:     status.NewKubeVirtStatusUpdater(clientset),
 		delayedQueueAdder: func(key interface{}, queue workqueue.RateLimitingInterface) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
@@ -704,174 +706,6 @@ func (c *KubeVirtController) execute(key string) error {
 	return syncError
 }
 
-func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.ComponentConfig, config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
-
-	operatorImage := config.VirtOperatorImage
-	if operatorImage == "" {
-		operatorImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
-	}
-	deploymentConfigJson, err := config.GetJson()
-	if err != nil {
-		return nil, err
-	}
-
-	job := &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1",
-			Kind:       "Job",
-		},
-
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    c.operatorNamespace,
-			GenerateName: fmt.Sprintf("kubevirt-%s-job", config.GetDeploymentID()),
-			Labels: map[string]string{
-				v1.AppLabel:             "",
-				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
-				v1.InstallStrategyLabel: "",
-			},
-			Annotations: map[string]string{
-				// Deprecated, keep it for backwards compatibility
-				v1.InstallStrategyVersionAnnotation: config.GetKubeVirtVersion(),
-				// Deprecated, keep it for backwards compatibility
-				v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
-				v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
-			},
-		},
-		Spec: batchv1.JobSpec{
-			Template: k8sv1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						v1.AppLabel: virtOperatorJobAppLabel,
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					ServiceAccountName: "kubevirt-operator",
-					RestartPolicy:      k8sv1.RestartPolicyNever,
-					ImagePullSecrets:   config.GetImagePullSecrets(),
-
-					Containers: []k8sv1.Container{
-						{
-							Name:            "install-strategy-upload",
-							Image:           operatorImage,
-							ImagePullPolicy: config.GetImagePullPolicy(),
-							Command: []string{
-								VirtOperator,
-								"--dump-install-strategy",
-							},
-							Env: []k8sv1.EnvVar{
-								{
-									Name:  util.VirtOperatorImageEnvName,
-									Value: operatorImage,
-								},
-								{
-									// Deprecated, keep it for backwards compatibility
-									Name:  util.TargetInstallNamespace,
-									Value: config.GetNamespace(),
-								},
-								{
-									// Deprecated, keep it for backwards compatibility
-									Name:  util.TargetImagePullPolicy,
-									Value: string(config.GetImagePullPolicy()),
-								},
-								{
-									Name:  util.TargetDeploymentConfig,
-									Value: deploymentConfigJson,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	apply.InjectPlacementMetadata(infraPlacement, &job.Spec.Template.Spec)
-	env := job.Spec.Template.Spec.Containers[0].Env
-	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())
-	job.Spec.Template.Spec.Containers[0].Env = append(env, *extraEnv...)
-
-	return job, nil
-}
-
-func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
-	batch := c.clientset.BatchV1()
-	jobs := c.stores.InstallStrategyJobCache.List()
-
-	for _, obj := range jobs {
-		job, ok := obj.(*batchv1.Job)
-		if !ok {
-			continue
-		}
-		if job.Status.CompletionTime == nil {
-			continue
-		}
-
-		propagationPolicy := metav1.DeletePropagationForeground
-		err := batch.Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
-			PropagationPolicy: &propagationPolicy,
-		})
-		if err != nil {
-			return err
-		}
-		log.Log.Object(job).Infof("Garbage collected completed install strategy job")
-	}
-
-	return nil
-}
-
-func (c *KubeVirtController) getInstallStrategyFromMap(config *operatorutil.KubeVirtDeploymentConfig, generation int64) (*install.Strategy, bool) {
-	c.installStrategyMutex.Lock()
-	defer c.installStrategyMutex.Unlock()
-
-	strategy, ok := c.installStrategyMap[fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation)]
-	return strategy, ok
-}
-
-func (c *KubeVirtController) cacheInstallStrategyInMap(strategy *install.Strategy, config *operatorutil.KubeVirtDeploymentConfig, generation int64) {
-
-	c.installStrategyMutex.Lock()
-	defer c.installStrategyMutex.Unlock()
-	c.installStrategyMap[fmt.Sprintf(installStrategyKeyTemplate, config.GetDeploymentID(), generation)] = strategy
-}
-
-func (c *KubeVirtController) deleteAllInstallStrategy() error {
-
-	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
-		configMap, ok := obj.(*k8sv1.ConfigMap)
-		if ok && configMap.DeletionTimestamp == nil {
-			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
-			if err != nil {
-				log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
-				return err
-			}
-		}
-	}
-
-	c.installStrategyMutex.Lock()
-	defer c.installStrategyMutex.Unlock()
-	// reset the local map
-	c.installStrategyMap = make(map[string]*install.Strategy)
-
-	return nil
-}
-
-func (c *KubeVirtController) getInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, bool) {
-	objs := c.stores.InstallStrategyJobCache.List()
-	for _, obj := range objs {
-		if job, ok := obj.(*batchv1.Job); ok {
-			if job.Annotations == nil {
-				continue
-			}
-
-			if idAnno, ok := job.Annotations[v1.InstallStrategyIdentifierAnnotation]; ok && idAnno == config.GetDeploymentID() {
-				return job, true
-			}
-
-		}
-	}
-	return nil, false
-}
-
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
 func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Strategy, bool, error) {
@@ -883,7 +717,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 
 	config := operatorutil.GetTargetConfigFromKV(kv)
 	// 1. see if we already loaded the install strategy
-	strategy, ok := c.getInstallStrategyFromMap(config, kv.Generation)
+	strategy, ok := c.getCachedInstallStrategy(config, kv.Generation)
 	if ok {
 		// we already loaded this strategy into memory
 		return strategy, false, nil
@@ -892,7 +726,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	// 2. look for install strategy config map in cache.
 	strategy, err = install.LoadInstallStrategyFromCache(c.stores, config)
 	if err == nil {
-		c.cacheInstallStrategyInMap(strategy, config, kv.Generation)
+		c.cacheInstallStrategy(strategy, config, kv.Generation)
 		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", config.GetKubeVirtVersion())
 		return strategy, false, nil
 	}
