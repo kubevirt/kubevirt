@@ -1301,7 +1301,7 @@ spec:
                 resources:
                   requests:
                     cpu: 10m
-                    memory: 400Mi
+                    memory: 450Mi
                 securityContext:
                   allowPrivilegeEscalation: false
                   capabilities:
