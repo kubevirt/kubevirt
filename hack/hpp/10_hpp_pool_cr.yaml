@@ -1,21 +1,23 @@
 ---
-kind: HostPathProvisioner
 apiVersion: hostpathprovisioner.kubevirt.io/v1beta1
+kind: HostPathProvisioner
 metadata:
   name: hostpath-provisioner
 spec:
   imagePullPolicy: IfNotPresent
   storagePools:
-    - name: local
+    - name: hpp-csi-local-basic
+      path: "/var/hpp-csi-local-basic"
+    - name: hpp-csi-pvc-block
       pvcTemplate:
-        storageClassName: local-block-hpp
         volumeMode: Block
+        storageClassName: local-block-hpp  # Replaced by configure_hpp_*.sh
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 5Gi
-      path: "/var/hpvolumes"
+            storage: 70Gi
+      path: "/var/hpp-csi-pvc-block"
   workload:
     nodeSelector:
       kubernetes.io/os: linux
