@@ -137,23 +137,25 @@ var _ = SIGDescribe("Storage", func() {
 				}
 			}
 		}
-		Context("with error disk", func() {
+		Context("[Serial]with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
 
 				pvc *k8sv1.PersistentVolumeClaim
+				pv  *k8sv1.PersistentVolume
 			)
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateErrorDisk(nodeName)
 				var err error
-				_, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
+				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
 			})
 
 			AfterEach(func() {
 				tests.RemoveSCSIDisk(nodeName, address)
+				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			It("should pause VMI on IO error", func() {
@@ -194,54 +196,6 @@ var _ = SIGDescribe("Storage", func() {
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
 			})
 
-		})
-
-		Context("[QUARANTINE] with faulty disk", func() {
-
-			var (
-				nodeName   string
-				deviceName = "error"
-				pv         *k8sv1.PersistentVolume
-				pvc        *k8sv1.PersistentVolumeClaim
-			)
-
-			BeforeEach(func() {
-				nodeName = tests.NodeNameWithHandler()
-				tests.CreateFaultyDisk(nodeName, deviceName)
-				var err error
-				pv, pvc, err = tests.CreatePVandPVCwithFaultyDisk(nodeName, "/dev/mapper/"+deviceName, testsuite.GetTestNamespace(nil))
-				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
-			})
-
-			AfterEach(func() {
-				tests.RemoveFaultyDisk(nodeName, deviceName)
-
-				err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should pause VMI on IO error", func() {
-				By("Creating VMI with faulty disk")
-				vmi := libvmi.NewAlpine(libvmi.WithPersistentVolumeClaim("faulty-disk", pvc.Name))
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
-
-				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
-
-				refresh := ThisVMI(vmi)
-				By("Expecting VMI to be paused")
-				Eventually(func() []v1.VirtualMachineInstanceCondition {
-					vmi, err := refresh()
-					Expect(err).NotTo(HaveOccurred())
-					return vmi.Status.Conditions
-				}, 100*time.Second, time.Second).Should(Satisfy(isPausedOnIOError))
-
-				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
-			})
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
@@ -1409,10 +1363,11 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("with lun disk", func() {
+		Context("[Serial]with lun disk", Serial, func() {
 			var (
 				nodeName, address, device string
 				pvc                       *k8sv1.PersistentVolumeClaim
+				pv                        *k8sv1.PersistentVolume
 			)
 			addPVCLunDisk := func(vmi *virtv1.VirtualMachineInstance, deviceName, claimName string) {
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
@@ -1439,12 +1394,13 @@ var _ = SIGDescribe("Storage", func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateSCSIDisk(nodeName, []string{})
 				var err error
-				_, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
+				pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 			})
 
 			AfterEach(func() {
 				tests.RemoveSCSIDisk(nodeName, address)
+				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
 			It("should run the VMI", func() {
