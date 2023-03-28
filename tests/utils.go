@@ -1973,6 +1973,7 @@ func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
 }
 
