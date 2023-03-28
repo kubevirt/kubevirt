@@ -285,7 +285,7 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 		r.operandHandler.Reset()
 	}
 
-	err = r.monitoringReconciler.Reconcile(hcoRequest)
+	err = r.monitoringReconciler.Reconcile(hcoRequest, r.firstLoop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
