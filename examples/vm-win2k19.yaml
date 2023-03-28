@@ -1,0 +1,64 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: win-vm01
+  name: win-vm01
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        name: dv-os-win-vm01
+      spec:
+        pvc:
+          volumeMode: Block
+          accessModes:
+            - ReadWriteMany
+          resources:
+            requests:
+              storage: 20Gi
+        source:
+          pvc:
+            name: winharddrive
+            namespace: default
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: win-vm01
+    spec:
+      domain:
+        cpu:
+          cores: 2
+        devices:
+          disks:
+          - bootOrder: 2
+            cdrom:
+              bus: sata
+            name: cdromiso
+          - bootOrder: 1
+            disk:
+              bus: virtio
+            name: osharddrive
+          - cdrom:
+              bus: sata
+            name: virtiocontainerdisk
+          interfaces:
+          - bridge: {}
+            name: ovs-net
+        resources:
+          requests:
+            memory: 4Gi
+      networks:
+      - multus:
+          networkName: ovs-net
+        name: ovs-net
+      volumes:
+      - persistentVolumeClaim:
+          claimName: iso-win2k19
+        name: cdromiso
+      - dataVolume:
+          name: dv-os-win-vm01
+        name: osharddrive
+      - containerDisk:
+          image: quay.io/kubevirt/virtio-container-disk
+        name: virtiocontainerdisk
