@@ -22,7 +22,6 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"regexp"
@@ -1938,7 +1937,7 @@ status:
 				)
 
 				BeforeEach(func() {
-					file, err = ioutil.TempFile("", "file-*")
+					file, err = os.CreateTemp("", "file-*")
 					Expect(err).ToNot(HaveOccurred())
 				})
 

@@ -3,7 +3,6 @@ package vm_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"k8s.io/utils/pointer"
@@ -652,7 +651,7 @@ status:
 			invalidYaml = `apiVersion: kubevirt.io/v1kind: VirtualMachine`
 		)
 		BeforeEach(func() {
-			file, err = ioutil.TempFile("", "file-*")
+			file, err = os.CreateTemp("", "file-*")
 			Expect(err).ToNot(HaveOccurred())
 		})
 

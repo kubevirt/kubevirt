@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"os/exec"
@@ -129,7 +128,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 		url := getPrometheusURLForOpenShift()
 		resp := doHttpRequest(url, endpoint, token)
 		defer resp.Body.Close()
-		result, err = ioutil.ReadAll(resp.Body)
+		result, err = io.ReadAll(resp.Body)
 		Expect(err).NotTo(HaveOccurred())
 	} else {
 		sourcePort := 4321 + rand.Intn(6000)
@@ -153,7 +152,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 			url := fmt.Sprintf("http://localhost:%d", sourcePort)
 			resp := doHttpRequest(url, endpoint, token)
 			defer resp.Body.Close()
-			result, err = ioutil.ReadAll(resp.Body)
+			result, err = io.ReadAll(resp.Body)
 			return err
 		}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
 	}

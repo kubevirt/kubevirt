@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -289,7 +288,7 @@ func generateTemplateJson(template *vmsgen.Template, generateDirectory string) (
 	}
 
 	jsonFile := filepath.Join(generateDirectory, template.Name+".json")
-	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
+	if err = os.WriteFile(jsonFile, data, 0644); err != nil {
 		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
 	}
 	return jsonFile, nil

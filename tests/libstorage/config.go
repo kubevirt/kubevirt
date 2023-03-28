@@ -21,7 +21,7 @@ package libstorage
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"kubevirt.io/kubevirt/tests/errorhandling"
@@ -60,7 +60,7 @@ func LoadConfig() (*KubeVirtTestsConfiguration, error) {
 	defer errorhandling.SafelyCloseFile(jsonFile)
 
 	// read the configuration file as a byte array
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 
 	// convert the byte array to a KubeVirtTestsConfiguration struct
 	config := &KubeVirtTestsConfiguration{}

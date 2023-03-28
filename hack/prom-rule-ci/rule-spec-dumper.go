@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -32,7 +31,7 @@ func main() {
 		panic(err)
 	}
 
-	err = ioutil.WriteFile(targetFile, b, 0644)
+	err = os.WriteFile(targetFile, b, 0644)
 	if err != nil {
 		panic(err)
 	}
