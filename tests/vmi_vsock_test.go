@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	migration_utils "kubevirt.io/kubevirt/tests/migration"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -152,7 +154,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
 			By("Migrating the 2nd VMI")
 			checks.SkipIfMigrationIsNotPossible()
 			migration := tests.NewRandomMigration(vmi2.Name, vmi2.Namespace)
-			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			migration_utils.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			domain2, err = tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi2)
 			Expect(err).ToNot(HaveOccurred())

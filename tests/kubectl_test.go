@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	migration_utils "kubevirt.io/kubevirt/tests/migration"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -181,7 +183,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 				}, tests.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 				migration = migrationCreated
 
-				tests.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
+				migration_utils.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
 
 				k8sClient := clientcmd.GetK8sCmdClient()
 				result, _, err := clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)

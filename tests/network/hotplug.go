@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	migration_utils "kubevirt.io/kubevirt/tests/migration"
+
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -432,6 +434,6 @@ func cleanMACAddressesFromSpec(status []v1.Interface) []v1.Interface {
 func migrate(vmi *v1.VirtualMachineInstance) {
 	By("migrating the VMI")
 	migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-	migrationUID := tests.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
-	tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+	migrationUID := migration_utils.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
+	migration_utils.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 }

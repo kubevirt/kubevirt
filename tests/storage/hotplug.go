@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 
+	migration_utils "kubevirt.io/kubevirt/tests/migration"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/util"
@@ -1053,8 +1055,8 @@ var _ = SIGDescribe("Hotplug", func() {
 					Expect(sourceAttachmentPods).To(HaveLen(1))
 
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-					tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+					migration = migration_utils.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					migration_utils.ConfirmVMIPostMigration(virtClient, vmi, migration)
 					By("Verifying the volume is still accessible and usable")
 					verifyVolumeAccessible(vmi, targets[0])
 					verifyWriteReadData(vmi, targets[0])

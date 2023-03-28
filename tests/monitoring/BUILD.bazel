@@ -23,6 +23,7 @@ go_library(
         "//tests/libnode:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/libwait:go_default_library",
+        "//tests/migration:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",

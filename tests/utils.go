@@ -37,10 +37,13 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -1043,6 +1046,87 @@ func AddDownwardMetricsVolume(vmi *v1.VirtualMachineInstance, volumeName string)
 			},
 		},
 	})
+}
+
+func GetDownwardMetrics(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: `sudo vm-dump-metrics 2> /dev/null` + "\n"},
+		&expect.BExp{R: `(?s)(<metrics>.+</metrics>)`},
+	}, 5)
+	if err != nil {
+		return nil, err
+	}
+	metricsStr := res[0].Match[2]
+	metrics := &api.Metrics{}
+	Expect(xml.Unmarshal([]byte(metricsStr), metrics)).To(Succeed())
+	return metrics, nil
+}
+
+func GetTimeFromMetrics(metrics *api.Metrics) int {
+
+	for _, m := range metrics.Metrics {
+		if m.Name == "Time" {
+			val, err := strconv.Atoi(m.Value)
+			Expect(err).ToNot(HaveOccurred())
+			return val
+		}
+	}
+	Fail("no Time in metrics XML")
+	return -1
+}
+
+func GetHostnameFromMetrics(metrics *api.Metrics) string {
+	for _, m := range metrics.Metrics {
+		if m.Name == "HostName" {
+			return m.Value
+		}
+	}
+	Fail("no hostname in metrics XML")
+	return ""
+}
+
+func ParseMetricsToMap(lines []string) (map[string]float64, error) {
+	metrics := make(map[string]float64)
+	for _, line := range lines {
+		items := strings.Split(line, " ")
+		if len(items) != 2 {
+			return nil, fmt.Errorf("can't split properly line '%s'", line)
+		}
+		v, err := strconv.ParseFloat(items[1], 64)
+		if err != nil {
+			return nil, err
+		}
+		metrics[items[0]] = v
+	}
+	return metrics, nil
+}
+
+func TakeMetricsWithPrefix(output, prefix string) []string {
+	lines := strings.Split(output, "\n")
+	var ret []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, prefix) {
+			ret = append(ret, line)
+		}
+	}
+	return ret
+}
+
+func GetKeysFromMetrics(metrics map[string]float64) []string {
+	var keys []string
+	for metric := range metrics {
+		keys = append(keys, metric)
+	}
+	// we sort keys only to make debug of test failures easier
+	sort.Strings(keys)
+	return keys
+}
+
+func GetSupportedIP(ips []string, family k8sv1.IPFamily) string {
+	ip := libnet.GetIP(ips, family)
+	ExpectWithOffset(1, ip).NotTo(BeEmpty())
+
+	return ip
 }
 
 func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {

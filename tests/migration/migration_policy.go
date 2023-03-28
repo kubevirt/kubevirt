@@ -1,4 +1,4 @@
-package tests
+package migration
 
 import (
 	"context"

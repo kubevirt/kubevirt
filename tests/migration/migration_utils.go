@@ -1,4 +1,4 @@
-package tests
+package migration
 
 import (
 	"bytes"
@@ -6,7 +6,11 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -27,10 +31,10 @@ import (
 )
 
 func ExpectMigrationSuccess(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
-	return expectMigrationSuccessWithOffset(2, virtClient, migration, timeout)
+	return ExpectMigrationSuccessWithOffset(2, virtClient, migration, timeout)
 }
 
-func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
+func ExpectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	By("Waiting until the Migration Completes")
 	EventuallyWithOffset(offset, func() error {
 		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
@@ -104,7 +108,7 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return vmi
 }
 
-func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
+func SetOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
@@ -125,7 +129,7 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 		}
 	}
 
-	res := UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+	res := tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 	// By design, changing migration settings trigger a re-creation of the virt-handler pods, amongst other things.
 	//   However, even if SetDedicatedMigrationNetwork() calls UpdateKubeVirtConfigValueAndWait(), VMIs can still get scheduled on outdated virt-handler pods.
@@ -161,11 +165,11 @@ func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 }
 
 func SetDedicatedMigrationNetwork(nad string) *v1.KubeVirt {
-	return setOrClearDedicatedMigrationNetwork(nad, true)
+	return SetOrClearDedicatedMigrationNetwork(nad, true)
 }
 
 func ClearDedicatedMigrationNetwork() *v1.KubeVirt {
-	return setOrClearDedicatedMigrationNetwork("", false)
+	return SetOrClearDedicatedMigrationNetwork("", false)
 }
 
 func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
@@ -193,7 +197,7 @@ func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.N
 }
 
 func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
-	domXML := RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
+	domXML := tests.RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(domXML)))
 
 	var location = make([]string, 0)
@@ -222,4 +226,191 @@ func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
 		}
 
 	}
+}
+
+func StopNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+	var err error
+	var node *k8sv1.Node
+
+	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "stopping / resuming node-labeller is supported for serial tests only")
+
+	By(fmt.Sprintf("Patching node to %s include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
+	key, value := v1.LabellerSkipNodeAnnotation, "true"
+	libnode.AddAnnotationToNode(nodeName, key, value)
+
+	By(fmt.Sprintf("Expecting node %s to include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
+	Eventually(func() bool {
+		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		value, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
+		return exists && value == "true"
+	}, 30*time.Second, time.Second).Should(BeTrue(), fmt.Sprintf("node %s is expected to have annotation %s", nodeName, v1.LabellerSkipNodeAnnotation))
+
+	return node
+}
+
+func ResumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+	var err error
+	var node *k8sv1.Node
+
+	node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if _, isNodeLabellerStopped := node.Annotations[v1.LabellerSkipNodeAnnotation]; !isNodeLabellerStopped {
+		// Nothing left to do
+		return node
+	}
+
+	By(fmt.Sprintf("Patching node to %s not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
+	libnode.RemoveAnnotationFromNode(nodeName, v1.LabellerSkipNodeAnnotation)
+
+	// In order to make sure node-labeller has updated the node, the host-model label (which node-labeller
+	// makes sure always resides on any node) will be removed. After node-labeller is enabled again, the
+	// host model label would be expected to show up again on the node.
+	By(fmt.Sprintf("Removing host model label %s from node %s (so we can later expect it to return)", v1.HostModelCPULabel, nodeName))
+	for _, label := range node.Labels {
+		if strings.HasPrefix(label, v1.HostModelCPULabel) {
+			libnode.RemoveLabelFromNode(nodeName, label)
+		}
+	}
+
+	WakeNodeLabellerUp(virtClient)
+
+	By(fmt.Sprintf("Expecting node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
+	Eventually(func() error {
+		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+
+		_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
+		if exists {
+			return fmt.Errorf("node %s is expected to not have annotation %s", node.Name, v1.LabellerSkipNodeAnnotation)
+		}
+
+		foundHostModelLabel := false
+		for labelKey := range node.Labels {
+			if strings.HasPrefix(labelKey, v1.HostModelCPULabel) {
+				foundHostModelLabel = true
+				break
+			}
+		}
+		if !foundHostModelLabel {
+			return fmt.Errorf("node %s is expected to have a label with %s prefix. this means node-labeller is not enabled for the node", nodeName, v1.HostModelCPULabel)
+		}
+
+		return nil
+	}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
+
+	return node
+}
+
+func WakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
+	const fakeModel = "fake-model-1423"
+
+	By("Updating Kubevirt CR to wake node-labeller up")
+	kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+	if kvConfig.ObsoleteCPUModels == nil {
+		kvConfig.ObsoleteCPUModels = make(map[string]bool)
+	}
+	kvConfig.ObsoleteCPUModels[fakeModel] = true
+	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+	delete(kvConfig.ObsoleteCPUModels, fakeModel)
+	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+}
+
+func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.KubevirtClient) (sourceNode *k8sv1.Node, targetNode *k8sv1.Node, err error) {
+	getNodeHostRequiredFeatures := func(node *k8sv1.Node) (features []string) {
+		for key, _ := range node.Labels {
+			if strings.HasPrefix(key, v1.HostModelRequiredFeaturesLabel) {
+				features = append(features, strings.TrimPrefix(key, v1.HostModelRequiredFeaturesLabel))
+			}
+		}
+		return features
+	}
+	areFeaturesSupportedOnNode := func(node *k8sv1.Node, features []string) bool {
+		isFeatureSupported := func(feature string) bool {
+			for key, _ := range node.Labels {
+				if strings.HasPrefix(key, v1.CPUFeatureLabel) && strings.Contains(key, feature) {
+					return true
+				}
+			}
+			return false
+		}
+		for _, feature := range features {
+			if !isFeatureSupported(feature) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	var sourceHostCpuModel string
+
+	nodes := libnode.GetAllSchedulableNodes(virtCli)
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+	for _, potentialSourceNode := range nodes.Items {
+		for _, potentialTargetNode := range nodes.Items {
+			if potentialSourceNode.Name == potentialTargetNode.Name {
+				continue
+			}
+
+			sourceHostCpuModel = tests.GetNodeHostModel(&potentialSourceNode)
+			if sourceHostCpuModel == "" {
+				continue
+			}
+			supportedInTarget := false
+			for key, _ := range potentialTargetNode.Labels {
+				if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) && strings.Contains(key, sourceHostCpuModel) {
+					supportedInTarget = true
+					break
+				}
+			}
+
+			if supportedInTarget == false {
+				continue
+			}
+			sourceNodeHostModelRequiredFeatures := getNodeHostRequiredFeatures(&potentialSourceNode)
+			if areFeaturesSupportedOnNode(&potentialTargetNode, sourceNodeHostModelRequiredFeatures) == false {
+				continue
+			}
+			return &potentialSourceNode, &potentialTargetNode, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
+}
+
+func AffinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNode *k8sv1.Node) (nodefiinity *k8sv1.NodeAffinity, err error) {
+	if sourceNode == nil || targetNode == nil {
+		return nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
+	}
+	return &k8sv1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+				{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      "kubernetes.io/hostname",
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{sourceNode.Name, targetNode.Name},
+						},
+					},
+				},
+			},
+		},
+		PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+			{
+				Preference: k8sv1.NodeSelectorTerm{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      "kubernetes.io/hostname",
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{sourceNode.Name},
+						},
+					},
+				},
+				Weight: 1,
+			},
+		},
+	}, nil
 }
