@@ -3,7 +3,6 @@ package virtctl
 import (
 	"context"
 	"crypto/ecdsa"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -151,9 +150,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 })
 
 func compareFile(file1 string, file2 string) {
-	expected, err := ioutil.ReadFile(file1)
+	expected, err := os.ReadFile(file1)
 	Expect(err).ToNot(HaveOccurred())
-	actual, err := ioutil.ReadFile(file2)
+	actual, err := os.ReadFile(file2)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(string(actual)).To(Equal(string(expected)))
 }

@@ -22,7 +22,6 @@ package tests_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -211,7 +210,7 @@ const (
 
 func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 	productKeyFilePath := os.Getenv("KUBEVIRT_WINDOWS_PRODUCT_KEY_PATH")
-	keyFromFile, err := ioutil.ReadFile(productKeyFilePath)
+	keyFromFile, err := os.ReadFile(productKeyFilePath)
 	Expect(err).ToNot(HaveOccurred())
 	productKey := strings.TrimSpace(string(keyFromFile))
 	return fmt.Sprintf(answerFileTemplate, productKey)
