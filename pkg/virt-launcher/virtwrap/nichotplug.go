@@ -32,31 +32,18 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
-func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, converterContext *converter.ConverterContext, dom cli.VirDomain, domain *api.Domain) error {
+func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, currentDomain *api.Domain, updatedDomain *api.Domain) error {
 	vmConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{})
-	indexedInterfaces := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
-	for _, network := range netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi) {
+	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
 		log.Log.Infof("will hot plug %s", network.Name)
 
-		ifaceToHotplug, wasFound := indexedInterfaces[network.Name]
-		if !wasFound {
-			return fmt.Errorf("could not find a matching interface for network: %s", network.Name)
-		}
-
-		domainInterfaces, err := converter.CreateDomainInterfaces(vmi, domain, converterContext, []v1.Interface{ifaceToHotplug})
-		if err != nil {
+		if err := vmConfigurator.SetupPodNetworkPhase2(updatedDomain, []v1.Network{network}); err != nil {
 			return err
 		}
 
-		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainInterfaces...)
-		if err := vmConfigurator.SetupPodNetworkPhase2(domain, []v1.Network{network}); err != nil {
-			return err
-		}
-
-		relevantIface := domainInterfaceFromNetwork(domain, network)
+		relevantIface := domainInterfaceFromNetwork(updatedDomain, network)
 		if relevantIface == nil {
 			return fmt.Errorf("could not retrieve the api.Interface object from the dummy domain")
 		}
@@ -82,4 +69,34 @@ func domainInterfaceFromNetwork(domain *api.Domain, network v1.Network) *api.Int
 		}
 	}
 	return nil
+}
+
+func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
+	var networksToHotplug []v1.Network
+	interfacesToHoplug := netvmispec.IndexInterfacesFromStatus(
+		vmi.Status.Interfaces,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			_, exists := indexedDomainIfaces[ifaceStatus.Name]
+
+			return netvmispec.ContainsInfoSource(
+				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus,
+			) && !exists
+		},
+	)
+
+	for netName, network := range netvmispec.IndexNetworkSpecByName(vmi.Spec.Networks) {
+		if _, isAttachmentToBeHotplugged := interfacesToHoplug[netName]; isAttachmentToBeHotplugged {
+			networksToHotplug = append(networksToHotplug, network)
+		}
+	}
+
+	return networksToHotplug
+}
+
+func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
+	domainInterfaces := map[string]api.Interface{}
+	for _, iface := range domain.Spec.Devices.Interfaces {
+		domainInterfaces[iface.Alias.GetName()] = iface
+	}
+	return domainInterfaces
 }
