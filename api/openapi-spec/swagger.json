@@ -12727,6 +12727,10 @@
      "tftpServerName": {
       "description": "If specified will pass option 66 to interface's DHCP server",
       "type": "string"
+     },
+     "disable": {
+      "description": "If specified will disable nic's DHCP server",
+      "type": "boolean"
      }
     }
    },

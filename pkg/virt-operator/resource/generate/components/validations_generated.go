@@ -5195,6 +5195,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: If specified will pass option 67
                                       to interface's DHCP server
                                     type: string
+                                  disable:
+                                    description: If specified will disable nic's dhcp server
+                                    type: boolean
                                   ntpServers:
                                     description: If specified will pass the configured
                                       NTP server to the VM via DHCP option 042.
@@ -8545,6 +8548,9 @@ var CRDsValidation map[string]string = map[string]string{
                             description: If specified will pass option 67 to interface's
                               DHCP server
                             type: string
+                          disable:
+                            description: If specified will disable nic's dhcp server
+                            type: boolean
                           ntpServers:
                             description: If specified will pass the configured NTP
                               server to the VM via DHCP option 042.
@@ -10713,6 +10719,9 @@ var CRDsValidation map[string]string = map[string]string{
                             description: If specified will pass option 67 to interface's
                               DHCP server
                             type: string
+                          disable:
+                            description: If specified will disable nic's dhcp server
+                            type: boolean
                           ntpServers:
                             description: If specified will pass the configured NTP
                               server to the VM via DHCP option 042.
@@ -12842,6 +12851,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: If specified will pass option 67
                                       to interface's DHCP server
                                     type: string
+                                  disable:
+                                    description: If specified will disable nic's dhcp server
+                                    type: boolean
                                   ntpServers:
                                     description: If specified will pass the configured
                                       NTP server to the VM via DHCP option 042.
@@ -16515,6 +16527,9 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: If specified will pass option
                                               67 to interface's DHCP server
                                             type: string
+                                          disable:
+                                            description: If specified will disable nic's dhcp server
+                                            type: boolean
                                           ntpServers:
                                             description: If specified will pass the
                                               configured NTP server to the VM via
@@ -20566,6 +20581,9 @@ var CRDsValidation map[string]string = map[string]string{
                                                 description: If specified will pass
                                                   option 67 to interface's DHCP server
                                                 type: string
+                                              disable:
+                                                description: If specified will disable nic's dhcp server
+                                                type: boolean
                                               ntpServers:
                                                 description: If specified will pass
                                               privateOptions:
