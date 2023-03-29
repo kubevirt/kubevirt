@@ -402,7 +402,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			It("[test_id:6767]with volumes and guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 				dvName := "dv-" + vm.Name
@@ -541,7 +541,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6769]without volumes with guest agent available", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
@@ -719,7 +719,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("Calling Velero hooks should freeze/unfreeze VM", func() {
 				By("Creating VM")
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 
@@ -797,7 +797,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			It("Calling Velero hooks should error if VM is Paused", func() {
 				By("Creating VM")
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = tests.NewRandomVirtualMachine(vmi, false)
 

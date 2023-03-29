@@ -339,7 +339,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			BeforeEach(func() {
 				var err error
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi := tests.NewRandomFedoraVMI()
 				vmi.Namespace = testsuite.GetTestNamespace(vmi)
 				vm = tests.NewRandomVirtualMachine(vmi, true)
 				vm, err = virtCli.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)

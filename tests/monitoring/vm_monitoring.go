@@ -142,7 +142,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := tests.NewRandomFedoraVMI()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Migrating VMIs")
