@@ -64,6 +64,7 @@ const (
 	uploadRequestAnnotation         = "cdi.kubevirt.io/storage.upload.target"
 	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 	contentTypeAnnotation           = "cdi.kubevirt.io/storage.contentType"
+	deleteAfterCompletionAnnotation = "cdi.kubevirt.io/storage.deleteAfterCompletion"
 
 	uploadReadyWaitInterval = 2 * time.Second
 
@@ -709,7 +710,14 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 	if !createPVC {
 		_, err = client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
+			// When the PVC exists but the DV doesn't, there are two possible outcomes:
 			if k8serrors.IsNotFound(err) {
+				// 1. The DV was already garbage-collected. The PVC was created and populated by CDI as expected.
+				if dvGarbageCollected := pvc.Annotations[deleteAfterCompletionAnnotation] == "true" &&
+					pvc.Annotations[PodPhaseAnnotation] == string(v1.PodSucceeded); dvGarbageCollected {
+					return nil, fmt.Errorf("DataVolume already garbage-collected: Assuming PVC %s/%s is successfully populated", namespace, name)
+				}
+				// 2. The PVC was created independently of a DV.
 				return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", namespace, name)
 			}
 			return nil, err
