@@ -217,7 +217,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 				}
 
 				By("Running the VMI")
-				vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+				vmi = tests.NewRandomFedoraVMI()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("VMI has the guest agent connected condition")
