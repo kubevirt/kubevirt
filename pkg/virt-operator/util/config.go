@@ -412,6 +412,11 @@ func (c *KubeVirtDeploymentConfig) GetOperatorVersion() string {
 	if c.UseShasums() {
 		return c.VirtOperatorSha
 	}
+
+	if digest := DigestFromImageName(c.VirtOperatorImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -419,6 +424,11 @@ func (c *KubeVirtDeploymentConfig) GetApiVersion() string {
 	if c.UseShasums() {
 		return c.VirtApiSha
 	}
+
+	if digest := DigestFromImageName(c.VirtApiImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -426,6 +436,11 @@ func (c *KubeVirtDeploymentConfig) GetControllerVersion() string {
 	if c.UseShasums() {
 		return c.VirtControllerSha
 	}
+
+	if digest := DigestFromImageName(c.VirtControllerImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -433,6 +448,11 @@ func (c *KubeVirtDeploymentConfig) GetHandlerVersion() string {
 	if c.UseShasums() {
 		return c.VirtHandlerSha
 	}
+
+	if digest := DigestFromImageName(c.VirtHandlerImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -440,6 +460,11 @@ func (c *KubeVirtDeploymentConfig) GetLauncherVersion() string {
 	if c.UseShasums() {
 		return c.VirtLauncherSha
 	}
+
+	if digest := DigestFromImageName(c.VirtLauncherImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -447,6 +472,11 @@ func (c *KubeVirtDeploymentConfig) GetExportProxyVersion() string {
 	if c.UseShasums() {
 		return c.VirtExportProxySha
 	}
+
+	if digest := DigestFromImageName(c.VirtExportProxyImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -454,6 +484,11 @@ func (c *KubeVirtDeploymentConfig) GetExportServerVersion() string {
 	if c.UseShasums() {
 		return c.VirtExportServerSha
 	}
+
+	if digest := DigestFromImageName(c.VirtExportServerImage); digest != "" {
+		return digest
+	}
+
 	return c.KubeVirtVersion
 }
 
@@ -666,4 +701,12 @@ func IsValidLabel(label string) bool {
 	// entire string must not exceed 63 chars
 	r := regexp.MustCompile(`^([a-z0-9A-Z]([a-z0-9A-Z\-\_\.]{0,61}[a-z0-9A-Z])?)?$`)
 	return r.Match([]byte(label))
+}
+
+func DigestFromImageName(name string) (digest string) {
+	if name != "" && strings.LastIndex(name, "@sha256:") != -1 {
+		digest = strings.Split(name, "@sha256:")[1]
+	}
+
+	return
 }

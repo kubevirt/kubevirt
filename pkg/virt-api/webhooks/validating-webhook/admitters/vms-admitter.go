@@ -99,6 +99,13 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
+	if vm.DeletionTimestamp != nil {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
 	// We apply any referenced instancetype and preferences early here to the VirtualMachine in order to
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
@@ -218,13 +225,6 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []meta
 
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
-
-	// Skip DataVolumeTemplates validation if we want to delete the vm
-	// This allows the vm controller to remove the finalizers
-	// also when, for example, the datasource is already gone.
-	if vm.DeletionTimestamp != nil {
-		return causes, nil
-	}
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
 		cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, admitter.DataSourceInformer)
