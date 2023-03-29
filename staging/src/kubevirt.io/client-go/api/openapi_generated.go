@@ -15037,6 +15037,13 @@ func schema_kubevirtio_api_core_v1_DHCPOptions(ref common.ReferenceCallback) com
 							Format:      "",
 						},
 					},
+					"disable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified will disable nic's dhcp server",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"tftpServerName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified will pass option 66 to interface's DHCP server",

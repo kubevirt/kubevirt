@@ -641,6 +641,7 @@ func (DHCPOptions) SwaggerDoc() map[string]string {
 		"tftpServerName": "If specified will pass option 66 to interface's DHCP server\n+optional",
 		"ntpServers":     "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
 		"privateOptions": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
+		"disable":        "If specified will disable nic's DHCP server\n+optional",
 	}
 }
 
