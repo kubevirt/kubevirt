@@ -128,6 +128,37 @@ var _ = Describe("Operator Config", func() {
 			true),
 	)
 
+	It("should be able to extract shasum from image names", func() {
+		envVarManager.Setenv(VirtOperatorImageEnvName,
+			"acme.com/kubevirt/virt-operator@sha256:virt-operator-sha")
+		envVarManager.Setenv(VirtApiImageEnvName,
+			"acme.com/kubevirt/virt-api@sha256:virt-api-sha")
+		envVarManager.Setenv(VirtControllerImageEnvName,
+			"acme.com/kubevirt/virt-controller@sha256:virt-controller-sha")
+		envVarManager.Setenv(VirtHandlerImageEnvName,
+			"acme.com/kubevirt/virt-handler@sha256:virt-handler-sha")
+		envVarManager.Setenv(VirtLauncherImageEnvName,
+			"acme.com/kubevirt/virt-launcher@sha256:virt-launcher-sha")
+		envVarManager.Setenv(VirtExportProxyImageEnvName,
+			"acme.com/kubevirt/virt-exportproxy@sha256:virt-exportproxy-sha")
+		envVarManager.Setenv(VirtExportServerImageEnvName,
+			"acme.com/kubevirt/virt-exportserver@sha256:virt-exportserver-sha")
+
+		err := VerifyEnv()
+		Expect(err).ToNot(HaveOccurred())
+
+		parsedConfig, err := GetConfigFromEnv()
+		Expect(err).ToNot(HaveOccurred())
+		Expect("virt-operator-sha").To(Equal(parsedConfig.GetOperatorVersion()))
+		Expect("virt-api-sha").To(Equal(parsedConfig.GetApiVersion()))
+		Expect("virt-controller-sha").To(Equal(parsedConfig.GetControllerVersion()))
+		Expect("virt-handler-sha").To(Equal(parsedConfig.GetHandlerVersion()))
+		Expect("virt-launcher-sha").To(Equal(parsedConfig.GetLauncherVersion()))
+		Expect("virt-exportproxy-sha").To(Equal(parsedConfig.GetExportProxyVersion()))
+		Expect("virt-exportserver-sha").To(Equal(parsedConfig.GetExportServerVersion()))
+
+	})
+
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
 			realKey := rand.String(10)
