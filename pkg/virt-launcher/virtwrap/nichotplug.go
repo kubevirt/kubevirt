@@ -27,19 +27,37 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/cache"
-	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
-func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, currentDomain *api.Domain, updatedDomain *api.Domain) error {
-	vmConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{})
+type vmConfigurator interface {
+	SetupPodNetworkPhase2(domain *api.Domain, networksToPlug []v1.Network) error
+}
+
+type virtIOInterfaceManager struct {
+	converterContext *converter.ConverterContext
+	dom              cli.VirDomain
+	configurator     vmConfigurator
+}
+
+func newVirtIOInterfaceManager(
+	libvirtClient cli.VirDomain,
+	configurator vmConfigurator,
+) *virtIOInterfaceManager {
+	return &virtIOInterfaceManager{
+		dom:          libvirtClient,
+		configurator: configurator,
+	}
+}
+
+func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
 	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
 		log.Log.Infof("will hot plug %s", network.Name)
 
-		if err := vmConfigurator.SetupPodNetworkPhase2(updatedDomain, []v1.Network{network}); err != nil {
+		if err := vim.configurator.SetupPodNetworkPhase2(updatedDomain, []v1.Network{network}); err != nil {
 			return err
 		}
 
@@ -48,13 +66,17 @@ func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, c
 			return fmt.Errorf("could not retrieve the api.Interface object from the dummy domain")
 		}
 
-		log.Log.Infof("will hot plug %s with MAC %s", network.Name, *relevantIface.MAC)
+		ifaceMAC := ""
+		if relevantIface.MAC != nil {
+			ifaceMAC = relevantIface.MAC.MAC
+		}
+		log.Log.Infof("will hot plug %q with MAC %q", network.Name, ifaceMAC)
 		ifaceXML, err := xml.Marshal(relevantIface)
 		if err != nil {
 			return err
 		}
 
-		if err := dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); err != nil {
+		if err := vim.dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); err != nil {
 			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", network.Name, err)
 			return err
 		}
