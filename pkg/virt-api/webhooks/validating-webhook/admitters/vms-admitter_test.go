@@ -126,6 +126,24 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
 
+	It("should allow VM that is being deleted", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		now := metav1.Now()
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				DeletionTimestamp: &now,
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
 	It("should allow VM with missing volume disk or filesystem", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{

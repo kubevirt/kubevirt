@@ -63,6 +63,13 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
+	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
+	if vm.DeletionTimestamp != nil {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
 	// Validate updates to the {Instancetype,Preference}Matchers
 	if ar.Request.Operation == admissionv1.Update {
 		newVM, oldVM, err := webhookutils.GetVMFromAdmissionReview(ar)

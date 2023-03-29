@@ -153,6 +153,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		mutator.InstancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
 	})
 
+	It("should allow VM being deleted without applying mutations", func() {
+		now := k8smetav1.Now()
+		vm.ObjectMeta.DeletionTimestamp = &now
+		resp := admitVM()
+		Expect(resp.Allowed).To(BeTrue())
+		Expect(resp.Patch).To(BeEmpty())
+	})
+
 	It("should apply defaults on VM create", func() {
 		vmSpec, _ := getVMSpecMetaFromResponse()
 		if webhooks.IsPPC64() {
