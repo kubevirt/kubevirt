@@ -2725,13 +2725,13 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					Skip(err.Error())
 				}
 
+				By("Creating a VMI with default CPU mode to land in source node")
 				vmi := libvmi.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					withEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+					libvmi.WithCPUModel(v1.CPUModeHostModel),
 				)
-				By("Creating a VMI with default CPU mode to land in source node")
-				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 				By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
 				nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 				Expect(err).ToNot(HaveOccurred())
@@ -4413,18 +4413,20 @@ func newResourceQuota(hardResourcesLimitation k8sv1.ResourceList, namespace stri
 }
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomFedoraVMI()
-	strategy := v1.EvictionStrategyLiveMigrate
-	vmi.Spec.EvictionStrategy = &strategy
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-	return vmi
+	opts := append(libvmi.WithMasqueradeNetworking(),
+		libvmi.WithResourceMemory(fedoraVMSize),
+		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	)
+	return libvmi.NewFedora(opts...)
 }
 
 func alpineVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
-	strategy := v1.EvictionStrategyLiveMigrate
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-	vmi.Spec.EvictionStrategy = &strategy
-	return vmi
+	opts := append(libvmi.WithMasqueradeNetworking(),
+		libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+	)
+	return libvmi.NewAlpine(opts...)
 }
 
 func temporaryTLSConfig() *tls.Config {
@@ -4486,12 +4488,6 @@ func getPodsCgroupVersion(pod *k8sv1.Pod, virtClient kubecli.KubevirtClient) cgr
 		return cgroup.V2
 	} else {
 		return cgroup.V1
-	}
-}
-
-func withEvictionStrategy(evictionStrategy v1.EvictionStrategy) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.EvictionStrategy = &evictionStrategy
 	}
 }
 
