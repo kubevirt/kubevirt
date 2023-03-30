@@ -3697,8 +3697,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 
 			It("HyperV reenlightenment is enabled", func() {
-				vmi := libvmi.New()
-				vmi.Spec = tests.getWindowsVMISpec()
+				vmi := tests.NewRandomWindowsVMI()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
 				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}

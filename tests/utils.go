@@ -125,6 +125,8 @@ const (
 
 const (
 	defaultDiskSize = "1Gi"
+	windowsDisk     = "windows-disk"
+	WindowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 )
 
 const MigrationWaitTime = 240
@@ -898,6 +900,71 @@ func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 			},
 		},
 	})
+	return vmi
+}
+
+func NewRandomWindowsVMI() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+	gracePeriod := int64(0)
+	spinlocks := uint32(8191)
+	firmware := types.UID(WindowsFirmware)
+	_false := false
+	vmi.Spec = v1.VirtualMachineInstanceSpec{
+		TerminationGracePeriodSeconds: &gracePeriod,
+		Domain: v1.DomainSpec{
+			CPU: &v1.CPU{Cores: 2},
+			Features: &v1.Features{
+				ACPI: v1.FeatureState{},
+				APIC: &v1.FeatureAPIC{},
+				Hyperv: &v1.FeatureHyperv{
+					Relaxed:    &v1.FeatureState{},
+					SyNICTimer: &v1.SyNICTimer{Direct: &v1.FeatureState{}},
+					VAPIC:      &v1.FeatureState{},
+					Spinlocks:  &v1.FeatureSpinlocks{Retries: &spinlocks},
+				},
+			},
+			Clock: &v1.Clock{
+				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
+				Timer: &v1.Timer{
+					HPET:   &v1.HPETTimer{Enabled: &_false},
+					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
+					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
+					Hyperv: &v1.HypervTimer{},
+				},
+			},
+			Firmware: &v1.Firmware{UUID: firmware},
+			Resources: v1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
+				},
+			},
+			Devices: v1.Devices{
+				Disks: []v1.Disk{
+					{
+						Name: windowsDisk,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusSATA,
+							},
+						},
+					},
+				},
+			},
+		},
+		Volumes: []v1.Volume{
+			{
+				Name: windowsDisk,
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: DiskWindows,
+						},
+					},
+				},
+			},
+		},
+	}
+
 	return vmi
 }
 

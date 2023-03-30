@@ -219,7 +219,7 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 var getWindowsSysprepVMISpec = func() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
-	firmware := types.UID(windowsFirmware)
+	firmware := types.UID(tests.WindowsFirmware)
 	_false := false
 	return v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
