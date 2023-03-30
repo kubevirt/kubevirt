@@ -44,6 +44,7 @@ func DialSocket(socketPath string) (*grpc.ClientConn, error) {
 func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, error) {
 
 	options := []grpc.DialOption{
+		grpc.WithAuthority("localhost"),
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
 			return net.DialTimeout("unix", addr, timeout)
