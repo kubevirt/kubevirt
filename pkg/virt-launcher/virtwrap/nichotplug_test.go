@@ -31,67 +31,38 @@ import (
 
 var _ = Describe("nic hotplug on virt-launcher", func() {
 	const (
-		nadName     = "n1n"
 		networkName = "n1"
 	)
 
-	DescribeTable("networksToHotplugWhoseInterfacesAreNotInTheDomain", func(vmi *v1.VirtualMachineInstance, domainIfaces map[string]api.Interface, expectedNetworks []v1.Network) {
+	DescribeTable("networksToHotplugWhoseInterfacesAreNotInTheDomain", func(vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface, domainIfaces []api.Interface, expectedNetworks []string) {
 		Expect(
-			networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, domainIfaces),
+			networksToHotplugWhoseInterfacesAreNotInTheDomain(vmiStatusIfaces, domainIfaces),
 		).To(ConsistOf(expectedNetworks))
 	},
-		Entry("vmi with no networks, and no interfaces in the domain",
-			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{}}},
-			map[string]api.Interface{},
+		Entry("no interfaces in vmi status, and no interfaces in the domain",
+			[]v1.VirtualMachineInstanceNetworkInterface{},
+			[]api.Interface{},
 			nil,
 		),
-		Entry("vmi with 1 network, and an associated interface in the domain",
-			&v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{generateNetwork(networkName, nadName)}},
-			},
-			map[string]api.Interface{networkName: {Alias: api.NewUserDefinedAlias(networkName)}},
+		Entry("1 interfaces in vmi status, and an associated interface in the domain",
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: networkName}},
+			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
 			nil,
 		),
-		Entry("vmi with 1 network (when the pod interface is *not* ready), with no interfaces in the domain",
-			&v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{generateNetwork(networkName, nadName)}},
-			},
-			map[string]api.Interface{},
+		Entry("1 interfaces in vmi status (when the pod interface is *not* ready), with no interfaces in the domain",
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: networkName}},
+			[]api.Interface{},
 			nil,
 		),
-		Entry("vmi with 1 network (when the pod interface *is* ready), but already present in the domain",
-			&v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{generateNetwork(networkName, nadName)}},
-				Status: v1.VirtualMachineInstanceStatus{
-					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
-						Name:       networkName,
-						InfoSource: vmispec.InfoSourceMultusStatus,
-					}},
-				},
-			},
-			map[string]api.Interface{networkName: {Alias: api.NewUserDefinedAlias(networkName)}},
+		Entry("1 interfaces in vmi status (when the pod interface *is* ready), but already present in the domain",
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: networkName, InfoSource: vmispec.InfoSourceMultusStatus}},
+			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
 			nil,
 		),
-		Entry("vmi with 1 network (when the pod interface *is* ready), but no interfaces in the domain",
-			&v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{generateNetwork(networkName, nadName)}},
-				Status: v1.VirtualMachineInstanceStatus{
-					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
-						Name:       networkName,
-						InfoSource: vmispec.InfoSourceMultusStatus,
-					}},
-				},
-			},
-			map[string]api.Interface{},
-			[]v1.Network{generateNetwork(networkName, nadName)},
+		Entry("1 interfaces in vmi status (when the pod interface *is* ready), but no interfaces in the domain",
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: networkName, InfoSource: vmispec.InfoSourceMultusStatus}},
+			[]api.Interface{},
+			[]string{networkName},
 		),
 	)
 })
-
-func generateNetwork(name string, nadName string) v1.Network {
-	return v1.Network{
-		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{NetworkName: nadName}},
-	}
-}

@@ -36,67 +36,63 @@ import (
 
 func hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, currentDomain *api.Domain, updatedDomain *api.Domain) error {
 	vmConfigurator := netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{})
-	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
-		log.Log.Infof("will hot plug %s", network.Name)
+	for _, networkName := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi.Status.Interfaces, currentDomain.Spec.Devices.Interfaces) {
+		log.Log.Infof("will hot plug %s", networkName)
 
-		if err := vmConfigurator.SetupPodNetworkPhase2(updatedDomain, []v1.Network{network}); err != nil {
+		network := netvmispec.LookupNetworkByName(vmi.Spec.Networks, networkName)
+		if err := vmConfigurator.SetupPodNetworkPhase2(updatedDomain, []v1.Network{*network}); err != nil {
 			return err
 		}
 
-		relevantIface := domainInterfaceFromNetwork(updatedDomain, network)
+		relevantIface := lookupInterfaceName(currentDomain.Spec.Devices.Interfaces, networkName)
 		if relevantIface == nil {
-			return fmt.Errorf("could not retrieve the api.Interface object from the dummy domain")
+			return fmt.Errorf("could not retrieve %q Interface object from domain", networkName)
 		}
 
-		log.Log.Infof("will hot plug %s with MAC %s", network.Name, *relevantIface.MAC)
+		log.Log.Infof("will hot plug %s with MAC %s", networkName, relevantIface.MAC)
 		ifaceXML, err := xml.Marshal(relevantIface)
 		if err != nil {
 			return err
 		}
 
 		if err := dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); err != nil {
-			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", network.Name, err)
+			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", networkName, err)
 			return err
 		}
 	}
 	return nil
 }
 
-func domainInterfaceFromNetwork(domain *api.Domain, network v1.Network) *api.Interface {
-	for _, iface := range domain.Spec.Devices.Interfaces {
-		if iface.Alias.GetName() == network.Name {
-			return &iface
-		}
-	}
-	return nil
-}
+func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmiStatusInterfaces []v1.VirtualMachineInstanceNetworkInterface, domainInterfaces []api.Interface) []string {
+	var networks []string
+	lookupDomainIfaceWithName := indexedDomainInterfaces(domainInterfaces)
+	for _, vmiStatusIface := range vmiStatusInterfaces {
+		_, ifaceAttachedToDomain := lookupDomainIfaceWithName[vmiStatusIface.Name]
+		ifaceExistInPod := netvmispec.ContainsInfoSource(vmiStatusIface.InfoSource, netvmispec.InfoSourceMultusStatus)
 
-func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
-	var networksToHotplug []v1.Network
-	interfacesToHoplug := netvmispec.IndexInterfacesFromStatus(
-		vmi.Status.Interfaces,
-		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			_, exists := indexedDomainIfaces[ifaceStatus.Name]
-
-			return netvmispec.ContainsInfoSource(
-				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus,
-			) && !exists
-		},
-	)
-
-	for netName, network := range netvmispec.IndexNetworkSpecByName(vmi.Spec.Networks) {
-		if _, isAttachmentToBeHotplugged := interfacesToHoplug[netName]; isAttachmentToBeHotplugged {
-			networksToHotplug = append(networksToHotplug, network)
+		if ifaceExistInPod && !ifaceAttachedToDomain {
+			networks = append(networks, vmiStatusIface.Name)
 		}
 	}
 
-	return networksToHotplug
+	return networks
 }
 
-func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
+func indexedDomainInterfaces(ifaces []api.Interface) map[string]api.Interface {
 	domainInterfaces := map[string]api.Interface{}
-	for _, iface := range domain.Spec.Devices.Interfaces {
+	for _, iface := range ifaces {
 		domainInterfaces[iface.Alias.GetName()] = iface
 	}
 	return domainInterfaces
+}
+
+func lookupInterfaceName(ifaces []api.Interface, name string) *api.Interface {
+	for _, iface := range ifaces {
+		if iface.Alias.GetName() == name {
+			i := iface
+			return &i
+		}
+	}
+
+	return nil
 }

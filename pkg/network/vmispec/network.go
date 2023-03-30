@@ -61,3 +61,13 @@ func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {
 	}
 	return indexedNetworks
 }
+
+func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
+	for _, network := range networks {
+		if network.Name == name {
+			net := network
+			return &net
+		}
+	}
+	return nil
+}
