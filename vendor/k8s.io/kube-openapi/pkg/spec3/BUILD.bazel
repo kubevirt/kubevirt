@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "component.go",
+        "encoding.go",
+        "example.go",
+        "external_documentation.go",
+        "header.go",
+        "media_type.go",
+        "operation.go",
+        "parameter.go",
+        "path.go",
+        "request_body.go",
+        "response.go",
+        "security_requirement.go",
+        "security_scheme.go",
+        "server.go",
+        "spec.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/pkg/spec3",
+    importpath = "k8s.io/kube-openapi/pkg/spec3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-openapi/swag:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/validation/spec:go_default_library",
+    ],
+)

@@ -3,15 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "fen.go",
+        "backend_fen.go",
+        "backend_inotify.go",
+        "backend_kqueue.go",
+        "backend_other.go",
+        "backend_windows.go",
         "fsnotify.go",
-        "fsnotify_unsupported.go",
-        "inotify.go",
-        "inotify_poller.go",
-        "kqueue.go",
-        "open_mode_bsd.go",
-        "open_mode_darwin.go",
-        "windows.go",
+        "system_bsd.go",
+        "system_darwin.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/fsnotify/fsnotify",
     importpath = "github.com/fsnotify/fsnotify",
@@ -40,6 +39,9 @@ go_library(
         ],
         "@io_bazel_rules_go//go/platform:openbsd": [
             "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
         ],
         "//conditions:default": [],
     }),

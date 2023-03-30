@@ -7,7 +7,7 @@ go_library(
     importpath = "github.com/go-openapi/jsonreference",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/PuerkitoBio/purell:go_default_library",
         "//vendor/github.com/go-openapi/jsonpointer:go_default_library",
+        "//vendor/github.com/go-openapi/jsonreference/internal:go_default_library",
     ],
 )

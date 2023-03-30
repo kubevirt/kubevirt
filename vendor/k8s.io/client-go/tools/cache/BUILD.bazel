@@ -18,6 +18,7 @@ go_library(
         "mutation_detector.go",
         "reflector.go",
         "reflector_metrics.go",
+        "retry_with_deadline.go",
         "shared_informer.go",
         "store.go",
         "thread_safe_store.go",

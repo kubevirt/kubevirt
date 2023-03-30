@@ -16,10 +16,12 @@ go_library(
     importpath = "k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/managedfields:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/admissionregistration/v1:go_default_library",
         "//vendor/k8s.io/client-go/applyconfigurations/internal:go_default_library",
         "//vendor/k8s.io/client-go/applyconfigurations/meta/v1:go_default_library",
     ],
