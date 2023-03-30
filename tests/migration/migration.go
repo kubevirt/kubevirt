@@ -122,9 +122,16 @@ const (
 )
 
 var _ = SIGMigrationDescribe("VM Live Migration", func() {
-	var virtClient kubecli.KubevirtClient
-	var migrationBandwidthLimit resource.Quantity
-	var err error
+	var (
+		virtClient              kubecli.KubevirtClient
+		migrationBandwidthLimit resource.Quantity
+		err                     error
+	)
+
+	const (
+		downwardTestLabelKey = "downwardTestLabelKey"
+		downwardTestLabelVal = "downwardTestLabelVal"
+	)
 
 	createConfigMap := func(namespace string) string {
 		name := "configmap-" + rand.String(5)
@@ -219,18 +226,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 	}
 
-	withLabels := func(labels map[string]string) libvmi.Option {
-		return func(vmi *v1.VirtualMachineInstance) {
-			if vmi.ObjectMeta.Labels == nil {
-				vmi.ObjectMeta.Labels = map[string]string{}
-			}
-
-			for key, value := range labels {
-				labels[key] = value
-			}
-		}
-	}
-
 	withDownwardAPI := func(fieldPath string) libvmi.Option {
 		return func(vmi *v1.VirtualMachineInstance) {
 			volumeName := "downwardapi-" + rand.String(5)
@@ -264,7 +259,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		return libvmi.NewFedora(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			withLabels(map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}),
+			libvmi.WithLabel(downwardTestLabelKey, downwardTestLabelVal),
 			withDownwardAPI("metadata.labels"),
 			withDefaultServiceAccount(),
 			withKernelBoot(),
@@ -312,30 +307,27 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 	}
 
-	drainNode := func(node string) {
-		By(fmt.Sprintf("Draining node %s", node))
-		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
-		// time that we call it.
-		vmiSelector := v1.AppLabel + "=virt-launcher"
-		k8sClient := clientcmd.GetK8sCmdClient()
-		if k8sClient == "oc" {
-			_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-				"--ignore-daemonsets=true", "--force", "--timeout=180s")
-			Expect(err).ToNot(HaveOccurred())
-		} else {
-			_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "drain", node, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-				"--ignore-daemonsets=true", "--force", "--timeout=180s")
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-
 	// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
 	// nodes with this taint will be reset to their original state on each
 	// test teardown by the test framework. Check `libnode.CleanNodes`.
 	temporaryNodeDrain := func(nodeName string) {
 		By("taining the node with `NoExecute`, the framework will reset the node's taints and un-schedulable properties on test teardown")
 		libnode.Taint(nodeName, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
-		drainNode(nodeName)
+
+		By(fmt.Sprintf("Draining node %s", nodeName))
+		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
+		// time that we call it.
+		vmiSelector := v1.AppLabel + "=virt-launcher"
+		k8sClient := clientcmd.GetK8sCmdClient()
+		if k8sClient == "oc" {
+			_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+				"--ignore-daemonsets=true", "--force", "--timeout=180s")
+			Expect(err).ToNot(HaveOccurred())
+		} else {
+			_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+				"--ignore-daemonsets=true", "--force", "--timeout=180s")
+			Expect(err).ToNot(HaveOccurred())
+		}
 	}
 
 	confirmMigrationMode := func(vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode) {
@@ -347,7 +339,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Expect(vmi.Status.MigrationState.Mode).To(Equal(expectedMode))
 	}
 
-	getCurrentKv := func() v1.KubeVirtConfiguration {
+	getCurrentKvConfig := func() v1.KubeVirtConfiguration {
 		kvc := util.GetCurrentKv(virtClient)
 
 		if kvc.Spec.Configuration.MigrationConfiguration == nil {
@@ -572,7 +564,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			var repeatedlyMigrateWithBandwidthLimitation = func(vmi *v1.VirtualMachineInstance, bandwidth string, repeat int) time.Duration {
 				var migrationDurationTotal time.Duration
-				config := getCurrentKv()
+				config := getCurrentKvConfig()
 				limit := resource.MustParse(bandwidth)
 				config.MigrationConfiguration.BandwidthPerMigration = &limit
 				tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -1209,7 +1201,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			BeforeEach(func() {
 
 				// set autoconverge flag
-				config := getCurrentKv()
+				config := getCurrentKvConfig()
 				allowAutoConverage := true
 				config.MigrationConfiguration.AllowAutoConverge = &allowAutoConverage
 				tests.UpdateKubeVirtConfigValueAndWait(config)
@@ -1767,7 +1759,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		Context("migration security", func() {
 			Context("[Serial] with TLS disabled", Serial, func() {
 				It("[test_id:6976] should be successfully migrated", func() {
-					cfg := getCurrentKv()
+					cfg := getCurrentKvConfig()
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 
@@ -1797,7 +1789,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				})
 
 				It("[test_id:6977]should not secure migrations with TLS", func() {
-					cfg := getCurrentKv()
+					cfg := getCurrentKvConfig()
 					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -1871,7 +1863,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			Context("with TLS enabled", func() {
 				BeforeEach(func() {
-					cfg := getCurrentKv()
+					cfg := getCurrentKvConfig()
 					tlsEnabled := cfg.MigrationConfiguration.DisableTLS == nil || *cfg.MigrationConfiguration.DisableTLS == false
 					if !tlsEnabled {
 						Skip("test requires secure migrations to be enabled")
@@ -2014,7 +2006,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 
 				applyKubevirtCR := func() {
-					config := getCurrentKv()
+					config := getCurrentKvConfig()
 					config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
 					config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
 					config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
@@ -2082,7 +2074,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			})
 			BeforeEach(func() {
 				createdPods = []string{}
-				cfg := getCurrentKv()
+				cfg := getCurrentKvConfig()
 				var timeout int64 = 5
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
 					CompletionTimeoutPerGiB: &timeout,
@@ -2092,7 +2084,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			Context("without progress", func() {
 
 				BeforeEach(func() {
-					cfg := getCurrentKv()
+					cfg := getCurrentKvConfig()
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
 						ProgressTimeout:         pointer.Int64(5),
 						CompletionTimeoutPerGiB: pointer.Int64(5),
@@ -2396,7 +2388,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				tests.AddServiceAccountDisk(vmi, "default")
 				// In case there are no existing labels add labels to add some data to the downwardAPI disk
 				if vmi.ObjectMeta.Labels == nil {
-					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+					vmi.ObjectMeta.Labels = map[string]string{downwardTestLabelKey: downwardTestLabelVal}
 				}
 				tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
 
@@ -3034,7 +3026,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			DescribeTable("migration policy", func(defineMigrationPolicy bool) {
 				By("Updating config to allow auto converge")
-				config := getCurrentKv()
+				config := getCurrentKvConfig()
 				config.MigrationConfiguration.AllowAutoConverge = pointer.BoolPtr(true)
 				tests.UpdateKubeVirtConfigValueAndWait(config)
 
@@ -3331,7 +3323,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
 					if libnode.GetNodeDrainKey() == "node.kubernetes.io/unschedulable" {
 						drain := "kubevirt.io/drain"
-						cfg := getCurrentKv()
+						cfg := getCurrentKvConfig()
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
 						tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
@@ -3432,7 +3424,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					vmi = alpineVMIWithEvictionStrategy()
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
-					cfg := getCurrentKv()
+					cfg := getCurrentKvConfig()
 					drainKey := "kubevirt.io/alt-drain"
 					cfg.MigrationConfiguration.NodeDrainTaintKey = &drainKey
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
