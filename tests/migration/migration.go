@@ -149,94 +149,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		}
 	}
 
-	withSecret := func(secretName string, customLabel ...string) libvmi.Option {
-		volumeLabel := ""
-		if len(customLabel) > 0 {
-			volumeLabel = customLabel[0]
-		}
-		return func(vmi *v1.VirtualMachineInstance) {
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: secretName,
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
-						SecretName:  secretName,
-						VolumeLabel: volumeLabel,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: secretName,
-			})
-		}
-	}
-
-	withConfigMap := func(configMapName string, customLabel ...string) libvmi.Option {
-		volumeLabel := ""
-		if len(customLabel) > 0 {
-			volumeLabel = customLabel[0]
-		}
-		return func(vmi *v1.VirtualMachineInstance) {
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: configMapName,
-				VolumeSource: v1.VolumeSource{
-					ConfigMap: &v1.ConfigMapVolumeSource{
-						LocalObjectReference: k8sv1.LocalObjectReference{
-							Name: configMapName,
-						},
-						VolumeLabel: volumeLabel,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: configMapName,
-			})
-		}
-
-	}
-
-	withDefaultServiceAccount := func() libvmi.Option {
-		serviceAccountName := "default"
-		return func(vmi *v1.VirtualMachineInstance) {
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: serviceAccountName + "-disk",
-				VolumeSource: v1.VolumeSource{
-					ServiceAccount: &v1.ServiceAccountVolumeSource{
-						ServiceAccountName: serviceAccountName,
-					},
-				},
-			})
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: serviceAccountName + "-disk",
-			})
-		}
-	}
-
-	withDownwardAPI := func(fieldPath string) libvmi.Option {
-		return func(vmi *v1.VirtualMachineInstance) {
-			volumeName := "downwardapi-" + rand.String(5)
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: volumeName,
-				VolumeSource: v1.VolumeSource{
-					DownwardAPI: &v1.DownwardAPIVolumeSource{
-						Fields: []k8sv1.DownwardAPIVolumeFile{
-							{
-								Path: "labels",
-								FieldRef: &k8sv1.ObjectFieldSelector{
-									FieldPath: fieldPath,
-								},
-							},
-						},
-						VolumeLabel: "",
-					},
-				},
-			})
-
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: volumeName,
-			})
-		}
-	}
-
 	prepareVMIWithAllVolumeSources := func(namespace string) *v1.VirtualMachineInstance {
 		secretName := createSecret(namespace)
 		configMapName := createConfigMap(namespace)
@@ -245,11 +157,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithLabel(downwardTestLabelKey, downwardTestLabelVal),
-			withDownwardAPI("metadata.labels"),
-			withDefaultServiceAccount(),
+			libvmi.WithDownwardAPIDisk("downwardapi-"+rand.String(5)),
+			libvmi.WithServiceAccountDisk("default"),
 			withKernelBoot(),
-			withSecret(secretName),
-			withConfigMap(configMapName),
+			libvmi.WithSecretDisk(secretName, secretName),
+			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
 			libvmi.WithCloudInitNoCloudUserData("#!/bin/bash\necho 'hello'\n", true),
 		)
@@ -1114,7 +1026,8 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Pausing the VirtualMachineInstance")
-				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 				By("verifying that the vmi is still paused before migration")
@@ -1542,8 +1455,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				By("Waiting for VMI to disappear")
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
-		})
-		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1575,6 +1486,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
+
 		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume

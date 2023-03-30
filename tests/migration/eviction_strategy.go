@@ -132,12 +132,13 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		vmiSelector := v1.AppLabel + "=virt-launcher"
 		k8sClient := clientcmd.GetK8sCmdClient()
 		if k8sClient == "oc" {
-			clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			_, _, err = clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		} else {
-			clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+			_, _, err = clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
 				"--ignore-daemonsets=true", "--force", "--timeout=180s")
 		}
+		Expect(err).ToNot(HaveOccurred())
 	}
 	Describe("with no cluster-wide eviction strategy set", func() {
 		Context("[ref_id:2293] with vmi running with live-migrate eviction strategy set", func() {
