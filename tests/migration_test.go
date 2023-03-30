@@ -4553,8 +4553,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			It("HyperV reenlightenment is enabled", func() {
-				vmi := libvmi.New()
-				vmi.Spec = getWindowsVMISpec()
+				vmi := libvmi.NewWindows()
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 				vmi.Spec.Volumes = []v1.Volume{}
 				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}

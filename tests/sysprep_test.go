@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -219,7 +221,7 @@ func insertProductKeyToAnswerFileTemplate(answerFileTemplate string) string {
 var getWindowsSysprepVMISpec = func() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
-	firmware := types.UID(windowsFirmware)
+	firmware := types.UID(libvmi.WindowsFirmware)
 	_false := false
 	return v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,

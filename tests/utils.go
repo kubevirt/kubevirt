@@ -102,29 +102,18 @@ import (
 )
 
 const (
-	BinBash                = "/bin/bash"
-	StartingVMInstance     = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue    = "echo $?\n"
+	BinBash                     = "/bin/bash"
+	StartingVMInstance          = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart      = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue         = "echo $?\n"
+	CustomHostPath              = "custom-host-path"
+	DiskAlpineHostPath          = "disk-alpine-host-path"
+	DiskWindowsSysprep          = "disk-windows-sysprep"
+	DiskCustomHostPath          = "disk-custom-host-path"
+	defaultDiskSize             = "1Gi"
+	MigrationWaitTime           = 240
+	ContainerCompletionWaitTime = 60
 )
-
-const (
-	CustomHostPath = "custom-host-path"
-)
-
-const (
-	DiskAlpineHostPath = "disk-alpine-host-path"
-	DiskWindows        = "disk-windows"
-	DiskWindowsSysprep = "disk-windows-sysprep"
-	DiskCustomHostPath = "disk-custom-host-path"
-)
-
-const (
-	defaultDiskSize = "1Gi"
-)
-
-const MigrationWaitTime = 240
-const ContainerCompletionWaitTime = 60
 
 func TestCleanup() {
 	GinkgoWriter.Println("Global test cleanup started.")
