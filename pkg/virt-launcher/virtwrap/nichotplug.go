@@ -30,7 +30,6 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 type vmConfigurator interface {
@@ -38,9 +37,8 @@ type vmConfigurator interface {
 }
 
 type virtIOInterfaceManager struct {
-	converterContext *converter.ConverterContext
-	dom              cli.VirDomain
-	configurator     vmConfigurator
+	dom          cli.VirDomain
+	configurator vmConfigurator
 }
 
 func newVirtIOInterfaceManager(
