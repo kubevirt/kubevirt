@@ -68,6 +68,7 @@ type alerts struct {
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
+	lowCountAlert        string
 }
 
 var (
@@ -75,12 +76,14 @@ var (
 		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
+		lowCountAlert:        "LowVirtAPICount",
 	}
 	virtController = alerts{
 		deploymentName:       "virt-controller",
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
+		lowCountAlert:        "LowVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
@@ -91,6 +94,7 @@ var (
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
+		lowCountAlert:        "LowVirtOperatorCount",
 	}
 )
 
@@ -451,6 +455,9 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			backupScale(virtOperator.deploymentName)
 			backupScale(virtController.deploymentName)
 			backupScale(virtApi.deploymentName)
+
+			updateScale(virtOperator.deploymentName, int32(0))
+			reduceAlertPendingTime()
 		})
 
 		AfterEach(func() {
@@ -459,38 +466,52 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			revertScale(virtOperator.deploymentName)
 
 			time.Sleep(10 * time.Second)
-			waitUntilAlertDoesNotExist(virtOperator.downAlert)
-			waitUntilAlertDoesNotExist(virtApi.downAlert)
-			waitUntilAlertDoesNotExist(virtController.downAlert)
-			waitUntilAlertDoesNotExist(virtHandler.downAlert)
+			alerts := []string{
+				virtOperator.downAlert, virtOperator.noReadyAlert, virtOperator.lowCountAlert,
+				virtController.downAlert, virtController.noReadyAlert, virtController.lowCountAlert,
+				virtApi.downAlert, virtApi.noReadyAlert, virtApi.lowCountAlert,
+			}
+			for _, alert := range alerts {
+				waitUntilAlertDoesNotExist(alert)
+			}
 		})
 
 		It("VirtOperatorDown and NoReadyVirtOperator should be triggered when virt-operator is down", func() {
-			updateScale(virtOperator.deploymentName, int32(0))
-			reduceAlertPendingTime()
-
-			By("By scaling virt-operator to zero")
 			verifyAlertExist(virtOperator.downAlert)
 			verifyAlertExist(virtOperator.noReadyAlert)
 		})
 
-		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
-			updateScale(virtOperator.deploymentName, int32(0))
-			reduceAlertPendingTime()
+		It("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
+			verifyAlertExist(virtOperator.lowCountAlert)
+		})
 
-			By("By scaling virt-controller to zero")
+		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
+			By("Scaling virt-controller to zero")
 			updateScale(virtController.deploymentName, int32(0))
+
 			verifyAlertExist(virtController.downAlert)
 			verifyAlertExist(virtController.noReadyAlert)
 		})
 
-		It("VirtApiDown should be triggered when virt-api is down", func() {
-			updateScale(virtOperator.deploymentName, int32(0))
-			reduceAlertPendingTime()
+		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
+			By("Scaling virt-controller to zero")
+			updateScale(virtController.deploymentName, int32(0))
 
-			By("By scaling virt-controller to zero")
+			verifyAlertExist(virtController.lowCountAlert)
+		})
+
+		It("VirtApiDown should be triggered when virt-api is down", func() {
+			By("Scaling virt-api to zero")
 			updateScale(virtApi.deploymentName, int32(0))
+
 			verifyAlertExist(virtApi.downAlert)
+		})
+
+		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
+			By("Scaling virt-api to zero")
+			updateScale(virtApi.deploymentName, int32(0))
+
+			verifyAlertExist(virtApi.lowCountAlert)
 		})
 	})
 

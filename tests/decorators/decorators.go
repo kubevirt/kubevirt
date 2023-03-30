@@ -22,21 +22,22 @@ var (
 	Invtsc     = []interface{}{Label("Invtsc")}
 
 	// Features
-	Sysprep                   = []interface{}{Label("Sysprep")}
-	Windows                   = []interface{}{Label("Windows")}
-	Networking                = []interface{}{Label("Networking")}
-	VMIlifecycle              = []interface{}{Label("VMIlifecycle")}
-	Expose                    = []interface{}{Label("Expose")}
-	NonRoot                   = []interface{}{Label("verify-non-root")}
-	NativeSsh                 = []interface{}{Label("native-ssh")}
-	ExcludeNativeSsh          = []interface{}{Label("exclude-native-ssh")}
-	Reenlightenment           = []interface{}{Label("Reenlightenment")}
-	TscFrequencies            = []interface{}{Label("TscFrequencies")}
-	PasstGate                 = []interface{}{Label("PasstGate")}
-	VMX                       = []interface{}{Label("VMX")}
-	Upgrade                   = []interface{}{Label("Upgrade")}
-	CustomSELinux             = []interface{}{Label("CustomSELinux")}
-	Istio                     = []interface{}{Label("Istio")}
-	InPlaceHotplugNICs        = []interface{}{Label("in-place-hotplug-NICs")}
-	MigrationBasedHotplugNICs = []interface{}{Label("migration-based-hotplug-NICs")}
+	Sysprep                     = []interface{}{Label("Sysprep")}
+	Windows                     = []interface{}{Label("Windows")}
+	Networking                  = []interface{}{Label("Networking")}
+	VMIlifecycle                = []interface{}{Label("VMIlifecycle")}
+	Expose                      = []interface{}{Label("Expose")}
+	NonRoot                     = []interface{}{Label("verify-non-root")}
+	NativeSsh                   = []interface{}{Label("native-ssh")}
+	ExcludeNativeSsh            = []interface{}{Label("exclude-native-ssh")}
+	Reenlightenment             = []interface{}{Label("Reenlightenment")}
+	TscFrequencies              = []interface{}{Label("TscFrequencies")}
+	PasstGate                   = []interface{}{Label("PasstGate")}
+	VMX                         = []interface{}{Label("VMX")}
+	Upgrade                     = []interface{}{Label("Upgrade")}
+	CustomSELinux               = []interface{}{Label("CustomSELinux")}
+	Istio                       = []interface{}{Label("Istio")}
+	InPlaceHotplugNICs          = []interface{}{Label("in-place-hotplug-NICs")}
+	MigrationBasedHotplugNICs   = []interface{}{Label("migration-based-hotplug-NICs")}
+	RequiresTwoSchedulableNodes = []interface{}{Label("requires-two-schedulable-nodes")}
 )
