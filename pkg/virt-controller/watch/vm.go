@@ -72,6 +72,22 @@ const (
 	startingVMIFailureFmt     = "Failure while starting VMI: %v"
 )
 
+// Reasons for VM events
+const (
+	// FailedCreateVirtualMachineReason is added in an event and in a replica set condition
+	// when a virtual machine for a replica set is failed to be created.
+	FailedCreateVirtualMachineReason = "FailedCreate"
+	// SuccessfulCreateVirtualMachineReason is added in an event when a virtual machine for a replica set
+	// is successfully created.
+	SuccessfulCreateVirtualMachineReason = "SuccessfulCreate"
+	// FailedDeleteVirtualMachineReason is added in an event and in a replica set condition
+	// when a virtual machine for a replica set is failed to be deleted.
+	FailedDeleteVirtualMachineReason = "FailedDelete"
+	// SuccessfulDeleteVirtualMachineReason is added in an event when a virtual machine for a replica set
+	// is successfully deleted.
+	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
+)
+
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 // Repeating info / error messages

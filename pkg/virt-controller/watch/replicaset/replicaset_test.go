@@ -1,4 +1,4 @@
-package watch
+package replicaset
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -442,7 +443,10 @@ var _ = Describe("Replicaset", func() {
 
 			// Move one VirtualMachineInstance to a final state
 			modifiedVMI := vmi.DeepCopy()
-			markAsNonReady(modifiedVMI)
+
+			virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(modifiedVMI, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+			virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(modifiedVMI, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
+
 			modifiedVMI.ResourceVersion = "1"
 			vmiFeeder.Modify(modifiedVMI)
 
@@ -528,7 +532,8 @@ var _ = Describe("Replicaset", func() {
 			// Move one VirtualMachineInstance to a final state
 			modifiedVMI := vmi.DeepCopy()
 			modifiedVMI.ResourceVersion = "1"
-			markAsPodTerminating(modifiedVMI)
+			virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+			virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse, Reason: virtv1.PodTerminatingReason})
 			vmiFeeder.Modify(modifiedVMI)
 
 			// Expect the re-crate of the VirtualMachineInstance
@@ -737,4 +742,13 @@ func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineInstanceReplicaSet, *v
 	virtcontroller.SetLatestApiVersionAnnotation(vmi)
 	virtcontroller.SetLatestApiVersionAnnotation(rs)
 	return rs, vmi
+}
+
+func now() *metav1.Time {
+	now := metav1.Now()
+	return &now
+}
+
+func markAsReady(vmi *virtv1.VirtualMachineInstance) {
+	virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
 }

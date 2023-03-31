@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
@@ -139,7 +140,7 @@ var _ = Describe("Application", func() {
 			nil,
 			false,
 		)
-		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+		app.rsController = replicaset.NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController = NewVMController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
