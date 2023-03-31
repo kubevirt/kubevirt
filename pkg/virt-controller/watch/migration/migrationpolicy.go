@@ -1,4 +1,4 @@
-package watch
+package migration
 
 import (
 	k8sv1 "k8s.io/api/core/v1"

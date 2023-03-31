@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package migration
 
 import (
 	"context"
@@ -2027,4 +2027,9 @@ func getDefaultMigrationConfiguration() *virtv1.MigrationConfiguration {
 		UnsafeMigrationOverride:           &unsafeMigrationOverride,
 		AllowPostCopy:                     &allowPostCopy,
 	}
+}
+
+func now() *metav1.Time {
+	now := metav1.Now()
+	return &now
 }

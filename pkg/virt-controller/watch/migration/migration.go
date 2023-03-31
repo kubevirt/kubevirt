@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package migration
 
 import (
 	"context"
@@ -69,6 +69,45 @@ const (
 	successfulUpdatePodDisruptionBudgetReason = "SuccessfulUpdate"
 	failedUpdatePodDisruptionBudgetReason     = "FailedUpdate"
 	failedGetAttractionPodsFmt                = "failed to get attachment pods: %v"
+)
+
+const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
+
+const (
+	// MigrationBackoffReason is set when an error has occured while migrating
+	// and virt-controller is backing off before retrying.
+	MigrationBackoffReason = "MigrationBackoff"
+	// FailedMigrationReason is added when a migration attempt fails
+	FailedMigrationReason = "FailedMigration"
+	// SuccessfulMigrationReason is added when a migration attempt completes successfully
+	SuccessfulMigrationReason = "SuccessfulMigration"
+	// FailedCreatePodReason is added in an event and in a vmi controller condition
+	// when a pod for a vmi controller failed to be created.
+	FailedCreatePodReason = "FailedCreate"
+	// SuccessfulCreatePodReason is added in an event when a pod for a vmi controller
+	// is successfully created.
+	SuccessfulCreatePodReason = "SuccessfulCreate"
+	// FailedDeletePodReason is added in an event and in a vmi controller condition
+	// when a pod for a vmi controller failed to be deleted.
+	FailedDeletePodReason = "FailedDelete"
+	// SuccessfulDeletePodReason is added in an event when a pod for a vmi controller
+	// is successfully deleted.
+	SuccessfulDeletePodReason = "SuccessfulDelete"
+	// FailedHandOverPodReason is added in an event and in a vmi controller condition
+	// when transferring the pod ownership from the controller to virt-hander fails.
+	FailedHandOverPodReason = "FailedHandOver"
+	// SuccessfulHandOverPodReason is added in an event
+	// when the pod ownership transfer from the controller to virt-hander succeeds.
+	SuccessfulHandOverPodReason = "SuccessfulHandOver"
+	// FailedAbortMigrationReason is added when an attempt to abort migration fails
+	FailedAbortMigrationReason = "FailedAbortMigration"
+	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
+	// is suitable for migration (since CPU model / required features are not supported)
+	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
+	// SuccessfulAbortMigrationReason is added when an attempt to abort migration completes successfully
+	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
+	// MigrationTargetPodUnschedulable is added a migration target pod enters Unschedulable phase
+	MigrationTargetPodUnschedulable = "migrationTargetPodUnschedulable"
 )
 
 // This is the timeout used when a target pod is stuck in
@@ -1861,4 +1900,21 @@ func (c *MigrationController) removeHandOffKey(migrationKey string) {
 	defer c.handOffLock.Unlock()
 
 	delete(c.handOffMap, migrationKey)
+}
+
+func getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*virtv1.Volume {
+	hotplugVolumes := make([]*virtv1.Volume, 0)
+	podVolumes := virtlauncherPod.Spec.Volumes
+	vmiVolumes := vmi.Spec.Volumes
+
+	podVolumeMap := make(map[string]k8sv1.Volume)
+	for _, podVolume := range podVolumes {
+		podVolumeMap[podVolume.Name] = podVolume
+	}
+	for _, vmiVolume := range vmiVolumes {
+		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
+			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
+		}
+	}
+	return hotplugVolumes
 }

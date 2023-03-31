@@ -30,12 +30,13 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/migration"
+	migrationmonitoring "kubevirt.io/kubevirt/pkg/monitoring/migration"
 	"kubevirt.io/kubevirt/pkg/monitoring/migrationstats"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/pool"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
@@ -184,7 +185,7 @@ type VirtControllerApp struct {
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 
-	migrationController *MigrationController
+	migrationController *migration.MigrationController
 	migrationInformer   cache.SharedIndexInformer
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
@@ -530,7 +531,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()
 		}
 		golog.Printf("\nvca.migrationInformer :%v\n", vca.migrationInformer)
-		migration.RegisterMigrationMetrics(vca.migrationInformer)
+		migrationmonitoring.RegisterMigrationMetrics(vca.migrationInformer)
 		migrationstats.SetupMigrationsCollector(vca.migrationInformer)
 
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
@@ -622,7 +623,7 @@ func (vca *VirtControllerApp) initCommon() {
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = node.NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(
+	vca.migrationController = migration.NewMigrationController(
 		vca.templateService,
 		vca.vmiInformer,
 		vca.kvPodInformer,
