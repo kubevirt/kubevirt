@@ -75,12 +75,14 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 	return stdout, nil
 }
 
+// The tests using the function CreateErrorDisk need to be run serially as it relies on the kernel scsi_debug module
 func CreateErrorDisk(nodeName string) (address string, device string) {
 	By("Creating error disk")
 	return CreateSCSIDisk(nodeName, []string{"opts=2", "every_nth=4", "dev_size_mb=8"})
 }
 
 // CreateSCSIDisk creates a SCSI disk using the scsi_debug module. This function should be used only to check SCSI disk functionalities and not for creating a filesystem or any data. The disk is stored in ram and it isn't suitable for storing large amount of data.
+// If a test uses this function, it needs to be run serially. The device is created directly on the node and the addition and removal of the scsi_debug kernel module could create flakiness
 func CreateSCSIDisk(nodeName string, opts []string) (address string, device string) {
 	args := []string{UsrBinVirtChroot, Mount, Proc1NsMnt, "exec", "--", "/usr/sbin/modprobe", "scsi_debug"}
 	args = append(args, opts...)
