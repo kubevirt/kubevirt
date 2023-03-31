@@ -1461,7 +1461,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
 // TODO +pkotas unify with replicaset this code is the same without dependency
 func (c *VMController) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+	return watchutil.Filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return !vmi.IsFinal()
 	})
 }
@@ -1469,7 +1469,7 @@ func (c *VMController) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) [
 // filterReadyVMIs takes a list of VMIs and returns all VMIs which are in ready state.
 // TODO +pkotas unify with replicaset this code is the same
 func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+	return watchutil.Filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	})
 }

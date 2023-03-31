@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/util/status"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -326,7 +327,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state, not terminating and not unknown
 func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+	return util.Filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil &&
 			!controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionFalse, virtv1.PodTerminatingReason)
 	})
@@ -334,34 +335,24 @@ func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) 
 
 // filterReadyVMIs takes a list of VMIs and returns all VMIs which are in ready state.
 func (c *VMIReplicaSet) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+	return util.Filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	})
 }
 
 // filterFinishedVMIs takes a list of VMIs and returns all VMIs which are in final state.
 func (c *VMIReplicaSet) filterFinishedVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+	return util.Filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return vmi.IsFinal() && vmi.DeletionTimestamp == nil
 	})
 }
 
 // filterUnknownVMIs takes a list of VMIs and returns all VMIs which are in an unknown and not yet terminating stage
 func (c *VMIReplicaSet) filterUnkownVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
-	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
+	return util.Filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
 		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil &&
 			controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionFalse, virtv1.PodTerminatingReason)
 	})
-}
-
-func filter(vmis []*virtv1.VirtualMachineInstance, f func(vmi *virtv1.VirtualMachineInstance) bool) []*virtv1.VirtualMachineInstance {
-	filtered := []*virtv1.VirtualMachineInstance{}
-	for _, vmi := range vmis {
-		if f(vmi) {
-			filtered = append(filtered, vmi)
-		}
-	}
-	return filtered
 }
 
 // listVMIsFromNamespace takes a namespace and returns all VMIs from the VirtualMachineInstance cache which run in this namespace
