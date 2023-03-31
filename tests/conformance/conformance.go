@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,7 +10,7 @@ import (
 var containerTag = ""
 
 func done(files []string) {
-	err := ioutil.WriteFile("/tmp/sonobuoy/results/done", []byte(strings.Join(files, "\n")), 0666)
+	err := os.WriteFile("/tmp/sonobuoy/results/done", []byte(strings.Join(files, "\n")), 0666)
 	if err != nil {
 		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", err)
 	}
