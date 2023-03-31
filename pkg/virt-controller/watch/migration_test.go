@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/tests/migration"
 
 	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -1547,7 +1546,7 @@ var _ = Describe("Migration watcher", func() {
 				policies := make([]migrationsv1.MigrationPolicy, 0)
 
 				for _, info := range policiesToDefine {
-					policy := migration.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, info.vmiMatchingLabels, info.namespaceMatchingLabels)
+					policy := preparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, info.vmiMatchingLabels, info.namespaceMatchingLabels)
 					policy.Name = info.name
 					policies = append(policies, *policy)
 				}
@@ -1570,7 +1569,7 @@ var _ = Describe("Migration watcher", func() {
 			It("policy with one non-fitting label should not match", func() {
 				const labelKeyFmt = "%s-key-0"
 
-				policy := migration.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, 4, 3)
+				policy := preparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, 4, 3)
 				_, exists := policy.Spec.Selectors.VirtualMachineInstanceSelector[fmt.Sprintf(labelKeyFmt, policy.Name)]
 				Expect(exists).To(BeTrue())
 
@@ -1592,8 +1591,8 @@ var _ = Describe("Migration watcher", func() {
 				numberOfLabels := rand.Intn(5) + 1
 
 				By(fmt.Sprintf("Defining two policies with %d labels, one with VMI labels and one with NS labels", numberOfLabels))
-				policyWithNSLabels := migration.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, 0, numberOfLabels)
-				policyWithVmiLabels := migration.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, numberOfLabels, 0)
+				policyWithNSLabels := preparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, 0, numberOfLabels)
+				policyWithVmiLabels := preparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, numberOfLabels, 0)
 
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policyWithNSLabels, *policyWithVmiLabels)
 
@@ -1605,7 +1604,7 @@ var _ = Describe("Migration watcher", func() {
 
 		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
-			migrationPolicy := migration.PreparePolicyAndVMI(vmi)
+			migrationPolicy := preparePolicyAndVMI(vmi)
 			defineMigrationPolicy(&migrationPolicy.Spec)
 			addMigrationPolicies(*migrationPolicy)
 
@@ -2028,4 +2027,70 @@ func getDefaultMigrationConfiguration() *virtv1.MigrationConfiguration {
 		UnsafeMigrationOverride:           &unsafeMigrationOverride,
 		AllowPostCopy:                     &allowPostCopy,
 	}
+}
+
+func preparePolicyAndVMIWithNsAndVmiLabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+	Expect(vmi).ToNot(BeNil())
+	if matchingNSLabels > 0 {
+		Expect(namespace).ToNot(BeNil())
+	}
+
+	policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
+	policy := kubecli.NewMinimalMigrationPolicy(policyName)
+	if policy.Labels == nil {
+		policy.Labels = map[string]string{}
+	}
+	policy.Labels["test.kubevirt.io"] = ""
+
+	if vmi.Labels == nil {
+		vmi.Labels = make(map[string]string)
+	}
+
+	var namespaceLabels map[string]string
+	if namespace != nil {
+		if namespace.Labels == nil {
+			namespace.Labels = make(map[string]string)
+		}
+
+		namespaceLabels = namespace.Labels
+	}
+
+	if policy.Spec.Selectors == nil {
+		policy.Spec.Selectors = &migrationsv1.Selectors{
+			VirtualMachineInstanceSelector: migrationsv1.LabelSelector{},
+			NamespaceSelector:              migrationsv1.LabelSelector{},
+		}
+	} else if policy.Spec.Selectors.VirtualMachineInstanceSelector == nil {
+		policy.Spec.Selectors.VirtualMachineInstanceSelector = migrationsv1.LabelSelector{}
+	} else if policy.Spec.Selectors.NamespaceSelector == nil {
+		policy.Spec.Selectors.NamespaceSelector = migrationsv1.LabelSelector{}
+	}
+
+	labelKeyPattern := policyName + "-key-%d"
+	labelValuePattern := policyName + "-value-%d"
+
+	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
+		for i := 0; i < labelCount; i++ {
+			labelKey := fmt.Sprintf(labelKeyPattern, i)
+			labelValue := fmt.Sprintf(labelValuePattern, i)
+
+			vmiOrNSLabels[labelKey] = labelValue
+			policyLabels[labelKey] = labelValue
+		}
+	}
+
+	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmi.Labels, matchingVmiLabels)
+	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespaceLabels, matchingNSLabels)
+
+	if namespace != nil {
+		namespace.Labels = namespaceLabels
+	}
+
+	return policy
+}
+
+// preparePolicyAndVMI mutates the given vmi parameter by adding labels to it. Therefore, it's recommended
+// to use this function before creating the vmi. Otherwise, its labels need to be updated.
+func preparePolicyAndVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+	return preparePolicyAndVMIWithNsAndVmiLabels(vmi, nil, 1, 0)
 }
