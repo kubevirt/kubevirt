@@ -18307,7 +18307,7 @@ func schema_kubevirtio_api_core_v1_LunTarget(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
-					"reservations": {
+					"reservation": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Reservation indicates if the disk needs to support the persistent reservation for the SCSI disk",
 							Type:        []string{"boolean"},
