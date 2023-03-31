@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package vm
 
 import (
 	"context"
@@ -86,6 +86,17 @@ const (
 	// SuccessfulDeleteVirtualMachineReason is added in an event when a virtual machine for a replica set
 	// is successfully deleted.
 	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
+	// FailedDataVolumeImportReason is added in an event when a dynamically generated
+	// dataVolume reaches the failed status phase.
+	FailedDataVolumeImportReason = "FailedDataVolumeImport"
+	// FailedPvcNotFoundReason is added in an event
+	// when a PVC for a volume was not found.
+	FailedPvcNotFoundReason = "FailedPvcNotFound"
+	// ErrImagePullReason is set when an error has occured while pulling an image for a containerDisk VM volume.
+	ErrImagePullReason = "ErrImagePull"
+	// ImagePullBackOffReason is set when an error has occured while pulling an image for a containerDisk VM volume,
+	// and that kubelet is backing off before retrying.
+	ImagePullBackOffReason = "ImagePullBackOff"
 )
 
 type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)

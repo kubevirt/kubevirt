@@ -3588,3 +3588,29 @@ func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName
 	})
 	return vmi
 }
+
+func VirtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, started bool) *virtv1.VirtualMachine {
+	vm := &virtv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
+		Spec: virtv1.VirtualMachineSpec{
+			Running: &started,
+			Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   vmi.ObjectMeta.Name,
+					Labels: vmi.ObjectMeta.Labels,
+				},
+				Spec: vmi.Spec,
+			},
+		},
+		Status: virtv1.VirtualMachineStatus{
+			Conditions: []virtv1.VirtualMachineCondition{
+				{
+					Type:   virtv1.VirtualMachineReady,
+					Status: k8sv1.ConditionFalse,
+					Reason: "VMINotExists",
+				},
+			},
+		},
+	}
+	return vm
+}

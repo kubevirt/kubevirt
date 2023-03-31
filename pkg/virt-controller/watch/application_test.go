@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
 func newValidGetRequest() *http.Request {
@@ -141,7 +142,7 @@ var _ = Describe("Application", func() {
 			false,
 		)
 		app.rsController = replicaset.NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController = NewVMController(vmiInformer,
+		app.vmController = vm.NewVMController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
 			pvcInformer,
