@@ -1943,12 +1943,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               "othernode",
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               host,
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: true,
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: &now,
 			}
 
 			mockWatchdog.CreateFile(vmi)
@@ -1956,7 +1958,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Shutoff
 			domain.Status.Reason = api.ReasonMigrated
 
-			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
 				StartTimestamp: &now,
@@ -2015,7 +2016,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
 			client.EXPECT().Ping().AnyTimes()
 			client.EXPECT().FinalizeVirtualMachineMigration(vmi)
-			vmiInterface.EXPECT().Update(context.Background(), vmiUpdated)
+
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmiObj *v1.VirtualMachineInstance) {
+
+				Expect(vmiObj.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
+				vmiUpdated.Status.MigrationState.TargetNodeDomainReadyTimestamp = vmiObj.Status.MigrationState.TargetNodeDomainReadyTimestamp
+
+				Expect(vmiObj).To(Equal(vmiUpdated))
+			})
 
 			controller.Execute()
 		})

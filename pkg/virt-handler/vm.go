@@ -480,14 +480,16 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
-func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
+func (d *VirtualMachineController) hasTargetDetectedReadyDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
 	// give the target node 60 seconds to discover the libvirt domain via the domain informer
 	// before allowing the VMI to be processed. This closes the gap between the
 	// VMI's status getting updated to reflect the new source node, and the domain
 	// informer firing the event to alert the source node of the new domain.
 	migrationTargetDelayTimeout := 60
 
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainDetected {
+	if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.TargetNodeDomainDetected &&
+		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 
 		return true, 0
 	}
@@ -635,7 +637,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		vmi.Status.MigrationState.EndTimestamp = &now
 	}
 
-	targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
+	targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedReadyDomain(vmi)
 	// If we can't detect where the migration went to, then we have no
 	// way of transferring ownership. The only option here is to move the
 	// vmi to failed.  The cluster vmi controller will then tear down the
@@ -657,7 +659,7 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		} else {
 			log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
 		}
-	} else if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainDetected {
+	} else if vmi.Status.MigrationState != nil && targetNodeDetectedDomain {
 		// this is the migration ACK.
 		// At this point we know that the migration has completed and that
 		// the target node has seen the domain event.
@@ -694,7 +696,25 @@ type NetworkStatus struct {
 	Interface string   `yaml:"interface"`
 }
 
-func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domainExists bool) error {
+func domainIsActiveOnTarget(domain *api.Domain) bool {
+
+	if domain == nil {
+		return false
+	}
+
+	// It's possible for the domain to be active on the target node if the domain is
+	// 1. Running
+	// 2. User initiated Paused
+	if domain.Status.Status == api.Running {
+		return true
+	} else if domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedUser {
+		return true
+	}
+	return false
+
+}
+
+func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
 	vmiCopy := vmi.DeepCopy()
 
@@ -703,11 +723,33 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		return nil
 	}
 
+	domainExists := domain != nil
+
 	// Handle post migration
 	if domainExists && vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.TargetNodeDomainDetected {
 		// record that we've see the domain populated on the target's node
 		log.Log.Object(vmi).Info("The target node received the migrated domain")
 		vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
+
+		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
+		// perform hotplug host-devices on post migration.
+		if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "Failed to update target node qemu memory limits during live migration")
+		}
+
+	}
+
+	if domainExists &&
+		domainIsActiveOnTarget(domain) &&
+		vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp == nil {
+
+		// record the moment we detected the domain is running.
+		// This is used as a trigger to help coordinate when CNI drivers
+		// fail over the IP to the new pod.
+		log.Log.Object(vmi).Info("The target node received the running migrated domain")
+		now := metav1.Now()
+		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
 		d.finalizeMigration(vmi)
 	}
 
@@ -1627,7 +1669,7 @@ func (d *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 			return err
 		}
 
-		err = d.migrationTargetUpdateVMIStatus(vmi, domainExists)
+		err = d.migrationTargetUpdateVMIStatus(vmi, domain)
 		if err != nil {
 			return err
 		}
@@ -3097,12 +3139,6 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 	client, err := d.getVerifiedLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf("%s: %v", errorMessage, err)
-	}
-
-	// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
-	// perform hotplug host-devices on post migration.
-	if err := isolation.AdjustQemuProcessMemoryLimits(d.podIsolationDetector, vmi, d.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
-		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), errorMessage)
 	}
 
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {

@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	apimachpatch "kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 
@@ -164,6 +165,21 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			return true, pdb, nil
+		})
+	}
+
+	shouldExpectPodAnnotationTimestamp := func(vmi *virtv1.VirtualMachineInstance) {
+		kubeClient.Fake.PrependReactor("patch", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+			patchAction, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+			Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+			key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
+			expectedPatch := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`, key, vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
+
+			Expect(string(patchAction.GetPatch())).To(Equal(expectedPatch))
+
+			return true, nil, nil
 		})
 	}
 
@@ -1201,19 +1217,21 @@ var _ = Describe("Migration watcher", func() {
 			pod.Spec.NodeName = "node01"
 
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID:      migration.UID,
-				TargetNode:        "node01",
-				SourceNode:        "node02",
-				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    now(),
-				EndTimestamp:      now(),
-				Failed:            false,
-				Completed:         true,
+				MigrationUID:                   migration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetNodeAddress:              "10.10.10.10:1234",
+				StartTimestamp:                 now(),
+				EndTimestamp:                   now(),
+				TargetNodeDomainReadyTimestamp: now(),
+				Failed:                         false,
+				Completed:                      true,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
+			shouldExpectPodAnnotationTimestamp(vmi)
 			shouldExpectMigrationCompletedState(migration)
 
 			controller.Execute()

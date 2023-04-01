@@ -18974,6 +18974,10 @@
       "description": "The Target Node has seen the Domain Start Event",
       "type": "boolean"
      },
+     "targetNodeDomainReadyTimestamp": {
+      "description": "The timestamp at which the target node detects the domain is active",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
      "targetNodeTopology": {
       "description": "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
       "type": "string"

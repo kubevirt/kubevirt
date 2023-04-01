@@ -535,6 +535,19 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				migrationCopy.Status.Phase = virtv1.MigrationRunning
 			}
 		case virtv1.MigrationRunning:
+			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
+			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
+				key := patch.EscapeJSONPointer(virtv1.MigrationTargetReadyTimestamp)
+				patchOps := fmt.Sprintf(`[{ "op": "add", "path": "/metadata/annotations/%s", "value": "%s" }]`,
+					key,
+					vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp.String())
+
+				_, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, []byte(patchOps), v1.PatchOptions{})
+				if err != nil {
+					return err
+				}
+			}
+
 			if vmi.Status.MigrationState.Completed {
 				migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
