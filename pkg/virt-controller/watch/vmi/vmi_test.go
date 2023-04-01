@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package vmi
 
 import (
 	"context"

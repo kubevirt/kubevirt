@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/pool"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
@@ -155,7 +156,7 @@ type VirtControllerApp struct {
 	nodeController *node.NodeController
 
 	vmiCache      cache.Store
-	vmiController *VMIController
+	vmiController *vmi.VMIController
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
@@ -605,7 +606,7 @@ func (vca *VirtControllerApp) initCommon() {
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), runtime.GOARCH, vca.clusterConfig)
 
-	vca.vmiController = NewVMIController(vca.templateService,
+	vca.vmiController = vmi.NewVMIController(vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.kvPodInformer,

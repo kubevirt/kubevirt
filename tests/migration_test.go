@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+	migrationpkg "kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
@@ -3061,7 +3061,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 					By("Expecting for an alert to be triggered")
 					eventListOpts := metav1.ListOptions{
-						FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
+						FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, migrationpkg.NoSuitableNodesForHostModelMigration),
 					}
 					expectEvents(eventListOpts, 1)
 					deleteEvents(eventListOpts)
@@ -3128,7 +3128,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					_ = tests.RunMigration(virtClient, migration)
 
 					By("Expecting for an alert to be triggered")
-					eventListOpts := metav1.ListOptions{FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)}
+					eventListOpts := metav1.ListOptions{FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, migrationpkg.NoSuitableNodesForHostModelMigration)}
 					expectEvents(eventListOpts, 1)
 					deleteEvents(eventListOpts)
 				})
@@ -4509,7 +4509,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			By("Expecting for a MigrationBackoff event to be sent")
 			eventListOpts := metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.MigrationBackoffReason),
+				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, migrationpkg.MigrationBackoffReason),
 			}
 			expectEvent(eventListOpts)
 			deleteEvents(eventListOpts)
@@ -4535,7 +4535,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			eventListOpts := metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.MigrationBackoffReason),
+				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, migrationpkg.MigrationBackoffReason),
 			}
 			deleteEvents(eventListOpts)
 
@@ -4548,7 +4548,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			events, err := virtClient.CoreV1().Events(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ev := range events.Items {
-				Expect(ev.Reason).ToNot(Equal(watch.MigrationBackoffReason))
+				Expect(ev.Reason).ToNot(Equal(migrationpkg.MigrationBackoffReason))
 			}
 		})
 	})
