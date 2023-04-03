@@ -68,6 +68,7 @@ func (h *Hypervisor) serve() {
 	// Load the vhost_vsock module on demand.
 	if fd, err := os.Open("/dev/vhost-vsock"); err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to open /dev/vhost-vsock.")
+		h.Stop()
 		return
 	} else {
 		fd.Close()
@@ -75,6 +76,7 @@ func (h *Hypervisor) serve() {
 	conn, err := vsock.ListenContextID(vsock.Host, h.port, &vsock.Config{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to bind to VSOCK port %v.", h.port)
+		h.Stop()
 		return
 	}
 	defer conn.Close()
@@ -82,6 +84,7 @@ func (h *Hypervisor) serve() {
 	err = h.server.Serve(conn)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to listen for VSOCK connections.")
+		h.Stop()
 		return
 	}
 }
