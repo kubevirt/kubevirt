@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/equality"
-
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/utils/pointer"
 
@@ -163,14 +161,17 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 	return newDs, nil
 }
 
-func (r *Reconciler) getCanaryPods(daemonSet *appsv1.DaemonSet) []*corev1.Pod {
+func (r *Reconciler) getCanaryPods(newDaemonSet, cachedDaemonset *appsv1.DaemonSet) []*corev1.Pod {
 	canaryPods := []*corev1.Pod{}
 
 	for _, obj := range r.stores.InfrastructurePodCache.List() {
 		pod := obj.(*corev1.Pod)
 		owner := metav1.GetControllerOf(pod)
 
-		if owner != nil && owner.Name == daemonSet.Name && util.PodIsUpToDate(pod, r.kv) {
+		if owner != nil &&
+			owner.Name == newDaemonSet.Name &&
+			util.PodIsUpToDate(pod, r.kv) &&
+			util.PodRolledOut(newDaemonSet, cachedDaemonset, pod) {
 			canaryPods = append(canaryPods, pod)
 		}
 	}
@@ -204,34 +205,29 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	var status CanaryUpgradeStatus
 	done := false
 
-	isDaemonSetUpdated :=
-		util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) &&
-			!forceUpdate &&
-			r.isRolledOut(cachedDaemonSet, newDS)
+	// isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
+
+	// check for a crashed canary pod
+	canaryPods := r.getCanaryPods(newDS, cachedDaemonSet)
+	for _, canary := range canaryPods {
+		if canary != nil && util.PodIsCrashLooping(canary) {
+			r.recorder.Eventf(cachedDaemonSet, corev1.EventTypeWarning, failedUpdateDaemonSetReason, "daemonSet %v rollout failed", cachedDaemonSet.Name)
+			return false, fmt.Errorf("daemonSet %s rollout failed", cachedDaemonSet.Name), CanaryUpgradeStatusFailed
+		}
+	}
 
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
-	if isDaemonSetUpdated {
-		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(newDS, cachedDaemonSet)
-	}
+	//if isDaemonSetUpdated {
+	updatedAndReadyPods = r.howManyUpdatedAndReadyPods(newDS, cachedDaemonSet)
+	//}
 
 	switch {
 	case updatedAndReadyPods == 0:
-		if !isDaemonSetUpdated {
-			// start canary upgrade
-			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
-			if err != nil {
-				return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
-			}
-		} else {
-			// check for a crashed canary pod
-			canaryPods := r.getCanaryPods(cachedDaemonSet)
-			for _, canary := range canaryPods {
-				if canary != nil && util.PodIsCrashLooping(canary) {
-					r.recorder.Eventf(cachedDaemonSet, corev1.EventTypeWarning, failedUpdateDaemonSetReason, "daemonSet %v rollout failed", cachedDaemonSet.Name)
-					return false, fmt.Errorf("daemonSet %s rollout failed", cachedDaemonSet.Name), CanaryUpgradeStatusFailed
-				}
-			}
+		// start canary upgrade
+		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
+		_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+		if err != nil {
+			return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 		}
 		done, status = false, CanaryUpgradeStatusStarted
 	case updatedAndReadyPods > 0 && updatedAndReadyPods < desiredReadyPods:
@@ -435,9 +431,4 @@ func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 	}
 
 	return replicas, nil
-}
-
-func (r *Reconciler) isRolledOut(cachedDaemonSet, newDS *appsv1.DaemonSet) bool {
-	return equality.Semantic.DeepEqual(cachedDaemonSet.Spec.Selector, newDS.Spec.Selector) &&
-		equality.Semantic.DeepEqual(cachedDaemonSet.Spec.Template.Spec, newDS.Spec.Template.Spec)
 }
