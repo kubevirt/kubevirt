@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -2250,34 +2251,29 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			vmi = tests.NewRandomVMI()
-
-			By("Creating VirtualMachine")
 			vm = tests.NewRandomVirtualMachine(vmi, true)
-			Expect(vm.Finalizers).To(HaveLen(0))
-
+			Expect(vm.Finalizers).To(BeEmpty())
+			vm.Finalizers = append(vm.Finalizers, customFinalizer)
 		})
 
 		AfterEach(func() {
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if controller.HasFinalizer(vm, customFinalizer) {
-				var ops []string
-				oldFinalizers, err := json.Marshal(vm.GetFinalizers())
-				Expect(err).ToNot(HaveOccurred())
-				newVm := vm.DeepCopy()
-				controller.RemoveFinalizer(newVm, customFinalizer)
-				newFinalizers, err := json.Marshal(newVm.GetFinalizers())
-				Expect(err).ToNot(HaveOccurred())
-				ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
-				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
 
-			if vm.DeletionTimestamp == nil {
-				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(vm.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
+			oldFinalizers, err := json.Marshal(vm.GetFinalizers())
+			Expect(err).ToNot(HaveOccurred())
+
+			newVm := vm.DeepCopy()
+			controller.RemoveFinalizer(newVm, customFinalizer)
+			newFinalizers, err := json.Marshal(newVm.GetFinalizers())
+			Expect(err).ToNot(HaveOccurred())
+
+			var ops []string
+			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/metadata/finalizers", "value": %s }`, string(oldFinalizers)))
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/metadata/finalizers", "value": %s }`, string(newFinalizers)))
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensure the vm has disappeared")
 			Eventually(func() bool {
@@ -2286,18 +2282,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 2*time.Minute, 1*time.Second).Should(BeTrue(), fmt.Sprintf("vm %s is not deleted", vm.Name))
 		})
 
-		It("should be added when the vm is created", func() {
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func(g Gomega) {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
-			}, 2*time.Minute, 1*time.Second)
-		})
-
-		It("should be removed when the vm is being deleted", func() {
-			vm.Finalizers = append(vm.Finalizers, customFinalizer)
+		It("should be added when the vm is created and removed when the vm is being deleted", func() {
+			By("Creating VirtualMachine")
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -2305,6 +2291,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
+				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
 			}, 2*time.Minute, 1*time.Second)
 
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(vm.Name, &metav1.DeleteOptions{})
@@ -2314,6 +2301,70 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeFalse())
+				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
+			}, 2*time.Minute, 1*time.Second)
+		})
+
+		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", func() {
+			By("creating a VirtualMachineClusterInstancetype")
+			instancetype := &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "instancetype-",
+				},
+				Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha2.CPUInstancetype{
+						Guest: uint32(1),
+					},
+					Memory: instancetypev1alpha2.MemoryInstancetype{
+						Guest: resource.MustParse("64Mi"),
+					},
+				},
+			}
+			instancetype, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("creating a VirtualMachine")
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: instancetype.Name,
+			}
+			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{},
+				},
+			}
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting until the VirtualMachine has the VirtualMachineControllerFinalizer, customFinalizer and revisionName")
+			Eventually(func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
+				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
+				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+			}, 2*time.Minute, 1*time.Second)
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By(fmt.Sprintf("deleting the ControllerRevision associated with the VirtualMachine and VirtualMachineClusterInstancetype %s", vm.Spec.Instancetype.RevisionName))
+			err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("deleting the VirtualMachineClusterInstancetype")
+			err = virtClient.VirtualMachineClusterInstancetype().Delete(context.Background(), vm.Spec.Instancetype.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("deleting the VirtualMachine")
+			err = virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting until the VirtualMachineControllerFinalizer has been removed from the VirtualMachine")
+			Eventually(func(g Gomega) {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeFalse())
+				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
 			}, 2*time.Minute, 1*time.Second)
 		})
 	})
