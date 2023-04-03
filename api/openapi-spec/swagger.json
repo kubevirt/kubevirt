@@ -12710,6 +12710,10 @@
       "description": "If specified will pass option 67 to interface's DHCP server",
       "type": "string"
      },
+     "disable": {
+      "description": "If specified will disable nic's DHCP server",
+      "type": "boolean"
+     },
      "ntpServers": {
       "description": "If specified will pass the configured NTP server to the VM via DHCP option 042.",
       "type": "array",
@@ -12728,10 +12732,6 @@
       "description": "If specified will pass option 66 to interface's DHCP server",
       "type": "string"
      },
-     "disable": {
-      "description": "If specified will disable nic's DHCP server",
-      "type": "boolean"
-     }
     }
    },
    "v1.DHCPPrivateOptions": {
