@@ -6733,9 +6733,15 @@ var CRDsValidation map[string]string = map[string]string{
                           number for the disk device.
                         type: string
                       shareable:
-                        description: If specified the disk is made sharable and multiple
-                          write from different VMs are permitted
                         description: shareable indicates this disk is shareable with
+                          multiple vm for rwx Defaults to false.
+                        type: boolean
+                      tag:
+                        description: If specified, disk address and its tag will be
+                          provided to the guest via config drive metadata
+                        type: string
+                    required:
+                    - name
                     type: object
                   dryRun:
                     description: 'When present, indicates that modifications should
@@ -8417,7 +8423,6 @@ var CRDsValidation map[string]string = map[string]string{
                       shareable:
                         description: shareable indicates this disk is shareable with
                           multiple vm for rwx Defaults to false.
-
                         type: boolean
                       tag:
                         description: If specified, disk address and its tag will be
@@ -16383,7 +16388,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           specify a serial number for the disk device.
                                         type: string
                                       shareable:
-
                                         description: shareable indicates this disk
                                           is shareable with multiple vm for rwx Defaults
                                           to false.
@@ -20433,7 +20437,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               device.
                                             type: string
                                           shareable:
-
                                             description: shareable indicates this
                                               disk is shareable with multiple vm for
                                               rwx Defaults to false.
