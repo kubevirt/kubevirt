@@ -681,7 +681,7 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 
 func possibleGuestSize(disk api.Disk) (int64, bool) {
 	if disk.Capacity == nil {
-		log.DefaultLogger().Error("No disk capacity")
+		log.DefaultLogger().Errorf("No disk capacity on %v", disk.Device)
 		return 0, false
 	}
 	preferredSize := *disk.Capacity
