@@ -285,6 +285,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
+	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 
 	tagFromOperator := ""
 	operatorSha := ""
@@ -309,6 +310,9 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 			// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
 			// but as a fallback use latest tag
 			tagFromOperator = "latest"
+			if kubeVirtVersion != "" {
+				tagFromOperator = kubeVirtVersion
+			}
 			operatorSha = strings.TrimPrefix(version, "@")
 		}
 
@@ -347,7 +351,6 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	exportServerSha := envVarManager.Getenv(VirtExportServerShasumEnvName)
 	gsSha := envVarManager.Getenv(GsEnvShasumName)
 	prHelperSha := envVarManager.Getenv(PrHelperShasumEnvName)
-	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
 		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, prHelperSha, namespace, additionalProperties, passthroughEnv)
 	}
