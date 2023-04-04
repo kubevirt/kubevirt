@@ -22,6 +22,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -280,7 +281,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:8821]should have all the requried annotations", func() {
+		It("[test_id:8821]should have all the required annotations", func() {
 			for _, group := range prometheusRule.Spec.Groups {
 				for _, rule := range group.Rules {
 					if rule.Alert != "" {
@@ -290,7 +291,7 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			}
 		})
 
-		It("[test_id:8822]should have all the requried labels", func() {
+		It("[test_id:8822]should have all the required labels", func() {
 			for _, group := range prometheusRule.Spec.Groups {
 				for _, rule := range group.Rules {
 					if rule.Alert != "" {
@@ -702,6 +703,12 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 func checkRequiredAnnotations(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
 		fmt.Sprintf("%s summary is missing or empty", rule.Alert))
+	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
+		fmt.Sprintf("%s runbook_url is missing or empty", rule.Alert))
+
+	resp, err := http.Head(rule.Annotations["runbook_url"])
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
+	ExpectWithOffset(1, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
 
 func checkRequiredLabels(rule promv1.Rule) {

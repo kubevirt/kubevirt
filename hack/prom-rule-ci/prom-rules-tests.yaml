@@ -787,6 +787,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
@@ -804,6 +805,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
@@ -826,6 +828,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
@@ -843,6 +846,7 @@ tests:
         exp_alerts:
           - exp_annotations:
               summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
             exp_labels:
               severity: "warning"
               kubernetes_operator_component: "kubevirt"
