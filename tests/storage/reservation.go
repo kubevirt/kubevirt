@@ -176,6 +176,9 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		}, 90*time.Second, 1*time.Second).Should(BeTrue())
 	}
 	BeforeEach(func() {
+		var err error
+		virtClient, err = kubecli.GetKubevirtClient()
+		Expect(err).ToNot(HaveOccurred())
 		fgDisabled = !checks.HasFeature(virtconfig.PersistentReservation)
 		if fgDisabled {
 			tests.EnableFeatureGate(virtconfig.PersistentReservation)
@@ -185,15 +188,12 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 	AfterEach(func() {
 		if fgDisabled {
 			tests.DisableFeatureGate(virtconfig.PersistentReservation)
-			testsuite.WaitVirtHandlerReady()
 		}
 	})
 
 	Context("Use LUN disk with presistent reservation", func() {
 		BeforeEach(func() {
 			var err error
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
 			naa = generateNaa()
 			backendDisk = "disk" + rand.String(randLen)
 			disk = "disk-" + rand.String(randLen)
@@ -279,7 +279,6 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 	Context("with PersistentReservation feature gate toggled", func() {
 		It("should delete and recreate virt-handler", func() {
-			testsuite.WaitVirtHandlerReady()
 			tests.DisableFeatureGate(virtconfig.PersistentReservation)
 
 			Eventually(func() bool {

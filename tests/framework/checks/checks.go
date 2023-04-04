@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/util"
 
@@ -105,4 +106,15 @@ func IsOpenShift() bool {
 	}
 
 	return isOpenShift
+}
+
+func RequireFeatureGateVirtHandlerRestart(feature string) bool {
+	// List of feature gates that requires virt-handler to be redeployed
+	fgs := []string{virtconfig.PersistentReservation}
+	for _, f := range fgs {
+		if feature == f {
+			return true
+		}
+	}
+	return false
 }

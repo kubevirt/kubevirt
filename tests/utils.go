@@ -1628,6 +1628,10 @@ func DisableFeatureGate(feature string) {
 	}
 
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
+	if checks.RequireFeatureGateVirtHandlerRestart(feature) {
+		updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kv.Spec.Configuration)
+		return
+	}
 
 	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
@@ -1647,6 +1651,10 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 	}
 
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
+
+	if checks.RequireFeatureGateVirtHandlerRestart(feature) {
+		return updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kv.Spec.Configuration)
+	}
 
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
@@ -1766,6 +1774,29 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 60)).To(Succeed())
+}
+
+func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+	virtClient := kubevirt.Client()
+	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	currentGen := ds.Status.ObservedGeneration
+	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
+	Eventually(func() bool {
+		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		gen := ds.Status.ObservedGeneration
+		if gen > currentGen {
+			return true
+		}
+		return false
+
+	}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+	waitForConfigToBePropagated(kv.ResourceVersion)
+	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
+
+	return kv
 }
 
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource

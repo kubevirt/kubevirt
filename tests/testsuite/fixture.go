@@ -264,15 +264,3 @@ func WaitExportProxyReady() {
 		return d.Status.AvailableReplicas > 0
 	}, 90*time.Second, 1*time.Second).Should(BeTrue())
 }
-
-func WaitVirtHandlerReady() {
-	Eventually(func() bool {
-		virtClient := kubevirt.Client()
-		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return false
-		}
-		Expect(err).ToNot(HaveOccurred())
-		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady && ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue() == 1
-	}, 90*time.Second, 1*time.Second).Should(BeTrue())
-}
