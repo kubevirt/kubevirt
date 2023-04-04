@@ -117,18 +117,6 @@ KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorConditio
 ### Create a VM ###
 Msg "Create a simple VM on the previous version cluster, before the upgrade"
 ${CMD} create namespace ${VMS_NAMESPACE}
-
-######
-# TODO remove this once OCP/OKD 4.13 will not set PSA enforce=restricted by default
-# excplitly label vm namespace as priviledged to let our VM start there
-# until OCP/OKD will tolerate it can handle it
-# We need it only with Kubevirt <= v0.58.z since Kubevirt v0.59.0 correctly works with PSA.
-if [[ "${RELEASE_DELTA}" == "2" ]]; then
-    echo "----- HACK: explicitly disabling PSA enforce=restricted and scc.podSecurityLabelSync"
-    ${CMD} label namespace ${VMS_NAMESPACE} --overwrite pod-security.kubernetes.io/enforce=privileged security.openshift.io/scc.podSecurityLabelSync=false
-fi
-######
-
 ssh-keygen -t ecdsa -f ./hack/test_ssh -q -N ""
 cat << END > ./hack/cloud-init.sh
 #!/bin/sh
