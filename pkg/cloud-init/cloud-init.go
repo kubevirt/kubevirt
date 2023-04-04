@@ -22,7 +22,6 @@ package cloudinit
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -491,15 +490,6 @@ func GetIsoFilePath(source DataSourceType, domain, namespace string) string {
 
 func PrepareLocalPath(vmiName string, namespace string) error {
 	return util.MkdirAllWithNosec(getDomainBasePath(vmiName, namespace))
-}
-
-func removeLocalData(domain string, namespace string) error {
-	domainBasePath := getDomainBasePath(domain, namespace)
-	err := os.RemoveAll(domainBasePath)
-	if err != nil && errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return err
 }
 
 func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
