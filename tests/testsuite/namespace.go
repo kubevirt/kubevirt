@@ -94,6 +94,18 @@ func CleanNamespaces() {
 		err = resetNamespaceLabelsToDefault(virtCli, namespace)
 		util.PanicOnError(err)
 
+		clusterinstancetypes, err := virtCli.VirtualMachineClusterInstancetype().List(context.Background(), listOptions)
+		util.PanicOnError(err)
+		for _, clusterinstancetypes := range clusterinstancetypes.Items {
+			util.PanicOnError(virtCli.VirtualMachineClusterInstancetype().Delete(context.Background(), clusterinstancetypes.Name, metav1.DeleteOptions{}))
+		}
+
+		instancetype, err := virtCli.VirtualMachineInstancetype(namespace).List(context.Background(), metav1.ListOptions{})
+		util.PanicOnError(err)
+		for _, instancetype := range instancetype.Items {
+			util.PanicOnError(virtCli.VirtualMachineInstancetype(namespace).Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{}))
+		}
+
 		//Remove all Jobs
 		jobDeleteStrategy := metav1.DeletePropagationOrphan
 		jobDeleteOptions := metav1.DeleteOptions{PropagationPolicy: &jobDeleteStrategy}
