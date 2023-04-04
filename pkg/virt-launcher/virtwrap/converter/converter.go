@@ -118,6 +118,7 @@ type ConverterContext struct {
 	Topology              *cmdv1.Topology
 	ExpandDisksEnabled    bool
 	UseLaunchSecurity     bool
+	FreePageReporting     bool
 }
 
 func contains(volumes []string, name string) bool {
@@ -1158,6 +1159,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 				IOMMU: "on",
 			}
 		}
+		ballooning.FreePageReporting = boolToOnOff(&c.FreePageReporting, false)
 	}
 }
 

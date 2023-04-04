@@ -86,6 +86,7 @@ var _ = Describe("Manager", func() {
 	var testVirtShareDir string
 	var testEphemeralDiskDir string
 	var metadataCache *metadata.Cache
+	var topology *cmdv1.Topology
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
@@ -102,6 +103,282 @@ var _ = Describe("Manager", func() {
 		mockDirectIOChecker = converter.NewMockDirectIOChecker(ctrl)
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(true, nil)
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(true, nil)
+		topology = &cmdv1.Topology{
+			NumaCells: []*cmdv1.Cell{
+				{
+					Id: uint32(0),
+					Memory: &cmdv1.Memory{
+						Amount: 1289144,
+						Unit:   "KiB",
+					},
+					Pages: []*cmdv1.Pages{
+						{
+							Count: 314094,
+							Unit:  "KiB",
+							Size:  4,
+						},
+						{
+							Count: 16,
+							Unit:  "KiB",
+							Size:  2048,
+						},
+						{
+							Count: 0,
+							Unit:  "KiB",
+							Size:  1048576,
+						},
+					},
+					Distances: []*cmdv1.Sibling{
+						{
+							Id:    0,
+							Value: 10,
+						},
+						{
+							Id:    1,
+							Value: 10,
+						},
+						{
+							Id:    2,
+							Value: 10,
+						},
+						{
+							Id:    3,
+							Value: 10,
+						},
+					},
+					Cpus: []*cmdv1.CPU{
+						{
+							Id:       0,
+							Siblings: []uint32{0},
+						},
+						{
+							Id:       1,
+							Siblings: []uint32{1},
+						},
+						{
+							Id:       2,
+							Siblings: []uint32{2},
+						},
+						{
+							Id:       3,
+							Siblings: []uint32{3},
+						},
+						{
+							Id:       4,
+							Siblings: []uint32{4},
+						},
+						{
+							Id:       5,
+							Siblings: []uint32{5},
+						},
+					},
+				},
+				{
+					Id: uint32(2),
+					Memory: &cmdv1.Memory{
+						Amount: 1223960,
+						Unit:   "KiB",
+					},
+					Pages: []*cmdv1.Pages{
+						{
+							Count: 297798,
+							Unit:  "KiB",
+							Size:  4,
+						},
+						{
+							Count: 16,
+							Unit:  "KiB",
+							Size:  2048,
+						},
+						{
+							Count: 0,
+							Unit:  "KiB",
+							Size:  1048576,
+						},
+					},
+					Distances: []*cmdv1.Sibling{
+						{
+							Id:    0,
+							Value: 10,
+						},
+						{
+							Id:    1,
+							Value: 10,
+						},
+						{
+							Id:    2,
+							Value: 10,
+						},
+						{
+							Id:    3,
+							Value: 10,
+						},
+					},
+					Cpus: []*cmdv1.CPU{
+						{
+							Id:       0,
+							Siblings: []uint32{0},
+						},
+						{
+							Id:       1,
+							Siblings: []uint32{1},
+						},
+						{
+							Id:       2,
+							Siblings: []uint32{2},
+						},
+						{
+							Id:       3,
+							Siblings: []uint32{3},
+						},
+						{
+							Id:       4,
+							Siblings: []uint32{4},
+						},
+						{
+							Id:       5,
+							Siblings: []uint32{5},
+						},
+					},
+				},
+				{
+					Id: uint32(3),
+					Memory: &cmdv1.Memory{
+						Amount: 1251752,
+						Unit:   "KiB",
+					},
+					Pages: []*cmdv1.Pages{
+						{
+							Count: 304746,
+							Unit:  "KiB",
+							Size:  4,
+						},
+						{
+							Count: 16,
+							Unit:  "KiB",
+							Size:  2048,
+						},
+						{
+							Count: 0,
+							Unit:  "KiB",
+							Size:  1048576,
+						},
+					},
+					Distances: []*cmdv1.Sibling{
+						{
+							Id:    0,
+							Value: 10,
+						},
+						{
+							Id:    1,
+							Value: 10,
+						},
+						{
+							Id:    2,
+							Value: 10,
+						},
+						{
+							Id:    3,
+							Value: 10,
+						},
+					},
+					Cpus: []*cmdv1.CPU{
+						{
+							Id:       0,
+							Siblings: []uint32{0},
+						},
+						{
+							Id:       1,
+							Siblings: []uint32{1},
+						},
+						{
+							Id:       2,
+							Siblings: []uint32{2},
+						},
+						{
+							Id:       3,
+							Siblings: []uint32{3},
+						},
+						{
+							Id:       4,
+							Siblings: []uint32{4},
+						},
+						{
+							Id:       5,
+							Siblings: []uint32{5},
+						},
+					},
+				},
+				{
+					Id: uint32(4),
+					Memory: &cmdv1.Memory{
+						Amount: 1289404,
+						Unit:   "KiB",
+					},
+					Pages: []*cmdv1.Pages{
+						{
+							Count: 314159,
+							Unit:  "KiB",
+							Size:  4,
+						},
+						{
+							Count: 16,
+							Unit:  "KiB",
+							Size:  2048,
+						},
+						{
+							Count: 0,
+							Unit:  "KiB",
+							Size:  1048576,
+						},
+					},
+					Distances: []*cmdv1.Sibling{
+						{
+							Id:    0,
+							Value: 10,
+						},
+						{
+							Id:    1,
+							Value: 10,
+						},
+						{
+							Id:    2,
+							Value: 10,
+						},
+						{
+							Id:    3,
+							Value: 10,
+						},
+					},
+					Cpus: []*cmdv1.CPU{
+						{
+							Id:       0,
+							Siblings: []uint32{0},
+						},
+						{
+							Id:       1,
+							Siblings: []uint32{1},
+						},
+						{
+							Id:       2,
+							Siblings: []uint32{2},
+						},
+						{
+							Id:       3,
+							Siblings: []uint32{3},
+						},
+						{
+							Id:       4,
+							Siblings: []uint32{4},
+						},
+						{
+							Id:       5,
+							Siblings: []uint32{5},
+						},
+					},
+				},
+			},
+		}
 	})
 
 	expectedDomainFor := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -117,12 +394,15 @@ var _ = Describe("Manager", func() {
 		}
 
 		c := &converter.ConverterContext{
-			Architecture:     runtime.GOARCH,
-			VirtualMachine:   vmi,
-			AllowEmulation:   true,
-			SMBios:           &cmdv1.SMBios{},
-			HotplugVolumes:   hotplugVolumes,
-			PermanentVolumes: permanentVolumes,
+			Architecture:      runtime.GOARCH,
+			VirtualMachine:    vmi,
+			AllowEmulation:    true,
+			SMBios:            &cmdv1.SMBios{},
+			HotplugVolumes:    hotplugVolumes,
+			PermanentVolumes:  permanentVolumes,
+			FreePageReporting: isFreePageReportingEnabled(vmi),
+			CPUSet:            []int{0, 1, 2, 3, 4, 5},
+			Topology:          topology,
 		}
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
@@ -941,6 +1221,38 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
 		})
+		DescribeTable("should set freePageReporting", func(memory *v1.Memory, cpu *v1.CPU, annotationValue, expectedFreePageReportingValue string) {
+			vmi := newVMI(testNamespace, testVmName)
+			if vmi.Annotations == nil {
+				vmi.Annotations = make(map[string]string)
+			}
+
+			vmi.Annotations[v1.FreePageReportingDisabledAnnotation] = annotationValue
+			vmi.Spec.Domain.Memory = memory
+			vmi.Spec.Domain.CPU = cpu
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+			domainSpec := expectedDomainFor(vmi)
+
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockConn.EXPECT().DomainDefineXML(string(xml)).DoAndReturn(mockDomainWithFreeExpectation)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, Topology: topology})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newspec).ToNot(BeNil())
+			Expect(newspec.Devices.Ballooning.FreePageReporting).To(Equal(expectedFreePageReportingValue))
+		},
+			Entry("enabled if vmi is not requesting any high performance components", nil, nil, "false", "on"),
+			Entry("disabled if vmi is requesting Hugepages", &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}, nil, "false", "off"),
+			Entry("disabled if vmi is requesting Realtime", nil, &v1.CPU{Realtime: &v1.Realtime{}}, "false", "off"),
+			Entry("disabled if vmi is requesting DedicatedCPU", nil, &v1.CPU{
+				DedicatedCPUPlacement: true}, "false", "off"),
+			Entry("disabled if vmi has the disable free page reporting annotation", nil, nil, "true", "off"),
+		)
 	})
 	Context("test marking graceful shutdown", func() {
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {
