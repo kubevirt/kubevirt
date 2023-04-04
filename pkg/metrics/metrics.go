@@ -17,8 +17,6 @@ const (
 	HCOMetricUnsafeModifications      = "unsafeModifications"
 	HCOMetricHyperConvergedExists     = "HyperConvergedCRExists"
 	HCOMetricSystemHealthStatus       = "systemHealthStatus"
-	HCOMetricNodeStatusMaxImages      = "nodeStatusMaxImages"
-	HCOMetricNumberOfImages           = "nodeNumberOfImages"
 
 	HyperConvergedExists    = float64(1)
 	HyperConvergedNotExists = float64(0)
@@ -40,25 +38,6 @@ type metricDesc struct {
 
 func (md metricDesc) init() prometheus.Collector {
 	return md.initFunc(md)
-}
-
-var gaugeVecInitFunc = func(md metricDesc) prometheus.Collector {
-	return prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: md.fqName,
-			Help: md.help,
-		},
-		md.constLabelPairs,
-	)
-}
-
-var gaugeInitFunc = func(md metricDesc) prometheus.Collector {
-	return prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: md.fqName,
-			Help: md.help,
-		},
-	)
 }
 
 // HcoMetrics wrapper for all hco metrics
@@ -84,35 +63,43 @@ var HcoMetrics = func() hcoMetrics {
 			help:            "Count of unsafe modifications in the HyperConverged annotations",
 			mType:           "Gauge",
 			constLabelPairs: []string{counterLabelAnnName},
-			initFunc:        gaugeVecInitFunc,
+			initFunc: func(md metricDesc) prometheus.Collector {
+				return prometheus.NewGaugeVec(
+					prometheus.GaugeOpts{
+						Name: md.fqName,
+						Help: md.help,
+					},
+					md.constLabelPairs,
+				)
+			},
 		},
 		HCOMetricHyperConvergedExists: {
 			fqName:          "kubevirt_hco_hyperconverged_cr_exists",
 			help:            "Indicates whether the HyperConverged custom resource exists (1) or not (0)",
 			mType:           "Gauge",
 			constLabelPairs: []string{counterLabelAnnName},
-			initFunc:        gaugeInitFunc,
+			initFunc: func(md metricDesc) prometheus.Collector {
+				return prometheus.NewGauge(
+					prometheus.GaugeOpts{
+						Name: md.fqName,
+						Help: md.help,
+					},
+				)
+			},
 		},
 		HCOMetricSystemHealthStatus: {
 			fqName:          "kubevirt_hco_system_health_status",
 			help:            "Indicates whether the system health status is healthy (0), warning (1), or error (2), by aggregating the conditions of HCO and its secondary resources",
 			mType:           "Gauge",
 			constLabelPairs: []string{counterLabelAnnName},
-			initFunc:        gaugeInitFunc,
-		},
-		HCOMetricNodeStatusMaxImages: {
-			fqName:          "kubevirt_hco_node_status_max_images",
-			help:            "The maximum number of images that can be reported by the node status",
-			mType:           "Gauge",
-			constLabelPairs: []string{"node"},
-			initFunc:        gaugeVecInitFunc,
-		},
-		HCOMetricNumberOfImages: {
-			fqName:          "kubevirt_hco_node_number_of_images",
-			help:            "The number of images that are stored on a node",
-			mType:           "Gauge",
-			constLabelPairs: []string{"node"},
-			initFunc:        gaugeVecInitFunc,
+			initFunc: func(md metricDesc) prometheus.Collector {
+				return prometheus.NewGauge(
+					prometheus.GaugeOpts{
+						Name: md.fqName,
+						Help: md.help,
+					},
+				)
+			},
 		},
 	}
 
@@ -278,14 +265,6 @@ func (hm *hcoMetrics) SetHCOMetricSystemHealthStatus(status float64) error {
 // GetHCOMetricSystemHealthStatus returns current value of gauge. If error is not nil then value is undefined
 func (hm *hcoMetrics) GetHCOMetricSystemHealthStatus() (float64, error) {
 	return hm.GetMetricValue(HCOMetricSystemHealthStatus, nil)
-}
-
-func (hm *hcoMetrics) SetHCOMetricNodeStatusMaxImages(nodeName string, count int) error {
-	return hm.SetMetric(HCOMetricNodeStatusMaxImages, prometheus.Labels{"node": nodeName}, float64(count))
-}
-
-func (hm *hcoMetrics) SetHCOMetricNumberOfImages(nodeName string, count int) error {
-	return hm.SetMetric(HCOMetricNumberOfImages, prometheus.Labels{"node": nodeName}, float64(count))
 }
 
 func getLabelsForObj(kind string, name string) prometheus.Labels {

@@ -42,7 +42,6 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/hyperconverged"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/nodeconfig"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
@@ -161,12 +160,6 @@ func main() {
 	if err := hyperconverged.RegisterReconciler(mgr, ci, upgradeableCondition); err != nil {
 		logger.Error(err, "failed to register the HyperConverged controller")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register HyperConverged controller; "+err.Error())
-		os.Exit(1)
-	}
-
-	if err := nodeconfig.RegisterReconciler(mgr); err != nil {
-		logger.Error(err, "failed to register the NodeConfig controller")
-		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register NodeConfig controller; "+err.Error())
 		os.Exit(1)
 	}
 
