@@ -147,15 +147,11 @@ container_image(
         ":virt_launcher.cil",
         "//:get-version",
     ],
-    tars = select({
+    tars = [":passwd-tar",":nsswitch-tar"] + select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":passwd-tar",
-            ":nsswitch-tar",
             "//rpm:handlerbase_aarch64",
         ],
         "//conditions:default": [
-            ":passwd-tar",
-            ":nsswitch-tar",
             "//rpm:handlerbase_x86_64",
         ],
     }),

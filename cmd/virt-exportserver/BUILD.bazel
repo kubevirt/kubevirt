@@ -59,13 +59,11 @@ container_image(
     files = [
         "//:get-version",
     ],
-    tars = select({
+    tars = [":passwd-tar"] + select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":passwd-tar",
             "//rpm:exportserverbase_aarch64",
         ],
         "//conditions:default": [
-            ":passwd-tar",
             "//rpm:exportserverbase_x86_64",
         ],
     }),

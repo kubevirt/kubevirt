@@ -170,21 +170,12 @@ container_image(
     name = "version-container",
     directory = "/",
     files = ["//:get-version"],
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":libvirt-config",
+    tars = [":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":qemu-kvm-modules-dir-tar",
-            "//rpm:launcherbase_aarch64",
-        ],
-        "//conditions:default": [
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-kvm-modules-dir-tar",
-            "//rpm:launcherbase_x86_64",
-        ],
+            ":qemu-kvm-modules-dir-tar"] + select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:launcherbase_aarch64"],
+        "//conditions:default": ["//rpm:launcherbase_x86_64"],
     }),
 )
 
