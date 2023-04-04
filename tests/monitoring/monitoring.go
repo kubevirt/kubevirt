@@ -24,44 +24,33 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-
-	k8sv1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/rand"
-
-	"kubevirt.io/kubevirt/tests/libnode"
-
-	"kubevirt.io/kubevirt/tests/clientcmd"
-
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/libwait"
-	"kubevirt.io/kubevirt/tests/util"
-
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libvmi"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 type alerts struct {
@@ -95,7 +84,7 @@ var (
 	}
 )
 
-var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -191,22 +180,6 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	}
 
-	waitForMetricValueWithLabels := func(client kubecli.KubevirtClient, metric string, expectedValue int64, labels map[string]string) {
-		Eventually(func() int {
-			v, err := getMetricValueWithLabels(client, metric, labels)
-			if err != nil {
-				return -1
-			}
-			i, err := strconv.Atoi(v)
-			Expect(err).ToNot(HaveOccurred())
-			return i
-		}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
-	}
-
-	waitForMetricValue := func(client kubecli.KubevirtClient, metric string, expectedValue int64) {
-		waitForMetricValueWithLabels(client, metric, expectedValue, nil)
-	}
-
 	updatePromRules := func(newRules *promv1.PrometheusRule) {
 		err = virtClient.
 			PrometheusClient().MonitoringV1().
@@ -298,150 +271,6 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 						checkRequiredLabels(rule)
 					}
 				}
-			}
-		})
-	})
-
-	Context("VM migration metrics", func() {
-		var nodes *k8sv1.NodeList
-
-		BeforeEach(func() {
-			checks.SkipIfMigrationIsNotPossible()
-
-			Eventually(func() []k8sv1.Node {
-				nodes = libnode.GetAllSchedulableNodes(virtClient)
-				return nodes.Items
-			}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
-		})
-
-		It("Should correctly update metrics on successful VMIM", func() {
-			By("Creating VMIs")
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-
-			By("Migrating VMIs")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
-
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_pending_count", 0)
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_running_count", 0)
-
-			labels := map[string]string{
-				"vmi": vmi.Name,
-			}
-			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded", 1, labels)
-
-			By("Delete VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-		})
-
-		It("Should correctly update metrics on failing VMIM", func() {
-			By("Creating VMIs")
-			vmi := libvmi.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithNodeAffinityFor(&nodes.Items[0]),
-			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
-			labels := map[string]string{
-				"vmi": vmi.Name,
-			}
-
-			By("Starting the Migration")
-			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
-			migration = tests.RunMigration(virtClient, migration)
-
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 1)
-
-			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
-
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
-			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed", 1, labels)
-
-			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-		})
-	})
-
-	Context("VM snapshot metrics", func() {
-		quantity, _ := resource.ParseQuantity("500Mi")
-
-		createSimplePVCWithRestoreLabels := func(name string) {
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: name,
-					Labels: map[string]string{
-						"restore.kubevirt.io/source-vm-name":      "simple-vm",
-						"restore.kubevirt.io/source-vm-namespace": util.NamespaceTestDefault,
-					},
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							"storage": quantity,
-						},
-					},
-				},
-			}, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
-			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_total{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
-			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
-			numPVCs := 2
-
-			for i := 1; i < numPVCs+1; i++ {
-				// Create dummy PVC that is labelled as "restored" from VM snapshot
-				createSimplePVCWithRestoreLabels(fmt.Sprintf("vmsnapshot-restored-pvc-%d", i))
-				// Metric values increases per restored disk
-				waitForMetricValue(virtClient, totalMetric, int64(i))
-				waitForMetricValue(virtClient, bytesMetric, quantity.Value()*int64(i))
-			}
-		})
-	})
-
-	Context("VM status metrics", func() {
-		newVirtualMachine := func() *v1.VirtualMachine {
-			vmi := tests.NewRandomVMI()
-			return tests.NewRandomVirtualMachine(vmi, true)
-		}
-
-		createVirtualMachine := func(vm *v1.VirtualMachine) {
-			By("Creating VirtualMachine")
-			_, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		It("should expose VM CPU metrics", func() {
-			vm := newVirtualMachine()
-			createVirtualMachine(vm)
-
-			metrics := []string{
-				"kubevirt_vmi_cpu_system_usage_seconds",
-				"kubevirt_vmi_cpu_usage_seconds",
-				"kubevirt_vmi_cpu_user_usage_seconds",
-			}
-
-			for _, metric := range metrics {
-				Eventually(func() int {
-					v, err := getMetricValueWithLabels(virtClient, metric, nil)
-					if err != nil {
-						return -1
-					}
-
-					i, err := strconv.Atoi(v)
-					if err != nil {
-						return -1
-					}
-
-					return i
-				}, 3*time.Minute, 1*time.Second).Should(BeNumerically(">=", 0))
 			}
 		})
 	})

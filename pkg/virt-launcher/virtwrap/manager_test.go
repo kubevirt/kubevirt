@@ -1596,7 +1596,7 @@ var _ = Describe("Manager", func() {
 					libvirt.DOMAIN_STATS_INTERFACE |
 					libvirt.DOMAIN_STATS_BLOCK |
 					libvirt.DOMAIN_STATS_DIRTYRATE
-				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
+				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 			)
 			fakeDomainStats := []*stats.DomainStats{
 				{},
