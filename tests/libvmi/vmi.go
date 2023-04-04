@@ -146,6 +146,12 @@ func WithLimitCPU(value string) Option {
 	}
 }
 
+func WithDownwardMetricsChannel() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
+	}
+}
+
 // WithNodeSelectorFor ensures that the VMI gets scheduled on the specified node
 func WithNodeSelectorFor(node *k8sv1.Node) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
