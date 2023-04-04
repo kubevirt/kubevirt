@@ -194,6 +194,7 @@ func PodIsCrashLooping(pod *k8sv1.Pod) bool {
 	haveContainersCrashed := func(cs []k8sv1.ContainerStatus) bool {
 		for i := range cs {
 			if cs[i].State.Terminated != nil ||
+				(cs[i].State.Waiting != nil && cs[i].State.Waiting.Reason == "CrashLoopBackOff") ||
 				cs[i].LastTerminationState.Terminated != nil ||
 				cs[i].RestartCount > 0 {
 				return true
