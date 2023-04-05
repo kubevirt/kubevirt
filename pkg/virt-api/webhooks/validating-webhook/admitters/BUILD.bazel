@@ -29,6 +29,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/network/link:go_default_library",
+        "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util/hardware:go_default_library",

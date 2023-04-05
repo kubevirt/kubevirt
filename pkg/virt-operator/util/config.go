@@ -34,6 +34,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	clientutil "kubevirt.io/client-go/util"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -48,6 +50,7 @@ const (
 	VirtExportProxyImageEnvName  = "VIRT_EXPORTPROXY_IMAGE"
 	VirtExportServerImageEnvName = "VIRT_EXPORTSERVER_IMAGE"
 	GsImageEnvName               = "GS_IMAGE"
+	PrHelperImageEnvName         = "PR_HELPER_IMAGE"
 	RunbookURLTemplate           = "RUNBOOK_URL_TEMPLATE"
 
 	// The below Shasum variables would be ignored if Image env vars are being used.
@@ -64,7 +67,9 @@ const (
 	// Deprecated, use VirtExportServerImageEnvName instead
 	VirtExportServerShasumEnvName = "VIRT_EXPORTSERVER_SHASUM"
 	// Deprecated, use GsImageEnvName instead
-	GsEnvShasumName        = "GS_SHASUM"
+	GsEnvShasumName = "GS_SHASUM"
+	// Deprecated, use PrHelperImageEnvName instead
+	PrHelperShasumEnvName  = "PR_HELPER_SHASUM"
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
@@ -91,6 +96,9 @@ const (
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
@@ -136,6 +144,7 @@ type KubeVirtDeploymentConfig struct {
 	VirtExportProxyImage  string `json:"virtExportProxyImage,omitempty" optional:"true"`
 	VirtExportServerImage string `json:"virtExportServerImage,omitempty" optional:"true"`
 	GsImage               string `json:"GsImage,omitempty" optional:"true"`
+	PrHelperImage         string `json:"PrHelperImage,omitempty" optional:"true"`
 
 	// the shasums of every image we use
 	VirtOperatorSha     string `json:"virtOperatorSha,omitempty" optional:"true"`
@@ -146,6 +155,7 @@ type KubeVirtDeploymentConfig struct {
 	VirtExportProxySha  string `json:"virtExportProxySha,omitempty" optional:"true"`
 	VirtExportServerSha string `json:"virtExportServerSha,omitempty" optional:"true"`
 	GsSha               string `json:"gsSha,omitempty" optional:"true"`
+	PrHelperSha         string `json:"prHelperSha,omitempty" optional:"true"`
 
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
@@ -200,6 +210,13 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	if kv.Spec.Configuration.MigrationConfiguration != nil &&
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
+	}
+	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
+		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+			if v == virtconfig.PersistentReservation {
+				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+			}
+		}
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
@@ -314,8 +331,9 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	exportProxyImage := envVarManager.Getenv(VirtExportProxyImageEnvName)
 	exportServerImage := envVarManager.Getenv(VirtExportServerImageEnvName)
 	GsImage := envVarManager.Getenv(GsImageEnvName)
+	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 
-	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, GsImage, additionalProperties, passthroughEnv)
+	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, GsImage, PrHelperImage, additionalProperties, passthroughEnv)
 	if skipShasums {
 		return config
 	}
@@ -328,9 +346,10 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	exportProxySha := envVarManager.Getenv(VirtExportProxyShasumEnvName)
 	exportServerSha := envVarManager.Getenv(VirtExportServerShasumEnvName)
 	gsSha := envVarManager.Getenv(GsEnvShasumName)
+	prHelperSha := envVarManager.Getenv(PrHelperShasumEnvName)
 	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, namespace, additionalProperties, passthroughEnv)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, prHelperSha, namespace, additionalProperties, passthroughEnv)
 	}
 
 	return config
@@ -367,7 +386,7 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, gsImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, gsImage, prHelperImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:              registry,
 		ImagePrefix:           imagePrefix,
@@ -380,6 +399,7 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorI
 		VirtExportProxyImage:  exportProxyImage,
 		VirtExportServerImage: exportServerImage,
 		GsImage:               gsImage,
+		PrHelperImage:         prHelperImage,
 		Namespace:             namespace,
 		AdditionalProperties:  kvSpec,
 		PassthroughEnvVars:    passthroughEnv,
@@ -388,7 +408,7 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorI
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, exportProxySha, exportServerSha, gsSha, prHelperSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -401,6 +421,7 @@ func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, oper
 		VirtExportProxySha:   exportProxySha,
 		VirtExportServerSha:  exportServerSha,
 		GsSha:                gsSha,
+		PrHelperSha:          prHelperSha,
 		Namespace:            namespace,
 		AdditionalProperties: additionalProperties,
 		PassthroughEnvVars:   passthroughEnv,
@@ -493,6 +514,13 @@ func (c *KubeVirtDeploymentConfig) GetExportServerVersion() string {
 	return c.KubeVirtVersion
 }
 
+func (c *KubeVirtDeploymentConfig) GetPrHelperVersion() string {
+	if c.UseShasums() {
+		return c.PrHelperSha
+	}
+	return c.KubeVirtVersion
+}
+
 func (c *KubeVirtDeploymentConfig) GetKubeVirtVersion() string {
 	return c.KubeVirtVersion
 }
@@ -557,6 +585,11 @@ func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectRefe
 
 func (c *KubeVirtDeploymentConfig) WorkloadUpdatesEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesWorkloadUpdatesEnabled]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesPersistentReservationEnabled]
 	return enabled
 }
 

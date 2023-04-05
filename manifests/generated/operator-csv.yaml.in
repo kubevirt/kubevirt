@@ -1288,6 +1288,8 @@ spec:
                   value: {{if .VirtExportServerSha}}{{.VirtExportServerSha}}{{end}}
                 - name: GS_SHASUM
                   value: {{if .GsSha}}{{.GsSha}}{{end}}
+                - name: PR_HELPER_SHASUM
+                  value: {{if .PrHelperSha}}{{.PrHelperSha}}{{end}}
                 - name: KUBEVIRT_VERSION
                   value: {{.DockerTag}}
                 image: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}

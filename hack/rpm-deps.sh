@@ -57,6 +57,7 @@ testimage_main="
   procps-ng
   qemu-img-${QEMU_VERSION}
   tar
+  targetcli
   util-linux
   which
 "
@@ -145,6 +146,10 @@ libguestfstools_extra="
 
 exportserverbase_main="
   tar
+"
+
+pr_helper="
+  qemu-pr-helper
 "
 
 # get latest repo data from repo.yaml
@@ -247,6 +252,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $exportserverbase_main
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_x86_64 \
+        --basesystem centos-stream-release \
+        ${bazeldnf_repos} \
+        $pr_helper
+
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
@@ -338,6 +352,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_main \
         $centos_extra \
         $exportserverbase_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name pr-helper_aarch64 --arch aarch64 \
+        --basesystem centos-stream-release \
+        ${bazeldnf_repos} \
+        $pr_helper
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \

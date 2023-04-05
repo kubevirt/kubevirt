@@ -63,6 +63,8 @@ const (
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
 	HotplugNetworkIfacesGate = "HotplugNICs"
+	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
+	PersistentReservation = "PersistentReservation"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -208,4 +210,8 @@ func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 
 func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
 	return config.isFeatureGateEnabled(HotplugNetworkIfacesGate)
+}
+
+func (config *ClusterConfig) PersistentReservationEnabled() bool {
+	return config.isFeatureGateEnabled(PersistentReservation)
 }

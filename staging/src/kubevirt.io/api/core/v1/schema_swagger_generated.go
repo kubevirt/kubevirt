@@ -368,8 +368,9 @@ func (SEV) SwaggerDoc() map[string]string {
 
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
-		"readonly": "ReadOnly.\nDefaults to false.",
+		"bus":         "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
+		"readonly":    "ReadOnly.\nDefaults to false.",
+		"reservation": "Reservation indicates if the disk needs to support the persistent reservation for the SCSI disk",
 	}
 }
 

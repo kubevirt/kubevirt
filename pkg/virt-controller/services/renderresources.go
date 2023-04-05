@@ -257,6 +257,15 @@ func WithSEV() ResourceRendererOption {
 	}
 }
 
+func WithPersistentReservation() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, PrDevice)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value

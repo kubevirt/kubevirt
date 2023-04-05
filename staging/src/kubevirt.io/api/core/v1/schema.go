@@ -661,6 +661,8 @@ type LunTarget struct {
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
+	// Reservation indicates if the disk needs to support the persistent reservation for the SCSI disk
+	Reservation bool `json:"reservation,omitempty"`
 }
 
 // TrayState indicates if a tray of a cdrom is open or closed.

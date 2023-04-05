@@ -33,6 +33,7 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
@@ -128,6 +129,8 @@ const (
 
 	// Default network-status downward API file path
 	defaultNetworkStatusFilePath = "/etc/podinfo/network-status"
+
+	unprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
 )
 
 type virtHandlerApp struct {
@@ -312,6 +315,7 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldEnablePersistentReservation)
 
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
@@ -402,7 +406,6 @@ func (app *virtHandlerApp) Run() {
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
 		// relabel tun device
-		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
 
 		devTun, err := safepath.JoinAndResolveWithRelativeRoot("/", "/dev/net/tun")
 		if err != nil {
@@ -412,7 +415,6 @@ func (app *virtHandlerApp) Run() {
 		if err != nil {
 			panic(err)
 		}
-
 		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, se.IsPermissive(), devTun, devNull)
 		if err != nil {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
@@ -536,6 +538,34 @@ func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
 		return
 	}
 	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", installPath)
+
+}
+
+func (app *virtHandlerApp) shouldEnablePersistentReservation() {
+	enabled := app.clusterConfig.PersistentReservationEnabled()
+	if !enabled {
+		log.DefaultLogger().Info("Persistent Reservation is not enabled")
+		return
+	}
+	prSockDir, err := safepath.JoinAndResolveWithRelativeRoot("/", reservation.GetPrHelperHostSocketDir())
+	if err != nil {
+		panic(err)
+	}
+	err = safepath.ChownAtNoFollow(prSockDir, util.NonRootUID, util.NonRootUID)
+	if err != nil {
+		panic(err)
+	}
+	se, exists, err := selinux.NewSELinux()
+	if err == nil && exists {
+		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, se.IsPermissive(), prSockDir)
+		if err != nil {
+			panic(fmt.Errorf("error relabeling required files: %v", err))
+		}
+	} else if err != nil {
+		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
+	}
+
+	log.DefaultLogger().Infof("set permission for %s", reservation.GetPrHelperHostSocketDir())
 
 }
 

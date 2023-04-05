@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -189,6 +190,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		}
 	}
 
+	if c.virtConfig.PersistentReservationEnabled() {
+		permittedDevices = append(permittedDevices, NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices))
+	}
+
 	hostDevs := c.virtConfig.GetPermittedHostDevices()
 	if hostDevs == nil {
 		return permittedDevices
@@ -231,7 +236,6 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
 		}
 	}
-
 	return permittedDevices
 }
 

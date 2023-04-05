@@ -17404,6 +17404,10 @@
      "readonly": {
       "description": "ReadOnly. Defaults to false.",
       "type": "boolean"
+     },
+     "reservation": {
+      "description": "Reservation indicates if the disk needs to support the persistent reservation for the SCSI disk",
+      "type": "boolean"
      }
     }
    },
