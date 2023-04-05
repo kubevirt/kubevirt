@@ -513,6 +513,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
+			Namespace:    vmi.GetNamespace(),
 			Labels:       podLabels(vmi, hostName),
 			Annotations:  podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{
