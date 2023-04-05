@@ -27,8 +27,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,7 +105,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(withConfigMap(configMapName, configMapName))
+				vmi := libvmi.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -164,9 +162,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			It("[test_id:783]Should start VMI with multiple ConfigMaps", func() {
 				vmi := libvmi.NewAlpine(
-					withConfigMap(configMaps[0], configMaps[0]),
-					withConfigMap(configMaps[1], configMaps[1]),
-					withConfigMap(configMaps[2], configMaps[2]))
+					libvmi.WithConfigMapDisk(configMaps[0], configMaps[0]),
+					libvmi.WithConfigMapDisk(configMaps[1], configMaps[1]),
+					libvmi.WithConfigMapDisk(configMaps[2], configMaps[2]))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				CheckIsoVolumeSizes(vmi)
@@ -201,7 +199,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(withSecret(secretName, secretName))
+				vmi := libvmi.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -257,9 +255,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			It("[test_id:780]Should start VMI with multiple Secrets", func() {
 				vmi := libvmi.NewAlpine(
-					withSecret(secrets[0], secrets[0]),
-					withSecret(secrets[1], secrets[1]),
-					withSecret(secrets[2], secrets[2]))
+					libvmi.WithSecretDisk(secrets[0], secrets[0]),
+					libvmi.WithSecretDisk(secrets[1], secrets[1]),
+					libvmi.WithSecretDisk(secrets[2], secrets[2]))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				CheckIsoVolumeSizes(vmi)
@@ -274,7 +272,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmi.NewAlpine(withServiceAccount("default"))
+			vmi := libvmi.NewAlpine(libvmi.WithServiceAccountDisk("default"))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -363,10 +361,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutputSecret := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmi.NewFedora(withConfigMap(configMapName, configMapName),
-					withSecret(secretName, secretName),
-					withLabelledConfigMap(configMapName, "random1", "configlabel"),
-					withLabelledSecret(secretName, "random2", "secretlabel"))
+				vmi := libvmi.NewFedora(libvmi.WithConfigMapDisk(configMapName, configMapName),
+					libvmi.WithSecretDisk(secretName, secretName),
+					libvmi.WithLabelledConfigMapDisk(configMapName, "random1", "configlabel"),
+					libvmi.WithLabelledSecretDisk(secretName, "random2", "secretlabel"))
 
 				// Ensure virtio for consistent order
 				for i := range vmi.Spec.Domain.Devices.Disks {
@@ -483,7 +481,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedPublicKey := string(publicKeyBytes)
 
 				By("Running VMI")
-				vmi := libvmi.NewAlpine(withSecret(secretName, secretName))
+				vmi := libvmi.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -544,7 +542,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			By("Running VMI")
 			vmi := libvmi.NewAlpine(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
-				withDownwardAPI(downwardAPIName))
+				libvmi.WithDownwardAPIDisk(downwardAPIName))
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -575,91 +573,3 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
-
-func withSecret(secretName, volumeName string) libvmi.Option {
-	return withLabelledSecret(secretName, volumeName, "")
-}
-
-func withLabelledSecret(secretName, volumeName, label string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName:  secretName,
-					VolumeLabel: label,
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: volumeName,
-		})
-	}
-}
-
-func withConfigMap(configMapName, volumeName string) libvmi.Option {
-	return withLabelledConfigMap(configMapName, volumeName, "")
-}
-
-func withLabelledConfigMap(configMapName, volumeName, label string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				ConfigMap: &v1.ConfigMapVolumeSource{
-					LocalObjectReference: k8sv1.LocalObjectReference{
-						Name: configMapName,
-					},
-					VolumeLabel: label,
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: volumeName,
-		})
-	}
-}
-
-func withServiceAccount(name string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name + "-disk",
-			VolumeSource: v1.VolumeSource{
-				ServiceAccount: &v1.ServiceAccountVolumeSource{
-					ServiceAccountName: name,
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: name + "-disk",
-		})
-	}
-}
-
-func withDownwardAPI(name string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name,
-			VolumeSource: v1.VolumeSource{
-				DownwardAPI: &v1.DownwardAPIVolumeSource{
-					Fields: []k8sv1.DownwardAPIVolumeFile{
-						{
-							Path: "labels",
-							FieldRef: &k8sv1.ObjectFieldSelector{
-								FieldPath: "metadata.labels",
-							},
-						},
-					},
-					VolumeLabel: "",
-				},
-			},
-		})
-
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: name,
-		})
-	}
-}

@@ -246,6 +246,7 @@ go_test(
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",
         "//tests/virtctl:go_default_library",
+        "//tests/virtiofs:go_default_library",
         "//tests/watcher:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",

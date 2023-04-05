@@ -2,12 +2,13 @@ package services
 
 import (
 	"fmt"
-	"path/filepath"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/config"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -86,21 +87,57 @@ func securityContextVirtioFS() *k8sv1.SecurityContext {
 	}
 }
 
-func virtioFSMountPoint(volumeName string) string {
-	return fmt.Sprintf("/%s", volumeName)
+func isConfig(volume *v1.Volume) bool {
+	return volume.ConfigMap != nil || volume.Secret != nil ||
+		volume.ServiceAccount != nil || volume.DownwardAPI != nil
 }
 
-func VirtioFSSocketPath(volumeName string) string {
-	socketName := fmt.Sprintf("%s.sock", volumeName)
-	return filepath.Join(virtiofs.VirtioFSContainersMountBaseDir, socketName)
+func isAutomount(volume *v1.Volume) bool {
+	// The template service sets pod.Spec.AutomountServiceAccountToken as true
+	return volume.ServiceAccount != nil
+}
+
+func virtioFSMountPoint(volume *v1.Volume) string {
+	volumeMountPoint := fmt.Sprintf("/%s", volume.Name)
+
+	if volume.ConfigMap != nil {
+		volumeMountPoint = config.GetConfigMapSourcePath(volume.Name)
+	} else if volume.Secret != nil {
+		volumeMountPoint = config.GetSecretSourcePath(volume.Name)
+	} else if volume.ServiceAccount != nil {
+		volumeMountPoint = config.ServiceAccountSourceDir
+	} else if volume.DownwardAPI != nil {
+		volumeMountPoint = config.GetDownwardAPISourcePath(volume.Name)
+	}
+
+	return volumeMountPoint
 }
 
 func generateContainerFromVolume(volume *v1.Volume, image string) k8sv1.Container {
 	resources := resourcesForVirtioFSContainer(false, false)
 
-	socketPathArg := fmt.Sprintf("--socket-path=%s", VirtioFSSocketPath(volume.Name))
-	sourceArg := fmt.Sprintf("source=%s", virtioFSMountPoint(volume.Name))
-	args := []string{socketPathArg, "-o", sourceArg, "-o", "sandbox=chroot", "-o", "xattr", "-o", "xattrmap=:map::user.virtiofsd.:"}
+	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
+	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
+	args := []string{socketPathArg, sourceArg, "--cache=auto", "--sandbox=chroot"}
+
+	if !isConfig(volume) {
+		args = append(args, "--xattr")
+	}
+
+	volumeMounts := []k8sv1.VolumeMount{
+		// This is required to pass socket to compute
+		{
+			Name:      virtiofs.VirtioFSContainers,
+			MountPath: virtiofs.VirtioFSContainersMountBaseDir,
+		},
+	}
+
+	if !isAutomount(volume) {
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      volume.Name,
+			MountPath: virtioFSMountPoint(volume),
+		})
+	}
 
 	return k8sv1.Container{
 		Name:            fmt.Sprintf("virtiofs-%s", volume.Name),
@@ -108,17 +145,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string) k8sv1.Containe
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
 		Command:         []string{"/usr/libexec/virtiofsd"},
 		Args:            args,
-		VolumeMounts: []k8sv1.VolumeMount{
-			// This is required to pass socket to compute
-			{
-				Name:      virtiofs.VirtioFSContainers,
-				MountPath: virtiofs.VirtioFSContainersMountBaseDir,
-			},
-			{
-				Name:      volume.Name,
-				MountPath: virtioFSMountPoint(volume.Name),
-			},
-		},
+		VolumeMounts:    volumeMounts,
 		Resources:       resources,
 		SecurityContext: securityContextVirtioFS(),
 	}

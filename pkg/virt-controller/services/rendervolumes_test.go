@@ -300,14 +300,10 @@ var _ = Describe("Container spec renderer", func() {
 					DownwardAPI: &v1.DownwardAPIVolumeSource{},
 				}}
 
-			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
-					return &downwardAPIVolume, true, nil
-				},
-			}
+			disk := v1.Disk{Name: downwardAPIVolumeName}
 
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{downwardAPIVolume}, nil))
+			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
