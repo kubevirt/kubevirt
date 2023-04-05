@@ -267,7 +267,7 @@ var _ = SIGDescribe("Export", func() {
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return pvc.Status.Phase
-			}, 15*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
+			}, 30*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
 			return
 		}
 		By("Checking the PVC is pending for WFFC storage")
