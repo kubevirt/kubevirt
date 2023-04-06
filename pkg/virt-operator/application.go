@@ -29,7 +29,7 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/util/certificate"

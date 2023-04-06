@@ -5,7 +5,6 @@ go 1.17
 require (
 	github.com/coreos/prometheus-operator v0.38.3
 	github.com/go-kit/kit v0.10.0
-	github.com/go-openapi/spec v0.19.15
 	github.com/golang/glog v1.0.0
 	github.com/golang/mock v1.6.0
 	github.com/google/gofuzz v1.1.0

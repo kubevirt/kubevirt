@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/utils/pointer"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"

@@ -31,7 +31,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	"github.com/mdlayher/vsock"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"

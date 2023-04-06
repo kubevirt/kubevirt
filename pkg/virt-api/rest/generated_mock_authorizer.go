@@ -4,7 +4,7 @@
 package rest
 
 import (
-	go_restful "github.com/emicklei/go-restful"
+	v3 "github.com/emicklei/go-restful/v3"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -29,7 +29,7 @@ func (_m *MockVirtApiAuthorizor) EXPECT() *_MockVirtApiAuthorizorRecorder {
 	return _m.recorder
 }
 
-func (_m *MockVirtApiAuthorizor) Authorize(req *go_restful.Request) (bool, string, error) {
+func (_m *MockVirtApiAuthorizor) Authorize(req *v3.Request) (bool, string, error) {
 	ret := _m.ctrl.Call(_m, "Authorize", req)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(string)

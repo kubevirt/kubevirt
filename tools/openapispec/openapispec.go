@@ -25,7 +25,7 @@ import (
 	"log"
 	"os"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	"github.com/spf13/pflag"
 
 	klog "kubevirt.io/client-go/log"

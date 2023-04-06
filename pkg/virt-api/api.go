@@ -31,10 +31,11 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/kube-openapi/pkg/validation/spec"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	restful "github.com/emicklei/go-restful"
-	"github.com/go-openapi/spec"
+	restful "github.com/emicklei/go-restful/v3"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +44,7 @@ import (
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
@@ -51,6 +53,8 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
+
+	v12 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -723,10 +727,15 @@ func (app *virtAPIApp) Compose() {
 }
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
-	spec := openapi.LoadOpenAPISpec(restful.RegisteredWebServices())
-	config := openapi.CreateOpenAPIConfig(restful.RegisteredWebServices())
+	config := openapi.CreateConfig()
+	config.GetDefinitions = v12.GetOpenAPIDefinitions
+	spec, err := builderv3.BuildOpenAPISpec(restful.RegisteredWebServices(), config)
+	if err != nil {
+		panic(err)
+	}
+
 	ws := new(restful.WebService)
-	ws.Path(config.APIPath)
+	ws.Path("/swaggerapi")
 	ws.Produces(restful.MIME_JSON)
 	f := func(req *restful.Request, resp *restful.Response) {
 		resp.WriteAsJson(spec)

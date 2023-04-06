@@ -31,7 +31,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	restful "github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful/v3"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	appsv1 "k8s.io/api/apps/v1"
 	kubev1 "k8s.io/api/core/v1"

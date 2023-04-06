@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
