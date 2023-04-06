@@ -401,4 +401,64 @@ var _ = Describe("Operator Config", func() {
 			Entry("not provided at all - expected to fail", "", false),
 		)
 	})
+
+	Context("kubevirt version", func() {
+		type testInput struct {
+			kubevirtVerEnvVar string
+			tag               string
+			digest            string
+			version           string
+		}
+
+		BeforeEach(func() {
+			ExpectWithOffset(1, envVarManager.Unsetenv(KubeVirtVersionEnvName)).To(Succeed())
+			ExpectWithOffset(1, envVarManager.Unsetenv(VirtOperatorImageEnvName)).To(Succeed())
+		})
+
+		DescribeTable("is read from", func(input *testInput) {
+			operatorImage := fmt.Sprintf("acme.com/kubevirt/my-virt-operator%s", input.tag)
+
+			if input.digest != "" {
+				operatorImage = fmt.Sprintf("acme.com/kubevirt/my-virt-operator%s", input.digest)
+			}
+
+			Expect(envVarManager.Setenv(VirtOperatorImageEnvName, operatorImage)).To(Succeed())
+
+			if input.kubevirtVerEnvVar != "" {
+				Expect(envVarManager.Setenv(KubeVirtVersionEnvName, input.kubevirtVerEnvVar)).To(Succeed())
+			}
+
+			err := VerifyEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			parsedConfig, err := GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
+			kubevirtVersion := parsedConfig.GetKubeVirtVersion()
+			Expect(kubevirtVersion).To(Equal(input.version))
+
+		},
+			Entry("virt-operator image tag when both KUBEVIRT_VERSION is set and virt-operator provided with tag",
+				&testInput{
+					kubevirtVerEnvVar: "v3.0.0-env.var",
+					tag:               ":v3.0.0",
+					version:           "v3.0.0",
+				}),
+
+			Entry("KUBEVIRT_VERSION variable when virt-operator provided with digest",
+				&testInput{
+					kubevirtVerEnvVar: "v3.0.0",
+					digest:            "@sha256:trivebuk",
+					version:           "v3.0.0",
+				}),
+			Entry("operator tag when no KUBEVIRT_VERSION provided and operator image is with a tag",
+				&testInput{
+					tag:     ":v3.0.0",
+					version: "v3.0.0",
+				}),
+			Entry("hardcoded \"latest\" string when no KUBEVIRT_VERSION provided and operator image is with a digest",
+				&testInput{
+					version: "latest",
+				}))
+	})
 })
