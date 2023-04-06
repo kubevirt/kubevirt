@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("instancetype compatibility", func() {
 	Context("reading old ControllerRevision", func() {
-		It("should decode v1alpha1 instancetype from ControllerRevision", func() {
+		DescribeTable("should decode v1alpha1 instancetype from ControllerRevision", func(apiVersion string) {
 			instancetypeSpec := v1alpha1.VirtualMachineInstancetypeSpec{
 				CPU: v1alpha1.CPUInstancetype{
 					Guest: 4,
@@ -27,7 +27,7 @@ var _ = Describe("instancetype compatibility", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			revision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
-				APIVersion: v1alpha1.SchemeGroupVersion.String(),
+				APIVersion: apiVersion,
 				Spec:       specBytes,
 			}
 
@@ -38,9 +38,12 @@ var _ = Describe("instancetype compatibility", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(decoded).ToNot(BeNil())
 			Expect(decoded.Spec.CPU).To(Equal(instancetypeSpec.CPU))
-		})
+		},
+			Entry("with APIVersion", v1alpha1.SchemeGroupVersion.String()),
+			Entry("without APIVersion", ""),
+		)
 
-		It("should decode v1alpha1 preference from ControllerRevision", func() {
+		DescribeTable("should decode v1alpha1 preference from ControllerRevision", func(apiVersion string) {
 			preferredTopology := v1alpha1.PreferCores
 			preferenceSpec := v1alpha1.VirtualMachinePreferenceSpec{
 				CPU: &v1alpha1.CPUPreferences{
@@ -52,7 +55,7 @@ var _ = Describe("instancetype compatibility", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			revision := v1alpha1.VirtualMachinePreferenceSpecRevision{
-				APIVersion: v1alpha1.SchemeGroupVersion.String(),
+				APIVersion: apiVersion,
 				Spec:       specBytes,
 			}
 
@@ -63,7 +66,11 @@ var _ = Describe("instancetype compatibility", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(decoded).ToNot(BeNil())
 			Expect(decoded.Spec).To(Equal(preferenceSpec))
-		})
+
+		},
+			Entry("with APIVersion", v1alpha1.SchemeGroupVersion.String()),
+			Entry("without APIVersion", ""),
+		)
 	})
 
 	Context("instancetype conversion", func() {

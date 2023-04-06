@@ -163,6 +163,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 						CPU: instancetypev1alpha2.CPUInstancetype{
 							Guest: uint32(2),
 						},
+						Memory: instancetypev1alpha2.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
 					},
 				}
 
@@ -283,7 +286,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
 			})
 
-			It("find fails to decode v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
 				specData, err := json.Marshal(clusterInstancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -314,9 +317,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Kind:         apiinstancetype.ClusterSingularResourceName,
 				}
 
-				_, err = instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("Object 'Kind' is missing in"))
+				foundInstancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*foundInstancetypeSpec).To(Equal(clusterInstancetype.Spec))
 			})
 		})
 
@@ -342,6 +345,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 						CPU: instancetypev1alpha2.CPUInstancetype{
 							Guest: uint32(2),
+						},
+						Memory: instancetypev1alpha2.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
 						},
 					},
 				}
@@ -462,7 +468,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
 			})
 
-			It("find fails to decode v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
 				specData, err := json.Marshal(fakeInstancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -493,9 +499,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Kind:         apiinstancetype.SingularResourceName,
 				}
 
-				_, err = instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("Object 'Kind' is missing in"))
+				foundInstancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*foundInstancetypeSpec).To(Equal(fakeInstancetype.Spec))
 			})
 		})
 	})
