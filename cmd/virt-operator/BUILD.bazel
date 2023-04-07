@@ -13,11 +13,14 @@ go_library(
     ],
 )
 
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
 go_binary(
     name = "virt-operator",
     embed = [":go_default_library"],
     static = "on",
     visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
 )
 
 load(
