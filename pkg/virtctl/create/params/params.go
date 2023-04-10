@@ -17,6 +17,21 @@ func FlagErr(flagName, format string, a ...any) error {
 	return fmt.Errorf("failed to parse \"--%s\" flag: %w", flagName, fmt.Errorf(format, a...))
 }
 
+/*
+The functions below can be used for complicated flags with multiple parameters.
+For example, let's think of the following flag: "--my-flag param1:value1,param2:value2".
+To automatically define such a flag, the following struct could be defined:
+
+type MyFlag struct {
+	Param1 string `param:"param1"`
+	Param2 string `param:"param2"`
+}
+
+The functions below use reflection to automatically handle such flags.
+*/
+
+// Supported returns the list of supported flags for a parameter struct. This is mainly used to show the user the
+// list of supported parameters
 func Supported(obj interface{}) string {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Struct {
@@ -49,13 +64,16 @@ func Supported(obj interface{}) string {
 	return strings.Join(params, ",")
 }
 
+// Map assigns the parameter value into the right struct field, which is represented by obj.
+// For example, if we use Map("param1", "value1", &myFlag) with MyFlag struct above, Param1 field would be
+// assigned with "value1".
 func Map(flagName, paramsStr string, obj interface{}) error {
-	params, err := Split(paramsStr)
+	params, err := split(paramsStr)
 	if err != nil {
 		return FlagErr(flagName, "%w", err)
 	}
 
-	err = Apply(params, obj)
+	err = apply(params, obj)
 	if err != nil {
 		return FlagErr(flagName, "%w", err)
 	}
@@ -71,7 +89,8 @@ func Map(flagName, paramsStr string, obj interface{}) error {
 	return nil
 }
 
-func Split(paramsStr string) (map[string]string, error) {
+// split parses a flag with multiple parameters into a map
+func split(paramsStr string) (map[string]string, error) {
 	if paramsStr == "" {
 		return nil, errors.New("params may not be empty")
 	}
@@ -89,7 +108,8 @@ func Split(paramsStr string) (map[string]string, error) {
 	return paramsMap, nil
 }
 
-func Apply(paramsMap map[string]string, obj interface{}) error {
+// apply assigns the different parameters into obj's corresponding fields
+func apply(paramsMap map[string]string, obj interface{}) error {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Ptr {
 		panic("passed in interface needs to be a pointer")
@@ -134,6 +154,7 @@ func Apply(paramsMap map[string]string, obj interface{}) error {
 	return nil
 }
 
+// SplitPrefixedName splits prefixedName with "/" as a separator
 func SplitPrefixedName(prefixedName string) (prefix string, name string, err error) {
 	s := strings.Split(prefixedName, "/")
 
