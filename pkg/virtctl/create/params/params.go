@@ -23,7 +23,7 @@ func Supported(obj interface{}) string {
 		panic("passed in interface needs to be a struct")
 	}
 
-	params := []string{}
+	var params []string
 	objValType := objVal.Type()
 	for i := 0; i < objValType.NumField(); i++ {
 		structField := objValType.Field(i)
@@ -61,7 +61,7 @@ func Map(flagName, paramsStr string, obj interface{}) error {
 	}
 
 	if len(params) > 0 {
-		unknown := []string{}
+		var unknown []string
 		for k, v := range params {
 			unknown = append(unknown, fmt.Sprintf("%s:%s", k, v))
 		}

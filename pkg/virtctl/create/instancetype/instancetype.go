@@ -96,8 +96,8 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.gpus, GPUFlag, c.gpus, "Specify the list of vGPUs to passthrough. Can be provided multiple times.")
 	cmd.Flags().StringArrayVar(&c.hostDevices, HostDeviceFlag, c.hostDevices, "Specify list of HostDevices to passthrough. Can be provided multiple times.")
 
-	cmd.MarkFlagRequired(CPUFlag)
-	cmd.MarkFlagRequired(MemoryFlag)
+	_ = cmd.MarkFlagRequired(CPUFlag)
+	_ = cmd.MarkFlagRequired(MemoryFlag)
 	return cmd
 }
 
@@ -190,7 +190,7 @@ func (c *createInstancetype) usage() string {
   {{ProgramName}} create instancetype --cpu 2 --memory 256Mi | kubectl create -f -`
 }
 
-func (c *createInstancetype) newInstancetype(cmd *cobra.Command) *instancetypev1alpha2.VirtualMachineInstancetype {
+func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1alpha2.VirtualMachineInstancetype {
 	return &instancetypev1alpha2.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineInstancetype",
@@ -210,7 +210,7 @@ func (c *createInstancetype) newInstancetype(cmd *cobra.Command) *instancetypev1
 	}
 }
 
-func (c *createInstancetype) newClusterInstancetype(cmd *cobra.Command) *instancetypev1alpha2.VirtualMachineClusterInstancetype {
+func (c *createInstancetype) newClusterInstancetype(_ *cobra.Command) *instancetypev1alpha2.VirtualMachineClusterInstancetype {
 	return &instancetypev1alpha2.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineClusterInstancetype",
