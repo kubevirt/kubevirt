@@ -167,6 +167,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logPods(virtCli, pods)
 	r.logVMs(virtCli)
 	r.logDVs(virtCli)
+	r.logVMExports(virtCli)
 	r.logDeployments(virtCli)
 	r.logDaemonsets(virtCli)
 
@@ -737,6 +738,16 @@ func (r *KubernetesReporter) logDVs(virtCli kubecli.KubevirtClient) {
 	}
 
 	r.logObjects(virtCli, dvs, "dvs")
+}
+
+func (r *KubernetesReporter) logVMExports(virtCli kubecli.KubevirtClient) {
+	vmexports, err := virtCli.VirtualMachineExport(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vm exports: %v\n", err)
+		return
+	}
+
+	r.logObjects(virtCli, vmexports, "vmexports")
 }
 
 func (r *KubernetesReporter) logObjects(virtCli kubecli.KubevirtClient, elements interface{}, name string) {
