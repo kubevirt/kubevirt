@@ -53,12 +53,20 @@ func HasPersistentTPMDevice(vmi *corev1.VirtualMachineInstance) bool {
 	return false
 }
 
-func isBackendStorageNeeded(vmi *corev1.VirtualMachineInstance) bool {
+func isBackendStorageNeededForVMI(vmi *corev1.VirtualMachineInstance) bool {
+	return HasPersistentTPMDevice(vmi)
+}
+
+func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
+	if vm.Spec.Template == nil {
+		return false
+	}
+	vmi := &corev1.VirtualMachineInstance{Spec: vm.Spec.Template.Spec}
 	return HasPersistentTPMDevice(vmi)
 }
 
 func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) error {
-	if !isBackendStorageNeeded(vmi) {
+	if !isBackendStorageNeededForVMI(vmi) {
 		return nil
 	}
 

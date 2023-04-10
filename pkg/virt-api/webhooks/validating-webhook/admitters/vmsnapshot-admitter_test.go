@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -264,6 +266,36 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
+			})
+
+			It("should reject persistent storage", func() {
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								TPM: &v1.TPMDevice{
+									Persistent: pointer.BoolPtr(true),
+								},
+							},
+						},
+					},
+				}
+				snapshot := &snapshotv1.VirtualMachineSnapshot{
+					Spec: snapshotv1.VirtualMachineSnapshotSpec{
+						Source: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     vmName,
+						},
+					},
+				}
+
+				ar := createSnapshotAdmissionReview(snapshot)
+				resp := createTestVMSnapshotAdmitter(config, vm).Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.name"))
+				Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("needs backend storage"))
 			})
 
 			It("should accept when VM is not running", func() {
