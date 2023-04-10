@@ -287,7 +287,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 	resources.Requests = make(kubev1.ResourceList)
 	resources.Limits = make(kubev1.ResourceList)
 
-	resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
+	resources.Requests[kubev1.ResourceCPU] = resource.MustParse("1m")
 	if cpuRequest := config.GetSupportContainerRequest(v1.ContainerDisk, kubev1.ResourceCPU); cpuRequest != nil {
 		resources.Requests[kubev1.ResourceCPU] = *cpuRequest
 	}
@@ -297,7 +297,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 	}
 	resources.Requests[kubev1.ResourceEphemeralStorage] = resource.MustParse(ephemeralStorageOverheadSize)
 
-	resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
+	resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
 	if cpuLimit := config.GetSupportContainerLimit(v1.ContainerDisk, kubev1.ResourceCPU); cpuLimit != nil {
 		resources.Limits[kubev1.ResourceCPU] = *cpuLimit
 	}

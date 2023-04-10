@@ -200,11 +200,11 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(containers[0].Resources.Limits).To(BeEquivalentTo(expectedLimit))
 			},
 				Entry("defaults not overriden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
-					k8sv1.ResourceCPU:              resource.MustParse("100m"),
+					k8sv1.ResourceCPU:              resource.MustParse("10m"),
 					k8sv1.ResourceMemory:           resource.MustParse("40M"),
 					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
 				}, k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("100m"),
+					k8sv1.ResourceCPU:    resource.MustParse("10m"),
 					k8sv1.ResourceMemory: resource.MustParse("40M"),
 				}),
 				Entry("defaults overriden", k8sv1.ResourceList{
@@ -244,21 +244,21 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(containers[0].Resources.Limits).To(BeEquivalentTo(expectedLimit))
 			},
 				Entry("defaults not overriden", k8sv1.ResourceList{}, k8sv1.ResourceList{}, k8sv1.ResourceList{
-					k8sv1.ResourceCPU:              resource.MustParse("10m"),
+					k8sv1.ResourceCPU:              resource.MustParse("1m"),
 					k8sv1.ResourceMemory:           resource.MustParse("1M"),
 					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
 				}, k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("100m"),
+					k8sv1.ResourceCPU:    resource.MustParse("10m"),
 					k8sv1.ResourceMemory: resource.MustParse("40M"),
 				}),
 				Entry("defaults overriden", k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("1m"),
+					k8sv1.ResourceCPU:    resource.MustParse("2m"),
 					k8sv1.ResourceMemory: resource.MustParse("25M"),
 				}, k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    resource.MustParse("110m"),
 					k8sv1.ResourceMemory: resource.MustParse("400M"),
 				}, k8sv1.ResourceList{
-					k8sv1.ResourceCPU:              resource.MustParse("1m"),
+					k8sv1.ResourceCPU:              resource.MustParse("2m"),
 					k8sv1.ResourceMemory:           resource.MustParse("25M"),
 					k8sv1.ResourceEphemeralStorage: resource.MustParse("50M"),
 				}, k8sv1.ResourceList{
