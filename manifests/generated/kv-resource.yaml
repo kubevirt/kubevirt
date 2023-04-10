@@ -538,6 +538,55 @@ spec:
                       version:
                         type: string
                     type: object
+                  supportContainerResources:
+                    description: SupportContainerResources specifies the resource
+                      requirements for various types of supporting containers such
+                      as container disks/virtiofs/sidecars and hotplug attachment
+                      pods. If omitted a sensible default will be supplied.
+                    items:
+                      description: SupportContainerResources are used to specify the
+                        cpu/memory request and limits for the containers that support
+                        various features of Virtual Machines. These containers are
+                        usually idle and don't require a lot of memory or cpu.
+                      properties:
+                        resources:
+                          description: ResourceRequirements describes the compute
+                            resource requirements.
+                          properties:
+                            limits:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: 'Limits describes the maximum amount of
+                                compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              type: object
+                            requests:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: 'Requests describes the minimum amount
+                                of compute resources required. If Requests is omitted
+                                for a container, it defaults to Limits if that is
+                                explicitly specified, otherwise to an implementation-defined
+                                value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              type: object
+                          type: object
+                        type:
+                          type: string
+                      required:
+                      - resources
+                      - type
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - type
+                    x-kubernetes-list-type: map
                   supportedGuestAgentVersions:
                     description: deprecated
                     items:
@@ -3300,6 +3349,55 @@ spec:
                       version:
                         type: string
                     type: object
+                  supportContainerResources:
+                    description: SupportContainerResources specifies the resource
+                      requirements for various types of supporting containers such
+                      as container disks/virtiofs/sidecars and hotplug attachment
+                      pods. If omitted a sensible default will be supplied.
+                    items:
+                      description: SupportContainerResources are used to specify the
+                        cpu/memory request and limits for the containers that support
+                        various features of Virtual Machines. These containers are
+                        usually idle and don't require a lot of memory or cpu.
+                      properties:
+                        resources:
+                          description: ResourceRequirements describes the compute
+                            resource requirements.
+                          properties:
+                            limits:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: 'Limits describes the maximum amount of
+                                compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              type: object
+                            requests:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: 'Requests describes the minimum amount
+                                of compute resources required. If Requests is omitted
+                                for a container, it defaults to Limits if that is
+                                explicitly specified, otherwise to an implementation-defined
+                                value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              type: object
+                          type: object
+                        type:
+                          type: string
+                      required:
+                      - resources
+                      - type
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - type
+                    x-kubernetes-list-type: map
                   supportedGuestAgentVersions:
                     description: deprecated
                     items:

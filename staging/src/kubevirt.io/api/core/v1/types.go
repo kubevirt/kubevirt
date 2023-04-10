@@ -2267,6 +2267,11 @@ type KubeVirtConfiguration struct {
 	// If not set, the default is 1.
 	AdditionalGuestMemoryOverheadRatio *string `json:"additionalGuestMemoryOverheadRatio,omitempty"`
 
+	// +listType=map
+	// +listMapKey=type
+	// SupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.
+	SupportContainerResources []SupportContainerResources `json:"supportContainerResources,omitempty"`
+
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
@@ -2289,6 +2294,25 @@ type SMBiosConfiguration struct {
 	Version      string `json:"version,omitempty"`
 	Sku          string `json:"sku,omitempty"`
 	Family       string `json:"family,omitempty"`
+}
+
+type SupportContainerType string
+
+const (
+	// HotplugAttachment is the container resources of the hotplug attachment pod used to hotplug a disk
+	HotplugAttachment SupportContainerType = "hotplug-disk"
+	// ContainerDisk is the container resources used to attach a container disk to the Virtual Machine
+	ContainerDisk SupportContainerType = "container-disk"
+	// VirtioFS is the container resources used to attach a virtio-fs volume to the Virtual Machine
+	VirtioFS SupportContainerType = "virtiofs"
+	// SideCar is the container resources for a side car
+	SideCar SupportContainerType = "sidecar"
+)
+
+// SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
+type SupportContainerResources struct {
+	Type      SupportContainerType       `json:"type"`
+	Resources k8sv1.ResourceRequirements `json:"resources"`
 }
 
 type TLSProtocolVersion string

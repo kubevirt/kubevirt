@@ -1522,6 +1522,83 @@ var _ = Describe("Template", func() {
 				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
 			})
+
+			DescribeTable("should add defined cpu/memory resources for sidecar if specified in config", func(req, lim, expectedReq, expectedLim kubev1.ResourceList, dedicatedCpu bool) {
+				kvConfig := &v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{
+						{
+							Type: v1.SideCar,
+							Resources: kubev1.ResourceRequirements{
+								Requests: kubev1.ResourceList{},
+								Limits:   kubev1.ResourceList{},
+							},
+						},
+					},
+				}
+				kvConfig.SupportContainerResources[0].Resources.Requests = req
+				kvConfig.SupportContainerResources[0].Resources.Limits = lim
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+
+				vmi := v1.VirtualMachineInstance{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+					},
+				}
+				if dedicatedCpu {
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						DedicatedCPUPlacement: true,
+					}
+				}
+				res := sidecarResources(&vmi, clusterConfig)
+				Expect(res.Requests).To(BeEquivalentTo(expectedReq))
+				Expect(res.Limits).To(BeEquivalentTo(expectedLim))
+			},
+				Entry("defaults no dedicated cpu, should return no values", kubev1.ResourceList{}, kubev1.ResourceList{}, kubev1.ResourceList{}, kubev1.ResourceList{}, false),
+				Entry("defaults dedicated cpu, should return dedicated values", kubev1.ResourceList{}, kubev1.ResourceList{}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("200m"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("200m"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				}, true),
+				Entry("req no dedicated cpu, should return req values", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("3M"),
+				}, kubev1.ResourceList{}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("3M"),
+				}, kubev1.ResourceList{}, false),
+				Entry("req with dedicated cpu, should ignore req values and return dedicated limit", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("3M"),
+				}, kubev1.ResourceList{}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("200m"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("200m"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				}, true),
+				Entry("limit no dedicated cpu, should return limit values, and no request", kubev1.ResourceList{},
+					kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("100m"),
+						kubev1.ResourceMemory: resource.MustParse("3M"),
+					}, kubev1.ResourceList{}, kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("100m"),
+						kubev1.ResourceMemory: resource.MustParse("3M"),
+					}, false),
+				Entry("limit with dedicated cpu, should return limit values for both", kubev1.ResourceList{},
+					kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("100m"),
+						kubev1.ResourceMemory: resource.MustParse("3M"),
+					}, kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("100m"),
+						kubev1.ResourceMemory: resource.MustParse("3M"),
+					}, kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("100m"),
+						kubev1.ResourceMemory: resource.MustParse("3M"),
+					}, true),
+			)
+
 			It("should allocate 1 more cpu when isolateEmulatorThread requested", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
@@ -3284,6 +3361,100 @@ var _ = Describe("Template", func() {
 
 		})
 
+		Context("virtiofs resources", func() {
+			DescribeTable("should add defined cpu/memory resources for virtiofs if specified in config", func(req, lim, expectedReq, expectedLim kubev1.ResourceList, dedicatedCpu, quaranteedQos bool) {
+				kvConfig := &v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{
+						{
+							Type: v1.VirtioFS,
+							Resources: kubev1.ResourceRequirements{
+								Requests: kubev1.ResourceList{},
+								Limits:   kubev1.ResourceList{},
+							},
+						},
+					},
+				}
+				kvConfig.SupportContainerResources[0].Resources.Requests = req
+				kvConfig.SupportContainerResources[0].Resources.Limits = lim
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+
+				vmi := v1.VirtualMachineInstance{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+					},
+				}
+				if dedicatedCpu {
+					vmi.Spec.Domain.CPU = &v1.CPU{
+						DedicatedCPUPlacement: true,
+					}
+				}
+				res := resourcesForVirtioFSContainer(dedicatedCpu, quaranteedQos, clusterConfig)
+				Expect(res.Requests).To(BeEquivalentTo(expectedReq))
+				Expect(res.Limits).To(BeEquivalentTo(expectedLim))
+			},
+				Entry("defaults no dedicated cpu, no quaranteed QoS, should return default values", kubev1.ResourceList{}, kubev1.ResourceList{}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("10m"),
+					kubev1.ResourceMemory: resource.MustParse("1M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, false, false),
+				Entry("defaults dedicated cpu, no quaranteed QoS, should return dedicated values", kubev1.ResourceList{}, kubev1.ResourceList{}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("1M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, true, false),
+				Entry("defaults dedicated cpu, quaranteed QoS, should return dedicated values", kubev1.ResourceList{}, kubev1.ResourceList{}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("100m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, true, true),
+				Entry("values set no dedicated cpu, no quaranteed QoS, should return set values", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("5m"),
+					kubev1.ResourceMemory: resource.MustParse("8M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("5m"),
+					kubev1.ResourceMemory: resource.MustParse("8M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, false, false),
+				Entry("values set dedicated cpu, no quaranteed QoS, should return set value limit cpu", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("5m"),
+					kubev1.ResourceMemory: resource.MustParse("8M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("8M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, true, false),
+				Entry("values set dedicated cpu, quaranteed QoS, should return set values as limits", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("5m"),
+					kubev1.ResourceMemory: resource.MustParse("8M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("50m"),
+					kubev1.ResourceMemory: resource.MustParse("80M"),
+				}, true, true),
+			)
+		})
+
 		Context("Ephemeral storage request", func() {
 
 			DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
@@ -3596,6 +3767,21 @@ var _ = Describe("Template", func() {
 			Entry("when volume is a filesystem", false),
 		)
 
+		verifyPodRequestLimits1to1Ratio := func(pod *kubev1.Pod) {
+			cpuLimit := pod.Spec.Containers[0].Resources.Limits.Cpu().Value()
+			memLimit := pod.Spec.Containers[0].Resources.Limits.Memory().Value()
+			cpuReq := pod.Spec.Containers[0].Resources.Requests.Cpu().Value()
+			memReq := pod.Spec.Containers[0].Resources.Requests.Memory().Value()
+			expCpuLimitQ := resource.MustParse("100m")
+			Expect(cpuLimit).To(Equal(expCpuLimitQ.Value()))
+			expMemLimitQ := resource.MustParse("80M")
+			Expect(memLimit).To(Equal(expMemLimitQ.Value()))
+			expCpuReqQ := resource.MustParse("100m")
+			Expect(cpuReq).To(Equal(expCpuReqQ.Value()))
+			expMemReqQ := resource.MustParse("80M")
+			Expect(memReq).To(Equal(expMemReqQ.Value()))
+		}
+
 		It("should compute the correct resource req according to desired QoS when rendering hotplug pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
@@ -3615,17 +3801,7 @@ var _ = Describe("Template", func() {
 			claimMap := map[string]*kubev1.PersistentVolumeClaim{}
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap, false)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers[0].Resources).To(Equal(kubev1.ResourceRequirements{
-				Limits: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-				Requests: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-			}))
+			verifyPodRequestLimits1to1Ratio(pod)
 		})
 
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
@@ -3646,17 +3822,7 @@ var _ = Describe("Template", func() {
 			}
 			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", isBlock, false)
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(pod.Spec.Containers[0].Resources).To(Equal(kubev1.ResourceRequirements{
-				Limits: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-				Requests: kubev1.ResourceList{
-					kubev1.ResourceCPU:    resource.MustParse("100m"),
-					kubev1.ResourceMemory: resource.MustParse("80M"),
-				},
-			}))
+			verifyPodRequestLimits1to1Ratio(pod)
 		},
 			Entry("when volume is a block device", true),
 			Entry("when volume is a filesystem", false),

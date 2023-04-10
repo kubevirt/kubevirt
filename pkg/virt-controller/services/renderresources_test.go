@@ -8,6 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Resource pod spec renderer", func() {
@@ -261,6 +263,113 @@ var _ = Describe("Resource pod spec renderer", func() {
 			sevResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
 		}))
 	})
+
+	defaultRequest := func() kubev1.ResourceList {
+		return kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("100m"),
+			kubev1.ResourceMemory: resource.MustParse("80M"),
+		}
+	}
+
+	DescribeTable("Calculate ratios from VMI", func(req, lim, expectedReq, expectedLim kubev1.ResourceList) {
+		kvConfig := &v1.KubeVirtConfiguration{
+			SupportContainerResources: []v1.SupportContainerResources{
+				{
+					Type: v1.HotplugAttachment,
+					Resources: kubev1.ResourceRequirements{
+						Requests: kubev1.ResourceList{},
+						Limits:   kubev1.ResourceList{},
+					},
+				},
+			},
+		}
+		kvConfig.SupportContainerResources[0].Resources.Requests = req
+		kvConfig.SupportContainerResources[0].Resources.Limits = lim
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+		vmi := &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{},
+		}
+		res := hotplugContainerResourceRequirementsForVMI(vmi, clusterConfig)
+		Expect(res.Requests).To(BeEquivalentTo(expectedReq))
+		Expect(res.Limits).To(BeEquivalentTo(expectedLim))
+	},
+		Entry("empty request/limit", kubev1.ResourceList{}, kubev1.ResourceList{}, defaultRequest(), defaultRequest()),
+		Entry("empty request, set limit", kubev1.ResourceList{}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, defaultRequest(), kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}),
+		Entry("set request, empty limit", kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}, kubev1.ResourceList{}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}, defaultRequest()),
+		Entry("set request, set limit", kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}),
+		Entry("partial set request cpu, set limit", kubev1.ResourceList{
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("100m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}),
+		Entry("partial set request mem, set limit", kubev1.ResourceList{
+			kubev1.ResourceCPU: resource.MustParse("25m"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("80M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}),
+		Entry("set request, partial set limit cpu", kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("100m"),
+			kubev1.ResourceMemory: resource.MustParse("1024M"),
+		}),
+		Entry("set request, partial set limit memory", kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU: resource.MustParse("140m"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("25m"),
+			kubev1.ResourceMemory: resource.MustParse("32M"),
+		}, kubev1.ResourceList{
+			kubev1.ResourceCPU:    resource.MustParse("140m"),
+			kubev1.ResourceMemory: resource.MustParse("80M"),
+		}),
+	)
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {
