@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
@@ -28,6 +29,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2"
@@ -280,6 +282,42 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
 			})
+
+			It("find fails to decode v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+				specData, err := json.Marshal(clusterInstancetype.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Do not set APIVersion as part of VirtualMachineInstancetypeSpecRevision in order to trigger bug #9261
+				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+					Spec: specData,
+				}
+				specRevisionData, err := json.Marshal(specRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				controllerRevision := &appsv1.ControllerRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "crName",
+						Namespace:       vm.Namespace,
+						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, v1.VirtualMachineGroupVersionKind)},
+					},
+					Data: runtime.RawExtension{
+						Raw: specRevisionData,
+					},
+				}
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         clusterInstancetype.Name,
+					RevisionName: controllerRevision.Name,
+					Kind:         apiinstancetype.ClusterSingularResourceName,
+				}
+
+				_, err = instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("Object 'Kind' is missing in"))
+			})
 		})
 
 		Context("Using namespaced Instancetype", func() {
@@ -422,6 +460,42 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Cores: 1,
 				}
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
+			})
+
+			It("find fails to decode v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+				specData, err := json.Marshal(fakeInstancetype.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Do not set APIVersion as part of VirtualMachineInstancetypeSpecRevision in order to trigger bug #9261
+				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+					Spec: specData,
+				}
+				specRevisionData, err := json.Marshal(specRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				controllerRevision := &appsv1.ControllerRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "crName",
+						Namespace:       vm.Namespace,
+						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, v1.VirtualMachineGroupVersionKind)},
+					},
+					Data: runtime.RawExtension{
+						Raw: specRevisionData,
+					},
+				}
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name:         fakeInstancetype.Name,
+					RevisionName: controllerRevision.Name,
+					Kind:         apiinstancetype.SingularResourceName,
+				}
+
+				_, err = instancetypeMethods.FindInstancetypeSpec(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("Object 'Kind' is missing in"))
 			})
 		})
 	})
