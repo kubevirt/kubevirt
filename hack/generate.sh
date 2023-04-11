@@ -35,6 +35,10 @@ openapi-gen --input-dirs kubevirt.io/containerized-data-importer-api/pkg/apis/co
     --output-package kubevirt.io/client-go/api/ \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt >${KUBEVIRT_DIR}/api/api-rule-violations.list
 
+conversion-gen --input-dirs kubevirt.io/api/instancetype/v1alpha1,kubevirt.io/api/instancetype/v1alpha2,kubevirt.io/api/instancetype/v1beta1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
 if cmp ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule-violations-known.list; then
     echo "openapi generated"
 else
