@@ -68,9 +68,6 @@ pkg_tar(
 xattrs(
     name = "setcaps",
     capabilities = {
-        "/usr/bin/virt-launcher": [
-            "cap_net_bind_service",
-        ],
         "/usr/bin/virt-launcher-monitor": [
             "cap_net_bind_service",
         ],
