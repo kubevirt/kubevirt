@@ -45,7 +45,7 @@ type ConfigModifiedFn func()
 // NewClusterConfig is a wrapper of NewClusterConfigWithCPUArch with default cpuArch.
 func NewClusterConfig(crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
-	namespace string) *ClusterConfig {
+	namespace string) (*ClusterConfig, error) {
 	return NewClusterConfigWithCPUArch(
 		crdInformer,
 		kubeVirtInformer,
@@ -61,7 +61,7 @@ func NewClusterConfig(crdInformer cache.SharedIndexInformer,
 // 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
 func NewClusterConfigWithCPUArch(crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
-	namespace, cpuArch string) *ClusterConfig {
+	namespace, cpuArch string) (*ClusterConfig, error) {
 
 	defaultConfig := defaultClusterConfig(cpuArch)
 
@@ -75,18 +75,24 @@ func NewClusterConfigWithCPUArch(crdInformer cache.SharedIndexInformer,
 		defaultConfig:    defaultConfig,
 	}
 
-	c.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.crdAddedDeleted,
 		DeleteFunc: c.crdAddedDeleted,
 		UpdateFunc: c.crdUpdated,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.configAddedDeleted,
 		UpdateFunc: c.configUpdated,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 func (c *ClusterConfig) configAddedDeleted(_ interface{}) {

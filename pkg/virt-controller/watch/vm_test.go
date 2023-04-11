@@ -124,7 +124,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			controller = NewVMController(vmiInformer,
+			controller, _ = NewVMController(vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
 				pvcInformer,

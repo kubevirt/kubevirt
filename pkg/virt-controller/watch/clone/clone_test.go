@@ -225,7 +225,7 @@ var _ = Describe("Clone", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		controller = NewVmCloneController(
+		controller, _ = NewVmCloneController(
 			virtClient,
 			cloneInformer,
 			snapshotInformer,

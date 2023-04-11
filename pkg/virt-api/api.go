@@ -1016,7 +1016,10 @@ func (app *virtAPIApp) Run() {
 	kubeInformerFactory.Start(stopChan)
 	kubeInformerFactory.WaitForCacheSync(stopChan)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, app.namespace)
+	app.clusterConfig, err = virtconfig.NewClusterConfig(crdInformer, kubeVirtInformer, app.namespace)
+	if err != nil {
+		panic(err)
+	}
 	app.hasCDIDataSource = app.clusterConfig.HasDataSourceAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)

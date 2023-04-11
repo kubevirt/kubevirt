@@ -192,7 +192,7 @@ func NewController(
 	migrationProxy migrationproxy.ProxyManager,
 	capabilities *nodelabellerapi.Capabilities,
 	hostCpuModel string,
-) *VirtualMachineController {
+) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
 
@@ -222,29 +222,41 @@ func NewController(
 		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
 	}
 
-	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addFunc,
 		DeleteFunc: c.deleteFunc,
 		UpdateFunc: c.updateFunc,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	vmiTargetInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = vmiTargetInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addFunc,
 		DeleteFunc: c.deleteFunc,
 		UpdateFunc: c.updateFunc,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDomainFunc,
 		DeleteFunc: c.deleteDomainFunc,
 		UpdateFunc: c.updateDomainFunc,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	gracefulShutdownInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = gracefulShutdownInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addFunc,
 		DeleteFunc: c.deleteFunc,
 		UpdateFunc: c.updateFunc,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
 
@@ -274,7 +286,7 @@ func NewController(
 		clientset.CoreV1())
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
-	return c
+	return c, nil
 }
 
 type VirtualMachineController struct {

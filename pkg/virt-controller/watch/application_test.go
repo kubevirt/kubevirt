@@ -120,10 +120,10 @@ var _ = Describe("Application", func() {
 		app.vmiInformer = vmiInformer
 		app.nodeTopologyUpdater = topologyUpdater
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
-		app.evacuationController = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		app.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
-		app.nodeController = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
+		app.nodeController, _ = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
+		app.vmiController, _ = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -136,8 +136,8 @@ var _ = Describe("Application", func() {
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 		)
-		app.rsController = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController = NewVMController(vmiInformer,
+		app.rsController, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+		app.vmController, _ = NewVMController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
 			pvcInformer,
@@ -146,7 +146,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config)
-		app.migrationController = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+		app.migrationController, _ = NewMigrationController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -174,7 +174,7 @@ var _ = Describe("Application", func() {
 			Recorder:                  recorder,
 			ResyncPeriod:              60 * time.Second,
 		}
-		app.snapshotController.Init()
+		_ = app.snapshotController.Init()
 		app.restoreController = &snapshot.VMRestoreController{
 			Client:                    virtClient,
 			VMRestoreInformer:         vmRestoreInformer,
@@ -187,7 +187,7 @@ var _ = Describe("Application", func() {
 			DataVolumeInformer:        dataVolumeInformer,
 			Recorder:                  recorder,
 		}
-		app.restoreController.Init()
+		_ = app.restoreController.Init()
 		app.exportController = &export.VMExportController{
 			Client:                      virtClient,
 			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
@@ -212,10 +212,10 @@ var _ = Describe("Application", func() {
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
 		}
-		app.exportController.Init()
+		_ = app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer
 		app.nodeInformer = nodeInformer
-		app.vmCloneController = clone.NewVmCloneController(
+		app.vmCloneController, _ = clone.NewVmCloneController(
 			virtClient,
 			cloneInformer,
 			vmSnapshotInformer,

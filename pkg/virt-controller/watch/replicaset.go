@@ -69,7 +69,7 @@ const (
 	SuccessfulResumedReplicaSetReason = "SuccessfulResumed"
 )
 
-func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) *VMIReplicaSet {
+func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) (*VMIReplicaSet, error) {
 
 	c := &VMIReplicaSet{
 		Queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-replicaset"),
@@ -82,19 +82,27 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		statusUpdater: status.NewVMIRSStatusUpdater(clientset),
 	}
 
-	c.vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addReplicaSet,
 		DeleteFunc: c.deleteReplicaSet,
 		UpdateFunc: c.updateReplicaSet,
 	})
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
 	})
 
-	return c
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 type VMIReplicaSet struct {

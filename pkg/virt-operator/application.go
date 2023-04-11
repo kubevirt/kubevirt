@@ -86,7 +86,7 @@ type VirtOperatorApp struct {
 	restClient      *clientrest.RESTClient
 	informerFactory controller.KubeInformerFactory
 
-	kubeVirtController KubeVirtController
+	kubeVirtController *KubeVirtController
 	kubeVirtRecorder   record.EventRecorder
 
 	operatorNamespace string
@@ -294,7 +294,10 @@ func Execute() {
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
-	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
+	app.kubeVirtController, err = NewKubeVirtController(app.clientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
+	if err != nil {
+		panic(err)
+	}
 
 	image := util.GetOperatorImage()
 	if image == "" {
@@ -302,11 +305,15 @@ func Execute() {
 	}
 	log.Log.Infof("Operator image: %s", image)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(
+	app.clusterConfig, err = virtconfig.NewClusterConfig(
 		app.informerFactory.CRD(),
 		app.informerFactory.KubeVirt(),
 		app.operatorNamespace,
 	)
+
+	if err != nil {
+		panic(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

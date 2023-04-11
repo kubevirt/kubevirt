@@ -309,7 +309,10 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
-	app.clusterConfig = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
+	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
+	if err != nil {
+		panic(err)
+	}
 	// set log verbosity
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
@@ -358,7 +361,7 @@ func (app *virtHandlerApp) Run() {
 		return
 	}
 
-	vmController := virthandler.NewController(
+	vmController, err := virthandler.NewController(
 		recorder,
 		app.virtCli,
 		app.HostOverride,
@@ -378,6 +381,9 @@ func (app *virtHandlerApp) Run() {
 		capabilities,
 		hostCpuModel,
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	promErrCh := make(chan error)
 	go app.runPrometheusServer(promErrCh)

@@ -144,7 +144,7 @@ func NewVMIController(templateService services.TemplateService,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
-) *VMIController {
+) (*VMIController, error) {
 
 	c := &VMIController{
 		templateService:    templateService,
@@ -165,30 +165,42 @@ func NewVMIController(templateService services.TemplateService,
 		cidsMap:            newCIDsMap(),
 	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
 		DeleteFunc: c.deletePod,
 		UpdateFunc: c.updatePod,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPVC,
 		UpdateFunc: c.updatePVC,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 type syncError interface {

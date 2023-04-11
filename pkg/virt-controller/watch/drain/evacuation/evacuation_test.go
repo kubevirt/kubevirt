@@ -88,7 +88,7 @@ var _ = Describe("Evacuation", func() {
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+		controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
@@ -312,7 +312,7 @@ var _ = Describe("Evacuation", func() {
 			nodeName := "node01"
 			addNode(newNode(nodeName))
 
-			controller = evacuation.
+			controller, _ = evacuation.
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,
@@ -406,7 +406,7 @@ var _ = Describe("Evacuation", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				EvictionStrategy: newEvictionStrategyLiveMigrate(),
 			})
-			controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+			controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -427,7 +427,7 @@ var _ = Describe("Evacuation", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				EvictionStrategy: newEvictionStrategyLiveMigrate(),
 			})
-			controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+			controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -454,7 +454,7 @@ var _ = Describe("Evacuation", func() {
 				},
 			})
 
-			controller = evacuation.
+			controller, _ = evacuation.
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,

@@ -120,7 +120,7 @@ var _ = Describe("Disruptionbudget", func() {
 	initController := func(kvConfig *v1.KubeVirtConfiguration) {
 		config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
-		controller = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient, config)
+		controller, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, vmimInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		pdbFeeder = testutils.NewPodDisruptionBudgetFeeder(mockQueue, pdbSource)

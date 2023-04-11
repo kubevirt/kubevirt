@@ -131,7 +131,7 @@ func NewMigrationController(templateService services.TemplateService,
 	clusterConfig *virtconfig.ClusterConfig,
 	namespaceStore cache.Store,
 	onOpenshift bool,
-) *MigrationController {
+) (*MigrationController, error) {
 
 	c := &MigrationController{
 		templateService:         templateService,
@@ -158,29 +158,41 @@ func NewMigrationController(templateService services.TemplateService,
 		onOpenshift:    onOpenshift,
 	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMI,
 		DeleteFunc: c.deleteVMI,
 		UpdateFunc: c.updateVMI,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
 		DeleteFunc: c.deletePod,
 		UpdateFunc: c.updatePod,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.pdbInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePDB,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {

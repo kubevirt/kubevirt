@@ -99,7 +99,7 @@ func NewWorkloadUpdateController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-) *WorkloadUpdateController {
+) (*WorkloadUpdateController, error) {
 
 	rl := workqueue.NewMaxOfRateLimiter(
 		workqueue.NewItemExponentialFailureRateLimiter(time.Duration(defaultThrottleIntervalSeconds)*time.Second, 300*time.Second),
@@ -120,19 +120,25 @@ func NewWorkloadUpdateController(
 		clusterConfig:         clusterConfig,
 	}
 
-	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addKubeVirt,
 		DeleteFunc: c.deleteKubeVirt,
 		UpdateFunc: c.updateKubeVirt,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 func (c *WorkloadUpdateController) getKubeVirtKey() (string, error) {

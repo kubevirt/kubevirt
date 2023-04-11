@@ -164,7 +164,7 @@ var _ = Describe("Pool", func() {
 				},
 			})
 
-			controller = NewPoolController(virtClient,
+			controller, _ = NewPoolController(virtClient,
 				vmiInformer,
 				vmInformer,
 				poolInformer,
