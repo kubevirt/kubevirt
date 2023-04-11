@@ -314,7 +314,7 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
+func withInferredInstancetype(_ *createVM, vm *v1.VirtualMachine) error {
 	if len(vm.Spec.Template.Spec.Volumes) < 1 {
 		return params.FlagErr(InferInstancetypeFlag, "at least one volume is needed to infer instancetype")
 	}
@@ -348,7 +348,7 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredPreference(c *createVM, vm *v1.VirtualMachine) error {
+func withInferredPreference(_ *createVM, vm *v1.VirtualMachine) error {
 	if len(vm.Spec.Template.Spec.Volumes) < 1 {
 		return params.FlagErr(InferPreferenceFlag, "at least one volume is needed to infer preference")
 	}
