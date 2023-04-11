@@ -194,7 +194,7 @@ func MountInfoRoot(r IsolationResult) (mountinfo *mount.Info, err error) {
 
 func mountsFilter(compare, m *mount.Info, source string) (bool, bool) {
 	nfsMatch := false
-	if m.FSType == "nfs4" && compare.FSType == m.FSType {
+	if strings.Contains(m.FSType, "nfs") && compare.FSType == m.FSType {
 		nfsMatch = m.Source != source
 	}
 
