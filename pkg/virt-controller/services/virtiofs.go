@@ -103,7 +103,7 @@ func isConfig(volume *v1.Volume) bool {
 		volume.ServiceAccount != nil || volume.DownwardAPI != nil
 }
 
-func isAutomount(volume *v1.Volume) bool {
+func isAutoMount(volume *v1.Volume) bool {
 	// The template service sets pod.Spec.AutomountServiceAccountToken as true
 	return volume.ServiceAccount != nil
 }
@@ -143,7 +143,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 		},
 	}
 
-	if !isAutomount(volume) {
+	if !isAutoMount(volume) {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: virtioFSMountPoint(volume),
