@@ -16,9 +16,12 @@ cleanup() {
     rm manifests/ -rf || true
 }
 
-. ${SCRIPT_DIR}/version.sh
-
 cleanup
+
+# shellcheck source=hack/builder/arch.sh
+. "${SCRIPT_DIR}/arch.sh"
+# Use the value of VERSION returned from build.sh instead of version.sh to ensure the correct image is published
+VERSION=$($(dirname "$0")/build.sh)
 
 for ARCH in ${ARCHITECTURES}; do
     ${KUBEVIRT_CRI} push quay.io/kubevirt/builder:${VERSION}-${ARCH}
