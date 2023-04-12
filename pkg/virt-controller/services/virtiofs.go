@@ -163,11 +163,18 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
-	args := []string{socketPathArg, sourceArg, "--cache=auto", "--sandbox=chroot"}
+	args := []string{socketPathArg, sourceArg, "--cache=auto"}
 
+	securityProfile := restricted
+	sandbox := "none"
 	if !isConfig(volume) {
+		securityProfile = privileged
+		sandbox = "chroot"
 		args = append(args, "--xattr")
 	}
+
+	sandboxArg := fmt.Sprintf("--sandbox=%s", sandbox)
+	args = append(args, sandboxArg)
 
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
@@ -192,6 +199,6 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 		Args:            args,
 		VolumeMounts:    volumeMounts,
 		Resources:       resources,
-		SecurityContext: securityContextVirtioFS(privileged),
+		SecurityContext: securityContextVirtioFS(securityProfile),
 	}
 }
