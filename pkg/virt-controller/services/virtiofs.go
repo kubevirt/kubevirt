@@ -70,7 +70,7 @@ func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool, confi
 
 }
 
-var userAndGroup = int64(util.RootUser)
+var privilegedId = int64(util.RootUser)
 
 func getVirtiofsCapabilities() []k8sv1.Capability {
 	return []k8sv1.Capability{
@@ -89,8 +89,8 @@ func getVirtiofsCapabilities() []k8sv1.Capability {
 func securityContextVirtioFS() *k8sv1.SecurityContext {
 
 	return &k8sv1.SecurityContext{
-		RunAsUser:    &userAndGroup,
-		RunAsGroup:   &userAndGroup,
+		RunAsUser:    &privilegedId,
+		RunAsGroup:   &privilegedId,
 		RunAsNonRoot: pointer.Bool(false),
 		Capabilities: &k8sv1.Capabilities{
 			Add: getVirtiofsCapabilities(),
