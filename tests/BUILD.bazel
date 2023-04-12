@@ -222,6 +222,7 @@ go_test(
         "//tests/framework/matcher:go_default_library",
         "//tests/launchsecurity:go_default_library",
         "//tests/libnet:go_default_library",
+        "//tests/libnet/service:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libreplicaset:go_default_library",
         "//tests/libstorage:go_default_library",
