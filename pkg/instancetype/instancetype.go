@@ -20,7 +20,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -273,11 +272,11 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 }
 
 func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
-	if err := decodeRevisionObject(revisionA, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionA, isPreference); err != nil {
 		return false, err
 	}
 
-	if err := decodeRevisionObject(revisionB, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionB, isPreference); err != nil {
 		return false, err
 	}
 
@@ -317,29 +316,6 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 		return existingRevision, nil
 	}
 	return createdRevision, nil
-}
-
-func decodeRevisionObject(revision *appsv1.ControllerRevision, isPreference bool) error {
-	if len(revision.Data.Raw) == 0 {
-		return nil
-	}
-
-	// Backward compatibility check. Try to decode ControllerRevision from v1alpha1 version.
-	oldObject, err := decodeOldObject(revision.Data.Raw, isPreference)
-	if err != nil {
-		return fmt.Errorf("failed to decode old ControllerRevision: %w", err)
-	}
-	if oldObject != nil {
-		revision.Data.Object = oldObject
-		return nil
-	}
-
-	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), revision.Data.Raw)
-	if err != nil {
-		return fmt.Errorf("failed to decode object in ControllerRevision: %w", err)
-	}
-	revision.Data.Object = decodedObj
-	return nil
 }
 
 func getInstancetypeAPISpec(obj runtime.Object) (interface{}, error) {
@@ -429,18 +405,7 @@ func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.Na
 		return nil, err
 	}
 
-	if err := decodeRevisionObject(revision, true); err != nil {
-		return nil, err
-	}
-
-	switch obj := revision.Data.Object.(type) {
-	case *instancetypev1beta1.VirtualMachinePreference:
-		return &obj.Spec, nil
-	case *instancetypev1beta1.VirtualMachineClusterPreference:
-		return &obj.Spec, nil
-	default:
-		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
-	}
+	return getPreferenceSpecFromControllerRevision(revision)
 }
 
 func (m *InstancetypeMethods) getControllerRevisionByInformer(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
@@ -584,18 +549,7 @@ func (m *InstancetypeMethods) findInstancetypeSpecRevision(namespacedName types.
 		return nil, err
 	}
 
-	if err := decodeRevisionObject(revision, false); err != nil {
-		return nil, err
-	}
-
-	switch obj := revision.Data.Object.(type) {
-	case *instancetypev1beta1.VirtualMachineInstancetype:
-		return &obj.Spec, nil
-	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
-		return &obj.Spec, nil
-	default:
-		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
-	}
+	return getInstancetypeSpecFromControllerRevision(revision)
 }
 
 func (m *InstancetypeMethods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetype, error) {

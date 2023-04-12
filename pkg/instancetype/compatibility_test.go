@@ -29,7 +29,7 @@ var _ = Describe("instancetype compatibility", func() {
 			revisionBytes, err := json.Marshal(revision)
 			Expect(err).ToNot(HaveOccurred())
 
-			decoded, err := decodeOldInstancetypeRevisionObject(revisionBytes)
+			decoded, err := decodeVirtualMachineInstancetypeSpecRevision(revisionBytes)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(decoded).ToNot(BeNil())
 			Expect(decoded.Spec.CPU).To(Equal(instancetypeSpec.CPU))
@@ -57,7 +57,7 @@ var _ = Describe("instancetype compatibility", func() {
 			revisionBytes, err := json.Marshal(revision)
 			Expect(err).ToNot(HaveOccurred())
 
-			decoded, err := decodeOldPreferenceRevisionObject(revisionBytes)
+			decoded, err := decodeVirtualMachinePreferenceSpecRevision(revisionBytes)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(decoded).ToNot(BeNil())
 			Expect(decoded.Spec).To(Equal(preferenceSpec))

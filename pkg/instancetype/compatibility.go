@@ -4,19 +4,72 @@ package instancetype
 import (
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 )
 
-func decodeOldObject(data []byte, isPreference bool) (runtime.Object, error) {
+func getInstancetypeSpecFromControllerRevision(revision *appsv1.ControllerRevision) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
+	if err := decodeControllerRevision(revision, false); err != nil {
+		return nil, err
+	}
+	switch obj := revision.Data.Object.(type) {
+	case *instancetypev1beta1.VirtualMachineInstancetype:
+		return &obj.Spec, nil
+	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
+		return &obj.Spec, nil
+	default:
+		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
+	}
+}
+
+func getPreferenceSpecFromControllerRevision(revision *appsv1.ControllerRevision) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
+	if err := decodeControllerRevision(revision, true); err != nil {
+		return nil, err
+	}
+	switch obj := revision.Data.Object.(type) {
+	case *instancetypev1beta1.VirtualMachinePreference:
+		return &obj.Spec, nil
+	case *instancetypev1beta1.VirtualMachineClusterPreference:
+		return &obj.Spec, nil
+	default:
+		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
+	}
+}
+
+func decodeControllerRevision(revision *appsv1.ControllerRevision, isPreference bool) error {
+	if len(revision.Data.Raw) == 0 {
+		return nil
+	}
+
+	// Backward compatibility check. Try to decode ControllerRevision from v1alpha1 version.
+	oldObject, err := decodeSpecRevision(revision.Data.Raw, isPreference)
+	if err != nil {
+		return fmt.Errorf("failed to decode old ControllerRevision: %w", err)
+	}
+	if oldObject != nil {
+		revision.Data.Object = oldObject
+		return nil
+	}
+
+	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), revision.Data.Raw)
+	if err != nil {
+		return fmt.Errorf("failed to decode object in ControllerRevision: %w", err)
+	}
+	revision.Data.Object = decodedObj
+	return nil
+}
+
+func decodeSpecRevision(data []byte, isPreference bool) (runtime.Object, error) {
 	if isPreference {
-		oldObject, err := decodeOldPreferenceRevisionObject(data)
+		oldObject, err := decodeVirtualMachinePreferenceSpecRevision(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decode old revision object: %w", err)
+			return nil, fmt.Errorf("failed to decode VirtualMachinePreferenceSpecRevision: %w", err)
 		}
 		if oldObject == nil {
 			return nil, nil
@@ -28,9 +81,9 @@ func decodeOldObject(data []byte, isPreference bool) (runtime.Object, error) {
 		return newObject, nil
 	}
 
-	oldObject, err := decodeOldInstancetypeRevisionObject(data)
+	oldObject, err := decodeVirtualMachineInstancetypeSpecRevision(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode old revision object: %w", err)
+		return nil, fmt.Errorf("failed to decode VirtualMachineInstancetypeSpecRevision: %w", err)
 	}
 	if oldObject == nil {
 		return nil, nil
@@ -42,7 +95,7 @@ func decodeOldObject(data []byte, isPreference bool) (runtime.Object, error) {
 	return newObject, nil
 }
 
-func decodeOldInstancetypeRevisionObject(data []byte) (*instancetypev1alpha1.VirtualMachineInstancetype, error) {
+func decodeVirtualMachineInstancetypeSpecRevision(data []byte) (*instancetypev1alpha1.VirtualMachineInstancetype, error) {
 	revision := &instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
 	err := json.Unmarshal(data, revision)
 	if err != nil {
@@ -68,7 +121,7 @@ func decodeOldInstancetypeRevisionObject(data []byte) (*instancetypev1alpha1.Vir
 	}, nil
 }
 
-func decodeOldPreferenceRevisionObject(data []byte) (*instancetypev1alpha1.VirtualMachinePreference, error) {
+func decodeVirtualMachinePreferenceSpecRevision(data []byte) (*instancetypev1alpha1.VirtualMachinePreference, error) {
 	revision := &instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
 	err := json.Unmarshal(data, revision)
 	if err != nil {
