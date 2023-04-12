@@ -1097,19 +1097,13 @@ rpm(
 rpm(
     name = "edk2-aarch64-0__20221207gitfff6d81270b5-5.el9.aarch64",
     sha256 = "c05762bbfecfe7130b9d263ba8731cbea574add78c03d7d2ae1b99df70a20130",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20221207gitfff6d81270b5-5.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/c05762bbfecfe7130b9d263ba8731cbea574add78c03d7d2ae1b99df70a20130",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/c05762bbfecfe7130b9d263ba8731cbea574add78c03d7d2ae1b99df70a20130"],
 )
 
 rpm(
     name = "edk2-ovmf-0__20221207gitfff6d81270b5-5.el9.x86_64",
     sha256 = "cb206c16f8d2f9ef9c5f8e9524a3e9e49409e9317812e68b1f797fa3d191e3e2",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20221207gitfff6d81270b5-5.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/cb206c16f8d2f9ef9c5f8e9524a3e9e49409e9317812e68b1f797fa3d191e3e2",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/cb206c16f8d2f9ef9c5f8e9524a3e9e49409e9317812e68b1f797fa3d191e3e2"],
 )
 
 rpm(
