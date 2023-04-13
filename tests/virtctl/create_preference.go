@@ -16,6 +16,8 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -36,13 +38,16 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 		case *instancetypev1alpha2.VirtualMachinePreference:
 			ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachinePreference to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachinePreference"))
-			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), (*instancetypev1alpha2.VirtualMachinePreference)(obj), metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), (*instancetypev1alpha2.VirtualMachinePreference)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &preference.Spec, nil
 		case *instancetypev1alpha2.VirtualMachineClusterPreference:
 			ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterPreference to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterPreference"))
-			clusterPreference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), (*instancetypev1alpha2.VirtualMachineClusterPreference)(obj), metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+			obj.Labels = map[string]string{
+				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(obj)): "",
+			}
+			clusterPreference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), (*instancetypev1alpha2.VirtualMachineClusterPreference)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &clusterPreference.Spec, nil
 		default:
