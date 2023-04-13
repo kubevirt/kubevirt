@@ -1,15 +1,18 @@
 #!/bin/bash
 
-set -e
-set -o pipefail
+set -xeo pipefail
 
 # nodelabeller currently only support x86.
 if ! uname -m | grep x86_64; then
   exit 0
 fi
 
+set +o pipefail
 KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
+set -o pipefail
+
 VIRTTYPE=qemu
+
 
 if [ ! -e /dev/kvm ] && [ -n "$KVM_MINOR" ]; then
   mknod /dev/kvm c 10 $KVM_MINOR
