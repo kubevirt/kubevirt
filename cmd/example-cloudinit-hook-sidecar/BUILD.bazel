@@ -28,15 +28,19 @@ load(
 )
 
 container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
     name = "example-cloudinit-hook-sidecar-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_aarch64//image",
-        "//conditions:default": "@fedora//image",
-    }),
+    base = ":version-container",
     directory = "/",
     entrypoint = ["/example-cloudinit-hook-sidecar"],
     files = [":example-cloudinit-hook-sidecar"],
