@@ -379,6 +379,57 @@ func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
 	return
 }
 
+func GetVcpuMask(pod *k8sv1.Pod, cpu string) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	pscmd := "ps -LC qemu-kvm -o lwp,comm| grep \"CPU " + cpu + "\"  | cut -f 1 -d \"C\""
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{BinBash, "-c", pscmd},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	vcpupid := strings.TrimSpace(strings.Trim(output, "\n"))
+	tasksetcmd := "taskset -c -p " + vcpupid + " | cut -f 2 -d \":\""
+	args := []string{BinBash, "-c", tasksetcmd}
+	output, err = ExecuteCommandOnPod(virtClient, pod, "compute", args)
+	Expect(err).ToNot(HaveOccurred())
+
+	return output, err
+}
+
+func GetKvmPitMask(pod *k8sv1.Pod, nodeName string) (output string, err error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return
+	}
+
+	output, err = ExecuteCommandOnPod(
+		virtClient,
+		pod,
+		"compute",
+		[]string{"ps", "-C", "qemu-kvm", "-o", "pid", "--noheader"},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	qemupid := strings.TrimSpace(strings.Trim(output, "\n"))
+	kvmpitcomm := "kvm-pit/" + qemupid
+	args := []string{"ps", "-C", kvmpitcomm, "-o", "pid", "--noheader"}
+	output, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	kvmpitpid := strings.TrimSpace(strings.Trim(output, "\n"))
+	tasksetcmd := "taskset -c -p " + kvmpitpid + " | cut -f 2 -d \":\""
+	args = []string{BinBash, "-c", tasksetcmd}
+	output, err = ExecuteCommandInVirtHandlerPod(nodeName, args)
+	Expect(err).ToNot(HaveOccurred())
+
+	return output, err
+}
+
 func ListCgroupThreads(pod *k8sv1.Pod) (output string, err error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
