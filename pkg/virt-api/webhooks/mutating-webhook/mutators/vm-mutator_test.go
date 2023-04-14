@@ -903,6 +903,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should infer defaults from DataVolume, DataVolumeSourceRef", func(sourceRefName, sourceRefKind, sourceRefNamespace string, instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
+			var sourceRefNamespacePointer *string
+			if sourceRefNamespace != "" {
+				sourceRefNamespacePointer = &sourceRefNamespace
+			}
 			dvWithSourceRef := &v1beta1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
@@ -912,7 +916,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 					SourceRef: &v1beta1.DataVolumeSourceRef{
 						Name:      sourceRefName,
 						Kind:      sourceRefKind,
-						Namespace: &sourceRefNamespace,
+						Namespace: sourceRefNamespacePointer,
 					},
 				},
 			}
@@ -965,6 +969,48 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			),
 			Entry("and DataSource with annotations for PreferenceMatcher",
 				dsWithAnnotationsName, "DataSource", k8sv1.NamespaceDefault,
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedNameFromDS,
+					Kind: defaultInferedKindFromDS,
+				},
+			),
+			Entry(",DataSource without namespace and PersistentVolumeClaim for InstancetypeMatcher",
+				dsWithSourcePVCName, "DataSource", "",
+				&v1.InstancetypeMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.InstancetypeMatcher{
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
+				}, nil, nil,
+			),
+			Entry(",DataSource without namespace and PersistentVolumeClaim for PreferenceMatcher",
+				dsWithSourcePVCName, "DataSource", "",
+				nil, nil,
+				&v1.PreferenceMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.PreferenceMatcher{
+					Name: defaultInferedNameFromPVC,
+					Kind: defaultInferedKindFromPVC,
+				},
+			),
+			Entry("and DataSource without namespace with annotations for InstancetypeMatcher",
+				dsWithAnnotationsName, "DataSource", "",
+				&v1.InstancetypeMatcher{
+					InferFromVolume: inferVolumeName,
+				},
+				&v1.InstancetypeMatcher{
+					Name: defaultInferedNameFromDS,
+					Kind: defaultInferedKindFromDS,
+				}, nil, nil,
+			),
+			Entry("and DataSource without namespace with annotations for PreferenceMatcher",
+				dsWithAnnotationsName, "DataSource", "",
 				nil, nil,
 				&v1.PreferenceMatcher{
 					InferFromVolume: inferVolumeName,

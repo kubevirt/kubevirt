@@ -758,7 +758,7 @@ func (m *methods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName,
 			if dvt.Name != dvName {
 				continue
 			}
-			return m.inferDefaultsFromDataVolumeSpec(&dvt.Spec, defaultNameLabel, defaultKindLabel)
+			return m.inferDefaultsFromDataVolumeSpec(&dvt.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
 		}
 	}
 	dv, err := m.clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
@@ -774,15 +774,15 @@ func (m *methods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMachine, dvName,
 	if err == nil {
 		return defaultName, defaultKind, nil
 	}
-	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel)
+	return m.inferDefaultsFromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
 }
 
-func (m *methods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func (m *methods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string) (string, string, error) {
 	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
 		return m.inferDefaultsFromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
 	}
 	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
-		return m.inferDefaultsFromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel)
+		return m.inferDefaultsFromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace)
 	}
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported")
 }
@@ -803,10 +803,15 @@ func (m *methods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespac
 	return "", "", fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")
 }
 
-func (m *methods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel string) (string, string, error) {
+func (m *methods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (string, string, error) {
 	switch sourceRef.Kind {
 	case "DataSource":
-		return m.inferDefaultsFromDataSource(sourceRef.Name, *sourceRef.Namespace, defaultNameLabel, defaultKindLabel)
+		// The namespace can be left blank here with the assumption that the DataSource is in the same namespace as the VM
+		namespace := vmNameSpace
+		if sourceRef.Namespace != nil {
+			namespace = *sourceRef.Namespace
+		}
+		return m.inferDefaultsFromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
 	}
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }
