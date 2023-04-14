@@ -21,6 +21,7 @@ package services
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -510,6 +511,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 
 	}
+	nsr := t.newNodeSelectorRenderer(vmi)
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -527,7 +529,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
-			NodeSelector:                  t.newNodeSelectorRenderer(vmi).Render(),
+			NodeSelector:                  nsr.Render(),
 			Volumes:                       volumeRenderer.Volumes(),
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
@@ -557,6 +559,33 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	setNodeAffinityForPod(vmi, &pod)
+
+	tscFrequency := nsr.TSCFrequency()
+	// This just takes 250 PPM of the frequency. The /1000 and *1000 is just to round down to the nearest kHz
+	tolerance := int64(math.Floor(float64(tscFrequency/1000)*(float64(topology.TSCTolerancePPM)/1000000)) * 1000)
+	if tscFrequency != 0 {
+		if pod.Spec.Affinity == nil {
+			pod.Spec.Affinity = &k8sv1.Affinity{}
+		}
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{{
+					MatchExpressions: []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      topology.TSCFrequencyLabel,
+							Operator: k8sv1.NodeSelectorOpGt,
+							Values:   []string{strconv.FormatInt(tscFrequency-tolerance, 10)},
+						},
+						{
+							Key:      topology.TSCFrequencyLabel,
+							Operator: k8sv1.NodeSelectorOpLt,
+							Values:   []string{strconv.FormatInt(tscFrequency+tolerance, 10)},
+						},
+					},
+				}},
+			},
+		}
+	}
 
 	serviceAccountName := serviceAccount(vmi.Spec.Volumes...)
 	if len(serviceAccountName) > 0 {

@@ -40,7 +40,7 @@ var _ = Describe("Node Selector Renderer", func() {
 				})
 
 				It("requires nodes to feature a particular TSC frequency", func() {
-					Expect(nsr.Render()).To(HaveLabel("scheduling.node.kubevirt.io/tsc-frequency-123"))
+					Expect(nsr.TSCFrequency()).To(Equal(int64(123)))
 				})
 			})
 

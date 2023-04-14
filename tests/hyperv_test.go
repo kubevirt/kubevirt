@@ -100,14 +100,18 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 
 				virtLauncherPod := tests.GetPodByVirtualMachineInstance(reEnlightenmentVMI)
 
-				foundNodeSelector := false
-				for key, _ := range virtLauncherPod.Spec.NodeSelector {
-					if strings.HasPrefix(key, topology.TSCFrequencySchedulingLabel+"-") {
-						foundNodeSelector = true
-						break
+				Expect(virtLauncherPod.Spec.Affinity).NotTo(BeNil())
+				Expect(virtLauncherPod.Spec.Affinity.NodeAffinity).NotTo(BeNil())
+				Expect(virtLauncherPod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).NotTo(BeNil())
+				foundNodeAffinity := false
+				for _, nst := range virtLauncherPod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+					for _, me := range nst.MatchExpressions {
+						if me.Key == topology.TSCFrequencyLabel {
+							foundNodeAffinity = true
+						}
 					}
 				}
-				Expect(foundNodeSelector).To(BeTrue(), "wasn't able to find a node selector key with prefix ", topology.TSCFrequencySchedulingLabel)
+				Expect(foundNodeAffinity).To(BeTrue(), "wasn't able to find a node affinity with label ", topology.TSCFrequencyLabel)
 
 				domainSpec, err := tests.GetRunningVMIDomainSpec(reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())

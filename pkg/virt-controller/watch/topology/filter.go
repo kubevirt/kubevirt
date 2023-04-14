@@ -10,6 +10,7 @@ import (
 const TSCFrequencyLabel = virtv1.CPUTimerLabel + "tsc-frequency"
 const TSCFrequencySchedulingLabel = "scheduling.node.kubevirt.io/tsc-frequency"
 const TSCScalableLabel = virtv1.CPUTimerLabel + "tsc-scalable"
+const TSCTolerancePPM = 250
 
 type FilterPredicateFunc func(node *v1.Node) bool
 

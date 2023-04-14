@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"math"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -1022,6 +1023,82 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}
 				Expect(timerFrequency).ToNot(BeEmpty())
 			})
+			findTwoNodesWithCloseOrFarTSCFreqencies := func(nodes *k8sv1.NodeList, close bool) (string, string) {
+				for i, node1 := range nodes.Items {
+					freq1, exists := node1.Labels[topology.TSCFrequencyLabel]
+					if !exists {
+						continue
+					}
+					f1, err := strconv.ParseInt(freq1, 10, 64)
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
+					for _, node2 := range nodes.Items[i+1:] {
+						freq2, exists := node2.Labels[topology.TSCFrequencyLabel]
+						if !exists {
+							continue
+						}
+						if freq1 == freq2 {
+							continue
+						}
+						f2, err := strconv.ParseInt(freq2, 10, 64)
+						ExpectWithOffset(1, err).ToNot(HaveOccurred())
+						if f1 < f2 {
+							x := f1
+							f1 = f2
+							f2 = x
+						}
+						diff := f1 - f2
+						tolerance := int64(math.Floor(float64(f1/1000)*0.00025) * 1000)
+						if close && diff <= tolerance {
+							return node1.Name, node2.Name
+						}
+						if !close && diff > tolerance {
+							return node1.Name, node2.Name
+						}
+					}
+				}
+				return "", ""
+			}
+			cordonAllBut := func(nodes *k8sv1.NodeList, node1, node2 string) {
+				for _, node := range nodes.Items {
+					if node.Name != node1 && node.Name != node2 {
+						libnode.Taint(node.Name, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+					}
+				}
+			}
+			DescribeTable("[Serial]migration to a node with a", Serial, decorators.TscFrequencies, func(close bool) {
+				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				node1, node2 := findTwoNodesWithCloseOrFarTSCFreqencies(nodes, close)
+				if node1 == "" || node2 == "" {
+					if close {
+						Skip("This cluster does not have 2 nodes with a close-enough TSC frequency")
+					} else {
+						Skip("This cluster does not have 2 nodes with a far-enough TSC frequency")
+					}
+				}
+				By("Disabling the nodes we don't care about")
+				cordonAllBut(nodes, node1, node2)
+				By("Starting a VMI that uses TSC frequencies")
+				vmi := libvmi.New()
+				if vmi.Spec.Domain.Features == nil {
+					vmi.Spec.Domain.Features = &v1.Features{}
+				}
+				if vmi.Spec.Domain.Features.Hyperv == nil {
+					vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+				}
+				vmi.Spec.Domain.Features.Hyperv.Reenlightenment = &v1.FeatureState{Enabled: pointer.Bool(true)}
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Migrating the VMI")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				if close {
+					_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				} else {
+					_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
+				}
+			},
+				Entry("close TSC frequency should succeed", true),
+				Entry("far TSC frequency should fail", false),
+			)
 
 			It("[test_id:4113]should be successfully migrate with cloud-init disk with devices on the root bus", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(

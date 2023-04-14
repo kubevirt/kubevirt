@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
 
 type NodeSelectorRenderer struct {
@@ -50,11 +48,14 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 		nsr.enableSelectorLabel(cpuFeatureLabel)
 	}
 
-	if nsr.isManualTSCFrequencyRequired() {
-		nsr.enableSelectorLabel(topology.ToTSCSchedulableLabel(*nsr.tscFrequency))
-	}
-
 	return nsr.podNodeSelectors
+}
+
+func (nsr *NodeSelectorRenderer) TSCFrequency() int64 {
+	if !nsr.isManualTSCFrequencyRequired() {
+		return 0
+	}
+	return *nsr.tscFrequency
 }
 
 func (nsr *NodeSelectorRenderer) enableSelectorLabel(label string) {

@@ -1422,7 +1422,10 @@ var _ = Describe("Template", func() {
 
 			Context("TSC frequency label", func() {
 				var noHints, validHints *v1.TopologyHints
-				validHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(123123)}
+				const tscFrequency = 123123000    // Tolerance is 30000 (250 PPM of 123123000 rounded down to the nearest kHz)
+				const tscLowerBound = "123093000" // 123123000 - 30000
+				const tscUpperBound = "123153000" // 123123000 + 30000
+				validHints = &v1.TopologyHints{TSCFrequency: pointer.Int64(tscFrequency)}
 
 				setVmWithTscRequirementType := func(vmi *v1.VirtualMachineInstance, tscRequirementType topology.TscFrequencyRequirementType) {
 					switch tscRequirementType {
@@ -1460,9 +1463,24 @@ var _ = Describe("Template", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					if isLabelExpected {
-						Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("scheduling.node.kubevirt.io/tsc-frequency-123123", "true"))
+						megt := kubev1.NodeSelectorRequirement{
+							Key:      topology.TSCFrequencyLabel,
+							Operator: kubev1.NodeSelectorOpGt,
+							Values:   []string{tscLowerBound},
+						}
+						melt := kubev1.NodeSelectorRequirement{
+							Key:      topology.TSCFrequencyLabel,
+							Operator: kubev1.NodeSelectorOpLt,
+							Values:   []string{tscUpperBound},
+						}
+						Expect(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
+						Expect(pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions).To(ContainElements(megt, melt))
 					} else {
-						Expect(pod.Spec.NodeSelector).ToNot(HaveKey("scheduling.node.kubevirt.io/tsc-frequency-123123"))
+						for _, nst := range pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+							for _, me := range nst.MatchExpressions {
+								Expect(me.Key).NotTo(Equal(topology.TSCFrequencyLabel))
+							}
+						}
 					}
 				},
 					Entry("not be added if only topology hints are not defined and tsc is not requirement", noHints, topology.NotRequired, false),
