@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"k8s.io/apimachinery/pkg/util/errors"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -2558,6 +2560,16 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
 			AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
+		}
+
+		if threadCountStr, exists := origVMI.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation]; exists {
+			threadCount, err := strconv.Atoi(threadCountStr)
+
+			if err != nil {
+				log.Log.Object(origVMI).Reason(err).Infof("cannot parse %s to int", threadCountStr)
+			} else {
+				options.ParallelMigrationThreads = pointer.P(uint(threadCount))
+			}
 		}
 
 		marshalledOptions, err := json.Marshal(options)

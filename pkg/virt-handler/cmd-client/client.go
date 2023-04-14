@@ -69,13 +69,16 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
+const MultiThreadedQemuMigrationAnnotation = "kubevirt.io/multiThreadedQemuMigration"
+
 type MigrationOptions struct {
-	Bandwidth               resource.Quantity
-	ProgressTimeout         int64
-	CompletionTimeoutPerGiB int64
-	UnsafeMigration         bool
-	AllowAutoConverge       bool
-	AllowPostCopy           bool
+	Bandwidth                resource.Quantity
+	ProgressTimeout          int64
+	CompletionTimeoutPerGiB  int64
+	UnsafeMigration          bool
+	AllowAutoConverge        bool
+	AllowPostCopy            bool
+	ParallelMigrationThreads *uint
 }
 
 type LauncherClient interface {

@@ -1517,12 +1517,22 @@ var _ = Describe("Manager", func() {
 	DescribeTable("check migration flags",
 		func(migrationType string) {
 			isBlockMigration := migrationType == "block"
-			isUnsafeMigration := migrationType == "unsafe"
-			allowAutoConverge := migrationType == "autoConverge"
-			migrationMode := migrationType == "postCopy"
 			isVmiPaused := migrationType == "paused"
 
-			flags := generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, migrationMode, isVmiPaused)
+			var parallelMigrationThreads *uint = nil
+			if migrationType == "parallel" {
+				var fakeNumberOfThreads uint = 123
+				parallelMigrationThreads = &fakeNumberOfThreads
+			}
+
+			options := &cmdclient.MigrationOptions{
+				UnsafeMigration:          migrationType == "unsafe",
+				AllowAutoConverge:        migrationType == "autoConverge",
+				AllowPostCopy:            migrationType == "postCopy",
+				ParallelMigrationThreads: parallelMigrationThreads,
+			}
+
+			flags := generateMigrationFlags(isBlockMigration, isVmiPaused, options)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 			if isBlockMigration {
@@ -1530,7 +1540,7 @@ var _ = Describe("Manager", func() {
 			} else if migrationType == "unsafe" {
 				expectedMigrateFlags |= libvirt.MIGRATE_UNSAFE
 			}
-			if allowAutoConverge {
+			if options.AllowAutoConverge {
 				expectedMigrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 			}
 			if migrationType == "postCopy" {
@@ -1539,7 +1549,10 @@ var _ = Describe("Manager", func() {
 			if migrationType == "paused" {
 				expectedMigrateFlags |= libvirt.MIGRATE_PAUSED
 			}
-			Expect(flags).To(Equal(expectedMigrateFlags))
+			if migrationType == "parallel" {
+				expectedMigrateFlags |= libvirt.MIGRATE_PARALLEL
+			}
+			Expect(flags).To(Equal(expectedMigrateFlags), "libvirt migration flags are not set as expected")
 		},
 		Entry("with block migration", "block"),
 		Entry("without block migration", "live"),
@@ -1547,6 +1560,7 @@ var _ = Describe("Manager", func() {
 		Entry("migration auto converge", "autoConverge"),
 		Entry("migration using postcopy", "postCopy"),
 		Entry("migration of paused vmi", "paused"),
+		Entry("migration with parallel threads", "parallel"),
 	)
 
 	DescribeTable("on successful list all domains",

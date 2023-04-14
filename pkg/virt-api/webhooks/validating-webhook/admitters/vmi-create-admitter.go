@@ -26,7 +26,10 @@ import (
 	"net"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -1625,6 +1628,25 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 				field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
 			Field: field.Child("annotations").String(),
 		})
+	}
+
+	if threadCountStr, exists := metadata.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation]; exists {
+		threadCount, err := strconv.Atoi(threadCountStr)
+		invalidEntry := field.Child("annotations", cmdclient.MultiThreadedQemuMigrationAnnotation).String()
+
+		if err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("cannot parse %s to int: %s, invalid entry %s", threadCountStr, err.Error(), invalidEntry),
+				Field:   field.Child("annotations").String(),
+			})
+		} else if threadCount <= 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("thread count (%s) must be larger than 1. invalid entry %s", threadCountStr, invalidEntry),
+				Field:   field.Child("annotations").String(),
+			})
+		}
 	}
 
 	return causes

@@ -90,23 +90,26 @@ type inflightMigrationAborted struct {
 	abortStatus v1.MigrationAbortStatus
 }
 
-func generateMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, allowPostyCopy, migratePaused bool) libvirt.DomainMigrateFlags {
+func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdclient.MigrationOptions) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_PERSIST_DEST
 
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
 	}
-	if isUnsafeMigration {
+	if options.UnsafeMigration {
 		migrateFlags |= libvirt.MIGRATE_UNSAFE
 	}
-	if allowAutoConverge {
+	if options.AllowAutoConverge {
 		migrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 	}
-	if allowPostyCopy {
+	if options.AllowPostCopy {
 		migrateFlags |= libvirt.MIGRATE_POSTCOPY
 	}
 	if migratePaused {
 		migrateFlags |= libvirt.MIGRATE_PAUSED
+	}
+	if options.ParallelMigrationThreads != nil {
+		migrateFlags |= libvirt.MIGRATE_PARALLEL
 	}
 
 	return migrateFlags
@@ -813,17 +816,26 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
+	parallelMigrationSet := false
+	var parallelMigrationThreads int
+	if options.ParallelMigrationThreads != nil {
+		parallelMigrationSet = true
+		parallelMigrationThreads = int(*options.ParallelMigrationThreads)
+	}
+
 	key := migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtDirectMigrationPort)
 	migrURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
 	params := &libvirt.DomainMigrateParameters{
-		URI:           migrURI,
-		URISet:        true,
-		Bandwidth:     bandwidth, // MiB/s
-		BandwidthSet:  bandwidth > 0,
-		DestXML:       xmlstr,
-		DestXMLSet:    true,
-		PersistXML:    xmlstr,
-		PersistXMLSet: true,
+		URI:                    migrURI,
+		URISet:                 true,
+		Bandwidth:              bandwidth, // MiB/s
+		BandwidthSet:           bandwidth > 0,
+		DestXML:                xmlstr,
+		DestXMLSet:             true,
+		PersistXML:             xmlstr,
+		PersistXMLSet:          true,
+		ParallelConnectionsSet: parallelMigrationSet,
+		ParallelConnections:    parallelMigrationThreads,
 	}
 
 	copyDisks := getDiskTargetsForMigration(dom, vmi)
@@ -857,7 +869,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	if err != nil {
 		return fmt.Errorf("failed to retrive domain state")
 	}
-	migrateFlags := generateMigrationFlags(isBlockMigration(vmi), options.UnsafeMigration, options.AllowAutoConverge, options.AllowPostCopy, migratePaused)
+	migrateFlags := generateMigrationFlags(isBlockMigration(vmi), migratePaused, options)
 
 	// anything that modifies the domain needs to be performed with the domainModifyLock held
 	// The domain params and unHotplug need to be performed in a critical section together.
