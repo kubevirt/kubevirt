@@ -650,7 +650,6 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 			Singular:   instancetype.ClusterSingularResourceName,
 			ShortNames: []string{"vmclusterinstancetype", "vmclusterinstancetypes", "vmcf", "vmcfs"},
 			Kind:       "VirtualMachineClusterInstancetype",
-			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,
 		Conversion: &extv1.CustomResourceConversion{
@@ -718,7 +717,6 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 			Singular:   instancetype.ClusterSingularPreferenceResourceName,
 			ShortNames: []string{"vmcp", "vmcps"},
 			Kind:       "VirtualMachineClusterPreference",
-			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,
 		Conversion: &extv1.CustomResourceConversion{
