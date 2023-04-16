@@ -32,7 +32,6 @@ import (
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,42 +96,8 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 
 	var err error
 	var virtClient kubecli.KubevirtClient
-	var scales map[string]*autoscalingv1.Scale
+	var scales *Scaling
 	var prometheusRule *promv1.PrometheusRule
-
-	backupScale := func(operatorName string) {
-		Eventually(func() error {
-			virtOperatorCurrentScale, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).GetScale(context.TODO(), operatorName, metav1.GetOptions{})
-			if err == nil {
-				scales[operatorName] = virtOperatorCurrentScale
-			}
-			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
-	}
-
-	revertScale := func(operatorName string) {
-		revert := scales[operatorName].DeepCopy()
-		revert.ResourceVersion = ""
-		Eventually(func() error {
-			_, err = virtClient.
-				AppsV1().
-				Deployments(flags.KubeVirtInstallNamespace).
-				UpdateScale(context.TODO(), operatorName, revert, metav1.UpdateOptions{})
-			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
-	}
-
-	updateScale := func(operatorName string, replicas int32) {
-		scale := scales[operatorName].DeepCopy()
-		scale.Spec.Replicas = replicas
-		Eventually(func() error {
-			_, err = virtClient.
-				AppsV1().
-				Deployments(flags.KubeVirtInstallNamespace).
-				UpdateScale(context.TODO(), operatorName, scale, metav1.UpdateOptions{})
-			return err
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
-	}
 
 	checkAlert := func(alertName string) error {
 		alerts, err := getAlerts(virtClient)
@@ -286,19 +251,14 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 
 	Context("Up metrics", func() {
 		BeforeEach(func() {
-			scales = make(map[string]*autoscalingv1.Scale, 3)
-			backupScale(virtOperator.deploymentName)
-			backupScale(virtController.deploymentName)
-			backupScale(virtApi.deploymentName)
+			scales = NewScaling(virtClient, []string{virtOperator.deploymentName, virtController.deploymentName, virtApi.deploymentName})
+			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
-			updateScale(virtOperator.deploymentName, int32(0))
 			reduceAlertPendingTime()
 		})
 
 		AfterEach(func() {
-			revertScale(virtApi.deploymentName)
-			revertScale(virtController.deploymentName)
-			revertScale(virtOperator.deploymentName)
+			scales.RestoreAllScales()
 
 			time.Sleep(10 * time.Second)
 			alerts := []string{
@@ -321,31 +281,23 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 		})
 
 		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
-			By("Scaling virt-controller to zero")
-			updateScale(virtController.deploymentName, int32(0))
-
+			scales.UpdateScale(virtController.deploymentName, int32(0))
 			verifyAlertExist(virtController.downAlert)
 			verifyAlertExist(virtController.noReadyAlert)
 		})
 
 		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Scaling virt-controller to zero")
-			updateScale(virtController.deploymentName, int32(0))
-
+			scales.UpdateScale(virtController.deploymentName, int32(0))
 			verifyAlertExist(virtController.lowCountAlert)
 		})
 
 		It("VirtApiDown should be triggered when virt-api is down", func() {
-			By("Scaling virt-api to zero")
-			updateScale(virtApi.deploymentName, int32(0))
-
+			scales.UpdateScale(virtApi.deploymentName, int32(0))
 			verifyAlertExist(virtApi.downAlert)
 		})
 
 		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			By("Scaling virt-api to zero")
-			updateScale(virtApi.deploymentName, int32(0))
-
+			scales.UpdateScale(virtApi.deploymentName, int32(0))
 			verifyAlertExist(virtApi.lowCountAlert)
 		})
 	})
@@ -361,9 +313,8 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 
 			increaseRateLimit()
 
-			scales = make(map[string]*autoscalingv1.Scale, 1)
-			backupScale(virtOperator.deploymentName)
-			updateScale(virtOperator.deploymentName, 0)
+			scales = NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
 			reduceAlertPendingTime()
 		})
@@ -376,7 +327,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			if !errors.IsAlreadyExists(err) {
 				util.PanicOnError(err)
 			}
-			revertScale(virtOperator.deploymentName)
+			scales.RestoreAllScales()
 
 			time.Sleep(10 * time.Second)
 			waitUntilAlertDoesNotExist(virtOperator.downAlert)
@@ -399,7 +350,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 		})
 
 		It("VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
-			revertScale(virtOperator.deploymentName)
+			scales.RestoreScale(virtOperator.deploymentName)
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

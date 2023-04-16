@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "monitoring.go",
         "prometheus_utils.go",
+        "scaling_utils.go",
         "vm_monitoring.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/monitoring",
