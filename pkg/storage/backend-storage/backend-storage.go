@@ -43,10 +43,10 @@ func PVCForVMI(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + vmi.Name
 }
 
-func HasPersistentTPMDevice(vmi *corev1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.TPM != nil &&
-		vmi.Spec.Domain.Devices.TPM.Persistent != nil &&
-		*vmi.Spec.Domain.Devices.TPM.Persistent {
+func HasPersistentTPMDevice(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
+	if vmiSpec.Domain.Devices.TPM != nil &&
+		vmiSpec.Domain.Devices.TPM.Persistent != nil &&
+		*vmiSpec.Domain.Devices.TPM.Persistent {
 		return true
 	}
 
@@ -54,15 +54,14 @@ func HasPersistentTPMDevice(vmi *corev1.VirtualMachineInstance) bool {
 }
 
 func isBackendStorageNeededForVMI(vmi *corev1.VirtualMachineInstance) bool {
-	return HasPersistentTPMDevice(vmi)
+	return HasPersistentTPMDevice(&vmi.Spec)
 }
 
 func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	if vm.Spec.Template == nil {
 		return false
 	}
-	vmi := &corev1.VirtualMachineInstance{Spec: vm.Spec.Template.Spec}
-	return HasPersistentTPMDevice(vmi)
+	return HasPersistentTPMDevice(&vm.Spec.Template.Spec)
 }
 
 func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) error {
