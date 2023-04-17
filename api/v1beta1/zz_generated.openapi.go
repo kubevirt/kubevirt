@@ -563,6 +563,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 							},
 						},
 					},
+					"systemHealthStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SystemHealthStatus reflects the health of HCO and its secondary resources, based on the aggregated conditions.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
