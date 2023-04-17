@@ -58,7 +58,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 	}
 
 	Context("should create valid instancetype manifest", func() {
-		DescribeTable("when CPU and Memory defined", func(namespacedFlag string, namespaced bool) {
+		DescribeTable("[test_id:9833]when CPU and Memory defined", func(namespacedFlag string, namespaced bool) {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
@@ -74,7 +74,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 			Entry("VirtualMachineClusterInstancetype", "", false),
 		)
 
-		DescribeTable("when GPUs defined", func(namespacedFlag string, namespaced bool) {
+		DescribeTable("[test_id:9834]when GPUs defined", func(namespacedFlag string, namespaced bool) {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
@@ -91,7 +91,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 			Entry("VirtualMachineClusterInstancetype", "", false),
 		)
 
-		DescribeTable("when hostDevice defined", func(namespacedFlag string, namespaced bool) {
+		DescribeTable("[test_id:9899]when hostDevice defined", func(namespacedFlag string, namespaced bool) {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
@@ -108,7 +108,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 			Entry("VirtualMachineClusterInstancetype", "", false),
 		)
 
-		DescribeTable("when IOThreadsPolicy defined", func(namespacedFlag, policyStr string, namespaced bool, policy v1.IOThreadsPolicy) {
+		DescribeTable("[test_id:9835]when IOThreadsPolicy defined", func(namespacedFlag, policyStr string, namespaced bool, policy v1.IOThreadsPolicy) {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
