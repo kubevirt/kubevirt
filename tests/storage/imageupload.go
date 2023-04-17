@@ -44,10 +44,10 @@ const (
 	imagePath            = "/tmp/alpine.iso"
 	getDataVolume        = "Get DataVolume"
 	getPVC               = "Get PVC"
-	imageUpload          = "image-upload"
-	namespace            = "--namespace"
-	size                 = "--size"
-	insecure             = "--insecure"
+	imageUploadCmd       = "image-upload"
+	namespaceArg         = "--namespace"
+	sizeArg              = "--size"
+	insecureArg          = "--insecure"
 )
 
 var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
@@ -165,14 +165,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				resource, targetName,
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--image-path", imagePath,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--storage-class", sc,
 				"--block-volume",
-				insecure)
+				insecureArg)
 			err := virtctlCmd()
 			if err != nil {
 				fmt.Printf("UploadImage Error: %+v\n", err)
@@ -233,15 +233,15 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			defer deleteFunc(targetName)
 
 			By("Upload image")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				resource, targetName,
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--image-path", imagePath,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--storage-class", storageClass,
 				"--access-mode", "ReadWriteOnce",
 				"--force-bind",
-				insecure)
+				insecureArg)
 
 			Expect(virtctlCmd()).To(Succeed())
 			validateFunc(targetName)
@@ -289,13 +289,13 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			defer deleteFunc(targetName)
 
 			By("Upload archive content")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				resource, targetName,
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--force-bind",
-				insecure)
+				insecureArg)
 
 			Expect(virtctlCmd()).To(Succeed())
 			validateArchiveUpload(targetName, uploadDV)
@@ -319,14 +319,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		})
 
 		It("Upload fails creating a DV when using a non-existent storageClass", func() {
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				"dv", "alpine-archive-dv-"+rand.String(12),
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--force-bind",
-				insecure)
+				insecureArg)
 
 			err := virtctlCmd()
 			Expect(err).To(HaveOccurred())
@@ -334,14 +334,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 		})
 
 		It("Upload fails creating a PVC when using a non-existent storageClass", func() {
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				"pvc", "alpine-archive-"+rand.String(12),
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--force-bind",
-				insecure)
+				insecureArg)
 
 			err := virtctlCmd()
 			Expect(err).To(HaveOccurred())
@@ -350,14 +350,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 		It("Upload doesn't succeed when DV provisioning fails", func() {
 			libstorage.CreateStorageClass(invalidStorageClass, nil)
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				"dv", "alpine-archive-dv-"+rand.String(12),
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--force-bind",
-				insecure)
+				insecureArg)
 
 			err := virtctlCmd()
 			Expect(err).To(HaveOccurred())
@@ -367,14 +367,14 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 
 		It("Upload doesn't succeed when PVC provisioning fails", func() {
 			libstorage.CreateStorageClass(invalidStorageClass, nil)
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUpload,
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
 				"pvc", "alpine-archive-pvc-"+rand.String(12),
-				namespace, testsuite.GetTestNamespace(nil),
+				namespaceArg, testsuite.GetTestNamespace(nil),
 				"--archive-path", archivePath,
 				"--storage-class", invalidStorageClass,
-				size, pvcSize,
+				sizeArg, pvcSize,
 				"--force-bind",
-				insecure)
+				insecureArg)
 
 			err := virtctlCmd()
 			Expect(err).To(HaveOccurred())
