@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
 const (
@@ -38,7 +39,7 @@ func DefaultLeaderElectionConfiguration() Configuration {
 		LeaseDuration: metav1.Duration{Duration: DefaultLeaseDuration},
 		RenewDeadline: metav1.Duration{Duration: DefaultRenewDeadline},
 		RetryPeriod:   metav1.Duration{Duration: DefaultRetryPeriod},
-		ResourceLock:  "endpoints",
+		ResourceLock:  resourcelock.EndpointsLeasesResourceLock,
 	}
 }
 
