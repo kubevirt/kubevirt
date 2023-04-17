@@ -28,6 +28,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
+	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
+	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
@@ -3495,6 +3497,10 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 					instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachineInstancetype",
+						},
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "instancetype",
 							Namespace:  vm.Namespace,
@@ -3564,11 +3570,17 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(revisionInstancetype.Spec).To(Equal(instancetypeObj.Spec))
 				})
 
-				It("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func() {
-					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
+				DescribeTable("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func(getRevisionData func() []byte) {
+					instancetypeRevision := &appsv1.ControllerRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "crName",
+						},
+						Data: runtime.RawExtension{
+							Raw: getRevisionData(),
+						},
+					}
 
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
@@ -3593,7 +3605,104 @@ var _ = Describe("VirtualMachine", func() {
 
 					controller.Execute()
 
-				})
+				},
+					Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision with APIVersion", func() []byte {
+						v1alpha1instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1alpha1.CPUInstancetype{
+								Guest: instancetypeObj.Spec.CPU.Guest,
+							},
+							Memory: instancetypev1alpha1.MemoryInstancetype{
+								Guest: instancetypeObj.Spec.Memory.Guest,
+							},
+						}
+
+						specBytes, err := json.Marshal(&v1alpha1instancetypeSpec)
+						Expect(err).ToNot(HaveOccurred())
+
+						specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+							Spec:       specBytes,
+						}
+						specRevisionBytes, err := json.Marshal(specRevision)
+						Expect(err).ToNot(HaveOccurred())
+
+						return specRevisionBytes
+					}),
+					Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision without APIVersion", func() []byte {
+						v1alpha1instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1alpha1.CPUInstancetype{
+								Guest: instancetypeObj.Spec.CPU.Guest,
+							},
+							Memory: instancetypev1alpha1.MemoryInstancetype{
+								Guest: instancetypeObj.Spec.Memory.Guest,
+							},
+						}
+
+						specBytes, err := json.Marshal(&v1alpha1instancetypeSpec)
+						Expect(err).ToNot(HaveOccurred())
+
+						specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+							APIVersion: "",
+							Spec:       specBytes,
+						}
+						specRevisionBytes, err := json.Marshal(specRevision)
+						Expect(err).ToNot(HaveOccurred())
+
+						return specRevisionBytes
+					}),
+					Entry("using v1alpha1", func() []byte {
+						v1alpha1instancetype := &instancetypev1alpha1.VirtualMachineInstancetype{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+								Kind:       "VirtualMachineInstancetype",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name: instancetypeObj.Name,
+							},
+							Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+								CPU: instancetypev1alpha1.CPUInstancetype{
+									Guest: instancetypeObj.Spec.CPU.Guest,
+								},
+								Memory: instancetypev1alpha1.MemoryInstancetype{
+									Guest: instancetypeObj.Spec.Memory.Guest,
+								},
+							},
+						}
+						instancetypeBytes, err := json.Marshal(v1alpha1instancetype)
+						Expect(err).ToNot(HaveOccurred())
+
+						return instancetypeBytes
+					}),
+					Entry("using v1alpha2", func() []byte {
+						v1alpha2instancetype := &instancetypev1alpha2.VirtualMachineInstancetype{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+								Kind:       "VirtualMachineInstancetype",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name: instancetypeObj.Name,
+							},
+							Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+								CPU: instancetypev1alpha2.CPUInstancetype{
+									Guest: instancetypeObj.Spec.CPU.Guest,
+								},
+								Memory: instancetypev1alpha2.MemoryInstancetype{
+									Guest: instancetypeObj.Spec.Memory.Guest,
+								},
+							},
+						}
+						instancetypeBytes, err := json.Marshal(v1alpha2instancetype)
+						Expect(err).ToNot(HaveOccurred())
+
+						return instancetypeBytes
+					}),
+					Entry("using v1beta1", func() []byte {
+						instancetypeBytes, err := json.Marshal(instancetypeObj)
+						Expect(err).ToNot(HaveOccurred())
+
+						return instancetypeBytes
+					}),
+				)
 
 				It("should apply VirtualMachineInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
 					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
@@ -3900,6 +4009,10 @@ var _ = Describe("VirtualMachine", func() {
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachinePreference",
+						},
 						Spec: preferenceSpec,
 					}
 					_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
@@ -3963,11 +4076,17 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(preferenceRevisionObj.Spec).To(Equal(preference.Spec))
 				})
 
-				It("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func() {
-					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
-					Expect(err).ToNot(HaveOccurred())
+				DescribeTable("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func(getRevisionData func() []byte) {
+					preferenceRevision := &appsv1.ControllerRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "crName",
+						},
+						Data: runtime.RawExtension{
+							Raw: getRevisionData(),
+						},
+					}
 
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
+					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					vm.Spec.Preference = &v1.PreferenceMatcher{
@@ -3992,7 +4111,116 @@ var _ = Describe("VirtualMachine", func() {
 
 					controller.Execute()
 
-				})
+				},
+					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
+						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+							Firmware: &instancetypev1alpha1.FirmwarePreferences{
+								PreferredUseEfi: pointer.Bool(true),
+							},
+							Devices: &instancetypev1alpha1.DevicePreferences{
+								PreferredDiskBus:        virtv1.DiskBusVirtio,
+								PreferredInterfaceModel: "virtio",
+								PreferredInputBus:       virtv1.InputBusUSB,
+								PreferredInputType:      virtv1.InputTypeTablet,
+							},
+						}
+
+						specBytes, err := json.Marshal(&v1alpha1preferenceSpec)
+						Expect(err).ToNot(HaveOccurred())
+
+						specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
+							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+							Spec:       specBytes,
+						}
+						specRevisionBytes, err := json.Marshal(specRevision)
+						Expect(err).ToNot(HaveOccurred())
+
+						return specRevisionBytes
+					}),
+					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision without APIVersion", func() []byte {
+						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+							Firmware: &instancetypev1alpha1.FirmwarePreferences{
+								PreferredUseEfi: pointer.Bool(true),
+							},
+							Devices: &instancetypev1alpha1.DevicePreferences{
+								PreferredDiskBus:        virtv1.DiskBusVirtio,
+								PreferredInterfaceModel: "virtio",
+								PreferredInputBus:       virtv1.InputBusUSB,
+								PreferredInputType:      virtv1.InputTypeTablet,
+							},
+						}
+
+						specBytes, err := json.Marshal(&v1alpha1preferenceSpec)
+						Expect(err).ToNot(HaveOccurred())
+
+						specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
+							APIVersion: "",
+							Spec:       specBytes,
+						}
+						specRevisionBytes, err := json.Marshal(specRevision)
+						Expect(err).ToNot(HaveOccurred())
+
+						return specRevisionBytes
+					}),
+					Entry("using v1alpha1", func() []byte {
+						v1alpha1preference := &instancetypev1alpha1.VirtualMachinePreference{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+								Kind:       "VirtualMachinePreference",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name: preference.Name,
+							},
+							Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+								Firmware: &instancetypev1alpha1.FirmwarePreferences{
+									PreferredUseEfi: pointer.Bool(true),
+								},
+								Devices: &instancetypev1alpha1.DevicePreferences{
+									PreferredDiskBus:        virtv1.DiskBusVirtio,
+									PreferredInterfaceModel: "virtio",
+									PreferredInputBus:       virtv1.InputBusUSB,
+									PreferredInputType:      virtv1.InputTypeTablet,
+								},
+							},
+						}
+						preferenceBytes, err := json.Marshal(v1alpha1preference)
+						Expect(err).ToNot(HaveOccurred())
+
+						return preferenceBytes
+					}),
+					Entry("using v1alpha2", func() []byte {
+						v1alpha2preference := &instancetypev1alpha2.VirtualMachinePreference{
+							TypeMeta: metav1.TypeMeta{
+								APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+								Kind:       "VirtualMachinePreference",
+							},
+							ObjectMeta: metav1.ObjectMeta{
+								Name: preference.Name,
+							},
+							Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+								Firmware: &instancetypev1alpha2.FirmwarePreferences{
+									PreferredUseEfi: pointer.Bool(true),
+								},
+								Devices: &instancetypev1alpha2.DevicePreferences{
+									PreferredDiskBus:        virtv1.DiskBusVirtio,
+									PreferredInterfaceModel: "virtio",
+									PreferredInputBus:       virtv1.InputBusUSB,
+									PreferredInputType:      virtv1.InputTypeTablet,
+								},
+							},
+						}
+						preferenceBytes, err := json.Marshal(v1alpha2preference)
+						Expect(err).ToNot(HaveOccurred())
+
+						return preferenceBytes
+					}),
+					Entry("using v1beta1", func() []byte {
+						preferenceBytes, err := json.Marshal(preference)
+						Expect(err).ToNot(HaveOccurred())
+
+						return preferenceBytes
+					}),
+				)
 
 				It("should apply VirtualMachinePreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
 					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
