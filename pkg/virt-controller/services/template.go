@@ -1459,6 +1459,35 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	}
 
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.ImageType == v1.Qcow2Image {
+			pvc, err := t.virtClient.CoreV1().PersistentVolumeClaims(
+				disk.BackingFilePVCNamespace).Get(context.TODO(), disk.BackingFilePVCName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			pv, err := t.virtClient.CoreV1().PersistentVolumes().Get(context.TODO(),
+				pvc.Spec.VolumeName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			localPath := pv.Spec.Local.Path
+			volumes = append(volumes, k8sv1.Volume{
+				Name: "backingfile",
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: localPath,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      "backingfile",
+				ReadOnly:  false,
+				MountPath: fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s", disk.Name),
+			})
+		}
+	}
+
 	if nonRoot {
 		if util.HasHugePages(vmi) {
 			pod.Spec.SecurityContext.FSGroup = &userId

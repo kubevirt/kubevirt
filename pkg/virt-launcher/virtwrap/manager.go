@@ -879,6 +879,25 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
+
+		for _, disk := range vmi.Spec.Domain.Devices.Disks {
+			if disk.ImageType == v1.Qcow2Image {
+				imagePath := fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", disk.Name)
+				_, err := os.Stat(imagePath)
+				if err != nil && os.IsNotExist(err) {
+					backingFilePath := fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s/disk.img", disk.Name)
+					output, err := exec.Command("bash", "-c",
+						fmt.Sprintf("qemu-img create -f qcow2 -o backing_file=%s %s",
+							backingFilePath, imagePath)).CombinedOutput()
+					if err != nil {
+						log.Log.Errorf("qemu-img create backing_file err: %v", err)
+						return nil, err
+					}
+					log.Log.Infof("qemu-img create backing_file output %s", output)
+				}
+			}
+		}
+
 		err = l.generateCloudInitISO(vmi, &dom)
 		if err != nil {
 			return nil, err

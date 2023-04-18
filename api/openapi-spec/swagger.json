@@ -12711,7 +12711,7 @@
       "type": "string"
      },
      "disable": {
-      "description": "If specified will disable nic's DHCP server",
+      "description": "If specified will disable nic's dhcp server",
       "type": "boolean"
      },
      "ntpServers": {
@@ -12731,7 +12731,7 @@
      "tftpServerName": {
       "description": "If specified will pass option 66 to interface's DHCP server",
       "type": "string"
-     },
+     }
     }
    },
    "v1.DHCPPrivateOptions": {
@@ -12977,10 +12977,6 @@
      "disk": {
       "description": "Attach a volume as a disk to the vmi.",
       "$ref": "#/definitions/v1.DiskTarget"
-     },
-     "errorPolicy": {
-      "description": "If specified, error_policy will be provided to the guest via config drive metadata",
-      "type": "string"
      },
      "io": {
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
