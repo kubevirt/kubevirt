@@ -180,7 +180,6 @@ func NewCommand() *cobra.Command {
 
 func defaultCreateVM() createVM {
 	return createVM{
-		name:                   "vm-" + rand.String(5),
 		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
 	}
@@ -197,6 +196,8 @@ func checkVolumeExists(flag string, vols []v1.Volume, name string) error {
 }
 
 func (c *createVM) run(cmd *cobra.Command) error {
+	c.setDefaults()
+
 	vm := newVM(c)
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
@@ -213,6 +214,12 @@ func (c *createVM) run(cmd *cobra.Command) error {
 
 	cmd.Print(string(out))
 	return nil
+}
+
+func (c *createVM) setDefaults() {
+	if c.name == "" {
+		c.name = "vm-" + rand.String(5)
+	}
 }
 
 func (c *createVM) usage() string {
