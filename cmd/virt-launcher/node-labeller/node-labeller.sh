@@ -8,11 +8,6 @@ if ! uname -m | grep x86_64; then
 fi
 
 set +o pipefail
-arch=$(uname -m)
-if [ "$arch" != "x86_64" ]; then
-  echo "Not running on x86 architecture"
-  exit 0
-fi
 
 KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
 set -o pipefail
