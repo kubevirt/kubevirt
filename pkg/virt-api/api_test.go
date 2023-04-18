@@ -162,18 +162,6 @@ var _ = Describe("Virt-api", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		})
 
-		It("should have a test endpoint", func() {
-			app.authorizor = authorizorMock
-			authorizorMock.EXPECT().
-				Authorize(gomock.Not(gomock.Nil())).
-				Return(true, "", nil).
-				AnyTimes()
-			app.Compose()
-			resp, err := http.Get(backend.URL + "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/vm1/test")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		})
-
 		It("should have a version endpoint", func() {
 			app.authorizor = authorizorMock
 			authorizorMock.EXPECT().

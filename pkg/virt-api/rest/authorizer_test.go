@@ -221,14 +221,29 @@ var _ = Describe("Authorizer", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(allowed).To(BeTrue())
 			},
+				// Root resources
 				Entry("root", "/"),
-				Entry("apis", "/apis"),
-				Entry("group", "/apis/subresources.kubevirt.io"),
-				Entry("version", "/apis/subresources.kubevirt.io/version"),
-				Entry("healthz", "/apis/subresources.kubevirt.io/healthz"),
-				Entry("start profiler", "/apis/subresources.kubevirt.io/start-cluster-profiler"),
-				Entry("stop profiler", "/apis/subresources.kubevirt.io/stop-cluster-profiler"),
-				Entry("dump profiler", "/apis/subresources.kubevirt.io/dump-cluster-profiler"),
+				Entry("healthz", "/healthz"),
+				Entry("openapi", "/openapi/v2"),
+				Entry("start profiler", "/start-profiler"),
+				Entry("stop profiler", "/stop-profiler"),
+				Entry("dump profiler", "/dump-profiler"),
+				// Subresources v1
+				Entry("subresource v1 groupversion", "/apis/subresources.kubevirt.io/v1"),
+				Entry("subresource v1 version", "/apis/subresources.kubevirt.io/v1/version"),
+				Entry("subresource v1 guestfs", "/apis/subresources.kubevirt.io/v1/guestfs"),
+				Entry("subresource v1 healthz", "/apis/subresources.kubevirt.io/v1/healthz"),
+				Entry("subresource v1 start profiler", "/apis/subresources.kubevirt.io/v1/start-cluster-profiler"),
+				Entry("subresource v1 stop profiler", "/apis/subresources.kubevirt.io/v1/stop-cluster-profiler"),
+				Entry("subresource v1 dump profiler", "/apis/subresources.kubevirt.io/v1/dump-cluster-profiler"),
+				// Subresource v1alpha3
+				Entry("subresource v1alpha3 groupversion", "/apis/subresources.kubevirt.io/v1alpha3"),
+				Entry("subresource v1alpha3 version", "/apis/subresources.kubevirt.io/v1alpha3/version"),
+				Entry("subresource v1alpha3 guestfs", "/apis/subresources.kubevirt.io/v1alpha3/guestfs"),
+				Entry("subresource v1alpha3 healthz", "/apis/subresources.kubevirt.io/v1alpha3/healthz"),
+				Entry("subresource v1alpha3 start profiler", "/apis/subresources.kubevirt.io/v1alpha3/start-cluster-profiler"),
+				Entry("subresource v1alpha3 stop profiler", "/apis/subresources.kubevirt.io/v1alpha3/stop-cluster-profiler"),
+				Entry("subresource v1alpha3 dump profiler", "/apis/subresources.kubevirt.io/v1alpha3/dump-cluster-profiler"),
 			)
 
 			DescribeTable("should reject all users for unknown endpoint paths", func(path string) {
