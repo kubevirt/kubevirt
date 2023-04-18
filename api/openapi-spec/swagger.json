@@ -17276,6 +17276,9 @@
        "$ref": "#/definitions/v1.KubeVirtCondition"
       }
      },
+     "defaultArchitecture": {
+      "type": "string"
+     },
      "generations": {
       "type": "array",
       "items": {

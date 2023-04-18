@@ -2804,6 +2804,8 @@ spec:
                   - type
                   type: object
                 type: array
+              defaultArchitecture:
+                type: string
               generations:
                 items:
                   description: GenerationStatus keeps track of the generation for
@@ -5661,6 +5663,8 @@ spec:
                   - type
                   type: object
                 type: array
+              defaultArchitecture:
+                type: string
               generations:
                 items:
                   description: GenerationStatus keeps track of the generation for

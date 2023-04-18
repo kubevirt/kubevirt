@@ -3138,6 +3138,8 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        defaultArchitecture:
+          type: string
         generations:
           items:
             description: GenerationStatus keeps track of the generation for a given
