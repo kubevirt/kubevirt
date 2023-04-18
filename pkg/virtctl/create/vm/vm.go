@@ -198,7 +198,7 @@ func checkVolumeExists(flag string, vols []v1.Volume, name string) error {
 func (c *createVM) run(cmd *cobra.Command) error {
 	c.setDefaults()
 
-	vm := newVM(c)
+	vm := c.newVM()
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, vm); err != nil {
@@ -269,7 +269,7 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-pvc=my-pvc`
 }
 
-func newVM(c *createVM) *v1.VirtualMachine {
+func (c *createVM) newVM() *v1.VirtualMachine {
 	runStrategy := v1.VirtualMachineRunStrategy(c.runStrategy)
 	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
