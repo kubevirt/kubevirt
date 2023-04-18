@@ -12,6 +12,10 @@ import (
 	"strconv"
 	"time"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+
+	"kubevirt.io/kubevirt/tests/flags"
+
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -277,4 +281,73 @@ func KillPortForwardCommand(portForwardCmd *exec.Cmd) error {
 	portForwardCmd.Process.Kill()
 	_, err := portForwardCmd.Process.Wait()
 	return err
+}
+
+func checkAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool {
+	currentAlerts, err := getAlerts(virtClient)
+	if err != nil {
+		return false
+	}
+	for _, alert := range currentAlerts {
+		if string(alert.Labels["alertname"]) == alertName {
+			return true
+		}
+	}
+	return false
+}
+
+func verifyAlertExistWithCustomTime(virtClient kubecli.KubevirtClient, alertName string, timeout time.Duration) {
+	EventuallyWithOffset(1, func() bool {
+		return checkAlertExists(virtClient, alertName)
+	}, timeout, 10*time.Second).Should(BeTrue(), "Alert %s should exist", alertName)
+}
+
+func verifyAlertExist(virtClient kubecli.KubevirtClient, alertName string) {
+	verifyAlertExistWithCustomTime(virtClient, alertName, 120*time.Second)
+}
+
+func waitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ...string) {
+	presentAlert := EventuallyWithOffset(1, func() string {
+		for _, name := range alertNames {
+			if checkAlertExists(virtClient, name) {
+				return name
+			}
+		}
+		return ""
+	}, 5*time.Minute, 1*time.Second)
+
+	presentAlert.Should(BeEmpty(), "Alert %v should not exist", presentAlert)
+}
+
+func updatePromRules(virtClient kubecli.KubevirtClient, newRules *promv1.PrometheusRule) {
+	err := virtClient.
+		PrometheusClient().MonitoringV1().
+		PrometheusRules(flags.KubeVirtInstallNamespace).
+		Delete(context.Background(), "prometheus-kubevirt-rules", metav1.DeleteOptions{})
+
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = virtClient.
+		PrometheusClient().MonitoringV1().
+		PrometheusRules(flags.KubeVirtInstallNamespace).
+		Create(context.Background(), newRules, metav1.CreateOptions{})
+
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRule {
+	promRules, err := virtClient.
+		PrometheusClient().MonitoringV1().
+		PrometheusRules(flags.KubeVirtInstallNamespace).
+		Get(context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	var newRules promv1.PrometheusRule
+	promRules.DeepCopyInto(&newRules)
+
+	newRules.Annotations = nil
+	newRules.ObjectMeta.ResourceVersion = ""
+	newRules.ObjectMeta.UID = ""
+
+	return newRules
 }
