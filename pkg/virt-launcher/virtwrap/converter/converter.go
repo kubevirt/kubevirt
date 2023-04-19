@@ -1823,6 +1823,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		}
+		if vmi.Spec.Domain.Devices.TPM.Persistent != nil && *vmi.Spec.Domain.Devices.TPM.Persistent {
+			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
+		}
 	}
 
 	// Handle VSOCK CID

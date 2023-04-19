@@ -65,6 +65,8 @@ const (
 	HotplugNetworkIfacesGate = "HotplugNICs"
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
+	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
+	VMPersistentState = "VMPersistentState"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -214,4 +216,8 @@ func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
 
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
 	return config.isFeatureGateEnabled(PersistentReservation)
+}
+
+func (config *ClusterConfig) VMPersistentStateEnabled() bool {
+	return config.isFeatureGateEnabled(VMPersistentState)
 }

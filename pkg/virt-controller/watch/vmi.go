@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -80,6 +82,9 @@ const (
 	// FailedHandOverPodReason is added in an event and in a vmi controller condition
 	// when transferring the pod ownership from the controller to virt-hander fails.
 	FailedHandOverPodReason = "FailedHandOver"
+	// FailedBackendStorageCreateReason is added in an event when posting a dynamically
+	// generated dataVolume to the cluster fails.
+	FailedBackendStorageCreateReason = "FailedBackendStorageCreate"
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
@@ -1118,6 +1123,14 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return syncErr
 	}
 
+	err := backendstorage.CreateIfNeeded(vmi, c.clusterConfig, c.clientset)
+	if err != nil {
+		return &syncErrorImpl{
+			err:    err,
+			reason: FailedBackendStorageCreateReason,
+		}
+	}
+
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
@@ -1134,6 +1147,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
+
 		var templatePod *k8sv1.Pod
 		var err error
 		if isWaitForFirstConsumer {

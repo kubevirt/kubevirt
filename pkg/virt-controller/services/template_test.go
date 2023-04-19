@@ -3677,6 +3677,7 @@ var _ = Describe("Template", func() {
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
+				FSGroup:      &nonRootUser,
 			}),
 			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
@@ -3692,6 +3693,7 @@ var _ = Describe("Template", func() {
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
+				FSGroup:      &nonRootUser,
 				SELinuxOptions: &kubev1.SELinuxOptions{
 					Type: "virt_launcher.process",
 				},
@@ -3708,6 +3710,7 @@ var _ = Describe("Template", func() {
 				RunAsUser:    &nonRootUser,
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: pointer.Bool(true),
+				FSGroup:      &nonRootUser,
 			}),
 		)
 

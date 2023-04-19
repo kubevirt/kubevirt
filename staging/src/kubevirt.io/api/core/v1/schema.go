@@ -492,7 +492,11 @@ type SoundDevice struct {
 	Model string `json:"model,omitempty"`
 }
 
-type TPMDevice struct{}
+type TPMDevice struct {
+	// Persistent indicates the state of the TPM device should be kept accross reboots
+	// Defaults to false
+	Persistent *bool `json:"persistent,omitempty"`
+}
 
 type InputBus string
 
