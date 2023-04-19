@@ -16459,6 +16459,18 @@
      }
     }
    },
+   "v1.FileBacked": {
+    "type": "object",
+    "required": [
+     "volumeName"
+    ],
+    "properties": {
+     "volumeName": {
+      "description": "VolumeName is the volume in which the memory backing file would be located",
+      "type": "string"
+     }
+    }
+   },
    "v1.Filesystem": {
     "type": "object",
     "required": [
@@ -17424,6 +17436,10 @@
     "description": "Memory allows specifying the VirtualMachineInstance memory features.",
     "type": "object",
     "properties": {
+     "fileBacked": {
+      "description": "FileBacked backs the VM's memory by a file. Using this configuration allows the node to reclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance if the backing storage is not performant.",
+      "$ref": "#/definitions/v1.FileBacked"
+     },
      "guest": {
       "description": "Guest allows to specifying the amount of memory which is visible inside the Guest OS. The Guest must lie between Requests and Limits from the resources section. Defaults to the requested memory in the resources section if not specified.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"

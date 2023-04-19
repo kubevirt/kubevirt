@@ -355,6 +355,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.FeatureState":                                                       schema_kubevirtio_api_core_v1_FeatureState(ref),
 		"kubevirt.io/api/core/v1.FeatureVendorID":                                                    schema_kubevirtio_api_core_v1_FeatureVendorID(ref),
 		"kubevirt.io/api/core/v1.Features":                                                           schema_kubevirtio_api_core_v1_Features(ref),
+		"kubevirt.io/api/core/v1.FileBacked":                                                         schema_kubevirtio_api_core_v1_FileBacked(ref),
 		"kubevirt.io/api/core/v1.Filesystem":                                                         schema_kubevirtio_api_core_v1_Filesystem(ref),
 		"kubevirt.io/api/core/v1.FilesystemVirtiofs":                                                 schema_kubevirtio_api_core_v1_FilesystemVirtiofs(ref),
 		"kubevirt.io/api/core/v1.Firmware":                                                           schema_kubevirtio_api_core_v1_Firmware(ref),
@@ -16581,6 +16582,26 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 	}
 }
 
+func schema_kubevirtio_api_core_v1_FileBacked(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the volume in which the memory backing file would be located",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Filesystem(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18481,11 +18502,17 @@ func schema_kubevirtio_api_core_v1_Memory(ref common.ReferenceCallback) common.O
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"fileBacked": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FileBacked backs the VM's memory by a file. Using this configuration allows the node to reclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance if the backing storage is not performant.",
+							Ref:         ref("kubevirt.io/api/core/v1.FileBacked"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.FileBacked", "kubevirt.io/api/core/v1.Hugepages"},
 	}
 }
 

@@ -197,9 +197,10 @@ func (CPUFeature) SwaggerDoc() map[string]string {
 
 func (Memory) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "Memory allows specifying the VirtualMachineInstance memory features.",
-		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
-		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"":           "Memory allows specifying the VirtualMachineInstance memory features.",
+		"hugepages":  "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"guest":      "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"fileBacked": "FileBacked backs the VM's memory by a file. Using this configuration allows the node to\nreclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance\nif the backing storage is not performant.\n+ optional",
 	}
 }
 
@@ -213,6 +214,12 @@ func (Hugepages) SwaggerDoc() map[string]string {
 func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.\n+optional",
+	}
+}
+
+func (FileBacked) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"volumeName": "VolumeName is the volume in which the memory backing file would be located",
 	}
 }
 
