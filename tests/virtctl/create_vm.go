@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			vmName := "vm-" + rand.String(5)
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
-			dataSource := createDataSource(virtClient)
+			dataSource := createAnnotatedDataSource(virtClient, "something", "something")
 			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M", nil)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
@@ -175,15 +175,16 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			vmName := "vm-" + rand.String(5)
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
-			dataSource := createDataSource(virtClient)
-			pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
+			dataSource := createAnnotatedDataSource(virtClient, "something", preference.Name)
+			dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dataSource.Name)
+			pvc := createAnnotatedSourcePVC(instancetype.Name, "something")
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
 				setFlag(NameFlag, vmName),
 				setFlag(RunStrategyFlag, string(runStrategy)),
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
-				setFlag(InferInstancetypeFlag, "true"),
-				setFlag(InferPreferenceFlag, "true"),
+				setFlag(InferInstancetypeFlag, ""),
+				setFlag(InferPreferenceFlag, dvtDsName),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s", dataSource.Namespace, dataSource.Name)),
 				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
 				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
@@ -214,7 +215,6 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
 
-			dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dataSource.Name)
 			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtDsName))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
@@ -381,10 +381,16 @@ func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1alpha2.V
 	return preference
 }
 
-func createDataSource(virtClient kubecli.KubevirtClient) *v1beta1.DataSource {
+func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeName, preferenceName string) *v1beta1.DataSource {
 	dataSource := &v1beta1.DataSource{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-datasource-",
+			Labels: map[string]string{
+				apiinstancetype.DefaultInstancetypeLabel:     instancetypeName,
+				apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
+				apiinstancetype.DefaultPreferenceLabel:       preferenceName,
+				apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
+			},
 		},
 		Spec: v1beta1.DataSourceSpec{
 			Source: v1beta1.DataSourceSource{},
