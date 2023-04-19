@@ -1290,7 +1290,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		AfterEach(func() {
 			if lr != nil {
-				err = virtClient.CoreV1().LimitRanges(namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
+				err = virtClient.CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
 				if !errors.IsNotFound(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
