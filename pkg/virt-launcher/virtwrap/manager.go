@@ -848,6 +848,26 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	// Set defaults which are not coming from the cluster
 	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
+	logger.Info("start qcow2 disk")
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.ImageType == v1.Qcow2Image {
+			logger.Info("check qcow2 image")
+			imagePath := fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", disk.Name)
+			_, err := os.Stat(imagePath)
+			if err != nil && os.IsNotExist(err) {
+				logger.Info("create qcow2 image")
+				backingFilePath := fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s/disk.img", disk.Name)
+				output, err := exec.Command("bash", "-c",
+					fmt.Sprintf("qemu-img create -f qcow2 -o backing_file=%s %s",
+						backingFilePath, imagePath)).CombinedOutput()
+				if err != nil {
+					logger.Errorf("qemu-img create backing_file err: %v", err)
+					return nil, err
+				}
+				logger.Infof("qemu-img create backing_file output %s", output)
+			}
+		}
+	}
 
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	if err != nil {
@@ -879,24 +899,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-
-		for _, disk := range vmi.Spec.Domain.Devices.Disks {
-			if disk.ImageType == v1.Qcow2Image {
-				imagePath := fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", disk.Name)
-				_, err := os.Stat(imagePath)
-				if err != nil && os.IsNotExist(err) {
-					backingFilePath := fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s/disk.img", disk.Name)
-					output, err := exec.Command("bash", "-c",
-						fmt.Sprintf("qemu-img create -f qcow2 -o backing_file=%s %s",
-							backingFilePath, imagePath)).CombinedOutput()
-					if err != nil {
-						log.Log.Errorf("qemu-img create backing_file err: %v", err)
-						return nil, err
-					}
-					log.Log.Infof("qemu-img create backing_file output %s", output)
-				}
-			}
-		}
 
 		err = l.generateCloudInitISO(vmi, &dom)
 		if err != nil {
