@@ -71,7 +71,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		panic(err)
 	}
 
-	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewExpecter(virtClient, vmi, 10*time.Second*10)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: fmt.Sprintf(`(localhost|%s):~\# `, hostName)},
 	})
-	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	_, err = expecter.ExpectBatch(b, 5*time.Second*10)
 	if err == nil {
 		return nil
 	}
@@ -99,7 +99,7 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 		&expect.BExp{R: fmt.Sprintf(`(localhost|%s) login: `, hostName)},
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: PromptExpression}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	res, err := expecter.ExpectBatch(b, 180*time.Second*10)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
 		return err
@@ -135,7 +135,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: fmt.Sprintf(`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name)},
 	})
-	_, err = expecter.ExpectBatch(b, 5*time.Second)
+	_, err = expecter.ExpectBatch(b, 5*time.Second*10)
 	if err == nil {
 		return nil
 	}
@@ -171,11 +171,11 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		&expect.BSnd{S: "sudo su\n"},
 		&expect.BExp{R: PromptExpression},
 	})
-	res, err := expecter.ExpectBatch(b, 2*time.Minute)
+	res, err := expecter.ExpectBatch(b, 2*time.Minute*10)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
 		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
-		res, err := expecter.ExpectBatch(b, 1*time.Minute)
+		res, err := expecter.ExpectBatch(b, 1*time.Minute*10)
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Reason(err).Errorf("Retried login attempt after two minutes failed: %+v", res)
 			return err

@@ -2,7 +2,7 @@
 
 determine_cri_bin() {
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
-        echo "podman --remote --url=unix://${XDG_RUNTIME_DIR}/podman/podman.sock"
+        echo "podman --remote --url=unix://run/podman/podman.sock"
     elif [ "${KUBEVIRT_CRI}" = "docker" ]; then
         echo docker
     else

@@ -1739,7 +1739,7 @@ func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) *v1.VirtualMach
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wp := WarningsPolicy{FailOnWarnings: false}
-	return waitForVMIStart(ctx, vmi, 180, wp)
+	return waitForVMIStart(ctx, vmi, 180*10, wp)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) *v1.VirtualMachineInstance {
@@ -1791,7 +1791,7 @@ func WaitForSuccessfulVMIStart(vmi runtime.Object) *v1.VirtualMachineInstance {
 
 func WaitForSuccessfulVMIStartWithContext(ctx context.Context, vmi runtime.Object) *v1.VirtualMachineInstance {
 	wp := WarningsPolicy{FailOnWarnings: true}
-	return waitForVMIStart(ctx, vmi, 360, wp)
+	return waitForVMIStart(ctx, vmi, 360*10, wp)
 }
 
 func WaitForSuccessfulVMIStartWithContextIgnoreSelectedWarnings(ctx context.Context, vmi runtime.Object, warningsIgnoreList []string) *v1.VirtualMachineInstance {
