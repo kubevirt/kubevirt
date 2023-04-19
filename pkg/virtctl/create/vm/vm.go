@@ -21,6 +21,7 @@ package vm
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -120,6 +121,7 @@ var optFns = map[string]optionFn{
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
 // Containerdisk > DataSource > Clone PVC > PVC
+// Flags dependent on the boot order (e.g. InferInstancetype or InferPreference) need to run last.
 // This is controlled by the order in which flags are processed.
 var flags = []string{
 	RunStrategyFlag,
@@ -320,6 +322,27 @@ func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name
 	return nil
 }
 
+// getInferFromVolume returns the volume to infer the instancetype or preference from.
+// It returns either the disk with the lowest boot order or the first volume in the VM spec.
+func (c *createVM) getInferFromVolume(flag string, vm *v1.VirtualMachine) (string, error) {
+	if len(vm.Spec.Template.Spec.Volumes) < 1 {
+		return "", params.FlagErr(flag, "at least one volume is needed to infer instancetype or preference")
+	}
+
+	// Find the lowest boot order and return associated disk name
+	if len(c.bootOrders) > 0 {
+		var keys []uint
+		for k := range c.bootOrders {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+		return c.bootOrders[keys[0]], nil
+	}
+
+	// Default to the first volume if no boot order was specified
+	return vm.Spec.Template.Spec.Volumes[0].Name, nil
+}
+
 func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
 	for _, runStrategy := range runStrategies {
 		if runStrategy == c.runStrategy {
@@ -351,16 +374,16 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredInstancetype(_ *createVM, vm *v1.VirtualMachine) error {
-	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return params.FlagErr(InferInstancetypeFlag, "at least one volume is needed to infer instancetype")
+func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
+	// TODO Expand this in the future to take a string containing the volume name to infer
+	// the instancetype from.
+	inferFromVolume, err := c.getInferFromVolume(InferInstancetypeFlag, vm)
+	if err != nil {
+		return err
 	}
 
-	// TODO Expand this in the future to take a string containing the volume name to infer
-	// the instancetype from. For now this is inferring the instancetype from the first volume
-	// in the VM spec.
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-		InferFromVolume: vm.Spec.Template.Spec.Volumes[0].Name,
+		InferFromVolume: inferFromVolume,
 	}
 
 	return nil
@@ -385,16 +408,16 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredPreference(_ *createVM, vm *v1.VirtualMachine) error {
-	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return params.FlagErr(InferPreferenceFlag, "at least one volume is needed to infer preference")
+func withInferredPreference(c *createVM, vm *v1.VirtualMachine) error {
+	// TODO Expand this in the future to take a string containing the volume name to infer
+	// the preference from.
+	inferFromVolume, err := c.getInferFromVolume(InferPreferenceFlag, vm)
+	if err != nil {
+		return err
 	}
 
-	// TODO Expand this in the future to take a string containing the volume name to infer
-	// the preference from. For now this is inferring the preference from the first volume
-	// in the VM spec.
 	vm.Spec.Preference = &v1.PreferenceMatcher{
-		InferFromVolume: vm.Spec.Template.Spec.Volumes[0].Name,
+		InferFromVolume: inferFromVolume,
 	}
 
 	return nil

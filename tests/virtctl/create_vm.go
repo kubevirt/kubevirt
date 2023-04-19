@@ -170,9 +170,11 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			const runStrategy = v1.RunStrategyManual
 			const terminationGracePeriod int64 = 123
 			const blankSize = "10Gi"
+			const pvcBootOrder = 1
 			vmName := "vm-" + rand.String(5)
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
+			dataSource := createDataSource(virtClient)
 			pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
@@ -181,7 +183,8 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 				setFlag(InferInstancetypeFlag, "true"),
 				setFlag(InferPreferenceFlag, "true"),
-				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s", pvc.Namespace, pvc.Name)),
+				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s", dataSource.Namespace, dataSource.Name)),
+				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
 				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)()
@@ -207,38 +210,54 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 
-			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(2))
+			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
+
+			dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dataSource.Name)
+			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtDsName))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Kind).To(Equal("DataSource"))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).ToNot(BeNil())
+			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Namespace).To(Equal(dataSource.Namespace))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.SourceRef.Name).To(Equal(dataSource.Name))
 
 			dvtPvcName := fmt.Sprintf("%s-pvc-%s", vmName, pvc.Name)
-			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(dvtPvcName))
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).ToNot(BeNil())
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
-			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
+			Expect(vm.Spec.DataVolumeTemplates[1].Name).To(Equal(dvtPvcName))
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
+			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.PVC.Name).To(Equal(pvc.Name))
 
 			dvtBlankName := fmt.Sprintf("%s-blank-0", vmName)
-			Expect(vm.Spec.DataVolumeTemplates[1].Name).To(Equal(dvtBlankName))
-			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).ToNot(BeNil())
-			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source.Blank).ToNot(BeNil())
-			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
+			Expect(vm.Spec.DataVolumeTemplates[2].Name).To(Equal(dvtBlankName))
+			Expect(vm.Spec.DataVolumeTemplates[2].Spec.Source).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[2].Spec.Source.Blank).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[2].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(blankSize)))
 
-			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(3))
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(4))
 
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtPvcName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtDsName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
+			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtDsName))
 
-			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtBlankName))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(dvtPvcName))
 			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtBlankName))
+			Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name).To(Equal(dvtPvcName))
 
-			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal("cloudinitdisk"))
-			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
+			Expect(vm.Spec.Template.Spec.Volumes[2].Name).To(Equal(dvtBlankName))
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[2].VolumeSource.DataVolume.Name).To(Equal(dvtBlankName))
 
-			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64)
+			Expect(vm.Spec.Template.Spec.Volumes[3].Name).To(Equal("cloudinitdisk"))
+			Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64).To(Equal(userDataB64))
+
+			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[3].VolumeSource.CloudInitNoCloud.UserDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
+
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtPvcName))
+			Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
 		})
 	})
 })

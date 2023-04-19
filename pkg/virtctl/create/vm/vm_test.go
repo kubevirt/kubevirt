@@ -113,6 +113,18 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
 		})
 
+		It("VM with boot order and inferred instancetype", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
+				// This DS with bootorder 1 should be used to infer the instancetype, although it is defined second
+				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
+				setFlag(InferInstancetypeFlag, "true"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+		})
+
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
 			out, err := runCmd(setFlag(PreferenceFlag, flag))
 			Expect(err).ToNot(HaveOccurred())
@@ -134,6 +146,18 @@ var _ = Describe("create vm", func() {
 			vm := unmarshalVM(out)
 
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
+		})
+
+		It("VM with boot order and inferred preference", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
+				// This DS with bootorder 1 should be used to infer the preference, although it is defined second
+				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
+				setFlag(InferPreferenceFlag, "true"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
 		})
 
 		DescribeTable("VM with specified containerdisk", func(containerdisk, volName string, bootOrder int, params string) {
@@ -460,7 +484,7 @@ var _ = Describe("create vm", func() {
 		It("InferInstancetypeFlag needs at least one volume", func() {
 			out, err := runCmd(setFlag(InferInstancetypeFlag, "true"))
 
-			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: at least one volume is needed to infer instancetype"))
+			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: at least one volume is needed to infer instancetype or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
@@ -488,7 +512,7 @@ var _ = Describe("create vm", func() {
 		It("InferPreferenceFlag needs at least one volume", func() {
 			out, err := runCmd(setFlag(InferPreferenceFlag, "true"))
 
-			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: at least one volume is needed to infer preference"))
+			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: at least one volume is needed to infer instancetype or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
