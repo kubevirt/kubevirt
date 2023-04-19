@@ -5859,6 +5859,20 @@ var CRDsValidation map[string]string = map[string]string{
                     memory:
                       description: Memory allow specifying the VMI memory features.
                       properties:
+                        backed:
+                          description: Backed can be used in order to control where
+                            and if the memory is backed.
+                          properties:
+                            file:
+                              description: File backs the VM's memory by a file. Using
+                                this configuration allows the node to reclaim memory
+                                by flushing the VM's memory into back to disk, but
+                                might hurt VM's performance if the backing storage
+                                is not performant.
+                              type: object
+                          required:
+                          - file
+                          type: object
                         guest:
                           anyOf:
                           - type: integer
@@ -10116,6 +10130,19 @@ var CRDsValidation map[string]string = map[string]string{
             memory:
               description: Memory allow specifying the VMI memory features.
               properties:
+                backed:
+                  description: Backed can be used in order to control where and if
+                    the memory is backed.
+                  properties:
+                    file:
+                      description: File backs the VM's memory by a file. Using this
+                        configuration allows the node to reclaim memory by flushing
+                        the VM's memory into back to disk, but might hurt VM's performance
+                        if the backing storage is not performant.
+                      type: object
+                  required:
+                  - file
+                  type: object
                 guest:
                   anyOf:
                   - type: integer
@@ -12645,6 +12672,19 @@ var CRDsValidation map[string]string = map[string]string{
             memory:
               description: Memory allow specifying the VMI memory features.
               properties:
+                backed:
+                  description: Backed can be used in order to control where and if
+                    the memory is backed.
+                  properties:
+                    file:
+                      description: File backs the VM's memory by a file. Using this
+                        configuration allows the node to reclaim memory by flushing
+                        the VM's memory into back to disk, but might hurt VM's performance
+                        if the backing storage is not performant.
+                      type: object
+                  required:
+                  - file
+                  type: object
                 guest:
                   anyOf:
                   - type: integer
@@ -14796,6 +14836,20 @@ var CRDsValidation map[string]string = map[string]string{
                     memory:
                       description: Memory allow specifying the VMI memory features.
                       properties:
+                        backed:
+                          description: Backed can be used in order to control where
+                            and if the memory is backed.
+                          properties:
+                            file:
+                              description: File backs the VM's memory by a file. Using
+                                this configuration allows the node to reclaim memory
+                                by flushing the VM's memory into back to disk, but
+                                might hurt VM's performance if the backing storage
+                                is not performant.
+                              type: object
+                          required:
+                          - file
+                          type: object
                         guest:
                           anyOf:
                           - type: integer
@@ -18815,6 +18869,21 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Memory allow specifying the VMI memory
                                 features.
                               properties:
+                                backed:
+                                  description: Backed can be used in order to control
+                                    where and if the memory is backed.
+                                  properties:
+                                    file:
+                                      description: File backs the VM's memory by a
+                                        file. Using this configuration allows the
+                                        node to reclaim memory by flushing the VM's
+                                        memory into back to disk, but might hurt VM's
+                                        performance if the backing storage is not
+                                        performant.
+                                      type: object
+                                  required:
+                                  - file
+                                  type: object
                                 guest:
                                   anyOf:
                                   - type: integer
@@ -23559,6 +23628,21 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Memory allow specifying the VMI memory
                                     features.
                                   properties:
+                                    backed:
+                                      description: Backed can be used in order to
+                                        control where and if the memory is backed.
+                                      properties:
+                                        file:
+                                          description: File backs the VM's memory
+                                            by a file. Using this configuration allows
+                                            the node to reclaim memory by flushing
+                                            the VM's memory into back to disk, but
+                                            might hurt VM's performance if the backing
+                                            storage is not performant.
+                                          type: object
+                                      required:
+                                      - file
+                                      type: object
                                     guest:
                                       anyOf:
                                       - type: integer
