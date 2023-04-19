@@ -7,6 +7,7 @@
 | End-user | CoreWeave | 2020 | [link](https://www.coreweave.com) | A Kubernetes native cloud provider with focus on GPUs at scale. KubeVirt allows us to co-locate non-containerizable workloads such as Virtual Desktops next to compute intensive containers executing on bare metal. All orchestrated via the Kubernetes API leveraging the same network policies and persistent volumes for both VM and containerized workloads. |
 | End-user | Killercoda | 2022 | [link](https://killercoda.com) | Killercoda provides interactive learning environments based on VMs managed by KubeVirt. |
 | End-user | NVIDIA | 2018 | [link](https://www.nvidia.com) | NVIDIA's latest computing platform is built on open-source projects like Kubernetes and KubeVirt to power products like [GeForce NOW](https://www.nvidia.com/en-us/geforce-now/) with more to come. |
+| End-User | Genesis Cloud | 2022 | [link](https://genesiscloud.com/) | Genesis Cloud is basing its public cloud offering for instances with GPUs and other accelerators on kubevirt. |
 | Integration | minikube | 2020 | [link](https://minikube.sigs.k8s.io) | |
 | Integration | oVirt | 2020 | [link](https://www.ovirt.org/documentation/administration_guide/index.html#proc-adding-kubevirt-openshift-as-an-external-provider_external_providers) | oVirt can view and manage VMs that are running on a KubeVirt cluster. |
 | Integration | okd | 2020 | [link](https://www.okd.io) | [OKD Virtualization](https://docs.okd.io/latest/virt/about-virt.html) adds KubeVirt functionality to OKD. |
