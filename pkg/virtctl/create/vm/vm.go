@@ -73,22 +73,27 @@ type createVM struct {
 	cloudInitNetworkData   string
 	inferInstancetype      bool
 	inferPreference        bool
+
+	bootOrders map[uint]string
 }
 
 type cloneVolume struct {
-	Name   string             `param:"name"`
-	Source string             `param:"src"`
-	Size   *resource.Quantity `param:"size"`
+	Name      string             `param:"name"`
+	Source    string             `param:"src"`
+	BootOrder *uint              `param:"bootorder"`
+	Size      *resource.Quantity `param:"size"`
 }
 
 type containerdiskVolume struct {
-	Name   string `param:"name"`
-	Source string `param:"src"`
+	Name      string `param:"name"`
+	Source    string `param:"src"`
+	BootOrder *uint  `param:"bootorder"`
 }
 
 type pvcVolume struct {
-	Name   string `param:"name"`
-	Source string `param:"src"`
+	Name      string `param:"name"`
+	Source    string `param:"src"`
+	BootOrder *uint  `param:"bootorder"`
 }
 
 type blankVolume struct {
@@ -113,7 +118,7 @@ var optFns = map[string]optionFn{
 	CloudInitNetworkDataFlag: withCloudInitNetworkData,
 }
 
-// Until a param to control the boot order is introduced volumes have the following fixed boot order:
+// Unless the boot order is specified by the user volumes have the following fixed boot order:
 // Containerdisk > DataSource > Clone PVC > PVC
 // This is controlled by the order in which flags are processed.
 var flags = []string{
@@ -144,7 +149,7 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     VM,
 		Short:   "Create a VirtualMachine manifest.",
-		Long:    "Create a VirtualMachine manifest.\n\nPlease note that volumes currently have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
+		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
 		Example: c.usage(),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return c.run(cmd)
@@ -182,6 +187,7 @@ func defaultCreateVM() createVM {
 	return createVM{
 		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
+		bootOrders:             map[uint]string{},
 	}
 }
 
@@ -250,6 +256,9 @@ func (c *createVM) usage() string {
   # Create a manifest for a VirtualMachine with a cloned DataSource and inferred instancetype and preference
   {{ProgramName}} create vm --volume-datasource=src:my-annotated-ds --infer-instancetype --infer-preference
 
+  # Create a manifest for a VirtualMachine with multiple volumes and specified boot order
+  {{ProgramName}} create vm --volume-containerdisk=src:my.registry/my-image:my-tag --volume-datasource=src:my-ds,bootorder:1
+
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned PVC
   {{ProgramName}} create vm --volume-clone-pvc=my-ns/my-pvc
 
@@ -288,6 +297,27 @@ func (c *createVM) newVM() *v1.VirtualMachine {
 			},
 		},
 	}
+}
+
+func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name string, bootOrder *uint) error {
+	if bootOrder != nil {
+		if *bootOrder == 0 {
+			return params.FlagErr(flag, "bootorder must be greater than 0")
+		}
+
+		if _, ok := c.bootOrders[*bootOrder]; ok {
+			return params.FlagErr(flag, "bootorder %d was specified multiple times", *bootOrder)
+		}
+
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name:      name,
+			BootOrder: bootOrder,
+		})
+
+		c.bootOrders[*bootOrder] = name
+	}
+
+	return nil
 }
 
 func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
@@ -398,6 +428,10 @@ func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(ContainerdiskVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -458,6 +492,10 @@ func withDataSourceVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(DataSourceVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -520,6 +558,10 @@ func withClonePvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(ClonePvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -563,6 +605,10 @@ func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(PvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil

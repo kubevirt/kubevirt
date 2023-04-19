@@ -136,7 +136,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
 		})
 
-		DescribeTable("VM with specified containerdisk", func(containerdisk, volName, params string) {
+		DescribeTable("VM with specified containerdisk", func(containerdisk, volName string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(ContainerdiskVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -148,12 +148,19 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ContainerDisk.Image).To(Equal(containerdisk))
+			if bootOrder > 0 {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volName))
+				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+			}
 		},
-			Entry("with src", "my.registry/my-image:my-tag", "", "src:my.registry/my-image:my-tag"),
-			Entry("with src and name", "my.registry/my-image:my-tag", "my-cd", "src:my.registry/my-image:my-tag,name:my-cd"),
+			Entry("with src", "my.registry/my-image:my-tag", "", 0, "src:my.registry/my-image:my-tag"),
+			Entry("with src and name", "my.registry/my-image:my-tag", "my-cd", 0, "src:my.registry/my-image:my-tag,name:my-cd"),
+			Entry("with src and bootorder", "my.registry/my-image:my-tag", "", 1, "src:my.registry/my-image:my-tag,bootorder:1"),
+			Entry("with src, name and bootorder", "my.registry/my-image:my-tag", "my-cd", 2, "src:my.registry/my-image:my-tag,name:my-cd,bootorder:2"),
 		)
 
-		DescribeTable("VM with specified datasource", func(dsNamespace, dsName, dvtName, dvtSize, params string) {
+		DescribeTable("VM with specified datasource", func(dsNamespace, dsName, dvtName, dvtSize string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(DataSourceVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -179,18 +186,31 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtName))
+			if bootOrder > 0 {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
+				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+			}
 		},
-			Entry("without namespace", "", "my-dv", "", "", "src:my-dv"),
-			Entry("with namespace", "my-ns", "my-dv", "", "", "src:my-ns/my-dv"),
-			Entry("without namespace and with name", "", "my-dv", "my-dvt", "", "src:my-dv,name:my-dvt"),
-			Entry("with namespace and name", "my-ns", "my-dv", "my-dvt", "", "src:my-ns/my-dv,name:my-dvt"),
-			Entry("without namespace and with size", "", "my-dv", "", "10Gi", "src:my-dv,size:10Gi"),
-			Entry("with namespace and size", "my-ns", "my-dv", "", "10Gi", "src:my-ns/my-dv,size:10Gi"),
-			Entry("without namespace and with name and size", "", "my-dv", "my-dvt", "10Gi", "src:my-dv,name:my-dvt,size:10Gi"),
-			Entry("with namespace, name and size", "my-ns", "my-dv", "my-dvt", "10Gi", "src:my-ns/my-dv,name:my-dvt,size:10Gi"),
+			Entry("without namespace", "", "my-dv", "", "", 0, "src:my-dv"),
+			Entry("with namespace", "my-ns", "my-dv", "", "", 0, "src:my-ns/my-dv"),
+			Entry("without namespace and with name", "", "my-dv", "my-dvt", "", 0, "src:my-dv,name:my-dvt"),
+			Entry("with namespace and name", "my-ns", "my-dv", "my-dvt", "", 0, "src:my-ns/my-dv,name:my-dvt"),
+			Entry("without namespace and with size", "", "my-dv", "", "10Gi", 0, "src:my-dv,size:10Gi"),
+			Entry("with namespace and size", "my-ns", "my-dv", "", "10Gi", 0, "src:my-ns/my-dv,size:10Gi"),
+			Entry("without namespace and with bootorder", "", "my-dv", "", "", 1, "src:my-dv,bootorder:1"),
+			Entry("with namespace and bootorder", "my-ns", "my-dv", "", "", 2, "src:my-ns/my-dv,bootorder:2"),
+			Entry("without namespace and with name and size", "", "my-dv", "my-dvt", "10Gi", 0, "src:my-dv,name:my-dvt,size:10Gi"),
+			Entry("with namespace, name and size", "my-ns", "my-dv", "my-dvt", "10Gi", 0, "src:my-ns/my-dv,name:my-dvt,size:10Gi"),
+			Entry("without namespace and with name and bootorder", "", "my-dv", "my-dvt", "", 3, "src:my-dv,name:my-dvt,bootorder:3"),
+			Entry("with namespace, name and bootorder", "my-ns", "my-dv", "my-dvt", "", 4, "src:my-ns/my-dv,name:my-dvt,bootorder:4"),
+			Entry("without namespace and with size and bootorder", "", "my-dv", "", "10Gi", 5, "src:my-dv,size:10Gi,bootorder:5"),
+			Entry("with namespace, size and bootorder", "my-ns", "my-dv", "", "10Gi", 6, "src:my-ns/my-dv,size:10Gi,bootorder:6"),
+			Entry("without namespace and with name, size and bootorder", "", "my-dv", "my-dvt", "10Gi", 7, "src:my-dv,name:my-dvt,size:10Gi,bootorder:7"),
+			Entry("with namespace, name, size and bootorder", "my-ns", "my-dv", "my-dvt", "10Gi", 8, "src:my-ns/my-dv,name:my-dvt,size:10Gi,bootorder:8"),
 		)
 
-		DescribeTable("VM with specified clone pvc", func(pvcNamespace, pvcName, dvtName, dvtSize, params string) {
+		DescribeTable("VM with specified clone pvc", func(pvcNamespace, pvcName, dvtName, dvtSize string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(ClonePvcVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -211,14 +231,23 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(dvtName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(dvtName))
+			if bootOrder > 0 {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
+				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+			}
 		},
-			Entry("with src", "my-ns", "my-pvc", "", "", "src:my-ns/my-pvc"),
-			Entry("with src and name", "my-ns", "my-pvc", "my-dvt", "", "src:my-ns/my-pvc,name:my-dvt"),
-			Entry("with src and size", "my-ns", "my-pvc", "", "10Gi", "src:my-ns/my-pvc,size:10Gi"),
-			Entry("with src, name and size", "my-ns", "my-pvc", "my-dvt", "10Gi", "src:my-ns/my-pvc,name:my-dvt,size:10Gi"),
+			Entry("with src", "my-ns", "my-pvc", "", "", 0, "src:my-ns/my-pvc"),
+			Entry("with src and name", "my-ns", "my-pvc", "my-dvt", "", 0, "src:my-ns/my-pvc,name:my-dvt"),
+			Entry("with src and size", "my-ns", "my-pvc", "", "10Gi", 0, "src:my-ns/my-pvc,size:10Gi"),
+			Entry("with src and bootorder", "my-ns", "my-pvc", "", "", 1, "src:my-ns/my-pvc,bootorder:1"),
+			Entry("with src, name and size", "my-ns", "my-pvc", "my-dvt", "10Gi", 0, "src:my-ns/my-pvc,name:my-dvt,size:10Gi"),
+			Entry("with src, name and bootorder", "my-ns", "my-pvc", "my-dvt", "", 2, "src:my-ns/my-pvc,name:my-dvt,bootorder:2"),
+			Entry("with src, size and bootorder", "my-ns", "my-pvc", "", "10Gi", 3, "src:my-ns/my-pvc,size:10Gi,bootorder:3"),
+			Entry("with src, name, size and bootorder", "my-ns", "my-pvc", "my-dvt", "10Gi", 4, "src:my-ns/my-pvc,name:my-dvt,size:10Gi,bootorder:4"),
 		)
 
-		DescribeTable("VM with specified pvc", func(pvcName, volName, params string) {
+		DescribeTable("VM with specified pvc", func(pvcName, volName string, bootOrder int, params string) {
 			out, err := runCmd(setFlag(PvcVolumeFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -230,9 +259,16 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+			if bootOrder > 0 {
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volName))
+				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
+			}
 		},
-			Entry("with src", "my-pvc", "", "src:my-pvc"),
-			Entry("with src and name", "my-pvc", "my-direct-pvc", "src:my-pvc,name:my-direct-pvc"),
+			Entry("with src", "my-pvc", "", 0, "src:my-pvc"),
+			Entry("with src and name", "my-pvc", "my-direct-pvc", 0, "src:my-pvc,name:my-direct-pvc"),
+			Entry("with src and bootorder", "my-pvc", "", 1, "src:my-pvc,bootorder:1"),
+			Entry("with src, name and bootorder", "my-pvc", "my-direct-pvc", 2, "src:my-pvc,name:my-direct-pvc,bootorder:2"),
 		)
 
 		DescribeTable("VM with blank disk", func(blankName, blankSize, params string) {
@@ -324,6 +360,7 @@ var _ = Describe("create vm", func() {
 			const dsName = "my-ds"
 			const dvtSize = "10Gi"
 			const pvcName = "my-pvc"
+			const pvcBootOrder = 1
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := runCmd(
@@ -333,7 +370,7 @@ var _ = Describe("create vm", func() {
 				setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", instancetypeKind, instancetypeName)),
 				setFlag(PreferenceFlag, preferenceName),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
-				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s", pvcName)),
+				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvcName, pvcBootOrder)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -380,6 +417,10 @@ var _ = Describe("create vm", func() {
 			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[2].VolumeSource.CloudInitNoCloud.UserDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
+
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(pvcName))
+			Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
 		})
 	})
 
@@ -474,6 +515,9 @@ var _ = Describe("create vm", func() {
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-datasource\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-ds/madethisup", "failed to parse \"--volume-datasource\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
 			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-datasource\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", "failed to parse \"--volume-datasource\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
@@ -486,6 +530,9 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid param", "test=test", "failed to parse \"--volume-containerdisk\" flag: params need to have at least one colon: test=test"),
 			Entry("Unknown param", "test:test", "failed to parse \"--volume-containerdisk\" flag: unknown param(s): test:test"),
 			Entry("Missing src", "name:test", "failed to parse \"--volume-containerdisk\" flag: src must be specified"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", "failed to parse \"--volume-containerdisk\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to ClonePvcVolumeFlag", func(flag, errMsg string) {
@@ -502,6 +549,9 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-clone-pvc\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
 			Entry("Missing namespace in src", "src:my-pvc", "failed to parse \"--volume-clone-pvc\" flag: namespace of pvc 'my-pvc' must be specified"),
 			Entry("Invalid quantity in size", "size:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"size\": unable to parse quantity's suffix"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "failed to parse \"--volume-clone-pvc\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to PvcVolumeFlag", func(flag, errMsg string) {
@@ -517,6 +567,9 @@ var _ = Describe("create vm", func() {
 			Entry("Empty name in src", "src:my-ns/", "failed to parse \"--volume-pvc\" flag: src invalid: name cannot be empty"),
 			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", "failed to parse \"--volume-pvc\" flag: src invalid: invalid count 3 of slashes in prefix/name"),
 			Entry("Namespace in src", "src:my-ns/my-pvc", "failed to parse \"--volume-pvc\" flag: not allowed to specify namespace of pvc 'my-pvc'"),
+			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
+			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("Bootorder set to 0", "src:my-pvc,bootorder:0", "failed to parse \"--volume-pvc\" flag: bootorder must be greater than 0"),
 		)
 
 		DescribeTable("Invalid arguments to BlankVolumeFlag", func(flag, errMsg string) {
@@ -582,6 +635,16 @@ var _ = Describe("create vm", func() {
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
 			),
 		)
+
+		It("Duplicate boot orders are not allowed", func() {
+			out, err := runCmd(
+				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,bootorder:1"),
+				setFlag(DataSourceVolumeFlag, "src:my-ds,bootorder:1"),
+			)
+
+			Expect(err).To(MatchError("failed to parse \"--volume-datasource\" flag: bootorder 1 was specified multiple times"))
+			Expect(out).To(BeEmpty())
+		})
 	})
 })
 

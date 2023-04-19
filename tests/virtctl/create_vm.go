@@ -64,6 +64,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			const terminationGracePeriod int64 = 123
 			const cdSource = "my.registry/my-image:my-tag"
 			const blankSize = "10Gi"
+			const pvcBootOrder = 1
 			vmName := "vm-" + rand.String(5)
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
@@ -80,7 +81,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(ContainerdiskVolumeFlag, fmt.Sprintf("src:%s", cdSource)),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s", dataSource.Namespace, dataSource.Name)),
 				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s", pvc.Namespace, pvc.Name)),
-				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s", pvc.Name)),
+				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvc.Name, pvcBootOrder)),
 				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
 			)()
@@ -159,6 +160,10 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[5].VolumeSource.CloudInitNoCloud.UserDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
+
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(pvc.Name))
+			Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
 		})
 
 		It("Complex example with inferred instancetype and preference", func() {
