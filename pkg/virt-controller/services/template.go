@@ -1142,6 +1142,35 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		requestResource(&resources, SevDevice)
 	}
 
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.ImageType == v1.Qcow2Image {
+			pvc, err := t.virtClient.CoreV1().PersistentVolumeClaims(
+				disk.BackingFilePVCNamespace).Get(context.TODO(), disk.BackingFilePVCName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			pv, err := t.virtClient.CoreV1().PersistentVolumes().Get(context.TODO(),
+				pvc.Spec.VolumeName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			localPath := pv.Spec.Local.Path
+			volumes = append(volumes, k8sv1.Volume{
+				Name: "backingfile",
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: localPath,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      "backingfile",
+				ReadOnly:  false,
+				MountPath: fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s", disk.Name),
+			})
+		}
+	}
+
 	// VirtualMachineInstance target container
 	compute := k8sv1.Container{
 		Name:            "compute",
@@ -1457,35 +1486,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 			ReadinessGates:                readinessGates,
 		},
-	}
-
-	for _, disk := range vmi.Spec.Domain.Devices.Disks {
-		if disk.ImageType == v1.Qcow2Image {
-			pvc, err := t.virtClient.CoreV1().PersistentVolumeClaims(
-				disk.BackingFilePVCNamespace).Get(context.TODO(), disk.BackingFilePVCName, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
-			}
-			pv, err := t.virtClient.CoreV1().PersistentVolumes().Get(context.TODO(),
-				pvc.Spec.VolumeName, metav1.GetOptions{})
-			if err != nil {
-				return nil, err
-			}
-			localPath := pv.Spec.Local.Path
-			volumes = append(volumes, k8sv1.Volume{
-				Name: "backingfile",
-				VolumeSource: k8sv1.VolumeSource{
-					HostPath: &k8sv1.HostPathVolumeSource{
-						Path: localPath,
-					},
-				},
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      "backingfile",
-				ReadOnly:  false,
-				MountPath: fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s", disk.Name),
-			})
-		}
 	}
 
 	if nonRoot {
