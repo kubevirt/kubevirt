@@ -200,6 +200,7 @@ func (Memory) SwaggerDoc() map[string]string {
 		"":          "Memory allows specifying the VirtualMachineInstance memory features.",
 		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
 		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"backed":    "Backed can be used in order to control where and if the memory is backed.\n+ optional",
 	}
 }
 
@@ -214,6 +215,16 @@ func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.\n+optional",
 	}
+}
+
+func (Backed) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"file": "File backs the VM's memory by a file. Using this configuration allows the node to\nreclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance\nif the backing storage is not performant.",
+	}
+}
+
+func (File) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (Firmware) SwaggerDoc() map[string]string {

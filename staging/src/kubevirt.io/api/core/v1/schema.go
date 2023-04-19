@@ -370,6 +370,9 @@ type Memory struct {
 	// Defaults to the requested memory in the resources section if not specified.
 	// + optional
 	Guest *resource.Quantity `json:"guest,omitempty"`
+	// Backed can be used in order to control where and if the memory is backed.
+	// + optional
+	Backed *Backed `json:"backed,omitempty"`
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
@@ -383,6 +386,15 @@ type Machine struct {
 	// +optional
 	Type string `json:"type"`
 }
+
+type Backed struct {
+	// File backs the VM's memory by a file. Using this configuration allows the node to
+	// reclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance
+	// if the backing storage is not performant.
+	File *File `json:"file"`
+}
+
+type File struct{}
 
 type Firmware struct {
 	// UUID reported by the vmi bios.

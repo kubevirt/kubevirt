@@ -307,6 +307,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.AddVolumeOptions":                                                   schema_kubevirtio_api_core_v1_AddVolumeOptions(ref),
 		"kubevirt.io/api/core/v1.AuthorizedKeysFile":                                                 schema_kubevirtio_api_core_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/api/core/v1.BIOS":                                                               schema_kubevirtio_api_core_v1_BIOS(ref),
+		"kubevirt.io/api/core/v1.Backed":                                                             schema_kubevirtio_api_core_v1_Backed(ref),
 		"kubevirt.io/api/core/v1.BlockSize":                                                          schema_kubevirtio_api_core_v1_BlockSize(ref),
 		"kubevirt.io/api/core/v1.Bootloader":                                                         schema_kubevirtio_api_core_v1_Bootloader(ref),
 		"kubevirt.io/api/core/v1.CDRomTarget":                                                        schema_kubevirtio_api_core_v1_CDRomTarget(ref),
@@ -355,6 +356,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.FeatureState":                                                       schema_kubevirtio_api_core_v1_FeatureState(ref),
 		"kubevirt.io/api/core/v1.FeatureVendorID":                                                    schema_kubevirtio_api_core_v1_FeatureVendorID(ref),
 		"kubevirt.io/api/core/v1.Features":                                                           schema_kubevirtio_api_core_v1_Features(ref),
+		"kubevirt.io/api/core/v1.File":                                                               schema_kubevirtio_api_core_v1_File(ref),
 		"kubevirt.io/api/core/v1.Filesystem":                                                         schema_kubevirtio_api_core_v1_Filesystem(ref),
 		"kubevirt.io/api/core/v1.FilesystemVirtiofs":                                                 schema_kubevirtio_api_core_v1_FilesystemVirtiofs(ref),
 		"kubevirt.io/api/core/v1.Firmware":                                                           schema_kubevirtio_api_core_v1_Firmware(ref),
@@ -14662,6 +14664,27 @@ func schema_kubevirtio_api_core_v1_BIOS(ref common.ReferenceCallback) common.Ope
 	}
 }
 
+func schema_kubevirtio_api_core_v1_Backed(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File backs the VM's memory by a file. Using this configuration allows the node to reclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance if the backing storage is not performant.",
+							Ref:         ref("kubevirt.io/api/core/v1.File"),
+						},
+					},
+				},
+				Required: []string{"file"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.File"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_BlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16581,6 +16604,16 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 	}
 }
 
+func schema_kubevirtio_api_core_v1_File(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Filesystem(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18488,11 +18521,17 @@ func schema_kubevirtio_api_core_v1_Memory(ref common.ReferenceCallback) common.O
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"backed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Backed can be used in order to control where and if the memory is backed.",
+							Ref:         ref("kubevirt.io/api/core/v1.Backed"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Backed", "kubevirt.io/api/core/v1.Hugepages"},
 	}
 }
 

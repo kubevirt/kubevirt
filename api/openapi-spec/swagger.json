@@ -15459,6 +15459,18 @@
      }
     }
    },
+   "v1.Backed": {
+    "type": "object",
+    "required": [
+     "file"
+    ],
+    "properties": {
+     "file": {
+      "description": "File backs the VM's memory by a file. Using this configuration allows the node to reclaim memory by flushing the VM's memory into back to disk, but might hurt VM's performance if the backing storage is not performant.",
+      "$ref": "#/definitions/v1.File"
+     }
+    }
+   },
    "v1.BlockSize": {
     "description": "BlockSize provides the option to change the block size presented to the VM for a disk. Only one of its members may be specified.",
     "type": "object",
@@ -16459,6 +16471,9 @@
      }
     }
    },
+   "v1.File": {
+    "type": "object"
+   },
    "v1.Filesystem": {
     "type": "object",
     "required": [
@@ -17428,6 +17443,10 @@
     "description": "Memory allows specifying the VirtualMachineInstance memory features.",
     "type": "object",
     "properties": {
+     "backed": {
+      "description": "Backed can be used in order to control where and if the memory is backed.",
+      "$ref": "#/definitions/v1.Backed"
+     },
      "guest": {
       "description": "Guest allows to specifying the amount of memory which is visible inside the Guest OS. The Guest must lie between Requests and Limits from the resources section. Defaults to the requested memory in the resources section if not specified.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
