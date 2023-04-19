@@ -4922,10 +4922,10 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             properties:
                               backingFilePVCName:
-                                description: backing file pvc name
+                                description: If specified, will set the backingFilePVCName
                                 type: string
                               backingFilePVCNamespace:
-                                description: backing file pvc namespace
+                                description: If specified, will set the backingFilePVCNamespace
                                 type: string
                               blockSize:
                                 description: If specified, the virtual disk will be
@@ -5023,7 +5023,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 type: object
                               imageType:
-                                description: image type raw or qcow2
+                                description: If specified, will set the imageType
                                 type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
@@ -6623,10 +6623,10 @@ var CRDsValidation map[string]string = map[string]string{
                       into the running VMI
                     properties:
                       backingFilePVCName:
-                        description: backing file pvc name
+                        description: If specified, will set the backingFilePVCName
                         type: string
                       backingFilePVCNamespace:
-                        description: backing file pvc namespace
+                        description: If specified, will set the backingFilePVCNamespace
                         type: string
                       blockSize:
                         description: If specified, the virtual disk will be presented
@@ -6719,7 +6719,7 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       imageType:
-                        description: image type raw or qcow2
+                        description: If specified, will set the imageType
                         type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -8332,10 +8332,10 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     properties:
                       backingFilePVCName:
-                        description: backing file pvc name
+                        description: If specified, will set the backingFilePVCName
                         type: string
                       backingFilePVCNamespace:
-                        description: backing file pvc namespace
+                        description: If specified, will set the backingFilePVCNamespace
                         type: string
                       blockSize:
                         description: If specified, the virtual disk will be presented
@@ -8428,7 +8428,7 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       imageType:
-                        description: image type raw or qcow2
+                        description: If specified, will set the imageType
                         type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -10524,10 +10524,10 @@ var CRDsValidation map[string]string = map[string]string{
                   items:
                     properties:
                       backingFilePVCName:
-                        description: backing file pvc name
+                        description: If specified, will set the backingFilePVCName
                         type: string
                       backingFilePVCNamespace:
-                        description: backing file pvc namespace
+                        description: If specified, will set the backingFilePVCNamespace
                         type: string
                       blockSize:
                         description: If specified, the virtual disk will be presented
@@ -10620,7 +10620,7 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                         type: object
                       imageType:
-                        description: image type raw or qcow2
+                        description: If specified, will set the imageType
                         type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -12666,10 +12666,10 @@ var CRDsValidation map[string]string = map[string]string{
                           items:
                             properties:
                               backingFilePVCName:
-                                description: backing file pvc name
+                                description: If specified, will set the backingFilePVCName
                                 type: string
                               backingFilePVCNamespace:
-                                description: backing file pvc namespace
+                                description: If specified, will set the backingFilePVCNamespace
                                 type: string
                               blockSize:
                                 description: If specified, the virtual disk will be
@@ -12767,7 +12767,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 type: object
                               imageType:
-                                description: image type raw or qcow2
+                                description: If specified, will set the imageType
                                 type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
@@ -16343,10 +16343,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   items:
                                     properties:
                                       backingFilePVCName:
-                                        description: backing file pvc name
+                                        description: If specified, will set the backingFilePVCName
                                         type: string
                                       backingFilePVCNamespace:
-                                        description: backing file pvc namespace
+                                        description: If specified, will set the backingFilePVCNamespace
                                         type: string
                                       blockSize:
                                         description: If specified, the virtual disk
@@ -16455,7 +16455,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                         type: object
                                       imageType:
-                                        description: image type raw or qcow2
+                                        description: If specified, will set the imageType
                                         type: string
                                       io:
                                         description: 'IO specifies which QEMU disk
@@ -20410,10 +20410,12 @@ var CRDsValidation map[string]string = map[string]string{
                                       items:
                                         properties:
                                           backingFilePVCName:
-                                            description: backing file pvc name
+                                            description: If specified, will set the
+                                              backingFilePVCName
                                             type: string
                                           backingFilePVCNamespace:
-                                            description: backing file pvc namespace
+                                            description: If specified, will set the
+                                              backingFilePVCNamespace
                                             type: string
                                           blockSize:
                                             description: If specified, the virtual
@@ -20526,7 +20528,8 @@ var CRDsValidation map[string]string = map[string]string{
                                                 type: string
                                             type: object
                                           imageType:
-                                            description: image type raw or qcow2
+                                            description: If specified, will set the
+                                              imageType
                                             type: string
                                           io:
                                             description: 'IO specifies which QEMU
@@ -22274,10 +22277,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   will be plugged into the running VMI
                                 properties:
                                   backingFilePVCName:
-                                    description: backing file pvc name
+                                    description: If specified, will set the backingFilePVCName
                                     type: string
                                   backingFilePVCNamespace:
-                                    description: backing file pvc namespace
+                                    description: If specified, will set the backingFilePVCNamespace
                                     type: string
                                   blockSize:
                                     description: If specified, the virtual disk will
@@ -22381,7 +22384,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     type: object
                                   imageType:
-                                    description: image type raw or qcow2
+                                    description: If specified, will set the imageType
                                     type: string
                                   io:
                                     description: 'IO specifies which QEMU disk IO

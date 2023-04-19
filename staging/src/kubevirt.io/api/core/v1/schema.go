@@ -594,11 +594,14 @@ type Disk struct {
 	ErrorPolicy string `json:"errorPolicy,omitempty"`
 	// Attach a volume as a floppy to the vmi.
 	Floppy *FloppyTarget `json:"floppy,omitempty"`
-	// image type raw or qcow2
+	// If specified, will set the imageType
+	// +optional
 	ImageType ImageType `json:"imageType,omitempty"`
-	// backing file pvc name
+	// If specified, will set the backingFilePVCName
+	// +optional
 	BackingFilePVCName string `json:"backingFilePVCName,omitempty"`
-	// backing file pvc namespace
+	// If specified, will set the backingFilePVCNamespace
+	// +optional
 	BackingFilePVCNamespace string `json:"backingFilePVCNamespace,omitempty"`
 }
 
