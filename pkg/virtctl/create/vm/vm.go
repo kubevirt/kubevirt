@@ -154,6 +154,7 @@ func NewCommand() *cobra.Command {
 		Use:     VM,
 		Short:   "Create a VirtualMachine manifest.",
 		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
+		Args:    cobra.NoArgs,
 		Example: c.usage(),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return c.run(cmd)
