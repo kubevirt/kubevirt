@@ -85,7 +85,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
-					"pods", "configmaps", "endpoints", "persistentvolumes",
+					"pods", "configmaps", "endpoints",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "delete", "update", "create",
@@ -176,7 +176,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
-					"persistentvolumeclaims",
+					"persistentvolumeclaims", "persistentvolumes",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "update", "delete", "patch",
