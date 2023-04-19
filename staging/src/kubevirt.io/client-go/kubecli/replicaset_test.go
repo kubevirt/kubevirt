@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancereplicasets"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstancereplicasets"
 	rsPath := path.Join(basePath, "testrs")
 	proxyPath := "/proxy/path"
 

@@ -44,9 +44,9 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 
 	var upgrader websocket.Upgrader
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstances"
 	vmiPath := path.Join(basePath, "testvm")
-	subVMIPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"
+	subVMIPath := "/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachineinstances/testvm"
 	proxyPath := "/proxy/path"
 
 	BeforeEach(func() {
@@ -169,7 +169,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
 		Expect(err).ToNot(HaveOccurred())
 
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm/vnc"
+		vncPath := "/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachineinstances/testvm/vnc"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, vncPath)),
@@ -191,7 +191,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
 		Expect(err).ToNot(HaveOccurred())
 
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm/vnc"
+		vncPath := "/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachineinstances/testvm/vnc"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, vncPath)),
