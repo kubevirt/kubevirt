@@ -44,7 +44,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 	})
 
 	Describe("should create a valid VM manifest", func() {
-		It("VM with random name and default settings", func() {
+		It("[test_id:9840]VM with random name and default settings", func() {
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM)()
 
 			Expect(err).ToNot(HaveOccurred())
@@ -59,7 +59,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 		})
 
-		It("Complex example", func() {
+		It("[test_id:9841]Complex example", func() {
 			const runStrategy = v1.RunStrategyManual
 			const terminationGracePeriod int64 = 123
 			const cdSource = "my.registry/my-image:my-tag"
@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
 		})
 
-		It("Complex example with inferred instancetype and preference", func() {
+		It("[test_id:9842]Complex example with inferred instancetype and preference", func() {
 			const runStrategy = v1.RunStrategyManual
 			const terminationGracePeriod int64 = 123
 			const blankSize = "10Gi"
