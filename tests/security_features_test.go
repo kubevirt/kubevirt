@@ -279,9 +279,9 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 		})
 	})
 	Context("Disabling the custom SELinux policy", func() {
-		var policyRemoved = false
+		var policyRemovedByTest = false
 		AfterEach(func() {
-			if policyRemoved {
+			if policyRemovedByTest {
 				By("Re-installing custom SELinux policy on all nodes")
 				err = runOnAllSchedulableNodes(virtClient, []string{"cp", "/var/run/kubevirt/virt_launcher.cil", "/proc/1/root/tmp/"}, "")
 				Expect(err).ToNot(HaveOccurred())
@@ -290,16 +290,14 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				err = runOnAllSchedulableNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
 				Expect(err).ToNot(HaveOccurred())
 			}
-
-			By("Re-enabling the custom policy by removing the corresponding feature gate")
-			tests.DisableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
 		})
 
 		It("Should prevent virt-handler from installing the custom policy", func() {
 			By("Removing custom SELinux policy from all nodes")
+			// The policy may or may not be installed on the node, regardless of the feature gate value,
+			// since the feature gate could have been enabled after deployment. Use error as indication of removal.
 			err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-r", "virt_launcher"}, "")
-			Expect(err).ToNot(HaveOccurred())
-			policyRemoved = true
+			policyRemovedByTest = err == nil
 
 			By("Disabling the custom policy by adding the corresponding feature gate")
 			tests.EnableFeatureGate(virtconfig.DisableCustomSELinuxPolicy)
