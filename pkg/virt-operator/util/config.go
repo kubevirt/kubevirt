@@ -268,6 +268,9 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
 	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
+	if kubeVirtVersion == "" {
+		kubeVirtVersion = "latest"
+	}
 
 	tagFromOperator := ""
 	operatorSha := ""
@@ -291,10 +294,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 		} else {
 			// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
 			// but as a fallback use latest tag
-			tagFromOperator = "latest"
-			if kubeVirtVersion != "" {
-				tagFromOperator = kubeVirtVersion
-			}
+			tagFromOperator = kubeVirtVersion
 			operatorSha = strings.TrimPrefix(version, "@")
 		}
 
@@ -302,6 +302,13 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 		// and if it was given, don't look for shasums
 		if tag == "" {
 			tag = tagFromOperator
+		} else {
+			skipShasums = true
+		}
+	} else {
+		// operator image name has unexpected syntax.
+		if tag == "" {
+			tag = kubeVirtVersion
 		} else {
 			skipShasums = true
 		}
