@@ -29,6 +29,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -602,6 +603,13 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 					return nil, err
 				}
 				logger.Infof("qemu-img create backing_file output %s", output)
+				if err = os.Chmod(imagePath, 0640); err != nil {
+					return nil, err
+				}
+				err = diskutils.DefaultOwnershipManager.SetFileOwnership(imagePath)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
