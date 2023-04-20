@@ -102,8 +102,6 @@ func NewCommand() *cobra.Command {
 }
 
 func withNewMacAddresses(c *createClone, cloneSpec *cloneSpec) error {
-	const flag = NewMacAddressesFlag
-
 	for _, param := range c.newMacAddresses {
 		splitParam := strings.Split(param, ":")
 		if len(splitParam) != 2 {
