@@ -286,6 +286,12 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 		return err
 	}
 
+	if config.ArchitectureConfiguration == nil {
+		config.ArchitectureConfiguration = &v1.ArchConfiguration{}
+	}
+	// set default architecture from status of CR
+	config.ArchitectureConfiguration.DefaultArchitecture = kv.Status.DefaultArchitecture
+
 	return validateConfig(config)
 }
 
