@@ -612,6 +612,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 				}
 			} else if err != nil {
 				logger.Errorf("check qcow2 image err: %v", err)
+			} else if err == nil {
+				logger.Info("qcow2 image exist")
 			}
 		}
 	}

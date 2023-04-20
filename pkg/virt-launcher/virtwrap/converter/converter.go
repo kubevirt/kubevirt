@@ -1543,13 +1543,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if volume == nil {
 			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
-		log.Log.Object(vmi).Infof("disk %v", newDisk)
+		log.Log.Object(vmi).Infof("disk %v", newDisk.Driver.Type)
 		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
 			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		} else {
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
 		}
-		log.Log.Object(vmi).Infof("disk %v", newDisk)
+		log.Log.Object(vmi).Infof("disk %v", newDisk.Driver.Type)
 		if err != nil {
 			return err
 		}
