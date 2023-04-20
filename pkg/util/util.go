@@ -105,6 +105,11 @@ func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
 }
 
+func IsFileMemoryBackedVmi(vmi *v1.VirtualMachineInstance) bool {
+	vmiMemory := vmi.Spec.Domain.Memory
+	return vmiMemory != nil && vmiMemory.Backed != nil && vmiMemory.Backed.File != nil
+}
+
 func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return false
