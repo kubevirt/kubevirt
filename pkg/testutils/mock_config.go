@@ -46,7 +46,8 @@ func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*vir
 			Configuration: *config,
 		},
 		Status: KVv1.KubeVirtStatus{
-			Phase: "Deployed",
+			DefaultArchitecture: runtime.GOARCH,
+			Phase:               "Deployed",
 		},
 	}
 	return NewFakeClusterConfigUsingKV(kv)
