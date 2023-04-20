@@ -94,7 +94,9 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.newMacAddresses, NewMacAddressesFlag, nil, "Specify clone's new mac addresses. For example: 'interfaceName0:newAddress0'")
 	cmd.Flags().StringVar(&c.newSmbiosSerial, NewSMBiosSerialFlag, emptyValue, "Specify the clone's new smbios serial")
 
-	_ = cmd.MarkFlagRequired(SourceNameFlag)
+	if err := cmd.MarkFlagRequired(SourceNameFlag); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }

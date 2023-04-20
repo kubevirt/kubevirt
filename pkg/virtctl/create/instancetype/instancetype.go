@@ -96,8 +96,14 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.gpus, GPUFlag, c.gpus, "Specify the list of vGPUs to passthrough. Can be provided multiple times.")
 	cmd.Flags().StringArrayVar(&c.hostDevices, HostDeviceFlag, c.hostDevices, "Specify list of HostDevices to passthrough. Can be provided multiple times.")
 
-	_ = cmd.MarkFlagRequired(CPUFlag)
-	_ = cmd.MarkFlagRequired(MemoryFlag)
+	if err := cmd.MarkFlagRequired(CPUFlag); err != nil {
+		panic(err)
+	}
+
+	if err := cmd.MarkFlagRequired(MemoryFlag); err != nil {
+		panic(err)
+	}
+
 	return cmd
 }
 
