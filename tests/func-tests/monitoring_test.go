@@ -67,9 +67,9 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			for _, rule := range group.Rules {
 				if rule.Alert != "" {
 					Expect(rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
-						fmt.Sprintf("%s summary is missing or empty", rule.Alert))
+						"%s summary is missing or empty", rule.Alert)
 					Expect(rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
-						fmt.Sprintf("%s runbook_url is missing or empty", rule.Alert))
+						"%s runbook_url is missing or empty", rule.Alert)
 					checkRunbookUrlAvailability(rule)
 				}
 			}
@@ -81,13 +81,13 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			for _, rule := range group.Rules {
 				if rule.Alert != "" {
 					Expect(rule.Labels).To(HaveKeyWithValue("severity", BeElementOf("info", "warning", "critical")),
-						fmt.Sprintf("%s severity label is missing or not valid", rule.Alert))
+						"%s severity label is missing or not valid", rule.Alert)
 					Expect(rule.Labels).To(HaveKeyWithValue("kubernetes_operator_part_of", "kubevirt"),
-						fmt.Sprintf("%s kubernetes_operator_part_of label is missing or not valid", rule.Alert))
+						"%s kubernetes_operator_part_of label is missing or not valid", rule.Alert)
 					Expect(rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "hyperconverged-cluster-operator"),
-						fmt.Sprintf("%s kubernetes_operator_component label is missing or not valid", rule.Alert))
+						"%s kubernetes_operator_component label is missing or not valid", rule.Alert)
 					Expect(rule.Labels).To(HaveKeyWithValue("operator_health_impact", BeElementOf("none", "warning", "critical")),
-						fmt.Sprintf("%s operator_health_impact label is missing or not valid", rule.Alert))
+						"%s operator_health_impact label is missing or not valid", rule.Alert)
 				}
 			}
 		}

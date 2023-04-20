@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -125,6 +126,10 @@ var _ = Describe("alert tests", func() {
 	Context("test PrometheusRule", func() {
 		BeforeEach(func() {
 			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)
+		})
+
+		AfterEach(func() {
+			os.Unsetenv(runbookURLTemplateEnv)
 		})
 
 		expectedEvents := []commonTestUtils.MockEvent{
@@ -304,6 +309,39 @@ var _ = Describe("alert tests", func() {
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
 			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount(monitoringv1.PrometheusRuleKind, ruleName)).Should(BeEquivalentTo(currentMetric))
+		})
+
+		It("should use the default runbook URL template when no ENV Variable is set", func() {
+			owner := getDeploymentReference(ci.GetDeployment())
+			promRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+
+			for _, group := range promRule.Spec.Groups {
+				for _, rule := range group.Rules {
+					if rule.Alert != "" {
+						if rule.Annotations["runbook_url"] != "" {
+							Expect(rule.Annotations["runbook_url"]).To(Equal(fmt.Sprintf(defaultRunbookURLTemplate, rule.Alert)))
+						}
+					}
+				}
+			}
+		})
+
+		It("should use the desired runbook URL template when its ENV Variable is set", func() {
+			desiredRunbookURLTemplate := "desired/runbookURL/template/%s"
+			os.Setenv(runbookURLTemplateEnv, desiredRunbookURLTemplate)
+
+			owner := getDeploymentReference(ci.GetDeployment())
+			promRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+
+			for _, group := range promRule.Spec.Groups {
+				for _, rule := range group.Rules {
+					if rule.Alert != "" {
+						if rule.Annotations["runbook_url"] != "" {
+							Expect(rule.Annotations["runbook_url"]).To(Equal(fmt.Sprintf(desiredRunbookURLTemplate, rule.Alert)))
+						}
+					}
+				}
+			}
 		})
 
 		DescribeTable("test the OverwrittenModificationsCount", func(hcoTriggered, upgradeMode, firstLoop bool, expectedCountDelta float64) {

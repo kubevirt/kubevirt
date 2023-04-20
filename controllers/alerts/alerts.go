@@ -7,8 +7,11 @@ package alerts
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -31,15 +34,32 @@ const (
 	componentAlertLabelKey        = "kubernetes_operator_component"
 	componentAlertLabelValue      = "hyperconverged-cluster-operator"
 	ruleName                      = hcoutil.HyperConvergedName + "-prometheus-rule"
+	defaultRunbookURLTemplate     = "https://kubevirt.io/monitoring/runbooks/%s"
+	runbookURLTemplateEnv         = "RUNBOOK_URL_TEMPLATE"
 )
 
-var (
-	runbookUrlTemplate = "https://kubevirt.io/monitoring/runbooks/%s"
+type runbookCreator struct {
+	template string
+}
 
-	outOfBandUpdateRunbookUrl          = fmt.Sprintf(runbookUrlTemplate, outOfBandUpdateAlert)
-	unsafeModificationRunbookUrl       = fmt.Sprintf(runbookUrlTemplate, unsafeModificationAlert)
-	installationNotCompletedRunbookUrl = fmt.Sprintf(runbookUrlTemplate, installationNotCompletedAlert)
-)
+func newRunbookCreator() *runbookCreator {
+	runbookURLTemplate, exists := os.LookupEnv(runbookURLTemplateEnv)
+	if !exists {
+		runbookURLTemplate = defaultRunbookURLTemplate
+	}
+
+	if strings.Count(runbookURLTemplate, "%s") != 1 {
+		panic(errors.New("runbooks URL template must have exactly 1 %s substring"))
+	}
+
+	return &runbookCreator{
+		template: runbookURLTemplate,
+	}
+}
+
+func (r runbookCreator) getURL(alertName string) string {
+	return fmt.Sprintf(r.template, alertName)
+}
 
 type AlertRuleReconciler struct {
 	theRule *monitoringv1.PrometheusRule
@@ -109,7 +129,9 @@ func newPrometheusRule(namespace string, owner metav1.OwnerReference) *monitorin
 
 // NewPrometheusRuleSpec creates PrometheusRuleSpec for alert rules
 func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
-	return &monitoringv1.PrometheusRuleSpec{
+	runbookCreator := newRunbookCreator()
+
+	spec := &monitoringv1.PrometheusRuleSpec{
 		Groups: []monitoringv1.RuleGroup{{
 			Name: alertRuleGroup,
 			Rules: []monitoringv1.Rule{
@@ -121,6 +143,16 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 			},
 		}},
 	}
+
+	for _, rule := range spec.Groups[0].Rules {
+		if rule.Alert != "" {
+			rule.Annotations["runbook_url"] = runbookCreator.getURL(rule.Alert)
+			rule.Labels[partOfAlertLabelKey] = partOfAlertLabelValue
+			rule.Labels[componentAlertLabelKey] = componentAlertLabelValue
+		}
+	}
+
+	return spec
 }
 
 func createOutOfBandUpdateAlertRule() monitoringv1.Rule {
@@ -130,13 +162,10 @@ func createOutOfBandUpdateAlertRule() monitoringv1.Rule {
 		Annotations: map[string]string{
 			"description": "Out-of-band modification for {{ $labels.component_name }}.",
 			"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
-			"runbook_url": outOfBandUpdateRunbookUrl,
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:     "warning",
 			healthImpactAlertLabelKey: "warning",
-			partOfAlertLabelKey:       partOfAlertLabelValue,
-			componentAlertLabelKey:    componentAlertLabelValue,
 		},
 	}
 }
@@ -148,13 +177,10 @@ func createUnsafeModificationAlertRule() monitoringv1.Rule {
 		Annotations: map[string]string{
 			"description": "unsafe modification for the {{ $labels.annotation_name }} annotation in the HyperConverged resource.",
 			"summary":     "{{ $value }} unsafe modifications were detected in the HyperConverged resource.",
-			"runbook_url": unsafeModificationRunbookUrl,
 		},
 		Labels: map[string]string{
 			severityAlertLabelKey:     "info",
 			healthImpactAlertLabelKey: "warning",
-			partOfAlertLabelKey:       partOfAlertLabelValue,
-			componentAlertLabelKey:    componentAlertLabelValue,
 		},
 	}
 }
@@ -166,14 +192,11 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 		Annotations: map[string]string{
 			"description": "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource.",
 			"summary":     "the installation was not completed; to complete the installation, create a HyperConverged custom resource.",
-			"runbook_url": installationNotCompletedRunbookUrl,
 		},
 		For: "1h",
 		Labels: map[string]string{
 			severityAlertLabelKey:     "info",
 			healthImpactAlertLabelKey: "critical",
-			partOfAlertLabelKey:       partOfAlertLabelValue,
-			componentAlertLabelKey:    componentAlertLabelValue,
 		},
 	}
 }
