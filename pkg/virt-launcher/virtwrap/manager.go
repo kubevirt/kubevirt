@@ -584,8 +584,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	logger.Info("start qcow2 disk")
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if disk.ImageType == v1.Qcow2Image {
-			logger.Info("check qcow2 image")
 			imagePath := fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", disk.Name)
+			logger.Infof("check qcow2 image %s", imagePath)
 			_, err := os.Stat(imagePath)
 			if err != nil && os.IsNotExist(err) {
 				logger.Info("create qcow2 image")
@@ -610,6 +610,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 				if err != nil {
 					return nil, err
 				}
+			} else if err != nil {
+				logger.Errorf("check qcow2 image err: %v", err)
 			}
 		}
 	}
