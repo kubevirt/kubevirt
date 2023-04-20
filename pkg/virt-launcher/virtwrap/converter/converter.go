@@ -769,7 +769,9 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
-	if disk.Driver.Type == "" {
+	if disk.Driver.Type == "qcow2" {
+
+	} else {
 		disk.Driver.Type = "raw"
 	}
 	// disk.Driver.ErrorPolicy = "stop"
