@@ -93,7 +93,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/util/cluster"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -3846,20 +3845,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			hugepagesVmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 		})
 
-		DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+		DescribeTable("should consume hugepages", func(hugepageSize string, memory string) {
 			hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + hugepageSize)
-			v, err := cluster.GetKubernetesVersion()
-			Expect(err).ShouldNot(HaveOccurred())
-			if strings.Contains(v, "1.16") {
-				hugepagesVmi.Annotations = map[string]string{
-					v1.MemfdMemoryBackend: "false",
-				}
-				log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
-			}
 
 			count := 0
 			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			requestedMemory := resource.MustParse(memory)
 			hugepagesVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
