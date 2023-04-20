@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	"github.com/golang/mock/gomock"
@@ -3329,6 +3331,80 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			expectTsc(domain, false)
 		})
+	})
+
+	Context("Memory backing", func() {
+
+		newVmi := func() *v1.VirtualMachineInstance {
+			vmi := libvmi.New()
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			return vmi
+		}
+
+		newVmiWithHugepages := func() *v1.VirtualMachineInstance {
+			vmi := newVmi()
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{PageSize: "2Mi"},
+			}
+
+			return vmi
+		}
+
+		newVmiWithVirtiofs := func() *v1.VirtualMachineInstance {
+			vmi := newVmi()
+			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+				{
+					Name:     "test-filesystem",
+					Virtiofs: &v1.FilesystemVirtiofs{},
+				},
+			}
+
+			return vmi
+		}
+
+		vmiToDomain := func(vmi *v1.VirtualMachineInstance) *api.Domain {
+			c := &ConverterContext{
+				AllowEmulation: true,
+			}
+			domain := vmiToDomain(vmi, c)
+			ExpectWithOffset(1, domain).ToNot(BeNil())
+			return domain
+		}
+
+		const (
+			sourceTypeMemfd = "memfd"
+			sourceTypeFile  = "file"
+		)
+
+		DescribeTable("memory backing source type", func(vmi *v1.VirtualMachineInstance, setFileBackedMemory bool, expectedSourceType string) {
+			if setFileBackedMemory {
+				if vmi.Spec.Domain.Memory == nil {
+					vmi.Spec.Domain.Memory = &v1.Memory{}
+				}
+				vmi.Spec.Domain.Memory.FileBacked = &v1.FileBacked{}
+			}
+
+			domain := vmiToDomain(vmi)
+
+			memoryBacking := domain.Spec.MemoryBacking
+			Expect(memoryBacking).ToNot(BeNil())
+
+			memoryBackingSource := memoryBacking.Source
+			Expect(memoryBackingSource).ToNot(BeNil())
+
+			Expect(memoryBackingSource.Type).To(Equal(expectedSourceType))
+		},
+			Entry("should be memfd by default with hugepages", newVmiWithHugepages(), false, sourceTypeMemfd),
+			Entry("should be memfd by default with virtiofs", newVmiWithVirtiofs(), false, sourceTypeMemfd),
+			Entry("should be file if set explicitly with hugepages", newVmiWithHugepages(), true, sourceTypeFile),
+			Entry("should be file if set explicitly with virtiofs", newVmiWithVirtiofs(), true, sourceTypeFile),
+		)
+
+		It("should not be memory backed with otherwise", func() {
+			domain := vmiToDomain(newVmi())
+			Expect(domain.Spec.MemoryBacking).To(BeNil())
+		})
+
 	})
 })
 
