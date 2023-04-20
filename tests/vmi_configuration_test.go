@@ -67,7 +67,6 @@ import (
 
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/cluster"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -1048,14 +1047,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					hugepagesVmi = libvmi.NewCirros(option1, option2)
 				}
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
-				v, err := cluster.GetKubernetesVersion()
-				Expect(err).ShouldNot(HaveOccurred())
-				if strings.Contains(v, "1.16") {
-					hugepagesVmi.Annotations = map[string]string{
-						v1.MemfdMemoryBackend: "false",
-					}
-					log.DefaultLogger().Object(hugepagesVmi).Infof("Fall back to use hugepages source file. Libvirt in the 1.16 provider version doesn't support memfd as memory backend")
-				}
 
 				nodeWithHugepages := libnode.GetNodeWithHugepages(virtClient, hugepageType)
 				if nodeWithHugepages == nil {
