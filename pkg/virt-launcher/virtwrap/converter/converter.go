@@ -826,7 +826,9 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 
 func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	if disk.Driver.Type != "qcow2" {
+		disk.Driver.Type = "raw"
+	}
 	log.Log.Info("Convert_v1_HostDisk_To_api_Disk")
 	// disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
