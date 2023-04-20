@@ -196,6 +196,18 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("when override is for ppc64le architecture", "ppc64le", "", "", machineTypeFromConfig, machineTypeFromConfig),
 	)
 
+	It("should not override default architecture with defaults on VM create", func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Status: v1.KubeVirtStatus{
+				DefaultArchitecture: "arm64",
+			},
+		})
+
+		vmSpec, _ := getVMSpecMetaFromResponse("amd64")
+		Expect(vmSpec.Template.Spec.Architecture).To(Equal("amd64"))
+
+	})
+
 	It("should not override specified properties with defaults on VM create", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
