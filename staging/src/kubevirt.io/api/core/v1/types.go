@@ -846,9 +846,8 @@ const (
 	HostModelRequiredFeaturesLabel = "host-model-required-features.node.kubevirt.io/"
 	NodeHostModelIsObsoleteLabel   = "node-labeller.kubevirt.io/obsolete-host-model"
 
-	LabellerSkipNodeAnnotation        = "node-labeller.kubevirt.io/skip-node"
-	VirtualMachineLabel               = AppLabel + "/vm"
-	MemfdMemoryBackend         string = "kubevirt.io/memfd"
+	LabellerSkipNodeAnnotation = "node-labeller.kubevirt.io/skip-node"
+	VirtualMachineLabel        = AppLabel + "/vm"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 
