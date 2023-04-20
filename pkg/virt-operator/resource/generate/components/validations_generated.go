@@ -4921,6 +4921,8 @@ var CRDsValidation map[string]string = map[string]string{
                             are connected to the vmi.
                           items:
                             properties:
+                              backingFileArg:
+                                type: string
                               backingFilePVCName:
                                 description: If specified, will set the backingFilePVCName
                                 type: string
@@ -6622,6 +6624,8 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Disk represents the hotplug disk that will be plugged
                       into the running VMI
                     properties:
+                      backingFileArg:
+                        type: string
                       backingFilePVCName:
                         description: If specified, will set the backingFilePVCName
                         type: string
@@ -8331,6 +8335,8 @@ var CRDsValidation map[string]string = map[string]string{
                     to the vmi.
                   items:
                     properties:
+                      backingFileArg:
+                        type: string
                       backingFilePVCName:
                         description: If specified, will set the backingFilePVCName
                         type: string
@@ -10523,6 +10529,8 @@ var CRDsValidation map[string]string = map[string]string{
                     to the vmi.
                   items:
                     properties:
+                      backingFileArg:
+                        type: string
                       backingFilePVCName:
                         description: If specified, will set the backingFilePVCName
                         type: string
@@ -12665,6 +12673,8 @@ var CRDsValidation map[string]string = map[string]string{
                             are connected to the vmi.
                           items:
                             properties:
+                              backingFileArg:
+                                type: string
                               backingFilePVCName:
                                 description: If specified, will set the backingFilePVCName
                                 type: string
@@ -16342,6 +16352,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     which are connected to the vmi.
                                   items:
                                     properties:
+                                      backingFileArg:
+                                        type: string
                                       backingFilePVCName:
                                         description: If specified, will set the backingFilePVCName
                                         type: string
@@ -20409,6 +20421,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         luns which are connected to the vmi.
                                       items:
                                         properties:
+                                          backingFileArg:
+                                            type: string
                                           backingFilePVCName:
                                             description: If specified, will set the
                                               backingFilePVCName
@@ -22276,6 +22290,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Disk represents the hotplug disk that
                                   will be plugged into the running VMI
                                 properties:
+                                  backingFileArg:
+                                    type: string
                                   backingFilePVCName:
                                     description: If specified, will set the backingFilePVCName
                                     type: string

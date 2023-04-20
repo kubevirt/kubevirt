@@ -603,6 +603,8 @@ type Disk struct {
 	// If specified, will set the backingFilePVCNamespace
 	// +optional
 	BackingFilePVCNamespace string `json:"backingFilePVCNamespace,omitempty"`
+	// +optional
+	BackingFileArg string `json:"backingFileArg,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.

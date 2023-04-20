@@ -321,9 +321,10 @@ func (Disk) SwaggerDoc() map[string]string {
 		"shareable":               "shareable indicates this disk is shareable with multiple vm for rwx\nDefaults to false.\n+optional",
 		"errorPolicy":             "If specified, error_policy will be provided to the guest via config drive metadata\n+optional",
 		"floppy":                  "Attach a volume as a floppy to the vmi.",
-		"imageType":               "image type raw or qcow2",
-		"backingFilePVCName":      "backing file pvc name",
-		"backingFilePVCNamespace": "backing file pvc namespace",
+		"imageType":               "If specified, will set the imageType\n+optional",
+		"backingFilePVCName":      "If specified, will set the backingFilePVCName\n+optional",
+		"backingFilePVCNamespace": "If specified, will set the backingFilePVCNamespace\n+optional",
+		"backingFileArg":          "+optional",
 	}
 }
 

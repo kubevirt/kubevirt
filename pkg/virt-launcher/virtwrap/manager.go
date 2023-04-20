@@ -29,7 +29,6 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,6 +37,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	util2 "kubevirt.io/kubevirt/pkg/util"
 
@@ -517,11 +518,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	exists, _ := diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
-	if exists {
-		logger.Info("diskutils.FileExists")
-	}
-
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 	for k, v := range l.disksInfo {
 		if v != nil {
@@ -579,12 +575,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
-
-	exists, _ = diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
-	if exists {
-		logger.Info("diskutils.FileExists")
-	}
-
 	// Create images for volumes that are marked ephemeral.
 	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, domain)
 	if err != nil {
@@ -592,20 +582,18 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// Create qcow2 backing file
-	logger.Info("start qcow2 disk")
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if disk.ImageType == v1.Qcow2Image {
 			imagePath := fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", disk.Name)
-			logger.Infof("check qcow2 image %s", imagePath)
 			_, err := os.Stat(imagePath)
 			if err != nil && os.IsNotExist(err) {
-				logger.Info("create qcow2 image")
 				backingFilePath := fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s/disk.img", disk.Name)
 				output, err := exec.Command("qemu-img",
 					"create",
 					"-f",
 					"qcow2",
 					"-b",
+					disk.BackingFileArg,
 					backingFilePath,
 					imagePath,
 				).CombinedOutput()
@@ -623,8 +611,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 				}
 			} else if err != nil {
 				logger.Errorf("check qcow2 image err: %v", err)
-			} else if err == nil {
-				logger.Info("qcow2 image exist")
 			}
 		}
 	}
@@ -892,19 +878,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	exists, _ := diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
-	if exists {
-		logger.Info("diskutils.FileExists")
-	}
-
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
 		return nil, err
-	}
-
-	exists, _ = diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
-	if exists {
-		logger.Info("diskutils.FileExists")
 	}
 
 	// Set defaults which are not coming from the cluster
@@ -940,7 +916,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-
 		err = l.generateCloudInitISO(vmi, &dom)
 		if err != nil {
 			return nil, err

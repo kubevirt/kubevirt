@@ -697,7 +697,6 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType config.Type) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	log.Log.Info("Convert_v1_Config_To_api_Disk")
 	disk.Driver.ErrorPolicy = "stop"
 	switch configType {
 	case config.ConfigMap:
@@ -739,7 +738,6 @@ func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
-		log.Log.Info("IsBlockPVC")
 		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 	}
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
@@ -771,10 +769,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
-	if disk.Driver.Type == "qcow2" {
-		log.Log.Info("disk.Driver.Type == qcow2")
-	} else {
-		log.Log.Info("disk.Driver.Type == raw")
+	if disk.Driver.Type != "qcow2" {
 		disk.Driver.Type = "raw"
 	}
 	// disk.Driver.ErrorPolicy = "stop"
@@ -789,7 +784,6 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	log.Log.Info("Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk")
 	// disk.Driver.ErrorPolicy = "stop"
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
@@ -801,7 +795,6 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
-	log.Log.Info("Convert_v1_BlockVolumeSource_To_api_Disk")
 	// disk.Driver.ErrorPolicy = "stop"
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
@@ -815,7 +808,6 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
-	log.Log.Info("Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk")
 	// disk.Driver.ErrorPolicy = "stop"
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
@@ -829,7 +821,6 @@ func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.D
 	if disk.Driver.Type != "qcow2" {
 		disk.Driver.Type = "raw"
 	}
-	log.Log.Info("Convert_v1_HostDisk_To_api_Disk")
 	// disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
@@ -843,7 +834,6 @@ func Convert_v1_SysprepSource_To_api_Disk(volumeName string, disk *api.Disk) err
 	disk.Source.File = config.GetSysprepDiskPath(volumeName)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	log.Log.Info("Convert_v1_SysprepSource_To_api_Disk")
 	return nil
 }
 
@@ -864,7 +854,6 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	log.Log.Info("Convert_v1_CloudInitSource_To_api_Disk")
 	// disk.Driver.ErrorPolicy = "stop"
 	return nil
 }
@@ -1554,13 +1543,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if volume == nil {
 			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
-		log.Log.Object(vmi).Infof("disk %s %v", disk.Name, newDisk.Driver.Type)
+
 		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
 			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		} else {
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
 		}
-		log.Log.Object(vmi).Infof("disk %s %v", disk.Name, newDisk.Driver.Type)
 		if err != nil {
 			return err
 		}

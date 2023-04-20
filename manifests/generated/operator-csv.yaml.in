@@ -214,6 +214,13 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - ""
+          resources:
+          - persistentvolumes
+          verbs:
+          - get
+          - list
+        - apiGroups:
           - apps
           resources:
           - deployments
@@ -545,6 +552,13 @@ spec:
           - update
           - delete
           - patch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumes
+          verbs:
+          - get
+          - list
         - apiGroups:
           - snapshot.kubevirt.io
           resources:

@@ -219,7 +219,6 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 		}
 
 		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) && needCreate {
-			log.Log.Info("mountHostDiskAndSetOwnership")
 			if err := hdc.mountHostDiskAndSetOwnership(vmi, volume.Name, hostDisk); err != nil {
 				return err
 			}
@@ -240,7 +239,6 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 		return err
 	}
 	if !fileExists {
-		log.Log.Info("handleRequestedSizeAndCreateSparseRaw")
 		if err := hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, diskPath, hostDisk); err != nil {
 			return err
 		}
