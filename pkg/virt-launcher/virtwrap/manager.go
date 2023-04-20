@@ -517,6 +517,11 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
+	exists, _ := diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
+	if exists {
+		logger.Info("diskutils.FileExists")
+	}
+
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 	for k, v := range l.disksInfo {
 		if v != nil {
@@ -574,6 +579,12 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
+
+	exists, _ = diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
+	if exists {
+		logger.Info("diskutils.FileExists")
+	}
+
 	// Create images for volumes that are marked ephemeral.
 	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, domain)
 	if err != nil {
@@ -881,9 +892,19 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	exists, _ := diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
+	if exists {
+		logger.Info("diskutils.FileExists")
+	}
+
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
 		return nil, err
+	}
+
+	exists, _ = diskutils.FileExists("/var/run/kubevirt-private/vmi-disks/rootdisk-1/disk.img")
+	if exists {
+		logger.Info("diskutils.FileExists")
 	}
 
 	// Set defaults which are not coming from the cluster
