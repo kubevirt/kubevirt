@@ -21,6 +21,7 @@ package util
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,10 +40,11 @@ var _ = Describe("Operator Config", func() {
 		DefaultEnvVarManager = envVarManager
 	})
 
-	getConfig := func(registry, version string) *KubeVirtDeploymentConfig {
+	getConfig := func(registry, version, prefix string) *KubeVirtDeploymentConfig {
 		return &KubeVirtDeploymentConfig{
 			Registry:        registry,
 			KubeVirtVersion: version,
+			ImagePrefix:     prefix,
 		}
 	}
 
@@ -57,12 +59,14 @@ var _ = Describe("Operator Config", func() {
 
 		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
 		Expect(parsedConfig.GetKubeVirtVersion()).To(Equal(config.GetKubeVirtVersion()), "tag should match")
+		Expect(parsedConfig.GetImagePrefix()).To(Equal(config.GetImagePrefix()), "image prefix should match")
 	},
-		Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123")),
-		Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123")),
-		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest")),
-		Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest")),
-		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest")),
+		Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123", "")),
+		Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123", "")),
+		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest", "")),
+		Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest", "")),
+		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest", "")),
+		Entry("with custom prefix and suffix", "kubevirt/prefix-virt-operator-suffix:v123", getConfig("kubevirt", "v123", "prefix-")),
 	)
 
 	getConfigWithShas := func(apiSha, controllerSha, handlerSha, launcherSha, version string) *KubeVirtDeploymentConfig {
@@ -120,7 +124,7 @@ var _ = Describe("Operator Config", func() {
 	},
 		Entry("with no shasum given", "kubevirt/virt-operator:v123",
 			&KubeVirtDeploymentConfig{},
-			getConfig("kubevirt", "v123"),
+			getConfig("kubevirt", "v123", ""),
 			false),
 		Entry("with all shasums given", "kubevirt/virt-operator@sha256:operator",
 			getConfigWithShas("sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
@@ -341,7 +345,7 @@ var _ = Describe("Operator Config", func() {
 		BeforeEach(func() {
 			definedEnvVars = nil
 
-			config := getConfig("kubevirt", "v123")
+			config := getConfig("kubevirt", "v123", "")
 
 			ExpectWithOffset(1, envVarManager.Setenv(KubeVirtVersionEnvName, config.KubeVirtVersion)).To(Succeed())
 		})
@@ -466,4 +470,40 @@ var _ = Describe("Operator Config", func() {
 					version:   "latest",
 				}))
 	})
+
+	type expecter struct {
+		match                   bool
+		registry                string
+		prefix                  string
+		suffix                  string
+		tag_or_digest_separator string
+		tag_or_digest_value     string
+	}
+
+	DescribeTable("should parse virt-operator image string", func(imageString string, expect expecter) {
+		imageRegEx := regexp.MustCompile(operatorImageRegex)
+		matches, found := findNamedMatches(imageRegEx, imageString)
+		Expect(found).To(BeEquivalentTo(expect.match))
+		Expect(matches[registryGroupName]).To(BeEquivalentTo(expect.registry))
+		Expect(matches[imagePrefixGroupName]).To(BeEquivalentTo(expect.prefix))
+		Expect(matches[imageSuffixGroupName]).To(BeEquivalentTo(expect.suffix))
+		Expect(matches[tagOrDigestSeparatorGroupName]).To(BeEquivalentTo(expect.tag_or_digest_separator))
+		Expect(matches[tagOrDigestValueGroupName]).To(BeEquivalentTo(expect.tag_or_digest_value))
+		Expect(found).To(BeEquivalentTo(expect.match))
+		Expect(found).To(BeEquivalentTo(expect.match))
+	},
+		Entry("without prefix or suffix and with only registry", "registry/virt-operator", expecter{true, "registry", "", "", "", ""}),
+		Entry("without prefix or suffix and with registry and repository", "registry/repository/virt-operator", expecter{true, "registry/repository", "", "", "", ""}),
+		Entry("without prefix or suffix and with registry with port and repository", "registry:8080/repository/virt-operator", expecter{true, "registry:8080/repository", "", "", "", ""}),
+		Entry("without prefix or suffix and with tag", "registry:8080/repository/virt-operator:latest", expecter{true, "registry:8080/repository", "", "", ":", "latest"}),
+		Entry("without prefix or suffix and with shasum", "registry:8080/repository/virt-operator@sha256:abcdef", expecter{true, "registry:8080/repository", "", "", "@", "sha256:abcdef"}),
+
+		Entry("with prefix or suffix and with only registry", "registry/prefix-virt-operator-suffix", expecter{true, "registry", "prefix-", "-suffix", "", ""}),
+		Entry("with prefix or suffix and with registry and repository", "registry/repository/prefix-virt-operator-suffix", expecter{true, "registry/repository", "prefix-", "-suffix", "", ""}),
+		Entry("with prefix or suffix and with registry with port and repository", "registry:8080/repository/prefix-virt-operator-suffix", expecter{true, "registry:8080/repository", "prefix-", "-suffix", "", ""}),
+		Entry("with prefix or suffix and with tag", "registry:8080/repository/prefix-virt-operator-suffix:latest", expecter{true, "registry:8080/repository", "prefix-", "-suffix", ":", "latest"}),
+		Entry("with prefix or suffix and with shasum", "registry:8080/repository/prefix-virt-operator-suffix@sha256:abcdef", expecter{true, "registry:8080/repository", "prefix-", "-suffix", "@", "sha256:abcdef"}),
+
+		Entry("failing with non matching string", "registry:8080/repository/prefix-unmatch-suffix@sha256:abcdef", expecter{false, "", "", "", "", ""}),
+	)
 })

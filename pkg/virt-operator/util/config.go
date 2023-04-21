@@ -109,8 +109,11 @@ const (
 	ProductComponentKey = "productComponent"
 	ProductVersionKey   = "productVersion"
 
-	// the regex used to parse the operator image
-	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
+	registryGroupName             = "registry"
+	imagePrefixGroupName          = "image_prefix"
+	imageSuffixGroupName          = "image_suffix"
+	tagOrDigestSeparatorGroupName = "tag_or_digest"
+	tagOrDigestValueGroupName     = "tag_or_digest_value"
 
 	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
@@ -123,6 +126,10 @@ var DefaultMonitorNamespaces = []string{
 	"openshift-monitoring", // default namespace in openshift
 	"monitoring",           // default namespace of https://github.com/prometheus-operator/kube-prometheus
 }
+
+// the regex used to parse the operator image
+// `^(?P<registry>.*)/(?P<image_prefix>[\w-_]*)virt-operator(?P<image_suffix>[\w-_]*)((?P<tag_or_digest>[@:])(?P<tag_or_digest_value>.*))?$`
+var operatorImageRegex = fmt.Sprintf("^(?P<%s>.*)/(?P<%s>[\\w-_]*)virt-operator(?P<%s>[\\w-_]*)((?P<%s>[@:])(?P<%s>.*))?$", registryGroupName, imagePrefixGroupName, imageSuffixGroupName, tagOrDigestSeparatorGroupName, tagOrDigestValueGroupName)
 
 type KubeVirtDeploymentConfig struct {
 	ID          string `json:"id,omitempty" optional:"true"`
@@ -284,7 +291,8 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
-	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
+
+	matches, found := findNamedMatches(imageRegEx, imageString)
 	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 	if kubeVirtVersion == "" {
 		kubeVirtVersion = "latest"
@@ -295,25 +303,25 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	skipShasums := false
 	imagePrefix, useStoredImagePrefix := additionalProperties[ImagePrefixKey]
 
-	if len(matches) == 1 {
+	if found {
 		// only use registry from operator image if it was not given yet
 		if registry == "" {
-			registry = matches[0][1]
+			registry = matches[registryGroupName]
 		}
 		if !useStoredImagePrefix {
-			imagePrefix = matches[0][2]
+			imagePrefix = matches[imagePrefixGroupName]
 		}
 
-		version := matches[0][3]
-		if version == "" {
+		tagOrDigestSeparator := matches[tagOrDigestSeparatorGroupName]
+		if tagOrDigestSeparator == "" {
 			tagFromOperator = "latest"
-		} else if strings.HasPrefix(version, ":") {
-			tagFromOperator = strings.TrimPrefix(version, ":")
+		} else if tagOrDigestSeparator == ":" {
+			tagFromOperator = matches[tagOrDigestValueGroupName]
 		} else {
 			// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
 			// but as a fallback use latest tag
 			tagFromOperator = kubeVirtVersion
-			operatorSha = strings.TrimPrefix(version, "@")
+			operatorSha = matches[tagOrDigestValueGroupName]
 		}
 
 		// only use tag from operator image if it was not given yet
@@ -363,6 +371,19 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	}
 
 	return config
+}
+
+func findNamedMatches(regex *regexp.Regexp, str string) (map[string]string, bool) {
+	names := regex.SubexpNames()
+	matches := regex.FindAllStringSubmatch(str, -1)
+	if len(matches) == 0 {
+		return nil, false
+	}
+	results := map[string]string{}
+	for i, name := range matches[0] {
+		results[names[i]] = name
+	}
+	return results, true
 }
 
 func VerifyEnv() error {
