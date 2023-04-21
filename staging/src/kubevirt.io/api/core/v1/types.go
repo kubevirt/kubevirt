@@ -437,6 +437,25 @@ func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
 }
 
+// IsHighPerformanceVMI returns true if the VMI is considered as high performance.
+// A VMI is considered as high performance if one of the following is true:
+// - the vmi requests a dedicated cpu
+// - the realtime flag is enabled
+// - the vmi requests hugepages
+func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
+	if v.Spec.Domain.CPU != nil {
+		if v.Spec.Domain.CPU.DedicatedCPUPlacement || v.Spec.Domain.CPU.Realtime != nil {
+			return true
+		}
+	}
+
+	if v.Spec.Domain.Memory != nil && v.Spec.Domain.Memory.Hugepages != nil {
+		return true
+	}
+
+	return false
+}
+
 type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
@@ -917,6 +936,14 @@ const (
 	// MigrationTargetReadyTimestamp indicates the time at which the target node
 	// detected that the VMI became active on the target during live migration.
 	MigrationTargetReadyTimestamp string = "kubevirt.io/migration-target-ready-timestamp"
+
+	// FreePageReportingDisabledAnnotation indicates if the the vmi wants to explicitly disable
+	// the freePageReporting feature of the memballooning.
+	// This annotation only allows to opt-out from freePageReporting in those cases where it is
+	// enabled (no high performance vmis).
+	// This annotation does not allow to enable freePageReporting for high performance vmis,
+	// in which freePageReporting is always disabled.
+	FreePageReportingDisabledAnnotation string = "kubevirt.io/free-page-reporting-disabled"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

@@ -795,6 +795,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
 		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
+		FreePageReporting:     isFreePageReportingEnabled(vmi),
 	}
 
 	if options != nil {
@@ -838,6 +839,16 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 
 	return c, nil
+}
+
+func isFreePageReportingEnabled(vmi *v1.VirtualMachineInstance) bool {
+	if (vmi.Spec.Domain.Devices.AutoattachMemBalloon != nil && *vmi.Spec.Domain.Devices.AutoattachMemBalloon == false) ||
+		vmi.IsHighPerformanceVMI() ||
+		vmi.GetAnnotations()[v1.FreePageReportingDisabledAnnotation] == "true" {
+		return false
+	}
+
+	return true
 }
 
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
