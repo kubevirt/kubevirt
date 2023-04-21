@@ -4,7 +4,7 @@
     name: centos-stream8-image-cron
     labels:
       instancetype.kubevirt.io/default-preference: centos.8.stream
-      instancetype.kubevirt.io/default-instancetype: server.medium
+      instancetype.kubevirt.io/default-instancetype: n.medium
   spec:
     schedule: "0 */12 * * *"
     template:
@@ -24,7 +24,7 @@
     name: centos-stream9-image-cron
     labels:
       instancetype.kubevirt.io/default-preference: centos.9.stream
-      instancetype.kubevirt.io/default-instancetype: server.medium
+      instancetype.kubevirt.io/default-instancetype: n.medium
   spec:
     schedule: "0 */12 * * *"
     template:
@@ -44,7 +44,7 @@
     name: fedora-image-cron
     labels:
       instancetype.kubevirt.io/default-preference: fedora
-      instancetype.kubevirt.io/default-instancetype: server.medium
+      instancetype.kubevirt.io/default-instancetype: n.medium
   spec:
     schedule: "0 */12 * * *"
     template:
@@ -64,7 +64,7 @@
     name: centos-7-image-cron
     labels:
       instancetype.kubevirt.io/default-preference: centos.7
-      instancetype.kubevirt.io/default-instancetype: server.medium
+      instancetype.kubevirt.io/default-instancetype: n.medium
   spec:
     schedule: "0 */12 * * *"
     template:
