@@ -1009,7 +1009,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		DescribeTable("should create PodScheduled and Synchronized conditions exactly once each for repeated FailedPvcNotFoundReason sync errors",
+		DescribeTable("should never proceed to creating the launcher pod if not all PVCs are there to determine if they are WFFC and/or an import is done",
 			func(syncReason string, volumeSource virtv1.VolumeSource) {
 
 				expectConditions := func(vmi *virtv1.VirtualMachineInstance) {
@@ -1059,7 +1059,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				controller.Execute()
 				Expect(controller.Queue.Len()).To(Equal(0))
-				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+				// When the PVC appears, we will automatically be retriggered, it is not an error condition
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(BeZero())
+				addVirtualMachine(vmi)
 
 				// make sure that during next iteration we do not add the same condition again
 				vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance) {
@@ -1068,7 +1070,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				controller.Execute()
 				Expect(controller.Queue.Len()).To(Equal(0))
-				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(2))
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(BeZero())
 			},
 			Entry("when PVC does not exist", FailedPvcNotFoundReason,
 				virtv1.VolumeSource{
