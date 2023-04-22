@@ -404,9 +404,8 @@ var _ = Describe("Operator Config", func() {
 
 	Context("kubevirt version", func() {
 		type testInput struct {
+			imageName         string
 			kubevirtVerEnvVar string
-			tag               string
-			digest            string
 			version           string
 		}
 
@@ -416,13 +415,7 @@ var _ = Describe("Operator Config", func() {
 		})
 
 		DescribeTable("is read from", func(input *testInput) {
-			operatorImage := fmt.Sprintf("acme.com/kubevirt/my-virt-operator%s", input.tag)
-
-			if input.digest != "" {
-				operatorImage = fmt.Sprintf("acme.com/kubevirt/my-virt-operator%s", input.digest)
-			}
-
-			Expect(envVarManager.Setenv(VirtOperatorImageEnvName, operatorImage)).To(Succeed())
+			Expect(envVarManager.Setenv(VirtOperatorImageEnvName, input.imageName)).To(Succeed())
 
 			if input.kubevirtVerEnvVar != "" {
 				Expect(envVarManager.Setenv(KubeVirtVersionEnvName, input.kubevirtVerEnvVar)).To(Succeed())
@@ -441,24 +434,36 @@ var _ = Describe("Operator Config", func() {
 			Entry("virt-operator image tag when both KUBEVIRT_VERSION is set and virt-operator provided with tag",
 				&testInput{
 					kubevirtVerEnvVar: "v3.0.0-env.var",
-					tag:               ":v3.0.0",
+					imageName:         "acme.com/kubevirt/my-virt-operator:v3.0.0",
 					version:           "v3.0.0",
 				}),
 
 			Entry("KUBEVIRT_VERSION variable when virt-operator provided with digest",
 				&testInput{
 					kubevirtVerEnvVar: "v3.0.0",
-					digest:            "@sha256:trivebuk",
+					imageName:         "acme.com/kubevirt/my-virt-operator@sha256:trivebuk",
 					version:           "v3.0.0",
 				}),
 			Entry("operator tag when no KUBEVIRT_VERSION provided and operator image is with a tag",
 				&testInput{
-					tag:     ":v3.0.0",
-					version: "v3.0.0",
+					imageName: "acme.com/kubevirt/my-virt-operator:v3.0.0",
+					version:   "v3.0.0",
 				}),
 			Entry("hardcoded \"latest\" string when no KUBEVIRT_VERSION provided and operator image is with a digest",
 				&testInput{
-					version: "latest",
+					version:   "latest",
+					imageName: "acme.com/kubevirt/my-virt-operator@sha256:trivebuk",
+				}),
+			Entry("KUBEVIRT_VERSION variable when virt-operator image name is corrupted",
+				&testInput{
+					kubevirtVerEnvVar: "v3.0.0",
+					imageName:         "blablabla",
+					version:           "v3.0.0",
+				}),
+			Entry("hardcoded \"latest\" string when no KUBEVIRT_VERSION provided and operator image is corrupted",
+				&testInput{
+					imageName: "blablabla",
+					version:   "latest",
 				}))
 	})
 })
