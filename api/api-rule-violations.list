@@ -269,6 +269,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,FeatureHyperv,VPIndex
 API rule violation: names_match,kubevirt.io/api/core/v1,FeatureHyperv,VendorID
 API rule violation: names_match,kubevirt.io/api/core/v1,FeatureSpinlocks,Retries
 API rule violation: names_match,kubevirt.io/api/core/v1,FeatureVendorID,VendorID
+API rule violation: names_match,kubevirt.io/api/core/v1,FloppyTarget,ReadOnly
 API rule violation: names_match,kubevirt.io/api/core/v1,HPETTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,HypervTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,KVMTimer,Enabled

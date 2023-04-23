@@ -38,6 +38,8 @@ import (
 	"sync"
 	"time"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+
 	util2 "kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -578,6 +580,41 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
+
+	// Create qcow2 backing file
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.ImageType == v1.Qcow2Image {
+			imagePath := fmt.Sprintf("/var/run/kubevirt-private/vmi-disks/%s/disk.img", disk.Name)
+			_, err := os.Stat(imagePath)
+			if err != nil && os.IsNotExist(err) {
+				backingFilePath := fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s/disk.img", disk.Name)
+				output, err := exec.Command("qemu-img",
+					"create",
+					"-f",
+					"qcow2",
+					"-b",
+					disk.BackingFileArg,
+					backingFilePath,
+					imagePath,
+				).CombinedOutput()
+				if err != nil {
+					logger.Errorf("qemu-img create backing_file err: %v", err)
+					return nil, err
+				}
+				logger.Infof("qemu-img create backing_file output %s", output)
+				if err = os.Chmod(imagePath, 0640); err != nil {
+					return nil, err
+				}
+				err = diskutils.DefaultOwnershipManager.SetFileOwnership(imagePath)
+				if err != nil {
+					return nil, err
+				}
+			} else if err != nil {
+				logger.Errorf("check qcow2 image err: %v", err)
+			}
+		}
+	}
+
 	// create empty disks if they exist
 	if err := emptydisk.NewEmptyDiskCreator().CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)

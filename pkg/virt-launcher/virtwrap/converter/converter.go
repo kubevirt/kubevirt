@@ -267,7 +267,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if c.UseLaunchSecurity && disk.Target.Bus == "virtio" {
 		disk.Driver.IOMMU = "on"
 	}
-
+	if diskDevice.ImageType == v1.Qcow2Image {
+		disk.Driver.Type = "qcow2"
+	}
 	return nil
 }
 
@@ -767,7 +769,9 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	if disk.Driver.Type != "qcow2" {
+		disk.Driver.Type = "raw"
+	}
 	// disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
 	if !contains(volumesDiscardIgnore, volumeName) {
@@ -814,7 +818,9 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 
 func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	if disk.Driver.Type != "qcow2" {
+		disk.Driver.Type = "raw"
+	}
 	// disk.Driver.ErrorPolicy = "stop"
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil

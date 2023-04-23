@@ -309,16 +309,22 @@ func (HostDevice) SwaggerDoc() map[string]string {
 
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":              "Name is the device name",
-		"bootOrder":         "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
-		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
-		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
-		"cache":             "Cache specifies which kvm disk cache mode should be used.\nSupported values are: CacheNone, CacheWriteThrough.\n+optional",
-		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
-		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
-		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
-		"ioTune":            "If specified, will set the disk qos\n+optional",
-		"shareable":         "shareable indicates this disk is shareable with multiple vm for rwx\nDefaults to false.\n+optional",
+		"name":                    "Name is the device name",
+		"bootOrder":               "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+		"serial":                  "Serial provides the ability to specify a serial number for the disk device.\n+optional",
+		"dedicatedIOThread":       "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
+		"cache":                   "Cache specifies which kvm disk cache mode should be used.\nSupported values are: CacheNone, CacheWriteThrough.\n+optional",
+		"io":                      "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
+		"tag":                     "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
+		"blockSize":               "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
+		"ioTune":                  "If specified, will set the disk qos\n+optional",
+		"shareable":               "shareable indicates this disk is shareable with multiple vm for rwx\nDefaults to false.\n+optional",
+		"errorPolicy":             "If specified, error_policy will be provided to the guest via config drive metadata\n+optional",
+		"floppy":                  "Attach a volume as a floppy to the vmi.",
+		"imageType":               "If specified, will set the imageType\n+optional",
+		"backingFilePVCName":      "If specified, will set the backingFilePVCName\n+optional",
+		"backingFilePVCNamespace": "If specified, will set the backingFilePVCNamespace\n+optional",
+		"backingFileArg":          "+optional",
 	}
 }
 
@@ -378,6 +384,13 @@ func (LunTarget) SwaggerDoc() map[string]string {
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to false.",
 		"sgio":     "SgIo open sgio and set the value.\nsupport values: unfiltered filtered",
+	}
+}
+
+func (FloppyTarget) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"readonly": "ReadOnly.\nDefaults to false.",
+		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
 	}
 }
 
@@ -641,7 +654,7 @@ func (DHCPOptions) SwaggerDoc() map[string]string {
 		"tftpServerName": "If specified will pass option 66 to interface's DHCP server\n+optional",
 		"ntpServers":     "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
 		"privateOptions": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
-		"disable":        "If specified will disable nic's DHCP server\n+optional",
+		"disable":        "If specified will disable nic's dhcp server",
 	}
 }
 

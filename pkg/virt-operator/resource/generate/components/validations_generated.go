@@ -4921,6 +4921,14 @@ var CRDsValidation map[string]string = map[string]string{
                             are connected to the vmi.
                           items:
                             properties:
+                              backingFileArg:
+                                type: string
+                              backingFilePVCName:
+                                description: If specified, will set the backingFilePVCName
+                                type: string
+                              backingFilePVCNamespace:
+                                description: If specified, will set the backingFilePVCNamespace
+                                type: string
                               blockSize:
                                 description: If specified, the virtual disk will be
                                   presented with the given block sizes.
@@ -5003,6 +5011,21 @@ var CRDsValidation map[string]string = map[string]string{
                               errorPolicy:
                                 description: If specified, error_policy will be provided
                                   to the guest via config drive metadata
+                                type: string
+                              floppy:
+                                description: Attach a volume as a floppy to the vmi.
+                                properties:
+                                  readonly:
+                                    description: ReadOnly. Defaults to false.
+                                    type: boolean
+                                  tray:
+                                    description: Tray indicates if the tray of the
+                                      device is open or closed. Allowed values are
+                                      "open" and "closed". Defaults to closed.
+                                    type: string
+                                type: object
+                              imageType:
+                                description: If specified, will set the imageType
                                 type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
@@ -5196,7 +5219,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       to interface's DHCP server
                                     type: string
                                   disable:
-                                    description: If specified will disable nic's dhcp server
+                                    description: If specified will disable nic's dhcp
+                                      server
                                     type: boolean
                                   ntpServers:
                                     description: If specified will pass the configured
@@ -6600,6 +6624,14 @@ var CRDsValidation map[string]string = map[string]string{
                     description: Disk represents the hotplug disk that will be plugged
                       into the running VMI
                     properties:
+                      backingFileArg:
+                        type: string
+                      backingFilePVCName:
+                        description: If specified, will set the backingFilePVCName
+                        type: string
+                      backingFilePVCNamespace:
+                        description: If specified, will set the backingFilePVCNamespace
+                        type: string
                       blockSize:
                         description: If specified, the virtual disk will be presented
                           with the given block sizes.
@@ -6677,6 +6709,21 @@ var CRDsValidation map[string]string = map[string]string{
                       errorPolicy:
                         description: If specified, error_policy will be provided to
                           the guest via config drive metadata
+                        type: string
+                      floppy:
+                        description: Attach a volume as a floppy to the vmi.
+                        properties:
+                          readonly:
+                            description: ReadOnly. Defaults to false.
+                            type: boolean
+                          tray:
+                            description: Tray indicates if the tray of the device
+                              is open or closed. Allowed values are "open" and "closed".
+                              Defaults to closed.
+                            type: string
+                        type: object
+                      imageType:
+                        description: If specified, will set the imageType
                         type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -8288,6 +8335,14 @@ var CRDsValidation map[string]string = map[string]string{
                     to the vmi.
                   items:
                     properties:
+                      backingFileArg:
+                        type: string
+                      backingFilePVCName:
+                        description: If specified, will set the backingFilePVCName
+                        type: string
+                      backingFilePVCNamespace:
+                        description: If specified, will set the backingFilePVCNamespace
+                        type: string
                       blockSize:
                         description: If specified, the virtual disk will be presented
                           with the given block sizes.
@@ -8365,6 +8420,21 @@ var CRDsValidation map[string]string = map[string]string{
                       errorPolicy:
                         description: If specified, error_policy will be provided to
                           the guest via config drive metadata
+                        type: string
+                      floppy:
+                        description: Attach a volume as a floppy to the vmi.
+                        properties:
+                          readonly:
+                            description: ReadOnly. Defaults to false.
+                            type: boolean
+                          tray:
+                            description: Tray indicates if the tray of the device
+                              is open or closed. Allowed values are "open" and "closed".
+                              Defaults to closed.
+                            type: string
+                        type: object
+                      imageType:
+                        description: If specified, will set the imageType
                         type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -8542,8 +8612,6 @@ var CRDsValidation map[string]string = map[string]string{
                           unique value. Interfaces without a boot order are not tried.
                         type: integer
                       bridge:
-                        description: InterfaceBridge connects to a given network via
-                          a linux bridge.
                         type: object
                       dhcpOptions:
                         description: If specified the network interface will pass
@@ -10461,6 +10529,14 @@ var CRDsValidation map[string]string = map[string]string{
                     to the vmi.
                   items:
                     properties:
+                      backingFileArg:
+                        type: string
+                      backingFilePVCName:
+                        description: If specified, will set the backingFilePVCName
+                        type: string
+                      backingFilePVCNamespace:
+                        description: If specified, will set the backingFilePVCNamespace
+                        type: string
                       blockSize:
                         description: If specified, the virtual disk will be presented
                           with the given block sizes.
@@ -10538,6 +10614,21 @@ var CRDsValidation map[string]string = map[string]string{
                       errorPolicy:
                         description: If specified, error_policy will be provided to
                           the guest via config drive metadata
+                        type: string
+                      floppy:
+                        description: Attach a volume as a floppy to the vmi.
+                        properties:
+                          readonly:
+                            description: ReadOnly. Defaults to false.
+                            type: boolean
+                          tray:
+                            description: Tray indicates if the tray of the device
+                              is open or closed. Allowed values are "open" and "closed".
+                              Defaults to closed.
+                            type: string
+                        type: object
+                      imageType:
+                        description: If specified, will set the imageType
                         type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
@@ -12582,6 +12673,14 @@ var CRDsValidation map[string]string = map[string]string{
                             are connected to the vmi.
                           items:
                             properties:
+                              backingFileArg:
+                                type: string
+                              backingFilePVCName:
+                                description: If specified, will set the backingFilePVCName
+                                type: string
+                              backingFilePVCNamespace:
+                                description: If specified, will set the backingFilePVCNamespace
+                                type: string
                               blockSize:
                                 description: If specified, the virtual disk will be
                                   presented with the given block sizes.
@@ -12664,6 +12763,21 @@ var CRDsValidation map[string]string = map[string]string{
                               errorPolicy:
                                 description: If specified, error_policy will be provided
                                   to the guest via config drive metadata
+                                type: string
+                              floppy:
+                                description: Attach a volume as a floppy to the vmi.
+                                properties:
+                                  readonly:
+                                    description: ReadOnly. Defaults to false.
+                                    type: boolean
+                                  tray:
+                                    description: Tray indicates if the tray of the
+                                      device is open or closed. Allowed values are
+                                      "open" and "closed". Defaults to closed.
+                                    type: string
+                                type: object
+                              imageType:
+                                description: If specified, will set the imageType
                                 type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
@@ -12857,7 +12971,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       to interface's DHCP server
                                     type: string
                                   disable:
-                                    description: If specified will disable nic's dhcp server
+                                    description: If specified will disable nic's dhcp
+                                      server
                                     type: boolean
                                   ntpServers:
                                     description: If specified will pass the configured
@@ -16237,6 +16352,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     which are connected to the vmi.
                                   items:
                                     properties:
+                                      backingFileArg:
+                                        type: string
+                                      backingFilePVCName:
+                                        description: If specified, will set the backingFilePVCName
+                                        type: string
+                                      backingFilePVCNamespace:
+                                        description: If specified, will set the backingFilePVCNamespace
+                                        type: string
                                       blockSize:
                                         description: If specified, the virtual disk
                                           will be presented with the given block sizes.
@@ -16328,6 +16451,23 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: If specified, error_policy will
                                           be provided to the guest via config drive
                                           metadata
+                                        type: string
+                                      floppy:
+                                        description: Attach a volume as a floppy to
+                                          the vmi.
+                                        properties:
+                                          readonly:
+                                            description: ReadOnly. Defaults to false.
+                                            type: boolean
+                                          tray:
+                                            description: Tray indicates if the tray
+                                              of the device is open or closed. Allowed
+                                              values are "open" and "closed". Defaults
+                                              to closed.
+                                            type: string
+                                        type: object
+                                      imageType:
+                                        description: If specified, will set the imageType
                                         type: string
                                       io:
                                         description: 'IO specifies which QEMU disk
@@ -16532,7 +16672,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               67 to interface's DHCP server
                                             type: string
                                           disable:
-                                            description: If specified will disable nic's dhcp server
+                                            description: If specified will disable
+                                              nic's dhcp server
                                             type: boolean
                                           ntpServers:
                                             description: If specified will pass the
@@ -20280,6 +20421,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         luns which are connected to the vmi.
                                       items:
                                         properties:
+                                          backingFileArg:
+                                            type: string
+                                          backingFilePVCName:
+                                            description: If specified, will set the
+                                              backingFilePVCName
+                                            type: string
+                                          backingFilePVCNamespace:
+                                            description: If specified, will set the
+                                              backingFilePVCNamespace
+                                            type: string
                                           blockSize:
                                             description: If specified, the virtual
                                               disk will be presented with the given
@@ -20374,6 +20525,25 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: If specified, error_policy
                                               will be provided to the guest via config
                                               drive metadata
+                                            type: string
+                                          floppy:
+                                            description: Attach a volume as a floppy
+                                              to the vmi.
+                                            properties:
+                                              readonly:
+                                                description: ReadOnly. Defaults to
+                                                  false.
+                                                type: boolean
+                                              tray:
+                                                description: Tray indicates if the
+                                                  tray of the device is open or closed.
+                                                  Allowed values are "open" and "closed".
+                                                  Defaults to closed.
+                                                type: string
+                                            type: object
+                                          imageType:
+                                            description: If specified, will set the
+                                              imageType
                                             type: string
                                           io:
                                             description: 'IO specifies which QEMU
@@ -20585,10 +20755,16 @@ var CRDsValidation map[string]string = map[string]string{
                                                   option 67 to interface's DHCP server
                                                 type: string
                                               disable:
-                                                description: If specified will disable nic's dhcp server
+                                                description: If specified will disable
+                                                  nic's dhcp server
                                                 type: boolean
                                               ntpServers:
                                                 description: If specified will pass
+                                                  the configured NTP server to the
+                                                  VM via DHCP option 042.
+                                                items:
+                                                  type: string
+                                                type: array
                                               privateOptions:
                                                 description: 'If specified will pass
                                                   extra DHCP options for private use,
@@ -22114,6 +22290,14 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: Disk represents the hotplug disk that
                                   will be plugged into the running VMI
                                 properties:
+                                  backingFileArg:
+                                    type: string
+                                  backingFilePVCName:
+                                    description: If specified, will set the backingFilePVCName
+                                    type: string
+                                  backingFilePVCNamespace:
+                                    description: If specified, will set the backingFilePVCNamespace
+                                    type: string
                                   blockSize:
                                     description: If specified, the virtual disk will
                                       be presented with the given block sizes.
@@ -22201,6 +22385,22 @@ var CRDsValidation map[string]string = map[string]string{
                                   errorPolicy:
                                     description: If specified, error_policy will be
                                       provided to the guest via config drive metadata
+                                    type: string
+                                  floppy:
+                                    description: Attach a volume as a floppy to the
+                                      vmi.
+                                    properties:
+                                      readonly:
+                                        description: ReadOnly. Defaults to false.
+                                        type: boolean
+                                      tray:
+                                        description: Tray indicates if the tray of
+                                          the device is open or closed. Allowed values
+                                          are "open" and "closed". Defaults to closed.
+                                        type: string
+                                    type: object
+                                  imageType:
+                                    description: If specified, will set the imageType
                                     type: string
                                   io:
                                     description: 'IO specifies which QEMU disk IO

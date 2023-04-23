@@ -211,7 +211,14 @@ func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
 
 func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
-		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) {
+		needCreate := true
+		for _, disk := range vmi.Spec.Domain.Devices.Disks {
+			if disk.Name == volume.Name && disk.ImageType == v1.Qcow2Image {
+				needCreate = false
+			}
+		}
+
+		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) && needCreate {
 			if err := hdc.mountHostDiskAndSetOwnership(vmi, volume.Name, hostDisk); err != nil {
 				return err
 			}

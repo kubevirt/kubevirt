@@ -28,6 +28,7 @@ import (
 )
 
 type IOThreadsPolicy string
+type ImageType string
 
 const (
 	IOThreadsPolicyShared  IOThreadsPolicy = "shared"
@@ -35,6 +36,8 @@ const (
 	CPUModeHostPassthrough                 = "host-passthrough"
 	CPUModeHostModel                       = "host-model"
 	DefaultCPUModel                        = CPUModeHostModel
+	RawImage               ImageType       = "raw"
+	Qcow2Image             ImageType       = "qcow2"
 )
 
 /*
@@ -591,6 +594,17 @@ type Disk struct {
 	ErrorPolicy string `json:"errorPolicy,omitempty"`
 	// Attach a volume as a floppy to the vmi.
 	Floppy *FloppyTarget `json:"floppy,omitempty"`
+	// If specified, will set the imageType
+	// +optional
+	ImageType ImageType `json:"imageType,omitempty"`
+	// If specified, will set the backingFilePVCName
+	// +optional
+	BackingFilePVCName string `json:"backingFilePVCName,omitempty"`
+	// If specified, will set the backingFilePVCNamespace
+	// +optional
+	BackingFilePVCNamespace string `json:"backingFilePVCNamespace,omitempty"`
+	// +optional
+	BackingFileArg string `json:"backingFileArg,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
