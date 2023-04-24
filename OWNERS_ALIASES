@@ -90,11 +90,49 @@ aliases:
   sig-storage-reviewers: {}
 
   #
-  # SMEs
+  # SIG API
   #
-  sme-live-migration: {}
-  sme-api-and-controllers: {}
-  sme-scheduling-and-node-plumbing: {}
-  sme-scale-and-observability: {}
-  sme-ci-and-test-framework: {}
-  sme-release-and-buildsystem: {}
+  sig-api-approvers: {}
+  sig-api-reviewers: {}
+
+  #
+  # SIG Controllers
+  #
+  sig-controllers-approvers: {}
+  sig-controllers-reviewers: {}
+
+  #
+  # SIG Live Migration
+  #
+  sig-live-migration-approvers: {}
+  sig-live-migration-reviewers: {}
+
+  #
+  # SIG Scheduling
+  #
+  sig-scheduling-approvers: {}
+  sig-scheduling-reviewers: {}
+
+  #
+  # SIG Node
+  #
+  sig-node-approvers: {}
+  sig-node-reviewers: {}
+
+  #
+  # SIG Observability
+  #
+  sig-observability-approvers: {}
+  sig-observability-reviewers: {}
+
+  #
+  # SIG Release
+  #
+  sig-release-approvers: {}
+  sig-release-reviewers: {}
+
+  #
+  # SIG Buildsystem
+  #
+  sig-buildsystem-approvers: {}
+  sig-buildsystem-reviewers: {}
