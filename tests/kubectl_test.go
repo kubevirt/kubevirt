@@ -46,7 +46,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		Expect(err).NotTo(HaveOccurred(), stderr)
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
 		Expect(output).To(ContainSubstring("kind	<string>"))
-		Expect(output).To(ContainSubstring("metadata	<Object>"))
+		Expect(output).To(SatisfyAny(
+			ContainSubstring("metadata	<Object>"),
+			ContainSubstring("metadata	<ObjectMeta>"),
+		))
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 		Expect(output).To(ContainSubstring("status	<Object>"))
 	},
@@ -66,7 +69,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
 		Expect(output).To(ContainSubstring("kind	<string>"))
-		Expect(output).To(ContainSubstring("metadata	<Object>"))
+		Expect(output).To(SatisfyAny(
+			ContainSubstring("metadata	<Object>"),
+			ContainSubstring("metadata	<ObjectMeta>"),
+		))
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 	})
 
@@ -78,7 +84,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		Expect(err).NotTo(HaveOccurred())
 		Expect(output).To(ContainSubstring("apiVersion	<string>"))
 		Expect(output).To(ContainSubstring("kind	<string>"))
-		Expect(output).To(ContainSubstring("metadata	<Object>"))
+		Expect(output).To(SatisfyAny(
+			ContainSubstring("metadata	<Object>"),
+			ContainSubstring("metadata	<ObjectMeta>"),
+		))
 		Expect(output).To(ContainSubstring("spec	<Object>"))
 	})
 
