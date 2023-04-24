@@ -21,6 +21,7 @@ package vm
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -73,22 +74,27 @@ type createVM struct {
 	cloudInitNetworkData   string
 	inferInstancetype      bool
 	inferPreference        bool
+
+	bootOrders map[uint]string
 }
 
 type cloneVolume struct {
-	Name   string             `param:"name"`
-	Source string             `param:"src"`
-	Size   *resource.Quantity `param:"size"`
+	Name      string             `param:"name"`
+	Source    string             `param:"src"`
+	BootOrder *uint              `param:"bootorder"`
+	Size      *resource.Quantity `param:"size"`
 }
 
 type containerdiskVolume struct {
-	Name   string `param:"name"`
-	Source string `param:"src"`
+	Name      string `param:"name"`
+	Source    string `param:"src"`
+	BootOrder *uint  `param:"bootorder"`
 }
 
 type pvcVolume struct {
-	Name   string `param:"name"`
-	Source string `param:"src"`
+	Name      string `param:"name"`
+	Source    string `param:"src"`
+	BootOrder *uint  `param:"bootorder"`
 }
 
 type blankVolume struct {
@@ -113,8 +119,9 @@ var optFns = map[string]optionFn{
 	CloudInitNetworkDataFlag: withCloudInitNetworkData,
 }
 
-// Until a param to control the boot order is introduced volumes have the following fixed boot order:
+// Unless the boot order is specified by the user volumes have the following fixed boot order:
 // Containerdisk > DataSource > Clone PVC > PVC
+// Flags dependent on the boot order (e.g. InferInstancetype or InferPreference) need to run last.
 // This is controlled by the order in which flags are processed.
 var flags = []string{
 	RunStrategyFlag,
@@ -144,7 +151,7 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     VM,
 		Short:   "Create a VirtualMachine manifest.",
-		Long:    "Create a VirtualMachine manifest.\n\nPlease note that volumes currently have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
+		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > DataSource > Clone PVC > PVC",
 		Example: c.usage(),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return c.run(cmd)
@@ -180,9 +187,9 @@ func NewCommand() *cobra.Command {
 
 func defaultCreateVM() createVM {
 	return createVM{
-		name:                   "vm-" + rand.String(5),
 		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
+		bootOrders:             map[uint]string{},
 	}
 }
 
@@ -197,7 +204,9 @@ func checkVolumeExists(flag string, vols []v1.Volume, name string) error {
 }
 
 func (c *createVM) run(cmd *cobra.Command) error {
-	vm := newVM(c)
+	c.setDefaults()
+
+	vm := c.newVM()
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, vm); err != nil {
@@ -213,6 +222,12 @@ func (c *createVM) run(cmd *cobra.Command) error {
 
 	cmd.Print(string(out))
 	return nil
+}
+
+func (c *createVM) setDefaults() {
+	if c.name == "" {
+		c.name = "vm-" + rand.String(5)
+	}
 }
 
 func (c *createVM) usage() string {
@@ -243,6 +258,9 @@ func (c *createVM) usage() string {
   # Create a manifest for a VirtualMachine with a cloned DataSource and inferred instancetype and preference
   {{ProgramName}} create vm --volume-datasource=src:my-annotated-ds --infer-instancetype --infer-preference
 
+  # Create a manifest for a VirtualMachine with multiple volumes and specified boot order
+  {{ProgramName}} create vm --volume-containerdisk=src:my.registry/my-image:my-tag --volume-datasource=src:my-ds,bootorder:1
+
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned PVC
   {{ProgramName}} create vm --volume-clone-pvc=my-ns/my-pvc
 
@@ -262,7 +280,7 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-pvc=my-pvc`
 }
 
-func newVM(c *createVM) *v1.VirtualMachine {
+func (c *createVM) newVM() *v1.VirtualMachine {
 	runStrategy := v1.VirtualMachineRunStrategy(c.runStrategy)
 	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
@@ -281,6 +299,48 @@ func newVM(c *createVM) *v1.VirtualMachine {
 			},
 		},
 	}
+}
+
+func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name string, bootOrder *uint) error {
+	if bootOrder != nil {
+		if *bootOrder == 0 {
+			return params.FlagErr(flag, "bootorder must be greater than 0")
+		}
+
+		if _, ok := c.bootOrders[*bootOrder]; ok {
+			return params.FlagErr(flag, "bootorder %d was specified multiple times", *bootOrder)
+		}
+
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name:      name,
+			BootOrder: bootOrder,
+		})
+
+		c.bootOrders[*bootOrder] = name
+	}
+
+	return nil
+}
+
+// getInferFromVolume returns the volume to infer the instancetype or preference from.
+// It returns either the disk with the lowest boot order or the first volume in the VM spec.
+func (c *createVM) getInferFromVolume(flag string, vm *v1.VirtualMachine) (string, error) {
+	if len(vm.Spec.Template.Spec.Volumes) < 1 {
+		return "", params.FlagErr(flag, "at least one volume is needed to infer instancetype or preference")
+	}
+
+	// Find the lowest boot order and return associated disk name
+	if len(c.bootOrders) > 0 {
+		var keys []uint
+		for k := range c.bootOrders {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+		return c.bootOrders[keys[0]], nil
+	}
+
+	// Default to the first volume if no boot order was specified
+	return vm.Spec.Template.Spec.Volumes[0].Name, nil
 }
 
 func withRunStrategy(c *createVM, vm *v1.VirtualMachine) error {
@@ -314,16 +374,16 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredInstancetype(_ *createVM, vm *v1.VirtualMachine) error {
-	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return params.FlagErr(InferInstancetypeFlag, "at least one volume is needed to infer instancetype")
+func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
+	// TODO Expand this in the future to take a string containing the volume name to infer
+	// the instancetype from.
+	inferFromVolume, err := c.getInferFromVolume(InferInstancetypeFlag, vm)
+	if err != nil {
+		return err
 	}
 
-	// TODO Expand this in the future to take a string containing the volume name to infer
-	// the instancetype from. For now this is inferring the instancetype from the first volume
-	// in the VM spec.
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-		InferFromVolume: vm.Spec.Template.Spec.Volumes[0].Name,
+		InferFromVolume: inferFromVolume,
 	}
 
 	return nil
@@ -348,16 +408,16 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredPreference(_ *createVM, vm *v1.VirtualMachine) error {
-	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return params.FlagErr(InferPreferenceFlag, "at least one volume is needed to infer preference")
+func withInferredPreference(c *createVM, vm *v1.VirtualMachine) error {
+	// TODO Expand this in the future to take a string containing the volume name to infer
+	// the preference from.
+	inferFromVolume, err := c.getInferFromVolume(InferPreferenceFlag, vm)
+	if err != nil {
+		return err
 	}
 
-	// TODO Expand this in the future to take a string containing the volume name to infer
-	// the preference from. For now this is inferring the preference from the first volume
-	// in the VM spec.
 	vm.Spec.Preference = &v1.PreferenceMatcher{
-		InferFromVolume: vm.Spec.Template.Spec.Volumes[0].Name,
+		InferFromVolume: inferFromVolume,
 	}
 
 	return nil
@@ -391,6 +451,10 @@ func withContainerdiskVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(ContainerdiskVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -451,6 +515,10 @@ func withDataSourceVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(DataSourceVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -513,6 +581,10 @@ func withClonePvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(ClonePvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -556,6 +628,10 @@ func withPvcVolume(c *createVM, vm *v1.VirtualMachine) error {
 				},
 			},
 		})
+
+		if err := c.addDiskWithBootOrder(PvcVolumeFlag, vm, vol.Name, vol.BootOrder); err != nil {
+			return err
+		}
 	}
 
 	return nil

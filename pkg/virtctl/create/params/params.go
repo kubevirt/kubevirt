@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -52,6 +53,8 @@ func Supported(obj interface{}) string {
 		switch {
 		case structField.Type.Kind() == reflect.String:
 			t = structField.Type.String()
+		case structField.Type == reflect.TypeOf((*uint)(nil)):
+			t = structField.Type.Elem().String()
 		case structField.Type == reflect.TypeOf(&resource.Quantity{}):
 			t = structField.Type.Elem().String()
 		default:
@@ -138,6 +141,13 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 		switch {
 		case field.Kind() == reflect.String:
 			field.SetString(v)
+		case field.Type() == reflect.TypeOf((*uint)(nil)):
+			u64, err := strconv.ParseUint(v, 10, 32)
+			if err != nil {
+				return fmt.Errorf("failed to parse param \"%s\": %w", k, err)
+			}
+			u := uint(u64)
+			field.Set(reflect.ValueOf(&u))
 		case field.Type() == reflect.TypeOf(&resource.Quantity{}):
 			quantity, err := resource.ParseQuantity(v)
 			if err != nil {
