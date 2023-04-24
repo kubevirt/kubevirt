@@ -108,12 +108,6 @@ aliases:
   sig-live-migration-reviewers: {}
 
   #
-  # SIG Scheduling
-  #
-  sig-scheduling-approvers: {}
-  sig-scheduling-reviewers: {}
-
-  #
   # SIG Node
   #
   sig-node-approvers: {}
