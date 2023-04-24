@@ -44,6 +44,7 @@ const (
 	NameFlag                   = "name"
 	RunStrategyFlag            = "run-strategy"
 	TerminationGracePeriodFlag = "termination-grace-period"
+	MemoryFlag                 = "memory"
 	InstancetypeFlag           = "instancetype"
 	PreferenceFlag             = "preference"
 	ContainerdiskVolumeFlag    = "volume-containerdisk"
@@ -63,6 +64,7 @@ type createVM struct {
 	name                   string
 	terminationGracePeriod int64
 	runStrategy            string
+	memory                 string
 	instancetype           string
 	preference             string
 	containerdiskVolumes   []string
@@ -162,9 +164,10 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&c.runStrategy, RunStrategyFlag, c.runStrategy, "Specify the RunStrategy of the VM.")
 	cmd.Flags().Int64Var(&c.terminationGracePeriod, TerminationGracePeriodFlag, c.terminationGracePeriod, "Specify the termination grace period of the VM.")
 
+	cmd.Flags().StringVar(&c.memory, MemoryFlag, c.memory, "Specify the memory of the VM.")
 	cmd.Flags().StringVar(&c.instancetype, InstancetypeFlag, c.instancetype, "Specify the Instance Type of the VM.")
 	cmd.Flags().BoolVar(&c.inferInstancetype, InferInstancetypeFlag, c.inferInstancetype, "Specify that the Instance Type of the VM is inferred from the booted volume.")
-	cmd.MarkFlagsMutuallyExclusive(InstancetypeFlag, InferInstancetypeFlag)
+	cmd.MarkFlagsMutuallyExclusive(MemoryFlag, InstancetypeFlag, InferInstancetypeFlag)
 
 	cmd.Flags().StringVar(&c.preference, PreferenceFlag, c.preference, "Specify the Preference of the VM.")
 	cmd.Flags().BoolVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference, "Specify that the Preference of the VM is inferred from the booted volume.")
@@ -189,6 +192,7 @@ func defaultCreateVM() createVM {
 	return createVM{
 		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
+		memory:                 "512Mi",
 		bootOrders:             map[uint]string{},
 	}
 }
@@ -205,8 +209,11 @@ func checkVolumeExists(flag string, vols []v1.Volume, name string) error {
 
 func (c *createVM) run(cmd *cobra.Command) error {
 	c.setDefaults()
+	vm, err := c.newVM()
+	if err != nil {
+		return err
+	}
 
-	vm := c.newVM()
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, vm); err != nil {
@@ -249,8 +256,8 @@ func (c *createVM) usage() string {
   # Create a manifest for a VirtualMachine with a specified VirtualMachinePreference (namespaced)
   {{ProgramName}} create vm --preference=virtualmachinepreference/my-preference
 
-  # Create a manifest for a VirtualMachine with an ephemeral containerdisk volume
-  {{ProgramName}} create vm --volume-containerdisk=src:my.registry/my-image:my-tag
+  # Create a manifest for a VirtualMachine with specified memory and an ephemeral containerdisk volume
+  {{ProgramName}} create vm --memory=1Gi --volume-containerdisk=src:my.registry/my-image:my-tag
 
   # Create a manifest for a VirtualMachine with a cloned DataSource in namespace and specified size
   {{ProgramName}} create vm --volume-datasource=src:my-ns/my-ds,size:50Gi
@@ -280,8 +287,14 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-pvc=my-pvc`
 }
 
-func (c *createVM) newVM() *v1.VirtualMachine {
+func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 	runStrategy := v1.VirtualMachineRunStrategy(c.runStrategy)
+	memory, err := resource.ParseQuantity(c.memory)
+	if err != nil {
+		return nil, params.FlagErr(MemoryFlag, "%w", err)
+
+	}
+
 	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1.VirtualMachineGroupVersionKind.Kind,
@@ -295,10 +308,15 @@ func (c *createVM) newVM() *v1.VirtualMachine {
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				Spec: v1.VirtualMachineInstanceSpec{
 					TerminationGracePeriodSeconds: &c.terminationGracePeriod,
+					Domain: v1.DomainSpec{
+						Memory: &v1.Memory{
+							Guest: &memory,
+						},
+					},
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name string, bootOrder *uint) error {
@@ -366,6 +384,7 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterInstancetype
+	vm.Spec.Template.Spec.Domain.Memory = nil
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 		Name: name,
 		Kind: kind,
@@ -382,6 +401,7 @@ func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 		return err
 	}
 
+	vm.Spec.Template.Spec.Domain.Memory = nil
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 		InferFromVolume: inferFromVolume,
 	}
