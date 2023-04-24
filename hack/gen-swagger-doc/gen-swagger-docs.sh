@@ -9,6 +9,7 @@ source $(dirname "$0")/../../hack/common.sh
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
 
 VERSION="$1"
 OUTPUT_FORMAT="$2"
@@ -68,6 +69,7 @@ __END__
 if [ "$OUTPUT_FORMAT" = "html" ]; then
     # $$ has special meaning in asciidoc, we need to escape it
     sed -i 's|\$\$|+++$$+++|g' "$WORKDIR/definitions.adoc"
+    sed -i 's|```||g' "$WORKDIR/definitions.adoc"
     sed -i '1 i\:last-update-label!:' "$WORKDIR/"*.adoc
 
     # Determine version of KubeVirt, as a commit hash or tag in case of tagged commit.

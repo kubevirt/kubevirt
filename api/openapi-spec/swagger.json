@@ -15672,7 +15672,8 @@
      "emulatedMachines": {
       "type": "array",
       "items": {
-       "type": "string"
+       "type": "string",
+       "default": ""
       },
       "x-kubernetes-list-type": "atomic"
      },
