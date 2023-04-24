@@ -1023,6 +1023,10 @@ spec:
                     description: deploy resources (kubevirt tekton tasks and example
                       pipelines) in Tekton tasks operator
                     type: boolean
+                  disableMDevConfiguration:
+                    default: false
+                    description: Disable mediated devices handling on KubeVirt
+                    type: boolean
                   enableCommonBootImageImport:
                     default: true
                     description: 'Opt-in to automatic delivery/updates of the common

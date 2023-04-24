@@ -329,6 +329,12 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=true
 	// +default=true
 	NonRoot *bool `json:"nonRoot,omitempty"`
+
+	// Disable mediated devices handling on KubeVirt
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	DisableMDevConfiguration *bool `json:"disableMDevConfiguration,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough

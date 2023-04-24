@@ -59,6 +59,7 @@ func verifyVMIRunning(client kubecli.KubevirtClient, vmiName string) *kubevirtco
 		var err error
 		vmi, err = client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Get(context.Background(), vmiName, &k8smetav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
+		fmt.Fprintf(GinkgoWriter, "VMI's status.phase: %s", vmi.Status.Phase)
 		return vmi.Status.Phase == kubevirtcorev1.Running
 	}, timeout, pollingInterval).Should(BeTrue(), "failed to get the vmi Running")
 

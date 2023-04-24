@@ -131,6 +131,7 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 | deployTektonTaskResources | deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator | *bool | false | false |
 | deployKubeSecondaryDNS | Deploy KubeSecondaryDNS by CNAO | *bool | false | false |
 | nonRoot | Enables rootless virt-launcher. | *bool | true | false |
+| disableMDevConfiguration | Disable mediated devices handling on KubeVirt | *bool | false | false |
 
 [Back to TOC](#table-of-contents)
 

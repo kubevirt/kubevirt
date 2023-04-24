@@ -60,7 +60,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 			expectedWorkloadsPods := map[string]bool{
 				"bridge-marker": false,
 				"cni-plugins":   false,
-				//"kube-multus":     false,
+				// "kube-multus":     false,
 				"ovs-cni-marker": false,
 				"virt-handler":   false,
 				"secondary-dns":  false,

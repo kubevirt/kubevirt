@@ -22,7 +22,7 @@ echo "Read the CR's spec before starting the test"
 ${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o json | jq '.spec'
 
 CERTCONFIGDEFAULTS='{"ca":{"duration":"48h0m0s","renewBefore":"24h0m0s"},"server":{"duration":"24h0m0s","renewBefore":"12h0m0s"}}'
-FGDEFAULTS='{"deployKubeSecondaryDNS":false,"deployTektonTaskResources":false,"enableCommonBootImageImport":true,"nonRoot":true,"withHostPassthroughCPU":false}'
+FGDEFAULTS='{"deployKubeSecondaryDNS":false,"deployTektonTaskResources":false,"disableMDevConfiguration":false,"enableCommonBootImageImport":true,"nonRoot":true,"withHostPassthroughCPU":false}'
 LMDEFAULTS='{"allowAutoConverge":false,"allowPostCopy":false,"completionTimeoutPerGiB":800,"parallelMigrationsPerCluster":5,"parallelOutboundMigrationsPerNode":2,"progressTimeout":150}'
 PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName":"nvidia.com/GV100GL_Tesla_V100"}'
 PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
@@ -41,6 +41,7 @@ CERTCONFIGPATHS=(
 )
 
 FGPATHS=(
+    "/spec/featureGates/disableMDevConfiguration"
     "/spec/featureGates/enableCommonBootImageImport"
     "/spec/featureGates/withHostPassthroughCPU"
     "/spec/featureGates"
@@ -99,7 +100,7 @@ for JPATH in "${FGPATHS[@]}"; do
     sleep 2
 done
 
-echo "Check that featureGates defaults are behaving as expected"
+echo "Check that liveMigrationConfig defaults are behaving as expected"
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
 for JPATH in "${LMPATHS[@]}"; do
