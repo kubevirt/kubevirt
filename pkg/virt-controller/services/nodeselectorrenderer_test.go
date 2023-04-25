@@ -114,7 +114,7 @@ var _ = Describe("Node Selector Renderer", func() {
 
 		When("user defined selectors are present", func() {
 			BeforeEach(func() {
-				nsr = NewNodeSelectorRenderer(selectors(selector{key: "blue-node", value: "true"}), emptySelectors())
+				nsr = NewNodeSelectorRenderer(selectors(selector{key: "blue-node", value: "true"}), emptySelectors(), "")
 			})
 
 			It("the node requires the user defined selector", func() {
@@ -130,7 +130,7 @@ var _ = Describe("Node Selector Renderer", func() {
 			BeforeEach(func() {
 				nsr = NewNodeSelectorRenderer(
 					emptySelectors(),
-					selectors(selector{key: "all-nodes", value: "must-work"}))
+					selectors(selector{key: "all-nodes", value: "must-work"}), "")
 			})
 
 			It("the node requires the user defined selector", func() {
