@@ -8,6 +8,13 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
+	"kubevirt.io/kubevirt/pkg/util"
+)
+
+const (
+	DownwardMetricsSerialDeviceName = "org.github.vhostmd.1"
+	DownwardMetricsChannelDir       = util.VirtPrivateDir + "/downwardmetrics-channel"
+	DownwardMetricsChannelSocket    = DownwardMetricsChannelDir + "/downwardmetrics.sock"
 )
 
 func CreateDownwardMetricDisk(vmi *v1.VirtualMachineInstance) error {
@@ -30,4 +37,8 @@ func HasDownwardMetricDisk(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func ChannelSocketPathOnHost(pid int) string {
+	return filepath.Join("/proc", strconv.Itoa(pid), "root", DownwardMetricsChannelSocket)
 }
