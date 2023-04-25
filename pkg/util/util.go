@@ -27,6 +27,7 @@ const (
 	HostRootMount                             = "/proc/1/root/"
 	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 	CPUManagerPath                            = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+	FileMemoryBackingPath                     = VirtPrivateDir + "/libvirt/qemu/ram/"
 )
 
 // Alphanums is the list of alphanumeric characters used to create a securely generated random string
