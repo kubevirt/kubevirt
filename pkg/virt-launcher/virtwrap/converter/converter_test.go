@@ -3382,7 +3382,12 @@ var _ = Describe("Converter", func() {
 				if vmi.Spec.Domain.Memory == nil {
 					vmi.Spec.Domain.Memory = &v1.Memory{}
 				}
-				vmi.Spec.Domain.Memory.FileBacked = &v1.FileBacked{}
+				if vmi.Spec.Domain.Memory.Backed == nil {
+					vmi.Spec.Domain.Memory.Backed = &v1.Backed{}
+				}
+				if vmi.Spec.Domain.Memory.Backed.File == nil {
+					vmi.Spec.Domain.Memory.Backed.File = &v1.File{}
+				}
 			}
 
 			domain := vmiToDomain(vmi)

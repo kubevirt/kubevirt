@@ -24,6 +24,17 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/utils/pointer"
+
+	"kubevirt.io/client-go/api"
+
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
+
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -4082,6 +4093,35 @@ var _ = Describe("Template", func() {
 				Entry("1.0", "1.0"),
 			)
 
+		})
+
+		Context("with file backed memory", func() {
+			BeforeEach(func() {
+				config, kvInformer, svc = configFactory(defaultArch)
+			})
+
+			getFileBackedVmi := func() (*v1.VirtualMachineInstance, *kubev1.Pod) {
+				vmi := utils.GetVMIFileMemoryBacking()
+				vmi.Namespace = "test-namespace"
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				return vmi, pod
+			}
+
+			It("should add the virtual memory as an ephemeral storage request", func() {
+				vmi, pod := getFileBackedVmi()
+
+				virtualMemory := vcpu.GetVirtualMemory(vmi)
+				ephemeralStorage := pod.Spec.Containers[0].Resources.Requests.StorageEphemeral()
+
+				Expect(ephemeralStorage).ToNot(BeNil())
+				Expect(ephemeralStorage.IsZero()).To(BeFalse(), "ephemeral memory is zero")
+				Expect(virtualMemory).ToNot(BeNil())
+
+				Expect(ephemeralStorage.Cmp(*virtualMemory)).To(BeNumerically(">=", 0),
+					fmt.Sprintf("ephemeral storage request (%s) is smaller than the VMI's virtual memory (%s)", ephemeralStorage.String(), virtualMemory.String()))
+			})
 		})
 
 	})
