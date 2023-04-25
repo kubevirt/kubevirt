@@ -1,0 +1,17 @@
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-file-backing-memory
+  name: vmi-file-backing-memory
+spec:
+  domain:
+    devices: {}
+    memory:
+      backed:
+        file: {}
+    resources:
+      requests:
+        memory: 128Mi
+  terminationGracePeriodSeconds: 0
