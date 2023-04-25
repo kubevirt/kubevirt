@@ -105,6 +105,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *admissionv1.AdmissionReview) *admis
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	causes = append(causes, validateVirtualMachineInstanceSpecFileMemoryBacked(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, accountName)...)
 	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
@@ -225,14 +226,18 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	diskAndFilesystemNames := make(map[string]struct{})
+	usedVolumes := make(map[string]struct{})
 
 	for _, disk := range spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
+		usedVolumes[disk.Name] = struct{}{}
 	}
 
 	for _, fs := range spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
+		usedVolumes[fs.Name] = struct{}{}
+	}
+
+	if spec.Domain.Memory != nil && spec.Domain.Memory.FileBacked != nil {
+		usedVolumes[spec.Domain.Memory.FileBacked.VolumeName] = struct{}{}
 	}
 
 	// Validate that volumes match disks and filesystems correctly
@@ -240,7 +245,7 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 		if volume.MemoryDump != nil {
 			continue
 		}
-		if _, matchingDiskExists := diskAndFilesystemNames[volume.Name]; !matchingDiskExists {
+		if _, volumeHasUsage := usedVolumes[volume.Name]; !volumeHasUsage {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "volumes").Index(idx).Child("name").String(), volume.Name),
@@ -2590,6 +2595,48 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.PersistentReservation),
 			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
+		})
+	}
+
+	return
+}
+
+func validateVirtualMachineInstanceSpecFileMemoryBacked(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.Memory == nil || spec.Domain.Memory.FileBacked == nil {
+		return
+	}
+
+	getField := func() string {
+		return field.Child("domain", "memory", "filebacked", "volumeName").String()
+	}
+
+	fileMemoryBackingVolumeName := spec.Domain.Memory.FileBacked.VolumeName
+	fileMemoryBackingVolumeFound := false
+	var memoryBackingVolume v1.Volume
+
+	for _, volume := range spec.Volumes {
+		if volume.Name == fileMemoryBackingVolumeName {
+			fileMemoryBackingVolumeFound = true
+			memoryBackingVolume = volume
+			break
+		}
+	}
+
+	if !fileMemoryBackingVolumeFound {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("volume %s is not found", fileMemoryBackingVolumeName),
+				Field:   getField(),
+			},
+		}
+	}
+
+	if memoryBackingVolume.PersistentVolumeClaim == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("file memory backing volume must be a PVC"),
+			Field:   getField(),
 		})
 	}
 

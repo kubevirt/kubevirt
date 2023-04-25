@@ -217,18 +217,22 @@ func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
 }
 
 func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
-	diskAndFilesystemNames := make(map[string]struct{})
+	usedVolumes := make(map[string]struct{})
 
 	for _, disk := range spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
+		usedVolumes[disk.Name] = struct{}{}
 	}
 
 	for _, fs := range spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
+		usedVolumes[fs.Name] = struct{}{}
+	}
+
+	if spec.Domain.Memory != nil && spec.Domain.Memory.FileBacked != nil {
+		usedVolumes[spec.Domain.Memory.FileBacked.VolumeName] = struct{}{}
 	}
 
 	for _, volume := range spec.Volumes {
-		if _, foundDisk := diskAndFilesystemNames[volume.Name]; !foundDisk {
+		if _, volumeHasUsage := usedVolumes[volume.Name]; !volumeHasUsage {
 			spec.Domain.Devices.Disks = append(
 				spec.Domain.Devices.Disks,
 				v1.Disk{
