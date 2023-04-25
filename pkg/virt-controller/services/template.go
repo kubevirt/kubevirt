@@ -453,13 +453,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, virtiofsContainers...)
 	}
 
-	// Override arch node selector based on architecture of VMI
-	if vmi.Spec.NodeSelector == nil {
-		vmi.Spec.NodeSelector = map[string]string{}
-	}
-
-	vmi.Spec.NodeSelector[k8sv1.LabelArchStable] = strings.ToLower(vmi.Spec.Architecture)
-
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
@@ -607,6 +600,7 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
+		vmi.Spec.Architecture,
 		opts...,
 	)
 }
