@@ -118,7 +118,7 @@ func downwardAPIDirVolume(name, path, fieldPath string) k8sv1.Volume {
 	}
 }
 
-func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeStatus []v1.VolumeStatus) VolumeRendererOption {
+func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeStatus []v1.VolumeStatus, fileBackingVolumeName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		hotplugVolumesByName := hotplugVolumes(vmiVolumeStatus, vmiSpecVolumes)
 		for _, volume := range vmiSpecVolumes {
@@ -127,7 +127,7 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 			}
 
 			if volume.PersistentVolumeClaim != nil {
-				if err := renderer.handlePVCVolume(volume, pvcStore); err != nil {
+				if err := renderer.handlePVCVolume(volume, pvcStore, fileBackingVolumeName == volume.Name); err != nil {
 					return err
 				}
 			}
@@ -427,9 +427,10 @@ func serviceAccount(volumes ...v1.Volume) string {
 	return ""
 }
 
-func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string) error {
+func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string, isFileBackingVolume bool) error {
 	logger := log.DefaultLogger()
 	_, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)
+
 	if err != nil {
 		logger.Errorf("error getting PVC: %v", claimName)
 		return err
@@ -437,6 +438,9 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		logger.Errorf("didn't find PVC %v", claimName)
 		return types.PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", claimName)}
 	} else if isBlock {
+		if isFileBackingVolume {
+			return fmt.Errorf("file memory backing volume (%s) must be of mode Filesystem, but is a Block", volume.Name)
+		}
 		devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
 		device := k8sv1.VolumeDevice{
 			Name:       volume.Name,
@@ -444,18 +448,26 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		}
 		vr.volumeDevices = append(vr.volumeDevices, device)
 	} else {
+		var mountPath string
+		if isFileBackingVolume {
+			mountPath = fileBackingVolumeMountPath
+		} else {
+			mountPath = hostdisk.GetMountedHostDiskDir(volume.Name)
+		}
+
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+			MountPath: mountPath,
 		}
 		vr.podVolumeMounts = append(vr.podVolumeMounts, volumeMount)
 	}
+
 	return nil
 }
 
-func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store) error {
+func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store, isFileBackingVolume bool) error {
 	claimName := volume.PersistentVolumeClaim.ClaimName
-	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName, isFileBackingVolume); err != nil {
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
@@ -472,7 +484,7 @@ func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store
 
 func (vr *VolumeRenderer) handleEphemeralVolume(volume v1.Volume, pvcStore cache.Store) error {
 	claimName := volume.Ephemeral.PersistentVolumeClaim.ClaimName
-	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName, false); err != nil {
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
@@ -486,7 +498,7 @@ func (vr *VolumeRenderer) handleEphemeralVolume(volume v1.Volume, pvcStore cache
 
 func (vr *VolumeRenderer) handleDataVolume(volume v1.Volume, pvcStore cache.Store) error {
 	claimName := volume.DataVolume.Name
-	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
+	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName, false); err != nil {
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{

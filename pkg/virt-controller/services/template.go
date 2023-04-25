@@ -118,6 +118,8 @@ const ENV_VAR_POD_NAME = "POD_NAME"
 // extensive log verbosity threshold after which libvirt debug logs will be enabled
 const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
+const fileBackingVolumeMountPath = "/var/lib/libvirt/qemu/ram/"
+
 const ephemeralStorageOverheadSize = "50M"
 
 const (
@@ -674,9 +676,14 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList) (*VolumeRenderer, error) {
+	var fileBackingVolumeName string
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.FileBacked != nil {
+		fileBackingVolumeName = vmi.Spec.Domain.Memory.FileBacked.VolumeName
+	}
+
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
-		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
+		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus, fileBackingVolumeName),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
 	}
 	if len(requestedHookSidecarList) != 0 {
