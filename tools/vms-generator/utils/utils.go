@@ -77,6 +77,7 @@ const (
 	VmiHostDisk          = "vmi-host-disk"
 	VmiGPU               = "vmi-gpu"
 	VmiARM               = "vmi-arm"
+	VmiFileMemoryBacking = "vmi-file-memory-backing"
 	VmiMacvtap           = "vmi-macvtap"
 	VmTemplateFedora     = "vm-template-fedora"
 	VmTemplateRHEL7      = "vm-template-rhel7"
@@ -612,6 +613,32 @@ func GetVMIPvc() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiPVC)
 
 	addPVCDisk(&vmi.Spec, "disk-alpine", v1.DiskBusVirtio, "pvcdisk")
+	return vmi
+}
+
+func GetVMIFileMemoryBacking() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiPVC)
+
+	const memoryBackingVolume = "memory-backing"
+
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: memoryBackingVolume,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc-" + memoryBackingVolume},
+			},
+		},
+	})
+
+	if vmi.Spec.Domain.Memory == nil {
+		vmi.Spec.Domain.Memory = &v1.Memory{}
+	}
+	if vmi.Spec.Domain.Memory.FileBacked == nil {
+		vmi.Spec.Domain.Memory.FileBacked = &v1.FileBacked{
+			VolumeName: memoryBackingVolume,
+		}
+	}
+
 	return vmi
 }
 
