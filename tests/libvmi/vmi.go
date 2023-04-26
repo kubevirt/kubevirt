@@ -224,6 +224,24 @@ func WithNodeAffinityFor(node *k8sv1.Node) Option {
 	}
 }
 
+func WithFileMemoryBacking() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Memory == nil {
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+		}
+		if vmi.Spec.Domain.Memory.Backed == nil {
+			vmi.Spec.Domain.Memory.Backed = &v1.Backed{}
+		}
+		if vmi.Spec.Domain.Memory.Backed.File == nil {
+			vmi.Spec.Domain.Memory.Backed.File = &v1.File{}
+		}
+
+		for i, _ := range vmi.Spec.Domain.Devices.Disks {
+			vmi.Spec.Domain.Devices.Disks[i].Cache = v1.CacheNone
+		}
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
