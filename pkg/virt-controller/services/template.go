@@ -26,6 +26,13 @@ import (
 	"strings"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+
+	"k8s.io/kubectl/pkg/cmd/util/podcmd"
+	"k8s.io/utils/pointer"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -724,6 +731,10 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 
 	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
 		return nil, err
+	}
+
+	if util.IsFileMemoryBackedVmi(vmi) {
+		baseOptions = append(baseOptions, WithFileMemoryBacking(vcpu.GetVirtualMemory(vmi)))
 	}
 
 	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap).Apply()...)
