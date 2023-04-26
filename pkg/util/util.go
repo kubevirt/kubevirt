@@ -122,6 +122,14 @@ func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
 		domainFeatures.Hyperv.Reenlightenment.Enabled != nil && *domainFeatures.Hyperv.Reenlightenment.Enabled
 }
 
+func IsHighPerformanceVmi(vmi *v1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	return vmi.IsCPUDedicated() || vmi.IsRealtimeEnabled()
+}
+
 // WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
 // Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
 func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
