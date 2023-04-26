@@ -26,8 +26,6 @@ http_archive(
 )
 
 # Additional bazel rules
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
 http_archive(
     name = "rules_proto",
     sha256 = "bc12122a5ae4b517fa423ea03a8d82ea6352d5127ea48cb54bc324e8ab78493c",
@@ -134,11 +132,9 @@ http_file(
 
 http_archive(
     name = "bazeldnf",
-    sha256 = "bb4210a87f3f2006edb90fbade6df682979dc0330565f2550373f3eb012d928b",
-    strip_prefix = "bazeldnf-0.5.5",
+    sha256 = "9dfd5ab882cae4ff9e2a7c1352c05949fa0c175af6b4103b19db48657e6da8b8",
     urls = [
-        "https://github.com/rmohr/bazeldnf/archive/v0.5.5.tar.gz",
-        "https://storage.googleapis.com/builddeps/bb4210a87f3f2006edb90fbade6df682979dc0330565f2550373f3eb012d928b",
+        "https://github.com/rmohr/bazeldnf/releases/download/v0.5.6/bazeldnf-v0.5.6.tar.gz",
     ],
 )
 
@@ -177,14 +173,6 @@ bazeldnf_dependencies()
 load(
     "@bazel_tools//tools/build_defs/repo:git.bzl",
     "git_repository",
-)
-
-# Dependency seems to be gone
-# TODO fix on bazeldnf side
-go_repository(
-    name = "com_github_xi2_xz",
-    commit = "48954b6210f8d154cb5f8484d3a3e1f83489309e",
-    importpath = "github.com/xi2/xz",
 )
 
 # Winrmcli dependencies
