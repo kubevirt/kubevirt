@@ -1797,7 +1797,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
-
+			config.ArchitectureConfiguration = &v1.ArchConfiguration{}
 			config.ArchitectureConfiguration.Amd64.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
 			config.ArchitectureConfiguration.Arm64.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
 			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
@@ -1848,6 +1848,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
+			config.ArchitectureConfiguration = &v1.ArchConfiguration{}
 			config.ArchitectureConfiguration.Amd64.MachineType = "pc"
 			config.ArchitectureConfiguration.Arm64.MachineType = "pc"
 			config.ArchitectureConfiguration.Ppc64le.MachineType = "pc"
