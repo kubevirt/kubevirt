@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
 	"kubevirt.io/client-go/api"
@@ -4652,6 +4654,76 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("deny if thread count is 0", "0", false),
 			Entry("deny if thread count is 1", "1", false),
 			Entry("allow otherwise", "5", true),
+		)
+	})
+
+	Context("file memory backed vmi", func() {
+
+		admitAndExpect := func(vmi *v1.VirtualMachineInstance, expectedValid bool, msg string) {
+			vmiBytes, _ := json.Marshal(&vmi)
+			ar := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := vmiCreateAdmitter.Admit(ar)
+			ExpectWithOffset(1, resp.Allowed).To(Equal(expectedValid), msg)
+			causes := validateFileMemoryBacking(k8sfield.NewPath("spec"), &vmi.Spec)
+			if expectedValid {
+				ExpectWithOffset(1, causes).To(BeEmpty(), "no causes expected")
+			} else {
+				ExpectWithOffset(1, causes).ToNot(BeEmpty(), "causes expected")
+			}
+		}
+
+		getFileBackedVmi := func(options ...libvmi.Option) *v1.VirtualMachineInstance {
+			vmi := libvmi.NewCirros(options...)
+
+			if vmi.Spec.Domain.Memory == nil {
+				vmi.Spec.Domain.Memory = &v1.Memory{}
+			}
+
+			vmi.Spec.Domain.Memory.Backed = &v1.Backed{File: &v1.File{}}
+			return vmi
+		}
+
+		DescribeTable("should reject high performance VMIs with file memory backing", func(option libvmi.Option) {
+			vmi := getFileBackedVmi(option)
+			admitAndExpect(vmi, false, "high performance VMIs should be rejected")
+		},
+			Entry("with dedicated CPUs", libvmi.WithDedicatedCPUPlacement()),
+			Entry("with realtime vmi", libvmi.WithRealtimeMask("")),
+		)
+
+		DescribeTable("should reject file memory backed VMIs with disks with cache-mode other than none", func(cacheMode v1.DriverCache, isValid bool) {
+			vmi := getFileBackedVmi()
+
+			const diskName = "testdisk"
+
+			for i, _ := range vmi.Spec.Domain.Devices.Disks {
+				vmi.Spec.Domain.Devices.Disks[i].Cache = v1.CacheNone
+			}
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:  diskName,
+				Cache: cacheMode,
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: diskName,
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			})
+
+			admitAndExpect(vmi, isValid, "the only supported cache mode is none")
+		},
+			Entry(fmt.Sprintf("cache mode %s", v1.CacheNone), v1.CacheNone, true),
+			Entry(fmt.Sprintf("cache mode %s", v1.CacheWriteBack), v1.CacheWriteBack, false),
+			Entry(fmt.Sprintf("cache mode %s", v1.CacheWriteThrough), v1.CacheWriteThrough, false),
 		)
 	})
 })

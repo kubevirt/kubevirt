@@ -31,6 +31,8 @@ import (
 	"strings"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	utils "kubevirt.io/kubevirt/pkg/util"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -45,7 +47,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -225,6 +226,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateVSOCK(field, spec, config)...)
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validatePersistentState(field, spec, config)...)
+	causes = append(causes, validateFileMemoryBacking(field, spec)...)
 
 	return causes
 }
@@ -2654,6 +2656,37 @@ func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
 			Field:   field.Child("domain", "devices", "tpm", "persistent").String(),
 		})
+	}
+
+	return
+}
+
+func validateFileMemoryBacking(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if !utils.IsFileMemoryBackedVmi(&v1.VirtualMachineInstance{Spec: *spec}) {
+		return
+	}
+
+	getField := func() string {
+		return field.Child("domain", "memory", "backed", "file").String()
+	}
+
+	if utils.IsHighPerformanceVmi(&v1.VirtualMachineInstance{Spec: *spec}) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "Memory file is supported only for non-high-performance VMIs",
+			Field:   getField(),
+		})
+	}
+
+	for _, disk := range spec.Domain.Devices.Disks {
+		if disk.Cache != v1.CacheNone {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("File memory backing is supported only if all disks are with cache mode %s, but disk %s is with cache mode %s",
+					v1.CacheNone, disk.Name, string(disk.Cache)),
+				Field: getField(),
+			})
+		}
 	}
 
 	return
