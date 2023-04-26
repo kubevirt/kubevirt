@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
@@ -723,6 +725,10 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 
 	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
 		return nil, err
+	}
+
+	if util.IsFileMemoryBackedVmi(vmi) {
+		baseOptions = append(baseOptions, WithFileMemoryBacking(vcpu.GetVirtualMemory(vmi)))
 	}
 
 	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap).Apply()...)
