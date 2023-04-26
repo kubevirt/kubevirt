@@ -90,6 +90,26 @@ var _ = Describe("create vm", func() {
 			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
 		})
 
+		It("Memory is set to 512Mi by default", func() {
+			const defaultMemory = "512Mi"
+			out, err := runCmd()
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(defaultMemory)))
+		})
+
+		It("VM with specified memory", func() {
+			const memory = "1Gi"
+			out, err := runCmd(setFlag(MemoryFlag, string(memory)))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
+		})
+
 		DescribeTable("VM with specified instancetype", func(flag, name, kind string) {
 			out, err := runCmd(setFlag(InstancetypeFlag, flag))
 			Expect(err).ToNot(HaveOccurred())
@@ -97,6 +117,7 @@ var _ = Describe("create vm", func() {
 
 			Expect(vm.Spec.Instancetype.Name).To(Equal(name))
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(kind))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		},
 			Entry("Implicit cluster-wide", "my-instancetype", "my-instancetype", ""),
 			Entry("Explicit cluster-wide", "virtualmachineclusterinstancetype/my-clusterinstancetype", "my-clusterinstancetype", instancetypeapi.ClusterSingularResourceName),
@@ -111,6 +132,7 @@ var _ = Describe("create vm", func() {
 			vm := unmarshalVM(out)
 
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		})
 
 		It("VM with boot order and inferred instancetype", func() {
@@ -412,6 +434,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeKind))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeName))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
@@ -470,6 +493,16 @@ var _ = Describe("create vm", func() {
 			Entry("float", "1.23"),
 		)
 
+		DescribeTable("Invalid arguments to MemoryFlag", func(flag, errMsg string) {
+			out, err := runCmd(setFlag(MemoryFlag, flag))
+
+			Expect(err).To(MatchError(errMsg))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("Invalid number", "abc", "failed to parse \"--memory\" flag: quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+			Entry("Invalid suffix", "512Gu", "failed to parse \"--memory\" flag: unable to parse quantity's suffix"),
+		)
+
 		DescribeTable("Invalid arguments to InstancetypeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(InstancetypeFlag, flag))
 
@@ -488,15 +521,17 @@ var _ = Describe("create vm", func() {
 			Expect(out).To(BeEmpty())
 		})
 
-		It("InstancetypeFlag and InferInstancetypeFlag are mutually exclusive", func() {
-			out, err := runCmd(
-				setFlag(InstancetypeFlag, "my-instancetype"),
-				setFlag(InferInstancetypeFlag, "true"),
-			)
+		DescribeTable("MemoryFlag, InstancetypeFlag and InferInstancetypeFlag are mutually exclusive", func(flags []string, setFlags string) {
+			out, err := runCmd(flags...)
 
-			Expect(err).To(MatchError("if any flags in the group [instancetype infer-instancetype] are set none of the others can be; [infer-instancetype instancetype] were all set"))
+			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [memory instancetype infer-instancetype] are set none of the others can be; [%s] were all set", setFlags)))
 			Expect(out).To(BeEmpty())
-		})
+		},
+			Entry("MemoryFlag and InstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype")}, "instancetype memory"),
+			Entry("MemoryFlag and InferInstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype memory"),
+			Entry("InstancetypeFlag and InferInstancetypeFlag", []string{setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype instancetype"),
+			Entry("MemoryFlag, InstancetypeFlag and InferInstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype instancetype memory"),
+		)
 
 		DescribeTable("Invalid arguments to PreferenceFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(PreferenceFlag, flag))
