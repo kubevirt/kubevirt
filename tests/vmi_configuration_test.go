@@ -3066,6 +3066,24 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(pod.Spec.TopologySpreadConstraints).To(Equal(tsc))
 		})
 	})
+
+	Context("with file memory backing", func() {
+		It("should contain a file backing memory in the right path", func() {
+			By("Creating a file memory backed VMI")
+			vmi := libvmi.NewCirros(
+				libvmi.WithFileMemoryBacking(),
+				libvmi.WithResourceMemory("1024Mi"),
+			)
+			vmi.Name = "vmi-file"
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+
+			By("Ensuring ram file exists and is of the right size")
+			ramFilePath := tests.RunCommandOnVmiPod(vmi, []string{"bash", "-c", fmt.Sprintf("find %s -name pc.ram", kvutil.FileMemoryBackingPath)})
+			lsInfo := tests.RunCommandOnVmiPod(vmi, []string{"bash", "-c", fmt.Sprintf("ls -l --human-readable %s", ramFilePath)})
+			Expect(lsInfo).To(ContainSubstring("1.0G"))
+		})
+
+	})
 })
 
 func createRuntimeClass(name, handler string) error {

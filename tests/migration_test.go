@@ -547,24 +547,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}, 100*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
-		By("Run a stress test to dirty some pages and slow down the migration")
-		stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
-		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: stressCmd},
-			&expect.BExp{R: console.PromptExpression},
-		}, 15)).To(Succeed(), "should run a stress test")
-
-		// give stress tool some time to trash more memory pages before returning control to next steps
-		if stressTimeoutSeconds < 15 {
-			time.Sleep(time.Duration(stressTimeoutSeconds) * time.Second)
-		} else {
-			time.Sleep(15 * time.Second)
-		}
-	}
-
 	getVirtqemudPid := func(pod *k8sv1.Pod) string {
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "compute",
 			[]string{
@@ -4543,6 +4525,30 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			}
 		})
 	})
+
+	Context("file memory backed VMI", func() {
+
+		getMigratableFileBackedVmi := func() *v1.VirtualMachineInstance {
+			return libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithFileMemoryBacking(),
+			)
+		}
+
+		It("should be able to migrate successfully", func() {
+			By("Creating a migratable VMI with file memory backing")
+			vmi := getMigratableFileBackedVmi()
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+
+			By("Starting the Migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			By("Ensuring the migration ended successfully")
+			tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+		})
+	})
 })
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
@@ -4813,4 +4819,22 @@ func affinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNo
 			},
 		},
 	}, nil
+}
+
+func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
+	By("Run a stress test to dirty some pages and slow down the migration")
+	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: stressCmd},
+		&expect.BExp{R: console.PromptExpression},
+	}, 15)).To(Succeed(), "should run a stress test")
+
+	// give stress tool some time to trash more memory pages before returning control to next steps
+	if stressTimeoutSeconds < 15 {
+		time.Sleep(time.Duration(stressTimeoutSeconds) * time.Second)
+	} else {
+		time.Sleep(15 * time.Second)
+	}
 }
