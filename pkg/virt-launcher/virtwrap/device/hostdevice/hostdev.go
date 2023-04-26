@@ -21,6 +21,7 @@ package hostdevice
 
 import (
 	"fmt"
+	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -59,7 +60,10 @@ func CreateMDEVHostDevices(hostDevicesData []HostDeviceMetaData, mdevAddrPool Ad
 }
 
 func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPooler, createHostDev createHostDevice) ([]api.HostDevice, error) {
-	var hostDevices []api.HostDevice
+	var (
+		hostDevices          []api.HostDevice
+		hostDevicesAddresses []string
+	)
 
 	for _, hostDeviceData := range hostDevicesData {
 		address, err := addrPool.Pop(hostDeviceData.ResourceName)
@@ -83,8 +87,13 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 			}
 		}
 		hostDevices = append(hostDevices, *hostDevice)
-		log.Log.Infof("host-device created: %s", address)
+		hostDevicesAddresses = append(hostDevicesAddresses, address)
 	}
+
+	if len(hostDevices) > 0 {
+		log.Log.Infof("host-devices created: [%s]", strings.Join(hostDevicesAddresses, ", "))
+	}
+
 	return hostDevices, nil
 }
 
