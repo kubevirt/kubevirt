@@ -130,7 +130,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		BeforeEach(func() {
 			kv := util.GetCurrentKv(virtClient)
 			kubevirtConfiguration := kv.Spec.Configuration
-			kubevirtConfiguration.ArchitectureConfiguration = &v1.ArchConfiguration{}
+			kubevirtConfiguration.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, Ppc64le: &v1.ArchSpecificConfiguration{}}
 
 			kubevirtConfiguration.ArchitectureConfiguration.Amd64.MachineType = testingMachineType
 			kubevirtConfiguration.ArchitectureConfiguration.Arm64.MachineType = testingMachineType
