@@ -3379,6 +3379,7 @@ var _ = Describe("Template", func() {
 
 		It("should compute the correct resource req according to desired QoS when rendering hotplug pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3410,6 +3411,7 @@ var _ = Describe("Template", func() {
 
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
 			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 

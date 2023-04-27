@@ -726,15 +726,9 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Resources: hotplugContainerResourceRequirementsForVMI(vmi),
 					SecurityContext: &k8sv1.SecurityContext{
 						SELinuxOptions: &k8sv1.SELinuxOptions{
-							// FIXME: Forcing an SELinux level without categories is a security risk
-							// This pod will contain a disk image shared with a virt-launcher pod.
-							// If we didn't force a level here, one would be auto-generated with a set of categories
-							// different from the one of its companion virt-launcher. Therefore, SELinux would prevent
-							// virt-launcher('s compute container) from accessing the disk image.
-							// The proper fix here is to force the level of this pod to match the one of virt-launcher.
-							// Unfortunately, pods MCS levels are not exposed by the API. Therefore, we'd have to
-							// enter the mount namespace of virt-launcher and check the level of any file/directory.
-							// We need a way to ask virt-handler to do that.
+							// If SELinux is enabled on the host, this level will be adjusted below to match the level
+							// of its companion virt-launcher pod to allow it to consume our disk images.
+							Type:  t.clusterConfig.GetSELinuxLauncherType(),
 							Level: "s0",
 						},
 					},
@@ -767,6 +761,11 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
+	}
+
+	err := matchSELinuxLevelOfVMI(pod, vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	hotplugVolumeStatusMap := make(map[string]v1.VolumePhase)
@@ -896,6 +895,11 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 			},
 			TerminationGracePeriodSeconds: &zero,
 		},
+	}
+
+	err := matchSELinuxLevelOfVMI(pod, vmi)
+	if err != nil {
+		return nil, err
 	}
 
 	if isBlock {
@@ -1127,6 +1131,20 @@ func alignPodMultiCategorySecurity(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstanc
 			generateContainerSecurityContext(selinuxType, container, dockerSELinuxMCSWorkaround)
 		}
 	}
+}
+
+func matchSELinuxLevelOfVMI(pod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) error {
+	if vmi.Status.SelinuxContext == "" {
+		return fmt.Errorf("VMI is missing SELinux context")
+	} else if vmi.Status.SelinuxContext != "none" {
+		ctx := strings.Split(vmi.Status.SelinuxContext, ":")
+		if len(ctx) < 4 {
+			return fmt.Errorf("VMI has invalid SELinux context: %s", vmi.Status.SelinuxContext)
+		}
+		pod.Spec.Containers[0].SecurityContext.SELinuxOptions.Level = strings.Join(ctx[3:], ":")
+	}
+
+	return nil
 }
 
 func generateContainerSecurityContext(selinuxType string, container *k8sv1.Container, forceLevel bool) {

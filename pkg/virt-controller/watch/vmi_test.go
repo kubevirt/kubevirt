@@ -1310,7 +1310,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 		},
 			Entry("should hand over pods if both are ready and running", k8sv1.PodRunning, virtv1.Scheduled),
-			Entry("should not hand over pods if the attachment pod is not ready and running", k8sv1.PodPending, virtv1.Scheduling),
+			Entry("should hand over pods even if the attachment pod is not ready and running", k8sv1.PodPending, virtv1.Scheduled),
 		)
 
 		It("should ignore migration target pods", func() {
@@ -2136,6 +2136,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("CreateAttachmentPodTemplate should create a pod template if DV of owning PVC is ready", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			Expect(pvcInformer.GetIndexer().Add(pvc)).To(Succeed())
@@ -2729,6 +2730,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Target: "",
 			})
 			vmi.Status.ActivePods["virt-launch-uid"] = ""
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
