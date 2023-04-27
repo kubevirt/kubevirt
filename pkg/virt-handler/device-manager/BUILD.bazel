@@ -46,6 +46,7 @@ go_test(
         "mediated_device_test.go",
         "mediated_devices_types_test.go",
         "pci_device_test.go",
+        "socket_device_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
