@@ -70,8 +70,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "targetcli", cmd)
-		By(fmt.Sprintf("targetcli: stdout: %v stderr: %v", stdout, stderr))
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), stdout, stderr)
 	}
 
 	// createSCSIDisk creates a SCSI using targetcli utility and LinuxIO (see
@@ -119,8 +118,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "targetcli",
 			[]string{"/bin/lsblk", "--scsi", "-o", "NAME,MODEL", "-p", "-n"})
-		By(fmt.Sprintf("targetcli: stdout: %v stderr: %v", stdout, stderr))
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), stdout, stderr)
 		lines := strings.Split(stdout, "\n")
 		for _, line := range lines {
 			if strings.Contains(line, model) {
