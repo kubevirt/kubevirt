@@ -1793,14 +1793,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[Serial][rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", Serial, func() {
+		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
+
 		BeforeEach(func() {
 			kv := util.GetCurrentKv(virtClient)
 
 			config := kv.Spec.Configuration
 			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, Ppc64le: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
-			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = []string{"q35*", "pc-q35*", "pc*"}
+			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
+			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
+			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
@@ -1846,6 +1848,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		It("[Serial][test_id:3126]should set machine type from kubevirt-config", Serial, func() {
 			kv := util.GetCurrentKv(virtClient)
+			testEmulatedMachines := []string{"pc"}
 
 			config := kv.Spec.Configuration
 
@@ -1853,6 +1856,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config.ArchitectureConfiguration.Amd64.MachineType = "pc"
 			config.ArchitectureConfiguration.Arm64.MachineType = "pc"
 			config.ArchitectureConfiguration.Ppc64le.MachineType = "pc"
+			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
+			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
+			config.ArchitectureConfiguration.Ppc64le.EmulatedMachines = testEmulatedMachines
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := tests.NewRandomVMI()
