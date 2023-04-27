@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -1175,6 +1176,9 @@ func newVirtualMachineClusterInstancetype(vmi *v1.VirtualMachineInstance) *insta
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-cluster-instancetype-",
 			Namespace:    testsuite.GetTestNamespace(nil),
+			Labels: map[string]string{
+				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
+			},
 		},
 		Spec: newVirtualMachineInstancetypeSpec(vmi),
 	}
@@ -1212,6 +1216,9 @@ func newVirtualMachineClusterPreference() *instancetypev1alpha2.VirtualMachineCl
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "vm-cluster-preference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
+			Labels: map[string]string{
+				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
+			},
 		},
 	}
 }
