@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				"option2": "value2",
 				"option3": "value3",
 			}
-			tests.CreateConfigMap(configMapName, testsuite.NamespacePrivileged, data)
+			tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), data)
 		})
 
 		It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {
@@ -77,7 +77,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Running VMI")
 			vmi := libvmi.NewFedora(
 				libvmi.WithConfigMapFs(configMapName, configMapName),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
@@ -126,7 +125,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				"user":     "admin",
 				"password": "redhat",
 			}
-			tests.CreateSecret(secretName, testsuite.NamespacePrivileged, data)
+			tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), data)
 		})
 
 		It("Should be the mounted virtiofs layout the same for a pod and vmi", func() {
@@ -135,7 +134,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Running VMI")
 			vmi := libvmi.NewFedora(
 				libvmi.WithSecretFs(secretName, secretName),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
@@ -178,7 +176,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			By("Running VMI")
 			vmi := libvmi.NewFedora(
 				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
@@ -238,7 +235,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			vmi := libvmi.NewFedora(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIFs(downwardAPIName),
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
 			)
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
 
