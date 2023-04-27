@@ -20,6 +20,8 @@
 package virt_chroot
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -28,12 +30,19 @@ import (
 )
 
 const (
-	binaryPath     = "/usr/bin/virt-chroot"
-	mountNamespace = "/proc/1/ns/mnt"
+	binaryPath = "/usr/bin/virt-chroot"
 )
 
+// GetHostNamespacePath - return the parent process
+// this is needed to handle the case kubernetes and kubevirt
+// running inside a container and the mount namespace is different
+// from the host/node.
+func GetHostNamespacePath() string {
+	return fmt.Sprintf("/proc/%d/ns/mnt", os.Getppid())
+}
+
 func getBaseArgs() []string {
-	return []string{"--mount", mountNamespace}
+	return []string{"--mount", GetHostNamespacePath()}
 }
 
 func GetChrootBinaryPath() string {
@@ -41,7 +50,7 @@ func GetChrootBinaryPath() string {
 }
 
 func GetChrootMountNamespace() string {
-	return mountNamespace
+	return GetHostNamespacePath()
 }
 
 func MountChroot(sourcePath, targetPath *safepath.Path, ro bool) *exec.Cmd {
