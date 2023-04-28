@@ -2685,7 +2685,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, d.capabilities, disksInfo, d.clusterConfig.ExpandDisksEnabled())
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, disksInfo, d.clusterConfig)
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 	}
@@ -2950,7 +2950,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	smbios := d.clusterConfig.GetSMBIOS()
 	period := d.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig.ExpandDisksEnabled())
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, d.capabilities, disksInfo, d.clusterConfig)
 
 	err = client.SyncVirtualMachine(vmi, options)
 	if err != nil {
@@ -3289,7 +3289,7 @@ func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 }
 
 func (d *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	options := virtualMachineOptions(nil, 0, nil, d.capabilities, map[string]*containerdisk.DiskInfo{}, d.clusterConfig.ExpandDisksEnabled())
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, map[string]*containerdisk.DiskInfo{}, d.clusterConfig)
 	topology, err := json.Marshal(options.Topology)
 	if err != nil {
 		return err

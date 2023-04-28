@@ -795,7 +795,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
 		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
-		FreePageReporting:     isFreePageReportingEnabled(vmi),
+		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 	}
 
 	if options != nil {
@@ -812,6 +812,11 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		if len(options.DisksInfo) > 0 {
 			l.disksInfo = options.DisksInfo
+		}
+
+		if options.GetClusterConfig() != nil {
+			c.ExpandDisksEnabled = options.GetClusterConfig().GetExpandDisksEnabled()
+			c.FreePageReporting = isFreePageReportingEnabled(options.GetClusterConfig().GetFreePageReportingDisabled(), vmi)
 		}
 	}
 	c.DisksInfo = l.disksInfo
@@ -841,8 +846,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	return c, nil
 }
 
-func isFreePageReportingEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if (vmi.Spec.Domain.Devices.AutoattachMemBalloon != nil && *vmi.Spec.Domain.Devices.AutoattachMemBalloon == false) ||
+func isFreePageReportingEnabled(clusterFreePageReportingDisabled bool, vmi *v1.VirtualMachineInstance) bool {
+	if clusterFreePageReportingDisabled ||
+		(vmi.Spec.Domain.Devices.AutoattachMemBalloon != nil && *vmi.Spec.Domain.Devices.AutoattachMemBalloon == false) ||
 		vmi.IsHighPerformanceVMI() ||
 		vmi.GetAnnotations()[v1.FreePageReportingDisabledAnnotation] == "true" {
 		return false

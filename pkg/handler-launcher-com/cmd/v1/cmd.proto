@@ -51,9 +51,9 @@ message Sibling {
 }
 
 message Pages {
-    uint64 count = 1;
-    string unit = 2;
-    uint32 size = 3;
+  uint64 count = 1;
+  string unit = 2;
+  uint32 size = 3;
 }
 
 message Memory {
@@ -82,10 +82,15 @@ message SMBios {
 }
 
 message DiskInfo {
-    string format = 1;
-    string backingFile = 2;
-    uint64 actualSize = 3;
-    uint64 virtualSize = 4;
+  string format = 1;
+  string backingFile = 2;
+  uint64 actualSize = 3;
+  uint64 virtualSize = 4;
+}
+
+message ClusterConfig{
+  bool ExpandDisksEnabled = 1;
+  bool FreePageReportingDisabled = 2;
 }
 
 message VirtualMachineOptions {
@@ -94,7 +99,9 @@ message VirtualMachineOptions {
   repeated string PreallocatedVolumes = 3;
   Topology topology = 4;
   map<string, DiskInfo> DisksInfo = 5;
+  // Deprecated, use clusterConfig.ExpandDisksEnabled
   bool ExpandDisksEnabled = 6;
+  ClusterConfig clusterConfig = 7;
 }
 
 message VMIRequest {
