@@ -162,24 +162,24 @@ func TestVerbosity(t *testing.T) {
 	assert(t, logCalled, "Log entry (V=2) should have been recorded")
 
 	logCalled = false
-	log = log.V(4)
-	log.Log("This is a verbosity level 4 message")
+	vLog := log.V(4)
+	vLog.Log("This is a verbosity level 4 message")
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 
 	// this call should be ignored. repeat last test to prove it
 	logCalled = false
-	log = log.V(-1)
-	log.Log("This is a verbosity level 4 message")
+	vLog = vLog.V(-1)
+	vLog.Log("This is a verbosity level 4 message")
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 
 	logCalled = false
-	log.V(3).Log("This is a verbosity level 3 message")
+	vLog.V(3).Log("This is a verbosity level 3 message")
 	assert(t, logCalled, "Log entry (V=3) should have been recorded")
 
 	// once again, this call should do nothing.
 	logCalled = false
-	log = log.V(-1)
-	log.Log("This is a verbosity level 4 message")
+	vLog = vLog.V(-1)
+	vLog.Log("This is a verbosity level 4 message")
 	assert(t, !logCalled, "Log entry (V=4) should not have been recorded")
 	tearDown()
 }
@@ -359,30 +359,6 @@ func TestLogVerbosity(t *testing.T) {
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
 	assert(t, strings.HasPrefix(logEntry[5].(string), "log_test.go"), "Logged line referenced wrong module")
-	tearDown()
-}
-
-func TestMsgVerbosity(t *testing.T) {
-	setUp()
-	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
-	log.SetVerbosityLevel(2)
-	log.V(2).msg("test")
-
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
-	tearDown()
-}
-
-func TestMsgfVerbosity(t *testing.T) {
-	setUp()
-	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
-	log.SetVerbosityLevel(2)
-	log.V(2).msgf("%s", "test")
-
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[4].(string) == "pos", "Logged line did not contain pos")
 	tearDown()
 }
 
