@@ -1,6 +1,8 @@
 package topology
 
 import (
+	"math"
+
 	v1 "k8s.io/api/core/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -10,6 +12,7 @@ import (
 const TSCFrequencyLabel = virtv1.CPUTimerLabel + "tsc-frequency"
 const TSCFrequencySchedulingLabel = "scheduling.node.kubevirt.io/tsc-frequency"
 const TSCScalableLabel = virtv1.CPUTimerLabel + "tsc-scalable"
+const TSCTolerancePPM float64 = 250
 
 type FilterPredicateFunc func(node *v1.Node) bool
 
@@ -88,4 +91,9 @@ func FilterNodesFromCache(objs []interface{}, predicates ...FilterPredicateFunc)
 		}
 	}
 	return match
+}
+
+// ToleranceForFrequency returns TSCTolerancePPM parts per million of freq, rounded down to the nearest Hz
+func ToleranceForFrequency(freq int64) int64 {
+	return int64(math.Floor(float64(freq) * (TSCTolerancePPM / 1000000)))
 }
