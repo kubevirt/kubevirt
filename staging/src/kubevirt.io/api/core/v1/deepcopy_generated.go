@@ -4887,6 +4887,11 @@ func (in *VirtualMachineInstanceStatus) DeepCopyInto(out *VirtualMachineInstance
 		*out = new(uint32)
 		**out = **in
 	}
+	if in.Machine != nil {
+		in, out := &in.Machine, &out.Machine
+		*out = new(Machine)
+		**out = **in
+	}
 	return
 }
 

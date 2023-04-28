@@ -11083,6 +11083,15 @@ var CRDsValidation map[string]string = map[string]string{
           description: LauncherContainerImageVersion indicates what container image
             is currently active for the vmi.
           type: string
+        machine:
+          description: Machine shows the final resulting qemu machine type. This can
+            be different than the machine type selected in the spec, due to qemus
+            machine type alias mechanism.
+          properties:
+            type:
+              description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
+              type: string
+          type: object
         migrationMethod:
           description: 'Represents the method using which the vmi can be migrated:
             live migration or block migration'

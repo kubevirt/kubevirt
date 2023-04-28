@@ -269,6 +269,11 @@ type VirtualMachineInstanceStatus struct {
 	// SELinuxContext is the actual SELinux context of the virt-launcher pod
 	// +optional
 	SelinuxContext string `json:"selinuxContext,omitempty"`
+
+	// Machine shows the final resulting qemu machine type. This can be different
+	// than the machine type selected in the spec, due to qemus machine type alias mechanism.
+	// +optional
+	Machine *Machine `json:"machine,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
