@@ -832,7 +832,8 @@ func requireAnyVirtiofsPrivilegedContainer(spec *v1.VirtualMachineInstanceSpec) 
 }
 
 func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.Filesystems != nil && !config.VirtiofsEnabled() {
+	// The feature gate is mandatory only for a privileged container
+	if requireAnyVirtiofsPrivilegedContainer(spec) && !config.VirtiofsEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "virtiofs feature gate is not enabled in kubevirt-config",
