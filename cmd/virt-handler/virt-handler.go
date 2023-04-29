@@ -311,7 +311,6 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
 
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
@@ -423,6 +422,10 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
+
+	// This callback can only be called only after the KubeVirt CR has synced,
+	// to avoid installing the SELinux policy when the feature gate is set
+	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
 
 	go vmController.Run(10, stop)
 

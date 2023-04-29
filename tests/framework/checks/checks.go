@@ -50,7 +50,7 @@ func Has2MiHugepages(node *v1.Node) bool {
 func HasFeature(feature string) bool {
 	virtClient := kubevirt.Client()
 
-	featureGates := []string{}
+	var featureGates []string
 	kv := util.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.DeveloperConfiguration != nil {
 		featureGates = kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
