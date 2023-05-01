@@ -80,13 +80,12 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 	return nics, nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network) error {
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network, configState ConfigState) error {
 	nics, err := n.getPhase1NICs(&launcherPID, networks)
 	if err != nil {
 		return err
 	}
 
-	configState := NewConfigState(n.cacheCreator, string(n.vmi.UID))
 	err = configState.Run(
 		nics,
 		func(nic *podNIC) error {

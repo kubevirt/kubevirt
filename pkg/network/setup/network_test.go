@@ -57,6 +57,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			var (
 				vmi                   *v1.VirtualMachineInstance
 				vmNetworkConfigurator *VMNetworkConfigurator
+				configState           ConfigState
 			)
 			BeforeEach(func() {
 				vmi = newVMIBridgeInterface("testnamespace", "testVmName")
@@ -65,10 +66,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					NetworkSource: v1.NetworkSource{},
 				}}
 				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator)
+				stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
+				configState = NewConfigState(&stateCache)
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
-				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID, vmi.Spec.Networks)
+				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID, vmi.Spec.Networks, configState)
 				Expect(err).To(MatchError("Network not implemented"))
 			})
 			It("should propagate errors when phase2 is called", func() {
@@ -307,6 +310,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 			vmi                   *v1.VirtualMachineInstance
 			vmNetworkConfigurator *VMNetworkConfigurator
+			configState           ConfigState
 		)
 
 		BeforeEach(func() {
@@ -319,12 +323,14 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmNetworkConfigurator = newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkH, &baseCacheCreator)
+			stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
+			configState = NewConfigState(&stateCache)
 		})
 
 		It("fails setup during network discovery", func() {
 			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return("", "", fmt.Errorf("discovery error"))
 
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks)
+			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)
 			Expect(err).To(HaveOccurred())
 			var errCritical *neterrors.CriticalNetworkError
 			Expect(errors.As(err, &errCritical)).To(BeFalse(), "expected a non-critical error, but got %v", err)
@@ -338,7 +344,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 			mockNetworkH.EXPECT().LinkSetDown(gomock.Any()).Return(fmt.Errorf("config error"))
 
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks)
+			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)
 			Expect(err).To(HaveOccurred())
 			var errCritical *neterrors.CriticalNetworkError
 			Expect(errors.As(err, &errCritical)).To(BeTrue(), "expected critical error, but got %v", err)
@@ -364,7 +370,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			mockNetworkH.EXPECT().LinkSetUp(gomock.Any()).Return(nil)
 			mockNetworkH.EXPECT().LinkSetLearningOff(gomock.Any()).Return(nil)
 
-			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks)).To(Succeed())
+			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)).To(Succeed())
 
 			var podData *cache.PodIfaceCacheData
 			podData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, string(vmi.UID), "default")

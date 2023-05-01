@@ -22,12 +22,9 @@ package network
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
@@ -44,20 +41,16 @@ const (
 var _ = Describe("config state", func() {
 	var (
 		configState      ConfigState
-		baseCacheCreator tempCacheCreator
-
-		nics []podNIC
+		configStateCache configStateCacheStub
+		nics             []podNIC
 	)
 
 	BeforeEach(func() {
-		dutils.MockDefaultOwnershipManager()
-		configState = NewConfigState(&baseCacheCreator, uid)
+		configStateCache = newConfigStateCacheStub()
+		configState = NewConfigState(&configStateCache)
 		nics = []podNIC{{
 			podInterfaceName: testNet0,
 		}}
-	})
-	AfterEach(func() {
-		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
 
 	It("runs with no current state (cache is empty)", func() {
@@ -68,14 +61,13 @@ var _ = Describe("config state", func() {
 		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
 		Expect(config.executedNICs).To(Equal([]string{testNet0}), "the config step should execute")
 
-		podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet0)
+		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+		Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
 
 	It("runs with current pending state", func() {
-		podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationPending}
-		Expect(cache.WritePodInterfaceCache(&baseCacheCreator, uid, testNet0, podIfaceCacheData)).To(Succeed())
+		Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 		discover, config := &funcStub{}, &funcStub{}
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
@@ -83,14 +75,13 @@ var _ = Describe("config state", func() {
 		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
 		Expect(config.executedNICs).To(Equal([]string{testNet0}), "the config step should execute")
 
-		podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet0)
+		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+		Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
 
 	It("runs with current started state", func() {
-		podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationStarted}
-		Expect(cache.WritePodInterfaceCache(&baseCacheCreator, uid, testNet0, podIfaceCacheData)).To(Succeed())
+		Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
 		discover, config := &funcStub{}, &funcStub{}
 
 		err := configState.Run(nics, discover.f, config.f)
@@ -101,14 +92,13 @@ var _ = Describe("config state", func() {
 		Expect(discover.executedNICs).To(BeEmpty(), "the discover step should not be execute")
 		Expect(config.executedNICs).To(BeEmpty(), "the config step should not be execute")
 
-		podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet0)
+		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+		Expect(state).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 	})
 
 	It("runs with current finished state", func() {
-		podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationFinished}
-		Expect(cache.WritePodInterfaceCache(&baseCacheCreator, uid, testNet0, podIfaceCacheData)).To(Succeed())
+		Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 		discover, config := &funcStub{}, &funcStub{}
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
@@ -116,9 +106,9 @@ var _ = Describe("config state", func() {
 		Expect(discover.executedNICs).To(BeEmpty(), "the discover step should not be execute")
 		Expect(config.executedNICs).To(BeEmpty(), "the config step should not be execute")
 
-		podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet0)
+		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+		Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
 
 	It("runs and fails at the discover step", func() {
@@ -130,8 +120,9 @@ var _ = Describe("config state", func() {
 		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
 		Expect(config.executedNICs).To(BeEmpty(), "the config step should not execute")
 
-		_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet0)
-		Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue(), "expect no cache to exist")
+		state, err := configStateCache.Read(testNet0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(state).To(Equal(cache.PodIfaceNetworkPreparationPending))
 	})
 
 	It("runs and fails at the config step", func() {
@@ -143,9 +134,35 @@ var _ = Describe("config state", func() {
 		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
 		Expect(config.executedNICs).To(Equal([]string{testNet0}), "the config step should execute")
 
-		podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet0)
+		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+		Expect(state).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+	})
+
+	It("runs and fails reading the cache", func() {
+		injectedErr := fmt.Errorf("fail read cache")
+		configStateCache.readErr = injectedErr
+		configState = NewConfigState(&configStateCache)
+
+		discover, config := &funcStub{}, &funcStub{}
+
+		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
+
+		Expect(discover.executedNICs).To(BeEmpty(), "the discover step shouldn't execute")
+		Expect(config.executedNICs).To(BeEmpty(), "the config step shouldn't execute")
+	})
+
+	It("runs and fails writing the cache", func() {
+		injectedErr := fmt.Errorf("fail write cache")
+		configStateCache.writeErr = injectedErr
+		configState = NewConfigState(&configStateCache)
+
+		discover, config := &funcStub{}, &funcStub{}
+
+		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
+
+		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
+		Expect(config.executedNICs).To(BeEmpty(), "the config step shouldn't execute")
 	})
 
 	When("with multiple interfaces", func() {
@@ -165,9 +182,9 @@ var _ = Describe("config state", func() {
 			Expect(config.executedNICs).To(Equal([]string{testNet0, testNet1, testNet2}))
 
 			for _, testNet := range []string{testNet0, testNet1, testNet2} {
-				podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
+				state, err := configStateCache.Read(testNet)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+				Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 			}
 		})
 
@@ -181,9 +198,9 @@ var _ = Describe("config state", func() {
 			Expect(config.executedNICs).To(Equal([]string{testNet0, testNet1}))
 
 			for _, testNet := range []string{testNet0, testNet1, testNet2} {
-				podIFaceCacheDataResult, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
+				state, err := configStateCache.Read(testNet)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(podIFaceCacheDataResult.State).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+				Expect(state).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 			}
 		})
 
@@ -206,4 +223,23 @@ func (f *funcStub) f(nic *podNIC) error {
 		err = f.errRun
 	}
 	return err
+}
+
+type configStateCacheStub struct {
+	stateCache map[string]cache.PodIfaceState
+	readErr    error
+	writeErr   error
+}
+
+func newConfigStateCacheStub() configStateCacheStub {
+	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil}
+}
+
+func (c configStateCacheStub) Read(podInterfaceName string) (cache.PodIfaceState, error) {
+	return c.stateCache[podInterfaceName], c.readErr
+}
+
+func (c configStateCacheStub) Write(podInterfaceName string, state cache.PodIfaceState) error {
+	c.stateCache[podInterfaceName] = state
+	return c.writeErr
 }

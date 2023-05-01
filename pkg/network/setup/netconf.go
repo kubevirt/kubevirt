@@ -34,9 +34,11 @@ type cacheCreator interface {
 }
 
 type NetConf struct {
-	setupCompleted sync.Map
-	cacheCreator   cacheCreator
-	nsFactory      nsFactory
+	setupCompleted   sync.Map
+	cacheCreator     cacheCreator
+	nsFactory        nsFactory
+	configState      map[string]ConfigState
+	configStateMutex *sync.RWMutex
 }
 
 type nsFactory func(int) NSExecutor
@@ -54,9 +56,11 @@ func NewNetConf() *NetConf {
 
 func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
 	return &NetConf{
-		setupCompleted: sync.Map{},
-		cacheCreator:   cacheCreator,
-		nsFactory:      nsFactory,
+		setupCompleted:   sync.Map{},
+		configState:      map[string]ConfigState{},
+		configStateMutex: &sync.RWMutex{},
+		cacheCreator:     cacheCreator,
+		nsFactory:        nsFactory,
 	}
 }
 
@@ -82,9 +86,20 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
 
+	c.configStateMutex.RLock()
+	configState, ok := c.configState[string(vmi.UID)]
+	c.configStateMutex.RUnlock()
+	if !ok {
+		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
+		configState = NewConfigState(&configStateCache)
+		c.configStateMutex.Lock()
+		c.configState[string(vmi.UID)] = configState
+		c.configStateMutex.Unlock()
+	}
+
 	ns := c.nsFactory(launcherPid)
 	err := ns.Do(func() error {
-		return netConfigurator.SetupPodNetworkPhase1(launcherPid, networks)
+		return netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
 	})
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
@@ -94,6 +109,9 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.setupCompleted.Delete(vmi.UID)
+	c.configStateMutex.Lock()
+	delete(c.configState, string(vmi.UID))
+	c.configStateMutex.Unlock()
 	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
 	if err := podCache.Remove(); err != nil {
 		return fmt.Errorf("teardown failed, err: %w", err)
