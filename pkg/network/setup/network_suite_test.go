@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
@@ -68,4 +70,32 @@ func (c *tempCacheCreator) New(filePath string) *cache.Cache {
 		c.tmpDir = tmpDir
 	})
 	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
+}
+
+type configStateCacheStub struct {
+	stateCache map[string]cache.PodIfaceState
+	readErr    error
+	writeErr   error
+}
+
+func newConfigStateCacheStub() configStateCacheStub {
+	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil}
+}
+
+func (c configStateCacheStub) Read(podInterfaceName string) (cache.PodIfaceState, error) {
+	return c.stateCache[podInterfaceName], c.readErr
+}
+
+func (c configStateCacheStub) Write(podInterfaceName string, state cache.PodIfaceState) error {
+	c.stateCache[podInterfaceName] = state
+	return c.writeErr
+}
+
+type nsExecutorStub struct {
+	shouldNotBeExecuted bool
+}
+
+func (n nsExecutorStub) Do(f func() error) error {
+	Expect(n.shouldNotBeExecuted).To(BeFalse(), "The namespace executor shouldn't be invoked")
+	return f()
 }

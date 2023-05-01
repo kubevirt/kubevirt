@@ -78,7 +78,6 @@ func (c *NetConf) WithCompletionCache(id any, f func() error) error {
 }
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
-// As the changes are performed in the virt-launcher network namespace, which is relative expensive,
 func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error {
 	if err := preSetup(); err != nil {
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
@@ -91,16 +90,14 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	c.configStateMutex.RUnlock()
 	if !ok {
 		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
-		configState = NewConfigState(&configStateCache)
+		ns := c.nsFactory(launcherPid)
+		configState = NewConfigState(&configStateCache, ns)
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
 		c.configStateMutex.Unlock()
 	}
 
-	ns := c.nsFactory(launcherPid)
-	err := ns.Do(func() error {
-		return netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
-	})
+	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
 	}

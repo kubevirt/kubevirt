@@ -65,6 +65,10 @@ var _ = Describe("netconf", func() {
 
 	It("fails the setup run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactory(nsFailureFactory, &tempCacheCreator{})
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 	})
 

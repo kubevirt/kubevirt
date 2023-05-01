@@ -96,8 +96,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 				return nil
 			}
 			return nic.infraConfigurator.PreparePodNetworkInterface()
-		},
-	)
+		})
 	if err != nil {
 		return fmt.Errorf("failed setup pod network phase1: %w", err)
 	}

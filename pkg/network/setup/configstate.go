@@ -35,10 +35,11 @@ type configStateCacheReaderWriter interface {
 
 type ConfigState struct {
 	cache configStateCacheReaderWriter
+	ns    NSExecutor
 }
 
-func NewConfigState(configStateCache configStateCacheReaderWriter) ConfigState {
-	return ConfigState{configStateCache}
+func NewConfigState(configStateCache configStateCacheReaderWriter, ns NSExecutor) ConfigState {
+	return ConfigState{configStateCache, ns}
 }
 
 // Run passes through the state machine flow, executing the following steps:
@@ -67,6 +68,17 @@ func (c ConfigState) Run(nics []podNIC, discoverFunc func(*podNIC) error, config
 	}
 	nics = pendingNICs
 
+	if len(pendingNICs) == 0 {
+		return nil
+	}
+
+	err := c.ns.Do(func() error {
+		return c.plug(nics, discoverFunc, configFunc)
+	})
+	return err
+}
+
+func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
 	for i := range nics {
 		if ferr := discoverFunc(&nics[i]); ferr != nil {
 			return ferr

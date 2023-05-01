@@ -43,11 +43,13 @@ var _ = Describe("config state", func() {
 		configState      ConfigState
 		configStateCache configStateCacheStub
 		nics             []podNIC
+		ns               nsExecutorStub
 	)
 
 	BeforeEach(func() {
 		configStateCache = newConfigStateCacheStub()
-		configState = NewConfigState(&configStateCache)
+		ns = nsExecutorStub{}
+		configState = NewConfigState(&configStateCache, ns)
 		nics = []podNIC{{
 			podInterfaceName: testNet0,
 		}}
@@ -84,6 +86,7 @@ var _ = Describe("config state", func() {
 		Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
 		discover, config := &funcStub{}, &funcStub{}
 
+		ns.shouldNotBeExecuted = true
 		err := configState.Run(nics, discover.f, config.f)
 		Expect(err).To(HaveOccurred())
 		var criticalNetErr *neterrors.CriticalNetworkError
@@ -101,6 +104,7 @@ var _ = Describe("config state", func() {
 		Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 		discover, config := &funcStub{}, &funcStub{}
 
+		ns.shouldNotBeExecuted = true
 		Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
 
 		Expect(discover.executedNICs).To(BeEmpty(), "the discover step should not be execute")
@@ -142,10 +146,11 @@ var _ = Describe("config state", func() {
 	It("runs and fails reading the cache", func() {
 		injectedErr := fmt.Errorf("fail read cache")
 		configStateCache.readErr = injectedErr
-		configState = NewConfigState(&configStateCache)
+		configState = NewConfigState(&configStateCache, ns)
 
 		discover, config := &funcStub{}, &funcStub{}
 
+		ns.shouldNotBeExecuted = true
 		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
 
 		Expect(discover.executedNICs).To(BeEmpty(), "the discover step shouldn't execute")
@@ -155,7 +160,7 @@ var _ = Describe("config state", func() {
 	It("runs and fails writing the cache", func() {
 		injectedErr := fmt.Errorf("fail write cache")
 		configStateCache.writeErr = injectedErr
-		configState = NewConfigState(&configStateCache)
+		configState = NewConfigState(&configStateCache, ns)
 
 		discover, config := &funcStub{}, &funcStub{}
 
@@ -223,23 +228,4 @@ func (f *funcStub) f(nic *podNIC) error {
 		err = f.errRun
 	}
 	return err
-}
-
-type configStateCacheStub struct {
-	stateCache map[string]cache.PodIfaceState
-	readErr    error
-	writeErr   error
-}
-
-func newConfigStateCacheStub() configStateCacheStub {
-	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil}
-}
-
-func (c configStateCacheStub) Read(podInterfaceName string) (cache.PodIfaceState, error) {
-	return c.stateCache[podInterfaceName], c.readErr
-}
-
-func (c configStateCacheStub) Write(podInterfaceName string, state cache.PodIfaceState) error {
-	c.stateCache[podInterfaceName] = state
-	return c.writeErr
 }

@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -67,7 +68,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				}}
 				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
-				configState = NewConfigState(&stateCache)
+				configState = NewConfigState(&stateCache, nsExecutorStub{})
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
@@ -324,7 +325,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmNetworkConfigurator = newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkH, &baseCacheCreator)
 			stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
-			configState = NewConfigState(&stateCache)
+			configState = NewConfigState(&stateCache, nsExecutorStub{})
 		})
 
 		It("fails setup during network discovery", func() {
