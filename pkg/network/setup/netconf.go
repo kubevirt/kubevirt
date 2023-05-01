@@ -34,7 +34,6 @@ type cacheCreator interface {
 }
 
 type NetConf struct {
-	setupCompleted   sync.Map
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
 	configState      map[string]ConfigState
@@ -56,25 +55,11 @@ func NewNetConf() *NetConf {
 
 func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
 	return &NetConf{
-		setupCompleted:   sync.Map{},
 		configState:      map[string]ConfigState{},
 		configStateMutex: &sync.RWMutex{},
 		cacheCreator:     cacheCreator,
 		nsFactory:        nsFactory,
 	}
-}
-
-// WithCompletionCache uses cache to avoid executing the same operation again (if a previous one completed).
-func (c *NetConf) WithCompletionCache(id any, f func() error) error {
-	if _, exists := c.setupCompleted.Load(id); exists {
-		return nil
-	}
-	if err := f(); err != nil {
-		return err
-	}
-	c.setupCompleted.Store(id, struct{}{})
-
-	return nil
 }
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
@@ -105,7 +90,6 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 }
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
-	c.setupCompleted.Delete(vmi.UID)
 	c.configStateMutex.Lock()
 	delete(c.configState, string(vmi.UID))
 	c.configStateMutex.Unlock()
@@ -115,11 +99,4 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return nil
-}
-
-// SetupCompleted examines if the setup on a given VMI completed.
-// It uses the (soft) cache to determine the information.
-func (c *NetConf) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
-	_, exists := c.setupCompleted.Load(vmi.UID)
-	return exists
 }

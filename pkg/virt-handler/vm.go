@@ -101,8 +101,6 @@ import (
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
-	WithCompletionCache(id any, f func() error) error
-	SetupCompleted(vmi *v1.VirtualMachineInstance) bool
 }
 
 type netstat interface {
@@ -2647,7 +2645,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	if err := d.netConf.WithCompletionCache(vmi.UID, func() error { return d.setupNetwork(vmi, vmi.Spec.Networks) }); err != nil {
+	if err := d.setupNetwork(vmi, vmi.Spec.Networks); err != nil {
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
@@ -2811,7 +2809,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.netConf.WithCompletionCache(vmi.UID, func() error { return d.setupNetwork(vmi, vmi.Spec.Networks) }); err != nil {
+		if err := d.setupNetwork(vmi, vmi.Spec.Networks); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 

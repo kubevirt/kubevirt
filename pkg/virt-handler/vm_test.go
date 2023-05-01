@@ -558,8 +558,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
-			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
-			Expect(controller.netConf.SetupCompleted(oldVMI)).To(BeFalse())
 		})
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
@@ -577,7 +575,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(vmi))
 			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
-			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 		})
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
@@ -1189,7 +1186,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
 			controller.Execute()
-			Expect(controller.netConf.SetupCompleted(vmi)).To(BeFalse())
 			testutils.ExpectEvent(recorder, "failed to configure vmi network:")
 			testutils.ExpectEvent(recorder, VMICrashed)
 		})
@@ -3358,18 +3354,6 @@ func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, lau
 func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
 	nc.vmiUID = ""
 	return nil
-}
-
-func (nc *netConfStub) WithCompletionCache(id any, f func() error) error {
-	if err := f(); err != nil {
-		return err
-	}
-	nc.vmiUID = id.(types.UID)
-	return nil
-}
-
-func (nc *netConfStub) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
-	return nc.vmiUID == vmi.UID
 }
 
 type netStatStub struct{}
