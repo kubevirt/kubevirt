@@ -23,7 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -57,9 +62,12 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 }
 
 func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(vmi, namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks))
+}
+
+func GenerateMultusCNIAnnotationFromNameScheme(vmi *v1.VirtualMachineInstance, networkNameScheme map[string]string) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
-	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
 	for _, network := range vmi.Spec.Networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
@@ -96,4 +104,28 @@ func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
 		}
 	}
 	return nil
+}
+
+func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
+	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
+	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
+
+	if !found {
+		return indexedNetworkStatus
+	}
+
+	var networkStatus []networkv1.NetworkStatus
+	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
+		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
+		return indexedNetworkStatus
+	}
+
+	for _, ns := range networkStatus {
+		if ns.Default {
+			continue
+		}
+		indexedNetworkStatus[ns.Interface] = ns
+	}
+
+	return indexedNetworkStatus
 }
