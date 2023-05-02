@@ -3262,6 +3262,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							Interface: "pod7e0055a6880",
 						},
 					}),
+				Entry("VMI with an interface on spec, (matched on status), with the pod interface ready and ordinal name",
+					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
+					PodVmIfaceStatus{
+						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
+						podIfaceStatus: &networkv1.NetworkStatus{
+							Name:      networkName,
+							Interface: "net1",
+						},
+					}),
 				Entry("VMI with a guest agent interface",
 					newVMIWithGuestAgentInterface(
 						newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
