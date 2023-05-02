@@ -147,6 +147,76 @@ var _ = Describe("Network Name Scheme", func() {
 			),
 		)
 	})
+	Context("PodInterfaceName", func() {
+		DescribeTable("should return the given network name's hashed pod interface name",
+			func(network virtv1.Network, expectedPodIfaceName string) {
+				Expect(namescheme.PodInterfaceName(network)).To(Equal(expectedPodIfaceName))
+			},
+			Entry("given default network name when default is pod network",
+				newPodNetwork("default"),
+				"eth0",
+			),
+			Entry("given default network name when default is Multus default network",
+				createMultusDefaultNetwork("overlay-network", "pod-net-br"),
+				"eth0",
+			),
+			Entry("given secondary network name",
+				createMultusSecondaryNetwork("red", "test-br"),
+				"b1f51a511f1",
+			),
+		)
+	})
+	Context("OrdinalPodInterfaceName", func() {
+		DescribeTable("should return empty string",
+			func(networkName string, networks []virtv1.Network) {
+				Expect(namescheme.OrdinalPodInterfaceName(networkName, networks)).To(BeEmpty())
+			},
+			Entry("given no networks",
+				"red",
+				nil,
+			),
+			Entry("given invalid network name",
+				"blah",
+				[]virtv1.Network{
+					newPodNetwork("default"),
+					createMultusSecondaryNetwork("blue", "test-br"),
+					createMultusSecondaryNetwork("red", "test-br"),
+				}),
+		)
+
+		DescribeTable("should return ordinal pod interface name",
+			func(networkName string, networks []virtv1.Network, expectedPodIfaceName string) {
+				Expect(namescheme.OrdinalPodInterfaceName(networkName, networks)).To(Equal(expectedPodIfaceName))
+			},
+			Entry("given default network name and default is pod network",
+				"default",
+				[]virtv1.Network{
+					newPodNetwork("default"),
+					createMultusSecondaryNetwork("blue", "test-br"),
+					createMultusSecondaryNetwork("red", "test-br"),
+				},
+				"eth0",
+			),
+			Entry("given default network name and default is Multus default network",
+				"overlay",
+				[]virtv1.Network{
+					createMultusDefaultNetwork("overlay", "pod-net-br"),
+					createMultusSecondaryNetwork("blue", "test-br"),
+					createMultusSecondaryNetwork("red", "test-br"),
+				},
+				"eth0",
+			),
+			Entry("given secondary network name",
+				"red",
+				[]virtv1.Network{
+					newPodNetwork("default"),
+					createMultusSecondaryNetwork("blue", "test-br"),
+					createMultusSecondaryNetwork("red", "test-br"),
+				},
+				"net2",
+			),
+		)
+	})
 })
 
 func multusNetworks(names ...string) []virtv1.Network {
