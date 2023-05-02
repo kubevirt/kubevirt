@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.10.0-unstable
-    createdAt: "2023-04-03 21:18:15"
+    createdAt: "2023-04-29 05:12:35"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -2672,7 +2672,7 @@ spec:
                 - name: CDI_VERSION
                   value: v1.56.0
                 - name: NETWORK_ADDONS_VERSION
-                  value: v0.85.0
+                  value: v0.85.2
                 - name: SSP_VERSION
                   value: v0.17.0
                 - name: TTO_VERSION
@@ -2869,7 +2869,7 @@ spec:
                 - name: MULTUS_DYNAMIC_NETWORKS_CONTROLLER_IMAGE
                   value: ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller@sha256:ef8fe97a52eb9b3c03e99979a42cf2edaa7b3365cb3eb4dd1654b1bb9e73d7a3
                 - name: LINUX_BRIDGE_IMAGE
-                  value: quay.io/kubevirt/cni-default-plugins@sha256:e75d67fb44f4b748137c85b1c06b500607410a3218cafbf8a4bb6359f2b90373
+                  value: quay.io/kubevirt/cni-default-plugins@sha256:406b43253fb5d45f50d1543879353822e3f746e2794b65ab30754e800386b76d
                 - name: LINUX_BRIDGE_MARKER_IMAGE
                   value: quay.io/kubevirt/bridge-marker@sha256:5d24c6d1ecb0556896b7b81c7e5260b54173858425777b7a84df8a706c07e6d2
                 - name: OVS_CNI_IMAGE
@@ -2885,11 +2885,11 @@ spec:
                 - name: CORE_DNS_IMAGE
                   value: k8s.gcr.io/coredns/coredns@sha256:5b6ec0d6de9baaf3e92d0f66cd96a25b9edbce8716f5f15dcd1a616b3abd590e
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:4bb9c4701ce989b23fda5a73a05c52be7b196af9cb0183d3705d074f4b63458e
+                  value: quay.io/kubevirt/cluster-network-addons-operator@sha256:ce793e227602c3b4f07cbfda07dac6b0a97e49a6011c275bce3bcd5c6a1bd7fc
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: v0.85.0
+                  value: v0.85.2
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -2907,7 +2907,7 @@ spec:
                   value: openshift-monitoring
                 - name: MONITORING_SERVICE_ACCOUNT
                   value: prometheus-k8s
-                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:4bb9c4701ce989b23fda5a73a05c52be7b196af9cb0183d3705d074f4b63458e
+                image: quay.io/kubevirt/cluster-network-addons-operator@sha256:ce793e227602c3b4f07cbfda07dac6b0a97e49a6011c275bce3bcd5c6a1bd7fc
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources:
@@ -3811,9 +3811,9 @@ spec:
     name: cdi-uploadproxy
   - image: quay.io/kubevirt/cdi-uploadserver@sha256:b45d036b6eff2528a80f32ff5aad3e5c10b5d88821ddf88ee11f8a0e9b380669
     name: cdi-uploadserver
-  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:4bb9c4701ce989b23fda5a73a05c52be7b196af9cb0183d3705d074f4b63458e
+  - image: quay.io/kubevirt/cluster-network-addons-operator@sha256:ce793e227602c3b4f07cbfda07dac6b0a97e49a6011c275bce3bcd5c6a1bd7fc
     name: cluster-network-addons-operator
-  - image: quay.io/kubevirt/cni-default-plugins@sha256:e75d67fb44f4b748137c85b1c06b500607410a3218cafbf8a4bb6359f2b90373
+  - image: quay.io/kubevirt/cni-default-plugins@sha256:406b43253fb5d45f50d1543879353822e3f746e2794b65ab30754e800386b76d
     name: cni-default-plugins
   - image: k8s.gcr.io/coredns/coredns@sha256:5b6ec0d6de9baaf3e92d0f66cd96a25b9edbce8716f5f15dcd1a616b3abd590e
     name: coredns

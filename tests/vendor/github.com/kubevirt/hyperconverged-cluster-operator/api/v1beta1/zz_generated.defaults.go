@@ -60,6 +60,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = true
 		in.Spec.FeatureGates.NonRoot = &ptrVar1
 	}
+	if in.Spec.FeatureGates.DisableMDevConfiguration == nil {
+		var ptrVar1 bool = false
+		in.Spec.FeatureGates.DisableMDevConfiguration = &ptrVar1
+	}
 	if in.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster == nil {
 		var ptrVar1 uint32 = 5
 		in.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &ptrVar1
