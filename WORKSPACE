@@ -135,6 +135,7 @@ http_archive(
     sha256 = "9dfd5ab882cae4ff9e2a7c1352c05949fa0c175af6b4103b19db48657e6da8b8",
     urls = [
         "https://github.com/rmohr/bazeldnf/releases/download/v0.5.6/bazeldnf-v0.5.6.tar.gz",
+        "https://storage.googleapis.com/builddeps/9dfd5ab882cae4ff9e2a7c1352c05949fa0c175af6b4103b19db48657e6da8b8",
     ],
 )
 
