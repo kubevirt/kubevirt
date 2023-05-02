@@ -2,110 +2,109 @@
 
 aliases:
   approvers:
-      - davidvossel
-      - vladikr
-      - rmohr
-      - stu-gott
-      - fabiand
-      - AlonaKaplan
-      - dhiller
-      - jean-edouard
-      - mhenriks
-      - enp0s3
-      - xpivarc
-      - vasiliy-ul
-      - acardace
-      - alicefr
+    - davidvossel
+    - vladikr
+    - rmohr
+    - stu-gott
+    - fabiand
+    - AlonaKaplan
+    - dhiller
+    - jean-edouard
+    - mhenriks
+    - enp0s3
+    - xpivarc
+    - vasiliy-ul
+    - acardace
+    - alicefr
   emeritus_approvers:
-      - danielBelenky
-      - mazzystr
-      - cynepco3hahue
-      - slintes
-      - mfranczy
-      - SchSeba
-      - codificat
-      - ashleyschuett
-      - zcahana
+    - danielBelenky
+    - mazzystr
+    - cynepco3hahue
+    - slintes
+    - mfranczy
+    - SchSeba
+    - codificat
+    - ashleyschuett
+    - zcahana
   code-reviewers:
-      - rmohr
-      - stu-gott
-      - vladikr
-      - dhiller
-      - enp0s3
-      - jean-edouard
-      - AlonaKaplan
-      - mhenriks
-      - maiqueb
-      - EdDev
-      - acardace
-      - xpivarc
-      - marceloamaral
-      - vasiliy-ul
-      - iholder101
-      - alicefr
-      - 0xFelix
-      - lyarwood
+    - rmohr
+    - stu-gott
+    - vladikr
+    - dhiller
+    - enp0s3
+    - jean-edouard
+    - AlonaKaplan
+    - mhenriks
+    - maiqueb
+    - EdDev
+    - acardace
+    - xpivarc
+    - marceloamaral
+    - vasiliy-ul
+    - iholder101
+    - alicefr
+    - 0xFelix
+    - lyarwood
 
   #
   # SIG Test
   #
   sig-test-reviewers:
-      - jerry7z
-      - kbidarkar
+    - kbidarkar
   sig-test-approvers:
-      - kbidarkar
-      - phoracek
-      - enp0s3
-      - xpivarc
-      - acardace
+    - kbidarkar
+    - phoracek
+    - enp0s3
+    - xpivarc
+    - acardace
 
   #
   # SIG Network
   # Owns anything related to networking.
   #
   sig-network-reviewers:
-      - AlonaKaplan
-      - EdDev
-      - RamLavi
-      - maiqueb
-      - ormergi
-      - oshoval
-      - phoracek
-      - qinqon
-      - rhrazdil
+    - AlonaKaplan
+    - EdDev
+    - RamLavi
+    - maiqueb
+    - ormergi
+    - oshoval
+    - phoracek
+    - qinqon
+    - rhrazdil
   sig-network-approvers:
-      - AlonaKaplan
+    - AlonaKaplan
 
   #
   # SIG Scale
   # Owns to keep kubevirt's scalability comparable to Kubernetes'.
   #
   sig-scale-approvers:
-      - rthallisey
+    - rthallisey
   sig-scale-reviewers:
-      - rthallisey
+    - rthallisey
 
   #
   # SIG Storage
   # Owns anything related to storage.
   #
-  sig-storage-approvers: {}
-  sig-storage-reviewers: {}
+  sig-storage-approvers: []
+  sig-storage-reviewers: []
 
   #
   # SIG API
   # Owns the API including API life-cycle, deprecation,
   # and backwards compatibility.
   #
-  sig-api-approvers: {}
-  sig-api-reviewers: {}
+  sig-api-approvers: []
+  sig-api-reviewers: []
 
   #
   # SIG Controllers
   # Owns the knowledge about excellent controllers in kubevirt.
   #
-  sig-controllers-approvers: {}
-  sig-controllers-reviewers: {}
+  sig-controllers-approvers: []
+  sig-controllers-reviewers: []
 
   #
   # SIG Live Migration
@@ -113,43 +112,43 @@ aliases:
   # other teams honest to make sure that their features work well
   # with Live Migration.
   #
-  sig-live-migration-approvers: {}
-  sig-live-migration-reviewers: {}
+  sig-live-migration-approvers: []
+  sig-live-migration-reviewers: []
 
   #
   # SIG Node
   # Owns everything which is taking place on a node, for example
   # (but not limited to) groups, SELinux, node labels, …
   #
-  sig-node-approvers: {}
-  sig-node-reviewers: {}
+  sig-node-approvers: []
+  sig-node-reviewers: []
 
   #
   # SIG Observability
   # Owns the responsibility to keep kubevirt observable by i.e.
   # having mertics, alters, and runbooks.
   #
-  sig-observability-approvers: {}
-  sig-observability-reviewers: {}
+  sig-observability-approvers: []
+  sig-observability-reviewers: []
 
   #
   # SIG Release
   # Owns the release process, including the schedule, and tools.
   #
-  sig-release-approvers: {}
-  sig-release-reviewers: {}
+  sig-release-approvers: []
+  sig-release-reviewers: []
 
   #
   # SIG Buildsystem
   # Owns bazel, and ensures that kubevirt can be build.
   #
-  sig-buildsystem-approvers: {}
-  sig-buildsystem-reviewers: {}
+  sig-buildsystem-approvers: []
+  sig-buildsystem-reviewers: []
 
   #
   # SIG Architecture
   # Owns the overall architecture, and supporting the growth, health,
   # openess of KubeVirt.
   #
-  sig-architecture-approvers: {}
-  sig-architecture-reviewers: {}
+  sig-architecture-approvers: []
+  sig-architecture-reviewers: []
