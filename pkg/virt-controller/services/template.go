@@ -43,6 +43,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -260,6 +261,16 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 	if err != nil {
 		return nil, err
 	}
+
+	if namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
+		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
+		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(vmi, ordinalNameScheme)
+		if err != nil {
+			return nil, err
+		}
+		podManifest.Annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
+	}
+
 	return podManifest, err
 }
 

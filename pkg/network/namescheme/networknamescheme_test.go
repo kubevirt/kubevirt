@@ -161,6 +161,36 @@ var _ = Describe("Network Name Scheme", func() {
 			),
 		)
 	})
+	Context("PodHasOrdinalInterfaceName", func() {
+		DescribeTable("should return TRUE, given network status with ordinal interface names",
+			func(podNetworkStatus map[string]networkv1.NetworkStatus) {
+				Expect(namescheme.PodHasOrdinalInterfaceName(podNetworkStatus)).To(BeTrue())
+			},
+			Entry("with primary pod network interface", map[string]networkv1.NetworkStatus{
+				"A": {Interface: "eth0"},
+				"B": {Interface: "net1"},
+				"C": {Interface: "net2"},
+			}),
+			Entry("without primary pod network interface", map[string]networkv1.NetworkStatus{
+				"A": {Interface: "net1"},
+				"B": {Interface: "net2"},
+			}),
+		)
+		DescribeTable("should return FALSE, given network status with hashed interface names",
+			func(podNetworkStatus map[string]networkv1.NetworkStatus) {
+				Expect(namescheme.PodHasOrdinalInterfaceName(podNetworkStatus)).To(BeFalse())
+			},
+			Entry("with primary pod network interface", map[string]networkv1.NetworkStatus{
+				"A": {Interface: "eth0"},
+				"B": {Interface: "podb1f51a511f1"},
+				"C": {Interface: "pod16477688c0e"},
+			}),
+			Entry("without primary pod network interface", map[string]networkv1.NetworkStatus{
+				"A": {Interface: "podb1f51a511f1"},
+				"B": {Interface: "pod16477688c0e"},
+			}),
+		)
+	})
 })
 
 func multusNetworks(names ...string) []virtv1.Network {

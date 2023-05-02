@@ -103,15 +103,15 @@ func generateOrdinalInterfaceName(idx int) string {
 // In case the pod network status has at least one interface with ordinal interface name it returns the ordinal network
 // name-scheme, Otherwise, returns the hashed network name scheme.
 func CreateNetworkNameSchemeByPodNetworkStatus(networks []v1.Network, networkStatus map[string]networkv1.NetworkStatus) map[string]string {
-	if podHasOrdinalInterfaceName(networkStatus) {
+	if PodHasOrdinalInterfaceName(networkStatus) {
 		return CreateOrdinalNetworkNameScheme(networks)
 	}
 
 	return CreateHashedNetworkNameScheme(networks)
 }
 
-// podHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
-func podHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
+// PodHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
+func PodHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
 	for _, networkStatus := range podNetworkStatus {
 		if ordinalSecondaryInterfaceName(networkStatus.Interface) {
 			return true
