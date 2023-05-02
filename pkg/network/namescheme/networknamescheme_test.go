@@ -29,45 +29,79 @@ import (
 )
 
 var _ = Describe("Network Name Scheme", func() {
-	Context("CreateHashedNetworkNameScheme", func() {
-		DescribeTable("create hashed pod interfaces name scheme",
-			func(networkList []virtv1.Network, expectedNetworkNameSchemeMap map[string]string) {
-				podIfacesNameScheme := namescheme.CreateHashedNetworkNameScheme(networkList)
+	DescribeTable("create pod interfaces name scheme",
+		func(nameSchemeFn func([]virtv1.Network) map[string]string, networkList []virtv1.Network, expectedNetworkNameScheme map[string]string) {
+			podIfacesNameScheme := nameSchemeFn(networkList)
 
-				Expect(podIfacesNameScheme).To(Equal(expectedNetworkNameSchemeMap))
+			Expect(podIfacesNameScheme).To(Equal(expectedNetworkNameScheme))
+		},
+		Entry("hashed, when network list is nil", namescheme.CreateHashedNetworkNameScheme, nil, map[string]string{}),
+		Entry("hashed, when no multus networks exist",
+			namescheme.CreateHashedNetworkNameScheme,
+			[]virtv1.Network{
+				newPodNetwork("default"),
 			},
-			Entry("when network list is nil", nil, map[string]string{}),
-			Entry("when no multus networks exist",
-				[]virtv1.Network{
-					newPodNetwork("default"),
-				},
-				map[string]string{
-					"default": namescheme.PrimaryPodInterfaceName,
-				}),
-			Entry("when default multus networks exist",
-				[]virtv1.Network{
-					createMultusDefaultNetwork("network0", "default/nad0"),
-					createMultusSecondaryNetwork("network1", "default/nad1"),
-					createMultusSecondaryNetwork("network2", "default/nad2"),
-				},
-				map[string]string{
-					"network0": namescheme.PrimaryPodInterfaceName,
-					"network1": "poda7662f44d65",
-					"network2": "pod27f4a77f94e",
-				}),
-			Entry("when default pod networks exist",
-				[]virtv1.Network{
-					newPodNetwork("default"),
-					createMultusSecondaryNetwork("network1", "default/nad1"),
-					createMultusSecondaryNetwork("network2", "default/nad2"),
-				},
-				map[string]string{
-					"default":  namescheme.PrimaryPodInterfaceName,
-					"network1": "poda7662f44d65",
-					"network2": "pod27f4a77f94e",
-				}),
-		)
-	})
+			map[string]string{
+				"default": namescheme.PrimaryPodInterfaceName,
+			}),
+		Entry("hashed, when default multus networks exist",
+			namescheme.CreateHashedNetworkNameScheme,
+			[]virtv1.Network{
+				createMultusDefaultNetwork("network0", "default/nad0"),
+				createMultusSecondaryNetwork("network1", "default/nad1"),
+				createMultusSecondaryNetwork("network2", "default/nad2"),
+			},
+			map[string]string{
+				"network0": namescheme.PrimaryPodInterfaceName,
+				"network1": "poda7662f44d65",
+				"network2": "pod27f4a77f94e",
+			}),
+		Entry("hashed, when default pod networks exist",
+			namescheme.CreateHashedNetworkNameScheme,
+			[]virtv1.Network{
+				newPodNetwork("default"),
+				createMultusSecondaryNetwork("network1", "default/nad1"),
+				createMultusSecondaryNetwork("network2", "default/nad2"),
+			},
+			map[string]string{
+				"default":  namescheme.PrimaryPodInterfaceName,
+				"network1": "poda7662f44d65",
+				"network2": "pod27f4a77f94e",
+			}),
+		Entry("ordinal, when network list is nil", namescheme.CreateOrdinalNetworkNameScheme, nil, map[string]string{}),
+		Entry("ordinal, when no multus networks exist",
+			namescheme.CreateOrdinalNetworkNameScheme,
+			[]virtv1.Network{
+				newPodNetwork("default"),
+			},
+			map[string]string{
+				"default": namescheme.PrimaryPodInterfaceName,
+			}),
+		Entry("ordinal, when default multus networks exist",
+			namescheme.CreateOrdinalNetworkNameScheme,
+			[]virtv1.Network{
+				createMultusDefaultNetwork("network0", "default/nad0"),
+				createMultusSecondaryNetwork("network1", "default/nad1"),
+				createMultusSecondaryNetwork("network2", "default/nad2"),
+			},
+			map[string]string{
+				"network0": namescheme.PrimaryPodInterfaceName,
+				"network1": "net1",
+				"network2": "net2",
+			}),
+		Entry("ordinal, when default pod networks exist",
+			namescheme.CreateOrdinalNetworkNameScheme,
+			[]virtv1.Network{
+				newPodNetwork("default"),
+				createMultusSecondaryNetwork("network1", "default/nad1"),
+				createMultusSecondaryNetwork("network2", "default/nad2"),
+			},
+			map[string]string{
+				"default":  namescheme.PrimaryPodInterfaceName,
+				"network1": "net1",
+				"network2": "net2",
+			}),
+	)
 })
 
 func createMultusSecondaryNetwork(name, networkName string) virtv1.Network {

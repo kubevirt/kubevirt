@@ -67,6 +67,29 @@ func generateHashedInterfaceName(networkName string) string {
 	return fmt.Sprintf("%s%s", HashedIfacePrefix, hashedName)
 }
 
+// CreateOrdinalNetworkNameScheme iterates over the VMI's Networks, and creates for each a pod interface name.
+// The returned map associates between the network name and the generated pod interface name.
+// Primary network will use "eth0" and the secondary ones will use "net<id>" format, where id is an enumeration
+// from 1 to n.
+func CreateOrdinalNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
+	networkNameSchemeMap := mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(vmiNetworks)
+
+	if multusDefaultNetwork := vmispec.LookUpDefaultNetwork(vmiNetworks); multusDefaultNetwork != nil {
+		networkNameSchemeMap[multusDefaultNetwork.Name] = PrimaryPodInterfaceName
+	}
+
+	return networkNameSchemeMap
+}
+
+func mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(networks []v1.Network) map[string]string {
+	networkNameSchemeMap := map[string]string{}
+	for i, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
+		networkNameSchemeMap[network.Name] = generateOrdinalInterfaceName(i + 1)
+	}
+
+	return networkNameSchemeMap
+}
+
 func generateOrdinalInterfaceName(idx int) string {
 	const ordinalIfacePrefix = "net"
 	return fmt.Sprintf("%s%d", ordinalIfacePrefix, idx)
