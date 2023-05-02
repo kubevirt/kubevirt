@@ -144,7 +144,6 @@ func NewVMIController(templateService services.TemplateService,
 	cdiConfigInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
-	namespaceStore cache.Store,
 ) *VMIController {
 
 	c := &VMIController{
@@ -163,7 +162,6 @@ func NewVMIController(templateService services.TemplateService,
 		cdiConfigInformer:  cdiConfigInformer,
 		clusterConfig:      clusterConfig,
 		topologyHinter:     topologyHinter,
-		namespaceStore:     namespaceStore,
 		cidsMap:            newCIDsMap(),
 	}
 
@@ -252,7 +250,6 @@ type VMIController struct {
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 	clusterConfig      *virtconfig.ClusterConfig
-	namespaceStore     cache.Store
 	cidsMap            *cidsMap
 }
 
