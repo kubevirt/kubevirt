@@ -1304,7 +1304,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("should fail with non existing vm", func() {
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--vm", "non-existing-vm")
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", "default", "--vm", "non-existing-vm")
 					Expect(expandCommand()).To(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: virtualmachine.kubevirt.io \"non-existing-vm\" not found"))
 				})
 
@@ -1365,7 +1365,7 @@ status:
 
 				It("should fail expanding invalid vm defined in file", func() {
 					Expect(os.WriteFile(file.Name(), []byte(invalidVmSpec), 0777)).To(Succeed())
-					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", file.Name())
+					expandCommand := clientcmd.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--namespace", "default", "--file", file.Name())
 					Expect(expandCommand()).To(MatchError("error expanding VirtualMachine - testvm in namespace - default: Object is not a valid VirtualMachine"))
 				})
 
