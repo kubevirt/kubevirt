@@ -565,7 +565,10 @@ func (c *KubeVirtDeploymentConfig) SetDefaultArchitecture(kv *v1.KubeVirt) error
 	if kv.Spec.Configuration.ArchitectureConfiguration != nil && kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture != "" {
 		kv.Status.DefaultArchitecture = kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture
 	} else {
-		kv.Status.DefaultArchitecture = runtime.GOARCH
+		// only set default architecture in status in the event that it has not been already set previously
+		if kv.Status.DefaultArchitecture == "" {
+			kv.Status.DefaultArchitecture = runtime.GOARCH
+		}
 	}
 
 	return nil
