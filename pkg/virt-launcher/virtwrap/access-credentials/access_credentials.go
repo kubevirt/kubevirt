@@ -22,12 +22,15 @@ package accesscredentials
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 
@@ -306,7 +309,26 @@ func (l *AccessCredentialManager) pingAgent(domName string) error {
 	return err
 }
 
-func (l *AccessCredentialManager) agentWriteAuthorizedKeys(domName string, user string, desiredAuthorizedKeys string) error {
+func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user string, authorizedKeys []string) error {
+	err := func() error {
+		domain, err := l.virConn.LookupDomainByName(domName)
+		if err != nil {
+			return err
+		}
+		defer domain.Free()
+
+		// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
+		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
+	}()
+	if errors.Is(err, libvirt.ERR_NO_SUPPORT) {
+		// If AuthorizedSSHKeysSet method is not supported, use the old method
+		desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
+		return l.agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys)
+	}
+	return err
+}
+
+func (l *AccessCredentialManager) agentWriteAuthorizedKeysFile(domName string, user string, desiredAuthorizedKeys string) (err error) {
 	curAuthorizedKeys := ""
 	fileExists := true
 
@@ -453,18 +475,15 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 			}
 		}
 
-		// Step 2. Update Authorized keys file
+		// Step 2. Update Authorized keys
 		for user, secretNames := range credentialInfo.userSSHMap {
-			authorizedKeys := ""
-
+			var allAuthorizedKeys []string
 			for _, secretName := range secretNames {
-				pubKeys, ok := credentialInfo.secretMap[secretName]
-				if ok && pubKeys != "" {
-					authorizedKeys = fmt.Sprintf("%s\n%s", authorizedKeys, pubKeys)
-				}
+				pubKeys := credentialInfo.secretMap[secretName]
+				allAuthorizedKeys = append(allAuthorizedKeys, pubKeys...)
 			}
 
-			err := l.agentWriteAuthorizedKeys(domName, user, authorizedKeys)
+			err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
 			if err != nil {
 				// if writing failed, reset reload to true so this change will be retried again
 				reload = true
@@ -530,7 +549,7 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 
 type accessCredentialsInfo struct {
 	// secret name mapped to authorized_keys in that secret
-	secretMap map[string]string
+	secretMap map[string][]string
 	// filepath mapped to secretNames
 	userSSHMap map[string][]string
 	// maps users to passwords
@@ -554,7 +573,7 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 			a.userSSHMap[user] = append(a.userSSHMap[user], secretName)
 		}
 
-		authorizedKeys := ""
+		var authorizedKeys []string
 		for _, file := range files {
 			if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
 				continue
@@ -569,10 +588,12 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 			if pubKey == "" {
 				continue
 			}
-			authorizedKeys = fmt.Sprintf("%s\n%s", authorizedKeys, pubKey)
+			authorizedKeys = append(authorizedKeys, pubKey)
 		}
 
-		a.secretMap[secretName] = authorizedKeys
+		if len(authorizedKeys) > 0 {
+			a.secretMap[secretName] = authorizedKeys
+		}
 
 	} else if isUserPassword(accessCred) {
 		for _, file := range files {
@@ -600,7 +621,7 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 
 func newAccessCredentialsInfo() *accessCredentialsInfo {
 	return &accessCredentialsInfo{
-		secretMap:       make(map[string]string),
+		secretMap:       make(map[string][]string),
 		userSSHMap:      make(map[string][]string),
 		userPasswordMap: make(map[string]string),
 	}
