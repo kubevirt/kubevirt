@@ -329,6 +329,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		})
 
 		It("fails setup during network discovery", func() {
+			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
 			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return("", "", fmt.Errorf("discovery error"))
 
 			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)
@@ -338,6 +339,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		})
 
 		It("fails (critically) setup during network preparation (config)", func() {
+			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
 			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return("1.2.3.4", "2001::1", nil)
 			mockNetworkH.EXPECT().IsIpv4Primary().Return(true, nil)
 			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{}, nil)
@@ -353,6 +355,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 		It("is passing setup successfully (and persists cache data)", func() {
 			linkIP4, linkIP6 := "1.2.3.4", "2001::1"
+			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
 			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return(linkIP4, linkIP6, nil)
 			mockNetworkH.EXPECT().IsIpv4Primary().Return(true, nil)
 			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{}, nil)

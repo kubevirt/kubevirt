@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -94,6 +95,12 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	if err != nil {
 		return nil, err
 	}
+
+	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork)
+	if err != nil {
+		return nil, err
+	}
+	podnic.podInterfaceName = ifaceLink.Attrs().Name
 
 	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
 	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain)
@@ -182,6 +189,12 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNIC) discoverAndStoreCache() error {
+	ifaceLink, err := link.DiscoverByNetwork(l.handler, l.vmi.Spec.Networks, *l.vmiSpecNetwork)
+	if err != nil {
+		return err
+	}
+	l.podInterfaceName = ifaceLink.Attrs().Name
+
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err
 	}

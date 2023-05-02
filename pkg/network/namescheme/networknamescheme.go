@@ -55,6 +55,14 @@ func CreateHashedNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 	return networkNameSchemeMap
 }
 
+func HashedPodInterfaceName(network v1.Network) string {
+	if vmispec.IsSecondaryMultusNetwork(network) {
+		return generateHashedInterfaceName(network.Name)
+	}
+
+	return PrimaryPodInterfaceName
+}
+
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
@@ -82,6 +90,20 @@ func CreateOrdinalNetworkNameScheme(vmiNetworks []v1.Network) map[string]string 
 	}
 
 	return networkNameSchemeMap
+}
+
+func OrdinalPodInterfaceName(name string, networks []v1.Network) string {
+	for i, network := range networks {
+		if network.Name == name {
+			if vmispec.IsSecondaryMultusNetwork(network) {
+				return generateOrdinalInterfaceName(i)
+			}
+
+			return PrimaryPodInterfaceName
+		}
+	}
+
+	return ""
 }
 
 func mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(networks []v1.Network) map[string]string {
