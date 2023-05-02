@@ -2277,8 +2277,8 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 }
 
 func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	ifaceNamingScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 	indexedMultusStatusIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
+	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
 	for _, network := range vmi.Spec.Networks {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
 		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
