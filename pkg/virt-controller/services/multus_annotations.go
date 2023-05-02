@@ -25,7 +25,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
@@ -56,10 +55,9 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
+func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance, networkNameScheme map[string]string) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
-	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 	for _, network := range vmi.Spec.Networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]

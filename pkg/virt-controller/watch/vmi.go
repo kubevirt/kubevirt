@@ -2254,7 +2254,9 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
-	multusAnnotations, err := services.GenerateMultusCNIAnnotation(vmi)
+	indexedMultusStatusIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
+	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
+	multusAnnotations, err := services.GenerateMultusCNIAnnotation(vmi, networkToPodIfaceMap)
 	if err != nil {
 		return err
 	}
