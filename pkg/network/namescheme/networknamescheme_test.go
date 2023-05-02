@@ -57,6 +57,38 @@ var _ = Describe("Network Name Scheme", func() {
 				}),
 		)
 	})
+	Context("CreateOrdinalNetworkNameScheme", func() {
+		DescribeTable("should return the expected NetworkNameSchemeMap",
+			func(labels map[string]string, networkList []virtv1.Network, expectedNetworkNameSchemeMap map[string]string) {
+				podIfacesNameScheme := namescheme.CreateOrdinalNetworkNameScheme(networkList)
+
+				Expect(podIfacesNameScheme).To(Equal(expectedNetworkNameSchemeMap))
+			},
+			Entry("when network list is nil", nil, nil, map[string]string{}),
+			Entry("when no multus networks exist",
+				nil,
+				[]virtv1.Network{
+					newPodNetwork("default"),
+				},
+				map[string]string{
+					"default": namescheme.PrimaryPodInterfaceName,
+				},
+			),
+			Entry("when default multus networks exist",
+				nil,
+				[]virtv1.Network{
+					createMultusDefaultNetwork("network0", "default/nad0"),
+					createMultusSecondaryNetwork("network1", "default/nad1"),
+					createMultusSecondaryNetwork("network2", "default/nad2"),
+				},
+				map[string]string{
+					"network0": namescheme.PrimaryPodInterfaceName,
+					"network1": "net1",
+					"network2": "net2",
+				},
+			),
+		)
+	})
 })
 
 func createMultusSecondaryNetwork(name, networkName string) virtv1.Network {
