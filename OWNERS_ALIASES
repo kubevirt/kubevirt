@@ -50,7 +50,6 @@ aliases:
   # SIG Test
   #
   sig-test-reviewers:
-    - jerry7z
     - kbidarkar
   sig-test-approvers:
     - kbidarkar
