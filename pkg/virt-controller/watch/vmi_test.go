@@ -279,7 +279,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", config),
 			namespaceStore,
-			false,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
