@@ -117,6 +117,23 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ar *admissionv1.AdmissionReview) *
 		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates, admitter.ClusterConfig)...)
 	}
 
+	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
+	if mdev := newKV.Spec.Configuration.MediatedDevicesConfiguration; mdev != nil {
+		f := field.NewPath("spec", "configuration", "mediatedDevicesConfiguration")
+		if mdev.MediatedDevicesTypes != nil {
+			f := f.Child("mediatedDevicesTypes")
+			response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, f.String()))
+		}
+
+		f = f.Child("nodeMediatedDeviceTypes")
+		for i, mdevType := range mdev.NodeMediatedDeviceTypes {
+			f := f.Index(i).Child("mediatedDevicesTypes")
+			if mdevType.MediatedDevicesTypes != nil {
+				response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, f.String()))
+			}
+		}
+	}
+
 	return response
 }
 

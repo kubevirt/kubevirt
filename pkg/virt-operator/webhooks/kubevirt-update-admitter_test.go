@@ -21,14 +21,20 @@ package webhooks
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
@@ -153,6 +159,123 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("1.0", "1.0"),
 			Entry("5", "5"),
 			Entry("1.123", "1.123"),
+		)
+	})
+
+	Context("deprecations", func() {
+		var admitter *KubeVirtUpdateAdmitter
+
+		BeforeEach(func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
+		})
+
+		admit := func(kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
+			kvBytes, err := json.Marshal(kubevirt)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource: KubeVirtGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+					Operation: admissionv1.Update,
+				},
+			}
+			return admitter.Admit(request)
+		}
+
+		const warn = true
+		const warnNotExpected = false
+
+		DescribeTable("usage of mediatedDevicesTypes", func(shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
+			kvObject := v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MediatedDevicesConfiguration: conf,
+					},
+				},
+			}
+
+			response := admit(kvObject)
+			Expect(response).NotTo(BeNil())
+			if shouldWarn {
+				Expect(response.Warnings).NotTo(BeEmpty())
+				Expect(response.Warnings).To(ContainElement("spec.configuration.mediatedDevicesConfiguration.mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+			} else {
+				Expect(response.Warnings).To(BeEmpty())
+			}
+
+		},
+			Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: []string{"test1", "test2"},
+			}),
+
+			Entry("should not warn if empty", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: []string{},
+			}),
+			Entry("should not warn if nil", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: nil,
+			}),
+			Entry("should not warn if configuration is nil", warnNotExpected, nil),
+		)
+
+		DescribeTable("usage of nodeMediatedDeviceTypes.mediatedDevicesTypes", func(shouldWarn bool, conf *v1.MediatedDevicesConfiguration) {
+			kvObject := v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MediatedDevicesConfiguration: conf,
+					},
+				},
+			}
+
+			response := admit(kvObject)
+			Expect(response).NotTo(BeNil())
+			if shouldWarn {
+				Expect(response.Warnings).NotTo(BeEmpty())
+				Expect(response.Warnings).To(ContainElement("spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+			} else {
+				Expect(response.Warnings).To(BeEmpty())
+			}
+		}, Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
+			NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+				{
+					NodeSelector:         map[string]string{},
+					MediatedDevicesTypes: []string{"test1", "test2"},
+					MediatedDeviceTypes:  []string{},
+				},
+			},
+		}),
+			Entry("should not warn if empty", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+					{
+						NodeSelector:         map[string]string{},
+						MediatedDevicesTypes: []string{},
+						MediatedDeviceTypes:  []string{},
+					},
+				},
+			}),
+			Entry("should not warn if nil", warnNotExpected, &v1.MediatedDevicesConfiguration{
+				NodeMediatedDeviceTypes: []v1.NodeMediatedDeviceTypesConfig{
+					{
+						NodeSelector:         map[string]string{},
+						MediatedDevicesTypes: nil,
+						MediatedDeviceTypes:  []string{},
+					},
+				},
+			}),
+
+			Entry("should not warn if configuration nil", warnNotExpected, nil),
 		)
 	})
 })
