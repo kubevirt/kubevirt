@@ -107,10 +107,10 @@ func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance
 }
 
 func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
-	macvtap := map[string]bool{}
+	macvtap := map[string]struct{}{}
 	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
 		if inf.Macvtap != nil {
-			macvtap[inf.Name] = true
+			macvtap[inf.Name] = struct{}{}
 		}
 	}
 
