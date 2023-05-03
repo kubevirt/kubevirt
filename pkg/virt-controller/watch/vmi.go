@@ -265,7 +265,15 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmInformer.HasSynced, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.cdiConfigInformer.HasSynced, c.cdiInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh,
+		c.vmInformer.HasSynced,
+		c.vmiInformer.HasSynced,
+		c.podInformer.HasSynced,
+		c.dataVolumeInformer.HasSynced,
+		c.cdiConfigInformer.HasSynced,
+		c.cdiInformer.HasSynced,
+		c.pvcInformer.HasSynced,
+	)
 	// Sync the CIDs from exist VMIs
 	var vmis []*virtv1.VirtualMachineInstance
 	for _, obj := range c.vmiInformer.GetStore().List() {
