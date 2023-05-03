@@ -1794,7 +1794,7 @@ status:
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
 				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
-			}, 2*time.Minute, 1*time.Second)
+			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1804,7 +1804,7 @@ status:
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeFalse())
 				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
-			}, 2*time.Minute, 1*time.Second)
+			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
 		It("should be removed when the vm has child resources, such as instance type ControllerRevisions, that have been deleted before the vm - issue #9438", func() {
@@ -1844,7 +1844,7 @@ status:
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeTrue())
 				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
 				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-			}, 2*time.Minute, 1*time.Second)
+			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1867,7 +1867,7 @@ status:
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(controller.HasFinalizer(vm, v1.VirtualMachineControllerFinalizer)).To(BeFalse())
 				g.Expect(controller.HasFinalizer(vm, customFinalizer)).To(BeTrue())
-			}, 2*time.Minute, 1*time.Second)
+			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 	})
 })
