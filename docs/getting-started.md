@@ -326,7 +326,7 @@ First make sure you have `remote-viewer` installed. On Fedora run:
 dnf install virt-viewer
 ```
 
-Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download/), and may need
+Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download.html), and may need
 to add virt-viewer installation folder to their `PATH`.
 
 Then, after you made sure that the VMI `vmi-ephemeral` is running, type:

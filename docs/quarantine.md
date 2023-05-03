@@ -97,6 +97,6 @@ test description in the code. After merging this PR the test will be out of
 quarantine.
 
 [1]: https://martinfowler.com/articles/nonDeterminism.html#Quarantine
-[2]: https://www.thoughtworks.com/es/insights/blog/no-more-flaky-tests-go-team
+[2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
 [3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
 [on testgrid]: https://testgrid.k8s.io/kubevirt-periodics

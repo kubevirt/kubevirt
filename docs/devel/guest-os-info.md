@@ -24,7 +24,7 @@ The following Short IDs are currently supported:
 | **win2k12r2** | Microsoft Windows Server 2012 R2 | 6.3     | winnt  | http://microsoft.com/win/2k12r2    |
 | **win2k16**   | Microsoft Windows Server 2016    | 1709    | winnt  | http://microsoft.com/win/2k16      |
 
-For the updated list please refer to kubeVirt user guide - [Guest Operating System Information](https://kubevirt.gitbooks.io/user-guide/guest-os-info.html)
+For the updated list please refer to kubeVirt user guide - [Guest Operating System Information](https://kubevirt.io/user-guide/virtual_machines/guest_operating_system_information/)
 
 
 To get a full list of operating systems from Libosinfo database:

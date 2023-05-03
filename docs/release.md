@@ -183,7 +183,7 @@ You must have 2 items before you can create a release.
 
 1. **GPG key and passphrase files used for creating signed releases.**
 
-[Instructions for adding GPG key to your github account](https://help.github.com/articles/adding-a-new-gpg-key-to-your-github-account)
+[Instructions for adding GPG key to your github account](https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account)
 
 After adding the GPG key to github, export both the key and passphrase to files.
 Be aware that this results in the key and passphrase being placed into a plain

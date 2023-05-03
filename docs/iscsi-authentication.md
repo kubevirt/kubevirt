@@ -6,7 +6,7 @@ This document describes how to associate a k8s secret with a VMI for the purpose
 1. create a k8s secret containing the password and username fields.
 
 The k8s secret must be formatted in the same way kubernetes performs iscsi
-authentication for volumes. https://github.com/kubernetes/examples/blob/master/staging/volumes/iscsi/chap-secret.yaml
+authentication for volumes. https://github.com/kubernetes/examples/blob/master/volumes/iscsi/chap-secret.yaml
 
 ```
 cat << END > my-chap-secret.yaml

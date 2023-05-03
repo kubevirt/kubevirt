@@ -236,7 +236,7 @@ Linking the created VirtualMachine to its parent VirtualMachine pose
 a challenge. Using the same name is only part of the solution. To find the
 parent VirtualMachine programmatically in the Kubernetes, the OwnerReference
 is used. As described in the
-[design document](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/api-machinery/controller-ref.md),
+[design document](https://github.com/kubernetes/design-proposals-archive/blob/main/api-machinery/controller-ref.md),
 the OwnerReference lives in the metadata section of the object and is created
 automatically. Example:
 
