@@ -106,7 +106,7 @@ func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
+func getTapDevices(vmi *v1.VirtualMachineInstance) ([]string, error) {
 	macvtap := map[string]struct{}{}
 	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
 		if inf.Macvtap != nil {
@@ -120,13 +120,18 @@ func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
 		_, isMacvtapNetwork := macvtap[net.Name]
 		if podInterfaceName, exists := networkNameScheme[net.Name]; isMacvtapNetwork && exists {
 			tapDevices = append(tapDevices, podInterfaceName)
+		} else if isMacvtapNetwork && !exists {
+			return nil, fmt.Errorf("network %q not found in naming scheme: this should never happen", net.Name)
 		}
 	}
-	return tapDevices
+	return tapDevices, nil
 }
 
 func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	tapDevices := getTapDevices(vmi)
+	tapDevices, err := getTapDevices(vmi)
+	if err != nil {
+		return err
+	}
 	for _, tap := range tapDevices {
 		path, err := isolation.SafeJoin(res, "sys", "class", "net", tap, "ifindex")
 		if err != nil {
