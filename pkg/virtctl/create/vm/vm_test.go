@@ -127,7 +127,7 @@ var _ = Describe("create vm", func() {
 		It("VM with inferred instancetype", func() {
 			out, err := runCmd(
 				setFlag(DataSourceVolumeFlag, "src:my-ds"),
-				setFlag(InferInstancetypeFlag, "true"))
+				setFlag(InferInstancetypeFlag, ""))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
@@ -140,11 +140,22 @@ var _ = Describe("create vm", func() {
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
 				// This DS with bootorder 1 should be used to infer the instancetype, although it is defined second
 				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
-				setFlag(InferInstancetypeFlag, "true"))
+				setFlag(InferInstancetypeFlag, ""))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+		})
+
+		It("VM with inferred instancetype from specified volume", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds-1,name:my-ds-1"),
+				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
+				setFlag(InferInstancetypeFlag, "my-ds-2"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal("my-ds-2"))
 		})
 
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
@@ -163,7 +174,7 @@ var _ = Describe("create vm", func() {
 		It("VM with inferred preference", func() {
 			out, err := runCmd(
 				setFlag(DataSourceVolumeFlag, "src:my-ds"),
-				setFlag(InferPreferenceFlag, "true"))
+				setFlag(InferPreferenceFlag, ""))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
@@ -175,11 +186,22 @@ var _ = Describe("create vm", func() {
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
 				// This DS with bootorder 1 should be used to infer the preference, although it is defined second
 				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
-				setFlag(InferPreferenceFlag, "true"))
+				setFlag(InferPreferenceFlag, ""))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+		})
+
+		It("VM with inferred preference from specified volume", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds-1,name:my-ds-1"),
+				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
+				setFlag(InferPreferenceFlag, "my-ds-2"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal("my-ds-2"))
 		})
 
 		DescribeTable("VM with specified containerdisk", func(containerdisk, volName string, bootOrder int, params string) {
@@ -414,7 +436,7 @@ var _ = Describe("create vm", func() {
 				setFlag(RunStrategyFlag, string(runStrategy)),
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 				setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", instancetypeKind, instancetypeName)),
-				setFlag(PreferenceFlag, preferenceName),
+				setFlag(InferPreferenceFlag, pvcName),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
 				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvcName, pvcBootOrder)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
@@ -434,11 +456,13 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeKind))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeName))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
-			Expect(vm.Spec.Preference.Name).To(Equal(preferenceName))
+			Expect(vm.Spec.Preference.Name).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(pvcName))
 
 			dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dsName)
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
@@ -515,15 +539,21 @@ var _ = Describe("create vm", func() {
 		)
 
 		It("InferInstancetypeFlag needs at least one volume", func() {
-			out, err := runCmd(setFlag(InferInstancetypeFlag, "true"))
+			out, err := runCmd(setFlag(InferInstancetypeFlag, ""))
 
 			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: at least one volume is needed to infer instancetype or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
+		It("Volume specified in InferInstancetypeFlag should exist", func() {
+			out, err := runCmd(setFlag(InferInstancetypeFlag, "does-not-exist"))
+
+			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: there is no volume with name 'does-not-exist'"))
+			Expect(out).To(BeEmpty())
+		})
+
 		DescribeTable("MemoryFlag, InstancetypeFlag and InferInstancetypeFlag are mutually exclusive", func(flags []string, setFlags string) {
 			out, err := runCmd(flags...)
-
 			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [memory instancetype infer-instancetype] are set none of the others can be; [%s] were all set", setFlags)))
 			Expect(out).To(BeEmpty())
 		},
@@ -545,16 +575,23 @@ var _ = Describe("create vm", func() {
 		)
 
 		It("InferPreferenceFlag needs at least one volume", func() {
-			out, err := runCmd(setFlag(InferPreferenceFlag, "true"))
+			out, err := runCmd(setFlag(InferPreferenceFlag, ""))
 
 			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: at least one volume is needed to infer instancetype or preference"))
+			Expect(out).To(BeEmpty())
+		})
+
+		It("Volume specified in InferPreferenceFlag should exist", func() {
+			out, err := runCmd(setFlag(InferPreferenceFlag, "does-not-exist"))
+
+			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: there is no volume with name 'does-not-exist'"))
 			Expect(out).To(BeEmpty())
 		})
 
 		It("PreferenceFlag and InferPreferenceFlag are mutually exclusive", func() {
 			out, err := runCmd(
 				setFlag(PreferenceFlag, "my-preference"),
-				setFlag(InferPreferenceFlag, "true"),
+				setFlag(InferPreferenceFlag, ""),
 			)
 
 			Expect(err).To(MatchError("if any flags in the group [preference infer-preference] are set none of the others can be; [infer-preference preference] were all set"))
@@ -649,47 +686,47 @@ var _ = Describe("create vm", func() {
 			Expect(err).To(MatchError(errMsg))
 			Expect(out).To(BeEmpty())
 		},
-			Entry("Duplicate Containerdisk", "failed to parse \"--volume-containerdisk\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate Containerdisk", "failed to parse \"--volume-containerdisk\" flag: there is already a volume with name 'my-name'",
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate DataSource", "failed to parse \"--volume-datasource\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate DataSource", "failed to parse \"--volume-datasource\" flag: there is already a volume with name 'my-name'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate ClonePvc", "failed to parse \"--volume-clone-pvc\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate ClonePvc", "failed to parse \"--volume-clone-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
 				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate PVC", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 			),
-			Entry("Duplicate blank volume", "failed to parse \"--volume-blank\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
 				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
 				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
 			),
-			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate PVC and Containerdisk", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag,name:my-name"),
 			),
-			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-pvc\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate PVC and DataSource", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-name"),
 			),
-			Entry("Duplicate PVC and ClonePvc", "failed to parse \"--volume-pvc\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate PVC and ClonePvc", "failed to parse \"--volume-pvc\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(ClonePvcVolumeFlag, "src:my-ns/my-pvc,name:my-name"),
 			),
-			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-blank\" flag: there is already a Volume with name 'my-name'",
+			Entry("Duplicate PVC and blank volume", "failed to parse \"--volume-blank\" flag: there is already a volume with name 'my-name'",
 				setFlag(PvcVolumeFlag, "src:my-pvc,name:my-name"),
 				setFlag(BlankVolumeFlag, "size:10Gi,name:my-name"),
 			),
-			Entry("There can only be one cloudInitDisk (UserData)", "failed to parse \"--cloud-init-user-data\" flag: there is already a Volume with name 'cloudinitdisk'",
+			Entry("There can only be one cloudInitDisk (UserData)", "failed to parse \"--cloud-init-user-data\" flag: there is already a volume with name 'cloudinitdisk'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitUserDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))),
 			),
-			Entry("There can only be one cloudInitDisk (NetworkData)", "failed to parse \"--cloud-init-network-data\" flag: there is already a Volume with name 'cloudinitdisk'",
+			Entry("There can only be one cloudInitDisk (NetworkData)", "failed to parse \"--cloud-init-network-data\" flag: there is already a volume with name 'cloudinitdisk'",
 				setFlag(DataSourceVolumeFlag, "src:my-ds,name:cloudinitdisk"),
 				setFlag(CloudInitNetworkDataFlag, base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))),
 			),
