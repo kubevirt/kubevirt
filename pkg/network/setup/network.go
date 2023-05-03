@@ -54,6 +54,10 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Net
 		if err != nil {
 			return nil, err
 		}
+		// SR-IOV devices are not part of the phases.
+		if nic.vmiSpecIface.SRIOV != nil {
+			continue
+		}
 		nics = append(nics, *nic)
 	}
 	return nics, nil
@@ -67,6 +71,10 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 		if err != nil {
 			return nil, err
 		}
+		// SR-IOV devices are not part of the phases.
+		if nic.vmiSpecIface.SRIOV != nil {
+			continue
+		}
 		nics = append(nics, *nic)
 	}
 	return nics, nil
@@ -77,10 +85,22 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 	if err != nil {
 		return err
 	}
-	for _, nic := range nics {
-		if err := nic.PlugPhase1(); err != nil {
-			return fmt.Errorf("failed plugging phase1 at nic '%s': %w", nic.podInterfaceName, err)
-		}
+
+	configState := NewConfigState(n.cacheCreator, string(n.vmi.UID))
+	err = configState.Run(
+		nics,
+		func(nic *podNIC) error {
+			return nic.discoverAndStoreCache()
+		},
+		func(nic *podNIC) error {
+			if nic.infraConfigurator == nil {
+				return nil
+			}
+			return nic.infraConfigurator.PreparePodNetworkInterface()
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed setup pod network phase1: %w", err)
 	}
 	return nil
 }

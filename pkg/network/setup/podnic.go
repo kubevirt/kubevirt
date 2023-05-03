@@ -170,26 +170,6 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 	return []string{ipv6, ipv4}, nil
 }
 
-func (l *podNIC) PlugPhase1() error {
-
-	// There is nothing to plug for SR-IOV devices
-	if l.vmiSpecIface.SRIOV != nil {
-		return nil
-	}
-
-	configState := NewConfigState(l.cacheCreator, string(l.vmi.UID))
-	return configState.Run(
-		l.podInterfaceName,
-		l.discoverAndStoreCache,
-		func() error {
-			if l.infraConfigurator == nil {
-				return nil
-			}
-			return l.infraConfigurator.PreparePodNetworkInterface()
-		},
-	)
-}
-
 func (l *podNIC) discoverAndStoreCache() error {
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err
@@ -224,11 +204,6 @@ func (l *podNIC) discoverAndStoreCache() error {
 
 func (l *podNIC) PlugPhase2(domain *api.Domain) error {
 	precond.MustNotBeNil(domain)
-
-	// There is nothing to plug for SR-IOV devices
-	if l.vmiSpecIface.SRIOV != nil {
-		return nil
-	}
 
 	if err := l.domainGenerator.Generate(); err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
