@@ -20,9 +20,11 @@
 package nodelabeller
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -46,6 +48,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
+const ksmPath = "/sys/kernel/mm/ksm/run"
+
 var nodeLabellerLabels = []string{
 	util.DeprecatedLabelNamespace + util.DeprecatedcpuModelPrefix,
 	util.DeprecatedLabelNamespace + util.DeprecatedcpuFeaturePrefix,
@@ -60,9 +64,10 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
+	kubevirtv1.KSMEnabledLabel,
 }
 
-// NodeLabeller struct holds informations needed to run node-labeller
+// NodeLabeller struct holds information needed to run node-labeller
 type NodeLabeller struct {
 	recorder                record.EventRecorder
 	clientset               kubecli.KubevirtClient
@@ -81,13 +86,14 @@ type NodeLabeller struct {
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
+	KSM                     KSMConfiguration
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, recorder record.EventRecorder) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, recorder)
+	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, recorder, ksmPath)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, recorder record.EventRecorder, ksmSysFsFilePath string) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
 		clientset:               clientset,
@@ -99,6 +105,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+		KSM:                     KSMConfiguration{SysfsFilePath: ksmSysFsFilePath},
 	}
 
 	err := n.loadAll()
@@ -185,6 +192,7 @@ func (n *NodeLabeller) run() error {
 	cpuModels := n.getSupportedCpuModels(obsoleteCPUsx86)
 	cpuFeatures := n.getSupportedCpuFeatures()
 	hostCPUModel := n.GetHostCpuModel()
+	n.loadKSM()
 
 	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
 	if err != nil {
@@ -318,6 +326,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 		newLabels[kubevirtv1.SEVLabel] = ""
 	}
 
+	if n.KSM.Enabled {
+		newLabels[kubevirtv1.KSMEnabledLabel] = "true"
+	}
+
 	return newLabels
 }
 
@@ -410,4 +422,14 @@ func (n *NodeLabeller) shouldAddCPUModelLabel(
 		}
 	}
 	return len(missingFeatures) == 0
+}
+
+func (n *NodeLabeller) loadKSM() {
+	ksmValue, err := os.ReadFile(n.KSM.SysfsFilePath)
+	if err != nil {
+		return
+	}
+
+	n.KSM.Enabled = bytes.Equal(ksmValue, []byte("1\n"))
+	return
 }

@@ -22,7 +22,11 @@
 package nodelabeller
 
 import (
+	"fmt"
+	"os"
 	"time"
+
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -54,6 +58,7 @@ var _ = Describe("Node-labeller ", func() {
 	var config *virtconfig.ClusterConfig
 	var addedNode *v1.Node
 	var recorder *record.FakeRecorder
+	var customKSMFilePath = "fake_path"
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
@@ -84,6 +89,19 @@ var _ = Describe("Node-labeller ", func() {
 	doNotExpectNodePatch := func(expectedPatches ...string) {
 		expectPatch(false, expectedPatches...)
 	}
+
+	createCustomKSMFile := func(value string) {
+		customKSMFile, err := os.CreateTemp("", "mock_ksm_run")
+		Expect(err).ToNot(HaveOccurred())
+		defer customKSMFile.Close()
+		_, err = customKSMFile.WriteString(value)
+		Expect(err).ToNot(HaveOccurred())
+		customKSMFilePath = customKSMFile.Name()
+	}
+
+	AfterEach(func() {
+		diskutils.RemoveFilesIfExist(customKSMFilePath)
+	})
 
 	BeforeEach(func() {
 		var err error
@@ -116,7 +134,8 @@ var _ = Describe("Node-labeller ", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder)
+		createCustomKSMFile(fmt.Sprint("1\n"))
+		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder, customKSMFilePath)
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
@@ -184,6 +203,12 @@ var _ = Describe("Node-labeller ", func() {
 			kubevirtv1.CPUModelLabel+"Opteron_G2",
 			kubevirtv1.SupportedHostModelMigrationCPU+"Opteron_G2",
 		)
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+	})
+
+	It("should add KSM label", func() {
+		expectNodePatch(kubevirtv1.KSMEnabledLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})

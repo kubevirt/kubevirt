@@ -908,6 +908,9 @@ const (
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
 
+	// KSMEnabledLabel marks the node as KSM enabled
+	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
+
 	// InstancetypeAnnotation is the name of a VirtualMachineInstancetype
 	InstancetypeAnnotation string = "kubevirt.io/instancetype-name"
 
