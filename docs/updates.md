@@ -41,7 +41,7 @@ by patching the imageTag value with a new release tag.
 The cluster has the following KubeVirt CR deployed.
 
 ```
-apiVersion: kubevirt.io/v1alpha3
+apiVersion: kubevirt.io/v1
 kind: KubeVirt
 metadata:
   name: kubevirt
@@ -69,7 +69,7 @@ updating KubeVirt as well.
 The cluster has the following KubeVirt CR deployed.
 
 ```
-apiVersion: kubevirt.io/v1alpha3
+apiVersion: kubevirt.io/v1
 kind: KubeVirt
 metadata:
   name: kubevirt
