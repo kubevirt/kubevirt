@@ -125,8 +125,8 @@ As of today KubeVirt can be used to declaratively
 
 # Start using KubeVirt
 
-  * Try our quickstart at [kubevirt.io](http://kubevirt.io/get_kubevirt/).
-  * See our user documentation at [kubevirt.io/docs](http://kubevirt.io/user-guide).
+  * Try our quickstart at [kubevirt.io](https://kubevirt.io/get_kubevirt/).
+  * See our user documentation at [kubevirt.io/docs](https://kubevirt.io/user-guide).
 
 # Start developing KubeVirt
 

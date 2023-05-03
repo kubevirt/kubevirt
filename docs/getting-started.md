@@ -245,7 +245,7 @@ In addition, if you want to run a specific test or tests you can prepend any `De
 that are marked with the prefix. Remember to remove the prefix before issuing
 your pull request.
 
-For additional information check out the [Ginkgo focused specs documentation](http://onsi.github.io/ginkgo/#focused-specs)
+For additional information check out the [Ginkgo focused specs documentation](https://onsi.github.io/ginkgo/#focused-specs)
 
 ## Use
 
