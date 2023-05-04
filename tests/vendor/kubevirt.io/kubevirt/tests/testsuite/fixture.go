@@ -25,6 +25,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,14 +40,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/util"
@@ -93,6 +93,7 @@ func SynchronizedBeforeTestSetup() []byte {
 
 	EnsureKVMPresent()
 	AdjustKubeVirtResource()
+	EnsureKubevirtReady()
 
 	return nil
 }
@@ -116,8 +117,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 
 	// Wait for schedulable nodes
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 	Eventually(func() int {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {
@@ -134,56 +134,32 @@ func BeforeTestSuiteSetup(_ []byte) {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
-func EnsureKubevirtInfra() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+func EnsureKubevirtReady() {
+	virtClient := kubevirt.Client()
 	kv := util.GetCurrentKv(virtClient)
 
-	timeout := 180 * time.Second
-	interval := 1 * time.Second
+	Eventually(matcher.ThisDeploymentWith(flags.KubeVirtInstallNamespace, "virt-operator"), 180*time.Second, 1*time.Second).
+		Should(matcher.HaveReadyReplicasNumerically(">", 0),
+			"virt-operator deployment is not ready")
 
-	deployments := []string{
-		"virt-operator",
-		components.VirtAPIName,
-		components.VirtControllerName,
-	}
-
-	ensureDeployment := func(deploymentName string) {
-		deployment, err := virtClient.
-			AppsV1().
-			Deployments(kv.Namespace).
-			Get(context.Background(), deploymentName, metav1.GetOptions{})
+	Eventually(func() *v1.KubeVirt {
+		kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		EventuallyWithOffset(
-			1,
-			matcher.ThisDeploymentWith(kv.Namespace, deploymentName),
-			timeout,
-			interval).
-			Should(matcher.HaveReadyReplicasNumerically("==", *deployment.Spec.Replicas),
-				"waiting for %s deployment to be ready", deploymentName)
-	}
-
-	for _, deploymentName := range deployments {
-		ensureDeployment(deploymentName)
-	}
-
-	//TODO: implement matcher for Daemonset in test infra
-	Eventually(func() bool {
-		ds, err := virtClient.
-			AppsV1().
-			DaemonSets(kv.Namespace).
-			Get(context.Background(), components.VirtHandlerName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		return ds.Status.DesiredNumberScheduled == ds.Status.NumberReady
-	}, timeout, interval).Should(BeTrue(), "waiting for virt-handler daemonSet to be ready")
+		return kv
+	}, 180*time.Second, 1*time.Second).Should(
+		SatisfyAll(
+			matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+			matcher.HaveConditionFalse(v1.KubeVirtConditionProgressing),
+			matcher.HaveConditionFalse(v1.KubeVirtConditionDegraded),
+			WithTransform(func(kv *v1.KubeVirt) bool {
+				return kv.ObjectMeta.Generation == *kv.Status.ObservedGeneration
+			}, BeTrue()),
+		), "One of the Kubevirt control-plane components is not ready.")
 
 }
 
 func EnsureKVMPresent() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	virtClient := kubevirt.Client()
 
 	if !ShouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
@@ -234,8 +210,7 @@ func WipeTestingInfrastructure() {
 func waitForAllDaemonSetsReady(timeout time.Duration) {
 	checkForDaemonSetsReady := func() []string {
 		dsNotReady := make([]string, 0)
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 
 		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 		util.PanicOnError(err)
@@ -253,8 +228,7 @@ func waitForAllDaemonSetsReady(timeout time.Duration) {
 func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
 	checkForPodsToBeReady := func() []string {
 		podsNotReady := make([]string, 0)
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 
 		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
 		util.PanicOnError(err)
@@ -281,8 +255,7 @@ func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 
 func WaitExportProxyReady() {
 	Eventually(func() bool {
-		virtClient, err := kubecli.GetKubevirtClient()
-		util.PanicOnError(err)
+		virtClient := kubevirt.Client()
 		d, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return false

@@ -82,6 +82,8 @@ type VirtualMachinePoolCondition struct {
 type VirtualMachinePoolStatus struct {
 	Replicas int32 `json:"replicas,omitempty" optional:"true"`
 
+	ReadyReplicas int32 `json:"readyReplicas,omitempty" optional:"true"`
+
 	// +listType=atomic
 	Conditions []VirtualMachinePoolCondition `json:"conditions,omitempty" optional:"true"`
 

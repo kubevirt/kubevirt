@@ -35,10 +35,8 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -64,9 +62,12 @@ var LogLevelNames = map[LogLevel]string{
 
 var lock sync.Mutex
 
+// Interface to avoid dependency
 type LoggableObject interface {
-	metav1.ObjectMetaAccessor
-	k8sruntime.Object
+	GetName() string
+	GetNamespace() string
+	GetUID() types.UID
+	GetObjectKind() schema.ObjectKind
 }
 
 type FilteredLogger struct {
@@ -207,30 +208,11 @@ func (l FilteredLogger) log(skipFrames int, params ...interface{}) error {
 	return nil
 }
 
-func (l FilteredLogger) Key(key string, kind string) *FilteredLogger {
-	if key == "" {
-		return &l
-
-	}
-	name, namespace, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return &l
-	}
-	logParams := make([]interface{}, 0)
-	if namespace != "" {
-		logParams = append(logParams, "namespace", namespace)
-	}
-	logParams = append(logParams, "name", name)
-	logParams = append(logParams, "kind", kind)
-	l.with(logParams...)
-	return &l
-}
-
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 
-	name := obj.GetObjectMeta().GetName()
-	namespace := obj.GetObjectMeta().GetNamespace()
-	uid := obj.GetObjectMeta().GetUID()
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	uid := obj.GetUID()
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
 	logParams := make([]interface{}, 0)
@@ -240,24 +222,6 @@ func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
 	logParams = append(logParams, "name", name)
 	logParams = append(logParams, "kind", kind)
 	logParams = append(logParams, "uid", uid)
-
-	l.with(logParams...)
-	return &l
-}
-
-func (l FilteredLogger) ObjectRef(obj *v1.ObjectReference) *FilteredLogger {
-
-	if obj == nil {
-		return &l
-	}
-
-	logParams := make([]interface{}, 0)
-	if obj.Namespace != "" {
-		logParams = append(logParams, "namespace", obj.Namespace)
-	}
-	logParams = append(logParams, "name", obj.Name)
-	logParams = append(logParams, "kind", obj.Kind)
-	logParams = append(logParams, "uid", obj.UID)
 
 	l.with(logParams...)
 	return &l

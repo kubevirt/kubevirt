@@ -53,8 +53,20 @@ const (
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
 	PSA                        = "PSA"
 	VSOCKGate                  = "VSOCK"
-	// PSASeccompAllowsUserfaultfd tells us that the seccomp policy on the nodes allow the userfaultfd syscall, which is needed for post-copy migrations
-	PSASeccompAllowsUserfaultfd = "PSASeccompAllowsUserfaultfd"
+	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
+	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
+	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
+	// user can tell Kubevirt to use it
+	KubevirtSeccompProfile = "KubevirtSeccompProfile"
+	// DisableMediatedDevicesHandling disables the handling of mediated
+	// devices, its creation and deletion
+	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
+	// HotplugNetworkIfacesGate enables the virtio network interface hotplug feature
+	HotplugNetworkIfacesGate = "HotplugNICs"
+	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
+	PersistentReservation = "PersistentReservation"
+	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
+	VMPersistentState = "VMPersistentState"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -65,14 +77,14 @@ var deprecatedFeatureGates = [...]string{
 	PSA,
 }
 
-func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if c.IsFeatureGateDeprecated(featureGate) {
+func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
+	if config.IsFeatureGateDeprecated(featureGate) {
 		// Deprecated feature gates are considered enabled and no-op.
 		// For more info about deprecation policy: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md
 		return true
 	}
 
-	for _, fg := range c.GetConfig().DeveloperConfiguration.FeatureGates {
+	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
 		if fg == featureGate {
 			return true
 		}
@@ -80,7 +92,7 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	return false
 }
 
-func (c *ClusterConfig) IsFeatureGateDeprecated(featureGate string) bool {
+func (config *ClusterConfig) IsFeatureGateDeprecated(featureGate string) bool {
 	for _, deprecatedFeatureGate := range deprecatedFeatureGates {
 		if featureGate == deprecatedFeatureGate {
 			return true
@@ -186,6 +198,26 @@ func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(VSOCKGate)
 }
 
-func (config *ClusterConfig) PSASeccompAllowsUserfaultfd() bool {
-	return config.isFeatureGateEnabled(PSASeccompAllowsUserfaultfd)
+func (config *ClusterConfig) CustomSELinuxPolicyDisabled() bool {
+	return config.isFeatureGateEnabled(DisableCustomSELinuxPolicy)
+}
+
+func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
+	return config.isFeatureGateEnabled(DisableMediatedDevicesHandling)
+}
+
+func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
+	return config.isFeatureGateEnabled(KubevirtSeccompProfile)
+}
+
+func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
+	return config.isFeatureGateEnabled(HotplugNetworkIfacesGate)
+}
+
+func (config *ClusterConfig) PersistentReservationEnabled() bool {
+	return config.isFeatureGateEnabled(PersistentReservation)
+}
+
+func (config *ClusterConfig) VMPersistentStateEnabled() bool {
+	return config.isFeatureGateEnabled(VMPersistentState)
 }

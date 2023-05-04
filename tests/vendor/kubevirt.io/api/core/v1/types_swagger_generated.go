@@ -146,7 +146,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
 		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
 		"interfaceName": "The interface name inside the Virtual Machine",
-		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, or both",
+		"infoSource":    "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
 		"queueCount":    "Specifies how many queues are allocated by MultiQueue",
 	}
 }
@@ -169,6 +169,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"":                               "+k8s:openapi-gen=true",
 		"startTimestamp":                 "The time the migration action began\n+nullable",
 		"endTimestamp":                   "The time the migration action ended\n+nullable",
+		"targetNodeDomainReadyTimestamp": "The timestamp at which the target node detects the domain is active",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
 		"targetNodeAddress":              "The address of the target node to use for the migration",
 		"targetDirectMigrationNodePorts": "The list of ports opened for live migration on the destination node",
@@ -281,6 +282,7 @@ func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                          "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
 		"phaseTransitionTimestamps": "PhaseTransitionTimestamp is the timestamp of when the last phase change occurred\n+listType=atomic\n+optional",
+		"migrationState":            "Represents the status of a live migration",
 	}
 }
 
@@ -350,6 +352,9 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
+		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"interfaceRequests":      "InterfaceRequests indicates a list of interfaces added to the VMI template and\nhot-plugged on an active running VMI.\n+listType=atomic",
 	}
 }
 
@@ -373,6 +378,12 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
 		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
+	}
+}
+
+func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"addInterfaceOptions": "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
 	}
 }
 
@@ -655,6 +666,14 @@ func (RemoveVolumeOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (AddInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                                "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
+		"networkAttachmentDefinitionName": "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:\n<networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not\nspecified, VMI namespace is assumed.",
+		"name":                            "Name indicates the logical name of the interface.",
+	}
+}
+
 func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",
@@ -682,14 +701,40 @@ func (ReloadableComponentConfiguration) SwaggerDoc() map[string]string {
 
 func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                            "KubeVirtConfiguration holds all kubevirt configurations",
-		"evictionStrategy":            "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
-		"supportedGuestAgentVersions": "deprecated",
+		"":                                   "KubeVirtConfiguration holds all kubevirt configurations",
+		"evictionStrategy":                   "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
+		"additionalGuestMemoryOverheadRatio": "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure\noverhead. This is useful, since the calculation of this overhead is not accurate and cannot\nbe entirely known in advance. The ratio that is being set determines by which factor to increase\nthe overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised\nby node pressures, but would mean that fewer VMs could be scheduled to a node.\nIf not set, the default is 1.",
+		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
+		"supportedGuestAgentVersions":        "deprecated",
+		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.\nThe storage class must support RWX in filesystem mode.",
 	}
 }
 
 func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (SupportContainerResources) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.",
+	}
+}
+
+func (CustomProfile) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (VirtualMachineInstanceProfile) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"customProfile": "CustomProfile allows to request arbitrary profile for virt-launcher",
+	}
+}
+
+func (SeccompConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                              "SeccompConfiguration holds Seccomp configuration for Kubevirt components",
+		"virtualMachineInstanceProfile": "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none",
+	}
 }
 
 func (TLSConfiguration) SwaggerDoc() map[string]string {

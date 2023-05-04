@@ -14,7 +14,15 @@ export BIN_DIR
 
 TESTS_BINARY="$BIN_DIR/kv_smoke_tests.test"
 
-curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
+######
+# hack to run a fixed version of Kubevirt tests
+# please remove this hack once
+# - https://github.com/kubevirt/kubevirt/pull/9683
+# - https://github.com/kubevirt/kubevirt/pull/9684
+# are properly consumed
+#curl -Lo "$TESTS_BINARY" "https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/tests.test"
+curl -Lo "$TESTS_BINARY" "https://github.com/tiraboschi/kubevirt/releases/download/v1.0.0-alpha.0-fix/tests.test"
+######
 chmod +x "$TESTS_BINARY"
 
 echo "create testing infrastructure"

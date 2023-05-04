@@ -17,6 +17,7 @@ go_library(
         "//tests/errorhandling:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/cleanup:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/util:go_default_library",

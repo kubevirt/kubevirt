@@ -18,6 +18,8 @@ package cert
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -51,9 +53,14 @@ type AltNames struct {
 	IPs      []net.IP
 }
 
-// NewPrivateKey creates an RSA private key
-func NewPrivateKey() (*rsa.PrivateKey, error) {
+// NewRSAPrivateKey creates an RSA private key
+func NewRSAPrivateKey() (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(cryptorand.Reader, rsaKeySize)
+}
+
+// NewECDSAPrivateKey creates an ECDSA private key
+func NewECDSAPrivateKey() (*ecdsa.PrivateKey, error) {
+	return ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
 }
 
 // NewSelfSignedCACert creates a CA certificate

@@ -23,8 +23,6 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 // GetDownwardAPISourcePath returns a path to downwardAPI mounted on a pod
@@ -37,31 +35,22 @@ func GetDownwardAPIDiskPath(volumeName string) string {
 	return filepath.Join(DownwardAPIDisksDir, volumeName+".iso")
 }
 
+type downwardAPIVolumeInfo struct{}
+
+func (i downwardAPIVolumeInfo) isValidType(v *v1.Volume) bool {
+	return v.DownwardAPI != nil
+}
+func (i downwardAPIVolumeInfo) getSourcePath(v *v1.Volume) string {
+	return GetDownwardAPISourcePath(v.Name)
+}
+func (i downwardAPIVolumeInfo) getIsoPath(v *v1.Volume) string {
+	return GetDownwardAPIDiskPath(v.Name)
+}
+func (i downwardAPIVolumeInfo) getLabel(v *v1.Volume) string {
+	return v.DownwardAPI.VolumeLabel
+}
+
 // CreateDownwardAPIDisks creates DownwardAPI iso disks which are attached to vmis
 func CreateDownwardAPIDisks(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.DownwardAPI != nil {
-
-			var filesPath []string
-			filesPath, err := getFilesLayout(GetDownwardAPISourcePath(volume.Name))
-			if err != nil {
-				return err
-			}
-
-			disk := GetDownwardAPIDiskPath(volume.Name)
-			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
-			if err != nil {
-				return err
-			}
-			if err := createIsoConfigImage(disk, volume.DownwardAPI.VolumeLabel, filesPath, vmiIsoSize); err != nil {
-				return err
-			}
-
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(disk); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return createIsoDisksForConfigVolumes(vmi, emptyIso, downwardAPIVolumeInfo{})
 }

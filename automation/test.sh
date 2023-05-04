@@ -2,11 +2,9 @@
 
 export KUBEVIRT_PROVIDER="$TARGET"
 
-if [[ $TARGET =~ okd-.* || $TARGET =~ ocp-.* ]]; then
-  export KUBEVIRT_MEMORY_SIZE=6144M
-fi
-
-export KUBEVIRT_NUM_NODES=3
+export KUBEVIRT_MEMORY_SIZE=12G
+export KUBEVIRT_NUM_NODES=4
+export KUBEVIRT_DEPLOY_PROMETHEUS=true
 
 kubectl() { cluster/kubectl.sh "$@"; }
 

@@ -25,6 +25,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+
 	"kubevirt.io/kubevirt/pkg/util"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -181,4 +183,49 @@ func findIsoSize(vmi *v1.VirtualMachineInstance, volume *v1.Volume, emptyIso boo
 		return 0, fmt.Errorf("failed to find the status of volume %s", volume.Name)
 	}
 	return 0, nil
+}
+
+type volumeInfo interface {
+	isValidType(*v1.Volume) bool
+	getSourcePath(*v1.Volume) string
+	getIsoPath(*v1.Volume) string
+	getLabel(*v1.Volume) string
+}
+
+func createIsoDisksForConfigVolumes(vmi *v1.VirtualMachineInstance, emptyIso bool, info volumeInfo) error {
+	volumes := make(map[string]v1.Volume)
+	for _, volume := range vmi.Spec.Volumes {
+		if info.isValidType(&volume) {
+			volumes[volume.Name] = volume
+		}
+	}
+
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		volume, ok := volumes[disk.Name]
+		if !ok {
+			continue
+		}
+
+		filesPath, err := getFilesLayout(info.getSourcePath(&volume))
+		if err != nil {
+			return err
+		}
+
+		isoPath := info.getIsoPath(&volume)
+		vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
+		if err != nil {
+			return err
+		}
+
+		label := info.getLabel(&volume)
+		if err := createIsoConfigImage(isoPath, label, filesPath, vmiIsoSize); err != nil {
+			return err
+		}
+
+		if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

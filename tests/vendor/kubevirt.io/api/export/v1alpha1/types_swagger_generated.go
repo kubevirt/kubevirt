@@ -26,13 +26,14 @@ func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
-		"phase":             "+optional",
-		"links":             "+optional",
-		"tokenSecretRef":    "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
-		"ttlExpirationTime": "The time at which the VM Export will be completely removed according to specified TTL\nFormula is CreationTimestamp + TTL",
-		"serviceName":       "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
-		"conditions":        "+optional\n+listType=atomic",
+		"":                   "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
+		"phase":              "+optional",
+		"links":              "+optional",
+		"tokenSecretRef":     "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
+		"ttlExpirationTime":  "The time at which the VM Export will be completely removed according to specified TTL\nFormula is CreationTimestamp + TTL",
+		"serviceName":        "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
+		"virtualMachineName": "+optional\nVirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or\na VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a\nVirtualMachineSnapshot",
+		"conditions":         "+optional\n+listType=atomic",
 	}
 }
 
@@ -46,9 +47,18 @@ func (VirtualMachineExportLinks) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportLink) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
-		"cert":    "Cert is the public CA certificate base64 encoded",
-		"volumes": "Volumes is a list of available volumes to export\n+listType=map\n+listMapKey=name\n+optional",
+		"":          "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
+		"cert":      "Cert is the public CA certificate base64 encoded",
+		"volumes":   "Volumes is a list of available volumes to export\n+listType=map\n+listMapKey=name\n+optional",
+		"manifests": "Manifests is a list of available manifests for the export\n+listType=map\n+listMapKey=type\n+optional",
+	}
+}
+
+func (VirtualMachineExportManifest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "VirtualMachineExportManifest contains the type and URL of the exported manifest",
+		"type": "Type is the type of manifest returned",
+		"url":  "Url is the url of the endpoint that returns the manifest",
 	}
 }
 

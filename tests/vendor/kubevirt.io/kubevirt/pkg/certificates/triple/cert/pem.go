@@ -17,6 +17,7 @@ limitations under the License.
 package cert
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
@@ -54,12 +55,27 @@ func EncodePublicKeyPEM(key *rsa.PublicKey) ([]byte, error) {
 }
 
 // EncodePrivateKeyPEM returns PEM-encoded private key data
-func EncodePrivateKeyPEM(key *rsa.PrivateKey) []byte {
-	block := pem.Block{
-		Type:  RSAPrivateKeyBlockType,
-		Bytes: x509.MarshalPKCS1PrivateKey(key),
+func EncodePrivateKeyPEM(key crypto.PrivateKey) []byte {
+	switch t := key.(type) {
+	case *ecdsa.PrivateKey:
+		derBytes, err := x509.MarshalECPrivateKey(t)
+		if err != nil {
+			return nil
+		}
+		block := &pem.Block{
+			Type:  ECPrivateKeyBlockType,
+			Bytes: derBytes,
+		}
+		return pem.EncodeToMemory(block)
+	case *rsa.PrivateKey:
+		block := &pem.Block{
+			Type:  RSAPrivateKeyBlockType,
+			Bytes: x509.MarshalPKCS1PrivateKey(t),
+		}
+		return pem.EncodeToMemory(block)
+	default:
+		return nil
 	}
-	return pem.EncodeToMemory(&block)
 }
 
 // EncodeCertPEM returns PEM-endcoded certificate data

@@ -437,6 +437,25 @@ func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
 }
 
+// IsHighPerformanceVMI returns true if the VMI is considered as high performance.
+// A VMI is considered as high performance if one of the following is true:
+// - the vmi requests a dedicated cpu
+// - the realtime flag is enabled
+// - the vmi requests hugepages
+func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
+	if v.Spec.Domain.CPU != nil {
+		if v.Spec.Domain.CPU.DedicatedCPUPlacement || v.Spec.Domain.CPU.Realtime != nil {
+			return true
+		}
+	}
+
+	if v.Spec.Domain.Memory != nil && v.Spec.Domain.Memory.Hugepages != nil {
+		return true
+	}
+
+	return false
+}
+
 type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
@@ -483,7 +502,10 @@ const (
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
+	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses dedicated CPU and emulator thread isolation
+
 	VirtualMachineInstanceReasonDedicatedCPU = "DedicatedCPUNotLiveMigratable"
 )
 
@@ -570,7 +592,7 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
-	// Specifies the origin of the interface data collected. values: domain, guest-agent, or both
+	// Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
@@ -609,6 +631,8 @@ type VirtualMachineInstanceMigrationState struct {
 	// +nullable
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 
+	// The timestamp at which the target node detects the domain is active
+	TargetNodeDomainReadyTimestamp *metav1.Time `json:"targetNodeDomainReadyTimestamp,omitempty"`
 	// The Target Node has seen the Domain Start Event
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
@@ -901,6 +925,25 @@ const (
 	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
 	// pvc name and the timestamp the memory dump was collected
 	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
+
+	// AllowPodBridgeNetworkLiveMigrationAnnotation allow to run live migration when the
+	// vm has the pod networking bind with a bridge
+	AllowPodBridgeNetworkLiveMigrationAnnotation string = "kubevirt.io/allow-pod-bridge-network-live-migration"
+
+	// VirtualMachineGenerationAnnotation is the generation of a Virtual Machine.
+	VirtualMachineGenerationAnnotation string = "kubevirt.io/vm-generation"
+
+	// MigrationTargetReadyTimestamp indicates the time at which the target node
+	// detected that the VMI became active on the target during live migration.
+	MigrationTargetReadyTimestamp string = "kubevirt.io/migration-target-ready-timestamp"
+
+	// FreePageReportingDisabledAnnotation indicates if the the vmi wants to explicitly disable
+	// the freePageReporting feature of the memballooning.
+	// This annotation only allows to opt-out from freePageReporting in those cases where it is
+	// enabled (no high performance vmis).
+	// This annotation does not allow to enable freePageReporting for high performance vmis,
+	// in which freePageReporting is always disabled.
+	FreePageReportingDisabledAnnotation string = "kubevirt.io/free-page-reporting-disabled"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1178,6 +1221,8 @@ type VirtualMachineInstanceMigrationStatus struct {
 	// +listType=atomic
 	// +optional
 	PhaseTransitionTimestamps []VirtualMachineInstanceMigrationPhaseTransitionTimestamp `json:"phaseTransitionTimestamps,omitempty"`
+	// Represents the status of a live migration
+	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -1448,6 +1493,23 @@ type VirtualMachineStatus struct {
 	// +nullable
 	// +optional
 	MemoryDumpRequest *VirtualMachineMemoryDumpRequest `json:"memoryDumpRequest,omitempty" optional:"true"`
+
+	// ObservedGeneration is the generation observed by the vmi when started.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty" optional:"true"`
+
+	// DesiredGeneration is the generation which is desired for the VMI.
+	// This will be used in comparisons with ObservedGeneration to understand when
+	// the VMI is out of sync. This will be changed at the same time as
+	// ObservedGeneration to remove errors which could occur if Generation is
+	// updated through an Update() before ObservedGeneration in Status.
+	// +optional
+	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
+
+	// InterfaceRequests indicates a list of interfaces added to the VMI template and
+	// hot-plugged on an active running VMI.
+	// +listType=atomic
+	InterfaceRequests []VirtualMachineInterfaceRequest `json:"interfaceRequests,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1475,6 +1537,12 @@ type VirtualMachineStateChangeRequest struct {
 	Data map[string]string `json:"data,omitempty" optional:"true"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
+}
+
+type VirtualMachineInterfaceRequest struct {
+	// AddInterfaceOptions when set indicates a network interface should be added.
+	// The details within this field specify how to add the interface
+	AddInterfaceOptions *AddInterfaceOptions `json:"addInterfaceOptions,omitempty" optional:"true"`
 }
 
 // VirtualMachineCondition represents the state of VirtualMachine
@@ -1546,9 +1614,6 @@ const (
 	// IONative - Kernel native I/O tasks (AIO) offer a better performance but can block the VM if the file is not fully
 	// allocated so this method recommended only when the backing file/disk/etc is fully preallocated.
 	IONative DriverIO = "native"
-	// IODefault - Fallback to the default value from the kernel. With recent Kernel versions (for example RHEL-7) the
-	// default is AIO.
-	IODefault DriverIO = "default"
 )
 
 // Handler defines a specific action that should be taken
@@ -2163,6 +2228,17 @@ type RemoveVolumeOptions struct {
 	DryRun []string `json:"dryRun,omitempty"`
 }
 
+// AddInterfaceOptions is provided when dynamically hot plugging a network interface
+type AddInterfaceOptions struct {
+	// NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:
+	// <networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not
+	// specified, VMI namespace is assumed.
+	NetworkAttachmentDefinitionName string `json:"networkAttachmentDefinitionName"`
+
+	// Name indicates the logical name of the interface.
+	Name string `json:"name"`
+}
+
 type TokenBucketRateLimiter struct {
 	// QPS indicates the maximum QPS to the apiserver from this client.
 	// If it's zero, the component default will be used
@@ -2210,6 +2286,19 @@ type KubeVirtConfiguration struct {
 	// field is set it overrides the cluster level one.
 	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
 
+	// AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure
+	// overhead. This is useful, since the calculation of this overhead is not accurate and cannot
+	// be entirely known in advance. The ratio that is being set determines by which factor to increase
+	// the overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised
+	// by node pressures, but would mean that fewer VMs could be scheduled to a node.
+	// If not set, the default is 1.
+	AdditionalGuestMemoryOverheadRatio *string `json:"additionalGuestMemoryOverheadRatio,omitempty"`
+
+	// +listType=map
+	// +listMapKey=type
+	// SupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.
+	SupportContainerResources []SupportContainerResources `json:"supportContainerResources,omitempty"`
+
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`
@@ -2223,6 +2312,11 @@ type KubeVirtConfiguration struct {
 	ControllerConfiguration        *ReloadableComponentConfiguration `json:"controllerConfiguration,omitempty"`
 	HandlerConfiguration           *ReloadableComponentConfiguration `json:"handlerConfiguration,omitempty"`
 	TLSConfiguration               *TLSConfiguration                 `json:"tlsConfiguration,omitempty"`
+	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
+
+	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
+	// The storage class must support RWX in filesystem mode.
+	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
 }
 
 type SMBiosConfiguration struct {
@@ -2231,6 +2325,25 @@ type SMBiosConfiguration struct {
 	Version      string `json:"version,omitempty"`
 	Sku          string `json:"sku,omitempty"`
 	Family       string `json:"family,omitempty"`
+}
+
+type SupportContainerType string
+
+const (
+	// HotplugAttachment is the container resources of the hotplug attachment pod used to hotplug a disk
+	HotplugAttachment SupportContainerType = "hotplug-disk"
+	// ContainerDisk is the container resources used to attach a container disk to the Virtual Machine
+	ContainerDisk SupportContainerType = "container-disk"
+	// VirtioFS is the container resources used to attach a virtio-fs volume to the Virtual Machine
+	VirtioFS SupportContainerType = "virtiofs"
+	// SideCar is the container resources for a side car
+	SideCar SupportContainerType = "sidecar"
+)
+
+// SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
+type SupportContainerResources struct {
+	Type      SupportContainerType       `json:"type"`
+	Resources k8sv1.ResourceRequirements `json:"resources"`
 }
 
 type TLSProtocolVersion string
@@ -2245,6 +2358,22 @@ const (
 	// VersionTLS13 is version 1.3 of the TLS security protocol.
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
+
+type CustomProfile struct {
+	LocalhostProfile      *string `json:"localhostProfile,omitempty"`
+	RuntimeDefaultProfile bool    `json:"runtimeDefaultProfile,omitempty"`
+}
+
+type VirtualMachineInstanceProfile struct {
+	// CustomProfile allows to request arbitrary profile for virt-launcher
+	CustomProfile *CustomProfile `json:"customProfile,omitempty"`
+}
+
+// SeccompConfiguration holds Seccomp configuration for Kubevirt components
+type SeccompConfiguration struct {
+	// VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none
+	VirtualMachineInstanceProfile *VirtualMachineInstanceProfile `json:"virtualMachineInstanceProfile,omitempty"`
+}
 
 // TLSConfiguration holds TLS options
 type TLSConfiguration struct {
@@ -2449,6 +2578,11 @@ type ClusterProfilerRequest struct {
 	PageSize      int64  `json:"pageSize"`
 }
 
+type Matcher interface {
+	GetName() string
+	GetRevisionName() string
+}
+
 // InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.
 type InstancetypeMatcher struct {
 	// Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
@@ -2478,6 +2612,14 @@ type InstancetypeMatcher struct {
 	InferFromVolume string `json:"inferFromVolume,omitempty"`
 }
 
+func (i InstancetypeMatcher) GetName() string {
+	return i.Name
+}
+
+func (i InstancetypeMatcher) GetRevisionName() string {
+	return i.RevisionName
+}
+
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
 type PreferenceMatcher struct {
 	// Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
@@ -2505,4 +2647,12 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	InferFromVolume string `json:"inferFromVolume,omitempty"`
+}
+
+func (p PreferenceMatcher) GetName() string {
+	return p.Name
+}
+
+func (p PreferenceMatcher) GetRevisionName() string {
+	return p.RevisionName
 }

@@ -16,10 +16,10 @@ require (
 	k8s.io/apimachinery v0.26.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	kubevirt.io/api v0.59.0
-	kubevirt.io/client-go v0.59.0-alpha.2
+	kubevirt.io/api v1.0.0-alpha.0
+	kubevirt.io/client-go v1.0.0-alpha.0
 	kubevirt.io/containerized-data-importer-api v1.56.0
-	kubevirt.io/kubevirt v0.59.0-alpha.2
+	kubevirt.io/kubevirt v1.0.0-alpha.0
 	kubevirt.io/qe-tools v0.1.8
 )
 
@@ -45,8 +45,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cilium/ebpf v0.9.1 // indirect
-	github.com/containernetworking/plugins v1.1.1 // indirect
-	github.com/coreos/go-systemd/v22 v22.4.0 // indirect
 	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
@@ -92,11 +90,9 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
-	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
-	github.com/opencontainers/selinux v1.10.1 // indirect
 	github.com/openshift/client-go v0.0.0 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/operator-framework/api v0.17.3 // indirect
@@ -109,8 +105,6 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5 // indirect
-	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
@@ -216,8 +210,8 @@ replace (
 	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.85.2
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-	kubevirt.io/api => kubevirt.io/api v0.59.0-alpha.2
-	kubevirt.io/client-go => kubevirt.io/client-go v0.59.0-alpha.2
+	kubevirt.io/api => kubevirt.io/api v1.0.0-alpha.0
+	kubevirt.io/client-go => kubevirt.io/client-go v1.0.0-alpha.0
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.56.0
 )
 

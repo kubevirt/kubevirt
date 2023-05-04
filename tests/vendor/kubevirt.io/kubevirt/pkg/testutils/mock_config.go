@@ -60,6 +60,14 @@ func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
 	}
 }
 
+func NewFakePersistentVolumeSource() *KVv1.PersistentVolumeClaimVolumeSource {
+	return &KVv1.PersistentVolumeClaimVolumeSource{
+		PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
+			ClaimName: "fake-pvc",
+		},
+	}
+}
+
 func NewFakeMemoryDumpSource(name string) *KVv1.MemoryDumpVolumeSource {
 	return &KVv1.MemoryDumpVolumeSource{
 		PersistentVolumeClaimVolumeSource: KVv1.PersistentVolumeClaimVolumeSource{

@@ -8,6 +8,8 @@ import (
 	"io"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/tests/flags"
@@ -24,13 +26,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-func ExpectMigrationSuccess(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+func ExpectMigrationSuccess(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	return expectMigrationSuccessWithOffset(2, virtClient, migration, timeout)
 }
 
-func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	By("Waiting until the Migration Completes")
-	uid := ""
 	EventuallyWithOffset(offset, func() error {
 		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 		if err != nil {
@@ -39,17 +40,16 @@ func expectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtCli
 
 		ExpectWithOffset(offset+1, migration.Status.Phase).ToNot(Equal(v1.MigrationFailed), "migration should not fail")
 
-		uid = string(migration.UID)
 		if migration.Status.Phase == v1.MigrationSucceeded {
 			return nil
 		}
 		return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
 
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
-	return uid
+	return migration
 }
 
-func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	migration = RunMigration(virtClient, migration)
 
 	return ExpectMigrationSuccess(virtClient, migration, timeout)
@@ -64,7 +64,24 @@ func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachin
 	return migrationCreated
 }
 
-func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migrationUID string) *v1.VirtualMachineInstance {
+func ConfirmMigrationDataIsStored(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) {
+	By("Retrieving the VMI and the migration object")
+	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+	migration, migerr := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+	Expect(migerr).ToNot(HaveOccurred(), "should have been able to retrive the migration")
+
+	By("Verifying the stored migration state")
+	Expect(migration.Status.MigrationState).ToNot(BeNil(), "should have been able to retrieve the migration `Status::MigrationState`")
+	Expect(vmi.Status.MigrationState.StartTimestamp).To(Equal(migration.Status.MigrationState.StartTimestamp), "the VMI and the migration `Status::MigrationState::StartTimestamp` should be equal")
+	Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(migration.Status.MigrationState.EndTimestamp), "the VMI and the migration `Status::MigrationState::EndTimestamp` should be equal")
+	Expect(vmi.Status.MigrationState.Completed).To(Equal(migration.Status.MigrationState.Completed), "the VMI and migration completed state should be equal")
+	Expect(vmi.Status.MigrationState.Failed).To(Equal(migration.Status.MigrationState.Failed), "the VMI nad migration failed status must be equal")
+	Expect(vmi.Status.MigrationState.MigrationUID).To(Equal(migration.Status.MigrationState.MigrationUID), "the VMI migration UID and the migration object UID should match")
+	return
+}
+
+func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstance {
 	By("Retrieving the VMI post migration")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
@@ -73,12 +90,13 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	Expect(vmi.Status.MigrationState).ToNot(BeNil(), "should have been able to retrieve the VMIs `Status::MigrationState`")
 	Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil(), "the VMIs `Status::MigrationState` should have a StartTimestamp")
 	Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil(), "the VMIs `Status::MigrationState` should have a EndTimestamp")
+	Expect(vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil(), "the VMIs `Status::MigrationState` should have a TargetNodeDomainReadyTimestamp")
 	Expect(vmi.Status.MigrationState.TargetNode).To(Equal(vmi.Status.NodeName), "the VMI should have migrated to the desired node")
 	Expect(vmi.Status.MigrationState.TargetNode).NotTo(Equal(vmi.Status.MigrationState.SourceNode), "the VMI must have migrated to a different node from the one it originated from")
 	Expect(vmi.Status.MigrationState.Completed).To(BeTrue(), "the VMI migration state must have completed")
 	Expect(vmi.Status.MigrationState.Failed).To(BeFalse(), "the VMI migration status must not have failed")
 	Expect(vmi.Status.MigrationState.TargetNodeAddress).NotTo(Equal(""), "the VMI `Status::MigrationState::TargetNodeAddress` must not be empty")
-	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID), "the VMI migration UID must be the expected one")
+	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(string(migration.UID)), "the VMI migration UID must be the expected one")
 
 	By("Verifying the VMI's is in the running state")
 	Expect(vmi.Status.Phase).To(Equal(v1.Running), "the VMI must be in `Running` state after the migration")
@@ -87,8 +105,7 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 }
 
 func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
-	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
 

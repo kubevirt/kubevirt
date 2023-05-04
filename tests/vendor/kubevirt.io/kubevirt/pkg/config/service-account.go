@@ -23,8 +23,6 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 // GetServiceAccountDiskPath returns a path to the ServiceAccount iso image
@@ -32,29 +30,22 @@ func GetServiceAccountDiskPath() string {
 	return filepath.Join(ServiceAccountDiskDir, ServiceAccountDiskName)
 }
 
+type serviceAccountVolumeInfo struct{}
+
+func (i serviceAccountVolumeInfo) isValidType(v *v1.Volume) bool {
+	return v.ServiceAccount != nil
+}
+func (i serviceAccountVolumeInfo) getSourcePath(v *v1.Volume) string {
+	return ServiceAccountSourceDir
+}
+func (i serviceAccountVolumeInfo) getIsoPath(v *v1.Volume) string {
+	return GetServiceAccountDiskPath()
+}
+func (i serviceAccountVolumeInfo) getLabel(v *v1.Volume) string {
+	return ""
+}
+
 // CreateServiceAccountDisk creates the ServiceAccount iso disk which is attached to vmis
 func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance, emptyIso bool) error {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.ServiceAccount != nil {
-			var filesPath []string
-			filesPath, err := getFilesLayout(ServiceAccountSourceDir)
-			if err != nil {
-				return err
-			}
-
-			disk := GetServiceAccountDiskPath()
-			vmiIsoSize, err := findIsoSize(vmi, &volume, emptyIso)
-			if err != nil {
-				return err
-			}
-			if err := createIsoConfigImage(disk, "", filesPath, vmiIsoSize); err != nil {
-				return err
-			}
-
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(disk); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return createIsoDisksForConfigVolumes(vmi, emptyIso, serviceAccountVolumeInfo{})
 }

@@ -105,9 +105,9 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Domain struct {
 	metav1.TypeMeta
-	ObjectMeta metav1.ObjectMeta
-	Spec       DomainSpec
-	Status     DomainStatus
+	metav1.ObjectMeta `json:"ObjectMeta"`
+	Spec              DomainSpec
+	Status            DomainStatus
 }
 
 type DomainStatus struct {
@@ -476,8 +476,9 @@ type TPM struct {
 }
 
 type TPMBackend struct {
-	Type    string `xml:"type,attr"`
-	Version string `xml:"version,attr"`
+	Type            string `xml:"type,attr"`
+	Version         string `xml:"version,attr"`
+	PersistentState string `xml:"persistent_state,attr,omitempty"`
 }
 
 // RedirectedDevice describes a device to be redirected
@@ -629,6 +630,7 @@ type DiskSource struct {
 	Protocol      string          `xml:"protocol,attr,omitempty"`
 	Name          string          `xml:"name,attr,omitempty"`
 	Host          *DiskSourceHost `xml:"host,omitempty"`
+	Reservations  *Reservations   `xml:"reservations,omitempty"`
 }
 
 type DiskTarget struct {
@@ -667,6 +669,17 @@ type BackingStoreFormat struct {
 type BlockIO struct {
 	LogicalBlockSize  uint `xml:"logical_block_size,attr,omitempty"`
 	PhysicalBlockSize uint `xml:"physical_block_size,attr,omitempty"`
+}
+
+type Reservations struct {
+	Managed            string              `xml:"managed,attr,omitempty"`
+	SourceReservations *SourceReservations `xml:"source,omitempty"`
+}
+
+type SourceReservations struct {
+	Type string `xml:"type,attr"`
+	Path string `xml:"path,attr,omitempty"`
+	Mode string `xml:"mode,attr,omitempty"`
 }
 
 // END Disk -----------------------------
@@ -730,6 +743,11 @@ type Interface struct {
 	Alias               *Alias           `xml:"alias,omitempty"`
 	Driver              *InterfaceDriver `xml:"driver,omitempty"`
 	Rom                 *Rom             `xml:"rom,omitempty"`
+	ACPI                *ACPI            `xml:"acpi,omitempty"`
+}
+
+type ACPI struct {
+	Index uint `xml:"index,attr"`
 }
 
 type InterfaceDriver struct {
@@ -1032,10 +1050,11 @@ type Stats struct {
 }
 
 type MemBalloon struct {
-	Model   string            `xml:"model,attr"`
-	Stats   *Stats            `xml:"stats,omitempty"`
-	Address *Address          `xml:"address,omitempty"`
-	Driver  *MemBalloonDriver `xml:"driver,omitempty"`
+	Model             string            `xml:"model,attr"`
+	Stats             *Stats            `xml:"stats,omitempty"`
+	Address           *Address          `xml:"address,omitempty"`
+	Driver            *MemBalloonDriver `xml:"driver,omitempty"`
+	FreePageReporting string            `xml:"freePageReporting,attr,omitempty"`
 }
 
 type MemBalloonDriver struct {

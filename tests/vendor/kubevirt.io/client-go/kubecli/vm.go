@@ -55,13 +55,13 @@ type vm struct {
 }
 
 // Create new VirtualMachine in the cluster to specified namespace
-func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (v *vm) Create(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
 	err := v.restClient.Post().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Body(vm).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVm)
 
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
@@ -70,14 +70,14 @@ func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 }
 
 // Get the Virtual machine from the cluster by its name and namespace
-func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
+func (v *vm) Get(ctx context.Context, name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
 	err := v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVm)
 
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
@@ -85,12 +85,12 @@ func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine
 	return newVm, err
 }
 
-func (v *vm) GetWithExpandedSpec(name string) (*v1.VirtualMachine, error) {
+func (v *vm) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "expand-spec")
 	newVm := &v1.VirtualMachine{}
 	err := v.restClient.Get().
 		AbsPath(uri).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVm)
 
 	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
@@ -99,14 +99,14 @@ func (v *vm) GetWithExpandedSpec(name string) (*v1.VirtualMachine, error) {
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
-func (v *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (v *vm) Update(ctx context.Context, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	updatedVm := &v1.VirtualMachine{}
 	err := v.restClient.Put().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(vm.Name).
 		Body(vm).
-		Do(context.Background()).
+		Do(ctx).
 		Into(updatedVm)
 
 	updatedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
@@ -115,26 +115,26 @@ func (v *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 }
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
-func (v *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
+func (v *vm) Delete(ctx context.Context, name string, options *k8smetav1.DeleteOptions) error {
 	err := v.restClient.Delete().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		Name(name).
 		Body(options).
-		Do(context.Background()).
+		Do(ctx).
 		Error()
 
 	return err
 }
 
 // List all VirtualMachines in given namespace
-func (v *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
+func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
 	newVmList := &v1.VirtualMachineList{}
 	err := v.restClient.Get().
 		Resource(v.resource).
 		Namespace(v.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
-		Do(context.Background()).
+		Do(ctx).
 		Into(newVmList)
 
 	for _, vm := range newVmList.Items {
@@ -144,7 +144,7 @@ func (v *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error
 	return newVmList, err
 }
 
-func (v *vm) Patch(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
+func (v *vm) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions, subresources ...string) (result *v1.VirtualMachine, err error) {
 	result = &v1.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
@@ -153,12 +153,12 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, patchOptions *k
 		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return result, err
 }
 
-func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
+func (v *vm) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, patchOptions *k8smetav1.PatchOptions) (result *v1.VirtualMachine, err error) {
 	result = &v1.VirtualMachine{}
 	err = v.restClient.Patch(pt).
 		Namespace(v.namespace).
@@ -167,12 +167,12 @@ func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte, patchOpti
 		VersionedParams(patchOptions, scheme.ParameterCodec).
 		Name(name).
 		Body(data).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	return
 }
 
-func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
+func (v *vm) UpdateStatus(ctx context.Context, vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
 	result = &v1.VirtualMachine{}
 	err = v.restClient.Put().
 		Name(vmi.ObjectMeta.Name).
@@ -180,68 +180,68 @@ func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, er
 		Resource(v.resource).
 		SubResource("status").
 		Body(vmi).
-		Do(context.Background()).
+		Do(ctx).
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	return
 }
 
-func (v *vm) Restart(name string, restartOptions *v1.RestartOptions) error {
+func (v *vm) Restart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "restart")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vm) ForceRestart(name string, restartOptions *v1.RestartOptions) error {
+func (v *vm) ForceRestart(ctx context.Context, name string, restartOptions *v1.RestartOptions) error {
 	body, err := json.Marshal(restartOptions)
 	if err != nil {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "restart")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vm) Start(name string, startOptions *v1.StartOptions) error {
+func (v *vm) Start(ctx context.Context, name string, startOptions *v1.StartOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "start")
 
 	optsJson, err := json.Marshal(startOptions)
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(ctx).Error()
 }
 
-func (v *vm) Stop(name string, stopOptions *v1.StopOptions) error {
+func (v *vm) Stop(ctx context.Context, name string, stopOptions *v1.StopOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "stop")
 	optsJson, err := json.Marshal(stopOptions)
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(ctx).Error()
 }
 
-func (v *vm) ForceStop(name string, stopOptions *v1.StopOptions) error {
+func (v *vm) ForceStop(ctx context.Context, name string, stopOptions *v1.StopOptions) error {
 	body, err := json.Marshal(stopOptions)
 	if err != nil {
 		return fmt.Errorf(cannotMarshalJSONErrFmt, err)
 	}
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "stop")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vm) Migrate(name string, migrateOptions *v1.MigrateOptions) error {
+func (v *vm) Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "migrate")
 	optsJson, err := json.Marshal(migrateOptions)
 	if err != nil {
 		return err
 	}
-	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body(optsJson).Do(ctx).Error()
 }
 
-func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
+func (v *vm) MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "memorydump")
 
 	JSON, err := json.Marshal(memoryDumpRequest)
@@ -249,16 +249,16 @@ func (v *vm) MemoryDump(name string, memoryDumpRequest *v1.VirtualMachineMemoryD
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vm) RemoveMemoryDump(name string) error {
+func (v *vm) RemoveMemoryDump(ctx context.Context, name string) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removememorydump")
 
-	return v.restClient.Put().AbsPath(uri).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Do(ctx).Error()
 }
 
-func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error {
+func (v *vm) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addvolume")
 
 	JSON, err := json.Marshal(addVolumeOptions)
@@ -267,10 +267,10 @@ func (v *vm) AddVolume(name string, addVolumeOptions *v1.AddVolumeOptions) error
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
-func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
+func (v *vm) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error {
 	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removevolume")
 
 	JSON, err := json.Marshal(removeVolumeOptions)
@@ -279,9 +279,20 @@ func (v *vm) RemoveVolume(name string, removeVolumeOptions *v1.RemoveVolumeOptio
 		return err
 	}
 
-	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(context.Background()).Error()
+	return v.restClient.Put().AbsPath(uri).Body([]byte(JSON)).Do(ctx).Error()
 }
 
 func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
+}
+
+func (v *vm) AddInterface(ctx context.Context, name string, addInterfaceOptions *v1.AddInterfaceOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addinterface")
+
+	JSON, err := json.Marshal(addInterfaceOptions)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
 }

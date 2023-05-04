@@ -68,7 +68,7 @@ const (
 	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
 	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10
-	DefaultDiskVerificationMemoryLimitMBytes        = 1700
+	DefaultDiskVerificationMemoryLimitMBytes        = 2000
 	DefaultVirtAPILogVerbosity                      = 2
 	DefaultVirtControllerLogVerbosity               = 2
 	DefaultVirtHandlerLogVerbosity                  = 2
@@ -169,32 +169,32 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
 }
 
-func (c *ClusterConfig) SetVMIDefaultNetworkInterface(vmi *v1.VirtualMachineInstance) error {
-	autoAttach := vmi.Spec.Domain.Devices.AutoattachPodInterface
+func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
+	autoAttach := spec.Domain.Devices.AutoattachPodInterface
 	if autoAttach != nil && *autoAttach == false {
 		return nil
 	}
 
 	// Override only when nothing is specified
-	if len(vmi.Spec.Networks) == 0 && len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
+	if len(spec.Networks) == 0 && len(spec.Domain.Devices.Interfaces) == 0 {
 		iface := v1.NetworkInterfaceType(c.GetDefaultNetworkInterface())
 		switch iface {
 		case v1.BridgeInterface:
 			if !c.IsBridgeInterfaceOnPodNetworkEnabled() {
 				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
 			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		case v1.MasqueradeInterface:
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+			spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 		case v1.SlirpInterface:
 			if !c.IsSlirpInterfaceEnabled() {
 				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
 			}
 			defaultIface := v1.DefaultSlirpNetworkInterface()
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+			spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
 		}
 
-		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	}
 	return nil
 }
@@ -241,6 +241,30 @@ func (c *ClusterConfig) GetMinimumClusterTSCFrequency() *int64 {
 
 func (c *ClusterConfig) GetPermittedHostDevices() *v1.PermittedHostDevices {
 	return c.GetConfig().PermittedHostDevices
+}
+
+func (c *ClusterConfig) GetSupportContainerRequest(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity {
+	for _, containerResource := range c.GetConfig().SupportContainerResources {
+		if containerResource.Type == typeName {
+			quantity := containerResource.Resources.Requests[resourceName]
+			if !quantity.IsZero() {
+				return &quantity
+			}
+		}
+	}
+	return nil
+}
+
+func (c *ClusterConfig) GetSupportContainerLimit(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity {
+	for _, containerResource := range c.GetConfig().SupportContainerResources {
+		if containerResource.Type == typeName {
+			quantity := containerResource.Resources.Limits[resourceName]
+			if !quantity.IsZero() {
+				return &quantity
+			}
+		}
+	}
+	return nil
 }
 
 func canSelectNode(nodeSelector map[string]string, node *k8sv1.Node) bool {
@@ -358,4 +382,19 @@ func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 // GetClusterCPUArch return the CPU architecture in ClusterConfig
 func (c *ClusterConfig) GetClusterCPUArch() string {
 	return c.cpuArch
+}
+
+// GetDeveloperConfigurationUseEmulation return the UseEmulation value in DeveloperConfiguration
+func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
+	config := c.GetConfig()
+
+	if config.DeveloperConfiguration != nil {
+		return config.DeveloperConfiguration.UseEmulation
+	}
+
+	return false
+}
+
+func (c *ClusterConfig) GetVMStateStorageClass() string {
+	return c.GetConfig().VMStateStorageClass
 }

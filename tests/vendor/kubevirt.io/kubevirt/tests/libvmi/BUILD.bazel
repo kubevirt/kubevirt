@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cloudinit.go",
+        "config.go",
         "cpu.go",
         "factory.go",
         "memory.go",
@@ -16,16 +17,16 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/framework/checks:go_default_library",
+        "//tests/framework/kubevirt:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/testsuite:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )

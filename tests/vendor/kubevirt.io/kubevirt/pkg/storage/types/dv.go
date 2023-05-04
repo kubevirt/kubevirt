@@ -171,8 +171,12 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 		return nil, err
 	}
 
-	if cloneSource != nil && newDataVolume.Spec.SourceRef != nil {
-		newDataVolume.Spec.SourceRef = nil
+	if cloneSource != nil {
+		// If SourceRef is set, populate spec.Source with data from the DataSource
+		// If not, update the field anyway to account for possible namespace changes
+		if newDataVolume.Spec.SourceRef != nil {
+			newDataVolume.Spec.SourceRef = nil
+		}
 		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
 			PVC: &cdiv1.DataVolumeSourcePVC{
 				Namespace: cloneSource.Namespace,
@@ -183,6 +187,7 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 
 	return newDataVolume, nil
 }
+
 func GetDataVolumeFromCache(namespace, name string, dataVolumeInformer cache.SharedInformer) (*cdiv1.DataVolume, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := dataVolumeInformer.GetStore().GetByKey(key)

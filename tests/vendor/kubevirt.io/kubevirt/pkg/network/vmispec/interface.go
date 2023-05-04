@@ -23,12 +23,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const (
-	InfoSourceDomain      string = "domain"
-	InfoSourceGuestAgent  string = "guest-agent"
-	InfoSourceDomainAndGA string = InfoSourceDomain + ", " + InfoSourceGuestAgent
-)
-
 func FilterSRIOVInterfaces(ifaces []v1.Interface) []v1.Interface {
 	var sriovIfaces []v1.Interface
 	for _, iface := range ifaces {
@@ -62,6 +56,15 @@ func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []
 	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
 		if podInterface := LookupInterfaceByNetwork(ifaces, podNetwork); podInterface != nil {
 			return podInterface.Masquerade != nil
+		}
+	}
+	return true
+}
+
+func IsPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
+	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
+		if podInterface := LookupInterfaceByNetwork(ifaces, podNetwork); podInterface != nil {
+			return podInterface.Bridge != nil
 		}
 	}
 	return true

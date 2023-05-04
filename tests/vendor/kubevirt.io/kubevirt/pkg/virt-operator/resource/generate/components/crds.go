@@ -393,6 +393,7 @@ func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
 
 func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
+	labelSelector := ".status.labelSelector"
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEPOOL
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
@@ -414,6 +415,27 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
 				"all",
 			},
 		},
+	}
+
+	err := addFieldsToAllVersions(crd,
+		[]extv1.CustomResourceColumnDefinition{
+			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
+				Description: "Number of desired VirtualMachines"},
+			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
+				Description: "Number of managed and not final or deleted VirtualMachines"},
+			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
+				Description: "Number of managed VirtualMachines which are ready to receive traffic"},
+			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
+		}, &extv1.CustomResourceSubresources{
+			Scale: &extv1.CustomResourceSubresourceScale{
+				SpecReplicasPath:   ".spec.replicas",
+				StatusReplicasPath: ".status.replicas",
+				LabelSelectorPath:  &labelSelector,
+			},
+			Status: &extv1.CustomResourceSubresourceStatus{},
+		})
+	if err != nil {
+		return nil, err
 	}
 
 	if err := patchValidationForAllVersions(crd); err != nil {
@@ -628,7 +650,6 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 			Singular:   instancetype.ClusterSingularResourceName,
 			ShortNames: []string{"vmclusterinstancetype", "vmclusterinstancetypes", "vmcf", "vmcfs"},
 			Kind:       "VirtualMachineClusterInstancetype",
-			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,
 		Conversion: &extv1.CustomResourceConversion{
@@ -696,7 +717,6 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 			Singular:   instancetype.ClusterSingularPreferenceResourceName,
 			ShortNames: []string{"vmcp", "vmcps"},
 			Kind:       "VirtualMachineClusterPreference",
-			Categories: []string{"all"},
 		},
 		Scope: extv1.ClusterScoped,
 		Conversion: &extv1.CustomResourceConversion{

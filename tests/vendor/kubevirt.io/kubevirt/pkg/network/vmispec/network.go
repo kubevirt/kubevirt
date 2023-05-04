@@ -53,3 +53,11 @@ func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
 func IsSecondaryMultusNetwork(net v1.Network) bool {
 	return net.Multus != nil && !net.Multus.Default
 }
+
+func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {
+	indexedNetworks := map[string]v1.Network{}
+	for _, network := range networks {
+		indexedNetworks[network.Name] = network
+	}
+	return indexedNetworks
+}

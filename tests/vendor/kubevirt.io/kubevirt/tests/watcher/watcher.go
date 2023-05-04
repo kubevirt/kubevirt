@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -37,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
 
@@ -120,12 +121,25 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	cli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
+	cli := kubevirt.Client()
 
 	f := processFunc
+
+	objectRefOption := func(obj *v1.ObjectReference) []interface{} {
+		logParams := make([]interface{}, 0)
+		if obj == nil {
+			return logParams
+		}
+
+		if obj.Namespace != "" {
+			logParams = append(logParams, "namespace", obj.Namespace)
+		}
+		logParams = append(logParams, "name", obj.Name)
+		logParams = append(logParams, "kind", obj.Kind)
+		logParams = append(logParams, "uid", obj.UID)
+
+		return logParams
+	}
 
 	if w.warningPolicy.FailOnWarnings {
 		f = func(event *v1.Event) bool {
@@ -133,16 +147,16 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 			if w.warningPolicy.shouldIgnoreWarning(event) == false {
 				ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			}
-			log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
+			log.Log.With(objectRefOption(&event.InvolvedObject)).Info(msg)
 
 			return processFunc(event)
 		}
 	} else {
 		f = func(event *v1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("warning event received")).Error(event.Message)
+				log.Log.With(objectRefOption(&event.InvolvedObject)).Reason(fmt.Errorf("warning event received")).Error(event.Message)
 			} else {
-				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
+				log.Log.With(objectRefOption(&event.InvolvedObject)).Infof(event.Message)
 			}
 			return processFunc(event)
 		}
