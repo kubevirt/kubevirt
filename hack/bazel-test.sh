@@ -4,6 +4,8 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+WHAT=${WHAT:=-"//staging/src/kubevirt.io/client-go/... //pkg/... //cmd/... //tests/framework/..."}
+
 rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 if [ "${CI}" == "true" ]; then
@@ -28,4 +30,4 @@ fi
 bazel test \
     --config=${ARCHITECTURE} \
     --features race \
-    --test_output=errors -- //staging/src/kubevirt.io/client-go/... //pkg/... //cmd/... //tests/framework/...
+    --test_output=errors -- ${WHAT}
