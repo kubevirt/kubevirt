@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pborman/uuid"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -55,6 +56,52 @@ var _ = Describe("[sig-storage] VirtIO-FS feature gate", Serial, decorators.SigS
 	Context("[Serial]With feature gates disabled for", func() {
 		It("DataVolume, it should fail to start a VMI", func() {
 			vmi := libvmi.NewFedora(libvmi.WithFilesystemDV("something"))
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
+		})
+
+		It("config volumes, it should success to start a VMI", func() {
+			configMapName := "configmap-" + uuid.NewRandom().String()[:6]
+			configMapData := map[string]string{
+				"option1": "value1",
+				"option2": "value2",
+				"option3": "value3",
+			}
+			tests.CreateConfigMap(configMapName, testsuite.GetTestNamespace(nil), configMapData)
+
+			secretName := "secret-" + uuid.NewRandom().String()[:6]
+			secretData := map[string]string{
+				"user":     "admin",
+				"password": "redhat",
+			}
+			tests.CreateSecret(secretName, testsuite.GetTestNamespace(nil), secretData)
+
+			serviceAccountVolumeName := "default-disk"
+
+			downwardAPIName := "downwardapi-" + uuid.NewRandom().String()[:6]
+			testLabelKey := "kubevirt.io.testdownwardapi"
+			testLabelVal := "downwardAPIValue"
+
+			By("Creating VMI")
+			vmi := libvmi.NewFedora(
+				libvmi.WithConfigMapFs(configMapName, configMapName),
+				libvmi.WithSecretFs(secretName, secretName),
+				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
+				libvmi.WithLabel(testLabelKey, testLabelVal),
+				libvmi.WithDownwardAPIFs(downwardAPIName),
+			)
+
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("DataVolume and ServiceAccount, it should fail to start a VMI", func() {
+			serviceAccountVolumeName := "default-disk"
+			vmi := libvmi.NewFedora(
+				libvmi.WithFilesystemDV("something"),
+				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
+			)
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
