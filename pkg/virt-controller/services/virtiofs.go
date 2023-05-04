@@ -132,11 +132,6 @@ func securityContextVirtioFS(profile securityProfile) *k8sv1.SecurityContext {
 	}
 }
 
-func isConfig(volume *v1.Volume) bool {
-	return volume.ConfigMap != nil || volume.Secret != nil ||
-		volume.ServiceAccount != nil || volume.DownwardAPI != nil
-}
-
 func isAutoMount(volume *v1.Volume) bool {
 	// The template service sets pod.Spec.AutomountServiceAccountToken as true
 	return volume.ServiceAccount != nil
@@ -167,7 +162,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 
 	securityProfile := restricted
 	sandbox := "none"
-	if !isConfig(volume) {
+	if virtiofs.RequiresRootPrivileges(volume) {
 		securityProfile = privileged
 		sandbox = "chroot"
 		args = append(args, "--xattr")
