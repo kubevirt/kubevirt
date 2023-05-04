@@ -36,7 +36,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
-	ps "github.com/mitchellh/go-ps"
 	mount "github.com/moby/sys/mountinfo"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -61,7 +60,7 @@ type IsolationResult interface {
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
 	// returns the QEMU process
-	GetQEMUProcess() (ps.Process, error)
+	GetQEMUProcess() (Process, error)
 	// returns the KVM PIT pid
 	KvmPitPid() (int, error)
 }
@@ -153,8 +152,8 @@ func (r *RealIsolationResult) PPid() int {
 }
 
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func (r *RealIsolationResult) GetQEMUProcess() (ps.Process, error) {
-	processes, err := ps.Processes()
+func (r *RealIsolationResult) GetQEMUProcess() (Process, error) {
+	processes, err := Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
 	}
@@ -200,7 +199,7 @@ func (r *RealIsolationResult) KvmPitPid() (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	processes, _ := ps.Processes()
+	processes, _ := Processes()
 	nspid, err := GetNspid(qemuprocess.Pid())
 	if err != nil || nspid == -1 {
 		return -1, err

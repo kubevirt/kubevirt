@@ -75,8 +75,6 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 
-	ps "github.com/mitchellh/go-ps"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -2829,7 +2827,7 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 	hktids := make([]int, 0, 10)
 
 	for _, tid := range tids {
-		proc, err := ps.FindProcess(tid)
+		proc, err := isolation.FindProcess(tid)
 		if err != nil {
 			log.Log.Object(vmi).Errorf("Failure to find process: %s", err.Error())
 			return err

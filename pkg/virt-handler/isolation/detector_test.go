@@ -31,8 +31,6 @@ import (
 
 	"kubevirt.io/client-go/api"
 
-	"github.com/mitchellh/go-ps"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -126,7 +124,7 @@ var _ = Describe("findIsolatedQemuProcess", func() {
 	fakeProcess1 := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "fake-process-1"}
 	fakeProcess2 := ProcessStub{pid: 26, ppid: virtLauncherPid, binary: "fake-process-2"}
 	fakeProcess3 := ProcessStub{pid: 226, ppid: 26, binary: "fake-process-3"}
-	virtLauncherProcesses := []ps.Process{
+	virtLauncherProcesses := []Process{
 		fakeProcess1,
 		fakeProcess2,
 		fakeProcess3}
@@ -135,7 +133,7 @@ var _ = Describe("findIsolatedQemuProcess", func() {
 	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system"}
 
 	DescribeTable("should return QEMU process",
-		func(processes []ps.Process, pid int, expectedProcess ps.Process) {
+		func(processes []Process, pid int, expectedProcess Process) {
 			proc, err := findIsolatedQemuProcess(processes, pid)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(proc).To(Equal(expectedProcess))

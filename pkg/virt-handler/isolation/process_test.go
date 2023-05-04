@@ -20,8 +20,6 @@
 package isolation
 
 import (
-	"github.com/mitchellh/go-ps"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -32,16 +30,16 @@ var _ = Describe("process", func() {
 		processTestPID      = 110
 		nonExistPPid        = 300
 	)
-	emptyProcessList := []ps.Process{}
+	emptyProcessList := []Process{}
 	procStub1 := ProcessStub{ppid: 1, pid: 120, binary: processTestExecPath}
 	procStub2 := ProcessStub{ppid: processTestPID, pid: 2222, binary: "processB"}
 	procStub3 := ProcessStub{ppid: 1, pid: 110, binary: "processC"}
 	procStub4 := ProcessStub{ppid: processTestPID, pid: 3333, binary: "processD"}
-	testProcesses := []ps.Process{procStub1, procStub3, procStub2, procStub4}
+	testProcesses := []Process{procStub1, procStub3, procStub2, procStub4}
 
 	Context("find child processes", func() {
 		DescribeTable("should return the correct child processes of the given pid",
-			func(processes []ps.Process, ppid int, expectedProcesses []ps.Process) {
+			func(processes []Process, ppid int, expectedProcesses []Process) {
 				Expect(childProcesses(processes, ppid)).
 					To(ConsistOf(expectedProcesses))
 			},
@@ -52,7 +50,7 @@ var _ = Describe("process", func() {
 				testProcesses, nonExistPPid, emptyProcessList,
 			),
 			Entry("given process list and pid where there are child processes of the given pid",
-				testProcesses, processTestPID, []ps.Process{procStub2, procStub4},
+				testProcesses, processTestPID, []Process{procStub2, procStub4},
 			),
 		)
 	})
@@ -61,7 +59,7 @@ var _ = Describe("process", func() {
 		procStub5 := ProcessStub{ppid: 100, pid: 220, binary: processTestExecPath}
 
 		DescribeTable("should find no process",
-			func(processes []ps.Process, executable string) {
+			func(processes []Process, executable string) {
 				Expect(lookupProcessByExecutable(processes, executable)).To(BeNil())
 			},
 			Entry("given no input processes and empty string as executable",
@@ -76,7 +74,7 @@ var _ = Describe("process", func() {
 		)
 
 		DescribeTable("should return the first occurrence of a process that runs the given executable",
-			func(processes []ps.Process, executable string, expectedProcess ps.Process) {
+			func(processes []Process, executable string, expectedProcess Process) {
 				Expect(lookupProcessByExecutable(processes, executable)).
 					To(Equal(expectedProcess))
 			},

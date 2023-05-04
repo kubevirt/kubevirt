@@ -29,7 +29,6 @@ import (
 	"time"
 	"unsafe"
 
-	ps "github.com/mitchellh/go-ps"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -120,7 +119,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 	}
 	launcherPid := res.Pid()
 
-	processes, err := ps.Processes()
+	processes, err := Processes()
 	if err != nil {
 		return fmt.Errorf("failed to get all processes: %v", err)
 	}
@@ -188,7 +187,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 var qemuProcessExecutables = []string{"qemu-system", "qemu-kvm"}
 
 // findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
-func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
+func findIsolatedQemuProcess(processes []Process, pid int) (Process, error) {
 	processes = childProcesses(processes, pid)
 	for _, exec := range qemuProcessExecutables {
 		if qemuProcess := lookupProcessByExecutable(processes, exec); qemuProcess != nil {
@@ -245,7 +244,7 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 }
 
 func getPPid(pid int) (int, error) {
-	process, err := ps.FindProcess(pid)
+	process, err := FindProcess(pid)
 	if err != nil {
 		return -1, err
 	}
