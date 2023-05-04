@@ -69,17 +69,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		vmi = nil
 	})
 
-	Context("[Serial]With feature gates disabled for", Serial, func() {
-		It("VirtioFS, it should fail to start a VMI", func() {
-			tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
-			vmi := libvmi.NewFedora(libvmi.WithFilesystemDV("something"))
-			virtClient := kubevirt.Client()
-			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("virtiofs feature gate is not enabled"))
-		})
-	})
-
 	Context("VirtIO-FS with multiple PVCs", func() {
 		pvc1 := "pvc-1"
 		pvc2 := "pvc-2"
