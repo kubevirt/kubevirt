@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -169,6 +170,23 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			By("Restoring virt-handler")
 			restoreVirtHandler(kv)
 			waitUntilAlertDoesNotExist(virtClient, "KubeVirtNoAvailableNodesToRunVMs")
+		})
+	})
+
+	Context("Deprecation Alerts", decorators.SigComputeMigrations, func() {
+		It("KubeVirtDeprecatedAPIsRequested should be triggered when a deprecated API is requested", func() {
+			By("Creating a VMI with deprecated API version")
+			vmi := libvmi.NewCirros()
+			vmi.APIVersion = "v1alpha3"
+			vmi.Namespace = testsuite.GetTestNamespace(vmi)
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the alert exists")
+			verifyAlertExist(virtClient, "KubeVirtDeprecatedAPIsRequested")
+
+			By("Verifying the alert disappears")
+			waitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIsRequested")
 		})
 	})
 

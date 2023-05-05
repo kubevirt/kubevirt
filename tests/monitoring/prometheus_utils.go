@@ -311,7 +311,7 @@ func verifyAlertExist(virtClient kubecli.KubevirtClient, alertName string) {
 	verifyAlertExistWithCustomTime(virtClient, alertName, 120*time.Second)
 }
 
-func waitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ...string) {
+func waitUntilAlertDoesNotExistWithCustomTime(virtClient kubecli.KubevirtClient, timeout time.Duration, alertNames ...string) {
 	presentAlert := EventuallyWithOffset(1, func() string {
 		for _, name := range alertNames {
 			if checkAlertExists(virtClient, name) {
@@ -319,9 +319,13 @@ func waitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ..
 			}
 		}
 		return ""
-	}, 5*time.Minute, 1*time.Second)
+	}, timeout, 1*time.Second)
 
 	presentAlert.Should(BeEmpty(), "Alert %v should not exist", presentAlert)
+}
+
+func waitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ...string) {
+	waitUntilAlertDoesNotExistWithCustomTime(virtClient, 5*time.Minute, alertNames...)
 }
 
 func reduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
