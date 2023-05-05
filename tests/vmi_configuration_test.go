@@ -2508,6 +2508,23 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
+
+				virtClient := kubevirt.Client()
+				pscmd := []string{"ps", "-C", "qemu-kvm", "-o", "pid", "--noheader"}
+				_, err = exec.ExecuteCommandOnPod(
+					virtClient, readyPod, "compute", pscmd)
+				// do not check for kvm-pit thread if qemu-kvm is not in use
+				if err != nil {
+					return
+				}
+				kvmpitmask, err := tests.GetKvmPitMask(readyPod, node)
+				Expect(err).ToNot(HaveOccurred())
+
+				vcpuzeromask, err := tests.GetVcpuMask(readyPod, "0")
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(kvmpitmask).To(Equal(vcpuzeromask))
+
 			},
 				Entry("with explicit resources set", &virtv1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
