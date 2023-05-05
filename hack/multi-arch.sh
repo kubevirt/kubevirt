@@ -28,5 +28,5 @@ if [ "$build_count" -gt 1 ]; then
         DOCKER_TAG=$DOCKER_TAG-$arch ARCHITECTURE=$arch hack/bazel-${COMMAND}.sh
     done
 else
-    hack/bazel-${COMMAND}.sh
+    ARCHITECTURE=${BUILD_ARCH} hack/bazel-${COMMAND}.sh
 fi
