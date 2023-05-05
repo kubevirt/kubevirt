@@ -1,3 +1,4 @@
+//nolint:dupl,lll
 package instancetype_test
 
 import (
@@ -37,6 +38,7 @@ import (
 
 const resourceUID types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
 const resourceGeneration int64 = 1
+const nonExistingResourceName = "non-existing-resource"
 
 var _ = Describe("Instancetype and Preferences", func() {
 	var (
@@ -204,7 +206,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find fails when instancetype does not exist", func() {
-				vm.Spec.Instancetype.Name = "non-existing-instancetype"
+				vm.Spec.Instancetype.Name = nonExistingResourceName
 				_, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -244,7 +246,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store fails when instancetype does not exist", func() {
-				vm.Spec.Instancetype.Name = "non-existing-instancetype"
+				vm.Spec.Instancetype.Name = nonExistingResourceName
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -386,7 +388,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find fails when instancetype does not exist", func() {
-				vm.Spec.Instancetype.Name = "non-existing-instancetype"
+				vm.Spec.Instancetype.Name = nonExistingResourceName
 				_, err := instancetypeMethods.FindInstancetypeSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -408,7 +410,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store fails when instancetype does not exist", func() {
-				vm.Spec.Instancetype.Name = "non-existing-instancetype"
+				vm.Spec.Instancetype.Name = nonExistingResourceName
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -632,7 +634,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find fails when preference does not exist", func() {
-				vm.Spec.Preference.Name = "non-existing-preference"
+				vm.Spec.Preference.Name = nonExistingResourceName
 				_, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -654,7 +656,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
-				vm.Spec.Preference.Name = "non-existing-preference"
+				vm.Spec.Preference.Name = nonExistingResourceName
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -761,7 +763,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find fails when preference does not exist", func() {
-				vm.Spec.Preference.Name = "non-existing-preference"
+				vm.Spec.Preference.Name = nonExistingResourceName
 				_, err := instancetypeMethods.FindPreferenceSpec(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
@@ -784,7 +786,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("store fails when VirtualMachinePreference doesn't exist", func() {
-				vm.Spec.Preference.Name = "non-existing-preference"
+				vm.Spec.Preference.Name = nonExistingResourceName
 				err := instancetypeMethods.StoreControllerRevisions(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
