@@ -14,6 +14,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -105,26 +106,32 @@ func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(vmi *v1.VirtualMachineInstance) []string {
-	macvtap := map[string]bool{}
+func getTapDevices(vmi *v1.VirtualMachineInstance) ([]string, error) {
+	macvtap := map[string]struct{}{}
 	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
 		if inf.Macvtap != nil {
-			macvtap[inf.Name] = true
+			macvtap[inf.Name] = struct{}{}
 		}
 	}
 
+	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
 	tapDevices := []string{}
 	for _, net := range vmi.Spec.Networks {
-		_, ok := macvtap[net.Name]
-		if ok {
-			tapDevices = append(tapDevices, net.Multus.NetworkName)
+		_, isMacvtapNetwork := macvtap[net.Name]
+		if podInterfaceName, exists := networkNameScheme[net.Name]; isMacvtapNetwork && exists {
+			tapDevices = append(tapDevices, podInterfaceName)
+		} else if isMacvtapNetwork && !exists {
+			return nil, fmt.Errorf("network %q not found in naming scheme: this should never happen", net.Name)
 		}
 	}
-	return tapDevices
+	return tapDevices, nil
 }
 
 func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	tapDevices := getTapDevices(vmi)
+	tapDevices, err := getTapDevices(vmi)
+	if err != nil {
+		return err
+	}
 	for _, tap := range tapDevices {
 		path, err := isolation.SafeJoin(res, "sys", "class", "net", tap, "ifindex")
 		if err != nil {
