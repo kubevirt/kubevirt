@@ -594,9 +594,9 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 					"-f",
 					"qcow2",
 					"-b",
-					disk.BackingFileArg,
 					backingFilePath,
 					imagePath,
+					disk.BackingFileArg,
 				).CombinedOutput()
 				if err != nil {
 					logger.Errorf("qemu-img create backing_file err: %v, output: %s", err, output)
