@@ -588,6 +588,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 			_, err := os.Stat(imagePath)
 			if err != nil && os.IsNotExist(err) {
 				backingFilePath := fmt.Sprintf("/var/run/kubevirt-private/backingfile/%s/disk.img", disk.Name)
+				logger.Infof("qemu-img create -f qcow2 -b %s %s %s", disk.BackingFileArg, backingFilePath, imagePath)
 				output, err := exec.Command("qemu-img",
 					"create",
 					"-f",
@@ -598,7 +599,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 					imagePath,
 				).CombinedOutput()
 				if err != nil {
-					logger.Errorf("qemu-img create backing_file err: %v", err)
+					logger.Errorf("qemu-img create backing_file err: %v, output: %s", err, output)
 					return nil, err
 				}
 				logger.Infof("qemu-img create backing_file output %s", output)
