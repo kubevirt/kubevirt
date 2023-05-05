@@ -2912,6 +2912,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			if testingPciFunctions {
 				assignDisksToFunctions(startIndex, vmi)
 			} else {
+				tests.DisableFeatureGate(virtconfig.ExpandDisksGate)
 				assignDisksToSlots(startIndex, vmi)
 			}
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
@@ -2922,7 +2923,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:5269]across all available PCI root bus slots", 2, numOfSlotsToTest, false),
+			Entry("[Serial][test_id:5269]across all available PCI root bus slots", Serial, 2, numOfSlotsToTest, false),
 			Entry("[test_id:5270]across all available PCI functions of a single slot", 0, numOfFuncsToTest, true),
 		)
 	})
