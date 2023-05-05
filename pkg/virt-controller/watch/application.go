@@ -612,8 +612,6 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
-		vca.namespaceStore,
-		vca.onOpenshift,
 	)
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
