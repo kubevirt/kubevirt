@@ -15582,23 +15582,29 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 					},
 					"imageType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "image type raw or qcow2",
+							Description: "If specified, will set the imageType",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"backingFilePVCName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "backing file pvc name",
+							Description: "If specified, will set the backingFilePVCName",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"backingFilePVCNamespace": {
 						SchemaProps: spec.SchemaProps{
-							Description: "backing file pvc namespace",
+							Description: "If specified, will set the backingFilePVCNamespace",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"backingFileArg": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
