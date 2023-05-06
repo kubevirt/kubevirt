@@ -340,6 +340,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	resources := resourceRenderer.ResourceRequirements()
 
+	ovmfPath := t.clusterConfig.GetOVMFPath(vmi.Spec.Architecture)
+
 	// Read requested hookSidecars from VMI meta
 	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
 	if err != nil {
@@ -364,7 +366,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--container-disk-dir", t.containerDiskDir,
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-			"--ovmf-path", t.clusterConfig.GetOVMFPath(),
+			"--ovmf-path", ovmfPath,
 		}
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
@@ -598,6 +600,7 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
+		vmi.Spec.Architecture,
 		opts...,
 	)
 }

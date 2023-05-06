@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -558,6 +559,19 @@ func (c *KubeVirtDeploymentConfig) SetTargetDeploymentConfig(kv *v1.KubeVirt) er
 	json, err := c.GetJson()
 	kv.Status.TargetDeploymentConfig = json
 	return err
+}
+
+func (c *KubeVirtDeploymentConfig) SetDefaultArchitecture(kv *v1.KubeVirt) error {
+	if kv.Spec.Configuration.ArchitectureConfiguration != nil && kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture != "" {
+		kv.Status.DefaultArchitecture = kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture
+	} else {
+		// only set default architecture in status in the event that it has not been already set previously
+		if kv.Status.DefaultArchitecture == "" {
+			kv.Status.DefaultArchitecture = runtime.GOARCH
+		}
+	}
+
+	return nil
 }
 
 func (c *KubeVirtDeploymentConfig) SetObservedDeploymentConfig(kv *v1.KubeVirt) error {

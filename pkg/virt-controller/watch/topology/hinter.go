@@ -24,16 +24,15 @@ type topologyHinter struct {
 	clusterConfig *virtconfig.ClusterConfig
 	nodeStore     cache.Store
 	vmiStore      cache.Store
-	arch          string
 }
 
 func (t *topologyHinter) IsTscFrequencyRequired(vmi *k6tv1.VirtualMachineInstance) bool {
-	return t.arch == "amd64" && GetTscFrequencyRequirement(vmi).Type != NotRequired
+	return vmi.Spec.Architecture == "amd64" && GetTscFrequencyRequirement(vmi).Type != NotRequired
 }
 
 func (t *topologyHinter) TopologyHintsForVMI(vmi *k6tv1.VirtualMachineInstance) (hints *k6tv1.TopologyHints, requirement TscFrequencyRequirementType, err error) {
 	requirement = GetTscFrequencyRequirement(vmi).Type
-	if requirement == NotRequired || t.arch != "amd64" {
+	if requirement == NotRequired || vmi.Spec.Architecture != "amd64" {
 		return
 	}
 
@@ -77,6 +76,6 @@ func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
 	return frequencies
 }
 
-func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, arch string, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
-	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, arch: arch, clusterConfig: clusterConfig}
+func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
+	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, clusterConfig: clusterConfig}
 }

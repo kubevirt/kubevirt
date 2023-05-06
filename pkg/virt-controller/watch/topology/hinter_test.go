@@ -76,7 +76,6 @@ var _ = Describe("Hinter", func() {
 			NodeWithInvalidTSC("node0"),
 			NodeWithTSC("node1", 1234, true),
 		)
-		hinter.arch = arch
 		vmi := vmiWithoutTSCFrequency("myvmi")
 		g.Expect(hinter.IsTscFrequencyRequired(vmi)).To(g.BeFalse())
 
@@ -93,7 +92,6 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 
 	return &topologyHinter{
 		clusterConfig: clusterConfigWithoutTSCFrequency(),
-		arch:          "amd64",
 		nodeStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return NodesToObjects(nodes...)
@@ -104,7 +102,6 @@ func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
 
 func hinterWithVMIs(vmis ...*virtv1.VirtualMachineInstance) *topologyHinter {
 	return &topologyHinter{
-		arch: "amd64",
 		vmiStore: &cache.FakeCustomStore{
 			ListFunc: func() []interface{} {
 				return VMIsToObjects(vmis...)
@@ -193,6 +190,7 @@ func vmiWithTSCFrequencyOnNode(vmiName string, frequency int64, nodename string)
 					},
 				},
 			},
+			Architecture: "amd64",
 		},
 		Status: virtv1.VirtualMachineInstanceStatus{
 			NodeName:      nodename,

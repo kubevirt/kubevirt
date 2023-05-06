@@ -1,6 +1,8 @@
 package services
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -14,7 +16,7 @@ var _ = Describe("Node Selector Renderer", func() {
 	Context("scheduling pods", func() {
 		When("no selectors are defined in the VMI spec", func() {
 			BeforeEach(func() {
-				nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors())
+				nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), "")
 			})
 
 			It("the node requires the KubeVirt schedulable label", func() {
@@ -23,7 +25,7 @@ var _ = Describe("Node Selector Renderer", func() {
 
 			When("the dedicated CPU option is defined", func() {
 				BeforeEach(func() {
-					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), WithDedicatedCPU())
+					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), "", WithDedicatedCPU())
 				})
 
 				It("must be scheduled on nodes featuring the `cpumanager` label", func() {
@@ -36,7 +38,7 @@ var _ = Describe("Node Selector Renderer", func() {
 
 				BeforeEach(func() {
 					aFewHertzios = 123
-					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), WithTSCTimer(&aFewHertzios))
+					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), "", WithTSCTimer(&aFewHertzios))
 				})
 
 				It("requires nodes to feature a particular TSC frequency", func() {
@@ -46,7 +48,7 @@ var _ = Describe("Node Selector Renderer", func() {
 
 			When("Hyper V is defined", func() {
 				BeforeEach(func() {
-					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), WithHyperv(hypervFeatures()))
+					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), "", WithHyperv(hypervFeatures()))
 				})
 
 				It("must be scheduled on nodes with Intel processor", func() {
@@ -56,7 +58,7 @@ var _ = Describe("Node Selector Renderer", func() {
 
 			When("Hyper V is defined, but the features are not correct", func() {
 				BeforeEach(func() {
-					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), WithHyperv(kvmFeatures()))
+					nsr = NewNodeSelectorRenderer(emptySelectors(), emptySelectors(), "", WithHyperv(kvmFeatures()))
 				})
 
 				It("does not require a particular processor vendor", func() {
@@ -75,6 +77,7 @@ var _ = Describe("Node Selector Renderer", func() {
 					nsr = NewNodeSelectorRenderer(
 						emptySelectors(),
 						emptySelectors(),
+						"",
 						WithModelAndFeatureLabels(model, feature1, feature2))
 				})
 
@@ -88,11 +91,30 @@ var _ = Describe("Node Selector Renderer", func() {
 						}))
 				})
 			})
+
+			When("architecture set on VMI", func() {
+
+				BeforeEach(func() {
+					nsr = NewNodeSelectorRenderer(
+						emptySelectors(),
+						emptySelectors(),
+						runtime.GOARCH)
+				})
+
+				It("requires the renderer to have applied the architecture to the node selectors", func() {
+					Expect(nsr.Render()).To(
+						Equal(map[string]string{
+							"kubevirt.io/schedulable": "true",
+							"kubernetes.io/arch":      runtime.GOARCH,
+						}))
+				})
+			})
+
 		})
 
 		When("user defined selectors are present", func() {
 			BeforeEach(func() {
-				nsr = NewNodeSelectorRenderer(selectors(selector{key: "blue-node", value: "true"}), emptySelectors())
+				nsr = NewNodeSelectorRenderer(selectors(selector{key: "blue-node", value: "true"}), emptySelectors(), "")
 			})
 
 			It("the node requires the user defined selector", func() {
@@ -108,7 +130,7 @@ var _ = Describe("Node Selector Renderer", func() {
 			BeforeEach(func() {
 				nsr = NewNodeSelectorRenderer(
 					emptySelectors(),
-					selectors(selector{key: "all-nodes", value: "must-work"}))
+					selectors(selector{key: "all-nodes", value: "must-work"}), "")
 			})
 
 			It("the node requires the user defined selector", func() {

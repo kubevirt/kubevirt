@@ -275,7 +275,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			cdiInformer,
 			cdiConfigInformer,
 			config,
-			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, "amd64", config),
+			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -2976,6 +2976,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Features: []virtv1.CPUFeature{
 					{
@@ -2990,6 +2991,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		getVmiWithReenlightenment := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{
 					Reenlightenment: &v1.FeatureState{Enabled: pointer.Bool(true)},

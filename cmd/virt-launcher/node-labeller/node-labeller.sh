@@ -8,6 +8,7 @@ if ! uname -m | grep x86_64; then
 fi
 
 set +o pipefail
+
 KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
 set -o pipefail
 
