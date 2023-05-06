@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "custom_linter_rules.go",
+        "metric_name_linter.go",
+        "metrics_collector.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/tools/prom-metric-linter",
+    visibility = ["//visibility:private"],
+    deps = ["//vendor/github.com/prometheus/client_model/go:go_default_library"],
+)
+
+go_binary(
+    name = "prom-metric-linter",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

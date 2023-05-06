@@ -210,6 +210,9 @@ lint:
 	  tests/libvmi/... \
 	"
 
+lint-metrics:
+	hack/dockerized "./hack/metric_name_linter.sh"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -246,4 +249,5 @@ lint:
 	format \
 	fmt \
 	lint \
+	lint-metrics \
 	$(NULL)
