@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -89,7 +91,71 @@ var _ = Describe("Network Name Scheme", func() {
 			),
 		)
 	})
+	Context("CreateNetworkNameSchemeByPodNetworkStatus", func() {
+		const (
+			redNetworkName      = "red"
+			redIfaceHashedName  = "b1f51a511f1"
+			redIfaceOrdinalName = "net1"
+
+			greenNetworkName      = "green"
+			greenIfaceHashedName  = "ba4788b226a"
+			greenIfaceOrdinalName = "net2"
+		)
+
+		DescribeTable("should return the association between VMI networks and the pod interfaces names according to Multus network-status annotation",
+			func(networks []virtv1.Network, networkStatus map[string]networkv1.NetworkStatus, expectedNameScheme map[string]string) {
+				Expect(namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, networkStatus)).To(Equal(expectedNameScheme))
+			},
+			Entry("when Multus network-status annotation is absent",
+				multusNetworks(redNetworkName, greenNetworkName),
+				map[string]networkv1.NetworkStatus{},
+				map[string]string{
+					redNetworkName:   redIfaceHashedName,
+					greenNetworkName: greenIfaceHashedName,
+				},
+			),
+			Entry("given only pod network",
+				[]virtv1.Network{newPodNetwork("default")},
+				map[string]networkv1.NetworkStatus{
+					"default": {Interface: namescheme.PrimaryPodInterfaceName},
+				},
+				map[string]string{
+					"default": namescheme.PrimaryPodInterfaceName,
+				},
+			),
+			Entry("when the annotation reflects the pod interfaces naming is hashed",
+				multusNetworks(redNetworkName, greenNetworkName),
+				map[string]networkv1.NetworkStatus{
+					redNetworkName:   {Interface: redIfaceHashedName},
+					greenNetworkName: {Interface: greenIfaceHashedName},
+				},
+				map[string]string{
+					redNetworkName:   redIfaceHashedName,
+					greenNetworkName: greenIfaceHashedName,
+				},
+			),
+			Entry("when the annotation reflects the pod interface naming is ordinal",
+				multusNetworks(redNetworkName, greenNetworkName),
+				map[string]networkv1.NetworkStatus{
+					redNetworkName:   {Interface: redIfaceOrdinalName},
+					greenNetworkName: {Interface: greenIfaceOrdinalName},
+				},
+				map[string]string{
+					redNetworkName:   redIfaceOrdinalName,
+					greenNetworkName: greenIfaceOrdinalName,
+				},
+			),
+		)
+	})
 })
+
+func multusNetworks(names ...string) []virtv1.Network {
+	var networks []virtv1.Network
+	for _, name := range names {
+		networks = append(networks, createMultusNetwork(name, name+"net"))
+	}
+	return networks
+}
 
 func createMultusSecondaryNetwork(name, networkName string) virtv1.Network {
 	return createMultusNetwork(name, networkName)

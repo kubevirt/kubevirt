@@ -23,6 +23,10 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -90,4 +94,40 @@ func mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(networks []v1.Network)
 func secondaryInterfaceIndexedName(idx int) string {
 	const interfaceNamePrefix = "net"
 	return fmt.Sprintf("%s%d", interfaceNamePrefix, idx)
+}
+
+// CreateNetworkNameSchemeByPodNetworkStatus create pod network name scheme according to the given VMI spec networks
+// and pod network status.
+// In case the pod network status has at least one interface with ordinal interface name it returns the ordinal network
+// name-scheme, Otherwise, returns the hashed network name scheme.
+func CreateNetworkNameSchemeByPodNetworkStatus(networks []v1.Network, podNetworkStatus map[string]networkv1.NetworkStatus) map[string]string {
+	if podHasOrdinalInterfaceName(podNetworkStatus) {
+		return CreateOrdinalNetworkNameScheme(networks)
+	}
+
+	return CreateNetworkNameScheme(networks)
+}
+
+// podHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
+func podHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
+	for _, networkStatus := range podNetworkStatus {
+		if networkStatus.Interface == PrimaryPodInterfaceName {
+			continue
+		}
+		if ordinalInterfaceName(networkStatus.Interface) {
+			return true
+		}
+	}
+	return false
+}
+
+// ordinalInterfaceName check if the given name is in form of the ordinal
+// name scheme (e.g.: net1, net2..).
+func ordinalInterfaceName(name string) bool {
+	trimmedName := strings.TrimPrefix(name, "net")
+	if _, err := strconv.Atoi(trimmedName); err != nil {
+		return false
+	}
+
+	return true
 }
