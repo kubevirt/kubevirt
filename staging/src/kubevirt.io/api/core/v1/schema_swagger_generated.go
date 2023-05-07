@@ -158,6 +158,7 @@ func (CPU) SwaggerDoc() map[string]string {
 		"":                      "CPU allows specifying the CPU topology.",
 		"cores":                 "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
 		"sockets":               "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
+		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can\nbe hotplugged",
 		"threads":               "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
 		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
 		"features":              "Features specifies the CPU features list inside the VMI.\n+optional",
@@ -822,5 +823,14 @@ func (MultusNetwork) SwaggerDoc() map[string]string {
 		"":            "Represents the multus cni network.",
 		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
 		"default":     "Select the default network and add it to the\nmultus-cni.io/default-network annotation.",
+	}
+}
+
+func (CPUTopology) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "CPUTopology allows specifying the amount of cores, sockets\nand threads.",
+		"cores":   "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
+		"sockets": "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
+		"threads": "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
 	}
 }

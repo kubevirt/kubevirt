@@ -293,6 +293,9 @@ type CPU struct {
 	// Sockets specifies the number of sockets inside the vmi.
 	// Must be a value greater or equal 1.
 	Sockets uint32 `json:"sockets,omitempty"`
+	// MaxSockets specifies the maximum amount of sockets that can
+	// be hotplugged
+	MaxSockets uint32 `json:"maxSockets,omitempty"`
 	// Threads specifies the number of threads inside the vmi.
 	// Must be a value greater or equal 1.
 	Threads uint32 `json:"threads,omitempty"`
@@ -1463,4 +1466,18 @@ type MultusNetwork struct {
 	// Select the default network and add it to the
 	// multus-cni.io/default-network annotation.
 	Default bool `json:"default,omitempty"`
+}
+
+// CPUTopology allows specifying the amount of cores, sockets
+// and threads.
+type CPUTopology struct {
+	// Cores specifies the number of cores inside the vmi.
+	// Must be a value greater or equal 1.
+	Cores uint32 `json:"cores,omitempty"`
+	// Sockets specifies the number of sockets inside the vmi.
+	// Must be a value greater or equal 1.
+	Sockets uint32 `json:"sockets,omitempty"`
+	// Threads specifies the number of threads inside the vmi.
+	// Must be a value greater or equal 1.
+	Threads uint32 `json:"threads,omitempty"`
 }

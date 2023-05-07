@@ -1053,6 +1053,16 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                   type: object
               type: object
+            liveUpdateConfiguration:
+              description: LiveUpdateConfiguration holds defaults for live update
+                features
+              properties:
+                maxCpuSockets:
+                  description: MaxCpuSockets holds the maximum amount of sockets that
+                    can be hotplugged
+                  format: int32
+                  type: integer
+              type: object
             machineType:
               type: string
             mediatedDevicesConfiguration:
@@ -4237,6 +4247,23 @@ var CRDsValidation map[string]string = map[string]string{
                 is applied to the VirtualMachineInstance.
               type: string
           type: object
+        liveUpdateFeatures:
+          description: LiveUpdateFeatures references a configuration of hotpluggable
+            resources
+          properties:
+            cpu:
+              description: LiveUpdateCPU holds hotplug configuration for the CPU resource.
+                Empty struct indicates that default will be used for maxSockets. Default
+                is specified on cluster level. Absence of the struct means opt-out
+                from CPU hotplug functionality.
+              properties:
+                maxSockets:
+                  description: The maximum amount of sockets that can be hot-plugged
+                    to the Virtual Machine
+                  format: int32
+                  type: integer
+              type: object
+          type: object
         preference:
           description: PreferenceMatcher references a set of preference that is used
             to fill fields in Template
@@ -5421,6 +5448,11 @@ var CRDsValidation map[string]string = map[string]string{
                             pCPU to be allocated for the VMI to place the emulator
                             thread on it.
                           type: boolean
+                        maxSockets:
+                          description: MaxSockets specifies the maximum amount of
+                            sockets that can be hotplugged
+                          format: int32
+                          type: integer
                         model:
                           description: Model specifies the CPU model inside the VMI.
                             List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -9907,6 +9939,11 @@ var CRDsValidation map[string]string = map[string]string{
                   description: IsolateEmulatorThread requests one more dedicated pCPU
                     to be allocated for the VMI to place the emulator thread on it.
                   type: boolean
+                maxSockets:
+                  description: MaxSockets specifies the maximum amount of sockets
+                    that can be hotplugged
+                  format: int32
+                  type: integer
                 model:
                   description: Model specifies the CPU model inside the VMI. List
                     of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -11700,6 +11737,27 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        currentCPUTopology:
+          description: CurrentCPUTopology specifies the current CPU topology used
+            by the VM workload. Current topology may differ from the desired topology
+            in the spec while CPU hotplug takes place.
+          properties:
+            cores:
+              description: Cores specifies the number of cores inside the vmi. Must
+                be a value greater or equal 1.
+              format: int32
+              type: integer
+            sockets:
+              description: Sockets specifies the number of sockets inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+            threads:
+              description: Threads specifies the number of threads inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+          type: object
         evacuationNodeName:
           description: EvacuationNodeName is used to track the eviction process of
             a VMI. It stores the name of the node that we want to evacuate. It is
@@ -12532,6 +12590,11 @@ var CRDsValidation map[string]string = map[string]string{
                   description: IsolateEmulatorThread requests one more dedicated pCPU
                     to be allocated for the VMI to place the emulator thread on it.
                   type: boolean
+                maxSockets:
+                  description: MaxSockets specifies the maximum amount of sockets
+                    that can be hotplugged
+                  format: int32
+                  type: integer
                 model:
                   description: Model specifies the CPU model inside the VMI. List
                     of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -14636,6 +14699,11 @@ var CRDsValidation map[string]string = map[string]string{
                             pCPU to be allocated for the VMI to place the emulator
                             thread on it.
                           type: boolean
+                        maxSockets:
+                          description: MaxSockets specifies the maximum amount of
+                            sockets that can be hotplugged
+                          format: int32
+                          type: integer
                         model:
                           description: Model specifies the CPU model inside the VMI.
                             List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -17564,6 +17632,23 @@ var CRDsValidation map[string]string = map[string]string{
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
                   type: object
+                liveUpdateFeatures:
+                  description: LiveUpdateFeatures references a configuration of hotpluggable
+                    resources
+                  properties:
+                    cpu:
+                      description: LiveUpdateCPU holds hotplug configuration for the
+                        CPU resource. Empty struct indicates that default will be
+                        used for maxSockets. Default is specified on cluster level.
+                        Absence of the struct means opt-out from CPU hotplug functionality.
+                      properties:
+                        maxSockets:
+                          description: The maximum amount of sockets that can be hot-plugged
+                            to the Virtual Machine
+                          format: int32
+                          type: integer
+                      type: object
+                  type: object
                 preference:
                   description: PreferenceMatcher references a set of preference that
                     is used to fill fields in Template
@@ -18852,6 +18937,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     more dedicated pCPU to be allocated for the VMI
                                     to place the emulator thread on it.
                                   type: boolean
+                                maxSockets:
+                                  description: MaxSockets specifies the maximum amount
+                                    of sockets that can be hotplugged
+                                  format: int32
+                                  type: integer
                                 model:
                                   description: Model specifies the CPU model inside
                                     the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -22516,6 +22606,24 @@ var CRDsValidation map[string]string = map[string]string{
                             is applied to the VirtualMachineInstance.
                           type: string
                       type: object
+                    liveUpdateFeatures:
+                      description: LiveUpdateFeatures references a configuration of
+                        hotpluggable resources
+                      properties:
+                        cpu:
+                          description: LiveUpdateCPU holds hotplug configuration for
+                            the CPU resource. Empty struct indicates that default
+                            will be used for maxSockets. Default is specified on cluster
+                            level. Absence of the struct means opt-out from CPU hotplug
+                            functionality.
+                          properties:
+                            maxSockets:
+                              description: The maximum amount of sockets that can
+                                be hot-plugged to the Virtual Machine
+                              format: int32
+                              type: integer
+                          type: object
+                      type: object
                     preference:
                       description: PreferenceMatcher references a set of preference
                         that is used to fill fields in Template
@@ -23880,6 +23988,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         one more dedicated pCPU to be allocated for
                                         the VMI to place the emulator thread on it.
                                       type: boolean
+                                    maxSockets:
+                                      description: MaxSockets specifies the maximum
+                                        amount of sockets that can be hotplugged
+                                      format: int32
+                                      type: integer
                                     model:
                                       description: Model specifies the CPU model inside
                                         the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
