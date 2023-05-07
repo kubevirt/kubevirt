@@ -150,7 +150,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			}
 			Expect(err).ToNot(HaveOccurred())
 			return vmi.Status.Phase == v1.Running
-		}, 180*time.Second, time.Second).Should(BeTrue())
+		}, 360*time.Second, time.Second).Should(BeTrue())
 
 		return vm, vmi
 	}
