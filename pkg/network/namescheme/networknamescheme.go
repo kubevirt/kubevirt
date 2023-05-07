@@ -23,6 +23,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"regexp"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -93,4 +96,38 @@ func mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(networks []v1.Network)
 func generateOrdinalInterfaceName(idx int) string {
 	const ordinalIfacePrefix = "net"
 	return fmt.Sprintf("%s%d", ordinalIfacePrefix, idx)
+}
+
+// CreateNetworkNameSchemeByPodNetworkStatus create pod network name scheme according to the given VMI spec networks
+// and pod network status.
+// In case the pod network status has at least one interface with ordinal interface name it returns the ordinal network
+// name-scheme, Otherwise, returns the hashed network name scheme.
+func CreateNetworkNameSchemeByPodNetworkStatus(networks []v1.Network, networkStatus map[string]networkv1.NetworkStatus) map[string]string {
+	if podHasOrdinalInterfaceName(networkStatus) {
+		return CreateOrdinalNetworkNameScheme(networks)
+	}
+
+	return CreateHashedNetworkNameScheme(networks)
+}
+
+// podHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
+func podHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
+	for _, networkStatus := range podNetworkStatus {
+		if ordinalSecondaryInterfaceName(networkStatus.Interface) {
+			return true
+		}
+	}
+	return false
+}
+
+// ordinalSecondaryInterfaceName check if the given name is in form of the ordinal
+// name scheme (e.g.: net1, net2..).
+// Primary iface name (eth0) is treated as non-ordinal interface name.
+func ordinalSecondaryInterfaceName(name string) bool {
+	const ordinalIfaceNameRegex = `^net\d+$`
+	match, err := regexp.MatchString(ordinalIfaceNameRegex, name)
+	if err != nil {
+		return false
+	}
+	return match
 }
