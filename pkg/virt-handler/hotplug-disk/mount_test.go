@@ -361,7 +361,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644))
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
 
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "testvolume", HotplugVolume: &v1.HotplugVolumeStatus{}}}
 			targetDevicePath, err := newFile(targetPodPath, "testvolume")

@@ -3,6 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "bindata.go",
+        "crd_kinds.go",
         "doc.go",
         "register.go",
         "thanos_types.go",

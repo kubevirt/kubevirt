@@ -7,7 +7,9 @@ go_library(
     importpath = "github.com/onsi/ginkgo/v2/internal/testingtproxy",
     visibility = ["//vendor/github.com/onsi/ginkgo/v2:__subpackages__"],
     deps = [
+        "//vendor/github.com/onsi/ginkgo/v2/formatter:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/internal:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
     ],
 )

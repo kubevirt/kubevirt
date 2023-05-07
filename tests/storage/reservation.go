@@ -201,7 +201,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			// Create the scsi disk
 			createSCSIDisk(targetCliPod, disk)
 			// Avoid races if there is some delay in the device creation
-			Eventually(findSCSIdisk(targetCliPod, backendDisk), 20*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+			Eventually(findSCSIdisk, 20*time.Second, 1*time.Second).WithArguments(targetCliPod, backendDisk).ShouldNot(BeEmpty())
 			device = findSCSIdisk(targetCliPod, backendDisk)
 			Expect(device).ToNot(BeEmpty())
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
@@ -234,10 +234,14 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				"there are NO registered reservation keys")).To(BeTrue())
 			Expect(checkResultCommand(vmi, "sg_persist -o -G  --param-sark=12345678 /dev/sda",
 				"Peripheral device type: disk")).To(BeTrue())
-			Eventually(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
-				"1 registered reservation key follows:\r\n    0x12345678\r\n"),
-				60*time.Second, 10*time.Second).Should(BeTrue())
-
+			Eventually(func(g Gomega) {
+				g.Expect(
+					checkResultCommand(vmi, "sg_persist -i -k /dev/sda", "1 registered reservation key follows:\r\n    0x12345678\r\n"),
+				).To(BeTrue())
+			}).
+				Within(60 * time.Second).
+				WithPolling(10 * time.Second).
+				Should(Succeed())
 		})
 
 		It("Should successfully start 2 VMs with persistent reservation on the same LUN", func() {
@@ -262,9 +266,14 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				"there are NO registered reservation keys")).To(BeTrue())
 			Expect(checkResultCommand(vmi, "sg_persist -o -G  --param-sark=12345678 /dev/sda",
 				"Peripheral device type: disk")).To(BeTrue())
-			Eventually(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
-				"1 registered reservation key follows:\r\n    0x12345678\r\n"),
-				60*time.Second, 10*time.Second).Should(BeTrue())
+			Eventually(func(g Gomega) {
+				g.Expect(
+					checkResultCommand(vmi, "sg_persist -i -k /dev/sda", "1 registered reservation key follows:\r\n    0x12345678\r\n"),
+				).To(BeTrue())
+			}).
+				Within(60 * time.Second).
+				WithPolling(10 * time.Second).
+				Should(Succeed())
 
 			By("Requesting SCSI persistent reservation from the second VM")
 			// The second VM should be able to see the reservation key used by the first VM and

@@ -841,7 +841,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			}
 		}
 
-		Expect(getDiskDeviceBus(diskType), expectedBus)
+		Expect(getDiskDeviceBus(diskType)).Should(Equal(expectedBus))
 	},
 		Entry("Disk device",
 			v1.Disk{
