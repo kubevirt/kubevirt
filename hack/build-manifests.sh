@@ -96,18 +96,6 @@ function gen_csv() {
 }
 
 function create_virt_csv() {
-  local apiSha
-  local controllerSha
-  local launcherSha
-  local handlerSha
-
-  apiSha="${KUBEVIRT_API_IMAGE/*@/}"
-  controllerSha="${KUBEVIRT_CONTROLLER_IMAGE/*@/}"
-  launcherSha="${KUBEVIRT_LAUNCHER_IMAGE/*@/}"
-  handlerSha="${KUBEVIRT_HANDLER_IMAGE/*@/}"
-  exportProxySha="${KUBEVIRT_EXPORTPROXY_IMAGE/*@/}"
-  exportServerSha="${KUBEVIRT_EXPORSERVER_IMAGE/*@/}"
-
   local operatorName="kubevirt"
   local dumpCRDsArg="--dumpCRDs"
   local operatorArgs
@@ -115,15 +103,15 @@ function create_virt_csv() {
     --namespace=${OPERATOR_NAMESPACE} \
     --csvVersion=${CSV_VERSION} \
     --operatorImageVersion=${KUBEVIRT_OPERATOR_IMAGE/*@/} \
-    --dockerPrefix=${KUBEVIRT_OPERATOR_IMAGE%\/*} \
     --kubeVirtVersion=${KUBEVIRT_VERSION} \
-    --apiSha=${apiSha} \
-    --controllerSha=${controllerSha} \
-    --handlerSha=${handlerSha} \
-    --launcherSha=${launcherSha} \
-    --exportProxySha=${exportProxySha} \
-    --exportServerSha=${exportServerSha} \
-    --gsSha=${KUBEVIRT_LIBGUESTFS_TOOLS_IMAGE/*@/} \
+    --virt-api-image="${KUBEVIRT_API_IMAGE}" \
+    --virt-controller-image="${KUBEVIRT_CONTROLLER_IMAGE}" \
+    --virt-handler-image="${KUBEVIRT_HANDLER_IMAGE}" \
+    --virt-launcher-image="${KUBEVIRT_LAUNCHER_IMAGE}" \
+    --virt-export-proxy-image="${KUBEVIRT_EXPORTPROXY_IMAGE}" \
+    --virt-export-server-image="${KUBEVIRT_EXPORSERVER_IMAGE}" \
+    --gs-image="${KUBEVIRT_LIBGUESTFS_TOOLS_IMAGE}" \
+    --virt-operator-image="${KUBEVIRT_OPERATOR_IMAGE}"
   "
 
   gen_csv "${DEFAULT_CSV_GENERATOR}" "${operatorName}" "${KUBEVIRT_OPERATOR_IMAGE}" "${dumpCRDsArg}" "${operatorArgs}"
