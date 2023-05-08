@@ -7,6 +7,7 @@ go_library(
         "migration-create-admitter.go",
         "migration-update-admitter.go",
         "migrationpolicy-admitter.go",
+        "network.go",
         "pod-eviction-admitter.go",
         "preference-admitter.go",
         "status-admitter.go",
@@ -25,6 +26,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/resource:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
@@ -82,6 +84,7 @@ go_test(
         "migration-create-admitter_test.go",
         "migration-update-admitter_test.go",
         "migrationpolicy-admitter_test.go",
+        "network_test.go",
         "pod-eviction-admitter_test.go",
         "vmclone-admitter_test.go",
         "vmexport-admitter_test.go",
@@ -96,6 +99,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/apimachinery/resource:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/testutils:go_default_library",

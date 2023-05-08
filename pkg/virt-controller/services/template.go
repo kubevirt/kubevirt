@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
+	k6tresource "kubevirt.io/kubevirt/pkg/apimachinery/resource"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -718,6 +719,7 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 	baseOptions := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
 		WithVirtualizationResources(getRequiredResources(vmi, t.clusterConfig.AllowEmulation())),
+		WithFilterOutResourceRequest(k6tresource.ResourceInterface),
 	}
 
 	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {

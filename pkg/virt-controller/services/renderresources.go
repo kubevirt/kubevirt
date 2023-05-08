@@ -467,6 +467,12 @@ func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRende
 	}
 }
 
+func WithFilterOutResourceRequest(reservedResourceName k8sv1.ResourceName) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		delete(renderer.vmRequests, reservedResourceName)
+	}
+}
+
 func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
 	networkToResourceMap = make(map[string]string)
 	for _, network := range vmi.Spec.Networks {
