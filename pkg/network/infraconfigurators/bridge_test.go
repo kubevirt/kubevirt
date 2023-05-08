@@ -47,10 +47,9 @@ func newMockedBridgeConfigurator(
 	vmi *v1.VirtualMachineInstance,
 	iface *v1.Interface,
 	handler *netdriver.MockNetworkHandler,
-	bridgeIfaceName string,
 	launcherPID int,
 	options ...Option) *BridgePodNetworkConfigurator {
-	configurator := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+	configurator := NewBridgePodNetworkConfigurator(vmi, iface, launcherPID, handler)
 	for _, option := range options {
 		option(handler)
 	}
@@ -74,8 +73,10 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 
 	Context("discover link information", func() {
 		const (
-			ifaceName   = "eth0"
-			launcherPID = 1000
+			ifaceName       = "eth0"
+			bridgeIfaceName = "k6t-eth0"
+			tapDeviceName   = "tap0"
+			launcherPID     = 1000
 		)
 
 		var (
@@ -94,12 +95,26 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 			defaultGwRoute = netlink.Route{Dst: nil, Gw: net.IPv4(10, 35, 0, 1)}
 		})
 
+		It("succeeds reading the pod link, and generate bridge iface and tap device names", func() {
+			bridgeConfigurator := newMockedBridgeConfigurator(
+				vmi,
+				iface,
+				handler,
+				launcherPID,
+				withLink(podLink),
+				withIPOnLink(podLink, podIP),
+				withRoutesOnLink(podLink, defaultGwRoute))
+			Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+			Expect(bridgeConfigurator.podNicLink).To(Equal(podLink))
+			Expect(bridgeConfigurator.bridgeInterfaceName).To(Equal(bridgeIfaceName))
+			Expect(bridgeConfigurator.tapDeviceName).To(Equal(tapDeviceName))
+		})
+
 		It("succeeds reading the pod link, pod IP, and routes", func() {
 			bridgeConfigurator := newMockedBridgeConfigurator(
 				vmi,
 				iface,
 				handler,
-				bridgeIfaceName,
 				launcherPID,
 				withLink(podLink),
 				withIPOnLink(podLink, podIP),
@@ -115,7 +130,6 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				vmi,
 				iface,
 				handler,
-				bridgeIfaceName,
 				launcherPID,
 				withLink(podLink),
 				withIPOnLink(podLink, podIP),
@@ -130,7 +144,6 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				vmi,
 				iface,
 				handler,
-				bridgeIfaceName,
 				launcherPID,
 				withErrorOnLinkRetrieval(podLink, errorString))
 			Expect(bridgeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(MatchError(errorString))
@@ -142,7 +155,6 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				vmi,
 				iface,
 				handler,
-				bridgeIfaceName,
 				launcherPID,
 				withLink(podLink),
 				withErrorOnIPRetrieval(podLink, errorString))
@@ -157,7 +169,6 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 					vmi,
 					iface,
 					handler,
-					bridgeIfaceName,
 					launcherPID,
 					withLink(podLink),
 					withIPOnLink(podLink))
@@ -222,11 +233,12 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				link netlink.Link,
 				podIP netlink.Addr,
 				options ...Option) *BridgePodNetworkConfigurator {
-				configurator := newMockedBridgeConfigurator(vmi, iface, handler, bridgeIfaceName, launcherPID, options...)
+				configurator := newMockedBridgeConfigurator(vmi, iface, handler, launcherPID, options...)
 				configurator.podNicLink = link
 				configurator.tapDeviceName = tapDeviceName
 				configurator.ipamEnabled = true
 				configurator.podIfaceIP = podIP
+				configurator.bridgeInterfaceName = bridgeIfaceName
 				return configurator
 			}
 
@@ -457,9 +469,10 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				bridgeIfaceName string,
 				launcherPID int,
 				options ...Option) *BridgePodNetworkConfigurator {
-				configurator := newMockedBridgeConfigurator(vmi, iface, handler, bridgeIfaceName, launcherPID, options...)
+				configurator := newMockedBridgeConfigurator(vmi, iface, handler, launcherPID, options...)
 				configurator.podNicLink = podLink
 				configurator.tapDeviceName = tapDeviceName
+				configurator.bridgeInterfaceName = bridgeIfaceName
 				return configurator
 			}
 
@@ -638,7 +651,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 
 		When("IPAM is not enabled", func() {
 			createBridgeConfiguratorWithoutIPAM := func() *BridgePodNetworkConfigurator {
-				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, launcherPID, handler)
 				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
 				return bc
 			}
@@ -656,7 +669,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 			)
 
 			createBridgeConfiguratorWithIPAM := func(mac net.HardwareAddr, podIP netlink.Addr, routes ...netlink.Route) *BridgePodNetworkConfigurator {
-				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, launcherPID, handler)
 				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
 				bc.vmMac = &mac
 				bc.ipamEnabled = true

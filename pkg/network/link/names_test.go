@@ -58,4 +58,17 @@ var _ = Describe("Common Methods", func() {
 			Expect(hashedIfaceName).To(Equal("16477688c0e-nic"))
 		})
 	})
+	Context("GenerateBridgeName function", func() {
+		It("Should return the new bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("eth0")).To(Equal("k6t-eth0"))
+		})
+		It("Should return another new bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("net12")).To(Equal("k6t-net12"))
+		})
+		It("Should return hash network name bridge interface name", func() {
+			hashedIfaceName := virtnetlink.GenerateBridgeName("pod16477688c0e")
+			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
+			Expect(hashedIfaceName).To(Equal("k6t-16477688c0e"))
+		})
+	})
 })

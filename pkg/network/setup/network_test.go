@@ -102,7 +102,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vm,
 						iface,
-						generateInPodBridgeInterfaceName(namescheme.PrimaryPodInterfaceName),
 						launcherPID,
 						vmNetworkConfigurator.handler),
 				}}))
@@ -136,7 +135,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vmi,
 						iface,
-						generateInPodBridgeInterfaceName(multusInterfaceName),
 						launcherPID,
 						vmNetworkConfigurator.handler),
 				}}))
@@ -204,7 +202,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
 							&vm.Spec.Domain.Devices.Interfaces[0],
-							generateInPodBridgeInterfaceName("pode56ef68384a"),
 							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
@@ -219,7 +216,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
 							&vm.Spec.Domain.Devices.Interfaces[1],
-							generateInPodBridgeInterfaceName("eth0"),
 							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
@@ -232,9 +228,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						cacheCreator:     vmNetworkConfigurator.cacheCreator,
 						launcherPID:      &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-							vm,
-							&vm.Spec.Domain.Devices.Interfaces[2],
-							generateInPodBridgeInterfaceName("pod9f531ef99d2"),
+							vm, &vm.Spec.Domain.Devices.Interfaces[2],
 							launcherPID,
 							vmNetworkConfigurator.handler),
 					},
@@ -273,10 +267,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vmi,
 						&hotplugInterface,
-						generateInPodBridgeInterfaceName(expectedPodIfaceName),
 						launcherPID,
-						vmNetworkConfigurator.handler,
-					),
+						vmNetworkConfigurator.handler),
 				}))
 			})
 
