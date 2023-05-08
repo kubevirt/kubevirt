@@ -50,6 +50,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -806,8 +807,35 @@ func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
+// Returns true if any of the filesystems requires a virtiofs container to run as root
+func requireAnyVirtiofsPrivilegedContainer(spec *v1.VirtualMachineInstanceSpec) bool {
+	if spec.Domain.Devices.Filesystems == nil {
+		return false
+	}
+
+	volumes := make(map[string]v1.Volume)
+	for _, volume := range spec.Volumes {
+		volumes[volume.Name] = volume
+	}
+
+	// we assume that all filesystems are of type virtiofs
+	for _, fs := range spec.Domain.Devices.Filesystems {
+		volume, ok := volumes[fs.Name]
+		if !ok {
+			continue
+		}
+
+		if virtiofs.RequiresRootPrivileges(&volume) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if spec.Domain.Devices.Filesystems != nil && !config.VirtiofsEnabled() {
+	// The feature gate is mandatory only for a privileged container
+	if requireAnyVirtiofsPrivilegedContainer(spec) && !config.VirtiofsEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "virtiofs feature gate is not enabled in kubevirt-config",
