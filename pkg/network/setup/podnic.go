@@ -69,14 +69,13 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 		podnic.infraConfigurator = infraconfigurators.NewBridgePodNetworkConfigurator(
 			podnic.vmi,
 			podnic.vmiSpecIface,
-			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
 			*podnic.launcherPID,
 			podnic.handler)
 	} else if podnic.vmiSpecIface.Masquerade != nil {
 		podnic.infraConfigurator = infraconfigurators.NewMasqueradePodNetworkConfigurator(
 			podnic.vmi,
 			podnic.vmiSpecIface,
-			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
+			link.GenerateBridgeName(podnic.podInterfaceName),
 			podnic.vmiSpecNetwork,
 			*podnic.launcherPID,
 			podnic.handler)
@@ -245,7 +244,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
 			l.cacheCreator,
 			getPIDString(l.launcherPID),
-			generateInPodBridgeInterfaceName(l.podInterfaceName),
+			link.GenerateBridgeName(l.podInterfaceName),
 			l.handler,
 			l.podInterfaceName,
 			l.vmi.Spec.Domain.Devices.Interfaces,
@@ -253,7 +252,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 			l.vmi.Spec.Subdomain)
 	} else if l.vmiSpecIface.Masquerade != nil {
 		dhcpConfigurator = dhcpconfigurator.NewMasqueradeConfigurator(
-			generateInPodBridgeInterfaceName(l.podInterfaceName),
+			link.GenerateBridgeName(l.podInterfaceName),
 			l.handler,
 			l.vmiSpecIface,
 			l.vmiSpecNetwork,
@@ -305,10 +304,6 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return cache.WriteDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name, &domainIface)
-}
-
-func generateInPodBridgeInterfaceName(podInterfaceName string) string {
-	return fmt.Sprintf("k6t-%s", podInterfaceName)
 }
 
 func getPIDString(pid *int) string {

@@ -27,6 +27,10 @@ func GenerateTapDeviceName(podInterfaceName string) string {
 	return "tap" + podInterfaceName[3:]
 }
 
+func GenerateBridgeName(podInterfaceName string) string {
+	return "k6t-" + podInterfaceName
+}
+
 func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) string {
 	return fmt.Sprintf("%s-nic", originalPodInterfaceName)
 

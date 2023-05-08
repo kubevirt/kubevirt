@@ -50,7 +50,7 @@ func newMockedBridgeConfigurator(
 	bridgeIfaceName string,
 	launcherPID int,
 	options ...Option) *BridgePodNetworkConfigurator {
-	configurator := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+	configurator := NewBridgePodNetworkConfigurator(vmi, iface, launcherPID, handler)
 	for _, option := range options {
 		option(handler)
 	}
@@ -227,6 +227,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				configurator.tapDeviceName = tapDeviceName
 				configurator.ipamEnabled = true
 				configurator.podIfaceIP = podIP
+				configurator.bridgeInterfaceName = bridgeIfaceName
 				return configurator
 			}
 
@@ -460,6 +461,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 				configurator := newMockedBridgeConfigurator(vmi, iface, handler, bridgeIfaceName, launcherPID, options...)
 				configurator.podNicLink = podLink
 				configurator.tapDeviceName = tapDeviceName
+				configurator.bridgeInterfaceName = bridgeIfaceName
 				return configurator
 			}
 
@@ -638,7 +640,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 
 		When("IPAM is not enabled", func() {
 			createBridgeConfiguratorWithoutIPAM := func() *BridgePodNetworkConfigurator {
-				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, launcherPID, handler)
 				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
 				return bc
 			}
@@ -656,7 +658,7 @@ var _ = Describe("Bridge infrastructure configurator", func() {
 			)
 
 			createBridgeConfiguratorWithIPAM := func(mac net.HardwareAddr, podIP netlink.Addr, routes ...netlink.Route) *BridgePodNetworkConfigurator {
-				bc := NewBridgePodNetworkConfigurator(vmi, iface, bridgeIfaceName, launcherPID, handler)
+				bc := NewBridgePodNetworkConfigurator(vmi, iface, launcherPID, handler)
 				bc.podNicLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName}}
 				bc.vmMac = &mac
 				bc.ipamEnabled = true
