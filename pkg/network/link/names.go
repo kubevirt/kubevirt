@@ -21,10 +21,17 @@ package link
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 func GenerateTapDeviceName(podInterfaceName string) string {
-	return "tap" + podInterfaceName[3:]
+	trimmedName := strings.TrimPrefix(podInterfaceName, "net")
+	trimmedName = strings.TrimPrefix(trimmedName, "eth")
+	if _, err := strconv.Atoi(trimmedName); err == nil {
+		return "tap" + trimmedName
+	}
+	return "tap" + podInterfaceName
 }
 
 func GenerateBridgeName(podInterfaceName string) string {

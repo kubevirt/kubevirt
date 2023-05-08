@@ -37,6 +37,9 @@ var _ = Describe("Common Methods", func() {
 		It("Should return a tap device name with three digits suffix", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth123")).To(Equal("tap123"))
 		})
+		It("Should return hash network name tap device name", func() {
+			Expect(virtnetlink.GenerateTapDeviceName("16477688c0e")).To(Equal("tap16477688c0e"))
+		})
 	})
 	Context("GenerateNewBridgedVmiInterfaceName function", func() {
 		It("Should return the new bridge interface name", func() {
