@@ -2,6 +2,10 @@ module kubevirt.io/client-go
 
 go 1.17
 
+// Exclude an incorrect semver version (dated July 2019)
+// See https://github.com/kubernetes/client-go/issues/749#issuecomment-627613767 for more details
+exclude k8s.io/client-go v12.0.0+incompatible
+
 require (
 	github.com/coreos/prometheus-operator v0.38.0
 	github.com/go-kit/kit v0.9.0
@@ -19,7 +23,7 @@ require (
 	k8s.io/api v0.23.5
 	k8s.io/apiextensions-apiserver v0.23.5
 	k8s.io/apimachinery v0.23.5
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v0.26.1
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
 	k8s.io/utils v0.0.0-20211116205334-6203023598ed
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
