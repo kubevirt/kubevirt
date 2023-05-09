@@ -15,16 +15,16 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-var _ = Describe("Validating Instancetype Admitter", func() {
+var _ = Describe("Validating Preference Admitter", func() {
 	var (
-		admitter        *InstancetypeAdmitter
-		instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
+		admitter      *PreferenceAdmitter
+		preferenceObj *instancetypev1beta1.VirtualMachinePreference
 	)
 
 	BeforeEach(func() {
-		admitter = &InstancetypeAdmitter{}
+		admitter = &PreferenceAdmitter{}
 
-		instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
+		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -32,11 +32,11 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		}
 	})
 
-	DescribeTable("should accept valid instancetype", func(version string) {
-		ar := createInstancetypeAdmissionReview(instancetypeObj, version)
+	DescribeTable("should accept valid preference", func(version string) {
+		ar := createPreferenceAdmissionReview(preferenceObj, version)
 		response := admitter.Admit(ar)
 
-		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
+		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
 	},
 		Entry("with v1alpha1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
@@ -44,24 +44,24 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 	)
 
 	It("should reject unsupported version", func() {
-		ar := createInstancetypeAdmissionReview(instancetypeObj, "unsupportedversion")
+		ar := createPreferenceAdmissionReview(preferenceObj, "unsupportedversion")
 		response := admitter.Admit(ar)
 
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
+		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 })
 
-var _ = Describe("Validating ClusterInstancetype Admitter", func() {
+var _ = Describe("Validating ClusterPreference Admitter", func() {
 	var (
-		admitter               *ClusterInstancetypeAdmitter
-		clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
+		admitter             *ClusterPreferenceAdmitter
+		clusterPreferenceObj *instancetypev1beta1.VirtualMachineClusterPreference
 	)
 
 	BeforeEach(func() {
-		admitter = &ClusterInstancetypeAdmitter{}
+		admitter = &ClusterPreferenceAdmitter{}
 
-		clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+		clusterPreferenceObj = &instancetypev1beta1.VirtualMachineClusterPreference{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -69,11 +69,11 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		}
 	})
 
-	DescribeTable("should accept valid instancetype", func(version string) {
-		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, version)
+	DescribeTable("should accept valid preference", func(version string) {
+		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, version)
 		response := admitter.Admit(ar)
 
-		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
+		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
 	},
 		Entry("with v1alpha1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
@@ -81,17 +81,17 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	)
 
 	It("should reject unsupported version", func() {
-		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, "unsupportedversion")
+		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, "unsupportedversion")
 		response := admitter.Admit(ar)
 
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
+		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 })
 
-func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.VirtualMachineInstancetype, version string) *admissionv1.AdmissionReview {
-	bytes, err := json.Marshal(instancetype)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", instancetype)
+func createPreferenceAdmissionReview(preference *instancetypev1beta1.VirtualMachinePreference, version string) *admissionv1.AdmissionReview {
+	bytes, err := json.Marshal(preference)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode preference: %v", preference)
 
 	return &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
@@ -99,7 +99,7 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.Virtual
 			Resource: metav1.GroupVersionResource{
 				Group:    instancetypev1beta1.SchemeGroupVersion.Group,
 				Version:  version,
-				Resource: apiinstancetype.PluralResourceName,
+				Resource: apiinstancetype.PluralPreferenceResourceName,
 			},
 			Object: runtime.RawExtension{
 				Raw: bytes,
@@ -108,9 +108,9 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.Virtual
 	}
 }
 
-func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype, version string) *admissionv1.AdmissionReview {
-	bytes, err := json.Marshal(clusterInstancetype)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", clusterInstancetype)
+func createClusterPreferenceAdmissionReview(clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference, version string) *admissionv1.AdmissionReview {
+	bytes, err := json.Marshal(clusterPreference)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode preference: %v", clusterPreference)
 
 	return &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
@@ -118,7 +118,7 @@ func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev
 			Resource: metav1.GroupVersionResource{
 				Group:    instancetypev1beta1.SchemeGroupVersion.Group,
 				Version:  version,
-				Resource: apiinstancetype.ClusterPluralResourceName,
+				Resource: apiinstancetype.ClusterPluralPreferenceResourceName,
 			},
 			Object: runtime.RawExtension{
 				Raw: bytes,
