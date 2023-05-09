@@ -25,6 +25,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -67,13 +68,14 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 	var nics []podNIC
 
 	for i := range networks {
+		// SR-IOV devices are not part of the phases.
+		if iface := vmispec.LookupInterfaceByNetwork(v.vmi.Spec.Domain.Devices.Interfaces, &networks[i]); iface.SRIOV != nil {
+			continue
+		}
+
 		nic, err := newPhase2PodNIC(v.vmi, &networks[i], v.handler, v.cacheCreator, domain)
 		if err != nil {
 			return nil, err
-		}
-		// SR-IOV devices are not part of the phases.
-		if nic.vmiSpecIface.SRIOV != nil {
-			continue
 		}
 		nics = append(nics, *nic)
 	}
