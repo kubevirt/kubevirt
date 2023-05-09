@@ -45,8 +45,8 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/ulikunitz/xz v0.5.10 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
-	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
+	golang.org/x/sys v0.7.0 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
@@ -54,11 +54,11 @@ require (
 // FIX: Improper Input Validation in GoGo Protobuf
 replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 
-// FIX: Default inheritable capabilities for linux container should be empty
-replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
+// FIX: Opencontainers runc Incorrect Authorization vulnerability
+replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.5
 
 // FIX: Unhandled exception in gopkg.in/yaml.v3
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
-// FIX: Uncontrolled Resource Consumption
-replace golang.org/x/net => golang.org/x/net v0.7.0
+// FIX: golang.org/x/net/http2/h2c vulnerable to request smuggling attack
+replace golang.org/x/net => golang.org/x/net v0.9.0

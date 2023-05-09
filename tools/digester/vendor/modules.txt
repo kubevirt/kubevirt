@@ -143,7 +143,7 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.11
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v1.1.0 => github.com/opencontainers/runc v1.1.2
+# github.com/opencontainers/runc v1.1.0 => github.com/opencontainers/runc v1.1.5
 ## explicit; go 1.16
 github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
@@ -185,12 +185,12 @@ github.com/ulikunitz/xz/lzma
 # github.com/vbatts/tar-split v0.11.2
 ## explicit; go 1.15
 github.com/vbatts/tar-split/archive/tar
-# golang.org/x/net v0.0.0-20220722155237-a158d28d115b => golang.org/x/net v0.7.0
+# golang.org/x/net v0.9.0 => golang.org/x/net v0.9.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.5.0
+# golang.org/x/sys v0.7.0
 ## explicit; go 1.17
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
@@ -232,6 +232,6 @@ google.golang.org/protobuf/types/known/timestamppb
 ## explicit; go 1.15
 gopkg.in/yaml.v2
 # github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-# github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.2
+# github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.5
 # gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
-# golang.org/x/net => golang.org/x/net v0.7.0
+# golang.org/x/net => golang.org/x/net v0.9.0
