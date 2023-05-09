@@ -34,9 +34,10 @@ type cacheCreator interface {
 }
 
 type NetConf struct {
-	setupCompleted sync.Map
-	cacheCreator   cacheCreator
-	nsFactory      nsFactory
+	cacheCreator     cacheCreator
+	nsFactory        nsFactory
+	configState      map[string]ConfigState
+	configStateMutex *sync.RWMutex
 }
 
 type nsFactory func(int) NSExecutor
@@ -54,27 +55,14 @@ func NewNetConf() *NetConf {
 
 func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
 	return &NetConf{
-		setupCompleted: sync.Map{},
-		cacheCreator:   cacheCreator,
-		nsFactory:      nsFactory,
+		configState:      map[string]ConfigState{},
+		configStateMutex: &sync.RWMutex{},
+		cacheCreator:     cacheCreator,
+		nsFactory:        nsFactory,
 	}
-}
-
-// WithCompletionCache uses cache to avoid executing the same operation again (if a previous one completed).
-func (c *NetConf) WithCompletionCache(id any, f func() error) error {
-	if _, exists := c.setupCompleted.Load(id); exists {
-		return nil
-	}
-	if err := f(); err != nil {
-		return err
-	}
-	c.setupCompleted.Store(id, struct{}{})
-
-	return nil
 }
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
-// As the changes are performed in the virt-launcher network namespace, which is relative expensive,
 func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error {
 	if err := preSetup(); err != nil {
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
@@ -82,10 +70,19 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
 
-	ns := c.nsFactory(launcherPid)
-	err := ns.Do(func() error {
-		return netConfigurator.SetupPodNetworkPhase1(launcherPid, networks)
-	})
+	c.configStateMutex.RLock()
+	configState, ok := c.configState[string(vmi.UID)]
+	c.configStateMutex.RUnlock()
+	if !ok {
+		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
+		ns := c.nsFactory(launcherPid)
+		configState = NewConfigState(&configStateCache, ns)
+		c.configStateMutex.Lock()
+		c.configState[string(vmi.UID)] = configState
+		c.configStateMutex.Unlock()
+	}
+
+	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
@@ -93,18 +90,13 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 }
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
-	c.setupCompleted.Delete(vmi.UID)
+	c.configStateMutex.Lock()
+	delete(c.configState, string(vmi.UID))
+	c.configStateMutex.Unlock()
 	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
 	if err := podCache.Remove(); err != nil {
 		return fmt.Errorf("teardown failed, err: %w", err)
 	}
 
 	return nil
-}
-
-// SetupCompleted examines if the setup on a given VMI completed.
-// It uses the (soft) cache to determine the information.
-func (c *NetConf) SetupCompleted(vmi *v1.VirtualMachineInstance) bool {
-	_, exists := c.setupCompleted.Load(vmi.UID)
-	return exists
 }

@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "configstate.go",
+        "configstatecache.go",
         "netconf.go",
         "netstat.go",
         "network.go",
@@ -34,6 +35,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "configstate_test.go",
+        "configstatecache_test.go",
         "netconf_test.go",
         "netstat_test.go",
         "network_suite_test.go",

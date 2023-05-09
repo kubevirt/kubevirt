@@ -50,13 +50,6 @@ var _ = Describe("netconf", func() {
 
 	It("runs setup successfully", func() {
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-	})
-
-	It("does not skip secondary setup run", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)).NotTo(Succeed())
-		Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
 	})
 
 	It("fails the pre-setup run", func() {
@@ -65,67 +58,16 @@ var _ = Describe("netconf", func() {
 
 	It("fails the setup run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactory(nsFailureFactory, &tempCacheCreator{})
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          "default",
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 	})
 
 	It("fails the teardown run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
-	})
-
-	Context("with completion cache", func() {
-		It("runs setup successfully", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-		})
-
-		It("runs teardown successfully", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-			Expect(netConf.Teardown(vmi)).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-		})
-
-		It("fails first setup and succeeds second setup", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)
-			})).NotTo(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-		})
-
-		It("skips secondary setup runs", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
-			})).To(Succeed())
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)
-			})).To(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeTrue())
-		})
-
-		It("fails the teardown run", func() {
-			netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return nil
-			})).To(Succeed())
-			Expect(netConf.Teardown(vmi)).NotTo(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-		})
-
-		It("fails completion cache body", func() {
-			Expect(netConf.WithCompletionCache(vmi.UID, func() error {
-				return fmt.Errorf("fail")
-			})).NotTo(Succeed())
-			Expect(netConf.SetupCompleted(vmi)).To(BeFalse())
-		})
 	})
 })
 
