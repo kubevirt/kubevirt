@@ -25,6 +25,24 @@ import (
 	"kubevirt.io/api/instancetype/v1beta1"
 )
 
+// Manually defined function to convert from pointer to value
+func Convert_v1beta1_CPUPreferences_To_v1alpha1_CPUPreferences(in *v1beta1.CPUPreferences, out *CPUPreferences, s conversion.Scope) error {
+	if in.PreferredCPUTopology != nil {
+		out.PreferredCPUTopology = (PreferredCPUTopology)(*in.PreferredCPUTopology)
+	}
+
+	return autoConvert_v1beta1_CPUPreferences_To_v1alpha1_CPUPreferences(in, out, s)
+}
+
+// Manually defined function to convert from value to pointer
+func Convert_v1alpha1_CPUPreferences_To_v1beta1_CPUPreferences(in *CPUPreferences, out *v1beta1.CPUPreferences, s conversion.Scope) error {
+	if in.PreferredCPUTopology != "" {
+		out.PreferredCPUTopology = (*v1beta1.PreferredCPUTopology)(&in.PreferredCPUTopology)
+	}
+
+	return autoConvert_v1alpha1_CPUPreferences_To_v1beta1_CPUPreferences(in, out, s)
+}
+
 /*
  * The following functions are manually defined to workaround conversion-gen
  * warnings about attributes in newer versions not being present in older

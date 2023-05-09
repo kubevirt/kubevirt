@@ -783,8 +783,8 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 
 	// Default to PreferSockets when a PreferredCPUTopology isn't provided
 	preferredTopology := instancetypev1beta1.PreferSockets
-	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != "" {
-		preferredTopology = preferenceSpec.CPU.PreferredCPUTopology
+	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
+		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
 	}
 
 	switch preferredTopology {
