@@ -1975,7 +1975,7 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func GracePeriod(vmi *v1.VirtualMachineInstance) int64 {
+func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds

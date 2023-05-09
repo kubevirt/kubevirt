@@ -198,12 +198,92 @@ Expect(x1 == c1).Should(BeTrue()) // ==> Expect(x1).Should(Equal(c1))
 Expect(c1 == x1).Should(BeTrue()) // ==> Expect(x1).Should(Equal(c1))
 ```
 
+### Using a function call in async assertion
+This rule finds an actual bug in tests, where asserting a function call in an async function; e.g. `Eventually`. For
+example:
+```go
+func slowInt(int val) int {
+	time.Sleep(time.Second)
+	return val
+}
+
+...
+
+It("should test that slowInt returns 42, eventually", func() {
+	Eventually(slowInt(42)).WithPolling(time.Millisecond * 100).WithTimeout(time.Second * 2).Equal(42)
+})
+```
+The problem with the above code is that it **should** poll - call the function - until it returns 42, but what actually 
+happens is that first the function is called, and we pass `42` to `Eventually` - not the function. This is not what we 
+tried to do here.
+
+The linter will suggest replacing this code by:
+```go
+It("should test that slowInt returns 42, eventually", func() {
+	Eventually(slowInt).WithArguments(42).WithPolling(time.Millisecond * 100).WithTimeout(time.Second * 2).Equal(42)
+})
+```
+
+The linter suggested replacing the function call by the function name. 
+
+If function arguments are used, the linter will add the `WithArguments()` method to pass them.
+
+Please notice that `WithArguments()` is only supported from gomenga v1.22.0.
+
+When using an older version of gomega, change the code manually. For example:
+
+```go
+It("should test that slowInt returns 42, eventually", func() {
+	Eventually(func() int {
+		slowint(42)		
+	}).WithPolling(time.Millisecond * 100).WithTimeout(time.Second * 2).Equal(42)
+})
+```
+
+### Comparing a pointer with a value
+The linter warns when comparing a pointer with a value.
+These comparisons are always wrong and will always fail.
+
+In case of a positive assertion (`To()` or `Should()`), the test will just fail.
+
+But the main concern is for false positive tests, when using a negative assertion (`NotTo()`, `ToNot()`, `ShouldNot()`,
+`Should(Not())` etc.); e.g.
+```go
+num := 5
+...
+pNum := &num
+...
+Expect(pNum).ShouldNot(Equal(6))
+```
+This assertion will pass, but for the wrong reasons: pNum is not equal 6, not because num == 5, but because pNum is
+a pointer, while `6` is an `int`.
+
+In the case above, the linter will suggest `Expect(pNum).ShouldNot(HaveValue(Equal(6)))`
+
+This is also right for additional matchers: `BeTrue()` and `BeFalse()`, `BeIdenticalTo()`, `BeEquivalentTo()` 
+and `BeNumerically`.
+
+### Missing Assertion Method
+The linter warns when calling an "actual" method (e.g. `Expect()`, `Eventually()` etc.), without an assertion method (e.g 
+`Should()`, `NotTo()` etc.)
+
+For example:
+```go
+// no assertion for the result
+Eventually(doSomething).WithTimeout(time.Seconds * 5).WithPolling(time.Milliseconds * 100)
+```
+
+The linter will not suggest a fix for this warning.
+
+This rule cannot be suppressed.
+
 ## Suppress the linter
 ### Suppress warning from command line
 * Use the `--suppress-len-assertion=true` flag to suppress the wrong length assertion warning
 * Use the `--suppress-nil-assertion=true` flag to suppress the wrong nil assertion warning
 * Use the `--suppress-err-assertion=true` flag to suppress the wrong error assertion warning
 * Use the `--suppress-compare-assertion=true` flag to suppress the wrong comparison assertion warning
+* Use the `--suppress-async-assertion=true` flag to suppress the function call in async assertion warning
 * Use the `--allow-havelen-0=true` flag to avoid warnings about `HaveLen(0)`; Note: this parameter is only supported from
   command line, and not from a comment.
 
@@ -223,6 +303,10 @@ To suppress the wrong error assertion warning, add a comment with (only)
 To suppress the wrong comparison assertion warning, add a comment with (only)
 
 `ginkgo-linter:ignore-compare-assert-warning`. 
+
+To suppress the wrong async assertion warning, add a comment with (only)
+
+`ginkgo-linter:ignore-async-assert-warning`. 
 
 There are two options to use these comments:
 1. If the comment is at the top of the file, supress the warning for the whole file; e.g.:

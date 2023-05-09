@@ -12,6 +12,7 @@ go_library(
     deps = [
         "//vendor/github.com/golang/protobuf/proto:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/internal/gutil:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
     ],
 )

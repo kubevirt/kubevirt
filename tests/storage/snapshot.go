@@ -1053,7 +1053,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				errStr := fmt.Sprintf("VolumeSnapshots (%s) missing", *vb.VolumeSnapshotName)
 				Expect(snapshot.Status.Error).ToNot(BeNil())
-				Expect(snapshot.Status.Error.Message).ToNot(Equal(errStr))
+				Expect(snapshot.Status.Error.Message).To(HaveValue(Equal(errStr)))
 			})
 
 			It("should not error if VolumeSnapshot has error", func() {

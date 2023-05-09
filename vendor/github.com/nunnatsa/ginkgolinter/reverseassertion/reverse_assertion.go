@@ -18,6 +18,14 @@ func ChangeAssertionLogic(funcName string) string {
 	return funcName
 }
 
+func IsNegativeLogic(funcName string) bool {
+	switch funcName {
+	case "ToNot", "NotTo", "ShouldNot":
+		return true
+	}
+	return false
+}
+
 var reverseCompareOperators = map[token.Token]token.Token{
 	token.LSS: token.GTR,
 	token.GTR: token.LSS,

@@ -1083,9 +1083,9 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			if preallocated {
 				// Preallocation means no changes to disk size
-				Eventually(imageSizeEqual(getImageSize(vmi, dataVolume), imageSizeAfterBoot), 120*time.Second).Should(BeTrue())
+				Eventually(imageSizeEqual, 120*time.Second).WithArguments(getImageSize(vmi, dataVolume), imageSizeAfterBoot).Should(BeTrue())
 			} else {
-				Eventually(getImageSize(vmi, dataVolume), 120*time.Second).Should(BeNumerically(">", imageSizeAfterBoot))
+				Eventually(getImageSize, 120*time.Second).WithArguments(vmi, dataVolume).Should(BeNumerically(">", imageSizeAfterBoot))
 			}
 
 			imageSizeBeforeTrim := getImageSize(vmi, dataVolume)

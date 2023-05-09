@@ -6,6 +6,7 @@ go_library(
         "decode.go",
         "encode.go",
         "fold.go",
+        "fuzz.go",
         "indent.go",
         "kubernetes_patch.go",
         "scanner.go",

@@ -1282,7 +1282,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 							return false
 						}, 10*time.Second, 1*time.Second).Should(BeTrue())
 					} else {
-						Eventually(Expect(launcherPod.Status.Phase).To(Equal(k8sv1.PodFailed)), 160*time.Second, 1*time.Second).Should(BeTrue())
+						Eventually(launcherPod.Status.Phase).
+							Within(160 * time.Second).
+							WithPolling(time.Second).
+							Should(Equal(k8sv1.PodFailed))
 					}
 				},
 					Entry("[test_id:7164]VMI launcher pod should fail", "false"),

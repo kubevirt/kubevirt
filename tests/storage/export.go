@@ -2163,7 +2163,7 @@ var _ = SIGDescribe("Export", func() {
 					return false
 				}
 				return errors.IsNotFound(err)
-			}, 180*time.Second, time.Second).Should(Equal(true))
+			}, 180*time.Second, time.Second).Should(BeTrue())
 		})
 
 		It("Delete succeeds when vmexport doesn't exist", func() {

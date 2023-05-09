@@ -12,6 +12,7 @@ const (
 	suppressNilAssertionWarning     = suppressPrefix + "ignore-nil-assert-warning"
 	suppressErrAssertionWarning     = suppressPrefix + "ignore-err-assert-warning"
 	suppressCompareAssertionWarning = suppressPrefix + "ignore-compare-assert-warning"
+	suppressAsyncAsertWarning       = suppressPrefix + "ignore-async-assert-warning"
 )
 
 type Config struct {
@@ -19,11 +20,12 @@ type Config struct {
 	SuppressNil     Boolean
 	SuppressErr     Boolean
 	SuppressCompare Boolean
+	SuppressAsync   Boolean
 	AllowHaveLen0   Boolean
 }
 
 func (s *Config) AllTrue() bool {
-	return bool(s.SuppressLen && s.SuppressNil && s.SuppressErr && s.SuppressCompare)
+	return bool(s.SuppressLen && s.SuppressNil && s.SuppressErr && s.SuppressCompare && s.SuppressAsync)
 }
 
 func (s *Config) Clone() Config {
@@ -32,6 +34,7 @@ func (s *Config) Clone() Config {
 		SuppressNil:     s.SuppressNil,
 		SuppressErr:     s.SuppressErr,
 		SuppressCompare: s.SuppressCompare,
+		SuppressAsync:   s.SuppressAsync,
 		AllowHaveLen0:   s.AllowHaveLen0,
 	}
 }
@@ -54,6 +57,7 @@ func (s *Config) UpdateFromComment(commentGroup []*ast.CommentGroup) {
 				s.SuppressNil = s.SuppressNil || (comment == suppressNilAssertionWarning)
 				s.SuppressErr = s.SuppressErr || (comment == suppressErrAssertionWarning)
 				s.SuppressCompare = s.SuppressCompare || (comment == suppressCompareAssertionWarning)
+				s.SuppressAsync = s.SuppressAsync || (comment == suppressAsyncAsertWarning)
 			}
 		}
 	}

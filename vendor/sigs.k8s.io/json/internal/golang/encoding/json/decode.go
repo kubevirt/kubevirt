@@ -75,6 +75,8 @@ import (
 // either be any string type, an integer, implement json.Unmarshaler, or
 // implement encoding.TextUnmarshaler.
 //
+// If the JSON-encoded data contain a syntax error, Unmarshal returns a SyntaxError.
+//
 // If a JSON value is not appropriate for a given target type,
 // or if a JSON number overflows the target type, Unmarshal
 // skips that field and completes the unmarshaling as best it can.
@@ -85,15 +87,14 @@ import (
 //
 // The JSON null value unmarshals into an interface, map, pointer, or slice
 // by setting that Go value to nil. Because null is often used in JSON to mean
-// ``not present,'' unmarshaling a JSON null into any other Go type has no effect
+// “not present,” unmarshaling a JSON null into any other Go type has no effect
 // on the value and produces no error.
 //
 // When unmarshaling quoted strings, invalid UTF-8 or
 // invalid UTF-16 surrogate pairs are not treated as an error.
 // Instead, they are replaced by the Unicode replacement
 // character U+FFFD.
-//
-func Unmarshal(data []byte, v interface{}, opts ...UnmarshalOpt) error {
+func Unmarshal(data []byte, v any, opts ...UnmarshalOpt) error {
 	// Check for well-formedness.
 	// Avoids filling out half a data structure
 	// before discovering a JSON syntax error.
@@ -167,16 +168,16 @@ func (e *InvalidUnmarshalError) Error() string {
 		return "json: Unmarshal(nil)"
 	}
 
-	if e.Type.Kind() != reflect.Ptr {
+	if e.Type.Kind() != reflect.Pointer {
 		return "json: Unmarshal(non-pointer " + e.Type.String() + ")"
 	}
 	return "json: Unmarshal(nil " + e.Type.String() + ")"
 }
 */
 
-func (d *decodeState) unmarshal(v interface{}) error {
+func (d *decodeState) unmarshal(v any) error {
 	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
 		return &InvalidUnmarshalError{reflect.TypeOf(v)}
 	}
 
@@ -233,7 +234,8 @@ type decodeState struct {
 	disallowUnknownFields bool
 
 	savedStrictErrors []error
-	seenStrictErrors  map[string]struct{}
+	seenStrictErrors  map[strictError]struct{}
+	strictFieldStack  []string
 
 	caseSensitive bool
 
@@ -261,6 +263,8 @@ func (d *decodeState) init(data []byte) *decodeState {
 		// Reuse the allocated space for the FieldStack slice.
 		d.errorContext.FieldStack = d.errorContext.FieldStack[:0]
 	}
+	// Reuse the allocated space for the strict FieldStack slice.
+	d.strictFieldStack = d.strictFieldStack[:0]
 	return d
 }
 
@@ -422,7 +426,7 @@ type unquotedValue struct{}
 // quoted string literal or literal null into an interface value.
 // If it finds anything other than a quoted string literal or null,
 // valueQuoted returns unquotedValue{}.
-func (d *decodeState) valueQuoted() interface{} {
+func (d *decodeState) valueQuoted() any {
 	switch d.opcode {
 	default:
 		panic(phasePanicMsg)
@@ -464,7 +468,7 @@ func indirect(v reflect.Value, decodingNull bool) (Unmarshaler, encoding.TextUnm
 	// If v is a named type and is addressable,
 	// start with its address, so that if the type has pointer methods,
 	// we find them.
-	if v.Kind() != reflect.Ptr && v.Type().Name() != "" && v.CanAddr() {
+	if v.Kind() != reflect.Pointer && v.Type().Name() != "" && v.CanAddr() {
 		haveAddr = true
 		v = v.Addr()
 	}
@@ -473,14 +477,14 @@ func indirect(v reflect.Value, decodingNull bool) (Unmarshaler, encoding.TextUnm
 		// usefully addressable.
 		if v.Kind() == reflect.Interface && !v.IsNil() {
 			e := v.Elem()
-			if e.Kind() == reflect.Ptr && !e.IsNil() && (!decodingNull || e.Elem().Kind() == reflect.Ptr) {
+			if e.Kind() == reflect.Pointer && !e.IsNil() && (!decodingNull || e.Elem().Kind() == reflect.Pointer) {
 				haveAddr = false
 				v = e
 				continue
 			}
 		}
 
-		if v.Kind() != reflect.Ptr {
+		if v.Kind() != reflect.Pointer {
 			break
 		}
 
@@ -555,6 +559,12 @@ func (d *decodeState) array(v reflect.Value) error {
 		break
 	}
 
+	origStrictFieldStackLen := len(d.strictFieldStack)
+	defer func() {
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
+	}()
+
 	i := 0
 	for {
 		// Look ahead for ] - can only happen on first iteration.
@@ -580,6 +590,7 @@ func (d *decodeState) array(v reflect.Value) error {
 			}
 		}
 
+		d.appendStrictFieldStackIndex(i)
 		if i < v.Len() {
 			// Decode into element.
 			if err := d.value(v.Index(i)); err != nil {
@@ -591,6 +602,8 @@ func (d *decodeState) array(v reflect.Value) error {
 				return err
 			}
 		}
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
 		i++
 
 		// Next token must be , or ].
@@ -666,7 +679,7 @@ func (d *decodeState) object(v reflect.Value) error {
 			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		default:
-			if !reflect.PtrTo(t.Key()).Implements(textUnmarshalerType) {
+			if !reflect.PointerTo(t.Key()).Implements(textUnmarshalerType) {
 				d.saveError(&UnmarshalTypeError{Value: "object", Type: t, Offset: int64(d.off)})
 				d.skip()
 				return nil
@@ -683,7 +696,7 @@ func (d *decodeState) object(v reflect.Value) error {
 					seenKeys = map[string]struct{}{}
 				}
 				if _, seen := seenKeys[fieldName]; seen {
-					d.saveStrictError(fmt.Errorf("duplicate field %q", fieldName))
+					d.saveStrictError(d.newFieldError(duplicateStrictErrType, fieldName))
 				} else {
 					seenKeys[fieldName] = struct{}{}
 				}
@@ -699,7 +712,7 @@ func (d *decodeState) object(v reflect.Value) error {
 				var seenKeys uint64
 				checkDuplicateField = func(fieldNameIndex int, fieldName string) {
 					if seenKeys&(1<<fieldNameIndex) != 0 {
-						d.saveStrictError(fmt.Errorf("duplicate field %q", fieldName))
+						d.saveStrictError(d.newFieldError(duplicateStrictErrType, fieldName))
 					} else {
 						seenKeys = seenKeys | (1 << fieldNameIndex)
 					}
@@ -712,7 +725,7 @@ func (d *decodeState) object(v reflect.Value) error {
 						seenIndexes = make([]bool, len(fields.list))
 					}
 					if seenIndexes[fieldNameIndex] {
-						d.saveStrictError(fmt.Errorf("duplicate field %q", fieldName))
+						d.saveStrictError(d.newFieldError(duplicateStrictErrType, fieldName))
 					} else {
 						seenIndexes[fieldNameIndex] = true
 					}
@@ -732,6 +745,7 @@ func (d *decodeState) object(v reflect.Value) error {
 	if d.errorContext != nil {
 		origErrorContext = *d.errorContext
 	}
+	origStrictFieldStackLen := len(d.strictFieldStack)
 
 	for {
 		// Read opening " of string key or closing }.
@@ -768,6 +782,7 @@ func (d *decodeState) object(v reflect.Value) error {
 			if checkDuplicateField != nil {
 				checkDuplicateField(0, string(key))
 			}
+			d.appendStrictFieldStackKey(string(key))
 		} else {
 			var f *field
 			if i, ok := fields.nameIndex[string(key)]; ok {
@@ -794,7 +809,7 @@ func (d *decodeState) object(v reflect.Value) error {
 				subv = v
 				destring = f.quoted
 				for _, i := range f.index {
-					if subv.Kind() == reflect.Ptr {
+					if subv.Kind() == reflect.Pointer {
 						if subv.IsNil() {
 							// If a struct embeds a pointer to an unexported type,
 							// it is not possible to set a newly allocated value
@@ -820,8 +835,9 @@ func (d *decodeState) object(v reflect.Value) error {
 				}
 				d.errorContext.FieldStack = append(d.errorContext.FieldStack, f.name)
 				d.errorContext.Struct = t
+				d.appendStrictFieldStackKey(f.name)
 			} else if d.disallowUnknownFields {
-				d.saveStrictError(fmt.Errorf("unknown field %q", key))
+				d.saveStrictError(d.newFieldError(unknownStrictErrType, string(key)))
 			}
 		}
 
@@ -859,7 +875,7 @@ func (d *decodeState) object(v reflect.Value) error {
 			kt := t.Key()
 			var kv reflect.Value
 			switch {
-			case reflect.PtrTo(kt).Implements(textUnmarshalerType):
+			case reflect.PointerTo(kt).Implements(textUnmarshalerType):
 				kv = reflect.New(kt)
 				if err := d.literalStore(item, kv, true); err != nil {
 					return err
@@ -905,6 +921,8 @@ func (d *decodeState) object(v reflect.Value) error {
 			d.errorContext.FieldStack = d.errorContext.FieldStack[:len(origErrorContext.FieldStack)]
 			d.errorContext.Struct = origErrorContext.Struct
 		}
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
 		if d.opcode == scanEndObject {
 			break
 		}
@@ -917,7 +935,7 @@ func (d *decodeState) object(v reflect.Value) error {
 
 // convertNumber converts the number literal s to a float64 or a Number
 // depending on the setting of d.useNumber.
-func (d *decodeState) convertNumber(s string) (interface{}, error) {
+func (d *decodeState) convertNumber(s string) (any, error) {
 	if d.useNumber {
 		return Number(s), nil
 	}
@@ -993,7 +1011,7 @@ func (d *decodeState) literalStore(item []byte, v reflect.Value, fromQuoted bool
 			break
 		}
 		switch v.Kind() {
-		case reflect.Interface, reflect.Ptr, reflect.Map, reflect.Slice:
+		case reflect.Interface, reflect.Pointer, reflect.Map, reflect.Slice:
 			v.Set(reflect.Zero(v.Type()))
 			// otherwise, ignore null for primitives/string
 		}
@@ -1123,7 +1141,7 @@ func (d *decodeState) literalStore(item []byte, v reflect.Value, fromQuoted bool
 // but they avoid the weight of reflection in this common case.
 
 // valueInterface is like value but returns interface{}
-func (d *decodeState) valueInterface() (val interface{}) {
+func (d *decodeState) valueInterface() (val any) {
 	switch d.opcode {
 	default:
 		panic(phasePanicMsg)
@@ -1140,8 +1158,14 @@ func (d *decodeState) valueInterface() (val interface{}) {
 }
 
 // arrayInterface is like array but returns []interface{}.
-func (d *decodeState) arrayInterface() []interface{} {
-	var v = make([]interface{}, 0)
+func (d *decodeState) arrayInterface() []any {
+	origStrictFieldStackLen := len(d.strictFieldStack)
+	defer func() {
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
+	}()
+
+	var v = make([]any, 0)
 	for {
 		// Look ahead for ] - can only happen on first iteration.
 		d.scanWhile(scanSkipSpace)
@@ -1149,7 +1173,10 @@ func (d *decodeState) arrayInterface() []interface{} {
 			break
 		}
 
+		d.appendStrictFieldStackIndex(len(v))
 		v = append(v, d.valueInterface())
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
 
 		// Next token must be , or ].
 		if d.opcode == scanSkipSpace {
@@ -1166,8 +1193,14 @@ func (d *decodeState) arrayInterface() []interface{} {
 }
 
 // objectInterface is like object but returns map[string]interface{}.
-func (d *decodeState) objectInterface() map[string]interface{} {
-	m := make(map[string]interface{})
+func (d *decodeState) objectInterface() map[string]any {
+	origStrictFieldStackLen := len(d.strictFieldStack)
+	defer func() {
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
+	}()
+
+	m := make(map[string]any)
 	for {
 		// Read opening " of string key or closing }.
 		d.scanWhile(scanSkipSpace)
@@ -1199,12 +1232,15 @@ func (d *decodeState) objectInterface() map[string]interface{} {
 
 		if d.disallowDuplicateFields {
 			if _, exists := m[key]; exists {
-				d.saveStrictError(fmt.Errorf("duplicate field %q", key))
+				d.saveStrictError(d.newFieldError(duplicateStrictErrType, key))
 			}
 		}
 
 		// Read value.
+		d.appendStrictFieldStackKey(key)
 		m[key] = d.valueInterface()
+		// Reset to original length and reuse the allocated space for the strict FieldStack slice.
+		d.strictFieldStack = d.strictFieldStack[:origStrictFieldStackLen]
 
 		// Next token must be , or }.
 		if d.opcode == scanSkipSpace {
@@ -1223,7 +1259,7 @@ func (d *decodeState) objectInterface() map[string]interface{} {
 // literalInterface consumes and returns a literal from d.data[d.off-1:] and
 // it reads the following byte ahead. The first byte of the literal has been
 // read already (that's how the caller knows it's a literal).
-func (d *decodeState) literalInterface() interface{} {
+func (d *decodeState) literalInterface() any {
 	// All bytes inside literal return scanContinue op code.
 	start := d.readIndex()
 	d.rescanLiteral()
