@@ -16,6 +16,7 @@ PASST_VERSION=${PASST_VERSION:-0:0^20221110.g4129764-1.el9}
 VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.5.0-1.el9}
 SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-1.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
+BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
 bazeldnf_repos="--repofile rpm/repo.yaml"
 if [ "${CUSTOM_REPO}" ]; then
@@ -165,7 +166,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name testimage_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -176,7 +177,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libvirt-devel_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -188,7 +189,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name sandboxroot_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -199,7 +200,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name launcherbase_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -215,7 +216,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name handlerbase_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
         $centos_main \
@@ -227,7 +228,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libguestfs-tools \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         $centos_main \
         $centos_extra \
         $libguestfstools_main \
@@ -246,7 +247,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name exportserverbase_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -257,7 +258,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name pr-helper_x86_64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $pr_helper
 
@@ -284,7 +285,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name testimage_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -295,7 +296,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libvirt-devel_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -307,7 +308,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name sandboxroot_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -318,7 +319,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name launcherbase_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -334,7 +335,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name handlerbase_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
         $centos_main \
@@ -347,7 +348,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name exportserverbase_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
@@ -358,7 +359,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name pr-helper_aarch64 --arch aarch64 \
-        --basesystem centos-stream-release \
+        --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $pr_helper
 
