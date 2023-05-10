@@ -45,6 +45,7 @@ const (
 
 var noAuthEndpoints = map[string]struct{}{
 	"/":           {},
+	"/apis":       {},
 	"/healthz":    {},
 	"/openapi/v2": {},
 	// The endpoints with just the version are needed for api aggregation discovery
