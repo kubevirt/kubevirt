@@ -25,6 +25,10 @@ import (
 	"os"
 	"sync"
 
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+
+	"k8s.io/utils/pointer"
+
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -72,20 +76,73 @@ var _ = Describe("netconf", func() {
 		netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
 	})
+
+	Context("HotUnplugInterfaces", func() {
+		var shouldFail *bool
+		var wasExecuted *bool
+
+		const netName = "multusNet"
+		const nadName = "blue"
+
+		BeforeEach(func() {
+			dutils.MockDefaultOwnershipManager()
+
+			vmi.Spec.Networks = []v1.Network{{
+				Name: netName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: nadName}},
+			}}
+			iface := v1.Interface{
+				Name:                   netName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+
+			cacheCreator := tempCacheCreator{}
+			shouldFail = pointer.Bool(false)
+			wasExecuted = pointer.Bool(false)
+			nsStub := netnsStub{shouldFail, wasExecuted}
+			factory := func(_ int) netsetup.NSExecutor { return nsStub }
+			netConf = netsetup.NewNetConfWithCustomFactory(factory, &cacheCreator)
+
+			podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationFinished}
+			Expect(cache.WritePodInterfaceCache(&cacheCreator, string(vmi.UID), netName, podIfaceCacheData)).To(Succeed())
+			_ = netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)
+			vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateAbsent
+		})
+
+		It("runs successfully", func() {
+			Expect(netConf.HotUnplugInterfaces(vmi)).To(Succeed())
+			Expect(*wasExecuted).To(BeTrue())
+		})
+		It("fails the unplug", func() {
+			*shouldFail = true
+
+			Expect(netConf.HotUnplugInterfaces(vmi)).NotTo(Succeed())
+			Expect(*wasExecuted).To(BeTrue())
+		})
+	})
 })
 
 type netnsStub struct {
-	shouldFail bool
+	shouldFail *bool
+	executed   *bool
 }
 
 func (n netnsStub) Do(func() error) error {
-	if n.shouldFail {
+	if n.executed != nil {
+		if *n.executed == true {
+			panic("executed should be false before execution")
+		}
+		*n.executed = true
+	}
+	if n.shouldFail != nil && *n.shouldFail == true {
 		return fmt.Errorf("do-netns failure")
 	}
 	return nil
 }
 func nsNoopFactory(_ int) netsetup.NSExecutor    { return netnsStub{} }
-func nsFailureFactory(_ int) netsetup.NSExecutor { return netnsStub{shouldFail: true} }
+func nsFailureFactory(_ int) netsetup.NSExecutor { return netnsStub{shouldFail: pointer.Bool(true)} }
 
 func netPreSetupDummyNoop() error { return nil }
 

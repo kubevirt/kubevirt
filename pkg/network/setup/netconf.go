@@ -130,3 +130,15 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 
 	return nil
 }
+
+func (c *NetConf) HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error {
+	c.configStateMutex.RLock()
+	configState, ok := c.configState[string(vmi.UID)]
+	c.configStateMutex.RUnlock()
+
+	if !ok {
+		return nil
+	}
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
+	return netConfigurator.UnplugPodNetworksPhase1(vmi, &configState)
+}

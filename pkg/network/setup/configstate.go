@@ -22,23 +22,28 @@ package network
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/util/errors"
+
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 )
 
-type configStateCacheReaderWriter interface {
+type configStateCacheRUD interface {
 	Read(networkName string) (cache.PodIfaceState, error)
 	Write(networkName string, state cache.PodIfaceState) error
+	Delete(networkName string) error
 }
 
 type ConfigState struct {
-	cache configStateCacheReaderWriter
+	cache configStateCacheRUD
 	ns    NSExecutor
 }
 
-func NewConfigState(configStateCache configStateCacheReaderWriter, ns NSExecutor) ConfigState {
+func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigState {
 	return ConfigState{configStateCache, ns}
 }
 
@@ -113,4 +118,44 @@ func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, confi
 		}
 	}
 	return nil
+}
+
+func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(string) error) error {
+	networksToUnplug, err := c.networksToUnplug(specInterfaces)
+	if err != nil {
+		return err
+	}
+
+	if len(networksToUnplug) == 0 {
+		return nil
+	}
+	err = c.ns.Do(func() error {
+		var cleanupErrors []error
+		for _, net := range networksToUnplug {
+			if cleanupErr := cleanupFunc(net); cleanupErr != nil {
+				cleanupErrors = append(cleanupErrors, cleanupErr)
+			} else if cleanupErr := c.cache.Delete(net); cleanupErr != nil {
+				cleanupErrors = append(cleanupErrors, cleanupErr)
+			}
+		}
+		return errors.NewAggregate(cleanupErrors)
+	})
+	return err
+}
+
+func (c *ConfigState) networksToUnplug(specInterfaces []v1.Interface) ([]string, error) {
+	var networksToUnplug []string
+
+	for _, specIface := range specInterfaces {
+		if specIface.State == v1.InterfaceStateAbsent {
+			state, err := c.cache.Read(specIface.Name)
+			if err != nil {
+				return nil, err
+			}
+			if state != cache.PodIfaceNetworkPreparationPending {
+				networksToUnplug = append(networksToUnplug, specIface.Name)
+			}
+		}
+	}
+	return networksToUnplug, nil
 }

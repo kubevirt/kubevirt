@@ -367,6 +367,24 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			Expect(podData.PodIPs).To(ConsistOf(linkIP4, linkIP6))
 		})
 	})
+	Context("UnplugPodNetworksPhase1", func() {
+		var vmi *v1.VirtualMachineInstance
+		var vmNetworkConfigurator *VMNetworkConfigurator
+		var configState configStateUnplugger
+
+		BeforeEach(func() {
+			vmi = api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
+			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil)
+		})
+		It("should succeed on successful UnplugNetworks", func() {
+			configState = configStateStub{}
+			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, configState)).To(Succeed())
+		})
+		It("should fail on failing UnplugNetworks", func() {
+			configState = configStateStub{shouldFail: true}
+			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, configState)).ToNot(Succeed())
+		})
+	})
 })
 
 func vmiPrimaryNetwork() *v1.Network {
@@ -388,4 +406,15 @@ func networkToHotplug(name string) v1.Network {
 			},
 		},
 	}
+}
+
+type configStateStub struct {
+	shouldFail bool
+}
+
+func (c configStateStub) UnplugNetworks(_ []v1.Interface, _ func(string) error) error {
+	if c.shouldFail {
+		return fmt.Errorf("UnplugNetworks failure")
+	}
+	return nil
 }
