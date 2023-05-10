@@ -20,19 +20,24 @@
 COMMAND=$1
 # We are formatting the architecture name here to ensure that
 # it is consistent with the platform name specified in ../.bazelrc
+# if the second argument is set, the function would formating arch name for
+# image tag.
 function format_archname() {
     local local_platform=$(uname -m)
     local platform=$1
+    local tag=$2
 
     if [ $# -lt 1 ]; then
         echo ${local_platform}
     else
         case ${platform} in
         x86_64 | amd64)
+            [[ $tag ]] && echo "amd64" && return
             arch="x86_64"
             echo ${arch}
             ;;
         crossbuild-aarch64 | aarch64 | arm64)
+            [[ $tag ]] && echo "arm64" && return
             if [ ${local_platform} != "aarch64" ]; then
                 arch="crossbuild-aarch64"
             else
@@ -55,7 +60,8 @@ if [ "$build_count" -gt 1 ]; then
     for arch in ${BUILD_ARCH//,/ }; do
         echo "[INFO] -- working on $arch --"
         arch=$(format_archname $arch)
-        DOCKER_TAG=$DOCKER_TAG-$arch ARCHITECTURE=$arch hack/bazel-${COMMAND}.sh
+        tag=$(format_archname $arch tag)
+        DOCKER_TAG=$DOCKER_TAG-$tag ARCHITECTURE=$arch hack/bazel-${COMMAND}.sh
     done
 else
     arch=$(format_archname ${BUILD_ARCH})
