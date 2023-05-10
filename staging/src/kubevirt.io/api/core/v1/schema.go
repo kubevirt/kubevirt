@@ -463,6 +463,9 @@ type Devices struct {
 	// +optional
 	// +listType=atomic
 	GPUs []GPU `json:"gpus,omitempty"`
+	// DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.
+	// +optional
+	DownwardMetrics *DownwardMetrics `json:"downwardMetrics,omitempty"`
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
 	// +listType=atomic
@@ -547,6 +550,8 @@ type Filesystem struct {
 }
 
 type FilesystemVirtiofs struct{}
+
+type DownwardMetrics struct{}
 
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
