@@ -116,6 +116,82 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			return 0
 		}, 2*time.Minute, 5*time.Second).Should(BeZero(), "wait for the kubelet to stop promoting unconfigured devices")
 	}
+
+	Context("with externally provided mediated devices", func() {
+		var deviceName = "nvidia.com/GRID_T4-1B"
+		var mdevSelector = "GRID T4-1B"
+		var desiredMdevTypeName = "nvidia-222"
+		var expectedInstancesNum = 16
+		var config v1.KubeVirtConfiguration
+		var originalFeatureGates []string
+
+		addMdevsConfiguration := func() {
+			By("Creating a configuration for mediated devices")
+			kv := util.GetCurrentKv(virtClient)
+			config = kv.Spec.Configuration
+			originalFeatureGates = append(originalFeatureGates, config.DeveloperConfiguration.FeatureGates...)
+			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
+				MediatedDeviceTypes: []string{desiredMdevTypeName},
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+		}
+
+		cleanupConfiguredMdevs := func() {
+			By("restoring the mdevs handling to allow cleanup")
+			config.DeveloperConfiguration.FeatureGates = originalFeatureGates
+			By("Removing the configuration of mediated devices")
+			config.PermittedHostDevices = &v1.PermittedHostDevices{}
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+			By("Verifying that an expected amount of devices has been created")
+			noGPUDevicesAreAvailable()
+		}
+		BeforeEach(func() {
+			addMdevsConfiguration()
+
+			By("Verifying that an expected amount of devices has been created")
+			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+		})
+
+		AfterEach(func() {
+			cleanupConfiguredMdevs()
+		})
+		It("Should make sure that mdevs listed with ExternalResourceProvider are not removed", func() {
+
+			By("Listing the created mdevs as externally provided ")
+			config.PermittedHostDevices = &v1.PermittedHostDevices{
+				MediatedDevices: []v1.MediatedHostDevice{
+					{
+						MDEVNameSelector:         mdevSelector,
+						ResourceName:             deviceName,
+						ExternalResourceProvider: true,
+					},
+				},
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("Removing the mediated devices configuration and expecting no devices being removed")
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+		})
+
+		It("Should make sure that no mdev is removed if the feature is gated", func() {
+
+			By("Adding feature gate to disable mdevs handling")
+
+			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.DisableMediatedDevicesHandling)
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+
+			By("Removing the mediated devices configuration and expecting no devices being removed")
+			config.PermittedHostDevices = &v1.PermittedHostDevices{}
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+		})
+	})
+
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
 		var deviceName = "nvidia.com/GRID_T4-1B"
@@ -135,7 +211,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 			config = kv.Spec.Configuration
 			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
-				MediatedDevicesTypes: []string{desiredMdevTypeName},
+				MediatedDeviceTypes: []string{desiredMdevTypeName},
 			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				MediatedDevices: []v1.MediatedHostDevice{
@@ -238,7 +314,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", func() {
 					NodeSelector: map[string]string{
 						cleanup.TestLabelForNamespace(util.NamespaceTestDefault): mdevTestLabel,
 					},
-					MediatedDevicesTypes: []string{
+					MediatedDeviceTypes: []string{
 						"nvidia-223",
 					},
 				},

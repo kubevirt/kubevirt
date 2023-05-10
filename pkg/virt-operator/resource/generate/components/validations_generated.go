@@ -792,7 +792,13 @@ var CRDsValidation map[string]string = map[string]string{
               description: MediatedDevicesConfiguration holds information about MDEV
                 types to be defined, if available
               properties:
+                mediatedDeviceTypes:
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 mediatedDevicesTypes:
+                  description: Deprecated. Use mediatedDeviceTypes instead.
                   items:
                     type: string
                   type: array
@@ -803,7 +809,13 @@ var CRDsValidation map[string]string = map[string]string{
                       MDEV types to be defined in a specifc node that matches the
                       NodeSelector field.
                     properties:
+                      mediatedDeviceTypes:
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       mediatedDevicesTypes:
+                        description: Deprecated. Use mediatedDeviceTypes instead.
                         items:
                           type: string
                         type: array
@@ -817,7 +829,6 @@ var CRDsValidation map[string]string = map[string]string{
                           More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                         type: object
                     required:
-                    - mediatedDevicesTypes
                     - nodeSelector
                     type: object
                   type: array
