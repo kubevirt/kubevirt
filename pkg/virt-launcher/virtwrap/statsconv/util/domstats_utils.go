@@ -172,6 +172,8 @@ var Testdataexpected = `{
      "SwapOutSet": false,
      "Unused": 0, 
      "UnusedSet": false,
+     "Cached": 0, 
+     "CachedSet": false,
      "MajorFault": 0,
      "MajorFaultSet": false,
      "MinorFault": 0,

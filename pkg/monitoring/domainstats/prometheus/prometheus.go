@@ -150,6 +150,15 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 		)
 	}
 
+	if mem.CachedSet {
+		metrics.pushCommonMetric(
+			"kubevirt_vmi_memory_cached_bytes",
+			"The amount of memory that is being used to cache I/O and is available to be reclaimed, corresponds to the sum of `Buffers` + `Cached` + `SwapCached` in `/proc/meminfo`.",
+			prometheus.GaugeValue,
+			float64(mem.Cached)*1024,
+		)
+	}
+
 	if mem.SwapInSet {
 		metrics.pushCommonMetric(
 			"kubevirt_vmi_memory_swap_in_traffic_bytes_total",

@@ -90,6 +90,9 @@ Current balloon size in bytes. Type: Gauge.
 ### kubevirt_vmi_memory_available_bytes
 Amount of usable memory as seen by the domain. This value may not be accurate if a balloon driver is in use or if the guest OS does not initialize all assigned pages Type: Gauge.
 
+### kubevirt_vmi_memory_cached_bytes
+The amount of memory that is being used to cache I/O and is available to be reclaimed, corresponds to the sum of `Buffers` + `Cached` + `SwapCached` in `/proc/meminfo`. Type: Gauge.
+
 ### kubevirt_vmi_memory_domain_bytes_total
 The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file. Type: Gauge.
 
