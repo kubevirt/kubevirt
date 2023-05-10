@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Kubevirt Client", func() {
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/kubevirts"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/kubevirts"
 	kubevirtPath := path.Join(basePath, "testkubevirt")
 	proxyPath := "/proxy/path"
 

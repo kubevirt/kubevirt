@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Kubevirt Migration Client", func() {
 	var server *ghttp.Server
-	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"
+	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstancemigrations"
 	migrationPath := path.Join(basePath, "testmigration")
 	proxyPath := "/proxy/path"
 

@@ -2874,7 +2874,7 @@ spec:
         - spec
         type: object
     served: true
-    storage: false
+    storage: true
     subresources:
       status: {}
   - additionalPrinterColumns:
@@ -2884,6 +2884,9 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
+    deprecated: true
+    deprecationWarning: kubevirt.io/v1alpha3 is now deprecated and will be removed
+      in a future release.
     name: v1alpha3
     schema:
       openAPIV3Schema:
@@ -5733,6 +5736,6 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}

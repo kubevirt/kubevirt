@@ -1,5 +1,5 @@
 # Virtual Machine Presets
-apiVersion: kubevirt.io/v1alpha3
+apiVersion: kubevirt.io/v1
 kind: VirtualMachineInstancePreset
 metadata:
   name: windows-server-2012r2
