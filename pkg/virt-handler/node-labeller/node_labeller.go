@@ -201,10 +201,6 @@ func (n *NodeLabeller) run() error {
 
 	node := originalNode.DeepCopy()
 
-	if skipNode(node) {
-		return nil
-	}
-
 	//prepare new labels
 	newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
 	//remove old labeller labels
@@ -272,6 +268,10 @@ func (n *NodeLabeller) loadHypervFeatures() {
 // e.g. "cpu-feature.node.kubevirt.io/Penryn": "true"
 func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatures cpuFeatures, hostCpuModel hostCPUModel, obsoleteCPUsx86 map[string]bool) map[string]string {
 	newLabels := make(map[string]string)
+
+	if skipNode(node) {
+		return newLabels
+	}
 	for key := range cpuFeatures {
 		newLabels[kubevirtv1.CPUFeatureLabel+key] = "true"
 	}

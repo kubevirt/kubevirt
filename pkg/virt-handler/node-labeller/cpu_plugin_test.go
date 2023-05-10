@@ -206,6 +206,39 @@ var _ = Describe("Node-labeller config", func() {
 		}
 		Expect(badKey).To(BeEmpty())
 	})
+
+	It("The new labels is added if there is no LabellerSkipNodeAnnotation.", func() {
+		node := &k8sv1.Node{}
+
+		obsoleteCPUsx86 := nlController.clusterConfig.GetObsoleteCPUModels()
+		cpuModels := nlController.getSupportedCpuModels()
+		cpuFeatures := nlController.getSupportedCpuFeatures()
+		hostCpuModel = nlController.GetHostCpuModel()
+
+		newLabels := nlController.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
+
+		Expect(newLabels).ToNot(BeEmpty(), "has labels")
+	})
+
+	It("The new labels is not added if there is LabellerSkipNodeAnnotation.", func() {
+		node := &k8sv1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: nodeLabels,
+				Annotations: map[string]string{
+					kubevirtv1.LabellerSkipNodeAnnotation: "true",
+				},
+			},
+		}
+
+		obsoleteCPUsx86 := nlController.clusterConfig.GetObsoleteCPUModels()
+		cpuModels := nlController.getSupportedCpuModels()
+		cpuFeatures := nlController.getSupportedCpuFeatures()
+		hostCpuModel = nlController.GetHostCpuModel()
+
+		newLabels := nlController.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
+
+		Expect(newLabels).To(BeEmpty(), "skip labels")
+	})
 })
 
 var nodeLabels = map[string]string{
