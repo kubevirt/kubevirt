@@ -25,19 +25,14 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
-	"k8s.io/kubectl/pkg/cmd/util/podcmd"
-	"k8s.io/utils/pointer"
-
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-
+	"k8s.io/kubectl/pkg/cmd/util/podcmd"
+	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -53,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -853,20 +849,21 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 				},
 			},
 		})
-		if !skipMount {
-			pvc := claimMap[volume.Name]
-			if pvc != nil {
-				if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-					pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
-						Name:       volume.Name,
-						DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),
-					})
-				} else {
-					pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-						Name:      volume.Name,
-						MountPath: fmt.Sprintf("/%s", volume.Name),
-					})
-				}
+		pvc := claimMap[volume.Name]
+		if pvc == nil {
+			continue
+		}
+		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
+			pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
+				Name:       volume.Name,
+				DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),
+			})
+		} else {
+			if !skipMount {
+				pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+					Name:      volume.Name,
+					MountPath: fmt.Sprintf("/%s", volume.Name),
+				})
 			}
 		}
 	}

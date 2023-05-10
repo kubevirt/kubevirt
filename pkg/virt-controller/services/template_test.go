@@ -24,39 +24,34 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
-	"k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/utils/pointer"
-
-	"kubevirt.io/client-go/api"
-
-	"kubevirt.io/kubevirt/tools/vms-generator/utils"
-
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
-
-	k6tconfig "kubevirt.io/kubevirt/pkg/config"
-
+	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 
+	k6tconfig "kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 var _ = Describe("Template", func() {
@@ -3747,6 +3742,94 @@ var _ = Describe("Template", func() {
 				},
 				SELinuxOptions: &kubev1.SELinuxOptions{
 					Level: "s0",
+				},
+			}))
+		})
+
+		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the FS PersistentVolumeClaim", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			volumeName := "testVolume"
+			pvcName := "pvcDevice"
+			namespace := "testns"
+			mode := kubev1.PersistentVolumeFilesystem
+			pvc := kubev1.PersistentVolumeClaim{
+				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				Spec: kubev1.PersistentVolumeClaimSpec{
+					VolumeMode: &mode,
+				},
+			}
+			claimMap := map[string]*kubev1.PersistentVolumeClaim{volumeName: &pvc}
+
+			volumes := []*v1.Volume{}
+			volumes = append(volumes, &v1.Volume{
+				Name: volumeName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			})
+			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap, false)
+			prop := k8sv1.MountPropagationHostToContainer
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(2))
+			Expect(pod.Spec.Containers[0].VolumeMounts).To(Equal([]kubev1.VolumeMount{
+				{
+					Name:             "hotplug-disks",
+					MountPath:        "/path",
+					MountPropagation: &prop,
+				},
+				{
+					Name:      volumeName,
+					MountPath: "/" + volumeName,
+				},
+			}))
+		})
+
+		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the Block PersistentVolumeClaim", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			ownerPod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+			volumeName := "testVolume"
+			pvcName := "pvcDevice"
+			namespace := "testns"
+			mode := kubev1.PersistentVolumeBlock
+			pvc := kubev1.PersistentVolumeClaim{
+				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				Spec: kubev1.PersistentVolumeClaimSpec{
+					VolumeMode: &mode,
+				},
+			}
+			claimMap := map[string]*kubev1.PersistentVolumeClaim{volumeName: &pvc}
+
+			volumes := []*v1.Volume{}
+			volumes = append(volumes, &v1.Volume{
+				Name: volumeName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: kubev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			})
+			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeNil())
+			Expect(pod.Spec.Containers[0].VolumeDevices).To(Equal([]kubev1.VolumeDevice{
+				{
+					Name:       volumeName,
+					DevicePath: "/path/" + volumeName + "/",
 				},
 			}))
 		})
