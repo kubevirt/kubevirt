@@ -37,6 +37,10 @@ type VMNetworkConfigurator struct {
 	cacheCreator cacheCreator
 }
 
+type configStateUnplugger interface {
+	UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(string) error) error
+}
+
 func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *VMNetworkConfigurator {
 	return &VMNetworkConfigurator{
 		vmi:          vmi,
@@ -157,4 +161,18 @@ func filterOutAbsentIfaces(nics []podNIC) []podNIC {
 		}
 	}
 	return filteredNics
+}
+
+func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, configState configStateUnplugger) error {
+	err := configState.UnplugNetworks(
+		vmi.Spec.Domain.Devices.Interfaces,
+		func(network string) error {
+			// TODO clean cache
+			// TODO remove bridge and tap device
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("failed unplug pod networks phase1: %w", err)
+	}
+	return nil
 }

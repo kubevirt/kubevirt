@@ -101,6 +101,7 @@ import (
 
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
+	HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
@@ -2965,6 +2966,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			if err := d.setupNetwork(vmi, nonAbsentNets); err != nil {
 				log.Log.Object(vmi).Error(err.Error())
 				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
+				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
+			}
+
+			if err := d.netConf.HotUnplugInterfaces(vmi); err != nil { // TODO don't try to unplug from VMs with old name scheme
+				log.Log.Object(vmi).Error(err.Error())
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotunplug", err.Error())
 				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
 			}
 		}

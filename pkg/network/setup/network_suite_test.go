@@ -82,13 +82,18 @@ func newConfigStateCacheStub() configStateCacheStub {
 	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil}
 }
 
-func (c configStateCacheStub) Read(podInterfaceName string) (cache.PodIfaceState, error) {
-	return c.stateCache[podInterfaceName], c.readErr
+func (c configStateCacheStub) Read(key string) (cache.PodIfaceState, error) {
+	return c.stateCache[key], c.readErr
 }
 
-func (c configStateCacheStub) Write(podInterfaceName string, state cache.PodIfaceState) error {
-	c.stateCache[podInterfaceName] = state
+func (c configStateCacheStub) Write(key string, state cache.PodIfaceState) error {
+	c.stateCache[key] = state
 	return c.writeErr
+}
+
+func (c configStateCacheStub) Delete(key string) error {
+	delete(c.stateCache, key)
+	return nil
 }
 
 type nsExecutorStub struct {
