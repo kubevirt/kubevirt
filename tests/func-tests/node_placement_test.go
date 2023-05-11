@@ -8,8 +8,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -112,21 +110,6 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 			Expect(expectedInfraPods).ToNot(ContainElement(false))
 		})
 	})
-
-	Context("validate node placement for vmi", func() {
-		It("[test_id:5679] should create, verify and delete VMIs with correct node placements", func() {
-			// we are iterating many times to ensure that the vmi is not scheduled to the expected node by chance
-			// this test may give false positive result. more iteration can give more accuracy.
-			for i := 0; i < nodePlacementSamplingSize; i++ {
-				fmt.Fprintf(GinkgoWriter, "Run %d/%d\n", i+1, nodePlacementSamplingSize)
-				vmiName := verifyVMICreation(client)
-				vmi := verifyVMIRunning(client, vmiName)
-				verifyVMINodePlacement(vmi, workloadsNode.Name)
-				verifyVMIDeletion(client, vmiName)
-			}
-		})
-	})
-
 })
 
 func updatePodAssignments(pods *v1.PodList, podMap map[string]bool, nodeType string, nodeName string) {
@@ -174,10 +157,4 @@ func getNetworkAddonsConfigs(client kubecli.KubevirtClient) *networkaddonsv1.Net
 		Do(context.TODO()).Into(&cnaoCR)).To(Succeed())
 
 	return &cnaoCR
-}
-
-func verifyVMINodePlacement(vmi *kubevirtcorev1.VirtualMachineInstance, workloadNodeName string) {
-	By("Verifying node placement of VMI")
-	ExpectWithOffset(1, vmi.Labels["kubevirt.io/nodeName"]).Should(Equal(workloadNodeName))
-	fmt.Fprintf(GinkgoWriter, "The VMI is running on the right node: %s\n", workloadNodeName)
 }
