@@ -1,11 +1,11 @@
 module github.com/kubevirt/hyperconverged-cluster-operator/tests
 
-go 1.18
+go 1.19
 
 require (
 	github.com/kubevirt/cluster-network-addons-operator v0.85.2
 	github.com/kubevirt/hyperconverged-cluster-operator v1.8.0
-	github.com/onsi/ginkgo/v2 v2.9.2
+	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.64.0

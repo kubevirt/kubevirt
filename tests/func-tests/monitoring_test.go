@@ -27,7 +27,6 @@ import (
 	promModel "github.com/prometheus/common/model"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 )
@@ -48,6 +47,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 	var promClient promApiv1.API
 	var prometheusRule monitoringv1.PrometheusRule
 	var initialOperatorHealthMetricValue float64
+	ctx := context.TODO()
 
 	runbookClient.Timeout = time.Second * 3
 
@@ -115,12 +115,12 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 	It("KubevirtHyperconvergedClusterOperatorUSModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func() {
 		By("Updating HCO object with a new label")
-		hco := getHCO(virtCli)
+		hco := tests.GetHCO(ctx, virtCli)
 
 		hco.Annotations = map[string]string{
 			"kubevirt.kubevirt.io/jsonpatch": `[{"op": "add", "path": "/spec/configuration/migrations", "value": {"allowPostCopy": true}}]`,
 		}
-		updateHCO(virtCli, hco)
+		tests.UpdateHCORetry(ctx, virtCli, hco)
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(context.TODO())
@@ -132,42 +132,6 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 	})
 
 })
-
-func getHCO(client kubecli.KubevirtClient) v1beta1.HyperConverged {
-	s := scheme.Scheme
-	_ = v1beta1.AddToScheme(s)
-	s.AddKnownTypes(v1beta1.SchemeGroupVersion)
-
-	var hco v1beta1.HyperConverged
-	ExpectWithOffset(
-		1,
-		client.RestClient().Get().
-			Resource("hyperconvergeds").
-			Name("kubevirt-hyperconverged").
-			Namespace(flags.KubeVirtInstallNamespace).
-			AbsPath("/apis", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version).
-			Timeout(10*time.Second).
-			Do(context.TODO()).Into(&hco),
-	).To(Succeed())
-
-	return hco
-}
-
-func updateHCO(client kubecli.KubevirtClient, hco v1beta1.HyperConverged) v1beta1.HyperConverged {
-	hco.Kind = "HyperConverged"
-	hco.APIVersion = v1beta1.SchemeGroupVersion.String()
-
-	ExpectWithOffset(1, client.RestClient().Put().
-		Resource("hyperconvergeds").
-		Name("kubevirt-hyperconverged").
-		Namespace(flags.KubeVirtInstallNamespace).
-		AbsPath("/apis", v1beta1.SchemeGroupVersion.Group, v1beta1.SchemeGroupVersion.Version).
-		Body(&hco).
-		Timeout(10*time.Second).
-		Do(context.TODO()).Into(&hco)).Should(Succeed())
-
-	return hco
-}
 
 func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.Alert {
 	for _, alert := range alerts.Alerts {

@@ -9,14 +9,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/pointer"
+
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"kubevirt.io/kubevirt/tests/flags"
 
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
@@ -27,34 +26,19 @@ const (
 var _ = Describe("test dataImportCron", func() {
 	tests.FlagParse()
 	var cli kubecli.KubevirtClient
+	ctx := context.TODO()
 
-	s := scheme.Scheme
-	_ = hcov1beta1.AddToScheme(s)
-	s.AddKnownTypes(hcov1beta1.SchemeGroupVersion)
+	cli, err := kubecli.GetKubevirtClient()
+	Expect(cli).ToNot(BeNil())
+	Expect(err).ToNot(HaveOccurred())
 
 	BeforeEach(func() {
-		virtCli, err := kubecli.GetKubevirtClient()
-		Expect(err).ToNot(HaveOccurred())
-
-		tests.SkipIfNotOpenShift(virtCli, "DataImportCronTemplate")
-
-		cli, err = kubecli.GetKubevirtClientFromRESTConfig(virtCli.Config())
-		Expect(err).ToNot(HaveOccurred())
+		tests.SkipIfNotOpenShift(cli, "DataImportCronTemplate")
 	})
 
 	AfterEach(func() {
 		Eventually(func(g Gomega) {
-			hc := &hcov1beta1.HyperConverged{}
-			Expect(cli.RestClient().
-				Get().
-				Resource("hyperconvergeds").
-				Name("kubevirt-hyperconverged").
-				Namespace(flags.KubeVirtInstallNamespace).
-				AbsPath("/apis", hcov1beta1.SchemeGroupVersion.Group, hcov1beta1.SchemeGroupVersion.Version).
-				Timeout(10 * time.Second).
-				Do(context.TODO()).
-				Into(hc),
-			).To(Succeed())
+			hc := tests.GetHCO(ctx, cli)
 
 			// make sure there no user-defined DICT
 			if len(hc.Spec.DataImportCronTemplates) > 0 {
@@ -62,15 +46,7 @@ var _ = Describe("test dataImportCron", func() {
 				hc.Kind = "HyperConverged"
 				hc.Spec.DataImportCronTemplates = nil
 
-				res := cli.RestClient().Put().
-					Resource("hyperconvergeds").
-					Name(hcov1beta1.HyperConvergedName).
-					Namespace(flags.KubeVirtInstallNamespace).
-					AbsPath("/apis", hcov1beta1.SchemeGroupVersion.Group, hcov1beta1.SchemeGroupVersion.Version).
-					Timeout(10 * time.Second).
-					Body(hc).Do(context.TODO())
-
-				g.Expect(res.Error()).ToNot(HaveOccurred())
+				tests.UpdateHCORetry(ctx, cli, hc)
 			}
 
 		}).WithPolling(time.Second * 3).WithTimeout(time.Second * 60).Should(Succeed())
@@ -81,37 +57,15 @@ var _ = Describe("test dataImportCron", func() {
 
 		It("should add missing annotation in the DICT", func() {
 			Eventually(func(g Gomega) {
-				hc := &hcov1beta1.HyperConverged{}
-				Expect(cli.RestClient().
-					Get().
-					Resource("hyperconvergeds").
-					Name("kubevirt-hyperconverged").
-					Namespace(flags.KubeVirtInstallNamespace).
-					AbsPath("/apis", hcov1beta1.SchemeGroupVersion.Group, hcov1beta1.SchemeGroupVersion.Version).
-					Timeout(10 * time.Second).
-					Do(context.TODO()).
-					Into(hc),
-				).To(Succeed())
+				hc := tests.GetHCO(ctx, cli)
 
 				hc.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{
 					getDICT(),
 				}
 
-				hc.APIVersion = "hco.kubevirt.io/v1beta1"
-				hc.Kind = "HyperConverged"
+				tests.UpdateHCORetry(ctx, cli, hc)
+				newHC := tests.GetHCO(ctx, cli)
 
-				res := cli.RestClient().Put().
-					Resource("hyperconvergeds").
-					Name(hcov1beta1.HyperConvergedName).
-					Namespace(flags.KubeVirtInstallNamespace).
-					AbsPath("/apis", hcov1beta1.SchemeGroupVersion.Group, hcov1beta1.SchemeGroupVersion.Version).
-					Timeout(10 * time.Second).
-					Body(hc).Do(context.TODO())
-
-				g.Expect(res.Error()).ToNot(HaveOccurred())
-				newHC := &hcov1beta1.HyperConverged{}
-				err := res.Into(newHC)
-				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(newHC.Spec.DataImportCronTemplates).To(HaveLen(1))
 				g.Expect(newHC.Spec.DataImportCronTemplates[0].Annotations).To(HaveKeyWithValue(cdiImmediateBindAnnotation, "true"), "should add the missing annotation")
 			}).WithPolling(time.Second * 3).WithTimeout(time.Second * 60).Should(Succeed())
@@ -119,17 +73,7 @@ var _ = Describe("test dataImportCron", func() {
 
 		It("should not change existing annotation in the DICT", func() {
 			Eventually(func(g Gomega) {
-				hc := &hcov1beta1.HyperConverged{}
-				Expect(cli.RestClient().
-					Get().
-					Resource("hyperconvergeds").
-					Name("kubevirt-hyperconverged").
-					Namespace(flags.KubeVirtInstallNamespace).
-					AbsPath("/apis", hcov1beta1.SchemeGroupVersion.Group, hcov1beta1.SchemeGroupVersion.Version).
-					Timeout(10 * time.Second).
-					Do(context.TODO()).
-					Into(hc),
-				).To(Succeed())
+				hc := tests.GetHCO(ctx, cli)
 
 				hc.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{
 					getDICT(),
@@ -139,26 +83,15 @@ var _ = Describe("test dataImportCron", func() {
 					cdiImmediateBindAnnotation: "false",
 				}
 
-				hc.APIVersion = "hco.kubevirt.io/v1beta1"
-				hc.Kind = "HyperConverged"
+				tests.UpdateHCORetry(ctx, cli, hc)
+				newHC := tests.GetHCO(ctx, cli)
 
-				res := cli.RestClient().Put().
-					Resource("hyperconvergeds").
-					Name(hcov1beta1.HyperConvergedName).
-					Namespace(flags.KubeVirtInstallNamespace).
-					AbsPath("/apis", hcov1beta1.SchemeGroupVersion.Group, hcov1beta1.SchemeGroupVersion.Version).
-					Timeout(10 * time.Second).
-					Body(hc).Do(context.TODO())
-
-				g.Expect(res.Error()).ToNot(HaveOccurred())
-				newHC := &hcov1beta1.HyperConverged{}
-				err := res.Into(newHC)
-				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(newHC.Spec.DataImportCronTemplates).To(HaveLen(1))
 				g.Expect(newHC.Spec.DataImportCronTemplates[0].Annotations).To(HaveKeyWithValue(cdiImmediateBindAnnotation, "false"), "should not change existing annotation")
 			}).WithPolling(time.Second * 3).WithTimeout(time.Second * 60).Should(Succeed())
 		})
 	})
+
 })
 
 func getDICT() hcov1beta1.DataImportCronTemplate {
