@@ -84,7 +84,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			expectedResource := NewKubeVirtPriorityClass(hco)
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &schedulingv1.PriorityClass{}
-			Expect(cl.Get(context.TODO(), key, foundResource))
+			Expect(cl.Get(context.TODO(), key, foundResource)).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
 			Expect(foundResource.Value).To(Equal(expectedResource.Value))
 			Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))

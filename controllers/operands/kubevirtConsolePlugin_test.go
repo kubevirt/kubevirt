@@ -138,7 +138,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 
-			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels))
+			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels)).To(BeTrue())
 		})
 
 		It("should reconcile plugin labels to default if added", func() {
@@ -163,7 +163,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 
-			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels))
+			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels)).To(BeTrue())
 		})
 
 		It("should reconcile plugin labels to default if deleted", func() {
@@ -188,7 +188,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 
-			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels))
+			Expect(reflect.DeepEqual(foundResource.Labels, expectedResource.Labels)).To(BeTrue())
 		})
 	})
 

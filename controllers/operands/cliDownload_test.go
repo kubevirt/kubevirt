@@ -75,7 +75,7 @@ var _ = Describe("CLI Download", func() {
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &consolev1.ConsoleCLIDownload{}
-			Expect(cl.Get(context.TODO(), key, foundResource))
+			Expect(cl.Get(context.TODO(), key, foundResource)).To(Succeed())
 			Expect(reflect.DeepEqual(expectedResource.Spec, foundResource.Spec)).To(BeTrue())
 
 			// ObjectReference should have been updated
@@ -159,7 +159,7 @@ var _ = Describe("Downloads Service", func() {
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &corev1.Service{}
-			Expect(cl.Get(context.TODO(), key, foundResource))
+			Expect(cl.Get(context.TODO(), key, foundResource)).To(Succeed())
 			Expect(hasServiceRightFields(foundResource, expectedResource)).To(BeTrue())
 
 			// ObjectReference should have been updated
@@ -239,7 +239,7 @@ var _ = Describe("Cli Downloads Route", func() {
 
 			key := client.ObjectKeyFromObject(expectedResource)
 			foundResource := &routev1.Route{}
-			Expect(cl.Get(context.TODO(), key, foundResource))
+			Expect(cl.Get(context.TODO(), key, foundResource)).To(Succeed())
 			Expect(hasRouteRightFields(foundResource, expectedResource)).To(BeTrue())
 
 			// ObjectReference should have been updated
