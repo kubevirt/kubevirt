@@ -13,7 +13,7 @@ target "binary" {
 }
 
 target "artifact" {
-  target = "artifacts"
+  target = "artifact"
   output = ["./bin"]
 }
 
@@ -27,6 +27,11 @@ target "artifact-all" {
     "linux/ppc64le",
     "linux/s390x"
   ]
+}
+
+// Special target: https://github.com/docker/metadata-action#bake-definition
+target "docker-metadata-action" {
+  tags = ["registry:local"]
 }
 
 target "image" {
