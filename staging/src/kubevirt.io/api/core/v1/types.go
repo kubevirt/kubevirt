@@ -2555,9 +2555,7 @@ type PciHostDevice struct {
 	PCIVendorSelector string `json:"pciVendorSelector"`
 	// The name of the resource that is representing the device. Exposed by
 	// a device plugin and requested by VMs. Typically of the form
-	// vendor.com/product_nameThe name of the resource that is representing
-	// the device. Exposed by a device plugin and requested by VMs.
-	// Typically of the form vendor.com/product_name
+	// vendor.com/product_name
 	ResourceName string `json:"resourceName"`
 	// If true, KubeVirt will leave the allocation and monitoring to an
 	// external device plugin
