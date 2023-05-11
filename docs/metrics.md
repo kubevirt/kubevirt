@@ -51,6 +51,9 @@ Number of current scheduling migrations. Type: Gauge.
 ### kubevirt_migrate_vmi_succeeded
 Number of migrations successfully executed. Type: Gauge.
 
+### kubevirt_number_of_vms
+The number of VMs in the cluster by namespace. Type: Gauge.
+
 ### kubevirt_virt_api_up_total
 The number of virt-api pods that are up. Type: Gauge.
 

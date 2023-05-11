@@ -659,6 +659,14 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 			MType:       prometheusv1.MetricTypeGauge,
 			Description: "Returns the amount of space in bytes restored from the source virtual machine.",
 		},
+		{
+			Rule: v1.Rule{
+				Record: "kubevirt_number_of_vms",
+				Expr:   intstr.FromString("sum by (namespace) (count by (name,namespace) (kubevirt_vm_error_status_last_transition_timestamp_seconds + kubevirt_vm_migrating_status_last_transition_timestamp_seconds + kubevirt_vm_non_running_status_last_transition_timestamp_seconds + kubevirt_vm_running_status_last_transition_timestamp_seconds + kubevirt_vm_starting_status_last_transition_timestamp_seconds))"),
+			},
+			MType:       prometheusv1.MetricTypeGauge,
+			Description: "The number of VMs in the cluster by namespace.",
+		},
 	}
 }
 
