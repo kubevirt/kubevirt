@@ -70,33 +70,36 @@ func waitForMetricValue(client kubecli.KubevirtClient, metric string, expectedVa
 
 func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue int64, labels map[string]string) {
 	EventuallyWithOffset(1, func() int {
-		v, err := getMetricValueWithLabels(client, metric, labels)
+		i, err := getMetricValueWithLabels(client, metric, labels)
 		if err != nil {
 			return -1
 		}
-		i, err := strconv.Atoi(v)
-		Expect(err).ToNot(HaveOccurred())
 		return i
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
 }
 
-func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (string, error) {
+func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (int, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 
 	returnObj := findMetricWithLabels(result, labels)
-	var returnVal string
+	var output string
 
 	if returnObj == nil {
-		return "", fmt.Errorf("metric value not populated yet")
+		return -1, fmt.Errorf("metric value not populated yet")
 	}
 
 	if s, ok := returnObj.(string); ok {
-		returnVal = s
+		output = s
 	} else {
-		return "", fmt.Errorf("metric value is not string")
+		return -1, fmt.Errorf("metric value is not string")
+	}
+
+	returnVal, err := strconv.Atoi(output)
+	if err != nil {
+		return -1, err
 	}
 
 	return returnVal, nil

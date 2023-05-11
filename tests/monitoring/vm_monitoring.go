@@ -22,7 +22,6 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,6 +58,19 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		virtClient = kubevirt.Client()
 	})
 
+	Context("Cluster VM metrics", func() {
+		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
+			for i := 0; i < 5; i++ {
+				vmi := tests.NewRandomVMI()
+				vm := tests.NewRandomVirtualMachine(vmi, false)
+				_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			waitForMetricValue(virtClient, "kubevirt_number_of_vms", int64(5))
+		})
+	})
+
 	Context("VM status metrics", func() {
 		var vm *v1.VirtualMachine
 		var cpuMetrics = []string{
@@ -78,12 +90,10 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
 			EventuallyWithOffset(1, func() int {
-				v, err := getMetricValueWithLabels(virtClient, metric, labels)
+				i, err := getMetricValueWithLabels(virtClient, metric, labels)
 				if err != nil {
 					return -1
 				}
-				i, err := strconv.Atoi(v)
-				Expect(err).ToNot(HaveOccurred())
 				return i
 			}, 3*time.Minute, 20*time.Second).Should(matcher, description)
 		}
