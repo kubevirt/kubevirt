@@ -1,5 +1,5 @@
 # See the OWNERS docs at https://go.k8s.io/owners
 reviewers:
-  - test-reviewers
+  - sig-test-reviewers
 approvers:
-  - test-approvers
+  - sig-test-approvers
