@@ -164,12 +164,12 @@ func filterOutAbsentIfaces(nics []podNIC) []podNIC {
 }
 
 func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, configState configStateUnplugger) error {
+	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
 	err := configState.UnplugNetworks(
 		vmi.Spec.Domain.Devices.Interfaces,
 		func(network string) error {
-			// TODO clean cache
-			// TODO remove bridge and tap device
-			return nil
+			unpluggedPodNic := NewUnpluggedpodnic(networkByName[network], n.handler)
+			return unpluggedPodNic.UnplugPhase1()
 		})
 	if err != nil {
 		return fmt.Errorf("failed unplug pod networks phase1: %w", err)

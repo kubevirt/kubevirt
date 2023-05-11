@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"github.com/golang/mock/gomock"
@@ -373,7 +375,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		var configState configStateUnplugger
 
 		BeforeEach(func() {
-			vmi = api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
+			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
+			vmi.Spec.Networks = []v1.Network{}
 			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil)
 		})
 		It("should succeed on successful UnplugNetworks", func() {
