@@ -22,7 +22,7 @@ The up-to-date image is pushed to `quay.io/kubevirt/hyperconverged-cluster-funct
     functional test with:
     
     ```shell
-    KUBECONFIG=_kubevirtci/_ci-configs/k8s-1.25/.kubeconfig make functest
+    KUBECONFIG=_kubevirtci/_ci-configs/k8s-1.26-centos9/.kubeconfig make functest
     ```
 
 ### In cluster

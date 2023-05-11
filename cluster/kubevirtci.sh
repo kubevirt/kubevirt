@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-'k8s-1.25'}
+export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-'k8s-1.26-centos9'}
 export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
 KUBEVIRTCI_PATH="${PWD}/_kubevirtci"
 KUBEVIRTCI_REPO='https://github.com/kubevirt/kubevirtci.git'
