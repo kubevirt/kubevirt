@@ -236,6 +236,11 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 			permittedDevices = append(permittedDevices, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
 		}
 	}
+
+	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+	}
+
 	return permittedDevices
 }
 
