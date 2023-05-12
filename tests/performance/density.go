@@ -22,6 +22,8 @@ package performance
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -59,9 +61,9 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		startTime  time.Time
-		endTime    time.Time
 		primed     bool
 	)
+	artifactsDir, _ := os.LookupEnv("ARTIFACTS")
 	BeforeEach(func() {
 		skipIfNoPerformanceTests()
 		virtClient = kubevirt.Client()
@@ -82,16 +84,6 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 		startTime = time.Now()
 	})
 
-	AfterEach(func() {
-		// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s
-		time.Sleep(PrometheusScrapeInterval)
-		endTime = time.Now()
-		runAudit(startTime, endTime)
-
-		// Leave two Prometheus scrapes of time between tests.
-		time.Sleep(2 * PrometheusScrapeInterval)
-	})
-
 	Describe("Density test", func() {
 		vmCount := 100
 		vmBatchStartupLimit := 5 * time.Minute
@@ -103,6 +95,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 
 				By("Waiting a batch of VMIs")
 				waitRunningVMI(virtClient, vmCount+1, vmBatchStartupLimit)
+				collectMetrics(startTime, filepath.Join(artifactsDir, "VMI-perf-audit-results.json"))
 			})
 		})
 
@@ -113,6 +106,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 
 				By("Waiting a batch of VMs")
 				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+				collectMetrics(startTime, filepath.Join(artifactsDir, "VM-perf-audit-results.json"))
 			})
 		})
 
@@ -127,10 +121,21 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 
 				By("Waiting a batch of VMs")
 				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
+				collectMetrics(startTime, filepath.Join(artifactsDir, "VM-instance-type-preference-perf-audit-results.json"))
 			})
 		})
 	})
 })
+
+func collectMetrics(startTime time.Time, filepath string) {
+	// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s
+	time.Sleep(PrometheusScrapeInterval)
+	endTime := time.Now()
+	runAudit(startTime, endTime, filepath)
+
+	// Leave two Prometheus scrapes of time between tests.
+	time.Sleep(2 * PrometheusScrapeInterval)
+}
 
 func defineThresholds() map[audit_api.ResultType]audit_api.InputThreshold {
 	thresholds := map[audit_api.ResultType]audit_api.InputThreshold{}
@@ -154,7 +159,7 @@ func defineThresholds() map[audit_api.ResultType]audit_api.InputThreshold {
 	return thresholds
 }
 
-func runAudit(startTime time.Time, endTime time.Time) {
+func runAudit(startTime time.Time, endTime time.Time, outputFile string) {
 	prometheusPort := 30007
 	duration := audit_api.Duration(endTime.Sub(startTime))
 
@@ -175,6 +180,9 @@ func runAudit(startTime time.Time, endTime time.Time) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = result.DumpToStdout()
+	Expect(err).ToNot(HaveOccurred())
+
+	err = result.DumpToFile(outputFile)
 	Expect(err).ToNot(HaveOccurred())
 }
 
