@@ -111,7 +111,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(nics).To(BeEmpty())
 			})
 			It("should configure networking with multus", func() {
-				const multusInterfaceName = "37a8eec1ce1"
+				const multusInterfaceName = "pod37a8eec1ce1"
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 				iface := v1.DefaultBridgeNetworkInterface()
 				cniNet := vmiPrimaryNetwork()
@@ -191,7 +191,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						vmi:              vm,
 						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[0],
 						vmiSpecNetwork:   additionalCNINet1,
-						podInterfaceName: "e56ef68384a",
+						podInterfaceName: "pode56ef68384a",
 						handler:          vmNetworkConfigurator.handler,
 						cacheCreator:     vmNetworkConfigurator.cacheCreator,
 						launcherPID:      &launcherPID,
@@ -219,7 +219,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 						vmi:              vm,
 						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[2],
 						vmiSpecNetwork:   additionalCNINet2,
-						podInterfaceName: "9f531ef99d2",
+						podInterfaceName: "pod9f531ef99d2",
 						handler:          vmNetworkConfigurator.handler,
 						cacheCreator:     vmNetworkConfigurator.cacheCreator,
 						launcherPID:      &launcherPID,
@@ -248,7 +248,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
 
-				const expectedPodIfaceName = "45b3499a170"
+				const expectedPodIfaceName = "pod45b3499a170"
 				Expect(vmNetworkConfigurator.getPhase1NICs(
 					&launcherPID,
 					[]v1.Network{networkToHotplug(ifaceToHotplug)},

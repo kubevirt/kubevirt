@@ -54,8 +54,8 @@ var _ = Describe("Network Name Scheme", func() {
 				},
 				map[string]string{
 					"network0": namescheme.PrimaryPodInterfaceName,
-					"network1": "a7662f44d65",
-					"network2": "27f4a77f94e",
+					"network1": "poda7662f44d65",
+					"network2": "pod27f4a77f94e",
 				}),
 		)
 	})
@@ -94,11 +94,11 @@ var _ = Describe("Network Name Scheme", func() {
 	Context("CreateNetworkNameSchemeByPodNetworkStatus", func() {
 		const (
 			redNetworkName      = "red"
-			redIfaceHashedName  = "b1f51a511f1"
+			redIfaceHashedName  = "podb1f51a511f1"
 			redIfaceOrdinalName = "net1"
 
 			greenNetworkName      = "green"
-			greenIfaceHashedName  = "ba4788b226a"
+			greenIfaceHashedName  = "podba4788b226a"
 			greenIfaceOrdinalName = "net2"
 		)
 
@@ -162,7 +162,7 @@ var _ = Describe("Network Name Scheme", func() {
 			),
 			Entry("given secondary network name",
 				createMultusSecondaryNetwork("red", "test-br"),
-				"b1f51a511f1",
+				"podb1f51a511f1",
 			),
 		)
 	})

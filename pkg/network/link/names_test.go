@@ -37,6 +37,9 @@ var _ = Describe("Common Methods", func() {
 		It("Should return a tap device name with three digits suffix", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth123")).To(Equal("tap123"))
 		})
+		It("Should return ordinal network name with pod prefix tap device name", func() {
+			Expect(virtnetlink.GenerateTapDeviceName("pod3")).To(Equal("tap3"))
+		})
 		It("Should return hash network name tap device name", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("16477688c0e")).To(Equal("tap16477688c0e"))
 		})
@@ -49,7 +52,19 @@ var _ = Describe("Common Methods", func() {
 			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("net12")).To(Equal("net12-nic"))
 		})
 		It("Should return hash network name bridge interface name", func() {
-			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("16477688c0e")).To(Equal("16477688c0e-nic"))
+			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("poda66cbc8bda7")).To(Equal("a66cbc8bda7-nic"))
+		})
+	})
+
+	Context("GenerateBridgeName function", func() {
+		It("Should return the new bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("eth0")).To(Equal("k6t-eth0"))
+		})
+		It("Should return another new bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("net12")).To(Equal("k6t-net12"))
+		})
+		It("Should return hash network name bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("poda66cbc8bda7")).To(Equal("k6t-a66cbc8bda7"))
 		})
 	})
 })

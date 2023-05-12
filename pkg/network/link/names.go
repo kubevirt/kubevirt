@@ -21,24 +21,31 @@ package link
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 )
 
 func GenerateTapDeviceName(podInterfaceName string) string {
-	trimmedName := strings.TrimPrefix(podInterfaceName, "net")
-	trimmedName = strings.TrimPrefix(trimmedName, "eth")
-	if _, err := strconv.Atoi(trimmedName); err == nil {
-		return "tap" + trimmedName
+	if namescheme.OrdinalInterfaceName(podInterfaceName) {
+		return "tap" + podInterfaceName[3:]
 	}
-	return "tap" + podInterfaceName
+
+	return "tap" + podInterfaceName[:11]
 }
 
 func GenerateBridgeName(podInterfaceName string) string {
-	return "k6t-" + podInterfaceName
+	if namescheme.OrdinalInterfaceName(podInterfaceName) {
+		return "k6t-" + podInterfaceName
+	}
+
+	return "k6t-" + podInterfaceName[3:]
+
 }
 
 func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) string {
-	return fmt.Sprintf("%s-nic", originalPodInterfaceName)
+	if namescheme.OrdinalInterfaceName(originalPodInterfaceName) {
+		return fmt.Sprintf("%s-nic", originalPodInterfaceName)
+	}
 
+	return fmt.Sprintf("%s-nic", originalPodInterfaceName[3:])
 }

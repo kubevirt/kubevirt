@@ -33,8 +33,8 @@ import (
 var _ = Describe("SRIOV", func() {
 
 	const (
-		booVMNetworkPodIfaceName = "6446d58d6df"
-		fooVMNetworkPodIfaceName = "2c26b46b68f"
+		booVMNetworkPodIfaceName = "pod6446d58d6df"
+		fooVMNetworkPodIfaceName = "pod2c26b46b68f"
 	)
 	networkStatusWithOneSRIOVNetwork := fmt.Sprintf(`
 [

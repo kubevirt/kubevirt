@@ -792,7 +792,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			},
 			{
 			"name": "` + netAttachDefName + `",
-			"interface": "a7662f44d65",
+			"interface": "poda7662f44d65",
 			"dns": {},
 			"device-info": {
 			  "type": "pci",
@@ -3206,7 +3206,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"interface":"7e0055a6880","name":"net1","namespace":"default"}]`)),
+						`[{"interface":"pod7e0055a6880","name":"net1","namespace":"default"}]`)),
 				Entry("hotplug multiple interfaces",
 					[]virtv1.AddInterfaceOptions{{
 						NetworkAttachmentDefinitionName: "net1",
@@ -3217,7 +3217,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"interface":"7e0055a6880","name":"net1","namespace":"default"},{"interface":"48802102d24","name":"net1","namespace":"default"}]`)),
+						`[{"interface":"pod7e0055a6880","name":"net1","namespace":"default"},{"interface":"pod48802102d24","name":"net1","namespace":"default"}]`)),
 			)
 			DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
 				func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
@@ -3267,8 +3267,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 					// expected Multus network annotation
 					`[
-							{"interface":"b1f51a511f1", "name":"red-net", "namespace": "default"},
-							{"interface":"16477688c0e", "name":"blue-net", "namespace": "default"}
+							{"interface":"podb1f51a511f1", "name":"red-net", "namespace": "default"},
+							{"interface":"pod16477688c0e", "name":"blue-net", "namespace": "default"}
 					]`,
 				),
 			)
@@ -3312,7 +3312,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
 						podIfaceStatus: &networkv1.NetworkStatus{
 							Name:      networkName,
-							Interface: "7e0055a6880",
+							Interface: "pod7e0055a6880",
 						},
 					}),
 				Entry("VMI with an interface on spec, (matched on status), with the pod interface ready and ordinal name",

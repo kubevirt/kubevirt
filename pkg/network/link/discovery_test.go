@@ -36,7 +36,7 @@ import (
 var _ = Describe("DiscoverByNetwork", func() {
 	const (
 		testNetworkName         = "blue"
-		testNetIfaceName        = "16477688c0e"
+		testNetIfaceName        = "pod16477688c0e"
 		testNetOrdinalIfaceName = "net1"
 	)
 

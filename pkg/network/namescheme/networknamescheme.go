@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -34,10 +33,13 @@ import (
 )
 
 const (
-	// maxIfaceNameLen equals max kernel interface name len (15) - length("-nic")
+	// MaxIfaceNameLen equals max kernel interface name len (15) - length("-nic")
 	// which is the suffix used for the bridge binding interface with IPAM.
 	// (the interface created to hold the pod's IP address - and thus appease CNI).
-	maxIfaceNameLen         = 11
+	MaxIfaceNameLen = 11
+	// podInterfaceNamePrefix prefix of the external network interface inside the pod
+	// created by the CNI.
+	podInterfaceNamePrefix  = "pod"
 	PrimaryPodInterfaceName = "eth0"
 )
 
@@ -73,7 +75,8 @@ func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[st
 func hashNetworkName(networkName string) string {
 	hash := sha256.New()
 	_, _ = io.WriteString(hash, networkName)
-	return fmt.Sprintf("%x", hash.Sum(nil))[:maxIfaceNameLen]
+	hashedName := fmt.Sprintf("%x", hash.Sum(nil))[:MaxIfaceNameLen]
+	return fmt.Sprintf("pod%s", hashedName)
 }
 
 // CreateOrdinalNetworkNameScheme iterates over the VMI's Networks, and creates for each a pod interface name.
@@ -114,8 +117,7 @@ func mapMultusNonDefaultNetworksToPodInterfaceOrdinalName(networks []v1.Network)
 }
 
 func secondaryInterfaceIndexedName(idx int) string {
-	const interfaceNamePrefix = "net"
-	return fmt.Sprintf("%s%d", interfaceNamePrefix, idx)
+	return fmt.Sprintf("net%d", idx)
 }
 
 // CreateNetworkNameSchemeByPodNetworkStatus create pod network name scheme according to the given VMI spec networks
@@ -136,17 +138,17 @@ func PodHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkSta
 		if networkStatus.Interface == PrimaryPodInterfaceName {
 			continue
 		}
-		if ordinalInterfaceName(networkStatus.Interface) {
+		if OrdinalInterfaceName(networkStatus.Interface) {
 			return true
 		}
 	}
 	return false
 }
 
-// ordinalInterfaceName check if the given name is in form of the ordinal
+// OrdinalInterfaceName check if the given name is in form of the ordinal
 // name scheme (e.g.: net1, net2..).
-func ordinalInterfaceName(name string) bool {
-	trimmedName := strings.TrimPrefix(name, "net")
+func OrdinalInterfaceName(name string) bool {
+	trimmedName := name[3:]
 	if _, err := strconv.Atoi(trimmedName); err != nil {
 		return false
 	}
