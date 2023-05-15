@@ -2376,9 +2376,11 @@ var _ = Describe("Manager", func() {
 			Expect(devicesData).To(HaveLen(opts.sriovInterfaceCnt + opts.genericInterfaceCnt + opts.hostDeviceCnt + opts.gpuCnt))
 			devicesTypes := make(map[cloudinit.DeviceMetadataType]int)
 			for _, deviceData := range devicesData {
-				Expect(deviceData.Bus).To(Equal("pci"))
+				if deviceData.Type == cloudinit.NICMetadataType {
+					Expect(deviceData.Bus).To(Equal("pci"))
+					Expect(deviceData.Address).NotTo(BeEmpty())
+				}
 				Expect(deviceData.Tags).To(HaveLen(1))
-				Expect(deviceData.Address).NotTo(BeEmpty())
 				devicesTypes[deviceData.Type]++
 			}
 			Expect(devicesTypes[cloudinit.NICMetadataType]).To(Equal(opts.sriovInterfaceCnt + opts.genericInterfaceCnt))

@@ -1669,11 +1669,18 @@ func formatPCIAddressStr(address *api.Address) string {
 }
 
 func addToDeviceMetadata(devicesMetadata []cloudinit.DeviceData, metadataType cloudinit.DeviceMetadataType, address *api.Address, mac string, tag string, numa *uint32, numaAlignedCPUs []uint32) []cloudinit.DeviceData {
-	pciAddrStr := formatPCIAddressStr(address)
+	var (
+		addressType string
+		pciAddress  string
+	)
+	if address != nil {
+		addressType = address.Type
+		pciAddress = formatPCIAddressStr(address)
+	}
 	deviceData := cloudinit.DeviceData{
 		Type:    metadataType,
-		Bus:     address.Type,
-		Address: pciAddrStr,
+		Bus:     addressType,
+		Address: pciAddress,
 		MAC:     mac,
 		Tags:    []string{tag},
 	}
@@ -1766,7 +1773,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(devicesMetadata,
 				cloudinit.NICMetadataType,
-				dev.Source.Address,
+				dev.Address,
 				"",
 				tag,
 				deviceNumaNode,
@@ -1777,7 +1784,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(devicesMetadata,
 				cloudinit.HostDevMetadataType,
-				dev.Source.Address,
+				dev.Address,
 				"",
 				tag,
 				deviceNumaNode,
@@ -1788,7 +1795,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(devicesMetadata,
 				cloudinit.HostDevMetadataType,
-				dev.Source.Address,
+				dev.Address,
 				"",
 				tag,
 				deviceNumaNode,
