@@ -95,3 +95,8 @@ type SEVConfiguration struct {
 	Cbitpos         string `xml:"cbitpos"`
 	ReducedPhysBits string `xml:"reducedPhysBits"`
 }
+
+type KSMConfiguration struct {
+	SysfsFilePath string
+	Enabled       bool
+}
