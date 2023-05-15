@@ -471,7 +471,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("", stringListToSlice("services")),
 		{
 			APIGroups: emptyAPIGroup,
-			Resources: stringListToSlice("pods", "resourcequotas"),
+			Resources: stringListToSlice("pods"),
 			Verbs:     stringListToSlice("get", "list", "watch"),
 		},
 		{
@@ -809,33 +809,6 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 		WebhookPath: pointer.String(util.HCONSWebhookPath),
 	}
 
-	mutatingVirtLauncherWebhook := csvv1alpha1.WebhookDescription{
-		GenerateName:            util.HcoMutatingWebhookVirtLauncher,
-		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
-		DeploymentName:          hcoWhDeploymentName,
-		ContainerPort:           util.WebhookPort,
-		AdmissionReviewVersions: stringListToSlice("v1beta1", "v1"),
-		SideEffects:             &mutatingWebhookSideEffects,
-		FailurePolicy:           &failurePolicy,
-		TimeoutSeconds:          &webhookTimeout,
-		ObjectSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"kubevirt.io": "virt-launcher"},
-		},
-		Rules: []admissionregistrationv1.RuleWithOperations{
-			{
-				Operations: []admissionregistrationv1.OperationType{
-					admissionregistrationv1.Create,
-				},
-				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{""},
-					APIVersions: stringListToSlice("v1"),
-					Resources:   stringListToSlice("pods"),
-				},
-			},
-		},
-		WebhookPath: pointer.String(util.HCOVirtLauncherWebhookPath),
-	}
-
 	mutatingHyperConvergedWebhook := csvv1alpha1.WebhookDescription{
 		GenerateName:            util.HcoMutatingWebhookHyperConverged,
 		Type:                    csvv1alpha1.MutatingAdmissionWebhook,
@@ -953,7 +926,6 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			WebhookDefinitions: []csvv1alpha1.WebhookDescription{
 				validatingWebhook,
 				mutatingNamespaceWebhook,
-				mutatingVirtLauncherWebhook,
 				mutatingHyperConvergedWebhook,
 			},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{

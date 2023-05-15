@@ -295,7 +295,6 @@ spec:
           - ""
           resources:
           - pods
-          - resourcequotas
           verbs:
           - get
           - list
@@ -4016,29 +4015,6 @@ spec:
     timeoutSeconds: 10
     type: MutatingAdmissionWebhook
     webhookPath: /mutate-ns-hco-kubevirt-io
-  - admissionReviewVersions:
-    - v1beta1
-    - v1
-    containerPort: 4343
-    deploymentName: hco-webhook
-    failurePolicy: Fail
-    generateName: mutate-virt-launcher-hco.kubevirt.io
-    objectSelector:
-      matchLabels:
-        kubevirt.io: virt-launcher
-    rules:
-    - apiGroups:
-      - ""
-      apiVersions:
-      - v1
-      operations:
-      - CREATE
-      resources:
-      - pods
-    sideEffects: NoneOnDryRun
-    timeoutSeconds: 10
-    type: MutatingAdmissionWebhook
-    webhookPath: /mutate-virt-launcher-hco-kubevirt-io
   - admissionReviewVersions:
     - v1beta1
     - v1

@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.10.0-unstable
-    createdAt: "2023-05-11 05:13:08"
+    createdAt: "2023-05-15 12:19:56"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -295,7 +295,6 @@ spec:
           - ""
           resources:
           - pods
-          - resourcequotas
           verbs:
           - get
           - list
@@ -4016,29 +4015,6 @@ spec:
     timeoutSeconds: 10
     type: MutatingAdmissionWebhook
     webhookPath: /mutate-ns-hco-kubevirt-io
-  - admissionReviewVersions:
-    - v1beta1
-    - v1
-    containerPort: 4343
-    deploymentName: hco-webhook
-    failurePolicy: Fail
-    generateName: mutate-virt-launcher-hco.kubevirt.io
-    objectSelector:
-      matchLabels:
-        kubevirt.io: virt-launcher
-    rules:
-    - apiGroups:
-      - ""
-      apiVersions:
-      - v1
-      operations:
-      - CREATE
-      resources:
-      - pods
-    sideEffects: NoneOnDryRun
-    timeoutSeconds: 10
-    type: MutatingAdmissionWebhook
-    webhookPath: /mutate-virt-launcher-hco-kubevirt-io
   - admissionReviewVersions:
     - v1beta1
     - v1
