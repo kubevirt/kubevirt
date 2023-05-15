@@ -223,6 +223,7 @@ var _ = Describe("Authorizer", func() {
 			},
 				// Root resources
 				Entry("root", "/"),
+				Entry("apis", "/apis"),
 				Entry("healthz", "/healthz"),
 				Entry("openapi", "/openapi/v2"),
 				Entry("start profiler", "/start-profiler"),
