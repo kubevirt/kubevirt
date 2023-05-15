@@ -1238,6 +1238,40 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
 		})
+
+		It("should not transit to succeeded phase when VMI status has CPU change condition", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationRunning)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			vmi.Status.Conditions = append(vmi.Status.Conditions,
+				virtv1.VirtualMachineInstanceCondition{
+					Type:          virtv1.VirtualMachineInstanceVCPUChange,
+					Status:        k8sv1.ConditionTrue,
+					LastProbeTime: *now(),
+				})
+
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   migration.UID,
+				TargetNode:                     "node01",
+				SourceNode:                     "node02",
+				TargetNodeAddress:              "10.10.10.10:1234",
+				StartTimestamp:                 now(),
+				EndTimestamp:                   now(),
+				TargetNodeDomainReadyTimestamp: now(),
+				Failed:                         false,
+				Completed:                      true,
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectPodAnnotationTimestamp(vmi)
+			controller.Execute()
+		})
+
 		It("should expect MigrationState to be updated on a completed migration", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
