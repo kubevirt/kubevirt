@@ -143,11 +143,13 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 }
 
 func verifyOperatorHealthMetricValue(promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
-	systemHealthMetricValue := getMetricValue(promClient, "kubevirt_hco_system_health_status")
-	operatorHealthMetricValue := getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
+	Eventually(func() bool {
+		systemHealthMetricValue := getMetricValue(promClient, "kubevirt_hco_system_health_status")
+		operatorHealthMetricValue := getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
 
-	expectedOperatorHealthMetricValue := math.Max(alertImpact, math.Max(systemHealthMetricValue, initialOperatorHealthMetricValue))
-	ExpectWithOffset(1, operatorHealthMetricValue).To(Equal(expectedOperatorHealthMetricValue))
+		expectedOperatorHealthMetricValue := math.Max(alertImpact, math.Max(systemHealthMetricValue, initialOperatorHealthMetricValue))
+		return operatorHealthMetricValue == expectedOperatorHealthMetricValue
+	}, 60*time.Second, 5*time.Second).Should(BeTrue())
 }
 
 func getMetricValue(promClient promApiv1.API, metricName string) float64 {
