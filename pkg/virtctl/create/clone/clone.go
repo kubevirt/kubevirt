@@ -94,14 +94,14 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.newMacAddresses, NewMacAddressesFlag, nil, "Specify clone's new mac addresses. For example: 'interfaceName0:newAddress0'")
 	cmd.Flags().StringVar(&c.newSmbiosSerial, NewSMBiosSerialFlag, emptyValue, "Specify the clone's new smbios serial")
 
-	_ = cmd.MarkFlagRequired(SourceNameFlag)
+	if err := cmd.MarkFlagRequired(SourceNameFlag); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }
 
 func withNewMacAddresses(c *createClone, cloneSpec *cloneSpec) error {
-	const flag = NewMacAddressesFlag
-
 	for _, param := range c.newMacAddresses {
 		splitParam := strings.Split(param, ":")
 		if len(splitParam) != 2 {
@@ -134,19 +134,22 @@ func (c *createClone) usage() string {
   {{ProgramName}} create clone --name my-clone --source-name sourceVM --target-name targetVM
 
   # Create a manifest for a clone with a randomized target name (target name is omitted):
-  {{ProgramName}} create --source-name sourceVM
+  {{ProgramName}} create clone --source-name sourceVM
 
   # Create a manifest for a clone with specified source / target types. The default type is VM.
   {{ProgramName}} create clone --source-name sourceVM --source-type vm --target-name targetVM --target-type vm
+
+  # Supported source types are vm (aliases: VM, VirtualMachine, virtualmachine) and snapshot (aliases: vmsnapshot
+  # VirtualMachineSnapshot, VMSnapshot). The only supported target type is vm.
 
   # Create a manifest for a clone with a source type snapshot to a target type VM:
   {{ProgramName}} create clone --source-name mySnapshot --source-type snapshot --target-name targetVM
   
   # Create a manifest for a clone with label filters:
-  {{ProgramName}} create clone --source-name sourceVM --label-filter "*" --label-filter "!some/key" 
+  {{ProgramName}} create clone --source-name sourceVM --label-filter '*' --label-filter '!some/key' 
   
   # Create a manifest for a clone with annotation filters:
-  {{ProgramName}} create clone --source-name sourceVM --annotation-filter "*" --annotation-filter "!some/key"
+  {{ProgramName}} create clone --source-name sourceVM --annotation-filter '*' --annotation-filter '!some/key'
 
   # Create a manifest for a clone with new MAC addresses:
   {{ProgramName}} create clone --source-name sourceVM --new-mac-address interface1:00-11-22 --new-mac-address interface2:00-11-33

@@ -88,6 +88,15 @@ var _ = Describe("create clone", func() {
 			Entry("VMSnapshot source, vm target", "VMSnapshot", snapshotKind, snapshotApiGroup, "vm", vmKind, vmApiGroup),
 		)
 
+		It("snapshot is not supported as a target type", func() {
+			flags := addFlag(nil, clone.SourceNameFlag, "source-name")
+			flags = addFlag(flags, clone.TargetNameFlag, "target-name")
+			flags = addFlag(flags, clone.TargetTypeFlag, "snapshot")
+
+			_, err := newCommand(flags...)
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("unknown source type", func() {
 			flags := getSourceNameFlags()
 			flags = addFlag(flags, clone.SourceTypeFlag, "unknown type")
@@ -101,6 +110,11 @@ var _ = Describe("create clone", func() {
 			flags = addFlag(flags, clone.TargetTypeFlag, "unknown type")
 
 			_, err := newCommand(flags...)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("no source name", func() {
+			_, err := newCommand()
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -141,28 +155,42 @@ var _ = Describe("create clone", func() {
 		)
 	})
 
-	It("new mac addresses", func() {
+	Context("new mac addresses", func() {
 		const newMacAddressValueFmt = `%s:%s`
 
-		flags := getSourceNameFlags()
+		It("with valid arguments", func() {
+			flags := getSourceNameFlags()
 
-		newMacAddresses := map[string]string{
-			"interface0": "custom-mac-address0",
-			"interface1": "custom-mac-address1",
-		}
+			newMacAddresses := map[string]string{
+				"interface0": "custom-mac-address0",
+				"interface1": "custom-mac-address1",
+			}
 
-		for interfaceName, newMacAddress := range newMacAddresses {
+			for interfaceName, newMacAddress := range newMacAddresses {
+				flags = addFlag(flags, clone.NewMacAddressesFlag, fmt.Sprintf(newMacAddressValueFmt, interfaceName, newMacAddress))
+			}
+
+			cloneObj, err := newCommand(flags...)
+			Expect(err).ToNot(HaveOccurred())
+
+			for interfaceName, newMacAddress := range cloneObj.Spec.NewMacAddresses {
+				expectedAddress, exists := cloneObj.Spec.NewMacAddresses[interfaceName]
+				Expect(exists).To(BeTrue())
+				Expect(newMacAddress).To(Equal(expectedAddress))
+			}
+		})
+
+		DescribeTable("with invalid arguments", func(interfaceName, newMacAddress string) {
+			flags := getSourceNameFlags()
 			flags = addFlag(flags, clone.NewMacAddressesFlag, fmt.Sprintf(newMacAddressValueFmt, interfaceName, newMacAddress))
-		}
 
-		cloneObj, err := newCommand(flags...)
-		Expect(err).ToNot(HaveOccurred())
-
-		for interfaceName, newMacAddress := range cloneObj.Spec.NewMacAddresses {
-			expectedAddress, exists := cloneObj.Spec.NewMacAddresses[interfaceName]
-			Expect(exists).To(BeTrue())
-			Expect(newMacAddress).To(Equal(expectedAddress))
-		}
+			_, err := newCommand(flags...)
+			Expect(err).To(HaveOccurred())
+		},
+			Entry("empty interface name", "", "custom-mac-address"),
+			Entry("empty mac address", "interface", ""),
+			Entry("interface name with ':' inside its name", "interf:ace", "custom-mac-address"),
+		)
 	})
 
 	It("new smbios serial", func() {
