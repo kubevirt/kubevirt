@@ -100,6 +100,11 @@ const (
 	kvKubevirtSeccompProfile = "KubevirtSeccompProfile"
 )
 
+const (
+	highBurstProfileBurst = 400
+	highBurstProfileQPS   = 200
+)
+
 var (
 	hardCodeKvFgs = []string{
 		kvDataVolumesGate,
@@ -281,39 +286,59 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 	return kv, nil
 }
 
-func hcoTuning2Kv(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
-	var err error
-	if hc.Spec.TuningPolicy == hcov1beta1.HyperConvergedAnnotationTuningPolicy {
-		if annotation, ok := hc.Annotations[common.TuningPolicyAnnotationName]; ok {
+func getHcoAnnotationTuning(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
+	if annotation, ok := hc.Annotations[common.TuningPolicyAnnotationName]; ok {
 
-			var rates rateLimits
-			err := json.Unmarshal([]byte(annotation), &rates)
-			if err != nil {
-				return nil, err
-			}
+		var rates rateLimits
+		err := json.Unmarshal([]byte(annotation), &rates)
+		if err != nil {
+			return nil, err
+		}
 
-			if rates.Qps <= 0 {
-				return nil, fmt.Errorf("qps parameter not found in annotation")
-			}
-			if rates.Burst <= 0 {
-				return nil, fmt.Errorf("burst parameter not found in annotation")
-			}
-
-			return &kubevirtcorev1.ReloadableComponentConfiguration{
-				RestClient: &kubevirtcorev1.RESTClientConfiguration{
-					RateLimiter: &kubevirtcorev1.RateLimiter{
-						TokenBucketRateLimiter: &kubevirtcorev1.TokenBucketRateLimiter{
-							QPS:   rates.Qps,
-							Burst: rates.Burst,
-						},
+		if rates.Qps <= 0 {
+			return nil, fmt.Errorf("qps parameter not found in annotation")
+		}
+		if rates.Burst <= 0 {
+			return nil, fmt.Errorf("burst parameter not found in annotation")
+		}
+		return &kubevirtcorev1.ReloadableComponentConfiguration{
+			RestClient: &kubevirtcorev1.RESTClientConfiguration{
+				RateLimiter: &kubevirtcorev1.RateLimiter{
+					TokenBucketRateLimiter: &kubevirtcorev1.TokenBucketRateLimiter{
+						QPS:   rates.Qps,
+						Burst: rates.Burst,
 					},
 				},
-			}, nil
-		} else {
-			err = fmt.Errorf("tuning policy set but annotation not present or wrong")
-		}
+			},
+		}, nil
 	}
-	return nil, err
+
+	return nil, fmt.Errorf("tuning policy set but annotation not present or wrong")
+}
+
+func getHcoHighBurstProfileTuningValues(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
+	if _, ok := hc.Annotations[common.TuningPolicyAnnotationName]; ok {
+		return nil, fmt.Errorf("highBurst profile is enabled and the annotation " + common.TuningPolicyAnnotationName + " is present")
+	}
+	return &kubevirtcorev1.ReloadableComponentConfiguration{
+		RestClient: &kubevirtcorev1.RESTClientConfiguration{
+			RateLimiter: &kubevirtcorev1.RateLimiter{
+				TokenBucketRateLimiter: &kubevirtcorev1.TokenBucketRateLimiter{
+					QPS:   highBurstProfileQPS,
+					Burst: highBurstProfileBurst,
+				},
+			},
+		},
+	}, nil
+}
+
+func hcoTuning2Kv(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
+	if hc.Spec.TuningPolicy == hcov1beta1.HyperConvergedAnnotationTuningPolicy {
+		return getHcoAnnotationTuning(hc)
+	} else if hc.Spec.TuningPolicy == hcov1beta1.HyperConvergedHighBurstProfile {
+		return getHcoHighBurstProfileTuningValues(hc)
+	}
+	return nil, nil
 }
 
 func hcWorkloadUpdateStrategyToKv(hcObject *hcov1beta1.HyperConvergedWorkloadUpdateStrategy) kubevirtcorev1.KubeVirtWorkloadUpdateStrategy {

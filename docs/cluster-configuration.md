@@ -1058,7 +1058,13 @@ Kubevirt API clients come with a token bucket rate limiter which avoids to conge
 The rate limiters are configurable through `burst` and `Query Per Second (QPS)` parameters.
 Whilst the rate limiter may avoid congestion, it may also limit the number of VMs that can be deployed in the cluster.
 Therefore, HCO enables the feature `tuningPolicy` for allowing to tune the rate limiters parameters.
-The `tuningPolicy` field can be set as `annotation`.
+Currently, there are two profiles supported: `annotation` and `highBurst`.
+
+### Annotation Profile
+
+The `tuningPolicy` profile `annotation` is intended for arbitrary `burst` and `QPS` values, i.e. the values are fully
+configurable with the desired ones.
+By using this profile, the user is responsible for setting the values more appropriated to its particular scenario.
 
 > **_Note_:** If no `tuningPolicy` is configured or the `tuningPolicy` feature is not well configured, Kubevirt will use the
 > [default](https://github.com/kubevirt/kubevirt/blob/a3e92eb499636cbab46763fbdd1dbccaca716c29/pkg/virt-config/virt-config.go#L78-L86) rate limiter values.
@@ -1093,4 +1099,18 @@ The `tuningPolicy` feature can be enabled using the following patch:
 
 ```bash
 kubectl patch -n kubevirt-hyperconverged hco kubevirt-hyperconverged --type=json -p='[{"op": "add", "path": "/spec/tuningPolicy", "value": "annotation"}]'
+```
+
+### HighBurst Profile
+
+The `highBurst` profile is intended for high load scenarios where the user expect to create and maintain a high number of VMs
+in the same cluster.
+The profile configures internally the more suitable `burst` and `QPS` values for the most common high load scenarios. 
+Nevertheless, the specific configuration of those values is hidden to the user.
+Also, the values may change over time since they are based on an experimentation process.
+
+To enable this `tuningPolicy` profile, the following patch may be applied:
+
+```bash
+kubectl patch -n kubevirt-hyperconverged hco kubevirt-hyperconverged --type=json -p='[{"op": "add", "path": "/spec/tuningPolicy", "value": "highBurst"}]'
 ```

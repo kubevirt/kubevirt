@@ -2439,6 +2439,7 @@ spec:
                   Qps and burst values are taken from the annotation hco.kubevirt.io/tuningPolicy
                 enum:
                 - annotation
+                - highBurst
                 type: string
               uninstallStrategy:
                 default: BlockUninstallIfWorkloadsExist

@@ -46,3 +46,24 @@ for jpath in "${RATE_LIMITS[@]}"; do
   fi
   sleep 2
 done
+
+./hack/retry.sh 10 3 "(${KUBECTL_BINARY} patch -n \"${INSTALLED_NAMESPACE}\" hco kubevirt-hyperconverged --type=json -p='[{"op": "remove", "path": "/spec/tuningPolicy", "value": "annotation"}]')"
+./hack/retry.sh 10 3 "(${KUBECTL_BINARY} annotate -n \"${INSTALLED_NAMESPACE}\" hco kubevirt-hyperconverged hco.kubevirt.io/tuningPolicy-)"
+
+echo "Check that the TuningPolicy highBurst is configuring the KV object as expected"
+
+./hack/retry.sh 10 3 "(${KUBECTL_BINARY} patch -n \"${INSTALLED_NAMESPACE}\" hco kubevirt-hyperconverged --type=json -p='[{"op": "replace", "path": "/spec/tuningPolicy", "value": "highBurst"}]')"
+
+EXPECTED='{
+  "burst": 400,
+  "qps": 200
+}'
+
+for jpath in "${RATE_LIMITS[@]}"; do
+  KUBECONFIG_OUT=$(${KUBECTL_BINARY} get kv -n "${INSTALLED_NAMESPACE}" kubevirt-kubevirt-hyperconverged -o json | jq "${jpath}")
+  if [[ $KUBECONFIG_OUT != $EXPECTED ]]; then
+     exit 1
+  fi
+  sleep 2
+done
+
