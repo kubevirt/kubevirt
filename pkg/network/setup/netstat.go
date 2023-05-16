@@ -132,9 +132,10 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	for ifaceIndex, ifaceStatus := range interfacesStatus {
-		if _, exists := multusStatusNetworksByName[ifaceStatus.Name]; exists {
+		if vmiIfaceStatus, exists := multusStatusNetworksByName[ifaceStatus.Name]; exists {
 			interfacesStatus[ifaceIndex].InfoSource = netvmispec.AddInfoSource(
 				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+			interfacesStatus[ifaceIndex].PodInterfaceName = vmiIfaceStatus.PodInterfaceName
 		}
 	}
 

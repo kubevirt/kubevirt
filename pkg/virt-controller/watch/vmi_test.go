@@ -3309,7 +3309,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("VMI with an interface on spec (matched on status) with the pod interface ready",
 					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
 					PodVmIfaceStatus{
-						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
+						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName, "pod7e0055a6880"),
 						podIfaceStatus: &networkv1.NetworkStatus{
 							Name:      networkName,
 							Interface: "pod7e0055a6880",
@@ -3318,7 +3318,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Entry("VMI with an interface on spec, (matched on status), with the pod interface ready and ordinal name",
 					newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName),
 					PodVmIfaceStatus{
-						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName),
+						vmIfaceStatus: readyHotpluggedIfaceStatus(ifaceName, "net1"),
 						podIfaceStatus: &networkv1.NetworkStatus{
 							Name:      networkName,
 							Interface: "net1",
@@ -3638,10 +3638,11 @@ func simpleIfaceStatus(ifaceName string) *virtv1.VirtualMachineInstanceNetworkIn
 	}
 }
 
-func readyHotpluggedIfaceStatus(ifaceName string) *virtv1.VirtualMachineInstanceNetworkInterface {
+func readyHotpluggedIfaceStatus(ifaceName string, podIfaceName string) *virtv1.VirtualMachineInstanceNetworkInterface {
 	return &virtv1.VirtualMachineInstanceNetworkInterface{
-		Name:       ifaceName,
-		InfoSource: vmispec.InfoSourceMultusStatus,
+		Name:             ifaceName,
+		InfoSource:       vmispec.InfoSourceMultusStatus,
+		PodInterfaceName: podIfaceName,
 	}
 }
 

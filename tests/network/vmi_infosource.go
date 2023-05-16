@@ -155,6 +155,7 @@ var _ = SIGDescribe("Infosource", func() {
 			for i := range vmi.Status.Interfaces {
 				vmi.Status.Interfaces[i].IP = ""
 				vmi.Status.Interfaces[i].IPs = nil
+				vmi.Status.Interfaces[i].PodInterfaceName = ""
 			}
 
 			Expect(expectedInterfaces).To(ConsistOf(vmi.Status.Interfaces))

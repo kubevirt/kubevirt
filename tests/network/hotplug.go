@@ -77,7 +77,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		}
 		Expect(secondaryNetworksNames).NotTo(BeEmpty())
 		EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
-			return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+			return sanitizeIfaceStatusForAssertion(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
 		}, 30*time.Second).Should(
 			ConsistOf(interfaceStatusFromInterfaceNames(secondaryNetworksNames...)))
 
@@ -445,9 +445,12 @@ func indexVMsSecondaryNetworks(vmi *v1.VirtualMachineInstance) map[string]v1.Net
 	return indexedSecondaryNetworks
 }
 
-func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
+// sanitizeIfaceStatusForAssertion remove the VMI interface status MAC and PodInterfaceName attributes
+// because they are not easy to predict in tests and may require using the production code.
+func sanitizeIfaceStatusForAssertion(status []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
 	for i := range status {
 		status[i].MAC = ""
+		status[i].PodInterfaceName = ""
 	}
 	return status
 }
