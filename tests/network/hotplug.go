@@ -199,6 +199,58 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 	})
 
+	Context("a running VMI with reserved interfaces resources", func() {
+		var hotPluggedVMI *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			By("running a VMI")
+			hotPluggedVMI = tests.RunVMIAndExpectLaunch(
+				libvmi.NewAlpineWithTestTooling(
+					append(libvmi.WithMasqueradeNetworking(), libvmi.WithResourceRequestInterface("3"))...,
+				), 60,
+			)
+			Expect(console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
+
+			By("creating a NAD")
+			Expect(createBridgeNetworkAttachmentDefinition(
+				testsuite.GetTestNamespace(nil), networkName, linuxBridgeName),
+			).To(Succeed())
+
+			By("hotplugging an interface to the VMI")
+			err := libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)
+			Expect(err).To(HaveOccurred())
+
+			Expect(kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.GetNamespace()).AddInterface(
+				context.Background(),
+				hotPluggedVMI.GetName(),
+				addIfaceOptions(networkName, ifaceName),
+			)).To(Succeed())
+		})
+
+		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			By("hotplugging the second interface")
+			const secondHotpluggedIfaceName = "iface2"
+			Expect(
+				kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.GetNamespace()).AddInterface(
+					context.Background(),
+					hotPluggedVMI.GetName(),
+					addIfaceOptions(networkName, secondHotpluggedIfaceName),
+				),
+			).To(Succeed())
+
+			if plugMethod == migrationBased {
+				migrate(hotPluggedVMI)
+			}
+
+			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
+	})
+
 	Context("a running VM", func() {
 		var hotPluggedVM *v1.VirtualMachine
 		var hotPluggedVMI *v1.VirtualMachineInstance

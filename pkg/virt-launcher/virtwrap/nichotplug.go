@@ -24,12 +24,16 @@ import (
 	"fmt"
 	"strings"
 
+	"libvirt.org/go/libvirt"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 type vmConfigurator interface {
@@ -119,4 +123,62 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 		domainInterfaces[iface.Alias.GetName()] = iface
 	}
 	return domainInterfaces
+}
+
+// withNetworkIfacesResources adds network interfaces as placeholders to the domain spec
+// to trigger the addition of the dependent resources/devices (e.g. PCI controllers).
+// As its last step, it reads the generated configuration and removes the network interfaces
+// so none will be created with the domain creation.
+// The dependent devices are left in the configuration, to allow future hotplug.
+func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+	domainSpecWithIfacesResource := appendPlaceholderInterfacesToTheDomain(vmi, domainSpec)
+	dom, err := f(vmi, domainSpecWithIfacesResource)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(domainSpec.Devices.Interfaces) == len(domainSpecWithIfacesResource.Devices.Interfaces) {
+		return dom, nil
+	}
+
+	domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+	if err != nil {
+		return nil, err
+	}
+	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
+	domainSpecWithoutIfacePlaceholders.DeepCopyInto(domainSpec)
+
+	return f(vmi, domainSpecWithoutIfacePlaceholders)
+}
+
+func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
+	domainSpecWithIfacesResource := domainSpec.DeepCopy()
+	requests := resource.ExtendedResourceList{ResourceList: vmi.Spec.Domain.Resources.Requests}
+	reqInterfaces := int(requests.Interface().Value())
+	interfacePlaceholderCount := reqInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
+	for i := 0; i < interfacePlaceholderCount; i++ {
+		domainSpecWithIfacesResource.Devices.Interfaces = append(
+			domainSpecWithIfacesResource.Devices.Interfaces,
+			newInterfacePlaceholder(i, interpretModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
+		)
+	}
+	return domainSpecWithIfacesResource
+}
+
+func interpretModelType(useVirtioTransitional *bool) string {
+	if useVirtioTransitional != nil && *useVirtioTransitional {
+		return "virtio-transitional"
+	}
+	return "virtio-non-transitional"
+}
+
+func newInterfacePlaceholder(index int, modelType string) api.Interface {
+	return api.Interface{
+		Type:  "ethernet",
+		Model: &api.Model{Type: modelType},
+		Target: &api.InterfaceTarget{
+			Device:  fmt.Sprintf("placeholder-%d", index),
+			Managed: "no",
+		},
+	}
 }

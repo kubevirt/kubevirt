@@ -20,14 +20,22 @@
 package virtwrap
 
 import (
+	"encoding/xml"
 	"fmt"
+	"strconv"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"libvirt.org/go/libvirt"
+
+	k8sv1 "k8s.io/api/core/v1"
+	k8sresource "k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -138,6 +146,81 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 			&fakeVMConfigurator{},
 			libvirtClientResult{expectedError: fmt.Errorf("boom")},
 		),
+	)
+})
+
+var _ = Describe("domain network interfaces resources", func() {
+
+	DescribeTable("are ignored when",
+		func(interfaceResourceRequest string, vmiSpecIfaces []v1.Interface) {
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.Domain.Devices.Interfaces = vmiSpecIfaces
+			if interfaceResourceRequest != "" {
+				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+					resource.ResourceInterface: k8sresource.MustParse(interfaceResourceRequest),
+				}
+			}
+			domainSpec := &api.DomainSpec{}
+			countCalls := 0
+			_, _ = withNetworkIfacesResources(vmi, domainSpec, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+				countCalls++
+				return nil, nil
+			})
+			// The counter tracks the tested function behavior.
+			// It is expected that the callback function is called only once when there is no need
+			// to add placeholders interfaces.
+			Expect(countCalls).To(Equal(1))
+		},
+		Entry("no interface resource-request is present", "", []v1.Interface{{}}),
+		Entry("the interface resource-request is zero", "0", []v1.Interface{{}}),
+		Entry("the interface resource-request is less than defined interfaces", "1", []v1.Interface{{}, {}}),
+		Entry("the interface resource-request is equal to the defined interfaces", "2", []v1.Interface{{}, {}}),
+	)
+
+	DescribeTable("are reserved when",
+		func(interfaceResourceRequest string, vmiSpecIfaces []v1.Interface) {
+			vmi := &v1.VirtualMachineInstance{}
+			vmi.Spec.Domain.Devices.Interfaces = vmiSpecIfaces
+			if interfaceResourceRequest != "" {
+				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+					resource.ResourceInterface: k8sresource.MustParse(interfaceResourceRequest),
+				}
+			}
+			domainSpec := &api.DomainSpec{}
+			for range vmiSpecIfaces {
+				domainSpec.Devices.Interfaces = append(domainSpec.Devices.Interfaces, api.Interface{})
+			}
+
+			ctrl := gomock.NewController(GinkgoT())
+			mockDomain := cli.NewMockVirDomain(ctrl)
+			domxml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(2)).Return(string(domxml), nil)
+
+			originalDomainSpec := domainSpec.DeepCopy()
+			countCalls := 0
+			_, err = withNetworkIfacesResources(vmi, domainSpec, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+				// Tracking the behavior of the tested function.
+				// It is expected that the callback function is called twice when placeholders are needed.
+				// The first time it is called with the placeholders in place.
+				// The second time it is called without the placeholders.
+				countCalls++
+				if countCalls == 1 {
+					ifaceRequest, err := strconv.Atoi(interfaceResourceRequest)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(s.Devices.Interfaces).To(HaveLen(ifaceRequest))
+				} else {
+					Expect(s.Devices.Interfaces).To(Equal(originalDomainSpec.Devices.Interfaces))
+				}
+
+				return mockDomain, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(countCalls).To(Equal(2))
+			Expect(domainSpec.Devices.Interfaces).To(Equal(originalDomainSpec.Devices.Interfaces))
+		},
+		Entry("no defined interfaces exist", "1", nil),
+		Entry("the interface resource-request is larger than the defined interfaces", "2", []v1.Interface{{}}),
 	)
 })
 
