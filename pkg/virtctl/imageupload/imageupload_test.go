@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/client-go/testing"
 
+	instancetypeapi "kubevirt.io/api/instancetype"
 	fakecdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -43,10 +44,14 @@ const (
 )
 
 const (
-	targetNamespace = "default"
-	targetName      = "test-volume"
-	pvcSize         = "500Mi"
-	configName      = "config"
+	targetNamespace         = "default"
+	targetName              = "test-volume"
+	pvcSize                 = "500Mi"
+	configName              = "config"
+	defaultInstancetypeName = "instancetype"
+	defaultInstancetypeKind = "VirtualMachineInstancetype"
+	defaultPreferenceName   = "preference"
+	defaultPreferenceKind   = "VirtualMachinePreference"
 )
 
 var _ = Describe("ImageUpload", func() {
@@ -379,6 +384,26 @@ var _ = Describe("ImageUpload", func() {
 		validateDataVolumeArgs(dv, v1.PersistentVolumeFilesystem)
 	}
 
+	validateDefaultInstancetypeLabels := func(labels map[string]string) {
+		Expect(labels).ToNot(BeNil())
+		Expect(labels).To(HaveKeyWithValue(instancetypeapi.DefaultInstancetypeLabel, defaultInstancetypeName))
+		Expect(labels).To(HaveKeyWithValue(instancetypeapi.DefaultInstancetypeKindLabel, defaultInstancetypeKind))
+		Expect(labels).To(HaveKeyWithValue(instancetypeapi.DefaultPreferenceLabel, defaultPreferenceName))
+		Expect(labels).To(HaveKeyWithValue(instancetypeapi.DefaultPreferenceKindLabel, defaultPreferenceKind))
+	}
+
+	validatePVCDefaultInstancetypeLabels := func() {
+		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		validateDefaultInstancetypeLabels(pvc.ObjectMeta.Labels)
+	}
+
+	validateDataVolumeDefaultInstancetypeLabels := func() {
+		dv, err := cdiClient.CdiV1beta1().DataVolumes(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		validateDefaultInstancetypeLabels(dv.ObjectMeta.Labels)
+	}
+
 	expectedStorageClassMatchesActual := func(storageClass string) {
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -621,6 +646,45 @@ var _ = Describe("ImageUpload", func() {
 			Expect(dvCreateCalled.IsTrue()).To(BeFalse())
 		})
 
+		It("Should set default instance type and preference labels on DataVolume", func() {
+			testInit(http.StatusOK)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(
+				commandName, "dv", targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--default-instancetype", defaultInstancetypeName,
+				"--default-instancetype-kind", defaultInstancetypeKind,
+				"--default-preference", defaultPreferenceName,
+				"--default-preference-kind", defaultPreferenceKind,
+			)
+			Expect(cmd()).To(Succeed())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+			validateDataVolume()
+			validateDataVolumeDefaultInstancetypeLabels()
+		})
+
+		It("Should set default instance type and preference labels on PVC", func() {
+			testInit(http.StatusOK)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(
+				commandName, "pvc", targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--default-instancetype", defaultInstancetypeName,
+				"--default-instancetype-kind", defaultInstancetypeKind,
+				"--default-preference", defaultPreferenceName,
+				"--default-preference-kind", defaultPreferenceKind,
+			)
+			Expect(cmd()).To(Succeed())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+			validatePVCDefaultInstancetypeLabels()
+		})
+
 		AfterEach(func() {
 			testDone()
 		})
@@ -729,6 +793,14 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"foo", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Size twice", "--pvc-size and --size can not be specified at the same time",
 				[]string{"dv", targetName, "--size", "500G", "--pvc-size", "50G", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
+			Entry("--default-instancetype-kind without --default-instancetype", "--default-instancetype must be provided with --default-instancetype-kind",
+				[]string{"pvc", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--default-instancetype-kind", "foo"}),
+			Entry("--default-preference-kind without --default-preference", "--default-preference must be provided with --default-preference-kind",
+				[]string{"pvc", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--default-preference-kind", "foo"}),
+			Entry("--default-instancetype with --no-create", "--default-instancetype and --default-preference cannot be used with --no-create",
+				[]string{"pvc", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--default-instancetype", "foo", "--no-create"}),
+			Entry("--default-preference with --no-create", "--default-instancetype and --default-preference cannot be used with --no-create",
+				[]string{"pvc", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--default-preference", "foo", "--no-create"}),
 		)
 
 		AfterEach(func() {

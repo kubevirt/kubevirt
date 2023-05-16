@@ -49,6 +49,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
+	instancetypeapi "kubevirt.io/api/instancetype"
+
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -86,15 +88,19 @@ const (
 )
 
 var (
-	insecure       bool
-	uploadProxyURL string
-	name           string
-	size           string
-	pvcSize        string
-	storageClass   string
-	imagePath      string
-	archivePath    string
-	accessMode     string
+	insecure                bool
+	uploadProxyURL          string
+	name                    string
+	size                    string
+	pvcSize                 string
+	storageClass            string
+	imagePath               string
+	archivePath             string
+	accessMode              string
+	defaultInstancetype     string
+	defaultInstancetypeKind string
+	defaultPreference       string
+	defaultPreferenceKind   string
 
 	uploadPodWaitSecs uint
 	blockVolume       bool
@@ -154,6 +160,10 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
 	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 300, "Seconds to wait for upload pod to start.")
 	cmd.Flags().BoolVar(&forceBind, "force-bind", false, "Force bind the PVC, ignoring the WaitForFirstConsumer logic.")
+	cmd.Flags().StringVar(&defaultInstancetype, "default-instancetype", "", "The default instance type to associate with the image.")
+	cmd.Flags().StringVar(&defaultInstancetypeKind, "default-instancetype-kind", "", "The default instance type kind to associate with the image.")
+	cmd.Flags().StringVar(&defaultPreference, "default-preference", "", "The default preference to associate with the image.")
+	cmd.Flags().StringVar(&defaultPreferenceKind, "default-preference-kind", "", "The default preference kind to associate with the image.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().MarkDeprecated("pvc-name", "specify the name as the second argument instead.")
 	cmd.Flags().MarkDeprecated("pvc-size", "use --size instead.")
@@ -169,6 +179,9 @@ func usage() string {
 
   # Upload a local disk image to a newly created PersistentVolumeClaim
   {{ProgramName}} image-upload pvc fedora-pvc --size=10Gi --image-path=/images/fedora30.qcow2
+
+  # Upload a local disk image to a newly created PersistentVolumeClaim and label it with a default instance type and preference
+  {{ProgramName}} image-upload pvc fedora-pvc --size=10Gi --image-path=/images/fedora30.qcow2 --default-instancetype=n1.medium --default-preference=fedora
 
   # Upload a local disk image to an existing PersistentVolumeClaim
   {{ProgramName}} image-upload pvc fedora-pvc --no-create --image-path=/images/fedora30.qcow2
@@ -236,10 +249,28 @@ func parseArgs(args []string) error {
 	return nil
 }
 
+func validateDefaultInstancetypeArgs() error {
+	if defaultInstancetype == "" && defaultInstancetypeKind != "" {
+		return fmt.Errorf("--default-instancetype must be provided with --default-instancetype-kind")
+	}
+	if defaultPreference == "" && defaultPreferenceKind != "" {
+		return fmt.Errorf("--default-preference must be provided with --default-preference-kind")
+	}
+	if (defaultInstancetype != "" || defaultPreference != "") && noCreate {
+		return fmt.Errorf("--default-instancetype and --default-preference cannot be used with --no-create")
+	}
+	return nil
+}
+
 func (c *command) run(args []string) error {
 	if err := parseArgs(args); err != nil {
 		return err
 	}
+
+	if err := validateDefaultInstancetypeArgs(); err != nil {
+		return err
+	}
+
 	// #nosec G304 No risk for path injection as this function executes with
 	// the same privileges as those of virtctl user who supplies imagePath
 	file, err := os.Open(imagePath)
@@ -559,6 +590,21 @@ func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name s
 	return err
 }
 
+func setDefaultInstancetypeLabels(labels map[string]string) {
+	if defaultInstancetype != "" {
+		labels[instancetypeapi.DefaultInstancetypeLabel] = defaultInstancetype
+	}
+	if defaultInstancetypeKind != "" {
+		labels[instancetypeapi.DefaultInstancetypeKindLabel] = defaultInstancetypeKind
+	}
+	if defaultPreference != "" {
+		labels[instancetypeapi.DefaultPreferenceLabel] = defaultPreference
+	}
+	if defaultPreferenceKind != "" {
+		labels[instancetypeapi.DefaultPreferenceKindLabel] = defaultPreferenceKind
+	}
+}
+
 func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*cdiv1.DataVolume, error) {
 	pvcSpec, err := createStorageSpec(client, size, storageClass, accessMode, blockVolume)
 	if err != nil {
@@ -578,6 +624,9 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 		annotations[forceImmediateBindingAnnotation] = ""
 	}
 
+	labels := make(map[string]string)
+	setDefaultInstancetypeLabels(labels)
+
 	contentType := cdiv1.DataVolumeKubeVirt
 	if archiveUpload {
 		contentType = cdiv1.DataVolumeArchive
@@ -588,6 +637,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 			Name:        name,
 			Namespace:   namespace,
 			Annotations: annotations,
+			Labels:      labels,
 		},
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
@@ -673,6 +723,10 @@ func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, stora
 	}
 
 	pvc.ObjectMeta.Annotations = annotations
+
+	labels := make(map[string]string)
+	setDefaultInstancetypeLabels(labels)
+	pvc.ObjectMeta.Labels = labels
 
 	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
