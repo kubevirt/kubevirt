@@ -180,4 +180,41 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			Expect(secret.Data).To(ContainElement([]byte(testKey2)))
 		})
 	})
+
+	Context("remove-ssh-key", func() {
+		It("[test_id:TODO] should remove ssh key from a secret", func() {
+			err := clientcmd.NewRepeatableVirtctlCommand(
+				"credentials", "remove-ssh-key",
+				"--user", userName,
+				"--value", testKey1,
+				"--namespace", util.NamespaceTestDefault,
+				vm.Name,
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(secret.Data).To(BeEmpty())
+		})
+
+		It("[test_id:TODO] should remove ssh key read from file", func() {
+			filename := filepath.Join(GinkgoT().TempDir(), "test-key-file.pub")
+			Expect(os.WriteFile(filename, []byte(testKey1), 0666)).To(Succeed())
+
+			err := clientcmd.NewRepeatableVirtctlCommand(
+				"credentials", "remove-ssh-key",
+				"--user", userName,
+				"--file", filename,
+				"--namespace", util.NamespaceTestDefault,
+				vm.Name,
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(secret.Data).To(BeEmpty())
+		})
+	})
 })
