@@ -21664,6 +21664,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							Format:      "",
 						},
 					},
+					"podInterfaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the interface name inside the Virtual Machine launcher pod",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"infoSource": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
