@@ -5,6 +5,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	add_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/add-key"
+	remove_key "kubevirt.io/kubevirt/pkg/virtctl/credentials/remove-key"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -19,6 +20,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 	cmd.AddCommand(
 		add_key.NewCommand(clientConfig),
+		remove_key.NewCommand(clientConfig),
 	)
 
 	cmd.SetUsageTemplate(templates.UsageTemplate())
