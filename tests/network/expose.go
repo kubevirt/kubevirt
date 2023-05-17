@@ -90,18 +90,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
-		if includesIpv4(ipFamily) {
-			libnet.SkipWhenClusterNotSupportIpv4()
-		}
-		if inlcudesIpv6(ipFamily) {
-			libnet.SkipWhenClusterNotSupportIpv6()
-		}
-		if isDualStack(ipFamily) {
-			checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
-		}
-	}
-
 	appendIpFamilyToExposeArgs := func(ipFamily ipFamily, vmiExposeArgs []string) []string {
 		if inlcudesIpv6(ipFamily) {
 			vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
@@ -775,6 +763,18 @@ func validateClusterIp(clusterIp string, ipFamily ipFamily) error {
 		return fmt.Errorf("the ClusterIP %s belongs to the wrong ip family", clusterIp)
 	}
 	return nil
+}
+
+func skipIfNotSupportedCluster(ipFamily ipFamily) {
+	if includesIpv4(ipFamily) {
+		libnet.SkipWhenClusterNotSupportIpv4()
+	}
+	if inlcudesIpv6(ipFamily) {
+		libnet.SkipWhenClusterNotSupportIpv6()
+	}
+	if isDualStack(ipFamily) {
+		checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
+	}
 }
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
