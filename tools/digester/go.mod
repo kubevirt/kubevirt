@@ -34,7 +34,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202193544-a5463b7f9c84 // indirect
-	github.com/opencontainers/runc v1.1.0 // indirect
+	github.com/opencontainers/runc v1.1.7 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.11.1 // indirect
@@ -43,7 +43,7 @@ require (
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
-	github.com/ulikunitz/xz v0.5.10 // indirect
+	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
@@ -54,11 +54,13 @@ require (
 // FIX: Improper Input Validation in GoGo Protobuf
 replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
 
-// FIX: Opencontainers runc Incorrect Authorization vulnerability
-replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.5
-
 // FIX: Unhandled exception in gopkg.in/yaml.v3
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
 // FIX: golang.org/x/net/http2/h2c vulnerable to request smuggling attack
 replace golang.org/x/net => golang.org/x/net v0.9.0
+
+replace (
+	github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.7
+	github.com/ulikunitz/xz => github.com/ulikunitz/xz v0.5.11
+)
