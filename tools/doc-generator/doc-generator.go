@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+
 	_ "kubevirt.io/kubevirt/pkg/monitoring/configuration"
 	domainstats "kubevirt.io/kubevirt/pkg/monitoring/domainstats/prometheus" // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/virt-controller/watch"
@@ -43,30 +45,6 @@ const (
 	footer = footerHeading + footerContent
 )
 
-// These are the recording rules, and so they are not included in the response to /metric; we'll need to add them
-// manually
-const (
-	vmiPhaseCountName = "kubevirt_vmi_phase_count"
-	vmiPhaseCountDesc = "Sum of VMIs per phase and node.\n\n`phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]."
-	vmiPhaseCountType = "Gauge"
-
-	vmiEvictionBlockerName = "kubevirt_vmi_non_evictable"
-	vmiEvictionBlockerDesc = "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable."
-	vmiEvictionBlockerType = "Gauge"
-
-	vmiMemoryUsedBytes     = "kubevirt_vmi_memory_used_bytes"
-	vmiMemoryUsedBytesDesc = "Amount of `used` memory as seen by the domain."
-	vmiMemoryUsedBytesType = "Gauge"
-
-	vmSnapshotDisksRestoredFromSourceTotal     = "kubevirt_vmsnapshot_disks_restored_from_source_total"
-	vmSnapshotDisksRestoredFromSourceTotalDesc = "Returns the total number of virtual machine disks restored from the source virtual machine."
-	vmSnapshotDisksRestoredFromSourceTotalType = "Gauge"
-
-	vmSnapshotDisksRestoredFromSourceBytes     = "kubevirt_vmsnapshot_disks_restored_from_source_bytes"
-	vmSnapshotDisksRestoredFromSourceBytesDesc = "Returns the amount of space in bytes restored from the source virtual machine."
-	vmSnapshotDisksRestoredFromSourceBytesType = "Gauge"
-)
-
 func main() {
 	handler := domainstats.Handler(1)
 	RegisterFakeDomainCollector()
@@ -79,6 +57,8 @@ func main() {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, req)
+
+	metrics := getMetricsNotIncludeInEndpointByDefault()
 
 	if status := recorder.Code; status == http.StatusOK {
 		err := parseVirtMetrics(recorder.Body, &metrics)
@@ -137,33 +117,8 @@ func (m metricList) writeToFile(newFile io.WriteCloser) {
 	}
 }
 
-var (
-	metrics = metricList{
-		{
-			name:        vmiPhaseCountName,
-			description: vmiPhaseCountDesc,
-			mType:       vmiPhaseCountType,
-		},
-		{
-			name:        vmiEvictionBlockerName,
-			description: vmiEvictionBlockerDesc,
-			mType:       vmiEvictionBlockerType,
-		},
-		{
-			name:        vmiMemoryUsedBytes,
-			description: vmiMemoryUsedBytesDesc,
-			mType:       vmiMemoryUsedBytesType,
-		},
-		{
-			name:        vmSnapshotDisksRestoredFromSourceTotal,
-			description: vmSnapshotDisksRestoredFromSourceTotalDesc,
-			mType:       vmSnapshotDisksRestoredFromSourceTotalType,
-		},
-		{
-			name:        vmSnapshotDisksRestoredFromSourceBytes,
-			description: vmSnapshotDisksRestoredFromSourceBytesDesc,
-			mType:       vmSnapshotDisksRestoredFromSourceBytesType,
-		},
+func getMetricsNotIncludeInEndpointByDefault() metricList {
+	metrics := metricList{
 		{
 			name:        domainstats.MigrateVmiDataProcessedMetricName,
 			description: "The total Guest OS data processed and migrated to the new VM.",
@@ -189,8 +144,28 @@ var (
 			description: "The rate at which the disk is being transferred.",
 			mType:       "Gauge",
 		},
+		{
+			name:        "kubevirt_vmi_phase_count",
+			description: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
+			mType:       "Gauge",
+		},
+		{
+			name:        "kubevirt_vmi_non_evictable",
+			description: "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
+			mType:       "Gauge",
+		},
 	}
-)
+
+	for _, rule := range components.GetRecordingRules("") {
+		metrics = append(metrics, metric{
+			name:        rule.Rule.Record,
+			description: rule.Description,
+			mType:       strings.Title(string(rule.MType)),
+		})
+	}
+
+	return metrics
+}
 
 func parseMetricDesc(line string) (string, string) {
 	split := strings.Split(line, " ")
