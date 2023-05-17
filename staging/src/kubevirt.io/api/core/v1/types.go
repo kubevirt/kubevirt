@@ -1553,6 +1553,9 @@ type VirtualMachineInterfaceRequest struct {
 	// AddInterfaceOptions when set indicates a network interface should be added.
 	// The details within this field specify how to add the interface
 	AddInterfaceOptions *AddInterfaceOptions `json:"addInterfaceOptions,omitempty" optional:"true"`
+	// RemoveInterfaceOptions when set indicates a network interface should be removed.
+	// The details within this field specify how to remove the interface
+	RemoveInterfaceOptions *RemoveInterfaceOptions `json:"removeInterfaceOptions,omitempty" optional:"true"`
 }
 
 // VirtualMachineCondition represents the state of VirtualMachine
@@ -2246,6 +2249,12 @@ type AddInterfaceOptions struct {
 	// specified, VMI namespace is assumed.
 	NetworkAttachmentDefinitionName string `json:"networkAttachmentDefinitionName"`
 
+	// Name indicates the logical name of the interface.
+	Name string `json:"name"`
+}
+
+// RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface
+type RemoveInterfaceOptions struct {
 	// Name indicates the logical name of the interface.
 	Name string `json:"name"`
 }

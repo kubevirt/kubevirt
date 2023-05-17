@@ -7076,6 +7076,17 @@ var CRDsValidation map[string]string = map[string]string{
                 - name
                 - networkAttachmentDefinitionName
                 type: object
+              removeInterfaceOptions:
+                description: RemoveInterfaceOptions when set indicates a network interface
+                  should be removed. The details within this field specify how to
+                  remove the interface
+                properties:
+                  name:
+                    description: Name indicates the logical name of the interface.
+                    type: string
+                required:
+                - name
+                type: object
             type: object
           type: array
           x-kubernetes-list-type: atomic
@@ -25275,6 +25286,18 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             - networkAttachmentDefinitionName
+                            type: object
+                          removeInterfaceOptions:
+                            description: RemoveInterfaceOptions when set indicates
+                              a network interface should be removed. The details within
+                              this field specify how to remove the interface
+                            properties:
+                              name:
+                                description: Name indicates the logical name of the
+                                  interface.
+                                type: string
+                            required:
+                            - name
                             type: object
                         type: object
                       type: array
