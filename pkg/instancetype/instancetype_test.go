@@ -1319,17 +1319,18 @@ var _ = Describe("Instancetype and Preferences", func() {
 								Physical: 4096,
 							},
 						},
-						PreferredDiskCache:      v1.CacheWriteThrough,
-						PreferredDiskIO:         v1.IONative,
-						PreferredDiskBus:        v1.DiskBusVirtio,
-						PreferredCdromBus:       v1.DiskBusSCSI,
-						PreferredLunBus:         v1.DiskBusSATA,
-						PreferredInputBus:       v1.InputBusVirtio,
-						PreferredInputType:      v1.InputTypeTablet,
-						PreferredInterfaceModel: v1.VirtIO,
-						PreferredSoundModel:     "ac97",
-						PreferredRng:            &v1.Rng{},
-						PreferredTPM:            &v1.TPMDevice{},
+						PreferredDiskCache:           v1.CacheWriteThrough,
+						PreferredDiskIO:              v1.IONative,
+						PreferredDiskBus:             v1.DiskBusVirtio,
+						PreferredCdromBus:            v1.DiskBusSCSI,
+						PreferredLunBus:              v1.DiskBusSATA,
+						PreferredInputBus:            v1.InputBusVirtio,
+						PreferredInputType:           v1.InputTypeTablet,
+						PreferredInterfaceModel:      v1.VirtIO,
+						PreferredSoundModel:          "ac97",
+						PreferredRng:                 &v1.Rng{},
+						PreferredTPM:                 &v1.TPMDevice{},
+						PreferredInterfaceMasquerade: &v1.InterfaceMasquerade{},
 					},
 				}
 			})
@@ -1367,6 +1368,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.Devices.Inputs[1].Bus).To(Equal(preferenceSpec.Devices.PreferredInputBus))
 				Expect(vmi.Spec.Domain.Devices.Inputs[1].Type).To(Equal(preferenceSpec.Devices.PreferredInputType))
 				Expect(vmi.Spec.Domain.Devices.Interfaces[1].Model).To(Equal(preferenceSpec.Devices.PreferredInterfaceModel))
+				Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(Equal(preferenceSpec.Devices.PreferredInterfaceMasquerade))
 				Expect(vmi.Spec.Domain.Devices.Sound.Model).To(Equal(preferenceSpec.Devices.PreferredSoundModel))
 				Expect(*vmi.Spec.Domain.Devices.Rng).To(Equal(*preferenceSpec.Devices.PreferredRng))
 				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))

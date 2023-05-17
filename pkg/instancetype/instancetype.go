@@ -1025,6 +1025,9 @@ func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachin
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
 			vmiIface.Model = preferenceSpec.Devices.PreferredInterfaceModel
 		}
+		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && vmiIface.Masquerade == nil {
+			vmiIface.Masquerade = preferenceSpec.Devices.PreferredInterfaceMasquerade.DeepCopy()
+		}
 	}
 }
 

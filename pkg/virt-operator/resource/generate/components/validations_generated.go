@@ -7962,6 +7962,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredInputType optionally defines the preferred type
                 for Input devices.
               type: string
+            preferredInterfaceMasquerade:
+              description: PreferredInterfaceMasquerade optionally defines the preferred
+                masquerade configuration to use with each network interface.
+              type: object
             preferredInterfaceModel:
               description: PreferredInterfaceModel optionally defines the preferred
                 model to be used by Interface devices.
@@ -20580,6 +20584,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredInputType optionally defines the preferred type
                 for Input devices.
               type: string
+            preferredInterfaceMasquerade:
+              description: PreferredInterfaceMasquerade optionally defines the preferred
+                masquerade configuration to use with each network interface.
+              type: object
             preferredInterfaceModel:
               description: PreferredInterfaceModel optionally defines the preferred
                 model to be used by Interface devices.

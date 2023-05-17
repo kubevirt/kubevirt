@@ -387,6 +387,11 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredTPM *v1.TPMDevice `json:"preferredTPM,omitempty"`
+
+	// PreferredInterfaceMasquerade optionally defines the preferred masquerade configuration to use with each network interface.
+	//
+	// +optional
+	PreferredInterfaceMasquerade *v1.InterfaceMasquerade `json:"preferredInterfaceMasquerade,omitempty"`
 }
 
 // FeaturePreferences contains various optional defaults for Features.

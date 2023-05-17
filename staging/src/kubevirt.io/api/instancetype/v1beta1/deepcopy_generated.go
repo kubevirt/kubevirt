@@ -172,6 +172,11 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 		*out = new(v1.TPMDevice)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PreferredInterfaceMasquerade != nil {
+		in, out := &in.PreferredInterfaceMasquerade, &out.PreferredInterfaceMasquerade
+		*out = new(v1.InterfaceMasquerade)
+		**out = **in
+	}
 	return
 }
 
