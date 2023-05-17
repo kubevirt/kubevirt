@@ -152,7 +152,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
 	causes = append(causes, validateCPULimitNotNegative(field, spec)...)
 	causes = append(causes, validateCpuRequestDoesNotExceedLimit(field, spec)...)
-	causes = append(causes, validateCpuPinning(field, spec)...)
+	causes = append(causes, validateCpuPinning(field, spec, config)...)
 	causes = append(causes, validateNUMA(field, spec, config)...)
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
@@ -1108,7 +1108,7 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 	return causes
 }
 
-func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		causes = append(causes, validateMemoryLimitAndRequestProvided(field, spec)...)
 		causes = append(causes, validateCPURequestIsInteger(field, spec)...)
@@ -1117,6 +1117,7 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 		causes = append(causes, validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestEqualsLimitOnDedicatedCPUPlacement(field, spec)...)
 		causes = append(causes, validateRequestOrLimitWithCoresProvidedOnDedicatedCPUPlacement(field, spec)...)
+		causes = append(causes, validateThreadCountOnArchitecture(field, spec, config)...)
 		causes = append(causes, validateThreadCountOnDedicatedCPUPlacement(field, spec)...)
 	}
 	return causes
@@ -1152,6 +1153,27 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
 			})
 		}
+	}
+	return causes
+}
+
+func validateThreadCountOnArchitecture(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
+	arch := spec.Architecture
+	if arch == "" {
+		arch = config.GetDefaultArchitecture()
+	}
+
+	// Verify CPU thread count requested is 1 for ARM64 VMI architecture.
+	if spec.Domain.CPU != nil && spec.Domain.CPU.Threads > 1 && virtconfig.IsARM64(arch) {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("threads must not be greater than 1 at %v (got %v) when %v is arm64",
+				field.Child("domain", "cpu", "threads").String(),
+				spec.Domain.CPU.Threads,
+				field.Child("architecture").String(),
+			),
+			Field: field.Child("architecture").String(),
+		})
 	}
 	return causes
 }

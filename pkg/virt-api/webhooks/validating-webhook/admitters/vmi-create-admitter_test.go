@@ -95,6 +95,15 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
 	}
 
+	updateDefaultArchitecture := func(defaultArchitecture string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.ArchitectureConfiguration = &v1.ArchConfiguration{
+			DefaultArchitecture: defaultArchitecture,
+		}
+
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+	}
+
 	AfterEach(func() {
 		disableFeatureGates()
 	})
@@ -2475,6 +2484,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
+		})
+		It("should reject vmi with threads > 1 for arm arch", func() {
+			vmi.Spec.Domain.CPU.Threads = 2
+			vmi.Spec.Architecture = "arm64"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.architecture"))
+			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
+		})
+		It("should accept vmi with threads == 1 for arm64 arch", func() {
+			vmi.Spec.Domain.CPU.Threads = 1
+			vmi.Spec.Architecture = "arm64"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should accept vmi with threads > 1 for amd64 arch", func() {
+			vmi.Spec.Domain.CPU.Threads = 2
+			vmi.Spec.Architecture = "amd64"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject vmi with threads > 1 if arch is not specified and default arch is arm64", func() {
+			updateDefaultArchitecture("arm64")
+			Expect(config.GetDefaultArchitecture()).To(Equal("arm64"))
+			vmi.Spec.Domain.CPU.Threads = 2
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.architecture"))
+			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
 		})
 		It("should reject specs with more than two threads", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
