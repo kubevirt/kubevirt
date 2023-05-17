@@ -90,10 +90,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	randomizeName := func(currentName string) string {
-		return currentName + rand.String(5)
-	}
-
 	validateClusterIp := func(clusterIp string, ipFamily ipFamily) error {
 		var correctPrimaryFamily bool
 		switch ipFamily {
@@ -776,6 +772,10 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 })
+
+func randomizeName(currentName string) string {
+	return currentName + rand.String(5)
+}
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 	for _, address := range nodeAddresses {
