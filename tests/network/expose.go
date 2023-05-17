@@ -100,11 +100,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		return tests.WaitForJobToSucceed(job, time.Duration(120)*time.Second)
 	}
 
-	executeVirtctlExposeCommand := func(ExposeArgs []string) error {
-		virtctl := clientcmd.NewRepeatableVirtctlCommand(ExposeArgs...)
-		return virtctl()
-	}
-
 	getService := func(namespace, serviceName string) (*k8sv1.Service, error) {
 		svc, err := virtClient.CoreV1().Services(namespace).Get(context.Background(), serviceName, k8smetav1.GetOptions{})
 		if err != nil {
@@ -775,6 +770,11 @@ func appendIpFamilyToExposeArgs(ipFamily ipFamily, vmiExposeArgs []string) []str
 		vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
 	}
 	return vmiExposeArgs
+}
+
+func executeVirtctlExposeCommand(ExposeArgs []string) error {
+	virtctl := clientcmd.NewRepeatableVirtctlCommand(ExposeArgs...)
+	return virtctl()
 }
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
