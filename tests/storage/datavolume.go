@@ -1056,6 +1056,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.FedoraVolumeSize)),
+				libdv.WithForceBindAnnotation(),
 			)
 
 			dataVolume = dvChange(dataVolume)
@@ -1068,6 +1069,11 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			// Importing Fedora is so slow that we get "resourceVersion too old" when trying
+			// to watch for events between the VMI creation and VMI starting.
+			By("Making sure the slow Fedora import is complete before creating the VMI")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
 			vmi = tests.RunVMIAndExpectLaunchWithDataVolume(vmi, dataVolume, 500)
 
