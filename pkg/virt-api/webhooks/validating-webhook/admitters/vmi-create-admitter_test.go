@@ -2489,7 +2489,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.architecture"))
 			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
 		})
@@ -2497,20 +2497,20 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.CPU.Threads = 1
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(0))
+			Expect(causes).To(BeEmpty())
 		})
 		It("should accept vmi with threads > 1 for amd64 arch", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "amd64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(0))
+			Expect(causes).To(BeEmpty())
 		})
 		It("should reject vmi with threads > 1 if arch is not specified and default arch is arm64", func() {
 			updateDefaultArchitecture("arm64")
 			Expect(config.GetDefaultArchitecture()).To(Equal("arm64"))
 			vmi.Spec.Domain.CPU.Threads = 2
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.architecture"))
 			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
 		})
