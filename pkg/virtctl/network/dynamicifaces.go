@@ -34,7 +34,8 @@ import (
 )
 
 const (
-	HotplugCmdName = "addinterface"
+	HotplugCmdName   = "addinterface"
+	HotUnplugCmdName = "removeinterface"
 
 	ifaceNameArg                       = "name"
 	networkAttachmentDefinitionNameArg = "network-attachment-definition-name"
@@ -76,12 +77,40 @@ func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	return cmd
 }
 
+func NewRemoveInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "removeinterface VM",
+		Short:   "remove a network interface from a running VM",
+		Example: usageRemoveInterface(),
+		Args:    templates.ExactArgs(HotUnplugCmdName, 1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := newDynamicIfaceCmd(clientConfig, false)
+			if err != nil {
+				return fmt.Errorf("error creating the `RemoveInterface` command: %w", err)
+			}
+			return c.removeInterface(args[0], ifaceName)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().StringVar(&ifaceName, ifaceNameArg, "", "Logical name of the interface to be plugged")
+	_ = cmd.MarkFlagRequired(ifaceNameArg)
+
+	return cmd
+}
+
 func usageAddInterface() string {
 	usage := `  #Dynamically attach a network interface to a running VM.
-  {{ProgramName}} addinterface <vmi-name> --network-attachment-definition-name <network-attachment-definition name> --name <iface name>
+  {{ProgramName}} addinterface <vmi-name> --network-attachment-definition-name <network-attachment-definition name> --name <logical interface name>
 
   #Dynamically attach a network interface to a running VM and persisting it in the VM spec. At next VM restart the network interface will be attached like any other network interface.
-  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --name <iface name> --persist
+  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --name <logical interface name> --persist
+  `
+	return usage
+}
+
+func usageRemoveInterface() string {
+	usage := `  #Dynamically detach a network interface from a running VM.
+  {{ProgramName}} removeinterface <vmi-name> --name <logical interface name>
   `
 	return usage
 }
@@ -116,5 +145,13 @@ func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefini
 			NetworkAttachmentDefinitionName: networkAttachmentDefinitionName,
 			Name:                            name,
 		},
+	)
+}
+
+func (dic *dynamicIfacesCmd) removeInterface(vmName string, name string) error {
+	return dic.kvClient.VirtualMachineInstance(dic.namespace).RemoveInterface(
+		context.Background(),
+		vmName,
+		&v1.RemoveInterfaceOptions{Name: name},
 	)
 }
