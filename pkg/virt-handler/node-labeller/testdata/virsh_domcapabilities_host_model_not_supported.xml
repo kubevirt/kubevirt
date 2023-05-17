@@ -1,0 +1,15 @@
+<domainCapabilities>
+    <cpu>
+        <mode name='host-passthrough' supported='yes'/>
+        <mode name='host-model' supported='no' />
+        <mode name='custom' supported='yes'>
+            <model usable='no'>EPYC-IBPB</model>
+            <model>fake-model-without-usable</model>
+            <model usable='no'>486</model>
+            <model usable='no'>Conroe</model>
+            <model usable='no'>coreduo</model>
+            <model usable='no'>IvyBridge</model>
+            <model usable='no'>Haswell</model>
+        </mode>
+    </cpu>
+</domainCapabilities>

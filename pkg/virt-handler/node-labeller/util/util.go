@@ -48,3 +48,8 @@ var DefaultObsoleteCPUModels = map[string]bool{
 	"kvm64":      true,
 	"kvm32":      true,
 }
+
+var DefaultArchitecturePrefix = map[string]string{
+	"amd64": "x86_",
+	"arm64": "arm_",
+}
