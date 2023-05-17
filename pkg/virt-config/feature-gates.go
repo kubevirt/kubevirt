@@ -71,6 +71,7 @@ var deprecatedFeatureGates = [...]string{
 	NonRoot,
 	NonRootDeprecated,
 	PSA,
+	CPUNodeDiscoveryGate,
 }
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
