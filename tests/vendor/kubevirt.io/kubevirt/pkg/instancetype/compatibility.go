@@ -1,3 +1,4 @@
+//nolint:dupl,lll
 package instancetype
 
 import (
@@ -41,10 +42,6 @@ func decodeOldInstancetypeRevisionObject(data []byte) (*instancetypev1alpha1.Vir
 		return nil, nil
 	}
 
-	if revision.APIVersion != instancetypev1alpha1.SchemeGroupVersion.String() {
-		return nil, nil
-	}
-
 	instancetypeSpec := &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
 	err = json.Unmarshal(revision.Spec, instancetypeSpec)
 	if err != nil {
@@ -68,10 +65,6 @@ func decodeOldPreferenceRevisionObject(data []byte) (*instancetypev1alpha1.Virtu
 	err := json.Unmarshal(data, revision)
 	if err != nil {
 		// Failed to unmarshall, so the object is not the expected type
-		return nil, nil
-	}
-
-	if revision.APIVersion != instancetypev1alpha1.SchemeGroupVersion.String() {
 		return nil, nil
 	}
 

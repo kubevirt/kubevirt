@@ -613,6 +613,47 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                   type: object
               type: object
+            architectureConfiguration:
+              properties:
+                amd64:
+                  properties:
+                    emulatedMachines:
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    machineType:
+                      type: string
+                    ovmfPath:
+                      type: string
+                  type: object
+                arm64:
+                  properties:
+                    emulatedMachines:
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    machineType:
+                      type: string
+                    ovmfPath:
+                      type: string
+                  type: object
+                defaultArchitecture:
+                  type: string
+                ppc64le:
+                  properties:
+                    emulatedMachines:
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    machineType:
+                      type: string
+                    ovmfPath:
+                      type: string
+                  type: object
+              type: object
             controllerConfiguration:
               description: ReloadableComponentConfiguration holds all generic k8s
                 configuration options which can be reloaded by components without
@@ -3097,6 +3138,8 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        defaultArchitecture:
+          type: string
         generations:
           items:
             description: GenerationStatus keeps track of the generation for a given
@@ -4780,6 +4823,11 @@ var CRDsValidation map[string]string = map[string]string{
                           type: array
                       type: object
                   type: object
+                architecture:
+                  description: Specifies the architecture of the vm guest you are
+                    attempting to run. Defaults to the compiled architecture of the
+                    KubeVirt components
+                  type: string
                 dnsConfig:
                   description: Specifies the DNS parameters of a pod. Parameters specified
                     here will be merged to the generated DNS configuration based on
@@ -9104,6 +9152,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
               type: object
           type: object
+        architecture:
+          description: Specifies the architecture of the vm guest you are attempting
+            to run. Defaults to the compiled architecture of the KubeVirt components
+          type: string
         dnsConfig:
           description: Specifies the DNS parameters of a pod. Parameters specified
             here will be merged to the generated DNS configuration based on DNSPolicy.
@@ -11083,6 +11135,15 @@ var CRDsValidation map[string]string = map[string]string{
           description: LauncherContainerImageVersion indicates what container image
             is currently active for the vmi.
           type: string
+        machine:
+          description: Machine shows the final resulting qemu machine type. This can
+            be different than the machine type selected in the spec, due to qemus
+            machine type alias mechanism.
+          properties:
+            type:
+              description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
+              type: string
+          type: object
         migrationMethod:
           description: 'Represents the method using which the vmi can be migrated:
             live migration or block migration'
@@ -13699,6 +13760,11 @@ var CRDsValidation map[string]string = map[string]string{
                           type: array
                       type: object
                   type: object
+                architecture:
+                  description: Specifies the architecture of the vm guest you are
+                    attempting to run. Defaults to the compiled architecture of the
+                    KubeVirt components
+                  type: string
                 dnsConfig:
                   description: Specifies the DNS parameters of a pod. Parameters specified
                     here will be merged to the generated DNS configuration based on
@@ -17646,6 +17712,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: array
                               type: object
                           type: object
+                        architecture:
+                          description: Specifies the architecture of the vm guest
+                            you are attempting to run. Defaults to the compiled architecture
+                            of the KubeVirt components
+                          type: string
                         dnsConfig:
                           description: Specifies the DNS parameters of a pod. Parameters
                             specified here will be merged to the generated DNS configuration
@@ -22349,6 +22420,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: array
                                   type: object
                               type: object
+                            architecture:
+                              description: Specifies the architecture of the vm guest
+                                you are attempting to run. Defaults to the compiled
+                                architecture of the KubeVirt components
+                              type: string
                             dnsConfig:
                               description: Specifies the DNS parameters of a pod.
                                 Parameters specified here will be merged to the generated

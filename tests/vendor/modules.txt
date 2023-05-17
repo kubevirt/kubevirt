@@ -19,7 +19,7 @@ github.com/blang/semver/v4
 github.com/cespare/xxhash/v2
 # github.com/cilium/ebpf v0.9.1
 ## explicit; go 1.17
-# github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
+# github.com/coreos/prometheus-operator v0.38.3
 ## explicit; go 1.13
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
@@ -244,7 +244,7 @@ github.com/operator-framework/api/pkg/operators/v2
 ## explicit; go 1.19
 github.com/operator-framework/operator-lib/conditions
 github.com/operator-framework/operator-lib/internal/utils
-# github.com/pborman/uuid v1.2.0
+# github.com/pborman/uuid v1.2.1
 ## explicit
 github.com/pborman/uuid
 # github.com/pkg/errors v0.9.1
@@ -458,7 +458,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1 => gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# k8s.io/api v0.26.4 => k8s.io/api v0.23.5
+# k8s.io/api v0.27.1 => k8s.io/api v0.23.5
 ## explicit; go 1.16
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -514,7 +514,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.26.4 => k8s.io/apimachinery v0.23.5
+# k8s.io/apimachinery v0.27.1 => k8s.io/apimachinery v0.23.5
 ## explicit; go 1.16
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -799,7 +799,7 @@ k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/workqueue
-# k8s.io/klog/v2 v2.90.0
+# k8s.io/klog/v2 v2.90.1
 ## explicit; go 1.13
 k8s.io/klog/v2
 k8s.io/klog/v2/internal/buffer
@@ -816,7 +816,7 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1
 k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
-# k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c => k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
+# k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f => k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 ## explicit; go 1.16
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/schemaconv
@@ -825,7 +825,7 @@ k8s.io/kube-openapi/pkg/validation/spec
 # k8s.io/kubectl v0.26.1 => k8s.io/kubectl v0.23.5
 ## explicit; go 1.16
 k8s.io/kubectl/pkg/cmd/util/podcmd
-# k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+# k8s.io/utils v0.0.0-20230505201702-9f6742963106
 ## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
@@ -835,7 +835,7 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/api v1.0.0-alpha.0 => kubevirt.io/api v1.0.0-alpha.0
+# kubevirt.io/api v1.0.0-beta.0 => kubevirt.io/api v1.0.0-beta.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -852,7 +852,7 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v1.0.0-alpha.0 => kubevirt.io/client-go v1.0.0-alpha.0
+# kubevirt.io/client-go v1.0.0-beta.0 => kubevirt.io/client-go v1.0.0-beta.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -891,7 +891,7 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/kubevirt v1.0.0-alpha.0
+# kubevirt.io/kubevirt v1.0.0-beta.0
 ## explicit; go 1.19
 kubevirt.io/kubevirt/pkg/apimachinery/patch
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
@@ -1022,8 +1022,8 @@ sigs.k8s.io/yaml
 # github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.85.2
 # github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 # go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-# kubevirt.io/api => kubevirt.io/api v1.0.0-alpha.0
-# kubevirt.io/client-go => kubevirt.io/client-go v1.0.0-alpha.0
+# kubevirt.io/api => kubevirt.io/api v1.0.0-beta.0
+# kubevirt.io/client-go => kubevirt.io/client-go v1.0.0-beta.0
 # kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.56.0
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c

@@ -70,40 +70,69 @@ func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool, confi
 
 }
 
-var userAndGroup = int64(util.RootUser)
+var privilegedId = int64(util.RootUser)
+var restrictedId = int64(util.NonRootUID)
 
-func getVirtiofsCapabilities() []k8sv1.Capability {
-	return []k8sv1.Capability{
-		"CHOWN",
-		"DAC_OVERRIDE",
-		"FOWNER",
-		"FSETID",
-		"SETGID",
-		"SETUID",
-		"MKNOD",
-		"SETFCAP",
-		"SYS_CHROOT",
-	}
+type securityProfile uint8
+
+const (
+	restricted securityProfile = iota
+	privileged
+)
+
+func isRestricted(profile securityProfile) bool {
+	return profile == restricted
 }
 
-func securityContextVirtioFS() *k8sv1.SecurityContext {
+func isPrivileged(profile securityProfile) bool {
+	return profile == privileged
+}
 
-	return &k8sv1.SecurityContext{
-		RunAsUser:    &userAndGroup,
-		RunAsGroup:   &userAndGroup,
-		RunAsNonRoot: pointer.Bool(false),
-		Capabilities: &k8sv1.Capabilities{
-			Add: getVirtiofsCapabilities(),
+func virtiofsCredential(profile securityProfile) *int64 {
+	credential := &restrictedId
+	if isPrivileged(profile) {
+		credential = &privilegedId
+	}
+	return credential
+}
+
+func virtiofsCapabilities(profile securityProfile) *k8sv1.Capabilities {
+	if isPrivileged(profile) {
+		return &k8sv1.Capabilities{
+			Add: []k8sv1.Capability{
+				"CHOWN",
+				"DAC_OVERRIDE",
+				"FOWNER",
+				"FSETID",
+				"SETGID",
+				"SETUID",
+				"MKNOD",
+				"SETFCAP",
+				"SYS_CHROOT",
+			},
+		}
+	}
+
+	return &k8sv1.Capabilities{
+		Drop: []k8sv1.Capability{
+			"ALL",
 		},
 	}
 }
 
-func isConfig(volume *v1.Volume) bool {
-	return volume.ConfigMap != nil || volume.Secret != nil ||
-		volume.ServiceAccount != nil || volume.DownwardAPI != nil
+func securityContextVirtioFS(profile securityProfile) *k8sv1.SecurityContext {
+	credential := virtiofsCredential(profile)
+
+	return &k8sv1.SecurityContext{
+		RunAsUser:                credential,
+		RunAsGroup:               credential,
+		RunAsNonRoot:             pointer.Bool(isRestricted(profile)),
+		AllowPrivilegeEscalation: pointer.Bool(isPrivileged(profile)),
+		Capabilities:             virtiofsCapabilities(profile),
+	}
 }
 
-func isAutomount(volume *v1.Volume) bool {
+func isAutoMount(volume *v1.Volume) bool {
 	// The template service sets pod.Spec.AutomountServiceAccountToken as true
 	return volume.ServiceAccount != nil
 }
@@ -129,11 +158,18 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
-	args := []string{socketPathArg, sourceArg, "--cache=auto", "--sandbox=chroot"}
+	args := []string{socketPathArg, sourceArg, "--cache=auto"}
 
-	if !isConfig(volume) {
+	securityProfile := restricted
+	sandbox := "none"
+	if virtiofs.RequiresRootPrivileges(volume) {
+		securityProfile = privileged
+		sandbox = "chroot"
 		args = append(args, "--xattr")
 	}
+
+	sandboxArg := fmt.Sprintf("--sandbox=%s", sandbox)
+	args = append(args, sandboxArg)
 
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
@@ -143,7 +179,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 		},
 	}
 
-	if !isAutomount(volume) {
+	if !isAutoMount(volume) {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: virtioFSMountPoint(volume),
@@ -158,6 +194,6 @@ func generateContainerFromVolume(volume *v1.Volume, image string, config *virtco
 		Args:            args,
 		VolumeMounts:    volumeMounts,
 		Resources:       resources,
-		SecurityContext: securityContextVirtioFS(),
+		SecurityContext: securityContextVirtioFS(securityProfile),
 	}
 }

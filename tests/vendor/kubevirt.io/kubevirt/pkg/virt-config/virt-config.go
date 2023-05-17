@@ -129,8 +129,15 @@ func (c *ClusterConfig) GetResourceVersion() string {
 	return c.lastValidConfigResourceVersion
 }
 
-func (c *ClusterConfig) GetMachineType() string {
-	return c.GetConfig().MachineType
+func (c *ClusterConfig) GetMachineType(arch string) string {
+	switch arch {
+	case "arm64":
+		return c.GetConfig().ArchitectureConfiguration.Arm64.MachineType
+	case "ppc64le":
+		return c.GetConfig().ArchitectureConfiguration.Ppc64le.MachineType
+	default:
+		return c.GetConfig().ArchitectureConfiguration.Amd64.MachineType
+	}
 }
 
 func (c *ClusterConfig) GetCPUModel() string {
@@ -149,8 +156,15 @@ func (c *ClusterConfig) GetMemoryOvercommit() int {
 	return c.GetConfig().DeveloperConfiguration.MemoryOvercommit
 }
 
-func (c *ClusterConfig) GetEmulatedMachines() []string {
-	return c.GetConfig().EmulatedMachines
+func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
+	switch arch {
+	case "arm64":
+		return c.GetConfig().ArchitectureConfiguration.Arm64.EmulatedMachines
+	case "ppc64le":
+		return c.GetConfig().ArchitectureConfiguration.Ppc64le.EmulatedMachines
+	default:
+		return c.GetConfig().ArchitectureConfiguration.Amd64.EmulatedMachines
+	}
 }
 
 func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
@@ -167,6 +181,10 @@ func (c *ClusterConfig) GetNodeSelectors() map[string]string {
 
 func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
+}
+
+func (c *ClusterConfig) GetDefaultArchitecture() string {
+	return c.GetConfig().ArchitectureConfiguration.DefaultArchitecture
 }
 
 func (c *ClusterConfig) SetVMISpecDefaultNetworkInterface(spec *v1.VirtualMachineInstanceSpec) error {
@@ -227,8 +245,15 @@ func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 	return c.GetConfig().SupportedGuestAgentVersions
 }
 
-func (c *ClusterConfig) GetOVMFPath() string {
-	return c.GetConfig().OVMFPath
+func (c *ClusterConfig) GetOVMFPath(arch string) string {
+	switch arch {
+	case "arm64":
+		return c.GetConfig().ArchitectureConfiguration.Arm64.OVMFPath
+	case "ppc64le":
+		return c.GetConfig().ArchitectureConfiguration.Ppc64le.OVMFPath
+	default:
+		return c.GetConfig().ArchitectureConfiguration.Amd64.OVMFPath
+	}
 }
 
 func (c *ClusterConfig) GetCPUAllocationRatio() int {

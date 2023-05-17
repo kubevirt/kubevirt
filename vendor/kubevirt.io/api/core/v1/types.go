@@ -162,6 +162,8 @@ type VirtualMachineInstanceSpec struct {
 	// +listType=atomic
 	// +optional
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
+	// Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components
+	Architecture string `json:"architecture,omitempty"`
 }
 
 func (vmiSpec *VirtualMachineInstanceSpec) UnmarshalJSON(data []byte) error {
@@ -269,6 +271,11 @@ type VirtualMachineInstanceStatus struct {
 	// SELinuxContext is the actual SELinux context of the virt-launcher pod
 	// +optional
 	SelinuxContext string `json:"selinuxContext,omitempty"`
+
+	// Machine shows the final resulting qemu machine type. This can be different
+	// than the machine type selected in the spec, due to qemus machine type alias mechanism.
+	// +optional
+	Machine *Machine `json:"machine,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -902,6 +909,9 @@ const (
 
 	// SEVLabel marks the node as capable of running workloads with SEV
 	SEVLabel string = "kubevirt.io/sev"
+
+	// KSMEnabledLabel marks the node as KSM enabled
+	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
 
 	// InstancetypeAnnotation is the name of a VirtualMachineInstancetype
 	InstancetypeAnnotation string = "kubevirt.io/instancetype-name"
@@ -1910,6 +1920,7 @@ type KubeVirtStatus struct {
 	ObservedDeploymentID                    string              `json:"observedDeploymentID,omitempty" optional:"true"`
 	OutdatedVirtualMachineInstanceWorkloads *int                `json:"outdatedVirtualMachineInstanceWorkloads,omitempty" optional:"true"`
 	ObservedGeneration                      *int64              `json:"observedGeneration,omitempty"`
+	DefaultArchitecture                     string              `json:"defaultArchitecture,omitempty"`
 	// +listType=atomic
 	Generations []GenerationStatus `json:"generations,omitempty" optional:"true"`
 }
@@ -2268,19 +2279,19 @@ type ReloadableComponentConfiguration struct {
 
 // KubeVirtConfiguration holds all kubevirt configurations
 type KubeVirtConfiguration struct {
-	CPUModel               string                  `json:"cpuModel,omitempty"`
-	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
-	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
-	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
-	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
-	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
-	MachineType            string                  `json:"machineType,omitempty"`
-	NetworkConfiguration   *NetworkConfiguration   `json:"network,omitempty"`
-	OVMFPath               string                  `json:"ovmfPath,omitempty"`
-	SELinuxLauncherType    string                  `json:"selinuxLauncherType,omitempty"`
-	DefaultRuntimeClass    string                  `json:"defaultRuntimeClass,omitempty"`
-	SMBIOSConfig           *SMBiosConfiguration    `json:"smbios,omitempty"`
-
+	CPUModel                  string                  `json:"cpuModel,omitempty"`
+	CPURequest                *resource.Quantity      `json:"cpuRequest,omitempty"`
+	DeveloperConfiguration    *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	EmulatedMachines          []string                `json:"emulatedMachines,omitempty"`
+	ImagePullPolicy           k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
+	MigrationConfiguration    *MigrationConfiguration `json:"migrations,omitempty"`
+	MachineType               string                  `json:"machineType,omitempty"`
+	NetworkConfiguration      *NetworkConfiguration   `json:"network,omitempty"`
+	OVMFPath                  string                  `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType       string                  `json:"selinuxLauncherType,omitempty"`
+	DefaultRuntimeClass       string                  `json:"defaultRuntimeClass,omitempty"`
+	SMBIOSConfig              *SMBiosConfiguration    `json:"smbios,omitempty"`
+	ArchitectureConfiguration *ArchConfiguration      `json:"architectureConfiguration,omitempty"`
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
 	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
 	// field is set it overrides the cluster level one.
@@ -2317,6 +2328,20 @@ type KubeVirtConfiguration struct {
 	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
 	// The storage class must support RWX in filesystem mode.
 	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
+}
+
+type ArchConfiguration struct {
+	Amd64               *ArchSpecificConfiguration `json:"amd64,omitempty"`
+	Arm64               *ArchSpecificConfiguration `json:"arm64,omitempty"`
+	Ppc64le             *ArchSpecificConfiguration `json:"ppc64le,omitempty"`
+	DefaultArchitecture string                     `json:"defaultArchitecture,omitempty"`
+}
+
+type ArchSpecificConfiguration struct {
+	OVMFPath string `json:"ovmfPath,omitempty"`
+	// +listType=atomic
+	EmulatedMachines []string `json:"emulatedMachines,omitempty,flow"`
+	MachineType      string   `json:"machineType,omitempty"`
 }
 
 type SMBiosConfiguration struct {

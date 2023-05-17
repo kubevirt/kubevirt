@@ -17,7 +17,6 @@ const (
 	KvUiPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	HcoValidatingWebhook             = "validate-hco.kubevirt.io"
 	HcoMutatingWebhookNS             = "mutate-ns-hco.kubevirt.io"
-	HcoMutatingWebhookVirtLauncher   = "mutate-virt-launcher-hco.kubevirt.io"
 	HcoMutatingWebhookHyperConverged = "mutate-hyperconverged-hco.kubevirt.io"
 	AppLabel                         = "app"
 	UndefinedNamespace               = ""
@@ -48,18 +47,17 @@ const (
 	PrometheusNSLabel = "openshift.io/cluster-monitoring"
 
 	// HyperConvergedName is the name of the HyperConverged resource that will be reconciled
-	HyperConvergedName               = "kubevirt-hyperconverged"
-	MetricsHost                      = "0.0.0.0"
-	MetricsPort                int32 = 8383
-	HealthProbeHost                  = "0.0.0.0"
-	HealthProbePort            int32 = 6060
-	ReadinessEndpointName            = "/readyz"
-	LivenessEndpointName             = "/livez"
-	HCOWebhookPath                   = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
-	HCOMutatingWebhookPath           = "/mutate-hco-kubevirt-io-v1beta1-hyperconverged"
-	HCONSWebhookPath                 = "/mutate-ns-hco-kubevirt-io"
-	HCOVirtLauncherWebhookPath       = "/mutate-virt-launcher-hco-kubevirt-io"
-	WebhookPort                      = 4343
+	HyperConvergedName           = "kubevirt-hyperconverged"
+	MetricsHost                  = "0.0.0.0"
+	MetricsPort            int32 = 8383
+	HealthProbeHost              = "0.0.0.0"
+	HealthProbePort        int32 = 6060
+	ReadinessEndpointName        = "/readyz"
+	LivenessEndpointName         = "/livez"
+	HCOWebhookPath               = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
+	HCOMutatingWebhookPath       = "/mutate-hco-kubevirt-io-v1beta1-hyperconverged"
+	HCONSWebhookPath             = "/mutate-ns-hco-kubevirt-io"
+	WebhookPort                  = 4343
 
 	WebhookCertName       = "apiserver.crt"
 	WebhookKeyName        = "apiserver.key"

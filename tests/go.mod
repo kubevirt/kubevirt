@@ -12,14 +12,14 @@ require (
 	github.com/prometheus/client_golang v1.15.0
 	github.com/prometheus/common v0.42.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.26.4
-	k8s.io/apimachinery v0.26.4
+	k8s.io/api v0.27.1
+	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	kubevirt.io/api v1.0.0-alpha.0
-	kubevirt.io/client-go v1.0.0-alpha.0
+	k8s.io/utils v0.0.0-20230505201702-9f6742963106
+	kubevirt.io/api v1.0.0-beta.0
+	kubevirt.io/client-go v1.0.0-beta.0
 	kubevirt.io/containerized-data-importer-api v1.56.0
-	kubevirt.io/kubevirt v1.0.0-alpha.0
+	kubevirt.io/kubevirt v1.0.0-beta.0
 	kubevirt.io/qe-tools v0.1.8
 )
 
@@ -45,7 +45,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cilium/ebpf v0.9.1 // indirect
-	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc // indirect
+	github.com/coreos/prometheus-operator v0.38.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -97,7 +97,7 @@ require (
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/operator-framework/api v0.17.3 // indirect
 	github.com/operator-framework/operator-lib v0.11.1-0.20220921174810-791cc547e6c5 // indirect
-	github.com/pborman/uuid v1.2.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
@@ -120,9 +120,9 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.4 // indirect
-	k8s.io/klog/v2 v2.90.0 // indirect
+	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-aggregator v0.23.5 // indirect
-	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c // indirect
+	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
 	k8s.io/kubectl v0.26.1 // indirect
 	sigs.k8s.io/controller-runtime v0.14.6 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
@@ -210,8 +210,8 @@ replace (
 	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.85.2
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-	kubevirt.io/api => kubevirt.io/api v1.0.0-alpha.0
-	kubevirt.io/client-go => kubevirt.io/client-go v1.0.0-alpha.0
+	kubevirt.io/api => kubevirt.io/api v1.0.0-beta.0
+	kubevirt.io/client-go => kubevirt.io/client-go v1.0.0-beta.0
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.56.0
 )
 

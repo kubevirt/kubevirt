@@ -119,10 +119,19 @@ func isDataSourceCrd(crd *extv1.CustomResourceDefinition) bool {
 	return crd.Spec.Names.Kind == "DataSource"
 }
 
+func isServiceMonitor(crd *extv1.CustomResourceDefinition) bool {
+	return crd.Spec.Names.Kind == "ServiceMonitor"
+}
+
+func isPrometheusRules(crd *extv1.CustomResourceDefinition) bool {
+	return crd.Spec.Names.Kind == "PrometheusRule"
+}
+
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
 	crd := obj.(*extv1.CustomResourceDefinition)
-	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) {
+	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) &&
+		!isServiceMonitor(crd) && !isPrometheusRules(crd) {
 		return
 	}
 
@@ -231,6 +240,24 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 				Burst: DefaultVirtWebhookClientBurst,
 			}}},
 		},
+		ArchitectureConfiguration: &v1.ArchConfiguration{
+			Amd64: &v1.ArchSpecificConfiguration{
+				OVMFPath:         DefaultARCHOVMFPath,
+				EmulatedMachines: strings.Split(DefaultAMD64EmulatedMachines, ","),
+				MachineType:      DefaultAMD64MachineType,
+			},
+			Arm64: &v1.ArchSpecificConfiguration{
+				OVMFPath:         DefaultAARCH64OVMFPath,
+				EmulatedMachines: strings.Split(DefaultAARCH64EmulatedMachines, ","),
+				MachineType:      DefaultAARCH64MachineType,
+			},
+			Ppc64le: &v1.ArchSpecificConfiguration{
+				OVMFPath:         DefaultARCHOVMFPath,
+				EmulatedMachines: strings.Split(DefaultPPC64LEEmulatedMachines, ","),
+				MachineType:      DefaultPPC64LEMachineType,
+			},
+			DefaultArchitecture: runtime.GOARCH,
+		},
 	}
 }
 
@@ -267,6 +294,12 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 	if err != nil {
 		return err
 	}
+
+	if config.ArchitectureConfiguration == nil {
+		config.ArchitectureConfiguration = &v1.ArchConfiguration{}
+	}
+	// set default architecture from status of CR
+	config.ArchitectureConfiguration.DefaultArchitecture = kv.Status.DefaultArchitecture
 
 	return validateConfig(config)
 }
@@ -372,6 +405,36 @@ func (c *ClusterConfig) HasDataVolumeAPI() bool {
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			if isDataVolumeCrd(crd) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *ClusterConfig) HasServiceMonitorAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isServiceMonitor(crd) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c *ClusterConfig) HasPrometheusRuleAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isPrometheusRules(crd) {
 				return true
 			}
 		}

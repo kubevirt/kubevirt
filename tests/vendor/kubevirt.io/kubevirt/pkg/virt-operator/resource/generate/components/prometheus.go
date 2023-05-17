@@ -451,7 +451,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "OrphanedVirtualMachineInstances",
-						Expr:  intstr.FromString("(((sum by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) sum by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
+						Expr:  intstr.FromString("(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
 						For:   "10m",
 						Annotations: map[string]string{
 							"summary":     "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",
@@ -478,8 +478,11 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					},
 					{
 						Alert: "KubeVirtComponentExceedsRequestedMemory",
-						Expr:  intstr.FromString(fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container="",namespace="%s"}) < 0`, ns, ns)),
-						For:   "5m",
+						Expr: intstr.FromString(
+							// In 'container_memory_working_set_bytes', 'container=""' filters the accumulated metric for the pod slice to measure total Memory usage for all containers within the pod
+							fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="memory"}) - on(pod) group_left(node) container_memory_working_set_bytes{container="",namespace="%s"}) < 0`, ns, ns),
+						),
+						For: "5m",
 						Annotations: map[string]string{
 							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} memory usage exceeds the memory requested",
 							"summary":     "The container is using more memory than what is defined in the containers resource requests",
@@ -493,12 +496,13 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 					{
 						Alert: "KubeVirtComponentExceedsRequestedCPU",
 						Expr: intstr.FromString(
-							fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"}) - on(pod) group_left(node) node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate{namespace="%s"}) < 0`, ns, ns),
+							// In 'container_cpu_usage_seconds_total', 'container=""' filters the accumulated metric for the pod slice to measure total CPU usage for all containers within the pod
+							fmt.Sprintf(`((kube_pod_container_resource_requests{namespace="%s",container=~"virt-controller|virt-api|virt-handler|virt-operator",resource="cpu"}) - on(pod) sum(rate(container_cpu_usage_seconds_total{container="",namespace="%s"}[5m])) by (pod)) < 0`, ns, ns),
 						),
 						For: "5m",
 						Annotations: map[string]string{
-							"description": "Container {{ $labels.container }} in pod {{ $labels.pod }} cpu usage exceeds the CPU requested",
-							"summary":     "The container is using more CPU than what is defined in the containers resource requests",
+							"description": "Pod {{ $labels.pod }} cpu usage exceeds the CPU requested",
+							"summary":     "The containers in the pod are using more CPU than what is defined in the containers resource requests",
 							"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtComponentExceedsRequestedCPU"),
 						},
 						Labels: map[string]string{
