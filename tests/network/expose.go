@@ -90,13 +90,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	appendIpFamilyToExposeArgs := func(ipFamily ipFamily, vmiExposeArgs []string) []string {
-		if inlcudesIpv6(ipFamily) {
-			vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
-		}
-		return vmiExposeArgs
-	}
-
 	createAndWaitForJobToSucceed := func(jobFactory func(host, port string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
 		By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
 		job := jobFactory(ip, port)
@@ -775,6 +768,13 @@ func skipIfNotSupportedCluster(ipFamily ipFamily) {
 	if isDualStack(ipFamily) {
 		checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
 	}
+}
+
+func appendIpFamilyToExposeArgs(ipFamily ipFamily, vmiExposeArgs []string) []string {
+	if inlcudesIpv6(ipFamily) {
+		vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
+	}
+	return vmiExposeArgs
 }
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
