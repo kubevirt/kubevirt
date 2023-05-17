@@ -90,20 +90,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	validateClusterIp := func(clusterIp string, ipFamily ipFamily) error {
-		var correctPrimaryFamily bool
-		switch ipFamily {
-		case ipv4, dualIPv4Primary:
-			correctPrimaryFamily = netutils.IsIPv4String(clusterIp)
-		case ipv6, dualIPv6Primary:
-			correctPrimaryFamily = netutils.IsIPv6String(clusterIp)
-		}
-		if !correctPrimaryFamily {
-			return fmt.Errorf("the ClusterIP %s belongs to the wrong ip family", clusterIp)
-		}
-		return nil
-	}
-
 	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
 		if includesIpv4(ipFamily) {
 			libnet.SkipWhenClusterNotSupportIpv4()
@@ -775,6 +761,20 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 func randomizeName(currentName string) string {
 	return currentName + rand.String(5)
+}
+
+func validateClusterIp(clusterIp string, ipFamily ipFamily) error {
+	var correctPrimaryFamily bool
+	switch ipFamily {
+	case ipv4, dualIPv4Primary:
+		correctPrimaryFamily = netutils.IsIPv4String(clusterIp)
+	case ipv6, dualIPv6Primary:
+		correctPrimaryFamily = netutils.IsIPv6String(clusterIp)
+	}
+	if !correctPrimaryFamily {
+		return fmt.Errorf("the ClusterIP %s belongs to the wrong ip family", clusterIp)
+	}
+	return nil
 }
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
