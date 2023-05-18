@@ -113,6 +113,8 @@ launcherbase_extra="
   tar
   virtiofsd-${VIRTIOFSD_VERSION}
   xorriso
+  nbdkit
+  nbdfuse
 "
 
 handlerbase_main="
@@ -128,6 +130,8 @@ handlerbase_extra="
   tar
   util-linux
   xorriso
+  nbdkit
+  nbdfuse
 "
 
 libguestfstools_main="
