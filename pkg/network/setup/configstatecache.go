@@ -80,3 +80,22 @@ func (c *ConfigStateCache) Write(key string, state cache.PodIfaceState) error {
 	c.volatilePodIfaceState[key] = state
 	return nil
 }
+
+func (c *ConfigStateCache) Exists(key string) (bool, error) {
+	if _, exists := c.volatilePodIfaceState[key]; exists {
+		return true, nil
+	}
+	_, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to read pod interface network state from cache: %v", err)
+	}
+	return true, nil
+}
+
+func (c *ConfigStateCache) Delete(key string) error {
+	delete(c.volatilePodIfaceState, key)
+	return cache.DeletePodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+}

@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -51,7 +53,7 @@ var _ = Describe("config state", func() {
 		ns = nsExecutorStub{}
 		configState = NewConfigState(&configStateCache, ns)
 		nics = []podNIC{{
-			podInterfaceName: testNet0,
+			vmiSpecNetwork: &v1.Network{Name: testNet0},
 		}}
 	})
 
@@ -60,8 +62,8 @@ var _ = Describe("config state", func() {
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
 
-		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
-		Expect(config.executedNICs).To(Equal([]string{testNet0}), "the config step should execute")
+		Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
+		Expect(config.executedNetworks).To(Equal([]string{testNet0}), "the config step should execute")
 
 		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
@@ -74,8 +76,8 @@ var _ = Describe("config state", func() {
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
 
-		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
-		Expect(config.executedNICs).To(Equal([]string{testNet0}), "the config step should execute")
+		Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
+		Expect(config.executedNetworks).To(Equal([]string{testNet0}), "the config step should execute")
 
 		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
@@ -92,8 +94,8 @@ var _ = Describe("config state", func() {
 		var criticalNetErr *neterrors.CriticalNetworkError
 		Expect(errors.As(err, &criticalNetErr)).To(BeTrue())
 
-		Expect(discover.executedNICs).To(BeEmpty(), "the discover step should not be execute")
-		Expect(config.executedNICs).To(BeEmpty(), "the config step should not be execute")
+		Expect(discover.executedNetworks).To(BeEmpty(), "the discover step should not be execute")
+		Expect(config.executedNetworks).To(BeEmpty(), "the config step should not be execute")
 
 		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
@@ -107,8 +109,8 @@ var _ = Describe("config state", func() {
 		ns.shouldNotBeExecuted = true
 		Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
 
-		Expect(discover.executedNICs).To(BeEmpty(), "the discover step should not be execute")
-		Expect(config.executedNICs).To(BeEmpty(), "the config step should not be execute")
+		Expect(discover.executedNetworks).To(BeEmpty(), "the discover step should not be execute")
+		Expect(config.executedNetworks).To(BeEmpty(), "the config step should not be execute")
 
 		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
@@ -121,8 +123,8 @@ var _ = Describe("config state", func() {
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
 
-		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
-		Expect(config.executedNICs).To(BeEmpty(), "the config step should not execute")
+		Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
+		Expect(config.executedNetworks).To(BeEmpty(), "the config step should not execute")
 
 		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
@@ -135,8 +137,8 @@ var _ = Describe("config state", func() {
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
 
-		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
-		Expect(config.executedNICs).To(Equal([]string{testNet0}), "the config step should execute")
+		Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
+		Expect(config.executedNetworks).To(Equal([]string{testNet0}), "the config step should execute")
 
 		state, err := configStateCache.Read(testNet0)
 		Expect(err).NotTo(HaveOccurred())
@@ -153,8 +155,8 @@ var _ = Describe("config state", func() {
 		ns.shouldNotBeExecuted = true
 		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
 
-		Expect(discover.executedNICs).To(BeEmpty(), "the discover step shouldn't execute")
-		Expect(config.executedNICs).To(BeEmpty(), "the config step shouldn't execute")
+		Expect(discover.executedNetworks).To(BeEmpty(), "the discover step shouldn't execute")
+		Expect(config.executedNetworks).To(BeEmpty(), "the config step shouldn't execute")
 	})
 
 	It("runs and fails writing the cache", func() {
@@ -166,15 +168,15 @@ var _ = Describe("config state", func() {
 
 		Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
 
-		Expect(discover.executedNICs).To(Equal([]string{testNet0}), "the discover step should execute")
-		Expect(config.executedNICs).To(BeEmpty(), "the config step shouldn't execute")
+		Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
+		Expect(config.executedNetworks).To(BeEmpty(), "the config step shouldn't execute")
 	})
 
 	When("with multiple interfaces", func() {
 		BeforeEach(func() {
 			nics = append(nics,
-				podNIC{podInterfaceName: testNet1},
-				podNIC{podInterfaceName: testNet2},
+				podNIC{vmiSpecNetwork: &v1.Network{Name: testNet1}},
+				podNIC{vmiSpecNetwork: &v1.Network{Name: testNet2}},
 			)
 		})
 
@@ -183,8 +185,8 @@ var _ = Describe("config state", func() {
 
 			Expect(configState.Run(nics, discover.f, config.f)).To(Succeed())
 
-			Expect(discover.executedNICs).To(Equal([]string{testNet0, testNet1, testNet2}))
-			Expect(config.executedNICs).To(Equal([]string{testNet0, testNet1, testNet2}))
+			Expect(discover.executedNetworks).To(Equal([]string{testNet0, testNet1, testNet2}))
+			Expect(config.executedNetworks).To(Equal([]string{testNet0, testNet1, testNet2}))
 
 			for _, testNet := range []string{testNet0, testNet1, testNet2} {
 				state, err := configStateCache.Read(testNet)
@@ -199,8 +201,8 @@ var _ = Describe("config state", func() {
 
 			Expect(configState.Run(nics, discover.f, config.f)).To(MatchError(injectedErr))
 
-			Expect(discover.executedNICs).To(Equal([]string{testNet0, testNet1, testNet2}))
-			Expect(config.executedNICs).To(Equal([]string{testNet0, testNet1}))
+			Expect(discover.executedNetworks).To(Equal([]string{testNet0, testNet1, testNet2}))
+			Expect(config.executedNetworks).To(Equal([]string{testNet0, testNet1}))
 
 			for _, testNet := range []string{testNet0, testNet1, testNet2} {
 				state, err := configStateCache.Read(testNet)
@@ -213,18 +215,18 @@ var _ = Describe("config state", func() {
 })
 
 type funcStub struct {
-	executedNICs          []string
+	executedNetworks      []string
 	errRun                error
 	errRunForPodIfaceName string
 }
 
 func (f *funcStub) f(nic *podNIC) error {
-	f.executedNICs = append(f.executedNICs, nic.podInterfaceName)
+	f.executedNetworks = append(f.executedNetworks, nic.vmiSpecNetwork.Name)
 
 	// If an error is specified, return it if there is no filter at all, or if the filter is specified and matches.
 	// The filter is the pod interface name.
 	var err error
-	if f.errRunForPodIfaceName == "" || f.errRunForPodIfaceName == nic.podInterfaceName {
+	if f.errRunForPodIfaceName == "" || f.errRunForPodIfaceName == nic.vmiSpecNetwork.Name {
 		err = f.errRun
 	}
 	return err
