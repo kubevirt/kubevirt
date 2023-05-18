@@ -394,7 +394,12 @@ type Backed struct {
 	File *File `json:"file"`
 }
 
-type File struct{}
+type File struct {
+	// NbdFuse backs the VM's memory by a RAM disk using the nbdkit memory plugin.
+	NbdFuse *NbdFuse `json:"nbdFuse,omitempty"`
+}
+
+type NbdFuse struct{}
 
 type Firmware struct {
 	// UUID reported by the vmi bios.

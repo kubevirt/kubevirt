@@ -16507,7 +16507,13 @@
     }
    },
    "v1.File": {
-    "type": "object"
+    "type": "object",
+    "properties": {
+     "nbdFuse": {
+      "description": "NbdFuse backs the VM's memory by a RAM disk using the nbdkit memory plugin.",
+      "$ref": "#/definitions/v1.NbdFuse"
+     }
+    }
    },
    "v1.Filesystem": {
     "type": "object",
@@ -17622,6 +17628,9 @@
    },
    "v1.NUMAGuestMappingPassthrough": {
     "description": "NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest. This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory never cross boundaries coming from the node numa mapping.",
+    "type": "object"
+   },
+   "v1.NbdFuse": {
     "type": "object"
    },
    "v1.Network": {

@@ -26,12 +26,8 @@ import (
 	"strings"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
-	"k8s.io/kubectl/pkg/cmd/util/podcmd"
-	"k8s.io/utils/pointer"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

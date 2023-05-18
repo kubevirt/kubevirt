@@ -412,6 +412,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.MultusNetwork":                                                      schema_kubevirtio_api_core_v1_MultusNetwork(ref),
 		"kubevirt.io/api/core/v1.NUMA":                                                               schema_kubevirtio_api_core_v1_NUMA(ref),
 		"kubevirt.io/api/core/v1.NUMAGuestMappingPassthrough":                                        schema_kubevirtio_api_core_v1_NUMAGuestMappingPassthrough(ref),
+		"kubevirt.io/api/core/v1.NbdFuse":                                                            schema_kubevirtio_api_core_v1_NbdFuse(ref),
 		"kubevirt.io/api/core/v1.Network":                                                            schema_kubevirtio_api_core_v1_Network(ref),
 		"kubevirt.io/api/core/v1.NetworkConfiguration":                                               schema_kubevirtio_api_core_v1_NetworkConfiguration(ref),
 		"kubevirt.io/api/core/v1.NetworkSource":                                                      schema_kubevirtio_api_core_v1_NetworkSource(ref),
@@ -16688,8 +16689,18 @@ func schema_kubevirtio_api_core_v1_File(ref common.ReferenceCallback) common.Ope
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nbdFuse": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NbdFuse backs the VM's memory by a RAM disk using the nbdkit memory plugin.",
+							Ref:         ref("kubevirt.io/api/core/v1.NbdFuse"),
+						},
+					},
+				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.NbdFuse"},
 	}
 }
 
@@ -18850,6 +18861,16 @@ func schema_kubevirtio_api_core_v1_NUMAGuestMappingPassthrough(ref common.Refere
 			SchemaProps: spec.SchemaProps{
 				Description: "NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest. This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory never cross boundaries coming from the node numa mapping.",
 				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_NbdFuse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
 			},
 		},
 	}

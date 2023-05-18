@@ -107,7 +107,7 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 		"kvm":       "/dev/kvm",
 		"tun":       "/dev/net/tun",
 		"vhost-net": "/dev/vhost-net",
-		"fuse":       "/dev/fuse",
+		"fuse":      "/dev/fuse",
 	}
 
 	ret := make([]Device, 0, len(permanentDevicePluginPaths))

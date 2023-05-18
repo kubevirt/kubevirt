@@ -5869,6 +5869,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 by flushing the VM's memory into back to disk, but
                                 might hurt VM's performance if the backing storage
                                 is not performant.
+                              properties:
+                                nbdFuse:
+                                  description: NbdFuse backs the VM's memory by a
+                                    RAM disk using the nbdkit memory plugin.
+                                  type: object
                               type: object
                           required:
                           - file
@@ -10139,6 +10144,11 @@ var CRDsValidation map[string]string = map[string]string{
                         configuration allows the node to reclaim memory by flushing
                         the VM's memory into back to disk, but might hurt VM's performance
                         if the backing storage is not performant.
+                      properties:
+                        nbdFuse:
+                          description: NbdFuse backs the VM's memory by a RAM disk
+                            using the nbdkit memory plugin.
+                          type: object
                       type: object
                   required:
                   - file
@@ -12681,6 +12691,11 @@ var CRDsValidation map[string]string = map[string]string{
                         configuration allows the node to reclaim memory by flushing
                         the VM's memory into back to disk, but might hurt VM's performance
                         if the backing storage is not performant.
+                      properties:
+                        nbdFuse:
+                          description: NbdFuse backs the VM's memory by a RAM disk
+                            using the nbdkit memory plugin.
+                          type: object
                       type: object
                   required:
                   - file
@@ -14846,6 +14861,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 by flushing the VM's memory into back to disk, but
                                 might hurt VM's performance if the backing storage
                                 is not performant.
+                              properties:
+                                nbdFuse:
+                                  description: NbdFuse backs the VM's memory by a
+                                    RAM disk using the nbdkit memory plugin.
+                                  type: object
                               type: object
                           required:
                           - file
@@ -18880,6 +18900,12 @@ var CRDsValidation map[string]string = map[string]string{
                                         memory into back to disk, but might hurt VM's
                                         performance if the backing storage is not
                                         performant.
+                                      properties:
+                                        nbdFuse:
+                                          description: NbdFuse backs the VM's memory
+                                            by a RAM disk using the nbdkit memory
+                                            plugin.
+                                          type: object
                                       type: object
                                   required:
                                   - file
@@ -23639,6 +23665,12 @@ var CRDsValidation map[string]string = map[string]string{
                                             the VM's memory into back to disk, but
                                             might hurt VM's performance if the backing
                                             storage is not performant.
+                                          properties:
+                                            nbdFuse:
+                                              description: NbdFuse backs the VM's
+                                                memory by a RAM disk using the nbdkit
+                                                memory plugin.
+                                              type: object
                                           type: object
                                       required:
                                       - file

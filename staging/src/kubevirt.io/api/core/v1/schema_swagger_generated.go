@@ -224,6 +224,12 @@ func (Backed) SwaggerDoc() map[string]string {
 }
 
 func (File) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"nbdFuse": "NbdFuse backs the VM's memory by a RAM disk using the nbdkit memory plugin.",
+	}
+}
+
+func (NbdFuse) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
