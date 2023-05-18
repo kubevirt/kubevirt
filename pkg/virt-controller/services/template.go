@@ -72,6 +72,7 @@ const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
 const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
 const PrDevice = "devices.kubevirt.io/pr-helper"
+const FuseDevice = "devices.kubevirt.io/fuse"
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"

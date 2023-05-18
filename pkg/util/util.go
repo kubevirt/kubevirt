@@ -153,6 +153,10 @@ func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true)
 }
 
+func NeedFuseDevice(vmi *v1.VirtualMachineInstance) bool {
+	return (IsFileMemoryBackedVmi(vmi) && vmi.Spec.Domain.Memory.Backed.File.NbdFuse != nil)
+}
+
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
 }
