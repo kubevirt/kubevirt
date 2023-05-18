@@ -1,5 +1,13 @@
 # KubeVirt
 
+
+<p align="center">
+<img src="https://cncf-branding.netlify.app/img/projects/kubevirt/icon/color/kubevirt-icon-color.png" width="100">
+</p>
+
+
+
+
 [![Build Status](https://prow.ci.kubevirt.io/badge.svg?jobs=push-kubevirt-main)](https://prow.ci.kubevirt.io/?job=push-kubevirt-main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/kubevirt)](https://goreportcard.com/report/github.com/kubevirt/kubevirt)
 [![Licensed under Apache License version 2.0](https://img.shields.io/github/license/kubevirt/kubevirt.svg)](https://www.apache.org/licenses/LICENSE-2.0)
@@ -9,7 +17,7 @@
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git.svg?type=shield)](https://app.fossa.com/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git?ref=badge_shield)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kubevirt_kubevirt&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=kubevirt_kubevirt)
 
-<img src="https://cncf-branding.netlify.app/img/projects/kubevirt/icon/color/kubevirt-icon-color.png" width="100">
+
 
 **KubeVirt** is a virtual machine management add-on for Kubernetes.
 The aim is to provide a common ground for virtualization solutions on top of
