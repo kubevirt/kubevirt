@@ -20,10 +20,13 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -1321,13 +1324,37 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 	return keepLauncherAfterFailure
 }
 
+func requiresCPULimits(virtClient kubecli.KubevirtClient, labelSelector *metav1.LabelSelector, vmi *v1.VirtualMachineInstance) bool {
+	_, limitSet := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
+	if labelSelector == nil || limitSet {
+		return false
+	}
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Warning("invalid CPULimitNamespaceLabelSelector set, assuming none")
+		return false
+	}
+	namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Warningf("failed to get namespace %s", vmi.Namespace)
+		return false
+	}
+
+	if selector.Matches(labels.Set(namespace.Labels)) {
+		return true
+	}
+
+	return false
+}
+
 func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	withCPULimits := requiresCPULimits(t.virtClient, t.clusterConfig.GetConfig().AutoCPULimitNamespaceLabelSelector, vmi)
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
-			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
+			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {

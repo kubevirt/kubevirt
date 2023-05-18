@@ -55,15 +55,26 @@ var _ = Describe("Resource pod spec renderer", func() {
 	Context("Default CPU configuration", func() {
 		cpu := &v1.CPU{Cores: 5}
 		It("Requests one CPU per core, when CPU allocation ratio is 1", func() {
-			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 1))
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 1, false))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
 			Expect(rr.Limits()).To(BeEmpty())
 		})
 
 		It("Requests 100m per core, when CPU allocation ratio is 10", func() {
-			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 10))
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 10, false))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("500m")))
 			Expect(rr.Limits()).To(BeEmpty())
+		})
+		It("Limits to one CPU per core, when CPU allocation ratio is 1 and CPU limits are enabled", func() {
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 1, true))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
+		})
+
+		It("Limits to one CPU per core, when CPU allocation ratio is 10 and CPU limits are enabled", func() {
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 10, true))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("500m")))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
 		})
 	})
 
