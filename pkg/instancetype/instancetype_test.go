@@ -1016,8 +1016,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(1))
-				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
+				Expect(conflicts).To(HaveLen(3))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu.sockets"))
+				Expect(conflicts[1].String()).To(Equal("spec.template.spec.domain.cpu.cores"))
+				Expect(conflicts[2].String()).To(Equal("spec.template.spec.domain.cpu.threads"))
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {

@@ -335,12 +335,22 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			var apiStatus errors.APIStatus
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
 
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
+			Expect(apiStatus.Status().Details.Causes).To(HaveLen(3))
 
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause.Message).To(Equal("VM field conflicts with selected Instancetype"))
-			Expect(cause.Field).To(Equal("spec.template.spec.domain.cpu"))
+			cause0 := apiStatus.Status().Details.Causes[0]
+			Expect(cause0.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(cause0.Message).To(Equal("VM field conflicts with selected Instancetype"))
+			Expect(cause0.Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+
+			cause1 := apiStatus.Status().Details.Causes[1]
+			Expect(cause1.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(cause1.Message).To(Equal("VM field conflicts with selected Instancetype"))
+			Expect(cause1.Field).To(Equal("spec.template.spec.domain.cpu.cores"))
+
+			cause2 := apiStatus.Status().Details.Causes[2]
+			Expect(cause2.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(cause2.Message).To(Equal("VM field conflicts with selected Instancetype"))
+			Expect(cause2.Field).To(Equal("spec.template.spec.domain.cpu.threads"))
 		})
 
 		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
