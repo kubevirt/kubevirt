@@ -9,6 +9,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	k6tresource "kubevirt.io/kubevirt/pkg/apimachinery/resource"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -370,6 +371,18 @@ var _ = Describe("Resource pod spec renderer", func() {
 			kubev1.ResourceMemory: resource.MustParse("80M"),
 		}),
 	)
+
+	It("removes reserved resources from requests", func() {
+		resourceValue := resource.MustParse("5")
+		resources := kubev1.ResourceList{k6tresource.ResourceInterface: resourceValue}
+		rr = NewResourceRenderer(
+			nil,
+			resources,
+			WithFilterOutResourceRequest(k6tresource.ResourceInterface),
+		)
+		Expect(rr.Requests()).NotTo(HaveKeyWithValue(k6tresource.ResourceInterface, resourceValue))
+		Expect(rr.Limits()).To(BeEmpty())
+	})
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

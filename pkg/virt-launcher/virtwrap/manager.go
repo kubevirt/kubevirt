@@ -882,10 +882,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
 			}
-			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
+
+			dom, err = withNetworkIfacesResources(
+				vmi, &domain.Spec,
+				func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+					return l.setDomainSpecWithHooks(v, s)
+				},
+			)
 			if err != nil {
 				return nil, err
 			}
+
 			l.metadataCache.UID.Set(vmi.UID)
 			l.metadataCache.GracePeriod.Set(
 				api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
