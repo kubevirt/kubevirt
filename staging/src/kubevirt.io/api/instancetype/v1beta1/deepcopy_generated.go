@@ -75,6 +75,11 @@ func (in *CPUPreferences) DeepCopyInto(out *CPUPreferences) {
 		*out = new(PreferredCPUTopology)
 		**out = **in
 	}
+	if in.PreferredCPUFeatures != nil {
+		in, out := &in.PreferredCPUFeatures, &out.PreferredCPUFeatures
+		*out = make([]v1.CPUFeature, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

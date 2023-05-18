@@ -21742,6 +21742,14 @@
     "description": "CPUPreferences contains various optional CPU preferences.",
     "type": "object",
     "properties": {
+     "preferredCPUFeatures": {
+      "description": "PreferredCPUFeatures optionally defines a slice of preferred CPU features.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.CPUFeature"
+      }
+     },
      "preferredCPUTopology": {
       "description": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.",
       "type": "string"

@@ -7935,6 +7935,31 @@ var CRDsValidation map[string]string = map[string]string{
           description: CPU optionally defines preferences associated with the CPU
             attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredCPUFeatures:
+              description: PreferredCPUFeatures optionally defines a slice of preferred
+                CPU features.
+              items:
+                description: CPUFeature allows specifying a CPU feature.
+                properties:
+                  name:
+                    description: Name of the CPU feature
+                    type: string
+                  policy:
+                    description: 'Policy is the CPU feature attribute which can have
+                      the following attributes: force    - The virtual CPU will claim
+                      the feature is supported regardless of it being supported by
+                      host CPU. require  - Guest creation will fail unless the feature
+                      is supported by the host CPU or the hypervisor is able to emulate
+                      it. optional - The feature will be supported by virtual CPU
+                      if and only if it is supported by host CPU. disable  - The feature
+                      will not be supported by virtual CPU. forbid   - Guest creation
+                      will fail if the feature is supported by host CPU. Defaults
+                      to require'
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
@@ -20584,6 +20609,31 @@ var CRDsValidation map[string]string = map[string]string{
           description: CPU optionally defines preferences associated with the CPU
             attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredCPUFeatures:
+              description: PreferredCPUFeatures optionally defines a slice of preferred
+                CPU features.
+              items:
+                description: CPUFeature allows specifying a CPU feature.
+                properties:
+                  name:
+                    description: Name of the CPU feature
+                    type: string
+                  policy:
+                    description: 'Policy is the CPU feature attribute which can have
+                      the following attributes: force    - The virtual CPU will claim
+                      the feature is supported regardless of it being supported by
+                      host CPU. require  - Guest creation will fail unless the feature
+                      is supported by the host CPU or the hypervisor is able to emulate
+                      it. optional - The feature will be supported by virtual CPU
+                      if and only if it is supported by host CPU. disable  - The feature
+                      will not be supported by virtual CPU. forbid   - Guest creation
+                      will fail if the feature is supported by host CPU. Defaults
+                      to require'
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.

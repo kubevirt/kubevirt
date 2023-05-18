@@ -356,6 +356,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 
 	if preferenceSpec != nil {
 		// By design Preferences can't conflict with the VMI so we don't return any
+		applyCPUPreferences(preferenceSpec, vmiSpec)
 		ApplyDevicePreferences(preferenceSpec, vmiSpec)
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
@@ -972,6 +973,22 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1beta
 	copy(vmiSpec.Domain.Devices.HostDevices, instancetypeSpec.HostDevices)
 
 	return nil
+}
+
+func applyCPUPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
+		return
+	}
+	// Only apply any preferred CPU features when the same feature has not been provided by a user already
+	cpuFeatureNames := make(map[string]struct{})
+	for _, cpuFeature := range vmiSpec.Domain.CPU.Features {
+		cpuFeatureNames[cpuFeature.Name] = struct{}{}
+	}
+	for _, preferredCPUFeature := range preferenceSpec.CPU.PreferredCPUFeatures {
+		if _, foundCPUFeature := cpuFeatureNames[preferredCPUFeature.Name]; !foundCPUFeature {
+			vmiSpec.Domain.CPU.Features = append(vmiSpec.Domain.CPU.Features, preferredCPUFeature)
+		}
+	}
 }
 
 func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {

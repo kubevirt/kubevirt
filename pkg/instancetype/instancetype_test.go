@@ -1057,7 +1057,45 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.cpu"))
 			})
+
+			It("should apply PreferredCPUFeatures", func() {
+				preferenceSpec := &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUFeatures: []v1.CPUFeature{
+							{
+								Name:   "foo",
+								Policy: "require",
+							},
+							{
+								Name:   "bar",
+								Policy: "force",
+							},
+						},
+					},
+				}
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Features: []v1.CPUFeature{
+						{
+							Name:   "bar",
+							Policy: "optional",
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(2))
+				Expect(vmi.Spec.Domain.CPU.Features).To(ContainElements([]v1.CPUFeature{
+					{
+						Name:   "foo",
+						Policy: "require",
+					},
+					{
+						Name:   "bar",
+						Policy: "optional",
+					},
+				}))
+			})
 		})
+
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{

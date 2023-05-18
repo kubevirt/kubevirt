@@ -273,6 +273,11 @@ type CPUPreferences struct {
 	//
 	//+optional
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
+
+	// PreferredCPUFeatures optionally defines a slice of preferred CPU features.
+	//
+	//+optional
+	PreferredCPUFeatures []v1.CPUFeature `json:"preferredCPUFeatures,omitempty"`
 }
 
 // DevicePreferences contains various optional Device preferences.
