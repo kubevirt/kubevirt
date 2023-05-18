@@ -289,6 +289,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+				clusterInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
+					Guest: uint32(2),
+					// Set the following values to be compatible with objects converted from v1alpha1
+					Model:                 pointer.String(""),
+					DedicatedCPUPlacement: pointer.Bool(false),
+					IsolateEmulatorThread: pointer.Bool(false),
+				}
+
 				specData, err := json.Marshal(clusterInstancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -471,6 +479,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+				fakeInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
+					Guest: uint32(2),
+					// Set the following values to be compatible with objects converted from v1alpha1
+					Model:                 pointer.String(""),
+					DedicatedCPUPlacement: pointer.Bool(false),
+					IsolateEmulatorThread: pointer.Bool(false),
+				}
+
 				specData, err := json.Marshal(fakeInstancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -904,9 +920,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
 						Guest:                 uint32(2),
-						Model:                 "host-passthrough",
-						DedicatedCPUPlacement: true,
-						IsolateEmulatorThread: true,
+						Model:                 pointer.String("host-passthrough"),
+						DedicatedCPUPlacement: pointer.Bool(true),
+						IsolateEmulatorThread: pointer.Bool(true),
 						NUMA: &v1.NUMA{
 							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
 						},
@@ -927,9 +943,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 
@@ -945,9 +961,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(instancetypeSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
@@ -962,9 +978,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(instancetypeSpec.CPU.Guest))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
@@ -979,9 +995,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})

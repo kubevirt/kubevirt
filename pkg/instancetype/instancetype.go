@@ -775,9 +775,9 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 		Sockets:               uint32(1),
 		Cores:                 uint32(1),
 		Threads:               uint32(1),
-		Model:                 instancetypeSpec.CPU.Model,
-		DedicatedCPUPlacement: instancetypeSpec.CPU.DedicatedCPUPlacement,
-		IsolateEmulatorThread: instancetypeSpec.CPU.IsolateEmulatorThread,
+		Model:                 *instancetypeSpec.CPU.Model,
+		DedicatedCPUPlacement: *instancetypeSpec.CPU.DedicatedCPUPlacement,
+		IsolateEmulatorThread: *instancetypeSpec.CPU.IsolateEmulatorThread,
 		NUMA:                  instancetypeSpec.CPU.NUMA.DeepCopy(),
 		Realtime:              instancetypeSpec.CPU.Realtime.DeepCopy(),
 	}

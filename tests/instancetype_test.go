@@ -1410,7 +1410,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi := libvmi.NewCirros()
 
 			clusterInstancetype := newVirtualMachineClusterInstancetype(vmi)
-			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = true
+			clusterInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.Bool(true)
 			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
