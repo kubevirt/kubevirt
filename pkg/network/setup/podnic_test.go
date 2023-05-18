@@ -100,6 +100,7 @@ var _ = Describe("podNIC", func() {
 				podnic.domainGenerator = &fakeLibvirtSpecGenerator{
 					shouldGenerateFail: false,
 				}
+				podnic.podInterfaceName = namescheme.PrimaryPodInterfaceName
 			})
 			It("phase2 should succeed", func() {
 				Expect(podnic.PlugPhase2(domain)).To(Succeed())

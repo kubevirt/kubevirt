@@ -37,7 +37,6 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -115,20 +114,13 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
-	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
-	podInterfaceName, exists := networkNameScheme[network.Name]
-	if !exists {
-		return nil, fmt.Errorf("pod interface name not found for network %s", network.Name)
-	}
-
 	return &podNIC{
-		cacheCreator:     cacheCreator,
-		handler:          handler,
-		vmi:              vmi,
-		vmiSpecNetwork:   network,
-		podInterfaceName: podInterfaceName,
-		vmiSpecIface:     correspondingNetworkIface,
-		launcherPID:      launcherPID,
+		cacheCreator:   cacheCreator,
+		handler:        handler,
+		vmi:            vmi,
+		vmiSpecNetwork: network,
+		vmiSpecIface:   correspondingNetworkIface,
+		launcherPID:    launcherPID,
 	}, nil
 }
 

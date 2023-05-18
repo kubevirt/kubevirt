@@ -92,13 +92,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
-					vmi:              vm,
-					podInterfaceName: namescheme.PrimaryPodInterfaceName,
-					vmiSpecIface:     iface,
-					vmiSpecNetwork:   defaultNet,
-					handler:          vmNetworkConfigurator.handler,
-					cacheCreator:     vmNetworkConfigurator.cacheCreator,
-					launcherPID:      &launcherPID,
+					vmi:            vm,
+					vmiSpecIface:   iface,
+					vmiSpecNetwork: defaultNet,
+					handler:        vmNetworkConfigurator.handler,
+					cacheCreator:   vmNetworkConfigurator.cacheCreator,
+					launcherPID:    &launcherPID,
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vm,
 						iface,
@@ -115,7 +114,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(nics).To(BeEmpty())
 			})
 			It("should configure networking with multus", func() {
-				const multusInterfaceName = "pod37a8eec1ce1"
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 				iface := v1.DefaultBridgeNetworkInterface()
 				cniNet := vmiPrimaryNetwork()
@@ -125,13 +123,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
-					vmi:              vmi,
-					vmiSpecIface:     iface,
-					vmiSpecNetwork:   cniNet,
-					podInterfaceName: multusInterfaceName,
-					handler:          vmNetworkConfigurator.handler,
-					cacheCreator:     vmNetworkConfigurator.cacheCreator,
-					launcherPID:      &launcherPID,
+					vmi:            vmi,
+					vmiSpecIface:   iface,
+					vmiSpecNetwork: cniNet,
+					handler:        vmNetworkConfigurator.handler,
+					cacheCreator:   vmNetworkConfigurator.cacheCreator,
+					launcherPID:    &launcherPID,
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vmi,
 						iface,
@@ -192,13 +189,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ContainElements([]podNIC{
 					{
-						vmi:              vm,
-						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[0],
-						vmiSpecNetwork:   additionalCNINet1,
-						podInterfaceName: "pode56ef68384a",
-						handler:          vmNetworkConfigurator.handler,
-						cacheCreator:     vmNetworkConfigurator.cacheCreator,
-						launcherPID:      &launcherPID,
+						vmi:            vm,
+						vmiSpecIface:   &vm.Spec.Domain.Devices.Interfaces[0],
+						vmiSpecNetwork: additionalCNINet1,
+						handler:        vmNetworkConfigurator.handler,
+						cacheCreator:   vmNetworkConfigurator.cacheCreator,
+						launcherPID:    &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
 							&vm.Spec.Domain.Devices.Interfaces[0],
@@ -206,13 +202,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 							vmNetworkConfigurator.handler),
 					},
 					{
-						vmi:              vm,
-						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[1],
-						vmiSpecNetwork:   cniNet,
-						podInterfaceName: "eth0",
-						handler:          vmNetworkConfigurator.handler,
-						cacheCreator:     vmNetworkConfigurator.cacheCreator,
-						launcherPID:      &launcherPID,
+						vmi:            vm,
+						vmiSpecIface:   &vm.Spec.Domain.Devices.Interfaces[1],
+						vmiSpecNetwork: cniNet,
+						handler:        vmNetworkConfigurator.handler,
+						cacheCreator:   vmNetworkConfigurator.cacheCreator,
+						launcherPID:    &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm,
 							&vm.Spec.Domain.Devices.Interfaces[1],
@@ -220,13 +215,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 							vmNetworkConfigurator.handler),
 					},
 					{
-						vmi:              vm,
-						vmiSpecIface:     &vm.Spec.Domain.Devices.Interfaces[2],
-						vmiSpecNetwork:   additionalCNINet2,
-						podInterfaceName: "pod9f531ef99d2",
-						handler:          vmNetworkConfigurator.handler,
-						cacheCreator:     vmNetworkConfigurator.cacheCreator,
-						launcherPID:      &launcherPID,
+						vmi:            vm,
+						vmiSpecIface:   &vm.Spec.Domain.Devices.Interfaces[2],
+						vmiSpecNetwork: additionalCNINet2,
+						handler:        vmNetworkConfigurator.handler,
+						cacheCreator:   vmNetworkConfigurator.cacheCreator,
+						launcherPID:    &launcherPID,
 						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 							vm, &vm.Spec.Domain.Devices.Interfaces[2],
 							launcherPID,
@@ -252,18 +246,16 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
 
-				const expectedPodIfaceName = "pod45b3499a170"
 				Expect(vmNetworkConfigurator.getPhase1NICs(
 					&launcherPID,
 					[]v1.Network{networkToHotplug(ifaceToHotplug)},
 				)).To(ConsistOf(podNIC{
-					vmi:              vmi,
-					podInterfaceName: expectedPodIfaceName,
-					launcherPID:      &launcherPID,
-					vmiSpecIface:     &hotplugInterface,
-					vmiSpecNetwork:   &hotplugNetwork,
-					handler:          vmNetworkConfigurator.handler,
-					cacheCreator:     vmNetworkConfigurator.cacheCreator,
+					vmi:            vmi,
+					launcherPID:    &launcherPID,
+					vmiSpecIface:   &hotplugInterface,
+					vmiSpecNetwork: &hotplugNetwork,
+					handler:        vmNetworkConfigurator.handler,
+					cacheCreator:   vmNetworkConfigurator.cacheCreator,
 					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
 						vmi,
 						&hotplugInterface,
