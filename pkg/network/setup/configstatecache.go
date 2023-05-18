@@ -43,11 +43,11 @@ func NewConfigStateCacheWithPodIfaceStateData(vmiUID string, cacheCreator cacheC
 	return ConfigStateCache{vmiUID, cacheCreator, volatilePodIfaceState}
 }
 
-func (c *ConfigStateCache) Read(podInterfaceName string) (cache.PodIfaceState, error) {
-	if volatilePodIfaceState, ok := c.volatilePodIfaceState[podInterfaceName]; ok {
+func (c *ConfigStateCache) Read(key string) (cache.PodIfaceState, error) {
+	if volatilePodIfaceState, ok := c.volatilePodIfaceState[key]; ok {
 		return volatilePodIfaceState, nil
 	}
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, podInterfaceName)
+	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
 	var state cache.PodIfaceState
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -57,26 +57,26 @@ func (c *ConfigStateCache) Read(podInterfaceName string) (cache.PodIfaceState, e
 	} else {
 		state = podIfaceCacheData.State
 	}
-	c.volatilePodIfaceState[podInterfaceName] = state
+	c.volatilePodIfaceState[key] = state
 	return state, nil
 }
 
-func (c *ConfigStateCache) Write(podInterfaceName string, state cache.PodIfaceState) error {
-	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, podInterfaceName)
+func (c *ConfigStateCache) Write(key string, state cache.PodIfaceState) error {
+	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			log.Log.Reason(err).Errorf("failed to read pod interface network (%s) state from cache", podInterfaceName)
+			log.Log.Reason(err).Errorf("failed to read pod interface network (%s) state from cache", key)
 			return err
 		}
 		podIfaceCacheData = &cache.PodIfaceCacheData{}
 	}
 
 	podIfaceCacheData.State = state
-	err = cache.WritePodInterfaceCache(c.cacheCreator, c.vmiUID, podInterfaceName, podIfaceCacheData)
+	err = cache.WritePodInterfaceCache(c.cacheCreator, c.vmiUID, key, podIfaceCacheData)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod interface network (%s) state to cache", podInterfaceName)
+		log.Log.Reason(err).Errorf("failed to write pod interface network (%s) state to cache", key)
 		return err
 	}
-	c.volatilePodIfaceState[podInterfaceName] = state
+	c.volatilePodIfaceState[key] = state
 	return nil
 }
