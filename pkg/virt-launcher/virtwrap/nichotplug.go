@@ -33,6 +33,7 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -159,17 +160,10 @@ func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, doma
 	for i := 0; i < interfacePlaceholderCount; i++ {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(
 			domainSpecWithIfacesResource.Devices.Interfaces,
-			newInterfacePlaceholder(i, interpretModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
+			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
 		)
 	}
 	return domainSpecWithIfacesResource
-}
-
-func interpretModelType(useVirtioTransitional *bool) string {
-	if useVirtioTransitional != nil && *useVirtioTransitional {
-		return "virtio-transitional"
-	}
-	return "virtio-non-transitional"
 }
 
 func newInterfacePlaceholder(index int, modelType string) api.Interface {
