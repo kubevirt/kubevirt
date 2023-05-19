@@ -22571,6 +22571,10 @@
       "description": "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1beta1.MachinePreferences"
      },
+     "preferredSubdomain": {
+      "description": "Subdomain of the VirtualMachineInstance",
+      "type": "string"
+     },
      "preferredTerminationGracePeriodSeconds": {
       "description": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
       "type": "integer",

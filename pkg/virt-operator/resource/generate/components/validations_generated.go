@@ -8310,6 +8310,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        preferredSubdomain:
+          description: Subdomain of the VirtualMachineInstance
+          type: string
         preferredTerminationGracePeriodSeconds:
           description: Grace period observed after signalling a VirtualMachineInstance
             to stop after which the VirtualMachineInstance is force terminated.
@@ -20959,6 +20962,9 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        preferredSubdomain:
+          description: Subdomain of the VirtualMachineInstance
+          type: string
         preferredTerminationGracePeriodSeconds:
           description: Grace period observed after signalling a VirtualMachineInstance
             to stop after which the VirtualMachineInstance is force terminated.
