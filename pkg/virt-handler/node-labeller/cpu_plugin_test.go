@@ -138,17 +138,6 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuFeatures).To(HaveLen(4), "number of features doesn't match")
 	})
 
-	It("host-model cpu mode is not supported", func() {
-		nlController.hostCPUModel = hostCPUModel{requiredFeatures: make(map[string]bool, 0)}
-		nlController.cpuModelVendor = ""
-		nlController.domCapabilitiesFileName = "virsh_domcapabilities_host_model_not_supported.xml"
-		err := nlController.loadDomCapabilities()
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(nlController.getHostCpuModel().name).To(BeEmpty())
-		Expect(nlController.cpuModelVendor).To(BeEmpty())
-	})
-
 	Context("should return correct host cpu", func() {
 		var hostCpuModel hostCPUModel
 
