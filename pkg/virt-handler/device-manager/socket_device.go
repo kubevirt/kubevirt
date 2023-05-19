@@ -64,6 +64,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int)
 		socket:           socket,
 		socketDir:        socketDir,
 		socketName:       socketName,
+		health:           make(chan deviceHealth),
 		resourceName:     fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
 		initialized:      false,
 		lock:             &sync.Mutex{},
@@ -258,13 +259,10 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 	}
 	defer watcher.Close()
 
-	// This way we don't have to mount /dev from the node
 	devicePath := filepath.Join(dpi.socketDir, dpi.socket)
 
 	// Start watching the files before we check for their existence to avoid races
-	dirName := filepath.Dir(devicePath)
-	err = watcher.Add(dirName)
-
+	err = watcher.Add(dpi.socketDir)
 	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
@@ -277,15 +275,15 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.socketName)
 		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 	}
-	logger.Infof("device '%s' is present.", dpi.socketDir)
+	logger.Infof("device '%s' is present.", devicePath)
 
-	dirName = filepath.Dir(dpi.socketDir)
+	dirName := filepath.Dir(dpi.pluginSocketPath)
 	err = watcher.Add(dirName)
 
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}
-	_, err = os.Stat(dpi.socketDir)
+	_, err = os.Stat(dpi.pluginSocketPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
 	}
@@ -307,7 +305,7 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 					logger.Infof("monitored device %s disappeared", dpi.socketName)
 					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
 				}
-			} else if event.Name == dpi.socketDir && event.Op == fsnotify.Remove {
+			} else if event.Name == dpi.pluginSocketPath && event.Op == fsnotify.Remove {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.socketName)
 				return nil
 			}
