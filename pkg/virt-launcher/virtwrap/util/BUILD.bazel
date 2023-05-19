@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cpu_utils.go",
         "libvirt_helper.go",
+        "nbdkit_helper.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util",
     visibility = ["//visibility:public"],
