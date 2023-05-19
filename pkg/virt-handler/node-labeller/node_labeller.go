@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"k8s.io/client-go/tools/record"
 
 	v1 "k8s.io/api/core/v1"
@@ -192,7 +194,6 @@ func (n *NodeLabeller) run() error {
 	cpuModels := n.getSupportedCpuModels(obsoleteCPUsx86)
 	cpuFeatures := n.getSupportedCpuFeatures()
 	hostCPUModel := n.GetHostCpuModel()
-	n.loadKSM()
 
 	originalNode, err := n.clientset.CoreV1().Nodes().Get(context.Background(), n.host, metav1.GetOptions{})
 	if err != nil {
@@ -200,24 +201,23 @@ func (n *NodeLabeller) run() error {
 	}
 
 	node := originalNode.DeepCopy()
+	n.handleKSM(node)
 
-	if skipNode(node) {
-		return nil
+	if !skipNodeLabelling(node) {
+		//prepare new labels
+		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
+		//remove old labeller labels
+		n.removeLabellerLabels(node)
+		//add new labels
+		n.addLabellerLabels(node, newLabels)
 	}
-
-	//prepare new labels
-	newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
-	//remove old labeller labels
-	n.removeLabellerLabels(node)
-	//add new labels
-	n.addLabellerLabels(node, newLabels)
 
 	err = n.patchNode(originalNode, node)
 
 	return err
 }
 
-func skipNode(node *v1.Node) bool {
+func skipNodeLabelling(node *v1.Node) bool {
 	_, exists := node.Annotations[kubevirtv1.LabellerSkipNodeAnnotation]
 	return exists
 }
@@ -333,8 +333,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	return newLabels
 }
 
-// addNodeLabels adds labels and special annotation to node.
-// annotations are needed because we need to know which labels were set by kubevirt.
+// addNodeLabels adds labels to node.
 func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string) {
 	for key, value := range labels {
 		node.Labels[key] = value
@@ -427,9 +426,74 @@ func (n *NodeLabeller) shouldAddCPUModelLabel(
 func (n *NodeLabeller) loadKSM() {
 	ksmValue, err := os.ReadFile(n.KSM.SysfsFilePath)
 	if err != nil {
+		log.DefaultLogger().Warningf("An error occurred while reading the ksm module file; Maybe it is not available: %s", err)
+		// Only enable for ksm-available nodes
 		return
 	}
 
+	n.KSM.Available = true
 	n.KSM.Enabled = bytes.Equal(ksmValue, []byte("1\n"))
 	return
+}
+
+// handleKSM will update the ksm of the node (if available) based on the kv configuration and
+// will set the outcome value to the n.KSM struct
+// If the node labels match the selector terms, the ksm will be enabled.
+// Empty Selector will enable ksm for every node
+func (n *NodeLabeller) handleKSM(node *v1.Node) {
+	n.loadKSM()
+	if !n.KSM.Available {
+		return
+	}
+
+	ksmConfig := n.clusterConfig.GetKSMConfiguration()
+	if ksmConfig == nil {
+		n.disableKSM(node)
+		return
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
+	if err != nil {
+		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
+		return
+	}
+
+	if !selector.Matches(labels.Set(node.ObjectMeta.Labels)) {
+		n.disableKSM(node)
+		return
+	}
+
+	n.enableKSM(node)
+}
+
+func (n *NodeLabeller) enableKSM(node *v1.Node) {
+	if !n.KSM.Enabled {
+		err := os.WriteFile(n.KSM.SysfsFilePath, []byte("1\n"), 0644)
+		if err != nil {
+			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
+			return
+		}
+	}
+
+	n.KSM.Enabled = true
+	if _, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; !found {
+		node.Annotations[kubevirtv1.KSMHandlerManagedAnnotation] = "true"
+	}
+
+	log.DefaultLogger().Infof("KSM enabled")
+}
+
+func (n *NodeLabeller) disableKSM(node *v1.Node) {
+	if _, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found {
+		if n.KSM.Enabled {
+			err := os.WriteFile(n.KSM.SysfsFilePath, []byte("0\n"), 0644)
+			if err != nil {
+				log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
+				return
+			}
+		}
+
+		n.KSM.Enabled = false
+		delete(node.Annotations, kubevirtv1.KSMHandlerManagedAnnotation)
+	}
 }

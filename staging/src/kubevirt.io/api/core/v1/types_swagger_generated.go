@@ -709,6 +709,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
 		"supportedGuestAgentVersions":        "deprecated",
 		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.\nThe storage class must support RWX in filesystem mode.",
+		"ksmConfiguration":                   "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
 	}
 }
 
@@ -850,6 +851,13 @@ func (NodeMediatedDeviceTypesConfig) SwaggerDoc() map[string]string {
 		"nodeSelector":         "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
 		"mediatedDevicesTypes": "Deprecated. Use mediatedDeviceTypes instead.\n+optional\n+listType=atomic",
 		"mediatedDeviceTypes":  "+optional\n+listType=atomic",
+	}
+}
+
+func (KSMConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "KSMConfiguration holds information about KSM.\n+k8s:openapi-gen=true",
+		"nodeLabelSelector": "NodeLabelSelector is a selector that filters in which nodes the KSM will be enabled.\nEmpty NodeLabelSelector will enable ksm for every node.\n+optional",
 	}
 }
 

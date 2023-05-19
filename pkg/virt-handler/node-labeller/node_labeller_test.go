@@ -99,12 +99,27 @@ var _ = Describe("Node-labeller ", func() {
 		customKSMFilePath = customKSMFile.Name()
 	}
 
+	initNodeLabeller := func(kubevirt *kubevirtv1.KubeVirt, ksmNodeValue string, nodeLabels, nodeAnnotations map[string]string) {
+		var err error
+		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kubevirt)
+		recorder = record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
+
+		createCustomKSMFile(fmt.Sprint(ksmNodeValue))
+		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder, customKSMFilePath)
+		Expect(err).ToNot(HaveOccurred())
+
+		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
+
+		nlController.queue = mockQueue
+		addNode(newNode("testNode", nodeLabels, nodeAnnotations))
+	}
+
 	AfterEach(func() {
 		diskutils.RemoveFilesIfExist(customKSMFilePath)
 	})
 
 	BeforeEach(func() {
-		var err error
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
 
@@ -130,18 +145,7 @@ var _ = Describe("Node-labeller ", func() {
 			},
 		}
 
-		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
-		recorder = record.NewFakeRecorder(100)
-		recorder.IncludeObject = true
-
-		createCustomKSMFile(fmt.Sprint("1\n"))
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder, customKSMFilePath)
-		Expect(err).ToNot(HaveOccurred())
-
-		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
-
-		nlController.queue = mockQueue
-		addNode(newNode("testNode"))
+		initNodeLabeller(kv, "1\n", make(map[string]string), make(map[string]string))
 	})
 
 	It("should run node-labelling", func() {
@@ -213,16 +217,60 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(res).To(BeTrue())
 	})
 
+	Describe(", when ksmConfiguration is provided,", func() {
+		var kv *kubevirtv1.KubeVirt
+		BeforeEach(func() {
+			kv = &kubevirtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
+				},
+				Spec: kubevirtv1.KubeVirtSpec{
+					Configuration: kubevirtv1.KubeVirtConfiguration{
+						KSMConfiguration: &kubevirtv1.KSMConfiguration{
+							NodeLabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"test_label": "true",
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		DescribeTable("should", func(initialKsmValue string, nodeLabels, nodeAnnotations map[string]string, expectedNodePatch []string, expectedKsmValue string) {
+			initNodeLabeller(kv, initialKsmValue, nodeLabels, nodeAnnotations)
+			expectNodePatch(expectedNodePatch...)
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+			Expect(os.ReadFile(customKSMFilePath)).To(BeEquivalentTo([]byte(expectedKsmValue)))
+		},
+			Entry("enable ksm if the node labels match ksmConfiguration.nodeLabelSelector",
+				"0\n", map[string]string{"test_label": "true"}, make(map[string]string),
+				[]string{kubevirtv1.KSMEnabledLabel, kubevirtv1.KSMHandlerManagedAnnotation}, "1\n",
+			),
+			Entry("disable ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node has the KSMHandlerManagedAnnotation annotation",
+				"1\n", map[string]string{"test_label": "false"}, map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
+				[]string{kubevirtv1.KSMHandlerManagedAnnotation}, "0\n",
+			),
+			Entry("not change ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node does not have the KSMHandlerManagedAnnotation annotation",
+				"1\n", map[string]string{"test_label": "false"}, make(map[string]string),
+				nil, "1\n",
+			),
+		)
+	})
+
 	AfterEach(func() {
 		close(stop)
 	})
 })
 
-func newNode(name string) *v1.Node {
+func newNode(name string, labels, annotations map[string]string) *v1.Node {
 	return &v1.Node{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: make(map[string]string),
-			Labels:      make(map[string]string),
+			Annotations: annotations,
+			Labels:      labels,
 			Name:        name,
 		},
 		Spec: v1.NodeSpec{},
