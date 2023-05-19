@@ -195,7 +195,7 @@ var _ = Describe("domain network interfaces resources", func() {
 			mockDomain := cli.NewMockVirDomain(ctrl)
 			domxml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).ToNot(HaveOccurred())
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(2)).Return(string(domxml), nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).Return(string(domxml), nil)
 
 			originalDomainSpec := domainSpec.DeepCopy()
 			countCalls := 0
