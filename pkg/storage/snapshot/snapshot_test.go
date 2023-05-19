@@ -37,11 +37,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/util"
-
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
@@ -436,6 +435,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.dynamicInformerMap[volumeSnapshotClassCRD].informer = volumeSnapshotClassInformer
 				go volumeSnapshotInformer.Run(stopCh)
 				go volumeSnapshotClassInformer.Run(stopCh)
+				Expect(cache.WaitForCacheSync(
+					stopCh,
+					volumeSnapshotInformer.HasSynced,
+					volumeSnapshotClassInformer.HasSynced,
+				)).To(BeTrue())
 			})
 
 			It("should initialize VirtualMachineSnapshot status", func() {
