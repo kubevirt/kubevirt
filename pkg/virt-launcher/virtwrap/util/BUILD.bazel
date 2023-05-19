@@ -15,6 +15,7 @@ go_library(
         "//pkg/util/hardware:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
+        "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",

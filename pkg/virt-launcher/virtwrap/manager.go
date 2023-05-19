@@ -158,6 +158,7 @@ type LibvirtDomainManager struct {
 	migrateInfoStats         *stats.DomainJobInfo
 
 	metadataCache *metadata.Cache
+	nbdHelper     *util.NBDHelper
 }
 
 type pausedVMIs struct {
@@ -856,6 +857,29 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	defer l.domainModifyLock.Unlock()
 
 	logger := log.Log.Object(vmi)
+
+	// check if nbd helper is needed
+	if kutil.NeedFuseDevice(vmi) {
+		if l.nbdHelper == nil {
+			guestMemory := ""
+			if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+				guestMemory = vmi.Spec.Domain.Memory.Guest.String()
+			}
+
+			// guest memory should be defined
+			if guestMemory == "" {
+				errMsg := "guest memory should be explicitly defined in VMI spec"
+				logger.Errorf(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
+
+            vmiKeyName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
+			l.nbdHelper = util.NewNBDHelper(vmiKeyName, guestMemory)
+		}
+		if l.nbdHelper != nil && !l.nbdHelper.IsRunning {
+			l.nbdHelper.AllocateMemoryWithNBDFuse()
+		}
+	}
 
 	domain := &api.Domain{}
 
@@ -1598,6 +1622,9 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 		}
 	}
 	defer dom.Free()
+	if l.nbdHelper != nil {
+		defer l.nbdHelper.Close()
+	}
 
 	err = dom.UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM)
 	if err != nil {

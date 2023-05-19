@@ -1403,6 +1403,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if domain.Spec.MemoryBacking != nil {
 		if util.IsFileMemoryBackedVmi(vmi) {
 			domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "file"}
+            domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
+                Mode: "shared",
+            }
 		} else {
 			domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
 			// NUMA is required in order to use memfd

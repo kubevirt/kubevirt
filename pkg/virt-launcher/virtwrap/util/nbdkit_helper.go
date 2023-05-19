@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 )
 
 const (
@@ -40,13 +41,16 @@ const (
 )
 
 type NBDHelper struct {
+    vmName      string
 	guestMemory string
 	IsRunning   bool
 	stopChan    chan struct{}
 }
 
-func NewNBDHelper(guestMemory string) *NBDHelper {
+func NewNBDHelper(vmName string, guestMemory string) *NBDHelper {
+    vmNamePath := fmt.Sprintf("1-%s", vmName)
 	return &NBDHelper{
+        vmName: vmNamePath,
 		guestMemory: guestMemory,
 		stopChan:    make(chan struct{}),
 	}
@@ -59,12 +63,18 @@ func (l *NBDHelper) AllocateMemoryWithNBDFuse() {
 
 func (l *NBDHelper) startNBDKit() {
 	allocator := "allocator=zstd"
-	args := []string{"mmeory", l.guestMemory, allocator}
+	args := []string{"memory", l.guestMemory, allocator}
 	l.runNBDCommand(NBDKitExec, args)
 }
 
 func (l *NBDHelper) runNBDFuse() {
-	memFile := fmt.Sprintf("%s/pc.mem", kutil.FileMemoryBackingPath)
+    memDirPath := filepath.Join(kutil.FileMemoryBackingPath, l.vmName)
+    errDir := virtlauncher.InitializeDisksDirectories(memDirPath)
+	if errDir != nil {
+		panic(errDir)
+	}
+
+	memFile := filepath.Join(memDirPath, "pc.mem")
 	file, err := os.Create(memFile)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create memory file: %s", memFile)
