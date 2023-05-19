@@ -13,13 +13,14 @@ var (
 	SigMonitoring        = []interface{}{Label("sig-monitoring")}
 
 	// HW
-	GPU        = []interface{}{Label("GPU")}
-	VGPU       = []interface{}{Label("VGPU")}
-	SRIOV      = []interface{}{Label("SRIOV")}
-	StorageReq = []interface{}{Label("storage-req")}
-	Multus     = []interface{}{Label("Multus")}
-	Macvtap    = []interface{}{Label("Macvtap")}
-	Invtsc     = []interface{}{Label("Invtsc")}
+	GPU         = []interface{}{Label("GPU")}
+	VGPU        = []interface{}{Label("VGPU")}
+	SRIOV       = []interface{}{Label("SRIOV")}
+	StorageReq  = []interface{}{Label("storage-req")}
+	Multus      = []interface{}{Label("Multus")}
+	Macvtap     = []interface{}{Label("Macvtap")}
+	Invtsc      = []interface{}{Label("Invtsc")}
+	KSMRequired = []interface{}{Label("KSM-required")}
 
 	// Features
 	Sysprep                     = []interface{}{Label("Sysprep")}
