@@ -20,6 +20,8 @@
 package isolation
 
 import (
+	"os"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -86,6 +88,39 @@ var _ = Describe("process", func() {
 			),
 		)
 	})
+
+	Context("find a process matching the pid", func() {
+		It("should match process id with current process", func() {
+			p, err := FindProcess(os.Getpid())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p).ToNot(BeNil())
+			Expect(p.Pid()).To(Equal(os.Getpid()))
+		})
+
+		It("should return nil if it can't find matching process", func() {
+			p, err := FindProcess(-1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p).To(BeNil())
+		})
+	})
+
+	Context("find process that triggered the tests", func() {
+		It("should be able to find a go or bazel process in the slice", func() {
+			p, err := Processes()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(p).ToNot(BeEmpty())
+			Eventually(func() bool {
+				for _, p1 := range p {
+					if p1.Executable() == "bazel" || p1.Executable() == "go" || p1.Executable() == "go.exe" {
+						return true
+					}
+				}
+				return false
+			}).Should(BeTrue())
+		})
+
+	})
+
 })
 
 type ProcessStub struct {
