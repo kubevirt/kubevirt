@@ -110,11 +110,11 @@ func generateVMInterfaceRequestPatch(vm *v1.VirtualMachine, interfaceRequest *v1
 }
 
 func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMachineInterfaceRequest, vmCopy *v1.VirtualMachine) {
-	canonicalIfaceName := dynamicIfaceName(ifaceRequest)
+	canonicalIfaceName := ifaceRequest.AddInterfaceOptions.Name
 	existingIface := filterInterfaceRequests(
 		vm.Status.InterfaceRequests,
 		func(ifaceReq v1.VirtualMachineInterfaceRequest) bool {
-			return dynamicIfaceName(&ifaceReq) == canonicalIfaceName
+			return ifaceReq.AddInterfaceOptions.Name == canonicalIfaceName
 		},
 	)
 
@@ -123,12 +123,8 @@ func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMach
 	}
 }
 
-func dynamicIfaceName(plugRequest *v1.VirtualMachineInterfaceRequest) string {
-	return plugRequest.AddInterfaceOptions.Name
-}
-
 func ApplyInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
-	canonicalIfaceName := dynamicIfaceName(request)
+	canonicalIfaceName := request.AddInterfaceOptions.Name
 	existingIface := vmispec.FilterInterfacesSpec(vmiSpec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.Name == canonicalIfaceName
 	})
