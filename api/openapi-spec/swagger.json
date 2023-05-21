@@ -17130,6 +17130,10 @@
      "sriov": {
       "$ref": "#/definitions/v1.InterfaceSRIOV"
      },
+     "state": {
+      "description": "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+      "type": "string"
+     },
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"

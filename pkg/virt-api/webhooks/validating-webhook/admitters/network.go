@@ -56,3 +56,17 @@ func validateInterfaceRequestIsInRange(field *k8sfield.Path, spec *v1.VirtualMac
 func isIntegerValue(value int64, requests resource.ExtendedResourceList) bool {
 	return value*1000 == requests.Interface().MilliValue()
 }
+
+func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if iface.State != "" && iface.State != v1.InterfaceStateAbsent {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("logical %s interface state value is unsupported: %s", iface.Name, iface.State),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
+			})
+		}
+	}
+	return causes
+}

@@ -22,6 +22,7 @@ package admitters
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "kubevirt.io/api/core/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
@@ -65,4 +66,24 @@ var _ = Describe("Validating VMI network spec", func() {
 		Entry("is beyond the maximum", "33"),
 		Entry("is beyond the maximum with size symbol", "1M"),
 	)
+
+	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: value}}
+		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
+	},
+		Entry("is empty", v1.InterfaceState("")),
+		Entry("is absent", v1.InterfaceStateAbsent),
+	)
+
+	It("network interface state value is invalid", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: v1.InterfaceState("foo")}}
+		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
+			ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "logical foo interface state value is unsupported: foo",
+				Field:   "fake.domain.devices.interfaces[0].state",
+			}))
+	})
 })

@@ -5604,6 +5604,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: InterfaceSRIOV connects to a given network
                                   by passing-through an SR-IOV PCI device via vfio.
                                 type: object
+                              state:
+                                description: State represents the requested operational
+                                  state of the interface. The (only) value supported
+                                  is 'absent', expressing a request to remove the
+                                  interface.
+                                type: string
                               tag:
                                 description: If specified, the virtual network interface
                                   address and its tag will be provided to the guest
@@ -9965,6 +9971,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: InterfaceSRIOV connects to a given network by
                           passing-through an SR-IOV PCI device via vfio.
                         type: object
+                      state:
+                        description: State represents the requested operational state
+                          of the interface. The (only) value supported is 'absent',
+                          expressing a request to remove the interface.
+                        type: string
                       tag:
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
@@ -12556,6 +12567,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: InterfaceSRIOV connects to a given network by
                           passing-through an SR-IOV PCI device via vfio.
                         type: object
+                      state:
+                        description: State represents the requested operational state
+                          of the interface. The (only) value supported is 'absent',
+                          expressing a request to remove the interface.
+                        type: string
                       tag:
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
@@ -14666,6 +14682,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: InterfaceSRIOV connects to a given network
                                   by passing-through an SR-IOV PCI device via vfio.
                                 type: object
+                              state:
+                                description: State represents the requested operational
+                                  state of the interface. The (only) value supported
+                                  is 'absent', expressing a request to remove the
+                                  interface.
+                                type: string
                               tag:
                                 description: If specified, the virtual network interface
                                   address and its tag will be provided to the guest
@@ -18793,6 +18815,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           given network by passing-through an SR-IOV
                                           PCI device via vfio.
                                         type: object
+                                      state:
+                                        description: State represents the requested
+                                          operational state of the interface. The
+                                          (only) value supported is 'absent', expressing
+                                          a request to remove the interface.
+                                        type: string
                                       tag:
                                         description: If specified, the virtual network
                                           interface address and its tag will be provided
@@ -23665,6 +23693,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               a given network by passing-through an
                                               SR-IOV PCI device via vfio.
                                             type: object
+                                          state:
+                                            description: State represents the requested
+                                              operational state of the interface.
+                                              The (only) value supported is 'absent',
+                                              expressing a request to remove the interface.
+                                            type: string
                                           tag:
                                             description: If specified, the virtual
                                               network interface address and its tag
