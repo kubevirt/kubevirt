@@ -109,7 +109,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("Network not implemented")
 	}
 
-	correspondingNetworkIface := vmispec.LookupInterfaceByNetwork(vmi.Spec.Domain.Devices.Interfaces, network)
+	correspondingNetworkIface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, network.Name)
 	if correspondingNetworkIface == nil {
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}

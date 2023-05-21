@@ -69,7 +69,7 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 
 	for i := range networks {
 		// SR-IOV devices are not part of the phases.
-		if iface := vmispec.LookupInterfaceByNetwork(v.vmi.Spec.Domain.Devices.Interfaces, &networks[i]); iface.SRIOV != nil {
+		if iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name); iface.SRIOV != nil {
 			continue
 		}
 
