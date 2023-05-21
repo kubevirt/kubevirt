@@ -23,6 +23,10 @@ import (
 	"fmt"
 	"sync"
 
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -74,9 +78,13 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	configState, ok := c.configState[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
-		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
+		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
+		configStateCache, err := upgradeConfigStateCache(&cache, networks)
+		if err != nil {
+			return err
+		}
 		ns := c.nsFactory(launcherPid)
-		configState = NewConfigState(&configStateCache, ns)
+		configState = NewConfigState(configStateCache, ns)
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
 		c.configStateMutex.Unlock()
@@ -87,6 +95,28 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
 	return nil
+}
+
+func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network) (*ConfigStateCache, error) {
+	for networkName, podIfaceName := range namescheme.CreateNetworkNameScheme(networks) {
+		exists, err := stateCache.Exists(podIfaceName)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			data, rErr := stateCache.Read(podIfaceName)
+			if rErr != nil {
+				return nil, rErr
+			}
+			if wErr := stateCache.Write(networkName, data); wErr != nil {
+				return nil, wErr
+			}
+			if dErr := stateCache.Delete(podIfaceName); dErr != nil {
+				log.Log.Reason(dErr).Errorf("failed to delete pod interface network (%s) state from cache", podIfaceName)
+			}
+		}
+	}
+	return stateCache, nil
 }
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {

@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pkg/errors"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -126,7 +128,15 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 }
 
 func (l *podNIC) setPodInterfaceCache() error {
-	ifCache := &cache.PodIfaceCacheData{Iface: l.vmiSpecIface}
+	ifCache, err := cache.ReadPodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecNetwork.Name)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to read pod interface cache for %s: %v", l.vmiSpecNetwork.Name, err)
+		}
+		ifCache = &cache.PodIfaceCacheData{Iface: l.vmiSpecIface}
+	}
+
+	ifCache.Iface = l.vmiSpecIface
 
 	ipv4, ipv6, err := l.handler.ReadIPAddressesFromLink(l.podInterfaceName)
 	if err != nil {
@@ -148,7 +158,7 @@ func (l *podNIC) setPodInterfaceCache() error {
 	}
 
 	ifCache.PodIP = ifCache.PodIPs[0]
-	if err := cache.WritePodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecIface.Name, ifCache); err != nil {
+	if err := cache.WritePodInterfaceCache(l.cacheCreator, string(l.vmi.UID), l.vmiSpecNetwork.Name, ifCache); err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod Interface to ifCache, %s", err.Error())
 		return err
 	}

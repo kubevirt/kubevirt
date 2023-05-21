@@ -62,6 +62,14 @@ func WritePodInterfaceCache(c cacheCreator, uid, ifaceName string, cacheInterfac
 	return podCache.Write(cacheInterface)
 }
 
+func DeletePodInterfaceCache(c cacheCreator, uid, ifaceName string) error {
+	podCache, err := NewPodInterfaceCache(c, uid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return podCache.Remove()
+}
+
 func NewPodInterfaceCache(creator cacheCreator, uid string) PodInterfaceCache {
 	const podIfaceCacheDirName = "network-info-cache"
 	return PodInterfaceCache{creator.New(filepath.Join(util.VirtPrivateDir, podIfaceCacheDirName, uid))}
