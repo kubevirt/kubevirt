@@ -32,13 +32,17 @@ func LookupPodNetwork(networks []v1.Network) *v1.Network {
 }
 
 func FilterMultusNonDefaultNetworks(networks []v1.Network) []v1.Network {
-	var multusNetworks []v1.Network
-	for _, network := range networks {
-		if IsSecondaryMultusNetwork(network) {
-			multusNetworks = append(multusNetworks, network)
+	return FilterNetworksSpec(networks, IsSecondaryMultusNetwork)
+}
+
+func FilterNetworksSpec(nets []v1.Network, predicate func(i v1.Network) bool) []v1.Network {
+	var filteredNets []v1.Network
+	for _, net := range nets {
+		if predicate(net) {
+			filteredNets = append(filteredNets, net)
 		}
 	}
-	return multusNetworks
+	return filteredNets
 }
 
 func LookUpDefaultNetwork(networks []v1.Network) *v1.Network {
