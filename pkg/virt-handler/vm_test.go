@@ -1176,6 +1176,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.ActivePods = map[types.UID]string{podTestUUID: ""}
 			vmi.Spec.Networks = []v1.Network{{Name: "foo"}}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo"}}
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)

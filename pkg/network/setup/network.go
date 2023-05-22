@@ -26,6 +26,7 @@ import (
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -121,16 +122,38 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 }
 
 func preConfigStateRun(nics []podNIC) ([]podNIC, error) {
-	return discoverPodInterfaces(nics)
+	nics, err := discoverPodInterfaces(nics)
+	if err != nil {
+		return nil, err
+	}
+
+	return filterOutAbsentIfaces(nics), nil
 }
 
 func discoverPodInterfaces(nics []podNIC) ([]podNIC, error) {
 	for idx, nic := range nics {
 		ifaceLink, err := link.DiscoverByNetwork(nic.handler, nic.vmi.Spec.Networks, *nic.vmiSpecNetwork)
 		if err != nil {
-			return nil, err
+			if nic.vmiSpecIface.State != v1.InterfaceStateAbsent {
+				return nil, err
+			}
+			// For a network marked for removal, it is reasonable not to find any interface.
+		} else {
+			nics[idx].podInterfaceName = ifaceLink.Attrs().Name
 		}
-		nics[idx].podInterfaceName = ifaceLink.Attrs().Name
 	}
 	return nics, nil
+}
+
+func filterOutAbsentIfaces(nics []podNIC) []podNIC {
+	var filteredNics []podNIC
+	for _, nic := range nics {
+		toAdd := nic.vmiSpecIface.State != v1.InterfaceStateAbsent ||
+			(nic.vmiSpecIface.State == v1.InterfaceStateAbsent &&
+				namescheme.OrdinalSecondaryInterfaceName(nic.podInterfaceName))
+		if toAdd {
+			filteredNics = append(filteredNics, nic)
+		}
+	}
+	return filteredNics
 }
