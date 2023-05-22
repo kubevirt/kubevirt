@@ -5,30 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"syscall"
 
-	"kubevirt.io/kubevirt/pkg/unsafepath"
-
-	"golang.org/x/sys/unix"
-
-	"kubevirt.io/kubevirt/pkg/safepath"
-	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
-
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
-	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-
 	"github.com/opencontainers/runc/libcontainer/configs"
-
 	"github.com/opencontainers/runc/libcontainer/devices"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/safepath"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
@@ -42,12 +38,13 @@ var (
 	nodeIsolationResult = func() isolation.IsolationResult {
 		return isolation.NodeIsolationResult()
 	}
-	deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
-		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
+
+	deviceBasePath = func(podUID types.UID, podsBaseDir string) (*safepath.Path, error) {
+		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", path.Join(podsBaseDir, string(podUID), "volumes/kubernetes.io~empty-dir/hotplug-disks"))
 	}
 
-	sourcePodBasePath = func(podUID types.UID) (*safepath.Path, error) {
-		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("root/var/lib/kubelet/pods/%s/volumes", string(podUID)))
+	sourcePodBasePath = func(podUID types.UID, podsBaseDir string) (*safepath.Path, error) {
+		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", path.Join(podsBaseDir, string(podUID), "volumes"))
 	}
 
 	socketPath = func(podUID types.UID) string {
@@ -136,6 +133,7 @@ var (
 )
 
 type volumeMounter struct {
+	kubeletPodsDir     string
 	mountStateDir      string
 	mountRecords       map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock   sync.Mutex
@@ -169,6 +167,7 @@ type vmiMountTargetRecord struct {
 // NewVolumeMounter creates a new VolumeMounter
 func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter {
 	return &volumeMounter{
+		kubeletPodsDir:     kubeletPodsDir,
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 		mountStateDir:      mountStateDir,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
@@ -453,7 +452,7 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 }
 
 func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (uint64, os.FileMode, error) {
-	basePath, err := deviceBasePath(sourceUID)
+	basePath, err := deviceBasePath(sourceUID, m.kubeletPodsDir)
 	if err != nil {
 		return 0, 0, err
 	}

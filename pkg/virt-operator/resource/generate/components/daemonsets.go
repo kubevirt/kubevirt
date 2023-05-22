@@ -11,14 +11,13 @@ import (
 	"k8s.io/utils/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
 	VirtHandlerName = "virt-handler"
-	kubeletPodsPath = "/var/lib/kubelet/pods"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
 )
@@ -270,8 +269,8 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"virt-lib-dir", "/var/lib/kubevirt", "/var/lib/kubevirt", nil},
 		{"virt-private-dir", "/var/run/kubevirt-private", "/var/run/kubevirt-private", nil},
 		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
-		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil},
-		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
+		{"kubelet-pods-shortened", util.KubeletPodsDir, "/pods", nil},
+		{"kubelet-pods", util.KubeletPodsDir, util.KubeletPodsDir, &bidi},
 		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
 	}
 	if enablePrHelper {
