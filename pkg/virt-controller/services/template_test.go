@@ -977,9 +977,9 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := ("[" +
-					"{\"interface\":\"net1\",\"name\":\"default\",\"namespace\":\"default\"}," +
-					"{\"interface\":\"net2\",\"name\":\"test1\",\"namespace\":\"default\"}," +
-					"{\"interface\":\"net3\",\"name\":\"test1\",\"namespace\":\"other-namespace\"}" +
+					"{\"interface\":\"pod37a8eec1ce1\",\"name\":\"default\",\"namespace\":\"default\"}," +
+					"{\"interface\":\"pod1b4f0e98519\",\"name\":\"test1\",\"namespace\":\"default\"}," +
+					"{\"interface\":\"pod49dba5c72f0\",\"name\":\"test1\",\"namespace\":\"other-namespace\"}" +
 					"]")
 				Expect(value).To(Equal(expectedIfaces))
 			})
@@ -1017,7 +1017,7 @@ var _ = Describe("Template", func() {
 				Expect(value).To(Equal("default"))
 				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal("[{\"interface\":\"net1\",\"name\":\"test1\",\"namespace\":\"default\"}]"))
+				Expect(value).To(Equal("[{\"interface\":\"pod1b4f0e98519\",\"name\":\"test1\",\"namespace\":\"default\"}]"))
 			})
 			It("should add MAC address in the pod annotation", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -1060,11 +1060,78 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := ("[" +
-					"{\"interface\":\"net1\",\"name\":\"default\",\"namespace\":\"default\"}," +
-					"{\"interface\":\"net2\",\"mac\":\"de:ad:00:00:be:af\",\"name\":\"test1\",\"namespace\":\"default\"}" +
+					"{\"interface\":\"pod37a8eec1ce1\",\"name\":\"default\",\"namespace\":\"default\"}," +
+					"{\"interface\":\"pod1b4f0e98519\",\"mac\":\"de:ad:00:00:be:af\",\"name\":\"test1\",\"namespace\":\"default\"}" +
 					"]")
 				Expect(value).To(Equal(expectedIfaces))
 			})
+			DescribeTable("should add Multus networks annotation to the migration target pod with interface name scheme similar to the migration source pod",
+				func(migrationSourcePodNetworksAnnotation, expectedTargetPodMultusNetworksAnnotation map[string]string) {
+					config, kvInformer, svc = configFactory(defaultArch)
+
+					vmi := &v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "default",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Networks: []v1.Network{
+								{Name: "default",
+									NetworkSource: v1.NetworkSource{
+										Pod: &v1.PodNetwork{},
+									}},
+								{Name: "blue",
+									NetworkSource: v1.NetworkSource{
+										Multus: &v1.MultusNetwork{NetworkName: "test1"},
+									}},
+								{Name: "red",
+									NetworkSource: v1.NetworkSource{
+										Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"},
+									}},
+							},
+						},
+					}
+
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					sourcePod.ObjectMeta.Annotations[networkv1.NetworkStatusAnnot] = migrationSourcePodNetworksAnnotation[networkv1.NetworkStatusAnnot]
+
+					targetPod, err := svc.RenderMigrationManifest(vmi, sourcePod)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(targetPod.Annotations[MultusNetworksAnnotation]).To(MatchJSON(expectedTargetPodMultusNetworksAnnotation[MultusNetworksAnnotation]))
+				},
+				Entry("when the migration source Multus network-status annotation has ordinal naming",
+					map[string]string{
+						networkv1.NetworkStatusAnnot: `[
+							{"interface":"eth0", "name":"default"},
+							{"interface":"net1", "name":"test1", "namespace":"default"},
+							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+						]`,
+					},
+					map[string]string{
+						MultusNetworksAnnotation: `[
+							{"interface":"net1", "name":"test1", "namespace":"default"},
+							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+						]`,
+					},
+				),
+				Entry("when the migration source Multus network-status annotation has hashed naming",
+					map[string]string{
+						networkv1.NetworkStatusAnnot: `[
+							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
+							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
+						]`,
+					},
+					map[string]string{
+						MultusNetworksAnnotation: `[
+							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
+							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
+						]`,
+					},
+				),
+			)
 		})
 		Context("with masquerade interface", func() {
 			It("should add the istio annotation", func() {

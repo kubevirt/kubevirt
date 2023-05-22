@@ -27,6 +27,8 @@ import (
 )
 
 var _ = Describe("Common Methods", func() {
+	const maxInterfaceNameLength = 15
+
 	Context("GenerateTapDeviceName function", func() {
 		It("Should return a tap device name with one digit suffix", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth0")).To(Equal("tap0"))
@@ -37,6 +39,11 @@ var _ = Describe("Common Methods", func() {
 		It("Should return a tap device name with three digits suffix", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth123")).To(Equal("tap123"))
 		})
+		It("Should return hash network name tap device name", func() {
+			hashedIfaceName := virtnetlink.GenerateTapDeviceName("pod16477688c0e")
+			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
+			Expect(hashedIfaceName).To(Equal("tap16477688c0e"))
+		})
 	})
 	Context("GenerateNewBridgedVmiInterfaceName function", func() {
 		It("Should return the new bridge interface name", func() {
@@ -44,6 +51,24 @@ var _ = Describe("Common Methods", func() {
 		})
 		It("Should return another new bridge interface name", func() {
 			Expect(virtnetlink.GenerateNewBridgedVmiInterfaceName("net12")).To(Equal("net12-nic"))
+		})
+		It("Should return hash network name bridge interface name", func() {
+			hashedIfaceName := virtnetlink.GenerateNewBridgedVmiInterfaceName("pod16477688c0e")
+			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
+			Expect(hashedIfaceName).To(Equal("16477688c0e-nic"))
+		})
+	})
+	Context("GenerateBridgeName function", func() {
+		It("Should return the new bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("eth0")).To(Equal("k6t-eth0"))
+		})
+		It("Should return another new bridge interface name", func() {
+			Expect(virtnetlink.GenerateBridgeName("net12")).To(Equal("k6t-net12"))
+		})
+		It("Should return hash network name bridge interface name", func() {
+			hashedIfaceName := virtnetlink.GenerateBridgeName("pod16477688c0e")
+			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
+			Expect(hashedIfaceName).To(Equal("k6t-16477688c0e"))
 		})
 	})
 })

@@ -98,7 +98,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 }
 
 func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network) (*ConfigStateCache, error) {
-	for networkName, podIfaceName := range namescheme.CreateNetworkNameScheme(networks) {
+	for networkName, podIfaceName := range namescheme.CreateOrdinalNetworkNameScheme(networks) {
 		exists, err := stateCache.Exists(podIfaceName)
 		if err != nil {
 			return nil, err

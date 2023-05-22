@@ -32,13 +32,12 @@ type BridgePodNetworkConfigurator struct {
 	vmi                 *v1.VirtualMachineInstance
 }
 
-func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
+func NewBridgePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, launcherPID int, handler netdriver.NetworkHandler) *BridgePodNetworkConfigurator {
 	return &BridgePodNetworkConfigurator{
-		vmi:                 vmi,
-		vmiSpecIface:        vmiSpecIface,
-		bridgeInterfaceName: bridgeIfaceName,
-		launcherPID:         launcherPID,
-		handler:             handler,
+		vmi:          vmi,
+		vmiSpecIface: vmiSpecIface,
+		launcherPID:  launcherPID,
+		handler:      handler,
 	}
 }
 
@@ -65,6 +64,7 @@ func (b *BridgePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName 
 		}
 	}
 
+	b.bridgeInterfaceName = virtnetlink.GenerateBridgeName(podIfaceName)
 	b.tapDeviceName = virtnetlink.GenerateTapDeviceName(podIfaceName)
 
 	b.vmMac, err = virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)

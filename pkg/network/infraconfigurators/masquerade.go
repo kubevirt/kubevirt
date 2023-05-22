@@ -42,14 +42,13 @@ type MasqueradePodNetworkConfigurator struct {
 	vmIPv6Addr          netlink.Addr
 }
 
-func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, vmiSpecNetwork *v1.Network, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
+func NewMasqueradePodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, vmiSpecNetwork *v1.Network, launcherPID int, handler netdriver.NetworkHandler) *MasqueradePodNetworkConfigurator {
 	return &MasqueradePodNetworkConfigurator{
-		vmi:                 vmi,
-		vmiSpecIface:        vmiSpecIface,
-		vmiSpecNetwork:      vmiSpecNetwork,
-		bridgeInterfaceName: bridgeIfaceName,
-		launcherPID:         launcherPID,
-		handler:             handler,
+		vmi:            vmi,
+		vmiSpecIface:   vmiSpecIface,
+		vmiSpecNetwork: vmiSpecNetwork,
+		launcherPID:    launcherPID,
+		handler:        handler,
 	}
 }
 
@@ -60,6 +59,7 @@ func (b *MasqueradePodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceN
 		return err
 	}
 	b.podNicLink = link
+	b.bridgeInterfaceName = virtnetlink.GenerateBridgeName(link.Attrs().Name)
 
 	ipv4Enabled, err := b.handler.HasIPv4GlobalUnicastAddress(podIfaceName)
 	if err != nil {

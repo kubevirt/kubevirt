@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "address.go",
+        "discovery.go",
         "names.go",
         "reserved_macs.go",
     ],
@@ -12,6 +13,7 @@ go_library(
     deps = [
         "//pkg/network/cache:go_default_library",
         "//pkg/network/driver:go_default_library",
+        "//pkg/network/namescheme:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -23,6 +25,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "address_test.go",
+        "discovery_test.go",
         "link_suite_test.go",
         "names_test.go",
     ],
@@ -33,6 +36,7 @@ go_test(
         "//pkg/network/namescheme:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",

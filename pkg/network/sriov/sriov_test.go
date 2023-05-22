@@ -20,6 +20,8 @@
 package sriov_test
 
 import (
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +31,14 @@ import (
 )
 
 var _ = Describe("SRIOV", func() {
-	networkStatusWithOneSRIOVNetwork := `
+
+	const (
+		booHashedIfaceName  = "pod6446d58d6df"
+		fooHashedIfaceName  = "pod2c26b46b68f"
+		fooOrdinalIfaceName = "net1"
+		booOrdinalIfaceName = "net2"
+	)
+	networkStatusWithOneSRIOVNetworkFmt := `
 [
 {
   "name": "kindnet",
@@ -43,7 +52,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net1",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -54,7 +63,7 @@ var _ = Describe("SRIOV", func() {
   }
 }
 ]`
-	networkStatusWithTwoSRIOVNetworks := `
+	networkStatusWithTwoSRIOVNetworksFmt := `
 [
 {
   "name": "kindnet",
@@ -68,7 +77,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net1",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -80,7 +89,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad2",
-  "interface": "net2",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -91,7 +100,7 @@ var _ = Describe("SRIOV", func() {
   }
 }
 ]`
-	networkStatusWithOneBridgeOneSRIOVNetworks := `
+	networkStatusWithOneBridgeOneSRIOVNetworksFmt := `
 [
 {
   "name": "kindnet",
@@ -105,13 +114,13 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/bridge-network",
-  "interface": "net1",
+  "interface": "%s",
   "mac": "8a:37:d9:e7:0f:18",
   "dns": {}
 },
 {
   "name": "default/sriov-network-vlan100",
-  "interface": "net2",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -122,7 +131,7 @@ var _ = Describe("SRIOV", func() {
   }
 }
 ]`
-	networkStatusWithTwoSRIOVNetworksButOneWithNoPCIData := `
+	networkStatusWithTwoSRIOVNetworksButOneWithNoPCIDataFmt := `
 [
 {
   "name": "kindnet",
@@ -136,7 +145,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net1",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -148,7 +157,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net2",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -156,7 +165,7 @@ var _ = Describe("SRIOV", func() {
   }
 }
 ]`
-	networkStatusWithTwoSRIOVNetworksButOneWithNoDeviceInfoData := `
+	networkStatusWithTwoSRIOVNetworksButOneWithNoDeviceInfoDataFmt := `
 [
 {
   "name": "kindnet",
@@ -170,7 +179,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net1",
+  "interface": "%s",
   "dns": {},
   "device-info": {
     "type": "pci",
@@ -182,7 +191,7 @@ var _ = Describe("SRIOV", func() {
 },
 {
   "name": "default/nad1",
-  "interface": "net2",
+  "interface": "%s",
   "dns": {}
 }
 ]`
@@ -205,7 +214,7 @@ var _ = Describe("SRIOV", func() {
 				newSRIOVInterface("foo"),
 				newSRIOVInterface("boo"),
 			},
-			networkStatusWithOneSRIOVNetwork,
+			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooHashedIfaceName),
 		),
 		Entry("when networkStatusAnnotation is valid but with no pci data on one of the SRIOV interfaces",
 			[]virtv1.Network{
@@ -216,7 +225,7 @@ var _ = Describe("SRIOV", func() {
 				newSRIOVInterface("foo"),
 				newSRIOVInterface("boo"),
 			},
-			networkStatusWithTwoSRIOVNetworksButOneWithNoPCIData,
+			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksButOneWithNoPCIDataFmt, fooHashedIfaceName, booHashedIfaceName),
 		),
 		Entry("when networkStatusAnnotation is valid but with no device-info data on one of the SRIOV interfaces",
 			[]virtv1.Network{
@@ -227,7 +236,7 @@ var _ = Describe("SRIOV", func() {
 				newSRIOVInterface("foo"),
 				newSRIOVInterface("boo"),
 			},
-			networkStatusWithTwoSRIOVNetworksButOneWithNoDeviceInfoData,
+			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksButOneWithNoDeviceInfoDataFmt, fooHashedIfaceName, booHashedIfaceName),
 		),
 	)
 
@@ -238,7 +247,7 @@ var _ = Describe("SRIOV", func() {
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV}; Networks{1X masquarade(primary),1X Multus} 1xNAD",
 			[]virtv1.Network{newMasqueradeDefaultNetwork("testmasquerade"), newMultusNetwork("foo", "default/nad1")},
 			[]virtv1.Interface{newMasqueradePrimaryInterface("testmasquerade"), newSRIOVInterface("foo")},
-			networkStatusWithOneSRIOVNetwork,
+			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooHashedIfaceName),
 			`{"foo":"0000:04:02.5"}`,
 		),
 		Entry("when given Interfaces{1X masquarade(primary),2X SRIOV}, Networks{1X masquarade(primary),2X Multus}, 2xNAD",
@@ -251,7 +260,7 @@ var _ = Describe("SRIOV", func() {
 				newMasqueradePrimaryInterface("testmasquerade"),
 				newSRIOVInterface("boo"), newSRIOVInterface("foo"),
 			},
-			networkStatusWithTwoSRIOVNetworks,
+			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksFmt, fooHashedIfaceName, booHashedIfaceName),
 			`{"boo":"0000:04:02.2","foo":"0000:04:02.5"}`,
 		),
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV, 1X Bridge}  Networks{1X masquarade(primary),2X Multus}, 2xNAD",
@@ -264,7 +273,39 @@ var _ = Describe("SRIOV", func() {
 				newMasqueradePrimaryInterface("testmasquerade"),
 				newBridgeInterface("boo"), newSRIOVInterface("foo"),
 			},
-			networkStatusWithOneBridgeOneSRIOVNetworks,
+			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, booHashedIfaceName, fooHashedIfaceName),
+			`{"foo":"0000:65:00.2"}`,
+		),
+		Entry("given 1 primary masquerade, 1 SR-IOV interfaces and pod network status with ordinal names",
+			[]virtv1.Network{newMasqueradeDefaultNetwork("testmasquerade"), newMultusNetwork("foo", "default/nad1")},
+			[]virtv1.Interface{newMasqueradePrimaryInterface("testmasquerade"), newSRIOVInterface("foo")},
+			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooOrdinalIfaceName),
+			`{"foo":"0000:04:02.5"}`,
+		),
+		Entry("given 1 primary masquerade, 2 SR-IOV interfaces and pod network status with ordinal names",
+			[]virtv1.Network{
+				newMasqueradeDefaultNetwork("testmasquerade"),
+				newMultusNetwork("foo", "default/nad1"),
+				newMultusNetwork("boo", "default/nad2"),
+			},
+			[]virtv1.Interface{
+				newMasqueradePrimaryInterface("testmasquerade"),
+				newSRIOVInterface("boo"), newSRIOVInterface("foo"),
+			},
+			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
+			`{"boo":"0000:04:02.2","foo":"0000:04:02.5"}`,
+		),
+		Entry("given 1 primary masquerade, 1 SR-IOV, 1 bridge interfaces and pod network status with ordinal names",
+			[]virtv1.Network{
+				newMasqueradeDefaultNetwork("testmasquerade"),
+				newMultusNetwork("boo", "default/nad1"),
+				newMultusNetwork("foo", "default/nad2"),
+			},
+			[]virtv1.Interface{
+				newMasqueradePrimaryInterface("testmasquerade"),
+				newBridgeInterface("boo"), newSRIOVInterface("foo"),
+			},
+			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
 			`{"foo":"0000:65:00.2"}`,
 		),
 	)

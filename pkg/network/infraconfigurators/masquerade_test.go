@@ -99,6 +99,7 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 			expectedVMInternalIPv6Str = "fd10:0:2::2/120"
 			expectedVMGatewayIPv6Str  = "fd10:0:2::1/120"
 			ifaceName                 = "eth0"
+			bridgeIfaceName           = "k6t-eth0"
 			launcherPID               = 1000
 		)
 
@@ -110,13 +111,22 @@ var _ = Describe("Masquerade infrastructure configurator", func() {
 
 		BeforeEach(func() {
 			vmi = newVMIMasqueradeInterface("default", "vm1")
-			masqueradeConfigurator = NewMasqueradePodNetworkConfigurator(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], bridgeIfaceName, &vmi.Spec.Networks[0], launcherPID, handler)
+			masqueradeConfigurator = NewMasqueradePodNetworkConfigurator(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], launcherPID, handler)
 		})
 
 		When("the pod link is defined", func() {
 			BeforeEach(func() {
 				podLink = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: 1000}}
 				handler.EXPECT().LinkByName(ifaceName).Return(podLink, nil)
+			})
+
+			It("succeeds reading the pod link, and generate bridge iface name", func() {
+				handler.EXPECT().HasIPv4GlobalUnicastAddress(gomock.Any())
+				handler.EXPECT().HasIPv6GlobalUnicastAddress(gomock.Any())
+
+				Expect(masqueradeConfigurator.DiscoverPodNetworkInterface(ifaceName)).To(Succeed())
+				Expect(masqueradeConfigurator.podNicLink).To(Equal(podLink))
+				Expect(masqueradeConfigurator.bridgeInterfaceName).To(Equal(bridgeIfaceName))
 			})
 
 			When("the pod interface has an IPv4 address", func() {
@@ -344,7 +354,8 @@ func newMockedMasqueradeConfigurator(
 	ipv6PodIP netlink.Addr,
 	ipv6GatewayAddr netlink.Addr) *MasqueradePodNetworkConfigurator {
 
-	mc := NewMasqueradePodNetworkConfigurator(vmi, iface, bridgeIfaceName, network, launcherPID, handler)
+	mc := NewMasqueradePodNetworkConfigurator(vmi, iface, network, launcherPID, handler)
+	mc.bridgeInterfaceName = bridgeIfaceName
 	mc.podNicLink = link
 	mc.vmGatewayAddr = &gatewayIP
 	mc.vmIPv4Addr = podIP

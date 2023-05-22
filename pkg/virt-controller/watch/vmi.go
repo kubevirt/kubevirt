@@ -2254,7 +2254,9 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
-	multusAnnotations, err := services.GenerateMultusCNIAnnotation(vmi)
+	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
+	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
+	multusAnnotations, err := services.GenerateMultusCNIAnnotationFromNameScheme(vmi, networkToPodIfaceMap)
 	if err != nil {
 		return err
 	}
@@ -2277,8 +2279,8 @@ func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachin
 }
 
 func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	ifaceNamingScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
-	indexedMultusStatusIfaces := nonDefaultMultusNetworksIndexedByIfaceName(pod)
+	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
+	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
 	for _, network := range vmi.Spec.Networks {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
 		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
@@ -2306,28 +2308,4 @@ func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterface
 		fmt.Sprintf(`{ "op": "test", "path": "/status/interfaces", "value": %s }`, string(oldInterfaceStatus)),
 		fmt.Sprintf(`{ "op": "add", "path": "/status/interfaces", "value": %s }`, string(newInterfaceStatus)),
 	}
-}
-
-func nonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
-	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
-	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
-
-	if !found {
-		return indexedNetworkStatus
-	}
-
-	var networkStatus []networkv1.NetworkStatus
-	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
-		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
-		return indexedNetworkStatus
-	}
-
-	for _, ns := range networkStatus {
-		if ns.Default {
-			continue
-		}
-		indexedNetworkStatus[ns.Interface] = ns
-	}
-
-	return indexedNetworkStatus
 }

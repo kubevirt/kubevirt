@@ -106,7 +106,7 @@ func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(vmi *v1.VirtualMachineInstance) ([]string, error) {
+func getTapDevices(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	macvtap := map[string]struct{}{}
 	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
 		if inf.Macvtap != nil {
@@ -114,12 +114,12 @@ func getTapDevices(vmi *v1.VirtualMachineInstance) ([]string, error) {
 		}
 	}
 
-	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
-	tapDevices := []string{}
+	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
+	tapDevices := map[string]string{}
 	for _, net := range vmi.Spec.Networks {
 		_, isMacvtapNetwork := macvtap[net.Name]
 		if podInterfaceName, exists := networkNameScheme[net.Name]; isMacvtapNetwork && exists {
-			tapDevices = append(tapDevices, podInterfaceName)
+			tapDevices[net.Name] = podInterfaceName
 		} else if isMacvtapNetwork && !exists {
 			return nil, fmt.Errorf("network %q not found in naming scheme: this should never happen", net.Name)
 		}
@@ -128,12 +128,12 @@ func getTapDevices(vmi *v1.VirtualMachineInstance) ([]string, error) {
 }
 
 func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	tapDevices, err := getTapDevices(vmi)
+	networkToTapDeviceNames, err := getTapDevices(vmi)
 	if err != nil {
 		return err
 	}
-	for _, tap := range tapDevices {
-		path, err := isolation.SafeJoin(res, "sys", "class", "net", tap, "ifindex")
+	for networkName, tapName := range networkToTapDeviceNames {
+		path, err := FindInterfaceIndexPath(res, tapName, networkName, vmi.Spec.Networks)
 		if err != nil {
 			return err
 		}
@@ -165,6 +165,32 @@ func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, re
 	}
 	return nil
 
+}
+
+// FindInterfaceIndexPath return the ifindex path of the given interface name (e.g.: enp0f1p2 -> /sys/class/net/enp0f1p2/ifindex).
+// If path not found it will try to find the path using ordinal interface name based on its position in the given
+// networks slice (e.g.: net1 -> /sys/class/net/net1/ifindex).
+func FindInterfaceIndexPath(res isolation.IsolationResult, podIfaceName string, networkName string, networks []v1.Network) (*safepath.Path, error) {
+	var errs []string
+	path, err := isolation.SafeJoin(res, "sys", "class", "net", podIfaceName, "ifindex")
+	if err == nil {
+		return path, nil
+	}
+	errs = append(errs, err.Error())
+
+	// fall back to ordinal pod interface names
+	ordinalPodIfaceName := namescheme.OrdinalPodInterfaceName(networkName, networks)
+	if ordinalPodIfaceName == "" {
+		errs = append(errs, fmt.Sprintf("failed to find network %q pod interface name", networkName))
+	} else {
+		path, err := isolation.SafeJoin(res, "sys", "class", "net", ordinalPodIfaceName, "ifindex")
+		if err == nil {
+			return path, nil
+		}
+		errs = append(errs, err.Error())
+	}
+
+	return nil, fmt.Errorf(strings.Join(errs, ", "))
 }
 
 func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {

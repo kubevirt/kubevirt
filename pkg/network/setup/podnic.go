@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -70,14 +70,12 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 		podnic.infraConfigurator = infraconfigurators.NewBridgePodNetworkConfigurator(
 			podnic.vmi,
 			podnic.vmiSpecIface,
-			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
 			*podnic.launcherPID,
 			podnic.handler)
 	} else if podnic.vmiSpecIface.Masquerade != nil {
 		podnic.infraConfigurator = infraconfigurators.NewMasqueradePodNetworkConfigurator(
 			podnic.vmi,
 			podnic.vmiSpecIface,
-			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
 			podnic.vmiSpecNetwork,
 			*podnic.launcherPID,
 			podnic.handler)
@@ -93,6 +91,12 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	if err != nil {
 		return nil, err
 	}
+
+	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork)
+	if err != nil {
+		return nil, err
+	}
+	podnic.podInterfaceName = ifaceLink.Attrs().Name
 
 	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
 	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain)
@@ -110,20 +114,13 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
-	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
-	podInterfaceName, exists := networkNameScheme[network.Name]
-	if !exists {
-		return nil, fmt.Errorf("pod interface name not found for network %s", network.Name)
-	}
-
 	return &podNIC{
-		cacheCreator:     cacheCreator,
-		handler:          handler,
-		vmi:              vmi,
-		vmiSpecNetwork:   network,
-		podInterfaceName: podInterfaceName,
-		vmiSpecIface:     correspondingNetworkIface,
-		launcherPID:      launcherPID,
+		cacheCreator:   cacheCreator,
+		handler:        handler,
+		vmi:            vmi,
+		vmiSpecNetwork: network,
+		vmiSpecIface:   correspondingNetworkIface,
+		launcherPID:    launcherPID,
 	}, nil
 }
 
@@ -181,6 +178,12 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNIC) discoverAndStoreCache() error {
+	ifaceLink, err := link.DiscoverByNetwork(l.handler, l.vmi.Spec.Networks, *l.vmiSpecNetwork)
+	if err != nil {
+		return err
+	}
+	l.podInterfaceName = ifaceLink.Attrs().Name
+
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err
 	}
@@ -241,7 +244,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
 			l.cacheCreator,
 			getPIDString(l.launcherPID),
-			generateInPodBridgeInterfaceName(l.podInterfaceName),
+			link.GenerateBridgeName(l.podInterfaceName),
 			l.handler,
 			l.podInterfaceName,
 			l.vmi.Spec.Domain.Devices.Interfaces,
@@ -249,7 +252,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 			l.vmi.Spec.Subdomain)
 	} else if l.vmiSpecIface.Masquerade != nil {
 		dhcpConfigurator = dhcpconfigurator.NewMasqueradeConfigurator(
-			generateInPodBridgeInterfaceName(l.podInterfaceName),
+			link.GenerateBridgeName(l.podInterfaceName),
 			l.handler,
 			l.vmiSpecIface,
 			l.vmiSpecNetwork,
@@ -301,10 +304,6 @@ func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
 
 func (l *podNIC) storeCachedDomainIface(domainIface api.Interface) error {
 	return cache.WriteDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name, &domainIface)
-}
-
-func generateInPodBridgeInterfaceName(podInterfaceName string) string {
-	return fmt.Sprintf("k6t-%s", podInterfaceName)
 }
 
 func getPIDString(pid *int) string {
