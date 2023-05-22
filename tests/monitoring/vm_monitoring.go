@@ -40,6 +40,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -237,6 +239,65 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				waitForMetricValue(virtClient, totalMetric, int64(i))
 				waitForMetricValue(virtClient, bytesMetric, quantity.Value()*int64(i))
 			}
+		})
+	})
+
+	Context("VM alerts", func() {
+		var scales *Scaling
+
+		BeforeEach(func() {
+			scales = NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales.UpdateScale(virtOperator.deploymentName, int32(0))
+
+			reduceAlertPendingTime(virtClient)
+		})
+
+		AfterEach(func() {
+			scales.RestoreAllScales()
+		})
+
+		It("should fire KubevirtVmHighMemoryUsage alert", func() {
+			By("starting VMI")
+			vmi := tests.NewRandomVMI()
+			tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("fill up the vmi pod memory")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			vmiPodRequestMemory := vmiPod.Spec.Containers[0].Resources.Requests.Memory().Value()
+			_, err := exec.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"/usr/bin/bash", "-c", fmt.Sprintf("cat <( </dev/zero head -c %d) <(sleep 150) | tail", vmiPodRequestMemory)},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for KubevirtVmHighMemoryUsage alert")
+			verifyAlertExist(virtClient, "KubevirtVmHighMemoryUsage")
+		})
+
+		It("should fire OrphanedVirtualMachineInstances alert", func() {
+			By("starting VMI")
+			vmi := tests.NewRandomVMI()
+			tests.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("delete virt-handler daemonset")
+			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for OrphanedVirtualMachineInstances alert")
+			verifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
+		})
+
+		It("should fire VMCannotBeEvicted alert", func() {
+			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
+			vmi := tests.NewRandomVMI()
+			strategy := v1.EvictionStrategyLiveMigrate
+			vmi.Spec.EvictionStrategy = &strategy
+			vmi = tests.RunVMI(vmi, 240)
+
+			By("waiting for VMCannotBeEvicted alert")
+			verifyAlertExist(virtClient, "VMCannotBeEvicted")
 		})
 	})
 })

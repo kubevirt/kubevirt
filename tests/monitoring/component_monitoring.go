@@ -21,14 +21,10 @@ package monitoring
 
 import (
 	"context"
-	"regexp"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -37,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -118,41 +113,12 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	}
 
-	reduceAlertPendingTime := func() {
-		By("Reducing alert pending time")
-		newRules := getPrometheusAlerts(virtClient)
-		var re = regexp.MustCompile("\\[\\d+m\\]")
-
-		var gs []promv1.RuleGroup
-		for _, group := range newRules.Spec.Groups {
-			var rs []promv1.Rule
-			for _, rule := range group.Rules {
-				var r promv1.Rule
-				rule.DeepCopyInto(&r)
-				if r.Alert != "" {
-					r.For = "0m"
-					r.Expr = intstr.FromString(re.ReplaceAllString(r.Expr.String(), `[1m]`))
-					r.Expr = intstr.FromString(strings.ReplaceAll(r.Expr.String(), ">= 300", ">= 0"))
-				}
-				rs = append(rs, r)
-			}
-
-			gs = append(gs, promv1.RuleGroup{
-				Name:  group.Name,
-				Rules: rs,
-			})
-		}
-		newRules.Spec.Groups = gs
-
-		updatePromRules(virtClient, &newRules)
-	}
-
 	Context("Up metrics", func() {
 		BeforeEach(func() {
 			scales = NewScaling(virtClient, []string{virtOperator.deploymentName, virtController.deploymentName, virtApi.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
-			reduceAlertPendingTime()
+			reduceAlertPendingTime(virtClient)
 		})
 
 		AfterEach(func() {
@@ -212,7 +178,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			scales = NewScaling(virtClient, []string{virtOperator.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
-			reduceAlertPendingTime()
+			reduceAlertPendingTime(virtClient)
 		})
 
 		AfterEach(func() {
@@ -294,7 +260,7 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			virtClient = kubevirt.Client()
 			scales = NewScaling(virtClient, []string{virtOperator.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
-			reduceAlertPendingTime()
+			reduceAlertPendingTime(virtClient)
 		})
 
 		AfterEach(func() {

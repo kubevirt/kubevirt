@@ -9,23 +9,25 @@ import (
 	"math/rand"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
-
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-
-	"kubevirt.io/kubevirt/tests/flags"
-
-	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	. "github.com/onsi/gomega"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 type AlertRequestResult struct {
@@ -320,6 +322,34 @@ func waitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ..
 	}, 5*time.Minute, 1*time.Second)
 
 	presentAlert.Should(BeEmpty(), "Alert %v should not exist", presentAlert)
+}
+
+func reduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
+	newRules := getPrometheusAlerts(virtClient)
+	var re = regexp.MustCompile("\\[\\d+m\\]")
+
+	var gs []promv1.RuleGroup
+	for _, group := range newRules.Spec.Groups {
+		var rs []promv1.Rule
+		for _, rule := range group.Rules {
+			var r promv1.Rule
+			rule.DeepCopyInto(&r)
+			if r.Alert != "" {
+				r.For = "0m"
+				r.Expr = intstr.FromString(re.ReplaceAllString(r.Expr.String(), `[1m]`))
+				r.Expr = intstr.FromString(strings.ReplaceAll(r.Expr.String(), ">= 300", ">= 0"))
+			}
+			rs = append(rs, r)
+		}
+
+		gs = append(gs, promv1.RuleGroup{
+			Name:  group.Name,
+			Rules: rs,
+		})
+	}
+	newRules.Spec.Groups = gs
+
+	updatePromRules(virtClient, &newRules)
 }
 
 func updatePromRules(virtClient kubecli.KubevirtClient, newRules *promv1.PrometheusRule) {
