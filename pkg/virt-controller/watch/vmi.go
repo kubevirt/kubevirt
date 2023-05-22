@@ -2310,6 +2310,8 @@ func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance
 			})
 		case exists && vmiIfaceStatus != nil:
 			vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+		case !exists && vmiIfaceStatus != nil:
+			vmiIfaceStatus.InfoSource = vmispec.RemoveInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
 		}
 	}
 

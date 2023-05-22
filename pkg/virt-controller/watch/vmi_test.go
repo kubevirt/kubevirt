@@ -3336,7 +3336,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 							InterfaceName: ifaceName,
 							InfoSource:    vmispec.InfoSourceGuestAgent,
 						},
-					}))
+					}),
+				Entry("VMI with an interface on spec (matched on status) with pod interface *not* ready",
+					newVMIWithOneIfaceStatus(newVMIWithOneIface(api.NewMinimalVMI(vmName), networkName, ifaceName), ifaceName),
+					PodVmIfaceStatus{
+						vmIfaceStatus: simpleIfaceStatus(ifaceName),
+					}),
+			)
 		})
 	})
 })
