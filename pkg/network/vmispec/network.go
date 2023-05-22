@@ -65,3 +65,14 @@ func IndexNetworkSpecByName(networks []v1.Network) map[string]v1.Network {
 	}
 	return indexedNetworks
 }
+
+func FilterNetworksByInterfaces(networks []v1.Network, interfaces []v1.Interface) []v1.Network {
+	var nets []v1.Network
+	networksByName := IndexNetworkSpecByName(networks)
+	for _, iface := range interfaces {
+		if net, exists := networksByName[iface.Name]; exists {
+			nets = append(nets, net)
+		}
+	}
+	return nets
+}
