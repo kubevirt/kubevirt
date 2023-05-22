@@ -264,7 +264,8 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 
 	if namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(vmi, ordinalNameScheme)
+		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(
+			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme)
 		if err != nil {
 			return nil, err
 		}
@@ -1251,7 +1252,7 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi)
+	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks)
 	if err != nil {
 		return nil, err
 	}

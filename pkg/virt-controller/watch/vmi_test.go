@@ -3180,7 +3180,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					NetworkAttachmentDefinitionName: "net1",
 					Name:                            "iface1",
 				}})
-				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(HaveOccurred())
+				Expect(controller.handleDynamicInterfaceRequests(
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(HaveOccurred())
 			})
 		})
 
@@ -3194,7 +3195,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			DescribeTable("the pods network annotation must be updated", func(addOpts []virtv1.AddInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
 				fakeHotPlugRequest(vmi, addOpts)
-				Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
+				Expect(controller.handleDynamicInterfaceRequests(
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
 				for _, matcher := range matchers {
 					Expect(pod.Annotations).To(matcher)
 				}
@@ -3242,7 +3244,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}
 
 					fakeHotPlugRequest(vmi, addOpts)
-					Expect(controller.handleDynamicInterfaceRequests(vmi, pod)).To(Succeed())
+					Expect(controller.handleDynamicInterfaceRequests(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
 
 					Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
 					Expect(pod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
@@ -3402,7 +3404,7 @@ func setReadyCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.Conditio
 	})
 }
 func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase, podNetworkStatus ...networkv1.NetworkStatus) *k8sv1.Pod {
-	multusAnnotations, _ := services.GenerateMultusCNIAnnotation(vmi)
+	multusAnnotations, _ := services.GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks)
 	podAnnotations := map[string]string{
 		virtv1.DomainAnnotation: vmi.Name,
 	}

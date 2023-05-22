@@ -61,18 +61,18 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
-	return GenerateMultusCNIAnnotationFromNameScheme(vmi, namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks))
+func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
 }
 
-func GenerateMultusCNIAnnotationFromNameScheme(vmi *v1.VirtualMachineInstance, networkNameScheme map[string]string) (string, error) {
+func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
-	for _, network := range vmi.Spec.Networks {
+	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.add(
-				newMultusAnnotationData(vmi, network, podInterfaceName))
+				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 	}
 
@@ -82,9 +82,9 @@ func GenerateMultusCNIAnnotationFromNameScheme(vmi *v1.VirtualMachineInstance, n
 	return "", nil
 }
 
-func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network, podInterfaceName string) multusNetworkAnnotation {
-	multusIface := getIfaceByName(vmi, network.Name)
-	namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, network.Multus.NetworkName)
+func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) multusNetworkAnnotation {
+	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
+	namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
@@ -95,15 +95,6 @@ func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network,
 		Namespace:     namespace,
 		NetworkName:   networkName,
 	}
-}
-
-func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
-	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Name == name {
-			return &vmi.Spec.Domain.Devices.Interfaces[i]
-		}
-	}
-	return nil
 }
 
 func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {

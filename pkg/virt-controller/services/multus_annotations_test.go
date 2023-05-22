@@ -57,7 +57,7 @@ var _ = Describe("Multus annotations", func() {
 
 		It("when added an element, is no longer empty", func() {
 			podIfaceName := "net1"
-			multusAnnotationPool.add(newMultusAnnotationData(&vmi, network, podIfaceName))
+			multusAnnotationPool.add(newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, podIfaceName))
 			Expect(multusAnnotationPool.isEmpty()).To(BeFalse())
 		})
 
@@ -70,7 +70,7 @@ var _ = Describe("Multus annotations", func() {
 		BeforeEach(func() {
 			multusAnnotationPool = multusNetworkAnnotationPool{
 				pool: []multusNetworkAnnotation{
-					newMultusAnnotationData(&vmi, network, "net1"),
+					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"),
 				},
 			}
 		})
