@@ -40,7 +40,7 @@ cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
 
 # hypervisor-cpu-baseline command only works on x86
 if [ "$ARCH" == "x86_64" ]; then
-   virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE | virsh hypervisor-cpu-baseline --features /dev/stdin --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
+   virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE | virsh hypervisor-cpu-baseline --features /dev/stdin --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
 fi
 
 virsh capabilities > /var/lib/kubevirt-node-labeller/capabilities.xml
