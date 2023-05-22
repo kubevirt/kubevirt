@@ -2502,6 +2502,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 		It("should accept vmi with threads > 1 for amd64 arch", func() {
+			enableFeatureGate(virtconfig.Multiarchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "amd64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)

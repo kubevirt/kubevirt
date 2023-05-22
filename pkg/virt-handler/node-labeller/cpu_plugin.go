@@ -29,11 +29,10 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
-
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
