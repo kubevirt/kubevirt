@@ -1106,15 +1106,12 @@ func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) s
 	return "" // meaning the network is not served by resources
 }
 
-func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName string) (namespace string, networkName string) {
+func getNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
 	if strings.Contains(fullNetworkName, "/") {
 		res := strings.SplitN(fullNetworkName, "/", 2)
-		namespace, networkName = res[0], res[1]
-	} else {
-		namespace = precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-		networkName = fullNetworkName
+		return res[0], res[1]
 	}
-	return
+	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
 
 func NewTemplateService(launcherImage string,

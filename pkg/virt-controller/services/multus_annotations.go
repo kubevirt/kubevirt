@@ -84,7 +84,7 @@ func GenerateMultusCNIAnnotationFromNameScheme(vmi *v1.VirtualMachineInstance, n
 
 func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network, podInterfaceName string) multusNetworkAnnotation {
 	multusIface := getIfaceByName(vmi, network.Name)
-	namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+	namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
