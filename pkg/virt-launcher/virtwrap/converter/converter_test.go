@@ -1384,6 +1384,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.DisableHotplug = false
 			c.UseVirtioTransitional = true
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = &c.UseVirtioTransitional
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
 		})

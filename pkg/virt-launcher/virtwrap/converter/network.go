@@ -59,7 +59,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 		ifaceType := GetInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(c, ifaceType),
+				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType),
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
@@ -288,4 +288,11 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
+}
+
+func translateModel(useVirtioTransitional *bool, bus string) string {
+	if bus == v1.VirtIO {
+		return InterpretTransitionalModelType(useVirtioTransitional)
+	}
+	return bus
 }

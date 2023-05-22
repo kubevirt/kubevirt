@@ -174,7 +174,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = translateModel(c, v1.VirtIO)
+			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -826,7 +826,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = translateModel(c, v1.VirtIO)
+	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -914,7 +914,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = translateModel(c, v1.VirtIO)
+	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
 
 	// default backend model, random
 	rng.Backend = &api.RngBackend{
@@ -1150,7 +1150,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = translateModel(c, v1.VirtIO)
+		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1612,7 +1612,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		scsiController := api.Controller{
 			Type:   "scsi",
 			Index:  "0",
-			Model:  translateModel(c, v1.VirtIO),
+			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional),
 			Driver: controllerDriver,
 		}
 		if useIOThreads {
@@ -1700,7 +1700,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  translateModel(c, v1.VirtIO),
+			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional),
 			Driver: controllerDriver,
 		})
 
@@ -1941,19 +1941,6 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
-func translateModel(ctx *ConverterContext, bus string) string {
-	switch bus {
-	case v1.VirtIO:
-		if ctx.UseVirtioTransitional {
-			return "virtio-transitional"
-		} else {
-			return "virtio-non-transitional"
-		}
-	default:
-		return bus
-	}
-}
-
 // GetVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
 func GetVolumeNameByTarget(domain *api.Domain, target string) string {
 	for _, d := range domain.Spec.Devices.Disks {
@@ -1995,4 +1982,11 @@ func (c *ConverterContext) IsVirtIONetProhibited() (bool, error) {
 		return false, err
 	}
 	return false, nil
+}
+
+func InterpretTransitionalModelType(useVirtioTransitional *bool) string {
+	if useVirtioTransitional != nil && *useVirtioTransitional {
+		return "virtio-transitional"
+	}
+	return "virtio-non-transitional"
 }

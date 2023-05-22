@@ -25,7 +25,7 @@ import (
 
 	kvirtv1 "kubevirt.io/api/core/v1"
 
-	k6sresource "kubevirt.io/kubevirt/pkg/apimachinery/resource"
+	k6tresource "kubevirt.io/kubevirt/pkg/apimachinery/resource"
 
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -134,6 +134,6 @@ func WithResourceRequestInterface(value string) Option {
 		if vmi.Spec.Domain.Resources.Requests == nil {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
-		vmi.Spec.Domain.Resources.Requests[k6sresource.ResourceInterface] = resource.MustParse(value)
+		vmi.Spec.Domain.Resources.Requests[k6tresource.ResourceInterface] = resource.MustParse(value)
 	}
 }

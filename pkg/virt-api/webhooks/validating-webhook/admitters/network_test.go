@@ -43,6 +43,7 @@ var _ = Describe("Validating VMI network spec", func() {
 		Expect(validateInterfaceRequestIsInRange(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	},
 		Entry("is an integer between 0 to 32", "5"),
+		Entry("is an integer between 0 to 32 with symbol", "10000m"),
 		Entry("is the minimum", "0"),
 		Entry("is the maximum", "32"),
 	)
@@ -62,5 +63,6 @@ var _ = Describe("Validating VMI network spec", func() {
 		Entry("is not an integer", "1.2"),
 		Entry("is negative", "-2"),
 		Entry("is beyond the maximum", "33"),
+		Entry("is beyond the maximum with size symbol", "1M"),
 	)
 })

@@ -36,12 +36,11 @@ const (
 )
 
 func validateInterfaceRequestIsInRange(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
 	requests := resource.ExtendedResourceList{ResourceList: spec.Domain.Resources.Requests}
 	value := requests.Interface().Value()
 
 	if !isIntegerValue(value, requests) || value < ifaceRequestMinValue || value > ifaceRequestMaxValue {
-		causes = []metav1.StatusCause{{
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(
 				"provided resources interface requests must be an integer between %d to %d",
@@ -51,7 +50,7 @@ func validateInterfaceRequestIsInRange(field *k8sfield.Path, spec *v1.VirtualMac
 			Field: field.Child("domain", "resources", "requests", string(resource.ResourceInterface)).String(),
 		}}
 	}
-	return causes
+	return nil
 }
 
 func isIntegerValue(value int64, requests resource.ExtendedResourceList) bool {
