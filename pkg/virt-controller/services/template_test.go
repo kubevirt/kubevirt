@@ -953,6 +953,7 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
+								Interfaces:     []v1.Interface{{Name: "default"}, {Name: "test1"}, {Name: "other-test1"}},
 							},
 						},
 						Networks: []v1.Network{
@@ -995,6 +996,7 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
+								Interfaces:     []v1.Interface{{Name: "default"}, {Name: "test1"}},
 							},
 						},
 						Networks: []v1.Network{
@@ -1032,6 +1034,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								Interfaces: []v1.Interface{
+									{Name: "default"},
 									{
 										Name: "test1",
 										InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -1089,6 +1092,11 @@ var _ = Describe("Template", func() {
 									NetworkSource: v1.NetworkSource{
 										Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"},
 									}},
+							},
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{
+									Interfaces: []v1.Interface{{Name: "default"}, {Name: "blue"}, {Name: "red"}},
+								},
 							},
 						},
 					}
