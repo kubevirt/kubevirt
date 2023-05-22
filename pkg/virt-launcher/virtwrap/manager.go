@@ -1026,6 +1026,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: oldSpec}, domain); err != nil {
 			return nil, err
 		}
+		if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: oldSpec}); err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync

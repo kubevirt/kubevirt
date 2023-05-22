@@ -57,7 +57,7 @@ func CreateHashedNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 
 func HashedPodInterfaceName(network v1.Network) string {
 	if vmispec.IsSecondaryMultusNetwork(network) {
-		return generateHashedInterfaceName(network.Name)
+		return GenerateHashedInterfaceName(network.Name)
 	}
 
 	return PrimaryPodInterfaceName
@@ -66,12 +66,12 @@ func HashedPodInterfaceName(network v1.Network) string {
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
-		networkNameSchemeMap[network.Name] = generateHashedInterfaceName(network.Name)
+		networkNameSchemeMap[network.Name] = GenerateHashedInterfaceName(network.Name)
 	}
 	return networkNameSchemeMap
 }
 
-func generateHashedInterfaceName(networkName string) string {
+func GenerateHashedInterfaceName(networkName string) string {
 	hash := sha256.New()
 	_, _ = io.WriteString(hash, networkName)
 	hashedName := fmt.Sprintf("%x", hash.Sum(nil))[:maxIfaceNameLen]
