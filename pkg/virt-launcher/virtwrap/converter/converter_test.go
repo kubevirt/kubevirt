@@ -105,6 +105,24 @@ var _ = Describe("Converter", func() {
 			Expect(string(data)).To(Equal(expectedClock))
 		})
 	})
+	Context("with localtime", func() {
+		It("Should set LocalTime attribute", func() {
+			clock := &v1.Clock{
+				ClockOffset: v1.ClockOffset{
+					LocalTime: True(),
+				},
+				Timer: &v1.Timer{},
+			}
+
+			var convertClock api.Clock
+			Convert_v1_Clock_To_api_Clock(clock, &convertClock)
+			data, err := xml.MarshalIndent(convertClock, "", "  ")
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedClock := `<Clock offset="localtime"></Clock>`
+			Expect(string(data)).To(Equal(expectedClock))
+		})
+	})
 
 	Context("with v1.Disk", func() {
 		DescribeTable("Should define disk capacity as the minimum of capacity and request", func(requests, capacity int64) {

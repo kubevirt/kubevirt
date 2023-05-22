@@ -1017,6 +1017,8 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 	} else if source.Timezone != nil {
 		clock.Offset = "timezone"
 		clock.Timezone = string(*source.Timezone)
+	} else if source.LocalTime != nil && *source.LocalTime {
+		clock.Offset = "localtime"
 	}
 
 	if source.Timer != nil {

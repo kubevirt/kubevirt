@@ -257,6 +257,7 @@ API rule violation: names_match,k8s.io/apimachinery/pkg/util/intstr,IntOrString,
 API rule violation: names_match,k8s.io/apimachinery/pkg/util/intstr,IntOrString,Type
 API rule violation: names_match,kubevirt.io/api/core/v1,CDRomTarget,ReadOnly
 API rule violation: names_match,kubevirt.io/api/core/v1,CPU,DedicatedCPUPlacement
+API rule violation: names_match,kubevirt.io/api/core/v1,ClockOffset,LocalTime
 API rule violation: names_match,kubevirt.io/api/core/v1,CloudInitConfigDriveSource,UserDataSecretRef
 API rule violation: names_match,kubevirt.io/api/core/v1,CloudInitNoCloudSource,UserDataSecretRef
 API rule violation: names_match,kubevirt.io/api/core/v1,DeveloperConfiguration,LessPVCSpaceToleration

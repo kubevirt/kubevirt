@@ -15645,6 +15645,10 @@
     "description": "Represents the clock and timers of a vmi.",
     "type": "object",
     "properties": {
+     "localtime": {
+      "description": "LocalTime sets the the guest clock to be synchronized to the host's configured timezone when booted, if any.",
+      "type": "boolean"
+     },
      "timer": {
       "description": "Timer specifies whih timers are attached to the vmi.",
       "$ref": "#/definitions/v1.Timer"
@@ -15663,6 +15667,10 @@
     "description": "Exactly one of its members must be set.",
     "type": "object",
     "properties": {
+     "localtime": {
+      "description": "LocalTime sets the the guest clock to be synchronized to the host's configured timezone when booted, if any.",
+      "type": "boolean"
+     },
      "timezone": {
       "description": "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York').",
       "type": "string"

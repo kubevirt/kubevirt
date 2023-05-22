@@ -105,6 +105,14 @@ func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
 }
 
+// Check if a VMI spec requests Localtime clock
+func IsLocalTimeClock(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Clock != nil && vmi.Spec.Domain.Clock.LocalTime != nil {
+		return *(vmi.Spec.Domain.Clock.LocalTime)
+	}
+	return false
+}
+
 func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return false

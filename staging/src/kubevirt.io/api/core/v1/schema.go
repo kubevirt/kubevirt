@@ -846,6 +846,8 @@ type ClockOffset struct {
 	// Timezone sets the guest clock to the specified timezone.
 	// Zone name follows the TZ environment variable format (e.g. 'America/New_York').
 	Timezone *ClockOffsetTimezone `json:"timezone,omitempty"`
+	//LocalTime sets the the guest clock to be synchronized to the host's configured timezone when booted, if any.
+	LocalTime *bool `json:"localtime,omitempty"`
 }
 
 // UTC sets the guest clock to UTC on each boot.

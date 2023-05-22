@@ -463,9 +463,10 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 
 func (ClockOffset) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Exactly one of its members must be set.",
-		"utc":      "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
-		"timezone": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York').",
+		"":          "Exactly one of its members must be set.",
+		"utc":       "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
+		"timezone":  "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York').",
+		"localtime": "LocalTime sets the the guest clock to be synchronized to the host's configured timezone when booted, if any.",
 	}
 }
 

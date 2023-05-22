@@ -4894,6 +4894,10 @@ var CRDsValidation map[string]string = map[string]string{
                     clock:
                       description: Clock sets the clock and timers of the vmi.
                       properties:
+                        localtime:
+                          description: LocalTime sets the the guest clock to be synchronized
+                            to the host's configured timezone when booted, if any.
+                          type: boolean
                         timer:
                           description: Timer specifies whih timers are attached to
                             the vmi.
@@ -7534,6 +7538,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: ClockOffset allows specifying the UTC offset or the timezone
                 of the guest clock.
               properties:
+                localtime:
+                  description: LocalTime sets the the guest clock to be synchronized
+                    to the host's configured timezone when booted, if any.
+                  type: boolean
                 timezone:
                   description: Timezone sets the guest clock to the specified timezone.
                     Zone name follows the TZ environment variable format (e.g. 'America/New_York').
@@ -9219,6 +9227,10 @@ var CRDsValidation map[string]string = map[string]string{
             clock:
               description: Clock sets the clock and timers of the vmi.
               properties:
+                localtime:
+                  description: LocalTime sets the the guest clock to be synchronized
+                    to the host's configured timezone when booted, if any.
+                  type: boolean
                 timer:
                   description: Timer specifies whih timers are attached to the vmi.
                   properties:
@@ -11748,6 +11760,10 @@ var CRDsValidation map[string]string = map[string]string{
             clock:
               description: Clock sets the clock and timers of the vmi.
               properties:
+                localtime:
+                  description: LocalTime sets the the guest clock to be synchronized
+                    to the host's configured timezone when booted, if any.
+                  type: boolean
                 timer:
                   description: Timer specifies whih timers are attached to the vmi.
                   properties:
@@ -13831,6 +13847,10 @@ var CRDsValidation map[string]string = map[string]string{
                     clock:
                       description: Clock sets the clock and timers of the vmi.
                       properties:
+                        localtime:
+                          description: LocalTime sets the the guest clock to be synchronized
+                            to the host's configured timezone when booted, if any.
+                          type: boolean
                         timer:
                           description: Timer specifies whih timers are attached to
                             the vmi.
@@ -17786,6 +17806,11 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Clock sets the clock and timers of the
                                 vmi.
                               properties:
+                                localtime:
+                                  description: LocalTime sets the the guest clock
+                                    to be synchronized to the host's configured timezone
+                                    when booted, if any.
+                                  type: boolean
                                 timer:
                                   description: Timer specifies whih timers are attached
                                     to the vmi.
@@ -19901,6 +19926,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: ClockOffset allows specifying the UTC offset or the timezone
                 of the guest clock.
               properties:
+                localtime:
+                  description: LocalTime sets the the guest clock to be synchronized
+                    to the host's configured timezone when booted, if any.
+                  type: boolean
                 timezone:
                   description: Timezone sets the guest clock to the specified timezone.
                     Zone name follows the TZ environment variable format (e.g. 'America/New_York').
@@ -22496,6 +22525,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Clock sets the clock and timers of
                                     the vmi.
                                   properties:
+                                    localtime:
+                                      description: LocalTime sets the the guest clock
+                                        to be synchronized to the host's configured
+                                        timezone when booted, if any.
+                                      type: boolean
                                     timer:
                                       description: Timer specifies whih timers are
                                         attached to the vmi.

@@ -512,8 +512,9 @@ const (
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses dedicated CPU and emulator thread isolation
-
 	VirtualMachineInstanceReasonDedicatedCPU = "DedicatedCPUNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it use Localtime clock
+	VirtualMachineInstanceReasonLocaltimeNotMigratable = "ClockLocaltimeNotLiveMigratable"
 )
 
 const (

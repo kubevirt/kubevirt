@@ -15037,6 +15037,13 @@ func schema_kubevirtio_api_core_v1_Clock(ref common.ReferenceCallback) common.Op
 							Format:      "",
 						},
 					},
+					"localtime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalTime sets the the guest clock to be synchronized to the host's configured timezone when booted, if any.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"timer": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Timer specifies whih timers are attached to the vmi.",
@@ -15068,6 +15075,13 @@ func schema_kubevirtio_api_core_v1_ClockOffset(ref common.ReferenceCallback) com
 						SchemaProps: spec.SchemaProps{
 							Description: "Timezone sets the guest clock to the specified timezone. Zone name follows the TZ environment variable format (e.g. 'America/New_York').",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"localtime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalTime sets the the guest clock to be synchronized to the host's configured timezone when booted, if any.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

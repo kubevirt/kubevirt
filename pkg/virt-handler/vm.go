@@ -1468,6 +1468,9 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		return newNonMigratableCondition("VMI uses dedicated CPUs and emulator thread isolation", v1.VirtualMachineInstanceReasonDedicatedCPU), isBlockMigration
 	}
+	if util.IsLocalTimeClock(vmi) {
+		return newNonMigratableCondition("VMI uses Localtime clock", v1.VirtualMachineInstanceReasonLocaltimeNotMigratable), isBlockMigration
+	}
 
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
