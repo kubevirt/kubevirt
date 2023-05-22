@@ -2301,15 +2301,15 @@ func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance
 			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		if _, exists := indexedMultusStatusIfaces[podIfaceName]; exists {
-			if vmiIfaceStatus == nil {
-				vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
-					Name:       network.Name,
-					InfoSource: vmispec.InfoSourceMultusStatus,
-				})
-			} else {
-				vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-			}
+		_, exists := indexedMultusStatusIfaces[podIfaceName]
+		switch {
+		case exists && vmiIfaceStatus == nil:
+			vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
+				Name:       network.Name,
+				InfoSource: vmispec.InfoSourceMultusStatus,
+			})
+		case exists && vmiIfaceStatus != nil:
+			vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
 		}
 	}
 
