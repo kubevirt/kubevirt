@@ -51,6 +51,7 @@ spec:
                 server:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
+              evictionStrategy: LiveMigrate
               featureGates:
                 deployKubeSecondaryDNS: false
                 deployTektonTaskResources: false
@@ -1002,6 +1003,17 @@ spec:
                   default CPU model is not set and VMI''s CPU model is not set too,
                   host-model will be set. Default CPU model can be changed when kubevirt
                   is running.'
+                type: string
+              evictionStrategy:
+                default: LiveMigrate
+                description: EvictionStrategy defines at the cluster level if the
+                  VirtualMachineInstance should be migrated instead of shut-off in
+                  case of a node drain. If the VirtualMachineInstance specific field
+                  is set it overrides the cluster level one.
+                enum:
+                - None
+                - LiveMigrate
+                - External
                 type: string
               featureGates:
                 default:

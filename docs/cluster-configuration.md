@@ -20,18 +20,18 @@ The alert is supposed to resolve after 10 minutes if there isn't a manual interv
 
 ***Note***: The cluster configurations are supported only in API version `v1beta1` or higher.
 ## Infra and Workloads Configuration
-Some configurations are done separately to Infra and Workloads. The CR's Spec object contains the `infra` and the 
+Some configurations are done separately to Infra and Workloads. The CR's Spec object contains the `infra` and the
 `workloads` objects.
 
-The structures of the `infra` and the `workloads` objects are the same. The HyperConverged Cluster operator will update 
-the other operator CRs, according to the specific CR structure. The meaning is if, for example, the other CR does not 
+The structures of the `infra` and the `workloads` objects are the same. The HyperConverged Cluster operator will update
+the other operator CRs, according to the specific CR structure. The meaning is if, for example, the other CR does not
 support Infra cluster configurations, but only Workloads configurations, the HyperConverged Cluster operator will only
 copy the Workloads configurations to this operator's CR.
 
 Below are the cluster configuration details. Currently, only "Node Placement" configuration is supported.
 
 ### Node Placement
-Kubernetes lets the cluster admin influence node placement in several ways, see 
+Kubernetes lets the cluster admin influence node placement in several ways, see
 https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/ for a general overview.
 
 The HyperConverged Cluster's CR is the single entry point to let the cluster admin influence the placement of all the pods directly and indirectly managed by the HyperConverged Cluster Operator.
@@ -40,10 +40,10 @@ The `nodePlacement` object is an optional field in the HyperConverged Cluster's 
 fields.
 
 ***Note***: The HyperConverged Cluster operator does not allow modifying of the workloads' node placement configurations if there are already
-existing virtual machines or data volumes. 
+existing virtual machines or data volumes.
 
 The `nodePlacement` object contains the following fields:
-* `nodeSelector` is the node selector applied to the relevant kind of pods. It specifies a map of key-value pairs: for 
+* `nodeSelector` is the node selector applied to the relevant kind of pods. It specifies a map of key-value pairs: for
 the pod to be eligible to run on a node,	the node must have each of the indicated key-value pairs as labels 	(it can
 have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector.
 * `affinity` enables pod affinity/anti-affinity placement expanding the types of constraints
@@ -72,7 +72,7 @@ The cluster admin indeed is allowed to influence the placement of the Pods direc
         nodeSelector:
           nodeType: nested-virtualization
   ```
-* Place the infra resources on nodes labeled with "nodeType = infra", and workloads in nodes labeled with 
+* Place the infra resources on nodes labeled with "nodeType = infra", and workloads in nodes labeled with
 "nodeType = nested-virtualization", preferring nodes with more than 8 CPUs, using affinity:
   ```yaml
   ...
@@ -108,8 +108,8 @@ The cluster admin indeed is allowed to influence the placement of the Pods direc
                   values:
                   - 8
   ```
-* In this example, there are several nodes that are saved for KubeVirt resources (e.g. VMs), already set with the 
-`key=kubevirt:NoSchedule` taint. This taint will prevent any scheduling to these nodes, except for pods with the matching 
+* In this example, there are several nodes that are saved for KubeVirt resources (e.g. VMs), already set with the
+`key=kubevirt:NoSchedule` taint. This taint will prevent any scheduling to these nodes, except for pods with the matching
 tolerations.
   ```yaml
   ...
@@ -124,10 +124,10 @@ tolerations.
   ```
 
 ## FeatureGates
-The `featureGates` field is an optional set of optional boolean feature enabler. The features in this list are advanced 
+The `featureGates` field is an optional set of optional boolean feature enabler. The features in this list are advanced
 or new features that are not enabled by default.
 
-To enable a feature, add its name to the `featureGates` list and set it to `true`. Missing or `false` feature gates 
+To enable a feature, add its name to the `featureGates` list and set it to `true`. Missing or `false` feature gates
 disables the feature.
 
 ### withHostPassthroughCPU Feature Gate
@@ -141,7 +141,7 @@ Additional information: [LibvirtXMLCPUModel](https://wiki.openstack.org/wiki/Lib
 
 ### enableCommonBootImageImport Feature Gate
 
-Set the `enableCommonBootImageImport` feature gate to `false` in order to disable the common golden images in the cluster 
+Set the `enableCommonBootImageImport` feature gate to `false` in order to disable the common golden images in the cluster
 (for instance to reduce logs noise on disconnected environments).
 For additional information, see
 here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md
@@ -152,10 +152,10 @@ the [dataImportCronTemplates field](#configure-custom-golden-images), even if th
 **Default**: `true`
 
 ### deployTektonTaskResources Feature Gate
-Set the `deployTektonTaskResources` feature gate to true to allow Tekton Tasks operator (TTO) to deploy its resources. TTO will 
+Set the `deployTektonTaskResources` feature gate to true to allow Tekton Tasks operator (TTO) to deploy its resources. TTO will
 deploy example pipelines and cluster tasks which enables tekton to work with VMs, disks and common-templates.
 
-**Note**: Once `deployTektonTaskResources` is set to true, TTO will not delete deployed resources if `deployTektonTaskResources` is 
+**Note**: Once `deployTektonTaskResources` is set to true, TTO will not delete deployed resources if `deployTektonTaskResources` is
 reverted back to false.
 
 **Default**: `false`
@@ -414,7 +414,7 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
 spec:
-  filesystemOverhead: 
+  filesystemOverhead:
     global: "0.1"
     storageClass:
       nfs: "0"
@@ -494,16 +494,16 @@ spec:
 
 ## CPU Plugin Configurations
 You can schedule a virtual machine (VM) on a node where the CPU model and policy attribute of the VM are compatible with
-the CPU models and policy attributes that the node supports. By specifying a list of obsolete CPU models in the 
+the CPU models and policy attributes that the node supports. By specifying a list of obsolete CPU models in the
 HyperConverged custom resource, you can exclude them from the list of labels created for CPU models.
 
 Through the process of iteration, the list of base CPU features in the minimum CPU model are eliminated from the list of
-labels generated for the node. For example, an environment might have two supported CPU models: `Penryn` and `Haswell`. 
+labels generated for the node. For example, an environment might have two supported CPU models: `Penryn` and `Haswell`.
 
 Use the `spec.obsoleteCPUs` to configure the CPU plugin. Add the obsolete CPU list under `spec.obsoleteCPUs.cpuModels`,
 and the minCPUModel as the value of `spec.obsoleteCPUs.minCPUModel`.
 
-The default value for the `spec.obsoleteCPUs.minCPUModel` field in KubeVirt is `"Penryn"`, but it won't be visible if 
+The default value for the `spec.obsoleteCPUs.minCPUModel` field in KubeVirt is `"Penryn"`, but it won't be visible if
 missing in the CR. The default value for the `spec.obsoleteCPUs.cpuModels` field is hardcoded predefined list and is not
 visible. You can add new CPU models to the list, but can't remove CPU models from the predefined list. The predefined list
 is not visible in the HyperConverged CR.
@@ -525,7 +525,7 @@ The hard-coded predefined list of obsolete CPU modes is:
 * `kvm64`
 * `kvm32`
 
-You don't need to add a CPU model to the `spec.obsoleteCPUs.cpuModels` field if it is in this list. 
+You don't need to add a CPU model to the `spec.obsoleteCPUs.cpuModels` field if it is in this list.
 
 ### CPU Plugin Configurations Example
 ```yaml
@@ -585,7 +585,7 @@ level.
 
 The `workloadUpdateStrategy` fields are:
 * `batchEvictionInterval` - BatchEvictionInterval Represents the interval to wait before issuing the next batch of
-  shutdowns. 
+  shutdowns.
 
   The Default value is `1m`
   
@@ -655,7 +655,7 @@ spec:
 ## Modify common golden images
 Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it is possible to modify them, if needed.
 
-The list of all the golden images is available at the `status` field, under `dataImportCronTemplates` list. The common images are not part of list in the `spec` field. The list in the status is a reference for modifications. Add the image that requires modification to the list in the spec, and edit it. 
+The list of all the golden images is available at the `status` field, under `dataImportCronTemplates` list. The common images are not part of list in the `spec` field. The list in the status is a reference for modifications. Add the image that requires modification to the list in the spec, and edit it.
 
 The supported modifications are: disabling a specific image, and changing the `storage` field. Editing other fields will be ignored by HCO.
 
@@ -678,8 +678,8 @@ There is no need to copy the whole object, but only the relevant fields; i.e. th
 
 ### Modifying a common dataImportCronTemplate
 It is possible to change the configuration of a common golden image by adding the common image to the
-`dataImportCronTemplates` list in the `spec` field. HCO will replace the existing spec object; The `schedule` 
-field is mandatory, and HCO will copy it from the common template if it is missing. 
+`dataImportCronTemplates` list in the `spec` field. HCO will replace the existing spec object; The `schedule`
+field is mandatory, and HCO will copy it from the common template if it is missing.
 
 Copy the required dtaImportCronTemplate object from the list in the `status` field (not including the `status`
 field), and change or add the desired fields.
@@ -706,7 +706,7 @@ for example, set the storage class for centos8 golden image, and modify the sour
 ```
 
 ## Configure custom golden images
-Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it 
+Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it
 is also possible to add custom golden images. For more details, see [the golden image documentation](https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md).
 
 To add a custom image, add a `DataImportCronTemplate` object to the `dataImportCronTemplates` under
@@ -780,13 +780,28 @@ can be applied.
 ## Workloads protection on uninstall
 
 `UninstallStrategy` defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist:
-- `BlockUninstallIfWorkloadsExist` will prevent the CR from being removed when workloads still exist. 
+- `BlockUninstallIfWorkloadsExist` will prevent the CR from being removed when workloads still exist.
 BlockUninstallIfWorkloadsExist is the safest choice to protect your workloads from accidental data loss, so it's strongly advised.
 - `RemoveWorkloads` will cause all the workloads to be cascading deleted on uninstallation.
 **WARNING**: please notice that RemoveWorkloads will cause your workloads to be deleted as soon as this CR will be, even accidentally, deleted.
 Please correctly consider the implications of this option before setting it.
 
 `BlockUninstallIfWorkloadsExist` is the default behaviour.
+
+
+## Cluster level EvictionStrategy
+
+`EvictionStrategy` defines at the cluster level if the VirtualMachineInstance should be
+migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
+field is set it overrides the cluster level one.
+Possible values:
+
+- `None` no eviction strategy at cluster level.
+- `LiveMigrate` migrate the VM on eviction.
+- `External` block eviction and notify an external controller.
+
+`LiveMigrate` is the default behaviour.
+
 
 ## Hyperconverged Kubevirt cluster-wide Crypto Policy API
 
@@ -1083,7 +1098,7 @@ spec:
   tuningPolicy: annotation
 ```
 
-Where the values of `qps` and `burst` can be replaced by any desired value of `QPS` and `burst`, respectively. 
+Where the values of `qps` and `burst` can be replaced by any desired value of `QPS` and `burst`, respectively.
 For instance, in the above example the `QPS` parameter is set to 100 and the `burst` parameter is set to 200.
 The annotation can be created with the following command:
 

@@ -2522,6 +2522,72 @@ Version: 1.2.3`)
 
 		})
 
+		Context("Cluster level EvictionStrategy", func() {
+			It("should add eviction strategy if missing in KV", func() {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				liveMigrateEvictionStrategy := kubevirtcorev1.EvictionStrategyLiveMigrate
+				hco.Spec.EvictionStrategy = &liveMigrateEvictionStrategy
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Configuration.EvictionStrategy).ToNot(BeNil())
+				evictionStrategy := foundResource.Spec.Configuration.EvictionStrategy
+				Expect(*evictionStrategy).To(Equal(kubevirtcorev1.EvictionStrategyLiveMigrate))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should modify eviction strategy according to HCO CR", func() {
+
+				evictionStrategyNone := kubevirtcorev1.EvictionStrategyNone
+				hco.Spec.EvictionStrategy = &evictionStrategyNone
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Modify HCO's eviction strategy configuration")
+				evictionStrategyExternal := kubevirtcorev1.EvictionStrategyExternal
+				hco.Spec.EvictionStrategy = &evictionStrategyExternal
+
+				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commonTestUtils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Configuration.EvictionStrategy).ToNot(BeNil())
+				existingEvictionStrategy := *existingResource.Spec.Configuration.EvictionStrategy
+				Expect(existingEvictionStrategy).To(Equal(kubevirtcorev1.EvictionStrategyNone))
+
+				Expect(foundResource.Spec.Configuration.EvictionStrategy).ToNot(BeNil())
+				foundEvictionStrategy := *foundResource.Spec.Configuration.EvictionStrategy
+				Expect(foundEvictionStrategy).To(Equal(kubevirtcorev1.EvictionStrategyExternal))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commonTestUtils.Namespace)
 			Expect(err).ToNot(HaveOccurred())

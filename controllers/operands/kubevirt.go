@@ -401,6 +401,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		ControllerConfiguration:      rateLimiter,
 		HandlerConfiguration:         rateLimiter,
 		SeccompConfiguration:         seccompConfig,
+		EvictionStrategy:             hc.Spec.EvictionStrategy,
 	}
 
 	if smbiosConfig, ok := os.LookupEnv(smbiosEnvName); ok {
