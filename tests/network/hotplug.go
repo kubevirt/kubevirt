@@ -63,28 +63,6 @@ const (
 )
 
 var _ = SIGDescribe("nic-hotplug", func() {
-	verifyHotplug := func(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
-		if plugMethod == migrationBased {
-			migrate(vmi)
-		}
-
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		var secondaryNetworksNames []string
-		for _, net := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
-			secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
-		}
-		Expect(secondaryNetworksNames).NotTo(BeEmpty())
-		EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
-			return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-		}, 30*time.Second).Should(
-			ConsistOf(interfaceStatusFromInterfaceNames(secondaryNetworksNames...)))
-
-		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-		ExpectWithOffset(1, err).NotTo(HaveOccurred())
-		return vmi
-	}
 
 	BeforeEach(func() {
 		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
@@ -381,6 +359,29 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		})
 	})
 })
+
+func verifyHotplug(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+	if plugMethod == migrationBased {
+		migrate(vmi)
+	}
+
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	var secondaryNetworksNames []string
+	for _, net := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
+		secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
+	}
+	Expect(secondaryNetworksNames).NotTo(BeEmpty())
+	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
+		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+	}, 30*time.Second).Should(
+		ConsistOf(interfaceStatusFromInterfaceNames(secondaryNetworksNames...)))
+
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return vmi
+}
 
 func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {
