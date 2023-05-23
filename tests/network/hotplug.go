@@ -368,8 +368,12 @@ func verifyHotplug(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
+	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
 	var secondaryNetworksNames []string
-	for _, net := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
+	for _, net := range vmispec.FilterMultusNonDefaultNetworks(nonAbsentNets) {
 		secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
 	}
 	Expect(secondaryNetworksNames).NotTo(BeEmpty())
