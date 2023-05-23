@@ -360,6 +360,53 @@ var _ = SIGDescribe("nic-hotplug", func() {
 	})
 })
 
+var _ = SIGDescribe("nic-hotunplug", func() {
+	const (
+		linuxBridgeNetworkName1 = "red"
+		linuxBridgeNetworkName2 = "blue"
+	)
+
+	BeforeEach(func() {
+		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+	})
+
+	Context("a running VMI", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			By("creating a NAD")
+			Expect(createBridgeNetworkAttachmentDefinition(
+				testsuite.GetTestNamespace(nil), networkName, linuxBridgeName)).To(Succeed())
+
+			By("running a VMI")
+			opts := append(
+				libvmi.WithMasqueradeNetworking(),
+				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, networkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, networkName)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewAlpineWithTestTooling(opts...), 60)
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+		})
+
+		DescribeTable("can hot-unplug a network interface", func(plugMethod hotplugMethod) {
+			const guestNICName = "eth2"
+			Expect(libnet.InterfaceExists(vmi, guestNICName)).To(Succeed())
+			Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).RemoveInterface(
+				context.Background(),
+				vmi.Name,
+				&v1.RemoveInterfaceOptions{Name: linuxBridgeNetworkName2},
+			)).To(Succeed())
+			vmi = verifyHotplug(vmi, plugMethod)
+			Expect(libnet.InterfaceExists(vmi, guestNICName)).NotTo(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
+	})
+})
+
 func verifyHotplug(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
 	if plugMethod == migrationBased {
 		migrate(vmi)
