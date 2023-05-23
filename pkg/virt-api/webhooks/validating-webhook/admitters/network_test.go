@@ -22,7 +22,6 @@ package admitters
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "kubevirt.io/api/core/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
@@ -30,6 +29,8 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/client-go/api"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
 )
@@ -69,11 +70,15 @@ var _ = Describe("Validating VMI network spec", func() {
 
 	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
 		vm := api.NewMinimalVMI("testvm")
-		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: value}}
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "foo",
+			State:                  value,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		}
 		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
 	},
 		Entry("is empty", v1.InterfaceState("")),
-		Entry("is absent", v1.InterfaceStateAbsent),
+		Entry("is absent when bridge binding is used", v1.InterfaceStateAbsent),
 	)
 
 	It("network interface state value is invalid", func() {
@@ -83,6 +88,37 @@ var _ = Describe("Validating VMI network spec", func() {
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface state value is unsupported: foo",
+				Field:   "fake.domain.devices.interfaces[0].state",
+			}))
+	})
+
+	It("network interface state value of absent is not supported when bridge-binding is not used", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "foo",
+			State:                  v1.InterfaceStateAbsent,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
+			ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "\"foo\" interface's state \"absent\" is supported only for bridge binding",
+				Field:   "fake.domain.devices.interfaces[0].state",
+			}))
+	})
+
+	It("network interface state value of absent is not supported on the default network", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "foo",
+			State:                  v1.InterfaceStateAbsent,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		}}
+		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+		Expect(validateInterfaceStateValue(k8sfield.NewPath("fake"), &vm.Spec)).To(
+			ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",
 				Field:   "fake.domain.devices.interfaces[0].state",
 			}))
 	})
