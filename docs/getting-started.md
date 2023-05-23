@@ -245,7 +245,7 @@ In addition, if you want to run a specific test or tests you can prepend any `De
 that are marked with the prefix. Remember to remove the prefix before issuing
 your pull request.
 
-For additional information check out the [Ginkgo focused specs documentation](http://onsi.github.io/ginkgo/#focused-specs)
+For additional information check out the [Ginkgo focused specs documentation](https://onsi.github.io/ginkgo/#focused-specs)
 
 ## Use
 
@@ -326,7 +326,7 @@ First make sure you have `remote-viewer` installed. On Fedora run:
 dnf install virt-viewer
 ```
 
-Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download/), and may need
+Windows users can [download remote-viewer from virt-manager.org](https://virt-manager.org/download.html), and may need
 to add virt-viewer installation folder to their `PATH`.
 
 Then, after you made sure that the VMI `vmi-ephemeral` is running, type:
