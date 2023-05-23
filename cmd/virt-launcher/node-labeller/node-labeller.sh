@@ -4,8 +4,8 @@ set -xeo pipefail
 
 ARCH=$(uname -m)
 MACHINE=q35
-if [ "$ARCH" == "aarch64"]; then
-  MACHINETYPE=virt
+if [ "$ARCH" == "aarch64" ]; then
+  MACHINE=virt
 elif [ "$ARCH" != "x86_64" ]; then
   exit 0
 fi
