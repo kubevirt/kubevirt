@@ -1056,7 +1056,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.FedoraVolumeSize)),
-				libdv.WithForceBindAnnotation(),
+				libdv.WithForceBindAnnotation(), // So we can wait for DV to finish before starting the VMI
 			)
 
 			dataVolume = dvChange(dataVolume)
