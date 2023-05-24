@@ -867,15 +867,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Kind:      "DataSource",
 							Namespace: &util.NamespaceTestDefault,
 						},
-						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
-						Storage: &cdiv1beta1.StorageSpec{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							Resources: k8sv1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{
-									"storage": resource.MustParse("1Gi"),
-								},
-							},
-						},
+						Storage: &cdiv1beta1.StorageSpec{},
 					},
 				},
 				&cdiv1beta1.DataSource{
@@ -905,15 +897,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Kind:      "DataSource",
 							Namespace: nil,
 						},
-						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
-						Storage: &cdiv1beta1.StorageSpec{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							Resources: k8sv1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{
-									"storage": resource.MustParse("1Gi"),
-								},
-							},
-						},
+						Storage: &cdiv1beta1.StorageSpec{},
 					},
 				},
 				&cdiv1beta1.DataSource{
@@ -943,15 +927,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Kind:      "DataSource",
 							Namespace: &util.NamespaceTestDefault,
 						},
-						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
-						Storage: &cdiv1beta1.StorageSpec{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							Resources: k8sv1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{
-									"storage": resource.MustParse("1Gi"),
-								},
-							},
-						},
+						Storage: &cdiv1beta1.StorageSpec{},
 					},
 				},
 				&cdiv1beta1.DataSource{
@@ -987,15 +963,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 							Kind:      "DataSource",
 							Namespace: nil,
 						},
-						// CDI bug #2502, revert to &cdiv1beta1.StorageSpec{} once that is fixed.
-						Storage: &cdiv1beta1.StorageSpec{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-							Resources: k8sv1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{
-									"storage": resource.MustParse("1Gi"),
-								},
-							},
-						},
+						Storage: &cdiv1beta1.StorageSpec{},
 					},
 				},
 				&cdiv1beta1.DataSource{
