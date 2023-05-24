@@ -1430,6 +1430,360 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(BeTrue())
 		})
 	})
+
+	Context("instancetype.kubevirt.io apiVersion compatibility", func() {
+		fetchVirtualMachineInstancetypev1alpha1 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineInstancetypev1alpha2 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineInstancetypev1beta1 := func(objName string) {
+			_, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineClusterInstancetypev1alpha1 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineClusterInstancetypev1alpha2 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineClusterInstancetypev1beta1 := func(objName string) {
+			_, err := virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachinePreferencev1alpha1 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachinePreferencev1alpha2 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachinePreferencev1beta1 := func(objName string) {
+			_, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineClusterPreferencev1alpha1 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineClusterPreferencev1alpha2 := func(objName string) {
+			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		fetchVirtualMachineClusterPreferencev1beta1 := func(objName string) {
+			_, err := virtClient.VirtualMachineClusterPreference().Get(context.Background(), objName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		DescribeTable("should create", func(createFunc func() string, v1alpha1FetchFunc func(string), v1alpha2FetchFunc func(string), v1beta1FetchFunc func(string)) {
+			// Create the object and then fetch it using the currently supported versions
+			objName := createFunc()
+			v1alpha1FetchFunc(objName)
+			v1alpha2FetchFunc(objName)
+			v1beta1FetchFunc(objName)
+		},
+			Entry("VirtualMachineInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1",
+				func() string {
+					createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachineInstancetype{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachineInstancetype",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "instancetype",
+						},
+						Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1alpha1.CPUInstancetype{
+								Guest: 1,
+							},
+							Memory: instancetypev1alpha1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					}, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return createdObj.Name
+				},
+				fetchVirtualMachineInstancetypev1alpha1,
+				fetchVirtualMachineInstancetypev1alpha2,
+				fetchVirtualMachineInstancetypev1beta1,
+			),
+			Entry("VirtualMachineInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachineInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineInstancetype",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype",
+					},
+					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha2.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1alpha2.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineInstancetypev1alpha1,
+				fetchVirtualMachineInstancetypev1alpha2,
+				fetchVirtualMachineInstancetypev1beta1,
+			),
+			Entry("VirtualMachineInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachineInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineInstancetype",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineInstancetypev1alpha1,
+				fetchVirtualMachineInstancetypev1alpha2,
+				fetchVirtualMachineInstancetypev1beta1,
+			),
+			Entry("VirtualMachineClusterInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), &instancetypev1alpha1.VirtualMachineClusterInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterInstancetype",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype",
+					},
+					Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha1.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1alpha1.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineClusterInstancetypev1alpha1,
+				fetchVirtualMachineClusterInstancetypev1alpha2,
+				fetchVirtualMachineClusterInstancetypev1beta1,
+			),
+			Entry("VirtualMachineClusterInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterInstancetype",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype",
+					},
+					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha2.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1alpha2.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineClusterInstancetypev1alpha1,
+				fetchVirtualMachineClusterInstancetypev1alpha2,
+				fetchVirtualMachineClusterInstancetypev1beta1,
+			),
+			Entry("VirtualMachineClusterInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterInstancetype",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "instancetype",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: 1,
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineClusterInstancetypev1alpha1,
+				fetchVirtualMachineClusterInstancetypev1alpha2,
+				fetchVirtualMachineClusterInstancetypev1beta1,
+			),
+			Entry("VirtualMachinePreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachinePreference{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachinePreference",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference",
+					},
+					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha1.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha1.PreferCores,
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachinePreferencev1alpha1,
+				fetchVirtualMachinePreferencev1alpha2,
+				fetchVirtualMachinePreferencev1beta1,
+			),
+			Entry("VirtualMachinePreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachinePreference{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachinePreference",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference",
+					},
+					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha2.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha2.PreferCores,
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachinePreferencev1alpha1,
+				fetchVirtualMachinePreferencev1alpha2,
+				fetchVirtualMachinePreferencev1beta1,
+			),
+			Entry("VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachinePreference",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: instancetypev1beta1.PreferCores,
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachinePreferencev1alpha1,
+				fetchVirtualMachinePreferencev1alpha2,
+				fetchVirtualMachinePreferencev1beta1,
+			),
+			Entry("VirtualMachineClusterPreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Create(context.Background(), &instancetypev1alpha1.VirtualMachineClusterPreference{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterPreference",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference",
+					},
+					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha1.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha1.PreferCores,
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineClusterPreferencev1alpha1,
+				fetchVirtualMachineClusterPreferencev1alpha2,
+				fetchVirtualMachineClusterPreferencev1beta1,
+			),
+			Entry("VirtualMachineClusterPreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Create(context.Background(), &instancetypev1alpha2.VirtualMachineClusterPreference{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterPreference",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference",
+					},
+					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha2.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha2.PreferCores,
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineClusterPreferencev1alpha1,
+				fetchVirtualMachineClusterPreferencev1alpha2,
+				fetchVirtualMachineClusterPreferencev1beta1,
+			),
+			Entry("VirtualMachineClusterPreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
+				createdObj, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterPreference{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterPreference",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: instancetypev1beta1.PreferCores,
+						},
+					},
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return createdObj.Name
+			},
+				fetchVirtualMachineClusterPreferencev1alpha1,
+				fetchVirtualMachineClusterPreferencev1alpha2,
+				fetchVirtualMachineClusterPreferencev1beta1,
+			),
+		)
+	})
 })
 
 func newVirtualMachineInstancetype(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineInstancetype {
