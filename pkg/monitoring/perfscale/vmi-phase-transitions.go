@@ -122,6 +122,7 @@ func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "kubevirt_vmi_phase_transition_time_seconds",
+			Help:    "Histogram of VM phase transitions duration between different phases in seconds",
 			Buckets: phaseTransitionTimeBuckets(),
 		},
 		[]string{
@@ -190,6 +191,7 @@ func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedInde
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "kubevirt_vmi_phase_transition_time_from_creation_seconds",
+			Help:    "Histogram of VM phase transitions duration from creation time in seconds",
 			Buckets: phaseTransitionTimeBuckets(),
 		},
 		[]string{
@@ -210,6 +212,7 @@ func newVMIPhaseTransitionTimeFromDeletionHistogramVec(informer cache.SharedInde
 	histogramVec := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "kubevirt_vmi_phase_transition_time_from_deletion_seconds",
+			Help:    "Histogram of VM phase transitions duration from deletion time in seconds",
 			Buckets: phaseTransitionTimeBuckets(),
 		},
 		[]string{
