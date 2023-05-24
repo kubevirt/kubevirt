@@ -104,3 +104,14 @@ func (_m *MockIsolationResult) GetQEMUProcess() (go_ps.Process, error) {
 func (_mr *_MockIsolationResultRecorder) GetQEMUProcess() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQEMUProcess")
 }
+
+func (_m *MockIsolationResult) KvmPitPid() (int, error) {
+	ret := _m.ctrl.Call(_m, "KvmPitPid")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockIsolationResultRecorder) KvmPitPid() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "KvmPitPid")
+}

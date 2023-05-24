@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
@@ -2602,6 +2604,58 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	return nil
 }
 
+func (d *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstance) error {
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return err
+	}
+	var Mask unix.CPUSet
+	Mask.Zero()
+	qemuprocess, err := res.GetQEMUProcess()
+	if err != nil {
+		return err
+	}
+	qemupid := qemuprocess.Pid()
+	if err != nil {
+		return err
+	}
+	if qemupid == -1 {
+		return nil
+	}
+
+	pitpid, err := res.KvmPitPid()
+	if err != nil {
+		return err
+	}
+	if pitpid == -1 {
+		return nil
+	}
+	if vmi.IsRealtimeEnabled() {
+		param := schedParam{priority: 2}
+		err = schedSetScheduler(pitpid, schedFIFO, param)
+		if err != nil {
+			return fmt.Errorf("failed to set FIFO scheduling and priority 2 for thread %d: %w", pitpid, err)
+		}
+	}
+	vcpus, err := getVCPUThreadIDs(qemupid)
+	if err != nil {
+		return err
+	}
+	vpid, ok := vcpus["0"]
+	if ok == false {
+		return nil
+	}
+	vcpupid, err := strconv.Atoi(vpid)
+	if err != nil {
+		return err
+	}
+	err = unix.SchedGetaffinity(vcpupid, &Mask)
+	if err != nil {
+		return err
+	}
+	return unix.SchedSetaffinity(pitpid, &Mask)
+}
+
 func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance) error {
 	cgroupManager, err := cgroup.NewManagerFromVM(vmi)
 	if err != nil {
@@ -2808,6 +2862,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	if vmi.IsRealtimeEnabled() && !vmi.IsRunning() && !vmi.IsFinal() {
 		log.Log.Object(vmi).Info("Configuring vcpus for real time workloads")
 		if err := d.configureVCPUScheduler(vmi); err != nil {
+			return err
+		}
+	}
+	if vmi.IsCPUDedicated() && !vmi.IsRunning() && !vmi.IsFinal() {
+		log.Log.V(3).Object(vmi).Info("Affining PIT thread")
+		if err := d.affinePitThread(vmi); err != nil {
 			return err
 		}
 	}
