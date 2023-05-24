@@ -159,6 +159,9 @@ The amount of memory which can be reclaimed by balloon without pushing the guest
 ### kubevirt_vmi_memory_used_bytes
 Amount of `used` memory as seen by the domain. Type: Gauge.
 
+### kubevirt_vmi_migration_phase_transition_time_from_creation_seconds
+Histogram of VM migration phase transitions duration from creation time in seconds. Type: Histogram.
+
 ### kubevirt_vmi_network_receive_bytes_total
 Total network traffic received in bytes. Type: Counter.
 
@@ -194,6 +197,15 @@ Indication for the total number of VirtualMachineInstance workloads that are not
 
 ### kubevirt_vmi_phase_count
 Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`]. Type: Gauge.
+
+### kubevirt_vmi_phase_transition_time_from_creation_seconds
+Histogram of VM phase transitions duration from creation time in seconds. Type: Histogram.
+
+### kubevirt_vmi_phase_transition_time_from_deletion_seconds
+Histogram of VM phase transitions duration from deletion time in seconds. Type: Histogram.
+
+### kubevirt_vmi_phase_transition_time_seconds
+Histogram of VM phase transitions duration between different phases in seconds. Type: Histogram.
 
 ### kubevirt_vmi_storage_flush_requests_total
 Total storage flush requests. Type: Counter.
