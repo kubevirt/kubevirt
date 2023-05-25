@@ -157,7 +157,6 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config,
-			nil,
 		)
 		app.snapshotController = &snapshot.VMSnapshotController{
 			Client:                    virtClient,
