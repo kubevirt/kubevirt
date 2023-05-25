@@ -14,6 +14,7 @@ import (
 	v12 "kubevirt.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -423,15 +424,17 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	}
 	domain.Spec.CPUTune = cpuTune
 
-	// always add the hint-dedicated feature when dedicatedCPUs are requested.
-	if domain.Spec.Features == nil {
-		domain.Spec.Features = &api.Features{}
-	}
-	if domain.Spec.Features.KVM == nil {
-		domain.Spec.Features.KVM = &api.FeatureKVM{}
-	}
-	domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
-		State: "on",
+	// Add the hint-dedicated feature when dedicatedCPUs are requested for AMD64 architecture.
+	if util.IsAMD64VMI(vmi) {
+		if domain.Spec.Features == nil {
+			domain.Spec.Features = &api.Features{}
+		}
+		if domain.Spec.Features.KVM == nil {
+			domain.Spec.Features.KVM = &api.FeatureKVM{}
+		}
+		domain.Spec.Features.KVM.HintDedicated = &api.FeatureState{
+			State: "on",
+		}
 	}
 
 	var emulatorThread uint32
