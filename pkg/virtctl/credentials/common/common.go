@@ -13,9 +13,25 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
+type CommandFlags struct {
+	User   string
+	Secret string
+}
+
+func (c *CommandFlags) AddToCommand(cmd *cobra.Command) {
+	const userFlag = "user"
+	cmd.Flags().StringVarP(&c.User, userFlag, "u", "", "Name of the user.")
+	err := cmd.MarkFlagRequired(userFlag)
+	if err != nil {
+		panic(err)
+	}
+
+	cmd.Flags().StringVar(&c.Secret, "secret", "", "Name of the secret with SSH keys.")
+}
+
 type SshCommandFlags struct {
-	User             string
-	Secret           string
+	CommandFlags
+
 	SshPubKeyFile    string
 	SshPubKeyLiteral string
 }
@@ -26,17 +42,10 @@ const (
 )
 
 func (s *SshCommandFlags) AddToCommand(cmd *cobra.Command) {
-	const userFlag = "user"
-	cmd.Flags().StringVarP(&s.User, userFlag, "u", "", "Name of the user.")
-	err := cmd.MarkFlagRequired(userFlag)
-	if err != nil {
-		panic(err)
-	}
-
-	cmd.Flags().StringVar(&s.Secret, "secret", "", "Name of the secret with SSH keys.")
+	s.CommandFlags.AddToCommand(cmd)
 
 	cmd.Flags().StringVarP(&s.SshPubKeyFile, keyFileFlag, "f", "", "Path to the SSH public key file.")
-	err = cmd.MarkFlagFilename(keyFileFlag)
+	err := cmd.MarkFlagFilename(keyFileFlag)
 	if err != nil {
 		panic(err)
 	}
