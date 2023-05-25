@@ -129,18 +129,15 @@ func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMach
 }
 
 func ApplyAddInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
-	canonicalIfaceName := request.AddInterfaceOptions.Name
-	existingIface := vmispec.FilterInterfacesSpec(vmiSpec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.Name == canonicalIfaceName
-	})
-
-	if len(existingIface) == 0 {
+	iface2AddName := request.AddInterfaceOptions.Name
+	iface2Add := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, iface2AddName)
+	if iface2Add == nil {
 		newInterface := v1.Interface{
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			Name:                   canonicalIfaceName,
+			Name:                   iface2AddName,
 		}
 		newNetwork := v1.Network{
-			Name: canonicalIfaceName,
+			Name: iface2AddName,
 			NetworkSource: v1.NetworkSource{
 				Multus: &v1.MultusNetwork{
 					NetworkName: request.AddInterfaceOptions.NetworkAttachmentDefinitionName,
