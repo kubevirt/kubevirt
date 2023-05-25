@@ -1,0 +1,38 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "contact_info.go",
+        "external_docs.go",
+        "fuzz.go",
+        "gnostic.go",
+        "header.go",
+        "info.go",
+        "items.go",
+        "license.go",
+        "operation.go",
+        "parameter.go",
+        "path_item.go",
+        "paths.go",
+        "ref.go",
+        "response.go",
+        "responses.go",
+        "schema.go",
+        "security_scheme.go",
+        "swagger.go",
+        "tag.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/pkg/validation/spec",
+    importpath = "k8s.io/kube-openapi/pkg/validation/spec",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-openapi/jsonreference:go_default_library",
+        "//vendor/github.com/go-openapi/swag:go_default_library",
+        "//vendor/github.com/google/gnostic/openapiv2:go_default_library",
+        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+        "//vendor/github.com/google/gofuzz:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/internal:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json:go_default_library",
+    ],
+)

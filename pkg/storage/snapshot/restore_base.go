@@ -65,38 +65,52 @@ type VMRestoreController struct {
 }
 
 // Init initializes the restore controller
-func (ctrl *VMRestoreController) Init() {
+func (ctrl *VMRestoreController) Init() error {
 	ctrl.vmRestoreQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-restore-vmrestore")
 
-	ctrl.VMRestoreInformer.AddEventHandler(
+	_, err := ctrl.VMRestoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMRestore,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMRestore(newObj) },
 		},
 	)
 
-	ctrl.DataVolumeInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+
+	_, err = ctrl.DataVolumeInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleDataVolume,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDataVolume(newObj) },
 		},
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.PVCInformer.AddEventHandler(
+	_, err = ctrl.PVCInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
 		},
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.VMInformer.AddEventHandler(
+	_, err = ctrl.VMInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 		},
 	)
+	if err != nil {
+		return err
+	}
 
 	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
+	return nil
 }
 
 // Run the controller

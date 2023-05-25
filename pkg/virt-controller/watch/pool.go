@@ -78,7 +78,7 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 	poolInformer cache.SharedIndexInformer,
 	revisionInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	burstReplicas uint) *PoolController {
+	burstReplicas uint) (*PoolController, error) {
 	c := &PoolController{
 		clientset:        clientset,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
@@ -92,29 +92,41 @@ func NewPoolController(clientset kubecli.KubevirtClient,
 		statusUpdater:    status.NewVMPStatusUpdater(clientset),
 	}
 
-	c.poolInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.poolInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPool,
 		DeleteFunc: c.deletePool,
 		UpdateFunc: c.updatePool,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMHandler,
 		DeleteFunc: c.deleteVMHandler,
 		UpdateFunc: c.updateVMHandler,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.revisionInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.revisionInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addRevisionHandler,
 		UpdateFunc: c.updateRevisionHandler,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVMIHandler,
 		UpdateFunc: c.updateVMIHandler,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 func (c *PoolController) resolveVMIControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachine {

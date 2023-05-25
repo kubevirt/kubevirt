@@ -116,7 +116,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
-	clusterConfig *virtconfig.ClusterConfig) *VMController {
+	clusterConfig *virtconfig.ClusterConfig) (*VMController, error) {
 
 	proxy := &sarProxy{client: clientset}
 
@@ -139,25 +139,34 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		clusterConfig: clusterConfig,
 	}
 
-	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 type sarProxy struct {

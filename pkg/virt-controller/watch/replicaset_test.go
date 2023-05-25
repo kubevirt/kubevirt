@@ -67,7 +67,7 @@ var _ = Describe("Replicaset", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
+			controller, _ = NewVMIReplicaSet(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue

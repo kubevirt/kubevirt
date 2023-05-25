@@ -121,6 +121,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"coordination.k8s.io",
+				},
+				Resources: []string{
+					"leases",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "delete", "update", "create", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{

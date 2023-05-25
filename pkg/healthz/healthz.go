@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"sync"
 
-	restful "github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful/v3"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"

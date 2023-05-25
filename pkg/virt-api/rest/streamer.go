@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	restful "github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful/v3"
 	"github.com/gorilla/websocket"
 	"k8s.io/apimachinery/pkg/api/errors"
 

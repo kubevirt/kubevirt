@@ -43,7 +43,7 @@ type NodeController struct {
 }
 
 // NewNodeController creates a new instance of the NodeController struct.
-func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) *NodeController {
+func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*NodeController, error) {
 	c := &NodeController{
 		clientset:        clientset,
 		Queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-node"),
@@ -54,19 +54,25 @@ func NewNodeController(clientset kubecli.KubevirtClient, nodeInformer cache.Shar
 		recheckInterval:  1 * time.Minute,
 	}
 
-	c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachine,
 		DeleteFunc: func(_ interface{}) { /* nothing to do */ },
 		UpdateFunc: c.updateVirtualMachine,
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 func (c *NodeController) addNode(obj interface{}) {

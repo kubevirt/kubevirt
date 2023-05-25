@@ -248,63 +248,92 @@ var initCert = func(ctrl *VMExportController) {
 }
 
 // Init initializes the export controller
-func (ctrl *VMExportController) Init() {
-	ctrl.clusterConfig = virtconfig.NewClusterConfig(ctrl.CRDInformer, ctrl.KubeVirtInformer, ctrl.KubevirtNamespace)
+func (ctrl *VMExportController) Init() error {
+	var err error
+	ctrl.clusterConfig, err = virtconfig.NewClusterConfig(ctrl.CRDInformer, ctrl.KubeVirtInformer, ctrl.KubevirtNamespace)
+	if err != nil {
+		return err
+	}
 	ctrl.vmExportQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport")
 
-	ctrl.VMExportInformer.AddEventHandler(
+	_, err = ctrl.VMExportInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMExport,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMExport(newObj) },
 		},
 	)
-	ctrl.PodInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+
+	_, err = ctrl.PodInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePod,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePod(newObj) },
 			DeleteFunc: ctrl.handlePod,
 		},
 	)
-	ctrl.ServiceInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.ServiceInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleService,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleService(newObj) },
 			DeleteFunc: ctrl.handleService,
 		},
 	)
-	ctrl.PVCInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.PVCInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
 			DeleteFunc: ctrl.handlePVC,
 		},
 	)
-	ctrl.VMSnapshotInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.VMSnapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshot(newObj) },
 			DeleteFunc: ctrl.handleVMSnapshot,
 		},
 	)
-	ctrl.VMIInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.VMIInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMI,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
 			DeleteFunc: ctrl.handleVMI,
 		},
 	)
-	ctrl.VMInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.VMInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 			DeleteFunc: ctrl.handleVM,
 		},
 	)
-	ctrl.KubeVirtInformer.AddEventHandler(
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.KubeVirtInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: ctrl.handleKubeVirt,
 		},
 	)
+	if err != nil {
+		return err
+	}
 	ctrl.instancetypeMethods = &instancetype.InstancetypeMethods{
 		InstancetypeStore:        ctrl.InstancetypeInformer.GetStore(),
 		ClusterInstancetypeStore: ctrl.ClusterInstancetypeInformer.GetStore(),
@@ -315,6 +344,7 @@ func (ctrl *VMExportController) Init() {
 	}
 
 	initCert(ctrl)
+	return nil
 }
 
 // Run the controller

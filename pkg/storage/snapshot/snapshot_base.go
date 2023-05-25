@@ -99,7 +99,7 @@ type VMSnapshotController struct {
 var supportedCRDVersions = []string{"v1"}
 
 // Init initializes the snapshot controller
-func (ctrl *VMSnapshotController) Init() {
+func (ctrl *VMSnapshotController) Init() error {
 	ctrl.vmSnapshotQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-vmsnapshot")
 	ctrl.vmSnapshotContentQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-vmsnapshotcontent")
 	ctrl.crdQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-crd")
@@ -124,15 +124,18 @@ func (ctrl *VMSnapshotController) Init() {
 		},
 	}
 
-	ctrl.VMSnapshotInformer.AddEventHandlerWithResyncPeriod(
+	_, err := ctrl.VMSnapshotInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshot(newObj) },
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.VMSnapshotContentInformer.AddEventHandlerWithResyncPeriod(
+	_, err = ctrl.VMSnapshotContentInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshotContent,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshotContent(newObj) },
@@ -140,24 +143,33 @@ func (ctrl *VMSnapshotController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.VMInformer.AddEventHandlerWithResyncPeriod(
+	_, err = ctrl.VMInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.VMIInformer.AddEventHandlerWithResyncPeriod(
+	_, err = ctrl.VMIInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMI,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMI(newObj) },
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.CRDInformer.AddEventHandlerWithResyncPeriod(
+	_, err = ctrl.CRDInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleCRD,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleCRD(newObj) },
@@ -165,8 +177,11 @@ func (ctrl *VMSnapshotController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.DVInformer.AddEventHandlerWithResyncPeriod(
+	_, err = ctrl.DVInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleDV,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDV(newObj) },
@@ -174,8 +189,11 @@ func (ctrl *VMSnapshotController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
-	ctrl.PVCInformer.AddEventHandlerWithResyncPeriod(
+	_, err = ctrl.PVCInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
@@ -183,8 +201,12 @@ func (ctrl *VMSnapshotController) Init() {
 		},
 		ctrl.ResyncPeriod,
 	)
+	if err != nil {
+		return err
+	}
 
 	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
+	return nil
 }
 
 // Run the controller

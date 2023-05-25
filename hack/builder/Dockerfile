@@ -82,7 +82,7 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/conversion-gen@v0.20.2  && \
     go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.20.2 && \
     go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.20.2  && \
-    go install -v k8s.io/kube-openapi/cmd/openapi-gen@30be4d1 && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@f5883ff && \
     go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.20.2 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \

@@ -30,16 +30,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strconv"
+	"strings"
+	"time"
 
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-
-	"regexp"
-	"sort"
-	"strings"
-	"time"
 
 	"github.com/Masterminds/semver"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -2702,7 +2701,7 @@ spec:
 					}},
 				},
 			}
-			errMsg := fmt.Sprintf("Unsupported value: \"%s\"", incorrectOperator)
+			errMsg := "spec.infra.nodePlacement.tolerations.operator in body should be one of"
 			patchKvInfra(&incorrectWorkload, true, errMsg)
 		})
 
@@ -2717,7 +2716,7 @@ spec:
 					}},
 				},
 			}
-			errMsg := fmt.Sprintf("Unsupported value: \"%s\"", incorrectOperator)
+			errMsg := "spec.workloads.nodePlacement.tolerations.operator in body should be one of"
 			patchKvWorkloads(&incorrectWorkload, true, errMsg)
 		})
 

@@ -594,6 +594,29 @@ spec:
                           description: ResourceRequirements describes the compute
                             resource requirements.
                           properties:
+                            claims:
+                              description: "Claims lists the names of resources, defined
+                                in spec.resourceClaims, that are used by this container.
+                                \n This is an alpha field and requires enabling the
+                                DynamicResourceAllocation feature gate. \n This field
+                                is immutable. It can only be set for containers."
+                              items:
+                                description: ResourceClaim references one entry in
+                                  PodSpec.ResourceClaims.
+                                properties:
+                                  name:
+                                    description: Name must match the name of one entry
+                                      in pod.spec.resourceClaims of the Pod where
+                                      this field is used. It makes that resource available
+                                      inside a container.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             limits:
                               additionalProperties:
                                 anyOf:
@@ -1083,9 +1106,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -1145,7 +1165,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -1254,9 +1274,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -1313,7 +1331,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -1424,9 +1442,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -1486,7 +1501,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -1595,9 +1610,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -1654,7 +1667,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -2119,9 +2132,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -2181,7 +2191,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -2290,9 +2300,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -2349,7 +2357,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -2460,9 +2468,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -2522,7 +2527,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -2631,9 +2636,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -2690,7 +2693,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -3456,6 +3459,29 @@ spec:
                           description: ResourceRequirements describes the compute
                             resource requirements.
                           properties:
+                            claims:
+                              description: "Claims lists the names of resources, defined
+                                in spec.resourceClaims, that are used by this container.
+                                \n This is an alpha field and requires enabling the
+                                DynamicResourceAllocation feature gate. \n This field
+                                is immutable. It can only be set for containers."
+                              items:
+                                description: ResourceClaim references one entry in
+                                  PodSpec.ResourceClaims.
+                                properties:
+                                  name:
+                                    description: Name must match the name of one entry
+                                      in pod.spec.resourceClaims of the Pod where
+                                      this field is used. It makes that resource available
+                                      inside a container.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             limits:
                               additionalProperties:
                                 anyOf:
@@ -3945,9 +3971,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -4007,7 +4030,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -4116,9 +4139,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -4175,7 +4196,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -4286,9 +4307,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -4348,7 +4366,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -4457,9 +4475,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -4516,7 +4532,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -4981,9 +4997,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -5043,7 +5056,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -5152,9 +5165,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -5211,7 +5222,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -5322,9 +5333,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -5384,7 +5392,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -5493,9 +5501,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -5552,7 +5558,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array

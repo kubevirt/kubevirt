@@ -256,7 +256,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.informers.ConfigMap, k.configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 	k.stores.ConfigMapCache = k.informers.ConfigMap.GetStore()
 
-	k.controller = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.kvInformer, k.recorder, k.stores, k.informers, NAMESPACE)
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.kvInformer, k.recorder, k.stores, k.informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
 		// no delay to speed up tests
 		queue.Add(key)
@@ -374,7 +374,7 @@ func extractFinalizers(data []byte) []string {
 
 func (k *KubeVirtTestData) shouldExpectKubeVirtFinalizersPatch(times int) {
 	patch := k.kvInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	patch.DoAndReturn(func(name string, pt types.PatchType, data []byte, patchOptions *metav1.PatchOptions) (*v1.KubeVirt, error) {
+	patch.DoAndReturn(func(name string, pt types.PatchType, data []byte, opts *metav1.PatchOptions, _ ...string) (*v1.KubeVirt, error) {
 		Expect(pt).To(Equal(types.JSONPatchType))
 		finalizers := extractFinalizers(data)
 		obj, exists, err := k.kvInformer.GetStore().GetByKey(NAMESPACE + "/" + name)
@@ -723,7 +723,7 @@ func (k *KubeVirtTestData) shouldExpectPatchesAndUpdates(kv *v1.KubeVirt) {
 	k.secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 	k.promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
 	k.promClient.Fake.PrependReactor("patch", "prometheusrules", genericPatchFunc)
-	k.apiServiceClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(args ...interface{}) {
+	k.apiServiceClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, _ ...string) {
 		genericPatchFunc(&testing.PatchActionImpl{ActionImpl: testing.ActionImpl{Resource: schema.GroupVersionResource{Resource: "apiservices"}}})
 	})
 	if exportProxyEnabled(kv) {

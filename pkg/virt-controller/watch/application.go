@@ -38,7 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
-	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful/v3"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -331,7 +331,10 @@ func Execute() {
 	app.informerFactory.Start(stopChan)
 
 	cache.WaitForCacheSync(stopChan, app.crdInformer.HasSynced, app.kubeVirtInformer.HasSynced)
-	app.clusterConfig = virtconfig.NewClusterConfig(app.crdInformer, app.kubeVirtInformer, app.kubevirtNamespace)
+	app.clusterConfig, err = virtconfig.NewClusterConfig(app.crdInformer, app.kubeVirtInformer, app.kubevirtNamespace)
+	if err != nil {
+		panic(err)
+	}
 
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
@@ -599,7 +602,7 @@ func (vca *VirtControllerApp) initCommon() {
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
 
-	vca.vmiController = NewVMIController(vca.templateService,
+	vca.vmiController, err = NewVMIController(vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.kvPodInformer,
@@ -612,10 +615,16 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		topologyHinter,
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
-	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(
+	vca.nodeController, err = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	if err != nil {
+		panic(err)
+	}
+	vca.migrationController, err = NewMigrationController(
 		vca.templateService,
 		vca.vmiInformer,
 		vca.kvPodInformer,
@@ -630,27 +639,39 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.namespaceStore,
 		vca.onOpenshift,
 	)
+	if err != nil {
+		panic(err)
+	}
 
 	vca.nodeTopologyUpdater = topology.NewNodeTopologyUpdater(vca.clientSet, topologyHinter, vca.nodeInformer)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
-	vca.rsController = NewVMIReplicaSet(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+	vca.rsController, err = NewVMIReplicaSet(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initPool() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinepool-controller")
-	vca.poolController = NewPoolController(vca.clientSet,
+	vca.poolController, err = NewPoolController(vca.clientSet,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
 		vca.controllerRevisionInformer,
 		recorder,
 		controller.BurstReplicas)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initVirtualMachines() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	instancetypeMethods := &instancetype.InstancetypeMethods{
@@ -662,7 +683,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		Clientset:                vca.clientSet,
 	}
 
-	vca.vmController = NewVMController(
+	vca.vmController, err = NewVMController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
@@ -672,11 +693,15 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initDisruptionBudgetController() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
-	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
+	vca.disruptionBudgetController, err = disruptionbudget.NewDisruptionBudgetController(
 		vca.vmiInformer,
 		vca.pdbInformer,
 		vca.allPodInformer,
@@ -685,12 +710,15 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 		vca.clientSet,
 		vca.clusterConfig,
 	)
-
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initWorkloadUpdaterController() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "workload-update-controller")
-	vca.workloadUpdateController = workloadupdater.NewWorkloadUpdateController(
+	vca.workloadUpdateController, err = workloadupdater.NewWorkloadUpdateController(
 		vca.launcherImage,
 		vca.vmiInformer,
 		vca.kvPodInformer,
@@ -699,11 +727,15 @@ func (vca *VirtControllerApp) initWorkloadUpdaterController() {
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initEvacuationController() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
-	vca.evacuationController = evacuation.NewEvacuationController(
+	vca.evacuationController, err = evacuation.NewEvacuationController(
 		vca.vmiInformer,
 		vca.migrationInformer,
 		vca.nodeInformer,
@@ -712,6 +744,9 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.clientSet,
 		vca.clusterConfig,
 	)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initSnapshotController() {
@@ -731,7 +766,9 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		Recorder:                  recorder,
 		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
 	}
-	vca.snapshotController.Init()
+	if err := vca.snapshotController.Init(); err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initRestoreController() {
@@ -750,7 +787,9 @@ func (vca *VirtControllerApp) initRestoreController() {
 		Recorder:                  recorder,
 		CRInformer:                vca.controllerRevisionInformer,
 	}
-	vca.restoreController.Init()
+	if err := vca.restoreController.Init(); err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initExportController() {
@@ -783,14 +822,20 @@ func (vca *VirtControllerApp) initExportController() {
 		ClusterPreferenceInformer:   vca.clusterPreferenceInformer,
 		ControllerRevisionInformer:  vca.controllerRevisionInformer,
 	}
-	vca.exportController.Init()
+	if err := vca.exportController.Init(); err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) initCloneController() {
+	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
-	vca.vmCloneController = clone.NewVmCloneController(
+	vca.vmCloneController, err = clone.NewVmCloneController(
 		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, vca.vmSnapshotContentInformer, recorder,
 	)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {

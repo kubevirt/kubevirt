@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/pborman/uuid v1.2.1
 	k8s.io/api v0.27.1
-	k8s.io/apiextensions-apiserver v0.23.17
+	k8s.io/apiextensions-apiserver v0.26.3
 	k8s.io/apimachinery v0.27.1
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	kubevirt.io/containerized-data-importer-api v1.55.2

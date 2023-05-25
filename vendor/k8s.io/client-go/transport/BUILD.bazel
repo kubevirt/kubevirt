@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cache.go",
+        "cache_go118.go",
         "cert_rotation.go",
         "config.go",
         "round_trippers.go",

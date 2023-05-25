@@ -18,6 +18,7 @@ go_library(
         "//vendor/k8s.io/kube-openapi/pkg/schemaconv:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/util/proto:go_default_library",
         "//vendor/sigs.k8s.io/structured-merge-diff/v4/fieldpath:go_default_library",
+        "//vendor/sigs.k8s.io/structured-merge-diff/v4/schema:go_default_library",
         "//vendor/sigs.k8s.io/structured-merge-diff/v4/typed:go_default_library",
     ],
 )

@@ -6,6 +6,7 @@ go_library(
         "doc.go",
         "fake_csidriver.go",
         "fake_csinode.go",
+        "fake_csistoragecapacity.go",
         "fake_storage_client.go",
         "fake_storageclass.go",
         "fake_volumeattachment.go",

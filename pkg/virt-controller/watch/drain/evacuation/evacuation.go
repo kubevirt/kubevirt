@@ -57,7 +57,7 @@ func NewEvacuationController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-) *EvacuationController {
+) (*EvacuationController, error) {
 
 	c := &EvacuationController{
 		Queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-evacuation"),
@@ -71,25 +71,35 @@ func NewEvacuationController(
 		clusterConfig:         clusterConfig,
 	}
 
-	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
 	})
 
-	c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = c.migrationInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addMigration,
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
 	})
 
-	c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if err != nil {
+		return nil, err
+	}
+	_, err = c.nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addNode,
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
 	})
 
-	return c
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 func (c *EvacuationController) addNode(obj interface{}) {

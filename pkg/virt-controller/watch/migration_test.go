@@ -289,7 +289,7 @@ var _ = Describe("Migration watcher", func() {
 	initController := func(kvConfig *virtv1.KubeVirtConfiguration) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
-		controller = NewMigrationController(
+		controller, _ = NewMigrationController(
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			podInformer,
@@ -1335,7 +1335,7 @@ var _ = Describe("Migration watcher", func() {
 			if initializeMigrationState {
 				patch := `[{ "op": "test", "path": "/status/migrationState", "value": {"targetNode":"node01","sourceNode":"node02","migrationUid":"testmigration"} }, { "op": "replace", "path": "/status/migrationState", "value": {"startTimestamp":"%s","endTimestamp":"%s","targetNode":"node01","sourceNode":"node02","completed":true,"failed":true,"migrationUid":"testmigration"} }]`
 
-				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}) (*virtv1.VirtualMachineInstance, error) {
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).DoAndReturn(func(ctx context.Context, name interface{}, ptype interface{}, vmiStatusPatch []byte, options interface{}, _ ...string) (*virtv1.VirtualMachineInstance, error) {
 
 					vmiSP, err := apimachpatch.UnmarshalPatch(vmiStatusPatch)
 					Expect(err).ToNot(HaveOccurred())

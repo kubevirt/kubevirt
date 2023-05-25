@@ -132,11 +132,14 @@ func newVMIPhaseTransitionTimeHistogramVec(informer cache.SharedIndexInformer) *
 		},
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
 			updateVMIPhaseTransitionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), newVMI.(*v1.VirtualMachineInstance))
 		},
 	})
+	if err != nil {
+		panic(err)
+	}
 	return histogramVec
 }
 
@@ -198,11 +201,14 @@ func newVMIPhaseTransitionTimeFromCreationHistogramVec(informer cache.SharedInde
 		},
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
 			updateVMIPhaseTransitionTimeFromCreationTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), newVMI.(*v1.VirtualMachineInstance))
 		},
 	})
+	if err != nil {
+		panic(err)
+	}
 	return histogramVec
 }
 
@@ -218,12 +224,15 @@ func newVMIPhaseTransitionTimeFromDeletionHistogramVec(informer cache.SharedInde
 		},
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldVMI, newVMI interface{}) {
 			// User is deleting a VM. Record the time from the
 			// deletionTimestamp to when the VMI enters the final phase
 			updateVMIPhaseTransitionTimeFromDeletionTimeHistogramVec(histogramVec, oldVMI.(*v1.VirtualMachineInstance), newVMI.(*v1.VirtualMachineInstance))
 		},
 	})
+	if err != nil {
+		panic(err)
+	}
 	return histogramVec
 }

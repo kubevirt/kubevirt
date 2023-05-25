@@ -64,7 +64,7 @@ var _ = Describe("Node controller with", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		controller = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
+		controller, _ = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue

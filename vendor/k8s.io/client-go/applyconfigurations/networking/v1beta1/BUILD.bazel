@@ -10,6 +10,9 @@ go_library(
         "ingressclass.go",
         "ingressclassparametersreference.go",
         "ingressclassspec.go",
+        "ingressloadbalanceringress.go",
+        "ingressloadbalancerstatus.go",
+        "ingressportstatus.go",
         "ingressrule.go",
         "ingressrulevalue.go",
         "ingressspec.go",
@@ -20,6 +23,7 @@ go_library(
     importpath = "k8s.io/client-go/applyconfigurations/networking/v1beta1",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/networking/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
