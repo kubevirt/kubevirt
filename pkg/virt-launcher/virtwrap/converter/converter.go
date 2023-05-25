@@ -1827,6 +1827,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		if vmi.Spec.Domain.Devices.TPM.Persistent != nil && *vmi.Spec.Domain.Devices.TPM.Persistent {
 			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
+			// tpm-crb is not techincally required for persistence, but since there was a desire for both,
+			//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
+			//   as it is now the generally preferred model
+			domain.Spec.Devices.TPMs[0].Model = "tpm-crb"
 		}
 	}
 
