@@ -180,6 +180,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("tolerations with eviction policies given", func() {
 		var vmi *v1.VirtualMachineInstance
 		var policyMigrate = v1.EvictionStrategyLiveMigrate
+		var policyMigrateIfPossible = v1.EvictionStrategyLiveMigrateIfPossible
 		var policyNone = v1.EvictionStrategyNone
 		var policyExternal = v1.EvictionStrategyExternal
 
@@ -197,6 +198,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("migration policy to be set to LiveMigrate", &policyMigrate),
 			Entry("migration policy to be set None", &policyNone),
 			Entry("migration policy to be set External", &policyExternal),
+			Entry("migration policy to be set to LiveMigrateIfPossible", &policyMigrateIfPossible),
 			Entry("migration policy to be set nil", nil),
 		)
 

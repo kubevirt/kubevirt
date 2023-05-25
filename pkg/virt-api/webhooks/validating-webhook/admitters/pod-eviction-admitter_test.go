@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
@@ -83,6 +82,9 @@ var _ = Describe("Pod eviction admitter", func() {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
+	})
+	AfterEach(func() {
+		ctrl.Finish()
 	})
 
 	Context("Migratable and evictable VMI", func() {
@@ -386,69 +388,42 @@ var _ = Describe("Pod eviction admitter", func() {
 		})
 	})
 
-	Context("Eviction strategy external", func() {
+	prepareAdmissionReview := func(vmi *virtv1.VirtualMachineInstance, nodeName string, migratable bool) *admissionv1.AdmissionReview {
+		dryRun := false
+		pod := &k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "testpod",
+				Namespace: testns,
+				Annotations: map[string]string{
+					virtv1.DomainAnnotation: vmi.Name,
+				},
+				Labels: map[string]string{
+					virtv1.AppLabel: "virt-launcher",
+				},
+			},
+			Spec: k8sv1.PodSpec{
+				NodeName: nodeName,
+			},
+			Status: k8sv1.PodStatus{},
+		}
 
-		var vmi *virtv1.VirtualMachineInstance
-		externalMigrateStrategy := virtv1.EvictionStrategyExternal
-		nodeName := "node01"
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+				DryRun:    &dryRun,
+			},
+		}
 
-		BeforeEach(func() {
-			vmi = &virtv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: testns,
-					Name:      "testvmi",
-				},
-				Status: virtv1.VirtualMachineInstanceStatus{
-					Conditions: []virtv1.VirtualMachineInstanceCondition{
-						{
-							Type:   virtv1.VirtualMachineInstanceIsMigratable,
-							Status: k8sv1.ConditionTrue,
-						},
-					},
-					NodeName: nodeName,
-				},
-				Spec: virtv1.VirtualMachineInstanceSpec{
-					EvictionStrategy: &externalMigrateStrategy,
-				},
-			}
+		kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			get, ok := action.(testing.GetAction)
+			Expect(ok).To(BeTrue())
+			Expect(pod.Namespace).To(Equal(get.GetNamespace()))
+			Expect(pod.Name).To(Equal(get.GetName()))
+			return true, pod, nil
 		})
 
-		It("Should allow any review request and set status.EvacuationNodeName", func() {
-			dryRun := false
-			By("Composing a dummy admission request on a virt-launcher pod")
-			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testpod",
-					Namespace: testns,
-					Annotations: map[string]string{
-						virtv1.DomainAnnotation: vmi.Name,
-					},
-					Labels: map[string]string{
-						virtv1.AppLabel: "virt-launcher",
-					},
-				},
-				Spec: k8sv1.PodSpec{
-					NodeName: nodeName,
-				},
-				Status: k8sv1.PodStatus{},
-			}
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
-					DryRun:    &dryRun,
-				},
-			}
-
-			kubeClient.Fake.PrependReactor("get", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				get, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				Expect(pod.Namespace).To(Equal(get.GetNamespace()))
-				Expect(pod.Name).To(Equal(get.GetName()))
-				return true, pod, nil
-			})
-
+		if migratable {
 			data := fmt.Sprintf(`[{ "op": "add", "path": "/status/evacuationNodeName", "value": "%s" }]`, nodeName)
 			vmiClient.
 				EXPECT().
@@ -458,8 +433,72 @@ var _ = Describe("Pod eviction admitter", func() {
 					[]byte(data),
 					&metav1.PatchOptions{}).
 				Return(nil, nil)
+		}
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
 
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &metav1.GetOptions{}).Return(vmi, nil)
+		return ar
+	}
+
+	prepareVMI := func(nodeName string, evictionStrategy virtv1.EvictionStrategy, migratable k8sv1.ConditionStatus) *virtv1.VirtualMachineInstance {
+		return &virtv1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testns,
+				Name:      "testvmi",
+			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				Conditions: []virtv1.VirtualMachineInstanceCondition{
+					{
+						Type:   virtv1.VirtualMachineInstanceIsMigratable,
+						Status: migratable,
+					},
+				},
+				NodeName: nodeName,
+			},
+			Spec: virtv1.VirtualMachineInstanceSpec{
+				EvictionStrategy: &evictionStrategy,
+			},
+		}
+	}
+
+	Context("Eviction strategy external", func() {
+
+		externalMigrateStrategy := virtv1.EvictionStrategyExternal
+		nodeName := "node01"
+
+		It("Should allow any review request and set status.EvacuationNodeName", func() {
+			By("Composing a dummy admission request on a virt-launcher pod")
+			vmi := prepareVMI(nodeName, externalMigrateStrategy, k8sv1.ConditionTrue)
+			ar := prepareAdmissionReview(vmi, nodeName, true)
+
+			resp := podEvictionAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+			actions := kubeClient.Fake.Actions()
+			Expect(actions).To(HaveLen(1))
+		})
+	})
+
+	Context("Eviction strategy LiveMigrateIfPossible", func() {
+
+		evictionStrategy := virtv1.EvictionStrategyLiveMigrateIfPossible
+		nodeName := "node01"
+
+		It("Should allow on migratable VMIs any review request and set status.EvacuationNodeName", func() {
+
+			vmi := prepareVMI(nodeName, evictionStrategy, k8sv1.ConditionTrue)
+
+			ar := prepareAdmissionReview(vmi, nodeName, true)
+
+			resp := podEvictionAdmitter.Admit(ar)
+			Expect(resp.Allowed).To(BeTrue())
+			actions := kubeClient.Fake.Actions()
+			Expect(actions).To(HaveLen(1))
+		})
+
+		It("Should allow on non-migratable VMIs any review request and not set status.EvacuationNodeName", func() {
+
+			vmi := prepareVMI(nodeName, evictionStrategy, k8sv1.ConditionFalse)
+
+			ar := prepareAdmissionReview(vmi, nodeName, false)
 
 			resp := podEvictionAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(BeTrue())
