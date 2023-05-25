@@ -227,6 +227,29 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 			Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 		})
+
+		It("metric ResourceProcessorLimit should be present", func() {
+			vmi := libvmi.NewFedora(libvmi.WithCPUCount(1, 1, 1))
+			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			metrics, err := getDownwardMetrics(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			//let's try to find the ResourceProcessorLimit metric
+			found := false
+			j := 0
+			for i, metric := range metrics.Metrics {
+				if metric.Name == "ResourceProcessorLimit" {
+					j = i
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue())
+			Expect(metrics.Metrics[j].Value).To(Equal("1"))
+		})
 	})
 
 	Describe("CRDs", func() {

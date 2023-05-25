@@ -45,6 +45,10 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	}
 	out.UUID = uuid
 
+	if inDomInfo != nil {
+		out.NrVirtCpu = inDomInfo.NrVirtCpu
+	}
+
 	out.Cpu = Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in.Cpu)
 	out.Memory = Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem, inDomInfo)
 	out.Vcpu = Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in.Vcpu)

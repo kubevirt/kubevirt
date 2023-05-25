@@ -117,6 +117,7 @@ func guestCPUMetrics(vmStats *stats.DomainStats) []api.Metric {
 
 	return []api.Metric{
 		metricspkg.MustToVMMetric(float64(cpuTimeTotal)/float64(1000000000), "TotalCPUTime", "s"),
+		metricspkg.MustToVMMetric(vmStats.NrVirtCpu, "ResourceProcessorLimit", ""),
 	}
 }
 
