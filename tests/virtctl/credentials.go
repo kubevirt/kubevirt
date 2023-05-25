@@ -30,21 +30,24 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 	)
 
 	const (
-		secretNamePrefix = "test-secret-"
-		userName         = "root"
+		sshKeySecretNamePrefix   = "test-secret-ssh-"
+		passwordSecretNamePrefix = "test-secret-password-"
+		userName                 = "root"
 	)
 
 	var (
 		cli kubecli.KubevirtClient
 
-		secretName string
-		vm         *kubevirtv1.VirtualMachine
+		sshKeySecretName   string
+		passwordSecretName string
+		vm                 *kubevirtv1.VirtualMachine
 	)
 
 	BeforeEach(func() {
 		cli = kubevirt.Client()
 
-		secretName = secretNamePrefix + rand.String(6)
+		sshKeySecretName = sshKeySecretNamePrefix + rand.String(6)
+		passwordSecretName = passwordSecretNamePrefix + rand.String(6)
 
 		vmi := libvmi.NewFedora()
 		vmi.Namespace = util.NamespaceTestDefault
@@ -55,13 +58,24 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			SSHPublicKey: &kubevirtv1.SSHPublicKeyAccessCredential{
 				Source: kubevirtv1.SSHPublicKeyAccessCredentialSource{
 					Secret: &kubevirtv1.AccessCredentialSecretSource{
-						SecretName: secretName,
+						SecretName: sshKeySecretName,
 					},
 				},
 				PropagationMethod: kubevirtv1.SSHPublicKeyAccessCredentialPropagationMethod{
 					QemuGuestAgent: &kubevirtv1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
 						Users: []string{userName},
 					},
+				},
+			},
+		}, {
+			UserPassword: &kubevirtv1.UserPasswordAccessCredential{
+				Source: kubevirtv1.UserPasswordAccessCredentialSource{
+					Secret: &kubevirtv1.AccessCredentialSecretSource{
+						SecretName: passwordSecretName,
+					},
+				},
+				PropagationMethod: kubevirtv1.UserPasswordAccessCredentialPropagationMethod{
+					QemuGuestAgent: &kubevirtv1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
 				},
 			},
 		}}
@@ -76,9 +90,9 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			))
 		})
 
-		secret := &corev1.Secret{
+		keySecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: secretName,
+				Name: sshKeySecretName,
 				OwnerReferences: []metav1.OwnerReference{{
 					APIVersion: kubevirtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 					Kind:       kubevirtv1.VirtualMachineGroupVersionKind.Kind,
@@ -92,10 +106,36 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			},
 		}
 
-		secret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+		keySecret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), keySecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(func() {
-			err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Delete(context.Background(), secret.Name, metav1.DeleteOptions{})
+			err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Delete(context.Background(), keySecret.Name, metav1.DeleteOptions{})
+			Expect(err).To(Or(
+				Not(HaveOccurred()),
+				Satisfy(errors.IsNotFound),
+			))
+		})
+
+		passwordSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: passwordSecretName,
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: kubevirtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+					Kind:       kubevirtv1.VirtualMachineGroupVersionKind.Kind,
+					Name:       vm.Name,
+					UID:        vm.UID,
+					Controller: pointer.Bool(true),
+				}},
+			},
+			Data: map[string][]byte{
+				userName: []byte("test-password"),
+			},
+		}
+
+		passwordSecret, err = cli.CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), passwordSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Delete(context.Background(), passwordSecret.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				Satisfy(errors.IsNotFound),
@@ -114,7 +154,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(HaveLen(2))
@@ -134,7 +174,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(HaveLen(2))
@@ -192,7 +232,7 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(BeEmpty())
@@ -211,10 +251,30 @@ var _ = Describe("[sig-compute][virtctl]credentials", func() {
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
-			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), sshKeySecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(secret.Data).To(BeEmpty())
+		})
+	})
+
+	Context("set-password", func() {
+		It("[test_id:TODO] should set password for a user", func() {
+			const newPassword = "new-password"
+			err := clientcmd.NewRepeatableVirtctlCommand(
+				"credentials", "set-password",
+				"--user", userName,
+				"--password", newPassword,
+				"--namespace", util.NamespaceTestDefault,
+				vm.Name,
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			secret, err := cli.CoreV1().Secrets(util.NamespaceTestDefault).Get(context.Background(), passwordSecretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(secret.Data).To(HaveLen(1))
+			Expect(secret.Data).To(HaveKeyWithValue(userName, []byte(newPassword)))
 		})
 	})
 })
