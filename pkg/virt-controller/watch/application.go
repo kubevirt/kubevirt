@@ -637,7 +637,6 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clientSet,
 		vca.clusterConfig,
 		vca.namespaceStore,
-		vca.onOpenshift,
 	)
 	if err != nil {
 		panic(err)

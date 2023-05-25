@@ -302,7 +302,6 @@ var _ = Describe("Migration watcher", func() {
 			virtClient,
 			config,
 			namespaceStore,
-			false,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)

@@ -114,8 +114,6 @@ type MigrationController struct {
 
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
-
-	onOpenshift bool
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -130,7 +128,6 @@ func NewMigrationController(templateService services.TemplateService,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	namespaceStore cache.Store,
-	onOpenshift bool,
 ) (*MigrationController, error) {
 
 	c := &MigrationController{
@@ -155,7 +152,6 @@ func NewMigrationController(templateService services.TemplateService,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
 
 		namespaceStore: namespaceStore,
-		onOpenshift:    onOpenshift,
 	}
 
 	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
