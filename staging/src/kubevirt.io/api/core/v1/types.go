@@ -1974,9 +1974,10 @@ const (
 )
 
 const (
-	EvictionStrategyNone        EvictionStrategy = "None"
-	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
-	EvictionStrategyExternal    EvictionStrategy = "External"
+	EvictionStrategyNone                  EvictionStrategy = "None"
+	EvictionStrategyLiveMigrate           EvictionStrategy = "LiveMigrate"
+	EvictionStrategyLiveMigrateIfPossible EvictionStrategy = "LiveMigrateIfPossible"
+	EvictionStrategyExternal              EvictionStrategy = "External"
 )
 
 // RestartOptions may be provided when deleting an API object.

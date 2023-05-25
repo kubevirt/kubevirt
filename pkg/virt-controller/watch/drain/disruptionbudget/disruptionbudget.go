@@ -569,6 +569,8 @@ func (c *DisruptionBudgetController) vmiNeedsEvictionPDB(vmiExists bool, vmi *vi
 	switch *evictionStrategy {
 	case virtv1.EvictionStrategyLiveMigrate, virtv1.EvictionStrategyExternal:
 		return true
+	case virtv1.EvictionStrategyLiveMigrateIfPossible:
+		return vmi.IsMigratable()
 	default:
 		return false
 	}

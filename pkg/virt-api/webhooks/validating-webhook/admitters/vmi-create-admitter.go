@@ -776,9 +776,9 @@ func podNetworkRequiredStatusCause(field *k8sfield.Path) metav1.StatusCause {
 func isValidEvictionStrategy(evictionStrategy *v1.EvictionStrategy) bool {
 	return evictionStrategy == nil ||
 		*evictionStrategy == v1.EvictionStrategyLiveMigrate ||
+		*evictionStrategy == v1.EvictionStrategyLiveMigrateIfPossible ||
 		*evictionStrategy == v1.EvictionStrategyNone ||
 		*evictionStrategy == v1.EvictionStrategyExternal
-
 }
 
 func validateLiveMigration(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
