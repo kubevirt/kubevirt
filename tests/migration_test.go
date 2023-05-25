@@ -24,12 +24,14 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -59,9 +61,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
-
-	"fmt"
-	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -902,6 +901,28 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				)
 				tests.AddEphemeralCdrom(vmi, "cdrom-0", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				tests.AddEphemeralCdrom(vmi, "cdrom-1", v1.DiskBusSCSI, cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+
+				By("Starting the VirtualMachineInstance")
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				// execute a migration, wait for finalized state
+				By("starting the migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+				// check VMI, confirm migration state
+				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			})
+
+			It("should migrate vmi with LiveMigrateIfPossible eviction strategy", func() {
+				vmi := libvmi.NewAlpineWithTestTooling(
+					libvmi.WithMasqueradeNetworking()...,
+				)
+				strategy := v1.EvictionStrategyLiveMigrateIfPossible
+				vmi.Spec.EvictionStrategy = &strategy
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -3348,27 +3369,35 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(err).ToNot(HaveOccurred())
 
 					By("checking that the PDB appeared")
-					Eventually(func() []policyv1.PodDisruptionBudget {
-						pdbs, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return pdbs.Items
-					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+					Eventually(AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+
 					By("waiting for VMI")
 					libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
 
 					By("deleting the VMI")
 					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
-					Eventually(func() []policyv1.PodDisruptionBudget {
-						pdbs, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return pdbs.Items
-					}, 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
-					Eventually(func() bool {
-						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						return errors.IsNotFound(err)
-					}, 60*time.Second, 500*time.Millisecond).Should(BeTrue())
+					Eventually(AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
+					Eventually(ThisVMI(vmi), 60*time.Second, 500*time.Millisecond).Should(BeGone())
 				}
+			})
+
+			It("should create the PDB if VMI is live-migratable and has the LiveMigrateIfPossible strategy set", func() {
+				By("creating the VMI")
+				strategy := v1.EvictionStrategyLiveMigrateIfPossible
+				vmi.Spec.EvictionStrategy = &strategy
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
+				Eventually(AllPDBs(vmi.Namespace), 60*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+				By("waiting for VMI")
+				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+
+				By("deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+				By("checking that the PDB disappeared")
+				Eventually(AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 			})
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
