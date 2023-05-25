@@ -57,6 +57,8 @@ func Supported(obj interface{}) string {
 			t = structField.Type.Elem().String()
 		case structField.Type == reflect.TypeOf(&resource.Quantity{}):
 			t = structField.Type.Elem().String()
+		case structField.Type.Kind() == reflect.Slice && structField.Type.Elem().Kind() == reflect.String:
+			t = structField.Type.String()
 		default:
 			panic(fmt.Errorf("unsupported struct field \"%s\" with kind \"%s\"", structField.Name, structField.Type.Kind()))
 		}
@@ -183,4 +185,18 @@ func SplitPrefixedName(prefixedName string) (prefix string, name string, err err
 	}
 
 	return
+}
+
+func GetParamByName(paramName, paramsStr string) (string, error) {
+	paramsMap, err := split(paramsStr)
+	if err != nil {
+		return "", err
+	}
+
+	paramValue, exists := paramsMap[paramName]
+	if !exists {
+		return "", fmt.Errorf("%s must be specified", paramName)
+	}
+
+	return paramValue, nil
 }

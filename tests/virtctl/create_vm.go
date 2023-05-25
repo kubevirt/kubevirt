@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,7 +20,10 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/vm"
@@ -32,6 +36,7 @@ password: password
 chpasswd: { expire: False }`
 
 	create = "create"
+	size   = "128Mi"
 )
 
 var _ = Describe("[sig-compute][virtctl]create vm", func() {
@@ -59,6 +64,66 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
 		})
 
+		It("Example with volume-import flag and PVC type", func() {
+			const runStrategy = v1.RunStrategyAlways
+			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, size, nil)
+
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
+				setFlag(RunStrategyFlag, string(runStrategy)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,name:%s,namespace:%s", size, pvc.Name, pvc.Namespace)),
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := createVMWithRWOVolume(out, virtClient)
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+		})
+
+		It("Example with volume-import flag and Registry type", func() {
+			const runStrategy = v1.RunStrategyAlways
+			cdSource := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
+
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
+				setFlag(RunStrategyFlag, string(runStrategy)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,url:docker://%s,name:registry-source", size, cdSource)),
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := createVMWithRWOVolume(out, virtClient)
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("registry-source"))
+			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Registry).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Registry.URL).To(HaveValue(Equal("docker://" + cdSource)))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+		})
+
+		It("Example with volume-import flag and Blank type", func() {
+			const runStrategy = v1.RunStrategyAlways
+
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
+				setFlag(RunStrategyFlag, string(runStrategy)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s", size)),
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := createVMWithRWOVolume(out, virtClient)
+
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
+			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
+		})
+
 		It("[test_id:9841]Complex example", func() {
 			const runStrategy = v1.RunStrategyManual
 			const terminationGracePeriod int64 = 123
@@ -69,7 +134,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
 			dataSource := createAnnotatedDataSource(virtClient, "something", "something")
-			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M", nil)
+			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, size, nil)
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
@@ -355,7 +420,7 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.
 				Guest: uint32(1),
 			},
 			Memory: instancetypev1beta1.MemoryInstancetype{
-				Guest: resource.MustParse("128M"),
+				Guest: resource.MustParse(size),
 			},
 		},
 	}
@@ -409,6 +474,21 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
 		apiinstancetype.DefaultPreferenceKindLabel:   apiinstancetype.SingularPreferenceResourceName,
 	}
-	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, "128M", pvcLabels)
+	pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, size, pvcLabels)
 	return pvc
+}
+
+func createVMWithRWOVolume(vmSpec []byte, virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
+	unmarshaledVm := unmarshalVM(vmSpec)
+	// AccessMode needs to be set explicitly, because kubevirtci storage class
+	// does not support automatically deriving
+	unmarshaledVm.Spec.DataVolumeTemplates[0].Spec.Storage.AccessModes = []k8sv1.PersistentVolumeAccessMode{
+		k8sv1.ReadWriteOnce,
+	}
+
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), unmarshaledVm)
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(HaveConditionTrue(v1.VirtualMachineReady))
+
+	return vm
 }
