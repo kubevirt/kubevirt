@@ -31,7 +31,7 @@ var _ = Describe("Hostmetrics", func() {
 		Expect(metrics[3].Name).To(Equal("FreeVirtualMemory"))
 		Expect(metrics[3].Unit).To(Equal("KiB"))
 		Expect(metrics[3].Value).To(Equal("19563768"))
-		Expect(metrics[4].Name).To(Equal("AllocatedToVirtualServers"))
+		Expect(metrics[4].Name).To(Equal("MemoryAllocatedToVirtualServers"))
 		Expect(metrics[4].Unit).To(Equal("KiB"))
 		Expect(metrics[4].Value).To(Equal("8002064"))
 		Expect(metrics[5].Name).To(Equal("UsedVirtualMemory"))
