@@ -95,7 +95,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		})
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -103,7 +103,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 
 		DescribeTable("cannot hotplug multiple network interfaces for a q35 machine type by default", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			const secondHotpluggedIfaceName = "iface2"
 			Expect(
@@ -131,7 +131,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			migrate(hotPluggedVMI)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
@@ -141,7 +141,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 
 		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			const subnetMask = "/24"
 			const ip1 = "10.1.1.1"
@@ -213,7 +213,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		})
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			const secondHotpluggedIfaceName = "iface2"
 			Expect(
@@ -228,7 +228,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				migrate(hotPluggedVMI)
 			}
 
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -270,7 +270,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -279,7 +279,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("restarting the VM")
 			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
 				context.Background(),
@@ -398,7 +398,7 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 				vmi.Name,
 				&v1.RemoveInterfaceOptions{Name: linuxBridgeNetworkName2},
 			)).To(Succeed())
-			vmi = verifyHotplug(vmi, plugMethod)
+			vmi = verifyDynamicInterfaceChange(vmi, plugMethod)
 			Expect(libnet.InterfaceExists(vmi, guestNICName)).NotTo(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -407,7 +407,7 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 	})
 })
 
-func verifyHotplug(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
 	if plugMethod == migrationBased {
 		migrate(vmi)
 	}
