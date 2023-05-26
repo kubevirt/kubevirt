@@ -100,7 +100,6 @@ type MigrationController struct {
 	pvcInformer             cache.SharedIndexInformer
 	pdbInformer             cache.SharedIndexInformer
 	migrationPolicyInformer cache.SharedIndexInformer
-	namespaceStore          cache.Store
 	recorder                record.EventRecorder
 	podExpectations         *controller.UIDTrackingControllerExpectations
 	migrationStartLock      *sync.Mutex
@@ -114,8 +113,6 @@ type MigrationController struct {
 
 	unschedulablePendingTimeoutSeconds int64
 	catchAllPendingTimeoutSeconds      int64
-
-	onOpenshift bool
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -129,8 +126,6 @@ func NewMigrationController(templateService services.TemplateService,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-	namespaceStore cache.Store,
-	onOpenshift bool,
 ) (*MigrationController, error) {
 
 	c := &MigrationController{
@@ -153,9 +148,6 @@ func NewMigrationController(templateService services.TemplateService,
 
 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
-
-		namespaceStore: namespaceStore,
-		onOpenshift:    onOpenshift,
 	}
 
 	_, err := c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
