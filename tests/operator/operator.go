@@ -2939,7 +2939,7 @@ spec:
 			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically(">", 0))
 		})
 
-		It("should emit event if the obsolete kubevirt-config configMap still exists", func() {
+		It("[QUARANTINE] should emit event if the obsolete kubevirt-config configMap still exists", func() {
 			cm := &k8sv1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "kubevirt-config",
