@@ -10,6 +10,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -908,6 +909,16 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 	instancetypeMemoryGuest := instancetypeSpec.Memory.Guest.DeepCopy()
 	vmiSpec.Domain.Memory = &virtv1.Memory{
 		Guest: &instancetypeMemoryGuest,
+	}
+
+	// If memory overcommit has been requested, set the memory requests to be
+	// lower than the guest memory by the requested percent.
+	if instancetypeMemoryOvercommit := instancetypeSpec.Memory.OvercommitPercent; instancetypeMemoryOvercommit > 0 {
+		if vmiSpec.Domain.Resources.Requests == nil {
+			vmiSpec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		podRequestedMemory := instancetypeMemoryGuest.Value() * (1 - int64(instancetypeMemoryOvercommit)/int64(100))
+		vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(podRequestedMemory, instancetypeMemoryGuest.Format)
 	}
 
 	if instancetypeSpec.Memory.Hugepages != nil {
