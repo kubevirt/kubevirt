@@ -15,6 +15,9 @@ Version information.
 ### kubevirt_allocatable_nodes_count
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
+### kubevirt_api_request_deprecated_total
+The total number of requests to deprecated KubeVirt APIs. Type: Counter.
+
 ### kubevirt_configuration_emulation_enabled
 Indicates whether the Software Emulation is enabled in the configuration. Type: Gauge.
 

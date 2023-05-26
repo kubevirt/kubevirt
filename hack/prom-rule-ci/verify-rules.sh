@@ -19,7 +19,7 @@
 source $(dirname "$0")/../common.sh
 
 fail_if_cri_bin_missing
-readonly PROM_IMAGE="quay.io/prometheus/prometheus:v2.15.2"
+readonly PROM_IMAGE="quay.io/prometheus/prometheus:v2.44.0"
 
 function cleanup() {
     local cleanup_files=("${@:?}")

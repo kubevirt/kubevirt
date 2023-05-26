@@ -478,6 +478,19 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				operatorHealthImpactLabelKey: "critical",
 			},
 		},
+		{
+			Alert: "KubeVirtDeprecatedAPIsRequested",
+			Expr:  intstr.FromString("sum by (resource,group,version) ((round(increase(kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"}[10m])) > 0 and kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"} offset 10m) or (kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"} != 0 unless kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"} offset 10m))"),
+			Annotations: map[string]string{
+				"description": "Detected requests to the deprecated {{ $labels.resource }}.{{ $labels.group }}/{{ $labels.version }} API.",
+				"summary":     "Detected {{ $value }} requests in the last 10 minutes.",
+				"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtDeprecatedAPIsRequested"),
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "info",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}...)
 
 	ruleSpec := &v1.PrometheusRuleSpec{
@@ -666,6 +679,14 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 			},
 			MType:       prometheusv1.MetricTypeGauge,
 			Description: "The number of VMs in the cluster by namespace.",
+		},
+		{
+			Rule: v1.Rule{
+				Record: "kubevirt_api_request_deprecated_total",
+				Expr:   intstr.FromString("group by (group,version,resource,subresource) (apiserver_requested_deprecated_apis{group=\"kubevirt.io\"}) * on (group,version,resource,subresource) group_right() sum by (group,version,resource,subresource,verb) (apiserver_request_total)"),
+			},
+			MType:       prometheusv1.MetricTypeCounter,
+			Description: "The total number of requests to deprecated KubeVirt APIs.",
 		},
 	}
 }
