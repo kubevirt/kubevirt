@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 
@@ -65,6 +68,7 @@ var (
 	expectedThawedOutput = `{"return":"thawed"}`
 	expectedFrozenOutput = `{"return":"frozen"}`
 	testDumpPath         = "/test/dump/path/vol1.memory.dump"
+	clusterConfig        *virtconfig.ClusterConfig
 )
 
 var _ = BeforeSuite(func() {
@@ -379,6 +383,7 @@ var _ = Describe("Manager", func() {
 				},
 			},
 		}
+		clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	})
 
 	expectedDomainFor := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -393,6 +398,8 @@ var _ = Describe("Manager", func() {
 			}
 		}
 
+		freePageReportingDisabled := clusterConfig.IsFreePageReportingDisabled()
+
 		c := &converter.ConverterContext{
 			Architecture:      runtime.GOARCH,
 			VirtualMachine:    vmi,
@@ -400,7 +407,7 @@ var _ = Describe("Manager", func() {
 			SMBios:            &cmdv1.SMBios{},
 			HotplugVolumes:    hotplugVolumes,
 			PermanentVolumes:  permanentVolumes,
-			FreePageReporting: isFreePageReportingEnabled(vmi),
+			FreePageReporting: isFreePageReportingEnabled(freePageReportingDisabled, vmi),
 			CPUSet:            []int{0, 1, 2, 3, 4, 5},
 			Topology:          topology,
 		}
@@ -1221,7 +1228,7 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
 		})
-		DescribeTable("should set freePageReporting", func(memory *v1.Memory, cpu *v1.CPU, annotationValue, expectedFreePageReportingValue string) {
+		DescribeTable("should set freePageReporting", func(memory *v1.Memory, clusterFreePageReportingDisabled bool, cpu *v1.CPU, annotationValue, expectedFreePageReportingValue string) {
 			vmi := newVMI(testNamespace, testVmName)
 			if vmi.Annotations == nil {
 				vmi.Annotations = make(map[string]string)
@@ -1232,6 +1239,13 @@ var _ = Describe("Manager", func() {
 			vmi.Spec.Domain.CPU = cpu
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
+			if clusterFreePageReportingDisabled {
+				clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					VirtualMachineOptions: &v1.VirtualMachineOptions{
+						DisableFreePageReporting: &v1.DisableFreePageReporting{},
+					},
+				})
+			}
 			domainSpec := expectedDomainFor(vmi)
 
 			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
@@ -1241,17 +1255,18 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, Topology: topology})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}, Topology: topology, ClusterConfig: &cmdv1.ClusterConfig{FreePageReportingDisabled: clusterFreePageReportingDisabled}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
 			Expect(newspec.Devices.Ballooning.FreePageReporting).To(Equal(expectedFreePageReportingValue))
 		},
-			Entry("enabled if vmi is not requesting any high performance components", nil, nil, "false", "on"),
-			Entry("disabled if vmi is requesting Hugepages", &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}, nil, "false", "off"),
-			Entry("disabled if vmi is requesting Realtime", nil, &v1.CPU{Realtime: &v1.Realtime{}}, "false", "off"),
-			Entry("disabled if vmi is requesting DedicatedCPU", nil, &v1.CPU{
+			Entry("disabled if free page reporting is disabled at cluster level", nil, true, nil, "false", "off"),
+			Entry("enabled if vmi is not requesting any high performance components", nil, false, nil, "false", "on"),
+			Entry("disabled if vmi is requesting Hugepages", &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}, false, nil, "false", "off"),
+			Entry("disabled if vmi is requesting Realtime", nil, false, &v1.CPU{Realtime: &v1.Realtime{}}, "false", "off"),
+			Entry("disabled if vmi is requesting DedicatedCPU", nil, false, &v1.CPU{
 				DedicatedCPUPlacement: true}, "false", "off"),
-			Entry("disabled if vmi has the disable free page reporting annotation", nil, nil, "true", "off"),
+			Entry("disabled if vmi has the disable free page reporting annotation", nil, false, nil, "true", "off"),
 		)
 	})
 	Context("test marking graceful shutdown", func() {

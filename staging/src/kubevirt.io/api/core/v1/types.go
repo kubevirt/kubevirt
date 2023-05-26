@@ -2327,7 +2327,8 @@ type KubeVirtConfiguration struct {
 
 	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
 	// The storage class must support RWX in filesystem mode.
-	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
+	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
+	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 }
 
 type ArchConfiguration struct {
@@ -2399,6 +2400,17 @@ type SeccompConfiguration struct {
 	// VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none
 	VirtualMachineInstanceProfile *VirtualMachineInstanceProfile `json:"virtualMachineInstanceProfile,omitempty"`
 }
+
+// VirtualMachineOptions holds the cluster level information regarding the virtual machine.
+type VirtualMachineOptions struct {
+	// DisableFreePageReporting disable the free page reporting of
+	// memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+	// This will have effect only if AutoattachMemBalloon is not false and the vmi is not
+	// requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.
+	DisableFreePageReporting *DisableFreePageReporting `json:"disableFreePageReporting,omitempty"`
+}
+
+type DisableFreePageReporting struct{}
 
 // TLSConfiguration holds TLS options
 type TLSConfiguration struct {

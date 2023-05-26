@@ -3332,6 +3332,34 @@ var _ = Describe("Converter", func() {
 			expectTsc(domain, false)
 		})
 	})
+
+	Context("with FreePageReporting", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		})
+
+		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(freePageReporting bool, expectedValue string) {
+			c = &ConverterContext{
+				FreePageReporting: freePageReporting,
+				AllowEmulation:    true,
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedValue))
+		},
+			Entry("when true", true, "on"),
+			Entry("when false", false, "off"),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {

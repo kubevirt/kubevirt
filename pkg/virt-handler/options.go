@@ -3,6 +3,8 @@ package virthandler
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
@@ -14,14 +16,13 @@ func virtualMachineOptions(
 	preallocatedVolumes []string,
 	capabilities *api.Capabilities,
 	disksInfo map[string]*containerdisk.DiskInfo,
-	expandDisksEnabled bool,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
 		MemBalloonStatsPeriod: period,
 		PreallocatedVolumes:   preallocatedVolumes,
 		Topology:              capabilitiesToTopology(capabilities),
 		DisksInfo:             disksInfoToDisksInfo(disksInfo),
-		ExpandDisksEnabled:    expandDisksEnabled,
 	}
 	if smbios != nil {
 		options.VirtualMachineSMBios = &cmdv1.SMBios{
@@ -32,6 +33,15 @@ func virtualMachineOptions(
 			Version:      smbios.Version,
 		}
 	}
+
+	if clusterConfig != nil {
+		options.ExpandDisksEnabled = clusterConfig.ExpandDisksEnabled()
+		options.ClusterConfig = &cmdv1.ClusterConfig{
+			ExpandDisksEnabled:        clusterConfig.ExpandDisksEnabled(),
+			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
+		}
+	}
+
 	return options
 }
 

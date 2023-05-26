@@ -243,6 +243,34 @@ var _ = Describe("test configuration", func() {
 		Entry("when empty, GetEmulatedMachines should return the defaults with ppc64le", "ppc64le", []string{}, []string{}, []string{}, strings.Split(virtconfig.DefaultPPC64LEEmulatedMachines, ",")),
 	)
 
+	DescribeTable("when virtualMachineOptions", func(virtualMachineOptions *v1.VirtualMachineOptions, expected bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtualMachineOptions: virtualMachineOptions,
+				},
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: "Deployed",
+			},
+		})
+		Expect(clusterConfig.IsFreePageReportingDisabled()).To(BeEquivalentTo(expected))
+	},
+		Entry("is nil, IsFreePageReportingDisabled should return false",
+			nil, false,
+		),
+		Entry("is an empty struct, IsFreePageReportingDisabled should return false",
+			&v1.VirtualMachineOptions{}, false,
+		),
+		Entry("contains disableFreePageReporting, IsFreePageReportingDisabled should return true",
+			&v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
+		),
+	)
+
 	// deprecated
 	DescribeTable(" when supportedGuestAgentVersions", func(value []string, result []string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
