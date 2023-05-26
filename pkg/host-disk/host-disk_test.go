@@ -368,90 +368,116 @@ var _ = Describe("HostDisk", func() {
 
 	Describe("VMI with PVC volume", func() {
 
-		var virtClient *kubecli.MockKubevirtClient
+		var (
+			virtClient *kubecli.MockKubevirtClient
+			vmi        *v1.VirtualMachineInstance
+		)
+
+		const (
+			pvcName    = "madeup"
+			volumeName = "pvc-volume"
+		)
 
 		BeforeEach(func() {
 			ctrl := gomock.NewController(GinkgoT())
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			kubeClient := fake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		})
-
-		DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode, pvcReferenceObj string) {
-
-			pvcName := "madeup"
-
-			By("Creating the PVC")
-			namespace := "testns"
 
 			By("Creating a VMI with PVC volume")
-			volumeName := "pvc-volume"
-			volumes := []v1.Volume{
-				{
-					Name: volumeName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
-					}},
-			}
-
-			volumeStatus := []v1.VolumeStatus{
-				{
-					Name: volumeName,
-					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
-						VolumeMode: &mode,
-						Capacity: map[k8sv1.ResourceName]resource.Quantity{
-							k8sv1.ResourceStorage: *resource.NewQuantity(1024*1024, resource.BinarySI),
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: pvcName,
+									},
+								},
+							},
+						},
+					},
+					Domain: v1.DomainSpec{},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					VolumeStatus: []v1.VolumeStatus{
+						{
+							Name:                      volumeName,
+							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{},
 						},
 					},
 				},
 			}
-			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: namespace, UID: "1234",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
-				Status: v1.VirtualMachineInstanceStatus{
-					VolumeStatus: volumeStatus,
-				},
-			}
+		})
 
-			// Add a filesystem to vmi spec to test fs passthrough
-			if pvcReferenceObj == "filesystem" {
-				vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
-					Name:     volumeName,
-					Virtiofs: &v1.FilesystemVirtiofs{},
-				})
-			}
+		DescribeTable("in", func(mode k8sv1.PersistentVolumeMode, devices v1.Devices, capacity, requests k8sv1.ResourceList, validateFunc func()) {
+			vmi.Spec.Domain.Devices = devices
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.VolumeMode = &mode
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.Capacity = capacity
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.Requests = requests
 
 			By("Replacing PVCs with hostdisks")
 			Expect(ReplacePVCByHostDisk(vmi)).To(Succeed())
-
-			Expect(vmi.Spec.Volumes).To(HaveLen(1), "There should still be 1 volume")
-
-			if mode == k8sv1.PersistentVolumeFilesystem && pvcReferenceObj == "disk" {
-				Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
-				Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
-				Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
-				Expect(vmi.Spec.Volumes[0].HostDisk.Capacity).NotTo(BeNil(), "Hostdisk capacity is filled")
-
-				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
-			} else if mode == k8sv1.PersistentVolumeBlock && pvcReferenceObj == "disk" {
-				Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
-				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
-				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
-			} else if mode == k8sv1.PersistentVolumeFilesystem && pvcReferenceObj == "filesystem" {
-				Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
-				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
-				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
-			} else {
-				Fail("unknown PVC mode!")
-			}
-
+			Expect(vmi.Spec.Volumes).To(HaveLen(1), "There should always be 1 volume")
+			validateFunc()
 		},
 
-			Entry("filemode", k8sv1.PersistentVolumeFilesystem, "disk"),
-			Entry("blockmode", k8sv1.PersistentVolumeBlock, "disk"),
-			Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem, "filesystem"),
+			Entry("filemode", k8sv1.PersistentVolumeFilesystem,
+				v1.Devices{},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				func() {
+					ExpectedCapacity := resource.MustParse("2Gi")
+					Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
+					Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
+					Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
+					Expect(vmi.Spec.Volumes[0].HostDisk.Capacity.Value()).To(Equal(ExpectedCapacity.Value()), "Hostdisk capacity is filled")
+					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
+				},
+			),
+			Entry("filemode with smaller requested PVC size", k8sv1.PersistentVolumeFilesystem,
+				v1.Devices{},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")},
+				func() {
+					ExpectedCapacity := resource.MustParse("1Gi")
+					Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
+					Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
+					Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
+					Expect(vmi.Spec.Volumes[0].HostDisk.Capacity.Value()).To(Equal(ExpectedCapacity.Value()), "Hostdisk capacity is filled")
+					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
+				},
+			),
+			Entry("blockmode", k8sv1.PersistentVolumeBlock,
+				v1.Devices{},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				func() {
+					Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
+					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
+					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
+				},
+			),
+			Entry("filesystem passthrough", k8sv1.PersistentVolumeFilesystem,
+				v1.Devices{
+					Filesystems: []v1.Filesystem{{
+						Name:     volumeName,
+						Virtiofs: &v1.FilesystemVirtiofs{},
+					}},
+				},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("2Gi")},
+				func() {
+					Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
+					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
+					Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
+				},
+			),
 		)
 	})
 
