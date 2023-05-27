@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/resource/generate/rbac:go_default_library",
-        "//tools/marketplace/helper:go_default_library",
         "//tools/util:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",

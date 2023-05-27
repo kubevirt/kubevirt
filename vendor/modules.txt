@@ -99,14 +99,6 @@ github.com/go-openapi/loads
 # github.com/go-openapi/runtime v0.19.24
 ## explicit; go 1.13
 github.com/go-openapi/runtime
-github.com/go-openapi/runtime/client
-github.com/go-openapi/runtime/logger
-github.com/go-openapi/runtime/middleware
-github.com/go-openapi/runtime/middleware/denco
-github.com/go-openapi/runtime/middleware/header
-github.com/go-openapi/runtime/middleware/untyped
-github.com/go-openapi/runtime/security
-github.com/go-openapi/runtime/yamlpc
 # github.com/go-openapi/spec v0.20.3
 ## explicit; go 1.13
 github.com/go-openapi/spec
@@ -368,25 +360,10 @@ github.com/openshift/custom-resource-status/conditions/v1
 ## explicit; go 1.17
 github.com/openshift/library-go/pkg/build/naming
 github.com/openshift/library-go/pkg/operator/resource/resourcemerge
-# github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2
-## explicit
-github.com/operator-framework/go-appr/appregistry
-github.com/operator-framework/go-appr/appregistry/appr
-github.com/operator-framework/go-appr/appregistry/blobs
-github.com/operator-framework/go-appr/appregistry/channel
-github.com/operator-framework/go-appr/appregistry/info
-github.com/operator-framework/go-appr/appregistry/package_appr
-github.com/operator-framework/go-appr/models
 # github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 ## explicit
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
 github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
-# github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349
-## explicit
-github.com/operator-framework/operator-marketplace/pkg/apis/operators/shared
-github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1
-github.com/operator-framework/operator-marketplace/pkg/appregistry
-github.com/operator-framework/operator-marketplace/pkg/datastore
 # github.com/pborman/uuid v1.2.1
 ## explicit
 github.com/pborman/uuid
@@ -1255,10 +1232,6 @@ mvdan.cc/editorconfig
 mvdan.cc/sh/v3/cmd/shfmt
 mvdan.cc/sh/v3/fileutil
 mvdan.cc/sh/v3/syntax
-# sigs.k8s.io/controller-runtime v0.11.1 => sigs.k8s.io/controller-runtime v0.6.2
-## explicit; go 1.13
-sigs.k8s.io/controller-runtime/pkg/runtime/scheme
-sigs.k8s.io/controller-runtime/pkg/scheme
 # sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
 ## explicit; go 1.18
 sigs.k8s.io/json
