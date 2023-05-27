@@ -156,30 +156,3 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 	})
 })
-
-type kubevirtSpecOption func(*v1.KubeVirtSpec)
-
-func newKubeVirtSpec(opts ...kubevirtSpecOption) *v1.KubeVirtSpec {
-	kvSpec := &v1.KubeVirtSpec{
-		Configuration: v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{},
-		},
-	}
-
-	for _, kvOptFunc := range opts {
-		kvOptFunc(kvSpec)
-	}
-	return kvSpec
-}
-
-func withFeatureGate(featureGate string) kubevirtSpecOption {
-	return func(kvSpec *v1.KubeVirtSpec) {
-		kvSpec.Configuration.DeveloperConfiguration.FeatureGates = append(kvSpec.Configuration.DeveloperConfiguration.FeatureGates, featureGate)
-	}
-}
-
-func withWorkloadUpdateMethod(method v1.WorkloadUpdateMethod) kubevirtSpecOption {
-	return func(kvSpec *v1.KubeVirtSpec) {
-		kvSpec.WorkloadUpdateStrategy.WorkloadUpdateMethods = append(kvSpec.WorkloadUpdateStrategy.WorkloadUpdateMethods, method)
-	}
-}
