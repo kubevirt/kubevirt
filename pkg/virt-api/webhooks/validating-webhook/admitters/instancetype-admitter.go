@@ -7,6 +7,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/instancetype"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
@@ -16,6 +17,8 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
+
+const percentValueMustBeInRangeMessagePattern = "%s '%s': must be in range between 0 and 100."
 
 var supportedInstancetypeVersions = []string{
 	instancetypev1alpha1.SchemeGroupVersion.Version,
@@ -29,6 +32,40 @@ var _ validating_webhooks.Admitter = &InstancetypeAdmitter{}
 
 func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	return admitInstancetypeOrPreference(ar.Request, instancetype.PluralResourceName)
+}
+
+func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	causes = append(causes, validateMemoryOvercommitPercentSetting(field, spec)...)
+	causes = append(causes, validateMemoryOvercommitPercentNoHugepages(field, spec)...)
+	return causes
+}
+
+func validateMemoryOvercommitPercentSetting(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) (causes []metav1.StatusCause) {
+
+	if spec.Memory.OvercommitPercent < 0 || spec.Memory.OvercommitPercent > 100 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf(percentValueMustBeInRangeMessagePattern, field.Child("memory", "overcommitPercent").String(),
+				string(spec.Memory.OvercommitPercent)),
+			Field: field.Child("memory", "overcommitPercent").String(),
+		})
+	}
+	return causes
+}
+
+func validateMemoryOvercommitPercentNoHugepages(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) (causes []metav1.StatusCause) {
+	if spec.Memory.OvercommitPercent != 0 && spec.Memory.Hugepages != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s and %s should not be requested together.",
+				field.Child("memory", "overcommitPercent").String(),
+				field.Child("memory", "hugepages").String()),
+			Field: field.Child("memory", "overcommitPercent").String(),
+		})
+	}
+	return causes
 }
 
 type ClusterInstancetypeAdmitter struct{}
@@ -58,6 +95,15 @@ func admitInstancetypeOrPreference(request *admissionv1.AdmissionRequest, resour
 	}
 	if resp := webhookutils.ValidateSchema(gvk, request.Object.Raw); resp != nil {
 		return resp
+	}
+
+	instancetypeSpecObj, _, err := webhookutils.GetInstanceTypeSpecFromAdmissionRequest(request)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+	causes := ValidateInstanceTypeSpec(k8sfield.NewPath("spec"), instancetypeSpecObj)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	return &admissionv1.AdmissionResponse{
