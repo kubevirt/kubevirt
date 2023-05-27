@@ -254,6 +254,20 @@ var CRDsValidation map[string]string = map[string]string{
               description: DataVolumeBlankImage provides the parameters to create
                 a new raw blank image for the PVC
               type: object
+            gcs:
+              description: DataVolumeSourceGCS provides the parameters to create a
+                Data Volume from an GCS source
+              properties:
+                secretRef:
+                  description: SecretRef provides the secret reference needed to access
+                    the GCS source
+                  type: string
+                url:
+                  description: URL is the url of the GCS source
+                  type: string
+              required:
+              - url
+              type: object
             http:
               description: DataVolumeSourceHTTP can be either an http or https endpoint,
                 with an optional basic auth user name and password, and an optional
@@ -366,6 +380,20 @@ var CRDsValidation map[string]string = map[string]string{
               required:
               - url
               type: object
+            snapshot:
+              description: DataVolumeSourceSnapshot provides the parameters to create
+                a Data Volume from an existing VolumeSnapshot
+              properties:
+                name:
+                  description: The name of the source VolumeSnapshot
+                  type: string
+                namespace:
+                  description: The namespace of the source VolumeSnapshot
+                  type: string
+              required:
+              - name
+              - namespace
+              type: object
             upload:
               description: DataVolumeSourceUpload provides the parameters to create
                 a Data Volume by uploading the source
@@ -437,7 +465,9 @@ var CRDsValidation map[string]string = map[string]string{
                 types that implement data population, the AnyVolumeDataSource feature
                 gate must be enabled. If the provisioner or an external controller
                 can support the specified data source, it will create a new volume
-                based on the contents of the specified data source.'
+                based on the contents of the specified data source. If the AnyVolumeDataSource
+                feature gate is enabled, this field will always have the same contents
+                as the DataSourceRef field.'
               properties:
                 apiGroup:
                   description: APIGroup is the group for the resource being referenced.
@@ -449,6 +479,48 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 name:
                   description: Name is the name of resource being referenced
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+            dataSourceRef:
+              description: 'Specifies the object from which to populate the volume
+                with data, if a non-empty volume is desired. This may be any local
+                object from a non-empty API group (non core object) or a PersistentVolumeClaim
+                object. When this field is specified, volume binding will only succeed
+                if the type of the specified object matches some installed volume
+                populator or dynamic provisioner. This field will replace the functionality
+                of the DataSource field and as such if both fields are non-empty,
+                they must have the same value. For backwards compatibility, both fields
+                (DataSource and DataSourceRef) will be set to the same value automatically
+                if one of them is empty and the other is non-empty. There are two
+                important differences between DataSource and DataSourceRef: * While
+                DataSource only allows two specific types of objects, DataSourceRef
+                allows any non-core object, as well as PersistentVolumeClaim objects.
+                * While DataSource ignores disallowed values (dropping them), DataSourceRef
+                preserves all values, and generates an error if a disallowed value
+                is specified. (Beta) Using this field requires the AnyVolumeDataSource
+                feature gate to be enabled.'
+              properties:
+                apiGroup:
+                  description: APIGroup is the group for the resource being referenced.
+                    If APIGroup is not specified, the specified Kind must be in the
+                    core API group. For any other third-party types, APIGroup is required.
+                  type: string
+                kind:
+                  description: Kind is the type of resource being referenced
+                  type: string
+                name:
+                  description: Name is the name of resource being referenced
+                  type: string
+                namespace:
+                  description: Namespace is the namespace of resource being referenced
+                    Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant
+                    object is required in the referent namespace to allow that namespace's
+                    owner to accept the reference. See the ReferenceGrant documentation
+                    for details. (Alpha) This field requires the CrossNamespaceVolumeDataSource
+                    feature gate to be enabled.
                   type: string
               required:
               - kind
@@ -3727,6 +3799,20 @@ var CRDsValidation map[string]string = map[string]string{
                         description: DataVolumeBlankImage provides the parameters
                           to create a new raw blank image for the PVC
                         type: object
+                      gcs:
+                        description: DataVolumeSourceGCS provides the parameters to
+                          create a Data Volume from an GCS source
+                        properties:
+                          secretRef:
+                            description: SecretRef provides the secret reference needed
+                              to access the GCS source
+                            type: string
+                          url:
+                            description: URL is the url of the GCS source
+                            type: string
+                        required:
+                        - url
+                        type: object
                       http:
                         description: DataVolumeSourceHTTP can be either an http or
                           https endpoint, with an optional basic auth user name and
@@ -3842,6 +3928,20 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - url
                         type: object
+                      snapshot:
+                        description: DataVolumeSourceSnapshot provides the parameters
+                          to create a Data Volume from an existing VolumeSnapshot
+                        properties:
+                          name:
+                            description: The name of the source VolumeSnapshot
+                            type: string
+                          namespace:
+                            description: The namespace of the source VolumeSnapshot
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
                       upload:
                         description: DataVolumeSourceUpload provides the parameters
                           to create a Data Volume by uploading the source
@@ -3915,7 +4015,10 @@ var CRDsValidation map[string]string = map[string]string{
                           population, the AnyVolumeDataSource feature gate must be
                           enabled. If the provisioner or an external controller can
                           support the specified data source, it will create a new
-                          volume based on the contents of the specified data source.'
+                          volume based on the contents of the specified data source.
+                          If the AnyVolumeDataSource feature gate is enabled, this
+                          field will always have the same contents as the DataSourceRef
+                          field.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -3928,6 +4031,54 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                           name:
                             description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: 'Specifies the object from which to populate
+                          the volume with data, if a non-empty volume is desired.
+                          This may be any local object from a non-empty API group
+                          (non core object) or a PersistentVolumeClaim object. When
+                          this field is specified, volume binding will only succeed
+                          if the type of the specified object matches some installed
+                          volume populator or dynamic provisioner. This field will
+                          replace the functionality of the DataSource field and as
+                          such if both fields are non-empty, they must have the same
+                          value. For backwards compatibility, both fields (DataSource
+                          and DataSourceRef) will be set to the same value automatically
+                          if one of them is empty and the other is non-empty. There
+                          are two important differences between DataSource and DataSourceRef:
+                          * While DataSource only allows two specific types of objects,
+                          DataSourceRef allows any non-core object, as well as PersistentVolumeClaim
+                          objects. * While DataSource ignores disallowed values (dropping
+                          them), DataSourceRef preserves all values, and generates
+                          an error if a disallowed value is specified. (Beta) Using
+                          this field requires the AnyVolumeDataSource feature gate
+                          to be enabled.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being
+                              referenced. If APIGroup is not specified, the specified
+                              Kind must be in the core API group. For any other third-party
+                              types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of resource being
+                              referenced Note that when a namespace is specified,
+                              a gateway.networking.k8s.io/ReferenceGrant object is
+                              required in the referent namespace to allow that namespace's
+                              owner to accept the reference. See the ReferenceGrant
+                              documentation for details. (Alpha) This field requires
+                              the CrossNamespaceVolumeDataSource feature gate to be
+                              enabled.
                             type: string
                         required:
                         - kind
@@ -16790,6 +16941,20 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: DataVolumeBlankImage provides the parameters
                                   to create a new raw blank image for the PVC
                                 type: object
+                              gcs:
+                                description: DataVolumeSourceGCS provides the parameters
+                                  to create a Data Volume from an GCS source
+                                properties:
+                                  secretRef:
+                                    description: SecretRef provides the secret reference
+                                      needed to access the GCS source
+                                    type: string
+                                  url:
+                                    description: URL is the url of the GCS source
+                                    type: string
+                                required:
+                                - url
+                                type: object
                               http:
                                 description: DataVolumeSourceHTTP can be either an
                                   http or https endpoint, with an optional basic auth
@@ -16911,6 +17076,21 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - url
                                 type: object
+                              snapshot:
+                                description: DataVolumeSourceSnapshot provides the
+                                  parameters to create a Data Volume from an existing
+                                  VolumeSnapshot
+                                properties:
+                                  name:
+                                    description: The name of the source VolumeSnapshot
+                                    type: string
+                                  namespace:
+                                    description: The namespace of the source VolumeSnapshot
+                                    type: string
+                                required:
+                                - name
+                                - namespace
+                                type: object
                               upload:
                                 description: DataVolumeSourceUpload provides the parameters
                                   to create a Data Volume by uploading the source
@@ -16985,7 +17165,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   feature gate must be enabled. If the provisioner
                                   or an external controller can support the specified
                                   data source, it will create a new volume based on
-                                  the contents of the specified data source.'
+                                  the contents of the specified data source. If the
+                                  AnyVolumeDataSource feature gate is enabled, this
+                                  field will always have the same contents as the
+                                  DataSourceRef field.'
                                 properties:
                                   apiGroup:
                                     description: APIGroup is the group for the resource
@@ -17001,6 +17184,60 @@ var CRDsValidation map[string]string = map[string]string{
                                   name:
                                     description: Name is the name of resource being
                                       referenced
+                                    type: string
+                                required:
+                                - kind
+                                - name
+                                type: object
+                              dataSourceRef:
+                                description: 'Specifies the object from which to populate
+                                  the volume with data, if a non-empty volume is desired.
+                                  This may be any local object from a non-empty API
+                                  group (non core object) or a PersistentVolumeClaim
+                                  object. When this field is specified, volume binding
+                                  will only succeed if the type of the specified object
+                                  matches some installed volume populator or dynamic
+                                  provisioner. This field will replace the functionality
+                                  of the DataSource field and as such if both fields
+                                  are non-empty, they must have the same value. For
+                                  backwards compatibility, both fields (DataSource
+                                  and DataSourceRef) will be set to the same value
+                                  automatically if one of them is empty and the other
+                                  is non-empty. There are two important differences
+                                  between DataSource and DataSourceRef: * While DataSource
+                                  only allows two specific types of objects, DataSourceRef
+                                  allows any non-core object, as well as PersistentVolumeClaim
+                                  objects. * While DataSource ignores disallowed values
+                                  (dropping them), DataSourceRef preserves all values,
+                                  and generates an error if a disallowed value is
+                                  specified. (Beta) Using this field requires the
+                                  AnyVolumeDataSource feature gate to be enabled.'
+                                properties:
+                                  apiGroup:
+                                    description: APIGroup is the group for the resource
+                                      being referenced. If APIGroup is not specified,
+                                      the specified Kind must be in the core API group.
+                                      For any other third-party types, APIGroup is
+                                      required.
+                                    type: string
+                                  kind:
+                                    description: Kind is the type of resource being
+                                      referenced
+                                    type: string
+                                  name:
+                                    description: Name is the name of resource being
+                                      referenced
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace of resource
+                                      being referenced Note that when a namespace
+                                      is specified, a gateway.networking.k8s.io/ReferenceGrant
+                                      object is required in the referent namespace
+                                      to allow that namespace's owner to accept the
+                                      reference. See the ReferenceGrant documentation
+                                      for details. (Alpha) This field requires the
+                                      CrossNamespaceVolumeDataSource feature gate
+                                      to be enabled.
                                     type: string
                                 required:
                                 - kind
@@ -21564,6 +21801,21 @@ var CRDsValidation map[string]string = map[string]string{
                                       parameters to create a new raw blank image for
                                       the PVC
                                     type: object
+                                  gcs:
+                                    description: DataVolumeSourceGCS provides the
+                                      parameters to create a Data Volume from an GCS
+                                      source
+                                    properties:
+                                      secretRef:
+                                        description: SecretRef provides the secret
+                                          reference needed to access the GCS source
+                                        type: string
+                                      url:
+                                        description: URL is the url of the GCS source
+                                        type: string
+                                    required:
+                                    - url
+                                    type: object
                                   http:
                                     description: DataVolumeSourceHTTP can be either
                                       an http or https endpoint, with an optional
@@ -21690,6 +21942,21 @@ var CRDsValidation map[string]string = map[string]string{
                                     required:
                                     - url
                                     type: object
+                                  snapshot:
+                                    description: DataVolumeSourceSnapshot provides
+                                      the parameters to create a Data Volume from
+                                      an existing VolumeSnapshot
+                                    properties:
+                                      name:
+                                        description: The name of the source VolumeSnapshot
+                                        type: string
+                                      namespace:
+                                        description: The namespace of the source VolumeSnapshot
+                                        type: string
+                                    required:
+                                    - name
+                                    - namespace
+                                    type: object
                                   upload:
                                     description: DataVolumeSourceUpload provides the
                                       parameters to create a Data Volume by uploading
@@ -21770,7 +22037,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       feature gate must be enabled. If the provisioner
                                       or an external controller can support the specified
                                       data source, it will create a new volume based
-                                      on the contents of the specified data source.'
+                                      on the contents of the specified data source.
+                                      If the AnyVolumeDataSource feature gate is enabled,
+                                      this field will always have the same contents
+                                      as the DataSourceRef field.'
                                     properties:
                                       apiGroup:
                                         description: APIGroup is the group for the
@@ -21786,6 +22056,63 @@ var CRDsValidation map[string]string = map[string]string{
                                       name:
                                         description: Name is the name of resource
                                           being referenced
+                                        type: string
+                                    required:
+                                    - kind
+                                    - name
+                                    type: object
+                                  dataSourceRef:
+                                    description: 'Specifies the object from which
+                                      to populate the volume with data, if a non-empty
+                                      volume is desired. This may be any local object
+                                      from a non-empty API group (non core object)
+                                      or a PersistentVolumeClaim object. When this
+                                      field is specified, volume binding will only
+                                      succeed if the type of the specified object
+                                      matches some installed volume populator or dynamic
+                                      provisioner. This field will replace the functionality
+                                      of the DataSource field and as such if both
+                                      fields are non-empty, they must have the same
+                                      value. For backwards compatibility, both fields
+                                      (DataSource and DataSourceRef) will be set to
+                                      the same value automatically if one of them
+                                      is empty and the other is non-empty. There are
+                                      two important differences between DataSource
+                                      and DataSourceRef: * While DataSource only allows
+                                      two specific types of objects, DataSourceRef
+                                      allows any non-core object, as well as PersistentVolumeClaim
+                                      objects. * While DataSource ignores disallowed
+                                      values (dropping them), DataSourceRef preserves
+                                      all values, and generates an error if a disallowed
+                                      value is specified. (Beta) Using this field
+                                      requires the AnyVolumeDataSource feature gate
+                                      to be enabled.'
+                                    properties:
+                                      apiGroup:
+                                        description: APIGroup is the group for the
+                                          resource being referenced. If APIGroup is
+                                          not specified, the specified Kind must be
+                                          in the core API group. For any other third-party
+                                          types, APIGroup is required.
+                                        type: string
+                                      kind:
+                                        description: Kind is the type of resource
+                                          being referenced
+                                        type: string
+                                      name:
+                                        description: Name is the name of resource
+                                          being referenced
+                                        type: string
+                                      namespace:
+                                        description: Namespace is the namespace of
+                                          resource being referenced Note that when
+                                          a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant
+                                          object is required in the referent namespace
+                                          to allow that namespace's owner to accept
+                                          the reference. See the ReferenceGrant documentation
+                                          for details. (Alpha) This field requires
+                                          the CrossNamespaceVolumeDataSource feature
+                                          gate to be enabled.
                                         type: string
                                     required:
                                     - kind

@@ -599,7 +599,10 @@ func (t *vmRestoreTarget) reconcileDataVolumes() (bool, error) {
 			return false, err
 		}
 		if dv != nil {
-			waitingDV = dv.Status.Phase != v1beta1.Succeeded && dv.Status.Phase != v1beta1.WaitForFirstConsumer
+			waitingDV = waitingDV ||
+				(dv.Status.Phase != v1beta1.Succeeded &&
+					dv.Status.Phase != v1beta1.WaitForFirstConsumer &&
+					dv.Status.Phase != v1beta1.PendingPopulation)
 			continue
 		}
 		if createdDV, err = t.createDataVolume(dvt); err != nil {

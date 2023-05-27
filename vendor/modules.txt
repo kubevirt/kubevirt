@@ -1234,8 +1234,8 @@ kubevirt.io/client-go/version
 # kubevirt.io/containerized-data-importer v1.56.0
 ## explicit; go 1.18
 kubevirt.io/containerized-data-importer/pkg/clone
-# kubevirt.io/containerized-data-importer-api v1.56.0
-## explicit; go 1.18
+# kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
+## explicit; go 1.19
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload

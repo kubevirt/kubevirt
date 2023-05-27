@@ -322,6 +322,11 @@ var _ = Describe("VirtualMachine", func() {
 			createCount := 0
 			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID), "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
 
+			vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, obj interface{}) {
+				objVM := obj.(*virtv1.VirtualMachine)
+				Expect(objVM.Status.PrintableStatus).To(Equal(virtv1.VirtualMachineStatusProvisioning))
+			})
+
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -2976,11 +2981,12 @@ var _ = Describe("VirtualMachine", func() {
 					})
 				})
 
-				DescribeTable("Should set a Stopped/WaitingForVolumeBinding status when DataVolume exists but not bound", func(running bool, status virtv1.VirtualMachinePrintableStatus) {
+				DescribeTable("Should set a appropriate status when DataVolume exists but not bound", func(running bool, phase cdiv1.DataVolumePhase, status virtv1.VirtualMachinePrintableStatus) {
 					vm.Spec.Running = &running
 					addVirtualMachine(vm)
 
 					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
+					dv.Status.Phase = phase
 					dataVolumeFeeder.Add(dv)
 
 					pvc := k8sv1.PersistentVolumeClaim{
@@ -2999,11 +3005,16 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).To(Equal(status))
 					})
 
+					if running {
+						vmiInterface.EXPECT().Create(context.Background(), gomock.Any()).Return(vmi, nil)
+					}
+
 					controller.Execute()
 				},
-
-					Entry("Started VM", true, virtv1.VirtualMachineStatusWaitingForVolumeBinding),
-					Entry("Stopped VM", false, virtv1.VirtualMachineStatusStopped),
+					Entry("Started VM PendingPopulation", true, cdiv1.PendingPopulation, virtv1.VirtualMachineStatusWaitingForVolumeBinding),
+					Entry("Started VM WFFC", true, cdiv1.WaitForFirstConsumer, virtv1.VirtualMachineStatusWaitingForVolumeBinding),
+					Entry("Stopped VM PendingPopulation", false, cdiv1.PendingPopulation, virtv1.VirtualMachineStatusStopped),
+					Entry("Stopped VM", false, cdiv1.WaitForFirstConsumer, virtv1.VirtualMachineStatusStopped),
 				)
 
 				DescribeTable("Should set a Provisioning status when DataVolume bound but not ready",
