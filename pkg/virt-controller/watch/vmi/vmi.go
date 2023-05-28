@@ -49,7 +49,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/sriov"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -2094,58 +2093,6 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 		return virtv1.VolumeBound, common.PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, common.PVCNotReadyReason, "PVC is in phase Lost"
-}
-
-func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	podAnnotations := pod.GetAnnotations()
-
-	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
-	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := services.GenerateMultusCNIAnnotationFromNameScheme(vmi, networkToPodIfaceMap)
-	if err != nil {
-		return err
-	}
-	log.Log.Object(pod).V(4).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		podAnnotations[networkv1.NetworkAttachmentAnnot],
-		multusAnnotations,
-	)
-
-	if multusAnnotations != "" {
-		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
-		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
-		if err != nil {
-			return err
-		}
-		*pod = *patchedPod
-	}
-
-	return nil
-}
-
-func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
-	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
-	ifaceNamingScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
-	for _, network := range vmi.Spec.Networks {
-		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
-		podIfaceName, wasFound := ifaceNamingScheme[network.Name]
-		if !wasFound {
-			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
-		}
-
-		if _, exists := indexedMultusStatusIfaces[podIfaceName]; exists {
-			if vmiIfaceStatus == nil {
-				vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
-					Name:       network.Name,
-					InfoSource: vmispec.InfoSourceMultusStatus,
-				})
-			} else {
-				vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-			}
-		}
-	}
-
-	return nil
 }
 
 func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterfaceStatus []byte) []string {
