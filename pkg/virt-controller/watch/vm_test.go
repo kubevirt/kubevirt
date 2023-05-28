@@ -4716,3 +4716,8 @@ func markAsNonReady(vmi *virtv1.VirtualMachineInstance) {
 func unmarkReady(vmi *virtv1.VirtualMachineInstance) {
 	virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 }
+
+func now() *metav1.Time {
+	now := metav1.Now()
+	return &now
+}

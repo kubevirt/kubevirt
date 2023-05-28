@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	vmictrl "kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 )
 
 func newValidGetRequest() *http.Request {
@@ -123,7 +124,7 @@ var _ = Describe("Application", func() {
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
 		app.nodeController, _ = NewNodeController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController, _ = NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+		app.vmiController, _ = vmictrl.NewVMIController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
 			vmiInformer,
 			vmInformer,
 			podInformer,

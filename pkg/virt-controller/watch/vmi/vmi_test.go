@@ -17,7 +17,7 @@
  *
  */
 
-package watch
+package vmi
 
 import (
 	"context"
@@ -1555,7 +1555,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi.Status.Phase = virtv1.Succeeded
 			Expect(vmi.Finalizers).To(ContainElement(virtv1.VirtualMachineControllerFinalizer))
 
-			vm := VirtualMachineFromVMI(vmi.Name, vmi, true)
+			vm := virtualMachineFromVMI(vmi.Name, vmi, true)
 			vm.UID = "123"
 			if hasOwner {
 				t := true
@@ -3634,4 +3634,32 @@ func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName
 		InfoSource:    vmispec.InfoSourceGuestAgent,
 	})
 	return vmi
+}
+
+func virtualMachineFromVMI(name string, vmi *virtv1.VirtualMachineInstance, started bool) *virtv1.VirtualMachine {
+	var vmUID types.UID = "vm-uid"
+
+	vm := &virtv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: vmUID},
+		Spec: virtv1.VirtualMachineSpec{
+			Running: &started,
+			Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   vmi.ObjectMeta.Name,
+					Labels: vmi.ObjectMeta.Labels,
+				},
+				Spec: vmi.Spec,
+			},
+		},
+		Status: virtv1.VirtualMachineStatus{
+			Conditions: []virtv1.VirtualMachineCondition{
+				{
+					Type:   virtv1.VirtualMachineReady,
+					Status: k8sv1.ConditionFalse,
+					Reason: "VMINotExists",
+				},
+			},
+		},
+	}
+	return vm
 }

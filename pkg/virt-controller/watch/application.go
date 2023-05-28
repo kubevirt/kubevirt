@@ -85,6 +85,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	vmictrl "kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 )
 
@@ -149,7 +150,7 @@ type VirtControllerApp struct {
 	nodeController *NodeController
 
 	vmiCache      cache.Store
-	vmiController *VMIController
+	vmiController *vmictrl.VMIController
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
@@ -602,7 +603,7 @@ func (vca *VirtControllerApp) initCommon() {
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
 
-	vca.vmiController, err = NewVMIController(vca.templateService,
+	vca.vmiController, err = vmictrl.NewVMIController(vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.kvPodInformer,

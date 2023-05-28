@@ -1,4 +1,4 @@
-package watch
+package vmi
 
 import (
 	"fmt"
