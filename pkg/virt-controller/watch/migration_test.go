@@ -66,6 +66,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
 var _ = Describe("Migration watcher", func() {
@@ -439,7 +440,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreatePodReason)
 		})
 
 		It("should set migration state to scheduling if attachment pod exists", func() {
@@ -470,7 +471,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulHandOverPodReason)
 		})
 
 		It("should fail the migration if the attachment pod goes to final state", func() {
@@ -485,7 +486,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 		})
 	})
 
@@ -517,7 +518,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, common.SuccessfulCreatePodReason)
 
 		})
 		It("should create target pod", func() {
@@ -529,7 +530,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, common.SuccessfulCreatePodReason)
 		})
 		It("should not create target pod if multiple pods exist in a non finalized state for VMI", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -578,7 +579,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreatePodReason)
 		})
 
 		It("should not overload the cluster and only run 5 migrations in parallel", func() {
@@ -654,7 +655,7 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreatePodReason)
 		})
 
 		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
@@ -732,7 +733,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreatePodReason)
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
@@ -780,11 +781,11 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 
 			if phase != virtv1.MigrationScheduled {
-				testutils.ExpectEvent(recorder, MigrationTargetPodUnschedulable)
+				testutils.ExpectEvent(recorder, common.MigrationTargetPodUnschedulable)
 			}
 
 			if shouldTimeout {
-				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulDeletePodReason)
 			}
 		},
 			Entry("in pending state", virtv1.MigrationPending, true, defaultUnschedulablePendingTimeoutSeconds, ""),
@@ -822,7 +823,7 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 
 			if shouldTimeout {
-				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+				testutils.ExpectEvent(recorder, common.SuccessfulDeletePodReason)
 			}
 		},
 			Entry("in pending state", virtv1.MigrationPending, true, defaultCatchAllPendingTimeoutSeconds, ""),
@@ -928,7 +929,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 		},
 			Entry("in running state", virtv1.MigrationRunning),
 			Entry("in unset state", virtv1.MigrationPhaseUnset),
@@ -957,7 +958,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 		},
 			Entry("in running state", virtv1.MigrationRunning),
 			Entry("in unset state", virtv1.MigrationPhaseUnset),
@@ -987,7 +988,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 		},
 			Entry("in running state", virtv1.MigrationRunning),
 			Entry("in unset state", virtv1.MigrationPhaseUnset),
@@ -1016,7 +1017,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulHandOverPodReason)
 		},
 			Entry("with running compute container and no infra container",
 				[]k8sv1.ContainerStatus{{
@@ -1071,7 +1072,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulHandOverPodReason)
 		})
 
 		It("should hand pod over to target virt-handler overriding previous state", func() {
@@ -1096,7 +1097,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulHandOverPodReason)
 		})
 
 		It("should not hand pod over target pod that's already handed over", func() {
@@ -1138,7 +1139,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectVirtualMachineInstancePatch(vmi, patch)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulHandOverPodReason)
 		})
 		It("should transition to preparing target phase", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -1231,7 +1232,7 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectMigrationCompletedState(migration)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulMigrationReason)
 		})
 		It("should expect MigrationState to be updated on a completed migration", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -1293,7 +1294,7 @@ var _ = Describe("Migration watcher", func() {
 
 			vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulAbortMigrationReason)
 		})
 		DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase virtv1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase, initializeMigrationState bool) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -1357,10 +1358,10 @@ var _ = Describe("Migration watcher", func() {
 
 			// in this case, we have two failed events. one for the VMI and one on the Migration object.
 			if initializeMigrationState {
-				testutils.ExpectEvent(recorder, FailedMigrationReason)
+				testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 			}
 			if phase != virtv1.MigrationFailed {
-				testutils.ExpectEvent(recorder, FailedMigrationReason)
+				testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 			}
 		},
 			Entry("in preparing target state", virtv1.MigrationPreparingTarget, true, k8sv1.PodFailed, true),
@@ -1413,7 +1414,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreatePodReason)
 		},
 			Entry("host-model should be targeted only to nodes which support the model", true),
 			Entry("non-host-model should not be targeted to nodes which support the model", false),
@@ -1458,7 +1459,7 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+			testutils.ExpectEvents(recorder, common.SuccessfulCreatePodReason)
 		})
 
 		Context("when cluster EvictionStrategy is set to 'LiveMigrate'", func() {
@@ -1617,7 +1618,7 @@ var _ = Describe("Migration watcher", func() {
 
 			By("Running the controller")
 			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulHandOverPodReason)
 		},
 			Entry("allow auto coverage",
 				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.BoolPtr(true) },
@@ -1711,9 +1712,9 @@ var _ = Describe("Migration watcher", func() {
 			By("Running controller and setting expectations")
 			shouldExpectPodDeletion()
 			controller.Execute()
-			testutils.ExpectEvent(recorder, NoSuitableNodesForHostModelMigration)
-			testutils.ExpectEvent(recorder, MigrationTargetPodUnschedulable)
-			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+			testutils.ExpectEvent(recorder, common.NoSuitableNodesForHostModelMigration)
+			testutils.ExpectEvent(recorder, common.MigrationTargetPodUnschedulable)
+			testutils.ExpectEvent(recorder, common.SuccessfulDeletePodReason)
 		})
 
 	})
@@ -1735,7 +1736,7 @@ var _ = Describe("Migration watcher", func() {
 
 		AfterEach(func() {
 			controller.Execute()
-			testutils.ExpectEvent(recorder, FailedMigrationReason)
+			testutils.ExpectEvent(recorder, common.FailedMigrationReason)
 		})
 
 		It("expect abort condition", func() {

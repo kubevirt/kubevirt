@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -540,7 +541,7 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 
 			Expect(deletionCount).To(Equal(0))
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+			testutils.ExpectEvent(recorder, common.FailedDataVolumeImportReason)
 		})
 
 		It("should not delete failed DataVolume for VirtualMachineInstance unless deletion timestamp expires ", func() {
@@ -589,7 +590,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+			testutils.ExpectEvent(recorder, common.FailedDataVolumeImportReason)
 		})
 
 		It("should handle failed DataVolume without Annotations", func() {
@@ -641,7 +642,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			controller.Execute()
 
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+			testutils.ExpectEvent(recorder, common.FailedDataVolumeImportReason)
 		})
 
 		It("should start VMI once DataVolumes are complete", func() {
@@ -3378,7 +3379,7 @@ var _ = Describe("VirtualMachine", func() {
 					virtv1.VirtualMachineInstanceCondition{
 						Type:   virtv1.VirtualMachineInstanceSynchronized,
 						Status: k8sv1.ConditionFalse,
-						Reason: FailedPvcNotFoundReason,
+						Reason: common.FailedPvcNotFoundReason,
 					},
 				),
 			)
@@ -3404,8 +3405,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				controller.Execute()
 			},
-				Entry("Reason: ErrImagePull", ErrImagePullReason),
-				Entry("Reason: ImagePullBackOff", ImagePullBackOffReason),
+				Entry("Reason: ErrImagePull", common.ErrImagePullReason),
+				Entry("Reason: ImagePullBackOff", common.ImagePullBackOffReason),
 			)
 		})
 
