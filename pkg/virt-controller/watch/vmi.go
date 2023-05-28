@@ -444,8 +444,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	podConditionManager := controller.NewPodConditionManager()
 	vmiCopy := vmi.DeepCopy()
-	vmiPodExists := podExists(pod) && !isTempPod(pod)
-	tempPodExists := podExists(pod) && isTempPod(pod)
+	vmiPodExists := common.PodExists(pod) && !isTempPod(pod)
+	tempPodExists := common.PodExists(pod) && isTempPod(pod)
 
 	vmiCopy, err := c.setActivePods(vmiCopy)
 	if err != nil {
@@ -551,7 +551,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				syncErr = imageErr
 			}
 
-			if isPodReady(pod) && vmi.DeletionTimestamp == nil {
+			if common.IsPodReady(pod) && vmi.DeletionTimestamp == nil {
 				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
 				podQosClass := pod.Status.QOSClass
 				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
@@ -590,7 +590,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 						return err
 					}
 				}
-			} else if isPodDownOrGoingDown(pod) {
+			} else if common.IsPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
 		case !vmiPodExists:
@@ -835,7 +835,7 @@ func (c *VMIController) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInst
 			LastTransitionTime: now,
 		})
 
-	} else if isPodDownOrGoingDown(pod) {
+	} else if common.IsPodDownOrGoingDown(pod) {
 		vmiConditions.UpdateCondition(vmi, &virtv1.VirtualMachineInstanceCondition{
 			Type:               virtv1.VirtualMachineInstanceReady,
 			Status:             k8sv1.ConditionFalse,
@@ -950,52 +950,8 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 	return nil
 }
 
-// isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
-// the compute pod are ready.
-func isPodReady(pod *k8sv1.Pod) bool {
-	if isPodDownOrGoingDown(pod) {
-		return false
-	}
-
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		// The compute container potentially holds a readiness probe for the VMI. Therefore
-		// don't wait for the compute container to become ready (the VMI later on will trigger the change to ready)
-		// and only check that the container started
-		if containerStatus.Name == "compute" {
-			if containerStatus.State.Running == nil {
-				return false
-			}
-		} else if containerStatus.Name == "istio-proxy" {
-			// When using istio the istio-proxy container will not be ready
-			// until there is a service pointing to this pod.
-			// We need to start the VM anyway
-			if containerStatus.State.Running == nil {
-				return false
-			}
-
-		} else if containerStatus.Ready == false {
-			return false
-		}
-	}
-
-	return pod.Status.Phase == k8sv1.PodRunning
-}
-
-func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
-	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
-}
-
 func isPodFailedOrGoingDown(pod *k8sv1.Pod) bool {
 	return isPodFailed(pod) || isComputeContainerFailed(pod) || pod.DeletionTimestamp != nil
-}
-
-func isComputeContainerDown(pod *k8sv1.Pod) bool {
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "compute" {
-			return containerStatus.State.Terminated != nil
-		}
-	}
-	return false
 }
 
 func isComputeContainerFailed(pod *k8sv1.Pod) bool {
@@ -1007,19 +963,8 @@ func isComputeContainerFailed(pod *k8sv1.Pod) bool {
 	return false
 }
 
-func podIsDown(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
-}
-
 func isPodFailed(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodFailed
-}
-
-func podExists(pod *k8sv1.Pod) bool {
-	if pod != nil {
-		return true
-	}
-	return false
 }
 
 func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) (bool, common.SyncError) {
@@ -1029,7 +974,7 @@ func (c *VMIController) hotplugPodsReady(vmi *virtv1.VirtualMachineInstance, vir
 			return false, common.NewSyncError(fmt.Errorf("failed to get attachment pods: %v", err), common.FailedHotplugSyncReason)
 		}
 		for _, attachmentPod := range hotplugAttachmentPods {
-			if isPodReady(attachmentPod) && attachmentPod.DeletionTimestamp == nil && attachmentPod.Spec.NodeName == virtLauncherPod.Spec.NodeName {
+			if common.IsPodReady(attachmentPod) && attachmentPod.DeletionTimestamp == nil && attachmentPod.Spec.NodeName == virtLauncherPod.Spec.NodeName {
 				return true, nil
 			}
 		}
@@ -1073,7 +1018,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		return common.NewSyncError(err, common.FailedBackendStorageCreateReason)
 	}
 
-	if !podExists(pod) {
+	if !common.PodExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
 			return nil
@@ -1129,7 +1074,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 	}
 
-	if !isTempPod(pod) && isPodReady(pod) {
+	if !isTempPod(pod) && common.IsPodReady(pod) {
 		if vmispec.SRIOVInterfaceExist(vmi.Spec.Domain.Devices.Interfaces) {
 			networkPCIMapAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(
 				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],
@@ -1980,7 +1925,7 @@ func (c *VMIController) deleteOrphanedAttachmentPods(vmi *virtv1.VirtualMachineI
 			continue
 		}
 
-		if !podIsDown(pod) {
+		if !common.PodIsDown(pod) {
 			continue
 		}
 
