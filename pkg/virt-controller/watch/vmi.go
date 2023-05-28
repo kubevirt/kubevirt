@@ -66,8 +66,6 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
-const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
-
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
@@ -1133,10 +1131,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
 		}
 		if _, ok := err.(storagetypes.PvcNotFoundError); ok {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, common.FailedPvcNotFoundReason, failedToRenderLaunchManifestErrFormat, err)
-			return &informalSyncError{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), common.FailedPvcNotFoundReason}
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, common.FailedPvcNotFoundReason, common.FailedToRenderLaunchManifestErrFormat, err)
+			return &informalSyncError{fmt.Errorf(common.FailedToRenderLaunchManifestErrFormat, err), common.FailedPvcNotFoundReason}
 		} else if err != nil {
-			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), common.FailedCreatePodReason}
+			return &syncErrorImpl{fmt.Errorf(common.FailedToRenderLaunchManifestErrFormat, err), common.FailedCreatePodReason}
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -1144,7 +1142,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			psaErr := fmt.Errorf("failed to create pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, common.FailedCreatePodReason, failedToRenderLaunchManifestErrFormat, psaErr)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, common.FailedCreatePodReason, common.FailedToRenderLaunchManifestErrFormat, psaErr)
 			return &syncErrorImpl{psaErr, common.FailedCreatePodReason}
 		}
 		if err != nil {
