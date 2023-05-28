@@ -1087,7 +1087,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			*pod = *patchedPod
 		}
 
-		hotplugVolumes := getHotplugVolumes(vmi, pod)
+		hotplugVolumes := common.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podInformer)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("failed to get attachment pods: %v", err), common.FailedHotplugSyncReason)
@@ -1577,23 +1577,6 @@ func shouldSetMigrationTransport(pod *k8sv1.Pod) bool {
 	return ok
 }
 
-func getHotplugVolumes(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*virtv1.Volume {
-	hotplugVolumes := make([]*virtv1.Volume, 0)
-	podVolumes := virtlauncherPod.Spec.Volumes
-	vmiVolumes := vmi.Spec.Volumes
-
-	podVolumeMap := make(map[string]k8sv1.Volume)
-	for _, podVolume := range podVolumes {
-		podVolumeMap[podVolume.Name] = podVolume
-	}
-	for _, vmiVolume := range vmiVolumes {
-		if _, ok := podVolumeMap[vmiVolume.Name]; !ok && (vmiVolume.DataVolume != nil || vmiVolume.PersistentVolumeClaim != nil || vmiVolume.MemoryDump != nil) {
-			hotplugVolumes = append(hotplugVolumes, vmiVolume.DeepCopy())
-		}
-	}
-	return hotplugVolumes
-}
-
 func (c *VMIController) cleanupWaitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) error {
 	triggerPods, err := c.waitForFirstConsumerTemporaryPods(vmi, virtLauncherPod)
 	if err != nil {
@@ -1954,7 +1937,7 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		oldStatusMap[status.Name] = status
 	}
 
-	hotplugVolumes := getHotplugVolumes(vmi, virtlauncherPod)
+	hotplugVolumes := common.GetHotplugVolumes(vmi, virtlauncherPod)
 	hotplugVolumesMap := make(map[string]*virtv1.Volume)
 	for _, volume := range hotplugVolumes {
 		hotplugVolumesMap[volume.Name] = volume

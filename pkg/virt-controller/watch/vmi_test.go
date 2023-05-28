@@ -2565,7 +2565,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			virtlauncherPod.Spec.Volumes = virtlauncherVolumes
-			res := getHotplugVolumes(vmi, virtlauncherPod)
+			res := common.GetHotplugVolumes(vmi, virtlauncherPod)
 			Expect(res).To(HaveLen(len(expectedIndexes)))
 			for _, index := range expectedIndexes {
 				found := false
