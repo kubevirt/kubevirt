@@ -4698,3 +4698,21 @@ func DefaultVirtualMachine(started bool) (*virtv1.VirtualMachine, *virtv1.Virtua
 func markVmAsReady(vm *virtv1.VirtualMachine) {
 	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
 }
+
+func markAsReady(vmi *virtv1.VirtualMachineInstance) {
+	virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
+}
+
+func markAsPodTerminating(vmi *virtv1.VirtualMachineInstance) {
+	virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+	virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse, Reason: virtv1.PodTerminatingReason})
+}
+
+func markAsNonReady(vmi *virtv1.VirtualMachineInstance) {
+	virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+	virtcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
+}
+
+func unmarkReady(vmi *virtv1.VirtualMachineInstance) {
+	virtcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+}

@@ -3513,24 +3513,6 @@ func now() *metav1.Time {
 	return &now
 }
 
-func markAsReady(vmi *virtv1.VirtualMachineInstance) {
-	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
-}
-
-func markAsPodTerminating(vmi *virtv1.VirtualMachineInstance) {
-	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse, Reason: virtv1.PodTerminatingReason})
-}
-
-func markAsNonReady(vmi *virtv1.VirtualMachineInstance) {
-	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-	kvcontroller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
-}
-
-func unmarkReady(vmi *virtv1.VirtualMachineInstance) {
-	kvcontroller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
-}
-
 func addActivePods(vmi *virtv1.VirtualMachineInstance, podUID types.UID, hostName string) *virtv1.VirtualMachineInstance {
 
 	if vmi.Status.ActivePods != nil {
