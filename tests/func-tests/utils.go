@@ -8,15 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"kubevirt.io/kubevirt/tests/flags"
 
 	"github.com/onsi/ginkgo/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	"kubevirt.io/kubevirt/tests/flags"
 
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"

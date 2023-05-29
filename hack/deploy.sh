@@ -61,20 +61,6 @@ fi
 sed -i -r "s|: quay.io/kubevirt/hyperconverged-cluster-operator(@sha256)?:.*$|: ${HCO_IMAGE}|g" _out/operator.yaml
 sed -i -r "s|: quay.io/kubevirt/hyperconverged-cluster-webhook(@sha256)?:.*$|: ${WEBHOOK_IMAGE}|g" _out/operator.yaml
 
-WORKERS=$(${CMD} get nodes -l "node-role.kubernetes.io/master!=" -o name)
-WORKERS_ARR=(${WORKERS})
-if [[ ${#WORKERS_ARR[@]} -ge 2 ]]; then
-  # Set all the workers as "infra", except for the last one that is set to "workloads"
-  for (( i=0; i<${#WORKERS_ARR[@]}-1; i++)); do
-    ${CMD} label ${WORKERS_ARR[$i]} "node.kubernetes.io/hco-test-node-type=infra"
-  done
-  ${CMD} label ${WORKERS_ARR[$((${#WORKERS_ARR[@]}-1))]} "node.kubernetes.io/hco-test-node-type=workloads"
-
-  hack/np-config-hook.sh
-fi
-
-"${CMD}" get nodes -o wide --show-labels
-
 # create namespaces
 "${CMD}" create ns "${HCO_NAMESPACE}" | true
 

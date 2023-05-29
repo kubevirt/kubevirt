@@ -27,21 +27,8 @@ function cleanup() {
 
 trap "cleanup" INT TERM EXIT
 
-WORKERS=$(${CMD} get nodes -l "node-role.kubernetes.io/master!=" -o name)
-WORKERS_ARR=(${WORKERS})
-
 mkdir -p _out
 cp deploy/hco.cr.yaml _out/
-
-if [[ ${#WORKERS_ARR[@]} -ge 2 ]]; then
-  # Set all the workers as "infra", except for the last one that is set to "workloads"
-  for (( i=0; i<${#WORKERS_ARR[@]}-1; i++)); do
-    ${CMD} label ${WORKERS_ARR[$i]} "node.kubernetes.io/hco-test-node-type=infra"
-  done
-  ${CMD} label ${WORKERS_ARR[$((${#WORKERS_ARR[@]}-1))]} "node.kubernetes.io/hco-test-node-type=workloads"
-
-  hack/np-config-hook.sh
-fi
 
 ${CMD} get nodes -o wide --show-labels
 
