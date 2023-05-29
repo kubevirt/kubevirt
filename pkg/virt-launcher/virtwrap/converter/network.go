@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, ifacesToPlug []v1.Interface) ([]api.Interface, error) {
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) ([]api.Interface, error) {
 	isVirtioNetProhibited, err := c.IsVirtIONetProhibited()
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 	networks := indexNetworksByName(vmi.Spec.Networks)
 
-	for i, iface := range ifacesToPlug {
+	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
