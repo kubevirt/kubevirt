@@ -192,6 +192,68 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.preference"))
 		})
 	})
+	Context("[Serial]with cluster memory overcommit being applied", Serial, func() {
+		BeforeEach(func() {
+			kv := util.GetCurrentKv(virtClient)
+
+			config := kv.Spec.Configuration
+			config.DeveloperConfiguration.MemoryOvercommit = 200
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+		})
+		AfterEach(func() {
+			By("Cleaning Cluster MemoryOvercommit")
+			kv := util.GetCurrentKv(virtClient)
+
+			config := kv.Spec.Configuration
+			config.DeveloperConfiguration.MemoryOvercommit = 100
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+		})
+		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
+			vmi := libvmi.NewCirros()
+
+			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype.Spec.Memory.OvercommitPercent = 15
+
+			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
+				Create(context.Background(), instancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			preference := newVirtualMachinePreference()
+
+			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Remove any requested resources from the VMI before generating the VM
+			removeResourcesAndPreferencesFromVMI(vmi)
+
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+
+			// Add the instancetype and preference matchers to the VM spec
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: instancetype.Name,
+				Kind: instancetypeapi.SingularResourceName,
+			}
+			vm.Spec.Preference = &v1.PreferenceMatcher{
+				Name: preference.Name,
+				Kind: instancetypeapi.SingularPreferenceResourceName,
+			}
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = tests.StartVMAndExpectRunning(virtClient, vm)
+
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
+			expectedOverhead := instancetype.Spec.Memory.Guest.Value() * (1 - int64(instancetype.Spec.Memory.OvercommitPercent)/int64(100))
+			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+			Expect(memRequest.Value()).To(Equal(expectedOverhead))
+
+		})
+	})
 
 	Context("Instancetype and preference application", func() {
 
