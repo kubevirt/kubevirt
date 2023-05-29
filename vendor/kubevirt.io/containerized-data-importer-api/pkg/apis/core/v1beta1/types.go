@@ -91,8 +91,17 @@ type StorageSpec struct {
 	// +optional
 	VolumeMode *corev1.PersistentVolumeMode `json:"volumeMode,omitempty"`
 	// This field can be used to specify either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot) * An existing PVC (PersistentVolumeClaim) * An existing custom resource that implements data population (Alpha) In order to use custom resource types that implement data population, the AnyVolumeDataSource feature gate must be enabled. If the provisioner or an external controller can support the specified data source, it will create a new volume based on the contents of the specified data source.
+	// If the AnyVolumeDataSource feature gate is enabled, this field will always have the same contents as the DataSourceRef field.
 	// +optional
 	DataSource *corev1.TypedLocalObjectReference `json:"dataSource,omitempty"`
+	// Specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any local object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner.
+	// This field will replace the functionality of the DataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, both fields (DataSource and DataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty.
+	// There are two important differences between DataSource and DataSourceRef:
+	// * While DataSource only allows two specific types of objects, DataSourceRef allows any non-core object, as well as PersistentVolumeClaim objects.
+	// * While DataSource ignores disallowed values (dropping them), DataSourceRef preserves all values, and generates an error if a disallowed value is specified.
+	// (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
+	// +optional
+	DataSourceRef *corev1.TypedLocalObjectReference `json:"dataSourceRef,omitempty"`
 }
 
 // DataVolumeCheckpoint defines a stage in a warm migration.
@@ -123,6 +132,7 @@ type DataVolumeSource struct {
 	Blank    *DataVolumeBlankImage     `json:"blank,omitempty"`
 	Imageio  *DataVolumeSourceImageIO  `json:"imageio,omitempty"`
 	VDDK     *DataVolumeSourceVDDK     `json:"vddk,omitempty"`
+	Snapshot *DataVolumeSourceSnapshot `json:"snapshot,omitempty"`
 }
 
 // DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
@@ -130,6 +140,14 @@ type DataVolumeSourcePVC struct {
 	// The namespace of the source PVC
 	Namespace string `json:"namespace"`
 	// The name of the source PVC
+	Name string `json:"name"`
+}
+
+// DataVolumeSourceSnapshot provides the parameters to create a Data Volume from an existing VolumeSnapshot
+type DataVolumeSourceSnapshot struct {
+	// The namespace of the source VolumeSnapshot
+	Namespace string `json:"namespace"`
+	// The name of the source VolumeSnapshot
 	Name string `json:"name"`
 }
 
@@ -314,6 +332,9 @@ const (
 	// SnapshotForSmartCloneInProgress represents a data volume with a current phase of SnapshotForSmartCloneInProgress
 	SnapshotForSmartCloneInProgress DataVolumePhase = "SnapshotForSmartCloneInProgress"
 
+	// CloneFromSnapshotSourceInProgress represents a data volume with a current phase of CloneFromSnapshotSourceInProgress
+	CloneFromSnapshotSourceInProgress DataVolumePhase = "CloneFromSnapshotSourceInProgress"
+
 	// SmartClonePVCInProgress represents a data volume with a current phase of SmartClonePVCInProgress
 	SmartClonePVCInProgress DataVolumePhase = "SmartClonePVCInProgress"
 
@@ -439,6 +460,8 @@ type DataSourceSpec struct {
 type DataSourceSource struct {
 	// +optional
 	PVC *DataVolumeSourcePVC `json:"pvc,omitempty"`
+	// +optional
+	Snapshot *DataVolumeSourceSnapshot `json:"snapshot,omitempty"`
 }
 
 // DataSourceStatus provides the most recently observed status of the DataSource
@@ -791,13 +814,13 @@ type ImportProxy struct {
 	// +optional
 	NoProxy *string `json:"noProxy,omitempty"`
 	// TrustedCAProxy is the name of a ConfigMap in the cdi namespace that contains a user-provided trusted certificate authority (CA) bundle.
-	// The TrustedCAProxy field is consumed by the import controller that is resposible for coping it to a config map named trusted-ca-proxy-bundle-cm in the cdi namespace.
+	// The TrustedCAProxy ConfigMap is consumed by the DataImportCron controller for creating cronjobs, and by the import controller referring a copy of the ConfigMap in the import namespace.
 	// Here is an example of the ConfigMap (in yaml):
 	//
 	// apiVersion: v1
 	// kind: ConfigMap
 	// metadata:
-	//   name: trusted-ca-proxy-bundle-cm
+	//   name: my-ca-proxy-cm
 	//   namespace: cdi
 	// data:
 	//   ca.pem: |
