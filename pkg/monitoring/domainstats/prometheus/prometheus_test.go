@@ -149,6 +149,31 @@ var _ = Describe("Prometheus", func() {
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
+		It("should send cached memory", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			domainStats := &stats.DomainStats{
+				Cpu: &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{
+					CachedSet: true,
+					Cached:    1,
+				},
+			}
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, newVmStats(domainStats, nil))
+
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_cached_bytes"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
+		})
+
 		It("should handle swapin", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)

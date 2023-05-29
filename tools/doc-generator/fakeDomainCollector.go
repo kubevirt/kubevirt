@@ -43,6 +43,7 @@ func (fc fakeDomainCollector) Collect(ch chan<- prometheus.Metric) {
 
 	out.Memory.ActualBalloonSet = true
 	out.Memory.UnusedSet = true
+	out.Memory.CachedSet = true
 	out.Memory.AvailableSet = true
 	out.Memory.RSSSet = true
 	out.Memory.SwapInSet = true

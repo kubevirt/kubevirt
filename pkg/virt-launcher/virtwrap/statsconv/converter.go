@@ -84,6 +84,9 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 		case libvirt.DOMAIN_MEMORY_STAT_UNUSED:
 			ret.UnusedSet = true
 			ret.Unused = stat.Val
+		case libvirt.DOMAIN_MEMORY_STAT_DISK_CACHES:
+			ret.CachedSet = true
+			ret.Cached = stat.Val
 		case libvirt.DOMAIN_MEMORY_STAT_AVAILABLE:
 			ret.AvailableSet = true
 			ret.Available = stat.Val

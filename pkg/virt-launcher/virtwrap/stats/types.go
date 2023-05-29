@@ -152,6 +152,8 @@ type DomainStatsBlock struct {
 type DomainStatsMemory struct {
 	UnusedSet        bool
 	Unused           uint64
+	CachedSet        bool
+	Cached           uint64
 	AvailableSet     bool
 	Available        uint64
 	ActualBalloonSet bool
