@@ -152,6 +152,15 @@ type MemoryInstancetype struct {
 	// Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.
 	// +optional
 	Hugepages *v1.Hugepages `json:"hugepages,omitempty"`
+	// OvercommitPercent is the percentage of the guest memory which will be overcommitted.
+	// This means that the VMIs parent pod (virt-launcher) will request less
+	// physical memory by a factor specified by the OvercommitPercent.
+	// Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
+	// Defaults to 0
+	// +optional
+	// +kubebuilder:validation:Maximum=100
+	// +kubebuilder:validation:Minimum=0
+	OvercommitPercent int `json:"overcommitPercent,omitempty"`
 }
 
 // VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.
