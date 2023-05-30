@@ -97,5 +97,17 @@ func (c *ConfigStateCache) Exists(key string) (bool, error) {
 
 func (c *ConfigStateCache) Delete(key string) error {
 	delete(c.volatilePodIfaceState, key)
-	return cache.DeletePodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+	podIfaceCacheData, err := cache.ReadPodInterfaceCache(c.cacheCreator, c.vmiUID, key)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	podIfaceCacheData.State = cache.PodIfaceNetworkPreparationPending
+	err = cache.WritePodInterfaceCache(c.cacheCreator, c.vmiUID, key, podIfaceCacheData)
+	if err != nil {
+		return err
+	}
+	return nil
 }
