@@ -375,6 +375,10 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	}
 
 	migrationCandidates, nonMigrateable := c.filterRunningNonMigratingVMIs(vmisToMigrate, activeMigrations)
+	if len(migrationCandidates) == 0 && len(nonMigrateable) == 0 {
+		return nil
+	}
+
 	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, activeMigrations)
 	maxParallelMigrationsPerOutboundNode :=
 		int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
@@ -383,10 +387,8 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
 	freeSpots := int(math.Min(float64(freeSpotsPerCluster), float64(freeSpotsPerThisSourceNode)))
 	if freeSpots <= 0 {
-		if len(migrationCandidates) > 0 || len(nonMigrateable) > 0 {
-			c.Queue.AddAfter(node.Name, 5*time.Second)
-			return nil
-		}
+		c.Queue.AddAfter(node.Name, 5*time.Second)
+		return nil
 	}
 
 	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
