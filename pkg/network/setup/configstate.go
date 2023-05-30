@@ -39,12 +39,13 @@ type configStateCacheRUD interface {
 }
 
 type ConfigState struct {
-	cache configStateCacheRUD
-	ns    NSExecutor
+	cache       configStateCacheRUD
+	ns          NSExecutor
+	launcherPid int
 }
 
-func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigState {
-	return ConfigState{configStateCache, ns}
+func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor, launcherPid int) ConfigState {
+	return ConfigState{cache: configStateCache, ns: ns, launcherPid: launcherPid}
 }
 
 // Run passes through the state machine flow, executing the following steps:
@@ -120,7 +121,7 @@ func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, confi
 	return nil
 }
 
-func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(string) error) error {
+func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(string, int) error) error {
 	networksToUnplug, err := c.networksToUnplug(specInterfaces)
 	if err != nil {
 		return err
@@ -132,7 +133,7 @@ func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc 
 	err = c.ns.Do(func() error {
 		var cleanupErrors []error
 		for _, net := range networksToUnplug {
-			if cleanupErr := cleanupFunc(net); cleanupErr != nil {
+			if cleanupErr := cleanupFunc(net, c.launcherPid); cleanupErr != nil {
 				cleanupErrors = append(cleanupErrors, cleanupErr)
 			} else if cleanupErr := c.cache.Delete(net); cleanupErr != nil {
 				cleanupErrors = append(cleanupErrors, cleanupErr)

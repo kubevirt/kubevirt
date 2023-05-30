@@ -21,6 +21,9 @@ package network
 
 import (
 	"errors"
+	"strconv"
+
+	"kubevirt.io/kubevirt/pkg/network/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -34,12 +37,15 @@ import (
 )
 
 type Unpluggedpodnic struct {
-	network v1.Network
-	handler netdriver.NetworkHandler
+	network      v1.Network
+	handler      netdriver.NetworkHandler
+	launcherPID  int
+	cacheCreator cacheCreator
+	vmId         string
 }
 
-func NewUnpluggedpodnic(network v1.Network, handler netdriver.NetworkHandler) Unpluggedpodnic {
-	return Unpluggedpodnic{network: network, handler: handler}
+func NewUnpluggedpodnic(vmId string, network v1.Network, handler netdriver.NetworkHandler, launcherPID int, cacheCreator cacheCreator) Unpluggedpodnic {
+	return Unpluggedpodnic{vmId: vmId, network: network, handler: handler, launcherPID: launcherPID, cacheCreator: cacheCreator}
 }
 
 func (c Unpluggedpodnic) UnplugPhase1() error {
@@ -67,7 +73,24 @@ func (c Unpluggedpodnic) UnplugPhase1() error {
 	}
 
 	// clean caches
-	// TODO remove all three cache files
+	err = cache.DeleteDomainInterfaceCache(c.cacheCreator, strconv.Itoa(c.launcherPID), c.network.Name)
+	if err != nil {
+		unplugErrors = append(unplugErrors, err)
+	}
+
+	err = cache.DeleteDHCPInterfaceCache(c.cacheCreator, strconv.Itoa(c.launcherPID), podInterfaceName)
+	if err != nil {
+		unplugErrors = append(unplugErrors, err)
+	}
+
+	// the PodInterface cache should be the last one to be cleaned.
+	// It should be cleaned as the last step of the cleanup, since it is the indicator the cleanup should be done/not over yet.
+	if len(unplugErrors) == 0 {
+		err = cache.DeletePodInterfaceCache(c.cacheCreator, c.vmId, c.network.Name)
+		if err != nil {
+			unplugErrors = append(unplugErrors, err)
+		}
+	}
 
 	return k8serrors.NewAggregate(unplugErrors)
 }

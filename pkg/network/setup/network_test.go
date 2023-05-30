@@ -51,6 +51,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 	var (
 		baseCacheCreator tempCacheCreator
 	)
+	const launcherPID = 0
+
 	AfterEach(func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
@@ -62,6 +64,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator *VMNetworkConfigurator
 				configState           ConfigState
 			)
+
 			BeforeEach(func() {
 				vmi = newVMIBridgeInterface("testnamespace", "testVmName")
 				vmi.Spec.Networks = []v1.Network{{
@@ -70,7 +73,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				}}
 				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
-				configState = NewConfigState(&stateCache, nsExecutorStub{})
+				configState = NewConfigState(&stateCache, nsExecutorStub{}, launcherPID)
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
@@ -311,7 +314,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmNetworkConfigurator = newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkH, &baseCacheCreator)
 			stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
-			configState = NewConfigState(&stateCache, nsExecutorStub{})
+			configState = NewConfigState(&stateCache, nsExecutorStub{}, launcherPID)
 		})
 
 		It("fails setup during network discovery", func() {
@@ -415,7 +418,7 @@ type configStateStub struct {
 	shouldFail bool
 }
 
-func (c configStateStub) UnplugNetworks(_ []v1.Interface, _ func(string) error) error {
+func (c configStateStub) UnplugNetworks(_ []v1.Interface, _ func(string, int) error) error {
 	if c.shouldFail {
 		return fmt.Errorf("UnplugNetworks failure")
 	}

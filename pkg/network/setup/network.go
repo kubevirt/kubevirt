@@ -38,7 +38,7 @@ type VMNetworkConfigurator struct {
 }
 
 type configStateUnplugger interface {
-	UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(string) error) error
+	UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(network string, launcherPid int) error) error
 }
 
 func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *VMNetworkConfigurator {
@@ -167,8 +167,8 @@ func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineIn
 	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
 	err := configState.UnplugNetworks(
 		vmi.Spec.Domain.Devices.Interfaces,
-		func(network string) error {
-			unpluggedPodNic := NewUnpluggedpodnic(networkByName[network], n.handler)
+		func(network string, launcherPid int) error {
+			unpluggedPodNic := NewUnpluggedpodnic(string(vmi.UID), networkByName[network], n.handler, launcherPid, n.cacheCreator)
 			return unpluggedPodNic.UnplugPhase1()
 		})
 	if err != nil {
