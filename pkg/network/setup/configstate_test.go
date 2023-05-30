@@ -33,11 +33,11 @@ import (
 )
 
 const (
-	uid = "123"
-
 	testNet0 = "testnet0"
 	testNet1 = "testnet1"
 	testNet2 = "testnet2"
+
+	launcherPid = 0
 )
 
 var _ = Describe("config state", func() {
@@ -52,7 +52,7 @@ var _ = Describe("config state", func() {
 		BeforeEach(func() {
 			configStateCache = newConfigStateCacheStub()
 			ns = nsExecutorStub{}
-			configState = NewConfigState(&configStateCache, ns)
+			configState = NewConfigState(&configStateCache, ns, launcherPid)
 			nics = []podNIC{{
 				vmiSpecNetwork: &v1.Network{Name: testNet0},
 			}}
@@ -149,7 +149,7 @@ var _ = Describe("config state", func() {
 		It("runs and fails reading the cache", func() {
 			injectedErr := fmt.Errorf("fail read cache")
 			configStateCache.readErr = injectedErr
-			configState = NewConfigState(&configStateCache, ns)
+			configState = NewConfigState(&configStateCache, ns, launcherPid)
 
 			discover, config := &plugFuncStub{}, &plugFuncStub{}
 
@@ -163,7 +163,7 @@ var _ = Describe("config state", func() {
 		It("runs and fails writing the cache", func() {
 			injectedErr := fmt.Errorf("fail write cache")
 			configStateCache.writeErr = injectedErr
-			configState = NewConfigState(&configStateCache, ns)
+			configState = NewConfigState(&configStateCache, ns, launcherPid)
 
 			discover, config := &plugFuncStub{}, &plugFuncStub{}
 
@@ -231,7 +231,7 @@ var _ = Describe("config state", func() {
 		BeforeEach(func() {
 			configStateCache = newConfigStateCacheStub()
 			ns = nsExecutorStub{}
-			configState = NewConfigState(&configStateCache, ns)
+			configState = NewConfigState(&configStateCache, ns, launcherPid)
 			specInterfaces = []v1.Interface{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 			Expect(configStateCache.Write(testNet1, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
@@ -303,7 +303,8 @@ type unplugFuncStub struct {
 	errRunForPodIfaces map[string]error
 }
 
-func (f *unplugFuncStub) f(name string) error {
+func (f *unplugFuncStub) f(name string, pid int) error {
+	Expect(pid).To(Equal(launcherPid))
 	f.executedNetworks = append(f.executedNetworks, name)
 	return f.errRunForPodIfaces[name]
 }

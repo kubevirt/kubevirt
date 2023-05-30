@@ -84,7 +84,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 			return err
 		}
 		ns := c.nsFactory(launcherPid)
-		configState = NewConfigState(configStateCache, ns)
+		configState = NewConfigState(configStateCache, ns, launcherPid)
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
 		c.configStateMutex.Unlock()

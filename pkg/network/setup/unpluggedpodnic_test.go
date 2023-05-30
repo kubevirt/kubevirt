@@ -21,6 +21,12 @@ package network_test
 
 import (
 	"fmt"
+	"os"
+	"strconv"
+
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -37,29 +43,39 @@ import (
 
 var _ = Describe("Unpluggedpodnic", func() {
 	var (
-		mockHandler     *netdriver.MockNetworkHandler
-		ctrl            *gomock.Controller
-		unpluggedpodnic network.Unpluggedpodnic
-		tapLink         *netlink.GenericLink
-		dummyIfaceLink  *netlink.GenericLink
-		bridgeLink      *netlink.GenericLink
+		mockHandler      *netdriver.MockNetworkHandler
+		ctrl             *gomock.Controller
+		unpluggedpodnic  network.Unpluggedpodnic
+		tapLink          *netlink.GenericLink
+		dummyIfaceLink   *netlink.GenericLink
+		bridgeLink       *netlink.GenericLink
+		baseCacheCreator tempCacheCreator
 	)
 	const (
 		tapName        = "tap16477688c0e"
 		dummyIfaceName = "16477688c0e-nic"
 		bridgeName     = "k6t-16477688c0e"
+		podIfaceName   = "pod16477688c0e"
 		networkName    = "blue"
+		launcherPID    = 0
+		vmId           = "abc"
 	)
 
 	BeforeEach(func() {
+		dutils.MockDefaultOwnershipManager()
+
 		ctrl = gomock.NewController(GinkgoT())
 		mockHandler = netdriver.NewMockNetworkHandler(ctrl)
 
-		unpluggedpodnic = network.NewUnpluggedpodnic(v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}, mockHandler)
+		unpluggedpodnic = network.NewUnpluggedpodnic(vmId, v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}, mockHandler, launcherPID, &baseCacheCreator)
 
 		tapLink = &netlink.GenericLink{}
 		dummyIfaceLink = &netlink.GenericLink{}
 		bridgeLink = &netlink.GenericLink{}
+	})
+
+	AfterEach(func() {
+		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
 
 	Context("UnplugPhase1", func() {
@@ -97,5 +113,74 @@ var _ = Describe("Unpluggedpodnic", func() {
 			Expect(err.Error()).To(ContainSubstring(linkByNameErr1))
 			Expect(err.Error()).To(ContainSubstring(linkByNameErr1))
 		})
+		It("cleans all the caches", func() {
+			mockHandler.EXPECT().LinkByName(tapName).Return(tapLink, netlink.LinkNotFoundError{})
+			mockHandler.EXPECT().LinkByName(dummyIfaceName).Return(nil, netlink.LinkNotFoundError{})
+			mockHandler.EXPECT().LinkByName(bridgeName).Return(bridgeLink, netlink.LinkNotFoundError{})
+
+			domainIfaceCache := initDomainIfaceCache(&baseCacheCreator, launcherPID, networkName)
+			dhcpInterfaceCache := initDhcpInterfaceCache(&baseCacheCreator, launcherPID, podIfaceName)
+			podInterfaceCache := initPodIfaceCache(&baseCacheCreator, vmId, networkName)
+
+			Expect(unpluggedpodnic.UnplugPhase1()).To(Succeed())
+
+			_, err := domainIfaceCache.Read()
+			Expect(err).To(MatchError(os.ErrNotExist))
+			_, err = dhcpInterfaceCache.Read()
+			Expect(err).To(MatchError(os.ErrNotExist))
+			_, err = podInterfaceCache.Read()
+			Expect(err).To(MatchError(os.ErrNotExist))
+		})
+		It("doesn't clean the pod interface cache in case of a previous error", func() {
+			mockHandler.EXPECT().LinkByName(tapName).Return(tapLink, netlink.LinkNotFoundError{})
+			mockHandler.EXPECT().LinkByName(dummyIfaceName).Return(nil, netlink.LinkNotFoundError{})
+			mockHandler.EXPECT().LinkByName(bridgeName).Return(bridgeLink, fmt.Errorf("other error"))
+
+			podInterfaceCache := initPodIfaceCache(&baseCacheCreator, vmId, networkName)
+			Expect(unpluggedpodnic.UnplugPhase1()).To(Not(Succeed()))
+			Expect(podInterfaceCache.Read()).NotTo(BeNil())
+		})
 	})
 })
+
+func initDomainIfaceCache(baseCacheCreator *tempCacheCreator, launcherPID int, networkName string) cache.DomainInterfaceCache {
+	domainIfaceCache, err := cache.NewDomainInterfaceCache(baseCacheCreator, strconv.Itoa(launcherPID)).IfaceEntry(networkName)
+	Expect(err).NotTo(HaveOccurred())
+	iface := &api.Interface{
+		Model: &api.Model{Type: "a nice model"},
+	}
+	Expect(domainIfaceCache.Write(iface)).To(Succeed())
+	newIface, err := domainIfaceCache.Read()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(newIface).To(Equal(iface))
+
+	return domainIfaceCache
+}
+
+func initDhcpInterfaceCache(baseCacheCreator *tempCacheCreator, launcherPID int, podIfaceName string) cache.DHCPInterfaceCache {
+	dhcpInterfaceCache, err := cache.NewDHCPInterfaceCache(baseCacheCreator, strconv.Itoa(launcherPID)).IfaceEntry(podIfaceName)
+	Expect(err).NotTo(HaveOccurred())
+	dhcpConf := &cache.DHCPConfig{
+		Name: "whatever",
+	}
+	Expect(dhcpInterfaceCache.Write(dhcpConf)).To(Succeed())
+	newDhcpConf, err := dhcpInterfaceCache.Read()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(newDhcpConf).To(Equal(dhcpConf))
+
+	return dhcpInterfaceCache
+}
+
+func initPodIfaceCache(baseCacheCreator *tempCacheCreator, vmId, networkName string) cache.PodInterfaceCache {
+	podInterfaceCache, err := cache.NewPodInterfaceCache(baseCacheCreator, vmId).IfaceEntry(networkName)
+	Expect(err).NotTo(HaveOccurred())
+	podIfaceData := &cache.PodIfaceCacheData{
+		PodIP: "abc",
+	}
+	Expect(podInterfaceCache.Write(podIfaceData)).To(Succeed())
+	newPodIfaceData, err := podInterfaceCache.Read()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(newPodIfaceData).To(Equal(podIfaceData))
+
+	return podInterfaceCache
+}
