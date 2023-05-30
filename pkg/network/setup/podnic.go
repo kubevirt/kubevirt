@@ -178,12 +178,6 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNIC) discoverAndStoreCache() error {
-	ifaceLink, err := link.DiscoverByNetwork(l.handler, l.vmi.Spec.Networks, *l.vmiSpecNetwork)
-	if err != nil {
-		return err
-	}
-	l.podInterfaceName = ifaceLink.Attrs().Name
-
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err
 	}

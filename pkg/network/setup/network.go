@@ -25,6 +25,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -90,6 +91,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 
 	err = configState.Run(
 		nics,
+		preConfigStateRun,
 		func(nic *podNIC) error {
 			return nic.discoverAndStoreCache()
 		},
@@ -116,4 +118,19 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 		}
 	}
 	return nil
+}
+
+func preConfigStateRun(nics []podNIC) ([]podNIC, error) {
+	return discoverPodInterfaces(nics)
+}
+
+func discoverPodInterfaces(nics []podNIC) ([]podNIC, error) {
+	for idx, nic := range nics {
+		ifaceLink, err := link.DiscoverByNetwork(nic.handler, nic.vmi.Spec.Networks, *nic.vmiSpecNetwork)
+		if err != nil {
+			return nil, err
+		}
+		nics[idx].podInterfaceName = ifaceLink.Attrs().Name
+	}
+	return nics, nil
 }
