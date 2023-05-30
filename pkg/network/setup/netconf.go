@@ -79,7 +79,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	c.configStateMutex.RUnlock()
 	if !ok {
 		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
-		configStateCache, err := upgradeConfigStateCache(&cache, networks)
+		configStateCache, err := upgradeConfigStateCache(&cache, networks, c.cacheCreator, string(vmi.UID))
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	return nil
 }
 
-func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network) (*ConfigStateCache, error) {
+func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network, cacheCreator cacheCreator, vmiUID string) (*ConfigStateCache, error) {
 	for networkName, podIfaceName := range namescheme.CreateOrdinalNetworkNameScheme(networks) {
 		exists, err := stateCache.Exists(podIfaceName)
 		if err != nil {
@@ -112,7 +112,10 @@ func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network
 				return nil, wErr
 			}
 			if dErr := stateCache.Delete(podIfaceName); dErr != nil {
-				log.Log.Reason(dErr).Errorf("failed to delete pod interface network (%s) state from cache", podIfaceName)
+				log.Log.Reason(dErr).Errorf("failed to delete pod interface (%s) state from cache", podIfaceName)
+			}
+			if dErr := cache.DeletePodInterfaceCache(cacheCreator, vmiUID, podIfaceName); dErr != nil {
+				log.Log.Reason(dErr).Errorf("failed to delete pod interface (%s) from cache", podIfaceName)
 			}
 		}
 	}
