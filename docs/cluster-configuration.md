@@ -166,12 +166,15 @@ For additional information, see here: [KubeSecondaryDNS](https://github.com/kube
 
 **Default**: `false`
 
-### nonRoot Feature Gate
-Set the `nonRoot` feature gate to false in order to not run your virtual machines in rootless virt-launcher.
+### root Feature Gate
+Set the `root` feature gate to true in order to not run your virtual machines in rootless virt-launcher.
 
 **Note**: You can migrate rootless virt-launcher-es to root implementation by triggering migration or restarting the VM.
 
-**Default**: `true`
+**Note**: In the past the same feature gate was named `nonRoot` with the opposite semantic, the `nonRoot` feature gate is now deprecated but still available:
+a mutating webhook is handling the conversion.
+
+**Default**: `false`
 
 
 

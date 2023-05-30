@@ -16,7 +16,6 @@ spec:
     deployTektonTaskResources: false
     disableMDevConfiguration: false
     enableCommonBootImageImport: true
-    nonRoot: true
     withHostPassthroughCPU: false
   infra: {}
   liveMigrationConfig:

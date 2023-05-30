@@ -229,8 +229,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"nonRoot": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Enables rootless virt-launcher.",
-							Default:     true,
+							Description: "Enables rootless virt-launcher.\n\nDeprecated: please use the root FG.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"root": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable root virt-launcher (default: false).",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -465,6 +471,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					"kubeSecondaryDNSNameServerIP": {
 						SchemaProps: spec.SchemaProps{
 							Description: "KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"evictionStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

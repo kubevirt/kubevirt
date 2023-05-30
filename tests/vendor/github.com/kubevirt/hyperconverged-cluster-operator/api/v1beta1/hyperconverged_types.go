@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}
+	// +kubebuilder:default={"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -172,6 +172,14 @@ type HyperConvergedSpec struct {
 	// KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS
 	// +optional
 	KubeSecondaryDNSNameServerIP *string `json:"kubeSecondaryDNSNameServerIP,omitempty"`
+
+	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
+	// field is set it overrides the cluster level one.
+	// +kubebuilder:default=LiveMigrate
+	// +kubebuilder:validation:Enum=None;LiveMigrate;External
+	// +optional
+	EvictionStrategy *v1.EvictionStrategy `json:"evictionStrategy,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -295,6 +303,7 @@ type LiveMigrationConfigurations struct {
 // HyperConvergedFeatureGates is a set of optional feature gates to enable or disable new features that are not enabled
 // by default yet.
 // +k8s:openapi-gen=true
+// +kubebuilder:validation:XValidation:rule="!has(self.nonRoot) || !has(self.root) || self.root == !self.nonRoot",message="nonRoot FG is deprecated, please use root FG with opposite logic"
 type HyperConvergedFeatureGates struct {
 	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
 	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
@@ -324,14 +333,23 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	DeployKubeSecondaryDNS *bool `json:"deployKubeSecondaryDNS,omitempty"`
 
-	// TODO: deprecate NonRoot and introduce Root FG with opposite semantic
-	// and a proper conversion logic
+	// TODO: remove NonRoot in the next release
 
 	// Enables rootless virt-launcher.
+	//
+	// Deprecated: please use the root FG.
 	// +optional
-	// +kubebuilder:default=true
-	// +default=true
 	NonRoot *bool `json:"nonRoot,omitempty"`
+
+	// TODO: skipping any default on root here to avoid any
+	// conflict during CRD updates.
+	// The default will be set by a mutating webhook.
+	// Enable back a default here when we can finally get rid of
+	// NonRoot
+
+	// Enable root virt-launcher (default: false).
+	// +optional
+	Root *bool `json:"root,omitempty"`
 
 	// Disable mediated devices handling on KubeVirt
 	// +optional
@@ -592,7 +610,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "evictionStrategy": "LiveMigrate", "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

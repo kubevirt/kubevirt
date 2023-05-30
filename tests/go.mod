@@ -33,7 +33,7 @@ replace (
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65
 )
 
-require kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4 // indirect
+require kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 
 require (
 	cloud.google.com/go/compute v1.18.0 // indirect

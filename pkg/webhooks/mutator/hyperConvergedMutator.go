@@ -84,6 +84,19 @@ func (hcm *HyperConvergedMutator) mutateHyperConverged(_ context.Context, req ad
 		}
 	}
 
+	if hc.Spec.FeatureGates.Root == nil {
+		value := false
+		//nolint SA1019
+		if hc.Spec.FeatureGates.NonRoot != nil {
+			value = !*hc.Spec.FeatureGates.NonRoot
+		}
+		patches = append(patches, jsonpatch.JsonPatchOperation{
+			Operation: "add",
+			Path:      "/spec/featureGates/root",
+			Value:     value,
+		})
+	}
+
 	if len(patches) > 0 {
 		return admission.Patched("mutated", patches...)
 	}

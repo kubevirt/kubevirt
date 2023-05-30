@@ -26,10 +26,10 @@ package v1beta1
 
 import (
 	configv1 "github.com/openshift/api/config/v1"
-	corev1 "k8s.io/api/core/v1"
+	apicorev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	apicorev1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -235,6 +235,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.Root != nil {
+		in, out := &in.Root, &out.Root
+		*out = new(bool)
+		**out = **in
+	}
 	if in.DisableMDevConfiguration != nil {
 		in, out := &in.DisableMDevConfiguration, &out.DisableMDevConfiguration
 		*out = new(bool)
@@ -393,6 +398,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.EvictionStrategy != nil {
+		in, out := &in.EvictionStrategy, &out.EvictionStrategy
+		*out = new(corev1.EvictionStrategy)
+		**out = **in
+	}
 	return
 }
 
@@ -418,7 +428,7 @@ func (in *HyperConvergedStatus) DeepCopyInto(out *HyperConvergedStatus) {
 	}
 	if in.RelatedObjects != nil {
 		in, out := &in.RelatedObjects, &out.RelatedObjects
-		*out = make([]corev1.ObjectReference, len(*in))
+		*out = make([]apicorev1.ObjectReference, len(*in))
 		copy(*out, *in)
 	}
 	if in.Versions != nil {
@@ -538,7 +548,7 @@ func (in *LogVerbosityConfiguration) DeepCopyInto(out *LogVerbosityConfiguration
 	*out = *in
 	if in.Kubevirt != nil {
 		in, out := &in.Kubevirt, &out.Kubevirt
-		*out = new(apicorev1.LogVerbosity)
+		*out = new(corev1.LogVerbosity)
 		(*in).DeepCopyInto(*out)
 	}
 	return
@@ -631,7 +641,7 @@ func (in *OperandResourceRequirements) DeepCopyInto(out *OperandResourceRequirem
 	*out = *in
 	if in.StorageWorkloads != nil {
 		in, out := &in.StorageWorkloads, &out.StorageWorkloads
-		*out = new(corev1.ResourceRequirements)
+		*out = new(apicorev1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
 	return

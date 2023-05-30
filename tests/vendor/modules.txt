@@ -836,6 +836,7 @@ k8s.io/utils/integer
 k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
+k8s.io/utils/strings/slices
 k8s.io/utils/trace
 # kubevirt.io/api v1.0.0-beta.0 => kubevirt.io/api v1.0.0-beta.0
 ## explicit; go 1.17

@@ -1374,12 +1374,12 @@ Version: 1.2.3`)
 
 				It("should not add the Root feature gate if NonRoot is true in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: pointer.Bool(true),
+						NonRoot: pointer.Bool(true), //nolint SA1019
 					}
 
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the NonRoot feature gate", func() {
+					By("KV CR should not contain the Root feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
 					})
@@ -1387,12 +1387,12 @@ Version: 1.2.3`)
 
 				It("should add the Root feature gate if NonRoot is false in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: pointer.Bool(false),
+						NonRoot: pointer.Bool(false), //nolint SA1019
 					}
 
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the NonRoot feature gate", func() {
+					By("KV CR should contain the Root feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvRoot))
 					})
@@ -1400,14 +1400,81 @@ Version: 1.2.3`)
 
 				It("should not add the Root feature gate if NonRoot is not set in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: nil,
+						NonRoot: nil, //nolint SA1019
 					}
 
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the NonRoot feature gate", func() {
+					By("KV CR should not contain the Root feature gate", func() {
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
+					})
+				})
+
+				It("should add the Root feature gate if Root is true in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						Root: pointer.Bool(true),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the Root feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvRoot))
+					})
+				})
+
+				It("should not add the Root feature gate if Root is false in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						Root: pointer.Bool(false),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the Root feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
+					})
+				})
+
+				It("should not add the Root feature gate if Root is not set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						Root: nil,
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the Root feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
+					})
+				})
+
+				It("should honour Root feature gate if Root are not consistent on the HyperConverged CR (the CEL expression should prevent this case) - 1", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						NonRoot: pointer.Bool(false), //nolint SA1019
+						Root:    pointer.Bool(false),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the Root feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvRoot))
+					})
+				})
+
+				It("should honour Root feature gate if Root are not consistent on the HyperConverged CR (the CEL expression should prevent this case) - 2", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						NonRoot: pointer.Bool(true), //nolint SA1019
+						Root:    pointer.Bool(true),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the Root feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvRoot))
 					})
 				})
 

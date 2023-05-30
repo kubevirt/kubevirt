@@ -2,7 +2,7 @@ package tests
 
 import (
 	"flag"
-	"io/ioutil"
+	"os"
 	"sync"
 
 	"gopkg.in/yaml.v2"
@@ -59,7 +59,7 @@ func loadConfig(fileName string) *TestConfig {
 	config := TestConfig{}
 
 	if fileName != "" {
-		configContent, err := ioutil.ReadFile(fileName)
+		configContent, err := os.ReadFile(fileName)
 		if err != nil {
 			panic(err)
 		}
