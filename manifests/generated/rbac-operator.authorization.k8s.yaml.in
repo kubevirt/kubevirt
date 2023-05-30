@@ -676,6 +676,13 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resources:
+  - resourcequotas
+  verbs:
+  - list
+  - watch
+- apiGroups:
   - route.openshift.io
   resources:
   - routes
