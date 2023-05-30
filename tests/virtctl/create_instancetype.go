@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 
@@ -32,24 +32,24 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	createInstancetypeSpec := func(bytes []byte, namespaced bool) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+	createInstancetypeSpec := func(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 		decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		switch obj := decodedObj.(type) {
-		case *instancetypev1alpha2.VirtualMachineInstancetype:
+		case *instancetypev1beta1.VirtualMachineInstancetype:
 			ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachineInstancetype to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineInstancetype"))
-			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(obj)).Create(context.Background(), (*instancetypev1alpha2.VirtualMachineInstancetype)(obj), metav1.CreateOptions{})
+			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(obj)).Create(context.Background(), (*instancetypev1beta1.VirtualMachineInstancetype)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &instancetype.Spec, nil
-		case *instancetypev1alpha2.VirtualMachineClusterInstancetype:
+		case *instancetypev1beta1.VirtualMachineClusterInstancetype:
 			ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterInstancetype to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterInstancetype"))
 			obj.Labels = map[string]string{
 				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(obj)): "",
 			}
-			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), (*instancetypev1alpha2.VirtualMachineClusterInstancetype)(obj), metav1.CreateOptions{})
+			clusterInstancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), (*instancetypev1beta1.VirtualMachineClusterInstancetype)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &clusterInstancetype.Spec, nil
 		default:

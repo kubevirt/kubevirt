@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
@@ -48,7 +48,7 @@ var _ = Describe("create", func() {
 	})
 
 	Context("preference with arguments", func() {
-		var preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec
+		var preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec
 
 		DescribeTable("should succeed with defined preferred storage class", func(namespacedFlag, PreferredstorageClass string, namespaced bool) {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
@@ -86,7 +86,7 @@ var _ = Describe("create", func() {
 
 			preferenceSpec, err = getPreferenceSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(preferenceSpec.CPU.PreferredCPUTopology).To(Equal(instancetypev1alpha2.PreferredCPUTopology(CPUTopology)))
+			Expect(preferenceSpec.CPU.PreferredCPUTopology).To(Equal(instancetypev1beta1.PreferredCPUTopology(CPUTopology)))
 		},
 			Entry("VirtualMachinePreference", namespaced, "preferCores", true),
 			Entry("VirtualMachineClusterPreference", "", "preferThreads", false),
@@ -111,16 +111,16 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func getPreferenceSpec(bytes []byte, namespaced bool) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+func getPreferenceSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	switch obj := decodedObj.(type) {
-	case *instancetypev1alpha2.VirtualMachinePreference:
+	case *instancetypev1beta1.VirtualMachinePreference:
 		ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachinePreference to be created")
 		ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachinePreference"))
 		return &obj.Spec, nil
-	case *instancetypev1alpha2.VirtualMachineClusterPreference:
+	case *instancetypev1beta1.VirtualMachineClusterPreference:
 		ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterPreference to be created")
 		ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterPreference"))
 		return &obj.Spec, nil

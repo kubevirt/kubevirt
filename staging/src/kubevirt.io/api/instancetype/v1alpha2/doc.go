@@ -19,6 +19,8 @@
 
 // +k8s:deepcopy-gen=package
 // +groupName=instancetype.kubevirt.io
+// +k8s:conversion-gen=kubevirt.io/api/instancetype/v1alpha2
+// +k8s:conversion-gen-external-types=kubevirt.io/api/instancetype/v1beta1
 // +k8s:openapi-gen=true
 
 package v1alpha2

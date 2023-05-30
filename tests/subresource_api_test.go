@@ -38,7 +38,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -413,8 +413,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 	Describe("ExpandSpec subresource", func() {
 		Context("instancetype", func() {
 			var (
-				instancetype               *instancetypev1alpha2.VirtualMachineInstancetype
-				clusterInstancetype        *instancetypev1alpha2.VirtualMachineClusterInstancetype
+				instancetype               *instancetypev1beta1.VirtualMachineInstancetype
+				clusterInstancetype        *instancetypev1beta1.VirtualMachineClusterInstancetype
 				instancetypeMatcher        *v1.InstancetypeMatcher
 				clusterInstancetypeMatcher *v1.InstancetypeMatcher
 				expectedCpu                *v1.CPU
@@ -558,8 +558,8 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 		Context("preference", func() {
 			var (
-				preference        *instancetypev1alpha2.VirtualMachinePreference
-				clusterPreference *instancetypev1alpha2.VirtualMachineClusterPreference
+				preference        *instancetypev1beta1.VirtualMachinePreference
+				clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
 
 				preferenceMatcher        *v1.PreferenceMatcher
 				clusterPreferenceMatcher *v1.PreferenceMatcher
@@ -574,7 +574,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 
 			BeforeEach(func() {
 				preference = newVirtualMachinePreference()
-				preference.Spec.Devices = &instancetypev1alpha2.DevicePreferences{
+				preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}
 				preference, err = virtCli.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
@@ -586,7 +586,7 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 				}
 
 				clusterPreference = newVirtualMachineClusterPreference()
-				clusterPreference.Spec.Devices = &instancetypev1alpha2.DevicePreferences{
+				clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}
 				clusterPreference, err = virtCli.VirtualMachineClusterPreference().

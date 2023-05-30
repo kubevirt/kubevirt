@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
@@ -70,7 +70,7 @@ type HostDevice struct {
 	DeviceName string `param:"devicename"`
 }
 
-type optionFn func(*createInstancetype, *instancetypev1alpha2.VirtualMachineInstancetypeSpec) error
+type optionFn func(*createInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeSpec) error
 
 var optFns = map[string]optionFn{
 	GPUFlag:             withGPUs,
@@ -119,7 +119,7 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) {
 	}
 }
 
-func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) error {
+func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.gpus {
 		gpu := GPU{}
 
@@ -141,7 +141,7 @@ func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1alpha2.Virt
 	return nil
 }
 
-func withHostDevices(c *createInstancetype, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) error {
+func withHostDevices(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.hostDevices {
 		hostDevice := HostDevice{}
 
@@ -163,7 +163,7 @@ func withHostDevices(c *createInstancetype, instancetypeSpec *instancetypev1alph
 	return nil
 }
 
-func withIOThreadsPolicy(c *createInstancetype, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) error {
+func withIOThreadsPolicy(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	var policy v1.IOThreadsPolicy
 
 	switch c.ioThreadsPolicy {
@@ -196,47 +196,47 @@ func (c *createInstancetype) usage() string {
   {{ProgramName}} create instancetype --cpu 2 --memory 256Mi | kubectl create -f -`
 }
 
-func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1alpha2.VirtualMachineInstancetype {
-	return &instancetypev1alpha2.VirtualMachineInstancetype{
+func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1beta1.VirtualMachineInstancetype {
+	return &instancetypev1beta1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineInstancetype",
-			APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
 		},
-		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1beta1.CPUInstancetype{
 				Guest: c.cpu,
 			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
+			Memory: instancetypev1beta1.MemoryInstancetype{
 				Guest: resource.MustParse(c.memory),
 			},
 		},
 	}
 }
 
-func (c *createInstancetype) newClusterInstancetype(_ *cobra.Command) *instancetypev1alpha2.VirtualMachineClusterInstancetype {
-	return &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+func (c *createInstancetype) newClusterInstancetype(_ *cobra.Command) *instancetypev1beta1.VirtualMachineClusterInstancetype {
+	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineClusterInstancetype",
-			APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
 		},
-		Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1alpha2.CPUInstancetype{
+		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1beta1.CPUInstancetype{
 				Guest: c.cpu,
 			},
-			Memory: instancetypev1alpha2.MemoryInstancetype{
+			Memory: instancetypev1beta1.MemoryInstancetype{
 				Guest: resource.MustParse(c.memory),
 			},
 		},
 	}
 }
 
-func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for flag := range optFns {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, instancetypeSpec); err != nil {

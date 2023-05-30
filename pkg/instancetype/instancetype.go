@@ -19,8 +19,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -30,9 +29,9 @@ import (
 )
 
 type Methods interface {
-	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error)
-	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
-	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error)
+	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
+	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
+	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error)
 	InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error)
@@ -94,7 +93,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 	}, nil
 }
 
-func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) error {
+func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) error {
 	// Apply the instancetype to a copy of the VMISpec as we don't want to persist any changes here in the VM being passed around
 	vmiSpecCopy := vmiSpec.DeepCopy()
 	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy)
@@ -273,11 +272,11 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 }
 
 func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
-	if err := decodeRevisionObject(revisionA, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionA, isPreference); err != nil {
 		return false, err
 	}
 
-	if err := decodeRevisionObject(revisionB, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionB, isPreference); err != nil {
 		return false, err
 	}
 
@@ -319,45 +318,22 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 	return createdRevision, nil
 }
 
-func decodeRevisionObject(revision *appsv1.ControllerRevision, isPreference bool) error {
-	if len(revision.Data.Raw) == 0 {
-		return nil
-	}
-
-	// Backward compatibility check. Try to decode ControllerRevision from v1alpha1 version.
-	oldObject, err := decodeOldObject(revision.Data.Raw, isPreference)
-	if err != nil {
-		return fmt.Errorf("failed to decode old ControllerRevision: %w", err)
-	}
-	if oldObject != nil {
-		revision.Data.Object = oldObject
-		return nil
-	}
-
-	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), revision.Data.Raw)
-	if err != nil {
-		return fmt.Errorf("failed to decode object in ControllerRevision: %w", err)
-	}
-	revision.Data.Object = decodedObj
-	return nil
-}
-
 func getInstancetypeAPISpec(obj runtime.Object) (interface{}, error) {
 	switch o := obj.(type) {
-	case *instancetypev1alpha2.VirtualMachineInstancetype:
+	case *instancetypev1beta1.VirtualMachineInstancetype:
 		return &o.Spec, nil
-	case *instancetypev1alpha2.VirtualMachineClusterInstancetype:
+	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
 		return &o.Spec, nil
-	case *instancetypev1alpha2.VirtualMachinePreference:
+	case *instancetypev1beta1.VirtualMachinePreference:
 		return &o.Spec, nil
-	case *instancetypev1alpha2.VirtualMachineClusterPreference:
+	case *instancetypev1beta1.VirtualMachineClusterPreference:
 		return &o.Spec, nil
 	default:
 		return nil, fmt.Errorf("unexpected type: %T", obj)
 	}
 }
 
-func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	var conflicts Conflicts
 
 	if instancetypeSpec != nil {
@@ -381,7 +357,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 	return conflicts
 }
 
-func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
@@ -413,7 +389,7 @@ func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*in
 	}
 }
 
-func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	var (
 		err      error
 		revision *appsv1.ControllerRevision
@@ -429,18 +405,7 @@ func (m *InstancetypeMethods) findPreferenceSpecRevision(namespacedName types.Na
 		return nil, err
 	}
 
-	if err := decodeRevisionObject(revision, true); err != nil {
-		return nil, err
-	}
-
-	switch obj := revision.Data.Object.(type) {
-	case *instancetypev1alpha2.VirtualMachinePreference:
-		return &obj.Spec, nil
-	case *instancetypev1alpha2.VirtualMachineClusterPreference:
-		return &obj.Spec, nil
-	default:
-		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
-	}
+	return getPreferenceSpecFromControllerRevision(revision)
 }
 
 func (m *InstancetypeMethods) getControllerRevisionByInformer(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
@@ -466,7 +431,7 @@ func (m *InstancetypeMethods) getControllerRevisionByClient(namespacedName types
 	return revision, nil
 }
 
-func (m *InstancetypeMethods) findPreference(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachinePreference, error) {
+func (m *InstancetypeMethods) findPreference(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
@@ -480,7 +445,7 @@ func (m *InstancetypeMethods) findPreference(vm *virtv1.VirtualMachine) (*instan
 	return m.findPreferenceByClient(namespacedName)
 }
 
-func (m *InstancetypeMethods) findPreferenceByInformer(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachinePreference, error) {
+func (m *InstancetypeMethods) findPreferenceByInformer(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachinePreference, error) {
 	obj, exists, err := m.PreferenceStore.GetByKey(namespacedName.String())
 	if err != nil {
 		return nil, err
@@ -488,14 +453,14 @@ func (m *InstancetypeMethods) findPreferenceByInformer(namespacedName types.Name
 	if !exists {
 		return m.findPreferenceByClient(namespacedName)
 	}
-	preference, ok := obj.(*instancetypev1alpha2.VirtualMachinePreference)
+	preference, ok := obj.(*instancetypev1beta1.VirtualMachinePreference)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachinePreference informer")
 	}
 	return preference, nil
 }
 
-func (m *InstancetypeMethods) findPreferenceByClient(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachinePreference, error) {
+func (m *InstancetypeMethods) findPreferenceByClient(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachinePreference, error) {
 	preference, err := m.Clientset.VirtualMachinePreference(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -503,7 +468,7 @@ func (m *InstancetypeMethods) findPreferenceByClient(namespacedName types.Namesp
 	return preference, nil
 }
 
-func (m *InstancetypeMethods) findClusterPreference(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineClusterPreference, error) {
+func (m *InstancetypeMethods) findClusterPreference(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
@@ -513,7 +478,7 @@ func (m *InstancetypeMethods) findClusterPreference(vm *virtv1.VirtualMachine) (
 	return m.findClusterPreferenceByClient(vm.Spec.Preference.Name)
 }
 
-func (m *InstancetypeMethods) findClusterPreferenceByInformer(resourceName string) (*instancetypev1alpha2.VirtualMachineClusterPreference, error) {
+func (m *InstancetypeMethods) findClusterPreferenceByInformer(resourceName string) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
 	obj, exists, err := m.PreferenceStore.GetByKey(resourceName)
 	if err != nil {
 		return nil, err
@@ -521,14 +486,14 @@ func (m *InstancetypeMethods) findClusterPreferenceByInformer(resourceName strin
 	if !exists {
 		return m.findClusterPreferenceByClient(resourceName)
 	}
-	preference, ok := obj.(*instancetypev1alpha2.VirtualMachineClusterPreference)
+	preference, ok := obj.(*instancetypev1beta1.VirtualMachineClusterPreference)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterPreference informer")
 	}
 	return preference, nil
 }
 
-func (m *InstancetypeMethods) findClusterPreferenceByClient(resourceName string) (*instancetypev1alpha2.VirtualMachineClusterPreference, error) {
+func (m *InstancetypeMethods) findClusterPreferenceByClient(resourceName string) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
 	preference, err := m.Clientset.VirtualMachineClusterPreference().Get(context.Background(), resourceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -536,7 +501,7 @@ func (m *InstancetypeMethods) findClusterPreferenceByClient(resourceName string)
 	return preference, nil
 }
 
-func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
@@ -568,7 +533,7 @@ func (m *InstancetypeMethods) FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*
 	}
 }
 
-func (m *InstancetypeMethods) findInstancetypeSpecRevision(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachineInstancetypeSpec, error) {
+func (m *InstancetypeMethods) findInstancetypeSpecRevision(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 	var (
 		err      error
 		revision *appsv1.ControllerRevision
@@ -584,21 +549,10 @@ func (m *InstancetypeMethods) findInstancetypeSpecRevision(namespacedName types.
 		return nil, err
 	}
 
-	if err := decodeRevisionObject(revision, false); err != nil {
-		return nil, err
-	}
-
-	switch obj := revision.Data.Object.(type) {
-	case *instancetypev1alpha2.VirtualMachineInstancetype:
-		return &obj.Spec, nil
-	case *instancetypev1alpha2.VirtualMachineClusterInstancetype:
-		return &obj.Spec, nil
-	default:
-		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
-	}
+	return getInstancetypeSpecFromControllerRevision(revision)
 }
 
-func (m *InstancetypeMethods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+func (m *InstancetypeMethods) findInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
@@ -612,7 +566,7 @@ func (m *InstancetypeMethods) findInstancetype(vm *virtv1.VirtualMachine) (*inst
 	return m.findInstancetypeByClient(namespacedName)
 }
 
-func (m *InstancetypeMethods) findInstancetypeByInformer(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+func (m *InstancetypeMethods) findInstancetypeByInformer(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
 	obj, exists, err := m.InstancetypeStore.GetByKey(namespacedName.String())
 	if err != nil {
 		return nil, err
@@ -620,14 +574,14 @@ func (m *InstancetypeMethods) findInstancetypeByInformer(namespacedName types.Na
 	if !exists {
 		return m.findInstancetypeByClient(namespacedName)
 	}
-	instancetype, ok := obj.(*instancetypev1alpha2.VirtualMachineInstancetype)
+	instancetype, ok := obj.(*instancetypev1beta1.VirtualMachineInstancetype)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachineInstancetype informer")
 	}
 	return instancetype, nil
 }
 
-func (m *InstancetypeMethods) findInstancetypeByClient(namespacedName types.NamespacedName) (*instancetypev1alpha2.VirtualMachineInstancetype, error) {
+func (m *InstancetypeMethods) findInstancetypeByClient(namespacedName types.NamespacedName) (*instancetypev1beta1.VirtualMachineInstancetype, error) {
 	instancetype, err := m.Clientset.VirtualMachineInstancetype(namespacedName.Namespace).Get(context.Background(), namespacedName.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -635,7 +589,7 @@ func (m *InstancetypeMethods) findInstancetypeByClient(namespacedName types.Name
 	return instancetype, nil
 }
 
-func (m *InstancetypeMethods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+func (m *InstancetypeMethods) findClusterInstancetype(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
@@ -645,7 +599,7 @@ func (m *InstancetypeMethods) findClusterInstancetype(vm *virtv1.VirtualMachine)
 	return m.findClusterInstancetypeByClient(vm.Spec.Instancetype.Name)
 }
 
-func (m *InstancetypeMethods) findClusterInstancetypeByInformer(resourceName string) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+func (m *InstancetypeMethods) findClusterInstancetypeByInformer(resourceName string) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
 	obj, exists, err := m.ClusterInstancetypeStore.GetByKey(resourceName)
 	if err != nil {
 		return nil, err
@@ -653,14 +607,14 @@ func (m *InstancetypeMethods) findClusterInstancetypeByInformer(resourceName str
 	if !exists {
 		return m.findClusterInstancetypeByClient(resourceName)
 	}
-	instancetype, ok := obj.(*instancetypev1alpha2.VirtualMachineClusterInstancetype)
+	instancetype, ok := obj.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterInstancetype informer")
 	}
 	return instancetype, nil
 }
 
-func (m *InstancetypeMethods) findClusterInstancetypeByClient(resourceName string) (*instancetypev1alpha2.VirtualMachineClusterInstancetype, error) {
+func (m *InstancetypeMethods) findClusterInstancetypeByClient(resourceName string) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
 	instancetype, err := m.Clientset.VirtualMachineClusterInstancetype().Get(context.Background(), resourceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -803,7 +757,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }
 
-func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if vmiSpec.Domain.CPU != nil {
 		return Conflicts{field.Child("domain", "cpu")}
 	}
@@ -828,17 +782,17 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.Virtu
 	}
 
 	// Default to PreferSockets when a PreferredCPUTopology isn't provided
-	preferredTopology := instancetypev1alpha2.PreferSockets
+	preferredTopology := instancetypev1beta1.PreferSockets
 	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != "" {
 		preferredTopology = preferenceSpec.CPU.PreferredCPUTopology
 	}
 
 	switch preferredTopology {
-	case instancetypev1alpha2.PreferCores:
+	case instancetypev1beta1.PreferCores:
 		vmiSpec.Domain.CPU.Cores = instancetypeSpec.CPU.Guest
-	case instancetypev1alpha2.PreferSockets:
+	case instancetypev1beta1.PreferSockets:
 		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest
-	case instancetypev1alpha2.PreferThreads:
+	case instancetypev1beta1.PreferThreads:
 		vmiSpec.Domain.CPU.Threads = instancetypeSpec.CPU.Guest
 	}
 
@@ -877,7 +831,7 @@ func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Objec
 	}
 }
 
-func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if vmiSpec.Domain.Memory != nil {
 		return Conflicts{field.Child("domain", "memory")}
 	}
@@ -902,7 +856,7 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.Vi
 	return nil
 }
 
-func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if instancetypeSpec.IOThreadsPolicy == nil {
 		return nil
 	}
@@ -917,7 +871,7 @@ func applyIOThreadPolicy(field *k8sfield.Path, instancetypeSpec *instancetypev1a
 	return nil
 }
 
-func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if instancetypeSpec.LaunchSecurity == nil {
 		return nil
 	}
@@ -931,7 +885,7 @@ func applyLaunchSecurity(field *k8sfield.Path, instancetypeSpec *instancetypev1a
 	return nil
 }
 
-func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if len(instancetypeSpec.GPUs) == 0 {
 		return nil
 	}
@@ -946,7 +900,7 @@ func applyGPUs(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.Virt
 	return nil
 }
 
-func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alpha2.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
 	if len(instancetypeSpec.HostDevices) == 0 {
 		return nil
 	}
@@ -961,7 +915,7 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1alph
 	return nil
 }
 
-func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Devices == nil {
 		return
 	}
@@ -1025,7 +979,7 @@ func ApplyDevicePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachineP
 	applyInputPreferences(preferenceSpec, vmiSpec)
 }
 
-func applyDiskPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyDiskPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for diskIndex := range vmiSpec.Domain.Devices.Disks {
 		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
 		// If we don't have a target device defined default to a DiskTarget so we can apply preferences
@@ -1065,7 +1019,7 @@ func applyDiskPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePre
 	}
 }
 
-func applyInterfacePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
 		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
@@ -1074,7 +1028,7 @@ func applyInterfacePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachi
 	}
 }
 
-func applyInputPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyInputPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for inputIndex := range vmiSpec.Domain.Devices.Inputs {
 		vmiInput := &vmiSpec.Domain.Devices.Inputs[inputIndex]
 		if preferenceSpec.Devices.PreferredInputBus != "" && vmiInput.Bus == "" {
@@ -1087,7 +1041,7 @@ func applyInputPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePr
 	}
 }
 
-func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFeaturePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Features == nil {
 		return
 	}
@@ -1122,7 +1076,7 @@ func applyFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachine
 	}
 }
 
-func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if vmiSpec.Domain.Features.Hyperv == nil {
 		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
 	}
@@ -1185,7 +1139,7 @@ func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1alpha2.VirtualM
 	}
 }
 
-func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Firmware == nil {
 		return
 	}
@@ -1215,7 +1169,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachin
 	}
 }
 
-func applyMachinePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyMachinePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Machine == nil {
 		return
 	}
@@ -1229,7 +1183,7 @@ func applyMachinePreferences(preferenceSpec *instancetypev1alpha2.VirtualMachine
 	}
 }
 
-func applyClockPreferences(preferenceSpec *instancetypev1alpha2.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyClockPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Clock == nil {
 		return
 	}

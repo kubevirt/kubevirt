@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 
@@ -30,24 +30,24 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	createPreferenceSpec := func(bytes []byte, namespaced bool) (*instancetypev1alpha2.VirtualMachinePreferenceSpec, error) {
+	createPreferenceSpec := func(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 		decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		switch obj := decodedObj.(type) {
-		case *instancetypev1alpha2.VirtualMachinePreference:
+		case *instancetypev1beta1.VirtualMachinePreference:
 			ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachinePreference to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachinePreference"))
-			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), (*instancetypev1alpha2.VirtualMachinePreference)(obj), metav1.CreateOptions{})
+			preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), (*instancetypev1beta1.VirtualMachinePreference)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &preference.Spec, nil
-		case *instancetypev1alpha2.VirtualMachineClusterPreference:
+		case *instancetypev1beta1.VirtualMachineClusterPreference:
 			ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterPreference to be created")
 			ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterPreference"))
 			obj.Labels = map[string]string{
 				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(obj)): "",
 			}
-			clusterPreference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), (*instancetypev1alpha2.VirtualMachineClusterPreference)(obj), metav1.CreateOptions{})
+			clusterPreference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), (*instancetypev1beta1.VirtualMachineClusterPreference)(obj), metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			return &clusterPreference.Spec, nil
 		default:
@@ -95,7 +95,7 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 			Entry("VirtualMachineClusterPreference", "", "local", false),
 		)
 
-		DescribeTable("[test_id:9839]when cpu topology defined", func(namespacedFlag, CPUTopology string, namespaced bool, topology instancetypev1alpha2.PreferredCPUTopology) {
+		DescribeTable("[test_id:9839]when cpu topology defined", func(namespacedFlag, CPUTopology string, namespaced bool, topology instancetypev1beta1.PreferredCPUTopology) {
 			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
 				setFlag(CPUTopologyFlag, CPUTopology),
 			)()
@@ -105,8 +105,8 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec.CPU.PreferredCPUTopology).To(Equal(topology))
 		},
-			Entry("VirtualMachinePreference", namespaced, "preferCores", true, instancetypev1alpha2.PreferCores),
-			Entry("VirtualMachineClusterPreference", "", "preferThreads", false, instancetypev1alpha2.PreferThreads),
+			Entry("VirtualMachinePreference", namespaced, "preferCores", true, instancetypev1beta1.PreferCores),
+			Entry("VirtualMachineClusterPreference", "", "preferThreads", false, instancetypev1beta1.PreferThreads),
 		)
 	})
 })

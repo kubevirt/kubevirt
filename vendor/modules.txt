@@ -1172,6 +1172,7 @@ kubevirt.io/api/export/v1alpha1
 kubevirt.io/api/instancetype
 kubevirt.io/api/instancetype/v1alpha1
 kubevirt.io/api/instancetype/v1alpha2
+kubevirt.io/api/instancetype/v1beta1
 kubevirt.io/api/migrations
 kubevirt.io/api/migrations/v1alpha1
 kubevirt.io/api/pool
@@ -1204,6 +1205,8 @@ kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha2/fake
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1/fake
 kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1

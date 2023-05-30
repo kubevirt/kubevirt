@@ -60,7 +60,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1775,16 +1775,16 @@ var _ = SIGDescribe("Export", func() {
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
 		}
-		clusterInstancetype := &instancetypev1alpha2.VirtualMachineClusterInstancetype{
+		clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "VirtualMachineClusterInstancetype",
-				APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "export-test-cluster-instancetype",
 			},
-			Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1alpha2.CPUInstancetype{
+			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(4),
 				},
 			},
