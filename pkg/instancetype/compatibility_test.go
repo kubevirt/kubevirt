@@ -259,9 +259,10 @@ var _ = Describe("compatibility", func() {
 		var expectedPreferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec
 
 		BeforeEach(func() {
+			preferredCPUTopology := instancetypev1beta1.PreferCores
 			expectedPreferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: instancetypev1beta1.PreferCores,
+					PreferredCPUTopology: &preferredCPUTopology,
 				},
 			}
 		})
@@ -400,6 +401,7 @@ var _ = Describe("compatibility", func() {
 				return preferenceBytes
 			}),
 			Entry("v1beta1 VirtualMachinePreference", func() []byte {
+				preferredCPUTopology := instancetypev1beta1.PreferCores
 				preference := instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -410,7 +412,7 @@ var _ = Describe("compatibility", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: instancetypev1beta1.PreferCores,
+							PreferredCPUTopology: &preferredCPUTopology,
 						},
 					},
 				}
@@ -420,6 +422,7 @@ var _ = Describe("compatibility", func() {
 				return preferenceBytes
 			}),
 			Entry("v1beta1 VirtualMachineClusterPreference", func() []byte {
+				preferredCPUTopology := instancetypev1beta1.PreferCores
 				preference := instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -430,7 +433,7 @@ var _ = Describe("compatibility", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: instancetypev1beta1.PreferCores,
+							PreferredCPUTopology: &preferredCPUTopology,
 						},
 					},
 				}

@@ -113,8 +113,9 @@ func withCPUTopology(c *createPreference, preferenceSpec *instancetypev1beta1.Vi
 		return params.FlagErr(CPUTopologyFlag, CPUTopologyErr)
 	}
 
+	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.CPUTopology)
 	preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{
-		PreferredCPUTopology: instancetypev1beta1.PreferredCPUTopology(c.CPUTopology),
+		PreferredCPUTopology: &preferredCPUTopology,
 	}
 	return nil
 }

@@ -587,6 +587,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 				virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
+				preferredCPUTopology := instancetypev1beta1.PreferCores
 				clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-cluster-preference",
@@ -595,7 +596,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: instancetypev1beta1.PreferCores,
+							PreferredCPUTopology: &preferredCPUTopology,
 						},
 					},
 				}
@@ -694,7 +695,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
 				unexpectedPreference := clusterPreference.DeepCopy()
-				unexpectedPreference.Spec.CPU.PreferredCPUTopology = instancetypev1beta1.PreferThreads
+				preferredCPUTopology := instancetypev1beta1.PreferThreads
+				unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
 				Expect(err).ToNot(HaveOccurred())
@@ -714,6 +716,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
 				virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
 
+				preferredCPUTopology := instancetypev1beta1.PreferCores
 				preference = &instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-preference",
@@ -723,7 +726,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: instancetypev1beta1.PreferCores,
+							PreferredCPUTopology: &preferredCPUTopology,
 						},
 					},
 				}
@@ -825,7 +828,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
 				unexpectedPreference := preference.DeepCopy()
-				unexpectedPreference.Spec.CPU.PreferredCPUTopology = instancetypev1beta1.PreferThreads
+				preferredCPUTopology := instancetypev1beta1.PreferThreads
+				unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
 				Expect(err).ToNot(HaveOccurred())
@@ -932,7 +936,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferCores selected", func() {
-				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1beta1.PreferCores
+				preferredCPUTopology := instancetypev1beta1.PreferCores
+				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -948,7 +953,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferThreads selected", func() {
-				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1beta1.PreferThreads
+				preferredCPUTopology := instancetypev1beta1.PreferThreads
+				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -964,7 +970,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply in full with PreferSockets selected", func() {
-				preferenceSpec.CPU.PreferredCPUTopology = instancetypev1beta1.PreferSockets
+				preferredCPUTopology := instancetypev1beta1.PreferSockets
+				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())

@@ -2465,6 +2465,7 @@ func createInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
 }
 
 func createPreference() *instancetypev1beta1.VirtualMachinePreference {
+	preferredCPUTopology := instancetypev1beta1.PreferThreads
 	return &instancetypev1beta1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       instancetypeapi.SingularPreferenceResourceName,
@@ -2478,7 +2479,7 @@ func createPreference() *instancetypev1beta1.VirtualMachinePreference {
 		},
 		Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 			CPU: &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: instancetypev1beta1.PreferThreads,
+				PreferredCPUTopology: &preferredCPUTopology,
 			},
 		},
 	}

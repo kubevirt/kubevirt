@@ -267,7 +267,7 @@ type CPUPreferences struct {
 	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.
 	//
 	//+optional
-	PreferredCPUTopology PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
+	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 }
 
 // DevicePreferences contains various optional Device preferences.

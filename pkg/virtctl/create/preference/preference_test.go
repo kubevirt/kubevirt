@@ -86,7 +86,8 @@ var _ = Describe("create", func() {
 
 			preferenceSpec, err = getPreferenceSpec(bytes, namespaced)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(preferenceSpec.CPU.PreferredCPUTopology).To(Equal(instancetypev1beta1.PreferredCPUTopology(CPUTopology)))
+			Expect(preferenceSpec.CPU.PreferredCPUTopology).ToNot(BeNil())
+			Expect(*preferenceSpec.CPU.PreferredCPUTopology).To(Equal(instancetypev1beta1.PreferredCPUTopology(CPUTopology)))
 		},
 			Entry("VirtualMachinePreference", namespaced, "preferCores", true),
 			Entry("VirtualMachineClusterPreference", "", "preferThreads", false),
