@@ -4,7 +4,8 @@ package v1beta1
 
 func (DataVolume) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=dv;dvs,categories=all\n+kubebuilder:printcolumn:name=\"Phase\",type=\"string\",JSONPath=\".status.phase\",description=\"The phase the data volume is in\"\n+kubebuilder:printcolumn:name=\"Progress\",type=\"string\",JSONPath=\".status.progress\",description=\"Transfer progress in percentage if known, N/A otherwise\"\n+kubebuilder:printcolumn:name=\"Restarts\",type=\"integer\",JSONPath=\".status.restartCount\",description=\"The number of times the transfer has been restarted.\"\n+kubebuilder:printcolumn:name=\"Age\",type=\"date\",JSONPath=\".metadata.creationTimestamp\"",
+		"":       "DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=dv;dvs,categories=all\n+kubebuilder:subresource:status\n+kubebuilder:printcolumn:name=\"Phase\",type=\"string\",JSONPath=\".status.phase\",description=\"The phase the data volume is in\"\n+kubebuilder:printcolumn:name=\"Progress\",type=\"string\",JSONPath=\".status.progress\",description=\"Transfer progress in percentage if known, N/A otherwise\"\n+kubebuilder:printcolumn:name=\"Restarts\",type=\"integer\",JSONPath=\".status.restartCount\",description=\"The number of times the transfer has been restarted.\"\n+kubebuilder:printcolumn:name=\"Age\",type=\"date\",JSONPath=\".metadata.creationTimestamp\"",
+		"status": "+optional",
 	}
 }
 
@@ -47,7 +48,7 @@ func (DataVolumeCheckpoint) SwaggerDoc() map[string]string {
 
 func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
+		"": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, GCS, Registry or an existing PVC",
 	}
 }
 
@@ -85,6 +86,14 @@ func (DataVolumeSourceS3) SwaggerDoc() map[string]string {
 		"url":           "URL is the url of the S3 source",
 		"secretRef":     "SecretRef provides the secret reference needed to access the S3 source",
 		"certConfigMap": "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate\n+optional",
+	}
+}
+
+func (DataVolumeSourceGCS) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "DataVolumeSourceGCS provides the parameters to create a Data Volume from an GCS source",
+		"url":       "URL is the url of the GCS source",
+		"secretRef": "SecretRef provides the secret reference needed to access the GCS source",
 	}
 }
 
@@ -298,6 +307,91 @@ func (DataImportCronList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VolumeImportSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "VolumeImportSource works as a specification to populate PersistentVolumeClaims with data\nimported from an HTTP/S3/Registry/Blank/ImageIO/VDDK source\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+		"status": "+optional",
+	}
+}
+
+func (VolumeImportSourceSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "VolumeImportSourceSpec defines the Spec field for VolumeImportSource",
+		"source":        "Source is the src of the data to be imported in the target PVC",
+		"preallocation": "Preallocation controls whether storage for the target PVC should be allocated in advance.",
+		"contentType":   "ContentType represents the type of the imported data (Kubevirt or archive)",
+	}
+}
+
+func (ImportSourceType) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "ImportSourceType contains each one of the source types allowed in a VolumeImportSource",
+	}
+}
+
+func (VolumeImportSourceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VolumeImportSourceStatus provides the most recently observed status of the VolumeImportSource",
+	}
+}
+
+func (VolumeImportSourceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VolumeImportSourceList provides the needed parameters to do request a list of Import Sources from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items provides a list of DataSources",
+	}
+}
+
+func (VolumeUploadSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "VolumeUploadSource is a specification to populate PersistentVolumeClaims with upload data\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+		"status": "+optional",
+	}
+}
+
+func (VolumeUploadSourceSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "VolumeUploadSourceSpec defines specification for VolumeUploadSource",
+		"contentType":   "ContentType represents the type of the upload data (Kubevirt or archive)",
+		"preallocation": "Preallocation controls whether storage for the target PVC should be allocated in advance.",
+	}
+}
+
+func (VolumeUploadSourceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VolumeUploadSourceStatus provides the most recently observed status of the VolumeUploadSource",
+	}
+}
+
+func (VolumeUploadSourceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VolumeUploadSourceList provides the needed parameters to do request a list of Upload Sources from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items provides a list of DataSources",
+	}
+}
+
+func (VolumeCloneSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VolumeCloneSource refers to a PVC/VolumeSnapshot of any storageclass/volumemode\nto be used as the source of a new PVC\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion",
+	}
+}
+
+func (VolumeCloneSourceSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "VolumeCloneSourceSpec defines the Spec field for VolumeCloneSource",
+		"source":            "Source is the src of the data to be cloned to the target PVC",
+		"preallocation":     "Preallocation controls whether storage for the target PVC should be allocated in advance.\n+optional",
+		"priorityClassName": "PriorityClassName is the priorityclass for the claim\n+optional",
+	}
+}
+
+func (VolumeCloneSourceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VolumeCloneSourceList provides the needed parameters to do request a list of VolumeCloneSources from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items provides a list of DataSources",
+	}
+}
+
 func (CDI) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "CDI is the CDI Operator CRD\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=cdi;cdis,scope=Cluster\n+kubebuilder:printcolumn:name=\"Age\",type=\"date\",JSONPath=\".metadata.creationTimestamp\"\n+kubebuilder:printcolumn:name=\"Phase\",type=\"string\",JSONPath=\".status.phase\"",
@@ -328,7 +422,7 @@ func (CDISpec) SwaggerDoc() map[string]string {
 		"uninstallStrategy":     "+kubebuilder:validation:Enum=RemoveWorkloads;BlockUninstallIfWorkloadsExist\nCDIUninstallStrategy defines the state to leave CDI on uninstall",
 		"infra":                 "Rules on which nodes CDI infrastructure pods will be scheduled",
 		"workload":              "Restrict on which nodes CDI workload pods will be scheduled",
-		"cloneStrategyOverride": "Clone strategy override: should we use a host-assisted copy even if snapshots are available?\n+kubebuilder:validation:Enum=\"copy\";\"snapshot\"",
+		"cloneStrategyOverride": "Clone strategy override: should we use a host-assisted copy even if snapshots are available?\n+kubebuilder:validation:Enum=\"copy\";\"snapshot\";\"csi-clone\"",
 		"config":                "CDIConfig at CDI level",
 		"certConfig":            "certificate configuration",
 		"priorityClass":         "PriorityClass of the CDI control plane",
@@ -375,6 +469,7 @@ func (CDIConfigSpec) SwaggerDoc() map[string]string {
 		"insecureRegistries":       "InsecureRegistries is a list of TLS disabled registries",
 		"dataVolumeTTLSeconds":     "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.\n+optional",
 		"tlsSecurityProfile":       "TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.",
+		"imagePullSecrets":         "The imagePullSecrets used to pull the container images",
 	}
 }
 
@@ -387,6 +482,7 @@ func (CDIConfigStatus) SwaggerDoc() map[string]string {
 		"defaultPodResourceRequirements": "ResourceRequirements describes the compute resource requirements.",
 		"filesystemOverhead":             "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A percentage value is between 0 and 1",
 		"preallocation":                  "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
+		"imagePullSecrets":               "The imagePullSecrets used to pull the container images",
 	}
 }
 

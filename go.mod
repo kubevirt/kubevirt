@@ -33,7 +33,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	kubevirt.io/api v1.0.0-beta.0
-	kubevirt.io/containerized-data-importer-api v1.56.0
+	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 	kubevirt.io/ssp-operator/api v0.17.0
 	sigs.k8s.io/controller-runtime v0.14.6

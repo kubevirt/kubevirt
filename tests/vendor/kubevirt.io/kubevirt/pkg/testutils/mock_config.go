@@ -32,8 +32,8 @@ func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (
 	kubeVirtInformer.GetStore().Add(kv)
 
 	AddDataVolumeAPI(crdInformer)
-
-	return virtconfig.NewClusterConfigWithCPUArch(crdInformer, kubeVirtInformer, namespace, CPUArch), crdInformer, kubeVirtInformer
+	cfg, _ := virtconfig.NewClusterConfigWithCPUArch(crdInformer, kubeVirtInformer, namespace, CPUArch)
+	return cfg, crdInformer, kubeVirtInformer
 }
 
 func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {

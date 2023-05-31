@@ -40,6 +40,24 @@ func IsPopulated(pvc *corev1.PersistentVolumeClaim, getDvFunc func(name, namespa
 	return true, nil
 }
 
+// IsSucceededOrPendingPopulation indicates if the persistent volume passed in has been fully populated or is waiting for a consumer.
+// It follow the following logic
+// 1. If the PVC is not owned by a DataVolume, return true, we assume someone else has properly populated the image
+// 2. If the PVC is owned by a DataVolume, look up the DV and check the phase, if phase succeeded or pending population return true
+// 3. If the PVC is owned by a DataVolume, look up the DV and check the phase, if phase !succeeded return false
+func IsSucceededOrPendingPopulation(pvc *corev1.PersistentVolumeClaim, getDvFunc func(name, namespace string) (*DataVolume, error)) (bool, error) {
+	pvcOwner := metav1.GetControllerOf(pvc)
+	if pvcOwner != nil && pvcOwner.Kind == "DataVolume" {
+		// Find the data volume:
+		dv, err := getDvFunc(pvcOwner.Name, pvc.Namespace)
+		if err != nil {
+			return false, err
+		}
+		return dv.Status.Phase == Succeeded || dv.Status.Phase == PendingPopulation, nil
+	}
+	return true, nil
+}
+
 // IsWaitForFirstConsumerBeforePopulating indicates if the persistent volume passed in is in ClaimPending state and waiting for first consumer.
 // It follow the following logic
 // 1. If the PVC is not owned by a DataVolume, return false, we can not assume it will be populated

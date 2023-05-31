@@ -508,6 +508,21 @@ spec:
                                         parameters to create a new raw blank image
                                         for the PVC
                                       type: object
+                                    gcs:
+                                      description: DataVolumeSourceGCS provides the
+                                        parameters to create a Data Volume from an
+                                        GCS source
+                                      properties:
+                                        secretRef:
+                                          description: SecretRef provides the secret
+                                            reference needed to access the GCS source
+                                          type: string
+                                        url:
+                                          description: URL is the url of the GCS source
+                                          type: string
+                                      required:
+                                      - url
+                                      type: object
                                     http:
                                       description: DataVolumeSourceHTTP can be either
                                         an http or https endpoint, with an optional
@@ -803,11 +818,21 @@ spec:
                                           description: Name is the name of resource
                                             being referenced
                                           type: string
+                                        namespace:
+                                          description: Namespace is the namespace
+                                            of resource being referenced Note that
+                                            when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant
+                                            object is required in the referent namespace
+                                            to allow that namespace's owner to accept
+                                            the reference. See the ReferenceGrant
+                                            documentation for details. (Alpha) This
+                                            field requires the CrossNamespaceVolumeDataSource
+                                            feature gate to be enabled.
+                                          type: string
                                       required:
                                       - kind
                                       - name
                                       type: object
-                                      x-kubernetes-map-type: atomic
                                     resources:
                                       description: 'Resources represents the minimum
                                         resources the volume should have. More info:
@@ -3946,6 +3971,21 @@ spec:
                                         parameters to create a new raw blank image
                                         for the PVC
                                       type: object
+                                    gcs:
+                                      description: DataVolumeSourceGCS provides the
+                                        parameters to create a Data Volume from an
+                                        GCS source
+                                      properties:
+                                        secretRef:
+                                          description: SecretRef provides the secret
+                                            reference needed to access the GCS source
+                                          type: string
+                                        url:
+                                          description: URL is the url of the GCS source
+                                          type: string
+                                      required:
+                                      - url
+                                      type: object
                                     http:
                                       description: DataVolumeSourceHTTP can be either
                                         an http or https endpoint, with an optional
@@ -4241,11 +4281,21 @@ spec:
                                           description: Name is the name of resource
                                             being referenced
                                           type: string
+                                        namespace:
+                                          description: Namespace is the namespace
+                                            of resource being referenced Note that
+                                            when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant
+                                            object is required in the referent namespace
+                                            to allow that namespace's owner to accept
+                                            the reference. See the ReferenceGrant
+                                            documentation for details. (Alpha) This
+                                            field requires the CrossNamespaceVolumeDataSource
+                                            feature gate to be enabled.
+                                          type: string
                                       required:
                                       - kind
                                       - name
                                       type: object
-                                      x-kubernetes-map-type: atomic
                                     resources:
                                       description: 'Resources represents the minimum
                                         resources the volume should have. More info:
