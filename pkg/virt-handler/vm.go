@@ -2991,7 +2991,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
 			}
 
-			if err := d.netConf.HotUnplugInterfaces(vmi); err != nil { // TODO don't try to unplug from VMs with old name scheme
+			if err := d.netConf.HotUnplugInterfaces(vmi); err != nil {
 				log.Log.Object(vmi).Error(err.Error())
 				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotunplug", err.Error())
 				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)

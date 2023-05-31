@@ -38,7 +38,7 @@ type VMNetworkConfigurator struct {
 }
 
 type configStateUnplugger interface {
-	UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(network string, launcherPid int) error) error
+	UnplugNetworks(specInterfaces []v1.Interface, discoverFunc func() (map[string]string, error), cleanupFunc func(network string, launcherPid int) error) error
 }
 
 func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *VMNetworkConfigurator {
@@ -89,7 +89,7 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 	return nics, nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network, configState ConfigState) error {
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network, configState *ConfigState) error {
 	nics, err := n.getPhase1NICs(&launcherPID, networks)
 	if err != nil {
 		return err
@@ -137,17 +137,26 @@ func preConfigStateRun(nics []podNIC) ([]podNIC, error) {
 
 func discoverPodInterfaces(nics []podNIC) ([]podNIC, error) {
 	for idx, nic := range nics {
-		ifaceLink, err := link.DiscoverByNetwork(nic.handler, nic.vmi.Spec.Networks, *nic.vmiSpecNetwork)
+		podIfaceName, err := discoverPodInterfaceName(nic.handler, nic.vmi.Spec.Networks, *nic.vmiSpecNetwork, *nic.vmiSpecIface)
 		if err != nil {
-			if nic.vmiSpecIface.State != v1.InterfaceStateAbsent {
-				return nil, err
-			}
-			// For a network marked for removal, it is reasonable not to find any interface.
-		} else {
-			nics[idx].podInterfaceName = ifaceLink.Attrs().Name
+			return nil, err
 		}
+		nics[idx].podInterfaceName = podIfaceName
 	}
 	return nics, nil
+}
+
+func discoverPodInterfaceName(handler netdriver.NetworkHandler, networks []v1.Network, subjectNetwork v1.Network, subjectedIface v1.Interface) (string, error) {
+	ifaceLink, err := link.DiscoverByNetwork(handler, networks, subjectNetwork)
+	if err != nil {
+		if subjectedIface.State != v1.InterfaceStateAbsent {
+			return "", err
+		}
+		// For a network marked for removal, it is reasonable not to find any interface.
+		return "", nil
+	} else {
+		return ifaceLink.Attrs().Name, nil
+	}
 }
 
 func filterOutAbsentIfaces(nics []podNIC) []podNIC {
@@ -167,6 +176,17 @@ func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineIn
 	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
 	err := configState.UnplugNetworks(
 		vmi.Spec.Domain.Devices.Interfaces,
+		func() (map[string]string, error) {
+			podIfaceNameByNet := map[string]string{}
+			for _, net := range vmi.Spec.Networks {
+				podIfaceName, err := discoverPodInterfaceName(n.handler, vmi.Spec.Networks, net, *vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, net.Name))
+				if err != nil {
+					return nil, err
+				}
+				podIfaceNameByNet[net.Name] = podIfaceName
+			}
+			return podIfaceNameByNet, nil
+		},
 		func(network string, launcherPid int) error {
 			unpluggedPodNic := NewUnpluggedpodnic(string(vmi.UID), networkByName[network], n.handler, launcherPid, n.cacheCreator)
 			return unpluggedPodNic.UnplugPhase1()

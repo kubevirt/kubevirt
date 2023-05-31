@@ -40,7 +40,7 @@ type cacheCreator interface {
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
-	configState      map[string]ConfigState
+	configState      map[string]*ConfigState
 	configStateMutex *sync.RWMutex
 }
 
@@ -52,14 +52,14 @@ type NSExecutor interface {
 
 func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
-	return NewNetConfWithCustomFactory(func(pid int) NSExecutor {
+	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory)
+	}, cacheFactory, map[string]*ConfigState{})
 }
 
-func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]*ConfigState) *NetConf {
 	return &NetConf{
-		configState:      map[string]ConfigState{},
+		configState:      configState,
 		configStateMutex: &sync.RWMutex{},
 		cacheCreator:     cacheCreator,
 		nsFactory:        nsFactory,
@@ -84,13 +84,15 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 			return err
 		}
 		ns := c.nsFactory(launcherPid)
-		configState = NewConfigState(configStateCache, ns, launcherPid)
+		newConfigState := NewConfigState(configStateCache, ns, launcherPid)
+		configState = &newConfigState
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
 		c.configStateMutex.Unlock()
 	}
 
 	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
+
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
@@ -143,5 +145,5 @@ func (c *NetConf) HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
-	return netConfigurator.UnplugPodNetworksPhase1(vmi, &configState)
+	return netConfigurator.UnplugPodNetworksPhase1(vmi, configState)
 }

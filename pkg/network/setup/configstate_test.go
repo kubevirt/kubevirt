@@ -226,7 +226,10 @@ var _ = Describe("config state", func() {
 	})
 
 	Context("UnplugNetworks", func() {
-		var specInterfaces []v1.Interface
+		var (
+			specInterfaces []v1.Interface
+			discoverFunc   *discoverFuncStub
+		)
 
 		BeforeEach(func() {
 			configStateCache = newConfigStateCacheStub()
@@ -236,11 +239,13 @@ var _ = Describe("config state", func() {
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 			Expect(configStateCache.Write(testNet1, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
 			Expect(configStateCache.Write(testNet2, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
+
+			discoverFunc = &discoverFuncStub{map[string]string{testNet0: "pod1", testNet1: "pod2", testNet2: "pod3"}}
 		})
 		It("There are no networks to unplug", func() {
 			ns.shouldNotBeExecuted = true
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, unplugFunc.f)
+			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
 		})
@@ -249,9 +254,19 @@ var _ = Describe("config state", func() {
 
 			ns.shouldNotBeExecuted = false
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, unplugFunc.f)
+			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0}))
+		})
+		It("There is one network to unplug but is has ordinal name", func() {
+			specInterfaces[0].State = v1.InterfaceStateAbsent
+			discoverFunc.podIfaceByNet[testNet0] = "net1"
+
+			ns.shouldNotBeExecuted = true
+			unplugFunc := &unplugFuncStub{}
+			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
 		})
 		It("There are multiple networks to unplug", func() {
 			specInterfaces[0].State = v1.InterfaceStateAbsent
@@ -259,7 +274,7 @@ var _ = Describe("config state", func() {
 
 			ns.shouldNotBeExecuted = false
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, unplugFunc.f)
+			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1}))
 		})
@@ -270,11 +285,11 @@ var _ = Describe("config state", func() {
 
 			ns.shouldNotBeExecuted = false
 			injectedErr := fmt.Errorf("fails unplug")
-			injectedErr3 := fmt.Errorf("fails unplug3")
-			unplugFunc := &unplugFuncStub{errRunForPodIfaces: map[string]error{testNet0: injectedErr, testNet2: injectedErr3}}
-			err := configState.UnplugNetworks(specInterfaces, unplugFunc.f)
+			injectedErr2 := fmt.Errorf("fails unplug2")
+			unplugFunc := &unplugFuncStub{errRunForPodIfaces: map[string]error{testNet0: injectedErr, testNet2: injectedErr2}}
+			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
 			Expect(err.Error()).To(ContainSubstring(injectedErr.Error()))
-			Expect(err.Error()).To(ContainSubstring(injectedErr3.Error()))
+			Expect(err.Error()).To(ContainSubstring(injectedErr2.Error()))
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1, testNet2}))
 		})
 	})
@@ -311,4 +326,12 @@ func (f *unplugFuncStub) f(name string, pid int) error {
 
 func noopCSPreRun(nics []podNIC) ([]podNIC, error) {
 	return nics, nil
+}
+
+type discoverFuncStub struct {
+	podIfaceByNet map[string]string
+}
+
+func (f *discoverFuncStub) f() (map[string]string, error) {
+	return f.podIfaceByNet, nil
 }
