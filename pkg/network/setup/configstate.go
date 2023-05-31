@@ -22,6 +22,8 @@ package network
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+
 	"k8s.io/apimachinery/pkg/util/errors"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -39,13 +41,18 @@ type configStateCacheRUD interface {
 }
 
 type ConfigState struct {
-	cache       configStateCacheRUD
-	ns          NSExecutor
-	launcherPid int
+	cache                 configStateCacheRUD
+	ns                    NSExecutor
+	launcherPid           int
+	podIfaceNameByNetwork map[string]string
 }
 
 func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor, launcherPid int) ConfigState {
-	return ConfigState{cache: configStateCache, ns: ns, launcherPid: launcherPid}
+	return NewConfigStateWithPodIfaceMap(configStateCache, ns, launcherPid, nil)
+}
+
+func NewConfigStateWithPodIfaceMap(configStateCache configStateCacheRUD, ns NSExecutor, launcherPid int, podIfaceNameByNetwork map[string]string) ConfigState {
+	return ConfigState{cache: configStateCache, ns: ns, launcherPid: launcherPid, podIfaceNameByNetwork: podIfaceNameByNetwork}
 }
 
 // Run passes through the state machine flow, executing the following steps:
@@ -55,7 +62,7 @@ func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor, launche
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
 	var pendingNICs []podNIC
 	for _, nic := range nics {
 		state, err := c.cache.Read(nic.vmiSpecNetwork.Name)
@@ -84,12 +91,20 @@ func (c ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, err
 		if preErr != nil {
 			return preErr
 		}
+		if c.podIfaceNameByNetwork == nil {
+			c.podIfaceNameByNetwork = map[string]string{}
+		}
+		for _, nic := range nics {
+			if _, exist := c.podIfaceNameByNetwork[nic.vmiSpecNetwork.Name]; !exist {
+				c.podIfaceNameByNetwork[nic.vmiSpecNetwork.Name] = nic.podInterfaceName
+			}
+		}
 		return c.plug(nics, discoverFunc, configFunc)
 	})
 	return err
 }
 
-func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
 	for i := range nics {
 		if ferr := discoverFunc(&nics[i]); ferr != nil {
 			return ferr
@@ -121,7 +136,18 @@ func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, confi
 	return nil
 }
 
-func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, cleanupFunc func(string, int) error) error {
+func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, dicoverFunc func() (map[string]string, error), cleanupFunc func(string, int) error) error {
+	if c.podIfaceNameByNetwork == nil {
+		err := c.ns.Do(func() error {
+			var dErr error
+			c.podIfaceNameByNetwork, dErr = dicoverFunc()
+			return dErr
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	networksToUnplug, err := c.networksToUnplug(specInterfaces)
 	if err != nil {
 		return err
@@ -149,6 +175,10 @@ func (c *ConfigState) networksToUnplug(specInterfaces []v1.Interface) ([]string,
 
 	for _, specIface := range specInterfaces {
 		if specIface.State == v1.InterfaceStateAbsent {
+			if podIfaceName, exist := c.podIfaceNameByNetwork[specIface.Name]; exist && namescheme.OrdinalSecondaryInterfaceName(podIfaceName) {
+				continue
+			}
+
 			state, err := c.cache.Read(specIface.Name)
 			if err != nil {
 				return nil, err
