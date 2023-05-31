@@ -96,7 +96,11 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	if err != nil {
 		return nil, err
 	}
-	podnic.podInterfaceName = ifaceLink.Attrs().Name
+	if ifaceLink == nil {
+		podnic.podInterfaceName = ""
+	} else {
+		podnic.podInterfaceName = ifaceLink.Attrs().Name
+	}
 
 	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
 	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain)
