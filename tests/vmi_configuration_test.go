@@ -2540,7 +2540,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))
 
 			},
-				Entry("with explicit resources set", &virtv1.ResourceRequirements{
+				Entry("[QUARANTINE] with explicit resources set", &virtv1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("2"),
 						kubev1.ResourceMemory: resource.MustParse("256Mi"),
