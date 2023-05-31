@@ -131,7 +131,7 @@ var (
 		child isolation.IsolationResult,
 		findmntInfo FindmntInfo,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Target)
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target)
 	}
 )
 
