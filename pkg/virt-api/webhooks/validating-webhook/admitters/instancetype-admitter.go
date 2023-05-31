@@ -31,7 +31,7 @@ type InstancetypeAdmitter struct{}
 var _ validating_webhooks.Admitter = &InstancetypeAdmitter{}
 
 func (f *InstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	return admitInstancetypeOrPreference(ar.Request, instancetype.PluralResourceName)
+	return admitInstancetype(ar.Request, instancetype.PluralResourceName)
 }
 
 func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
@@ -73,10 +73,10 @@ type ClusterInstancetypeAdmitter struct{}
 var _ validating_webhooks.Admitter = &ClusterInstancetypeAdmitter{}
 
 func (f *ClusterInstancetypeAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	return admitInstancetypeOrPreference(ar.Request, instancetype.ClusterPluralResourceName)
+	return admitInstancetype(ar.Request, instancetype.ClusterPluralResourceName)
 }
 
-func admitInstancetypeOrPreference(request *admissionv1.AdmissionRequest, resource string) *admissionv1.AdmissionResponse {
+func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *admissionv1.AdmissionResponse {
 	// Only handle create and update
 	if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
 		return &admissionv1.AdmissionResponse{

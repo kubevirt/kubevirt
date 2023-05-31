@@ -200,14 +200,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			config.DeveloperConfiguration.MemoryOvercommit = 200
 			tests.UpdateKubeVirtConfigValueAndWait(config)
 		})
-		AfterEach(func() {
-			By("Cleaning Cluster MemoryOvercommit")
-			kv := util.GetCurrentKv(virtClient)
-
-			config := kv.Spec.Configuration
-			config.DeveloperConfiguration.MemoryOvercommit = 100
-			tests.UpdateKubeVirtConfigValueAndWait(config)
-		})
 		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
 			vmi := libvmi.NewCirros()
 
