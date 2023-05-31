@@ -17160,6 +17160,16 @@
     "description": "InterfaceSlirp connects to a given network using QEMU user networking mode.",
     "type": "object"
    },
+   "v1.KSMConfiguration": {
+    "description": "KSMConfiguration holds information about KSM.",
+    "type": "object",
+    "properties": {
+     "nodeLabelSelector": {
+      "description": "NodeLabelSelector is a selector that filters in which nodes the KSM will be enabled. Empty NodeLabelSelector will enable ksm for every node.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     }
+    }
+   },
    "v1.KVMTimer": {
     "type": "object",
     "properties": {
@@ -17344,6 +17354,10 @@
        "IfNotPresent",
        "Never"
       ]
+     },
+     "ksmConfiguration": {
+      "description": "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
+      "$ref": "#/definitions/v1.KSMConfiguration"
      },
      "machineType": {
       "type": "string"

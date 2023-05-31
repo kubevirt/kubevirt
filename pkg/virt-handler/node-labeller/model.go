@@ -97,6 +97,7 @@ type SEVConfiguration struct {
 }
 
 type KSMConfiguration struct {
+	Available     bool
 	SysfsFilePath string
 	Enabled       bool
 }

@@ -914,6 +914,9 @@ const (
 	// KSMEnabledLabel marks the node as KSM enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
 
+	// KSMHandlerManagedAnnotation is an annotation used to mark the nodes where the virt-handler has enabled the ksm
+	KSMHandlerManagedAnnotation string = "kubevirt.io/ksm-handler-managed"
+
 	// InstancetypeAnnotation is the name of a VirtualMachineInstancetype
 	InstancetypeAnnotation string = "kubevirt.io/instancetype-name"
 
@@ -2330,6 +2333,8 @@ type KubeVirtConfiguration struct {
 	// The storage class must support RWX in filesystem mode.
 	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
+	// KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).
+	KSMConfiguration *KSMConfiguration `json:"ksmConfiguration,omitempty"`
 }
 
 type ArchConfiguration struct {
@@ -2588,6 +2593,15 @@ type NodeMediatedDeviceTypesConfig struct {
 	// +optional
 	// +listType=atomic
 	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
+}
+
+// KSMConfiguration holds information about KSM.
+// +k8s:openapi-gen=true
+type KSMConfiguration struct {
+	// NodeLabelSelector is a selector that filters in which nodes the KSM will be enabled.
+	// Empty NodeLabelSelector will enable ksm for every node.
+	// +optional
+	NodeLabelSelector *metav1.LabelSelector `json:"nodeLabelSelector,omitempty"`
 }
 
 // NetworkConfiguration holds network options
