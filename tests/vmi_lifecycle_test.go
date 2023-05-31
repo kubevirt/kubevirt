@@ -239,7 +239,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(vmi.Status.EvacuationNodeName).ToNot(Equal(""))
 				return nil
 			}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
 		})
 
 		It("[test_id:1622]should log libvirtd logs", func() {

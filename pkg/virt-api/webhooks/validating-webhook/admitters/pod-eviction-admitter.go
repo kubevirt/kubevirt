@@ -57,6 +57,10 @@ func (admitter *PodEvictionAdmitter) Admit(ar *admissionv1.AdmissionReview) *adm
 			return denied(fmt.Sprintf("VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
 		}
 		markForEviction = true
+	case virtv1.EvictionStrategyLiveMigrateIfPossible:
+		if vmi.IsMigratable() {
+			markForEviction = true
+		}
 	case virtv1.EvictionStrategyExternal:
 		markForEviction = true
 	}
