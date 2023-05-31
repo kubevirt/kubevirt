@@ -605,12 +605,11 @@ func (t *vmRestoreTarget) reconcileDataVolumes() (bool, error) {
 					dv.Status.Phase != v1beta1.PendingPopulation)
 			continue
 		}
-		if createdDV, err = t.createDataVolume(dvt); err != nil {
+		created, err := t.createDataVolume(dvt)
+		if err != nil {
 			return false, err
 		}
-		if !createdDV {
-			continue
-		}
+		createdDV = createdDV || created
 	}
 	return createdDV || waitingDV, nil
 }
