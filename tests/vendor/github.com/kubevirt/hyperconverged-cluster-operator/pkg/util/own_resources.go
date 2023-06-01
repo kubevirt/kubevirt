@@ -56,27 +56,41 @@ func findOwnResources(ctx context.Context, cl client.Reader, logger logr.Logger)
 			or.pod = nil
 			logger.Error(err, "Can't get self pod")
 		}
-	}
 
-	operatorNs, err := GetOperatorNamespace(logger)
-	if err != nil {
-		logger.Error(err, "Can't get operator namespace")
-		return
-	}
-
-	or.deployment, err = getDeploymentFromPod(or.pod, cl, operatorNs, logger)
-	if err != nil {
-		logger.Error(err, "Can't the deployment")
-		return
-	}
-	if GetClusterInfo().IsOpenshift() {
-		var err error
-		or.csv, err = getCSVFromDeployment(or.deployment, cl, operatorNs, logger)
+		operatorNs, err := GetOperatorNamespace(logger)
 		if err != nil {
-			logger.Error(err, "Can't get CSV")
-			or.csv = nil
+			logger.Error(err, "Can't get operator namespace")
+			return
 		}
+
+		or.deployment, err = getDeploymentFromPod(or.pod, cl, operatorNs, logger)
+		if err != nil {
+			logger.Error(err, "Can't get deployment")
+			return
+		}
+		if GetClusterInfo().IsOpenshift() {
+			var err error
+			or.csv, err = getCSVFromDeployment(or.deployment, cl, operatorNs, logger)
+			if err != nil {
+				logger.Error(err, "Can't get CSV")
+				or.csv = nil
+			}
+		}
+	} else {
+		deployment := &appsv1.Deployment{}
+		err := cl.Get(context.TODO(), client.ObjectKey{
+			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
+			Name:      "hyperconverged-cluster-operator",
+		}, deployment)
+		if err != nil {
+			logger.Error(err, "Can't get deployment")
+			return
+		}
+		or.deployment = deployment
+		or.pod = nil
+		or.csv = nil
 	}
+
 	return
 }
 
