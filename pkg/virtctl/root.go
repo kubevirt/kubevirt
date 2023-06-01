@@ -110,6 +110,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
 		create.NewCommand(),
 		network.NewAddInterfaceCommand(clientConfig),
+		network.NewRemoveInterfaceCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd, clientConfig

@@ -2874,7 +2874,12 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if err := d.setupNetwork(vmi, vmi.Spec.Networks); err != nil {
+		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+			return iface.State != v1.InterfaceStateAbsent
+		})
+		nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
+
+		if err := d.setupNetwork(vmi, nonAbsentNets); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 
@@ -2951,7 +2956,13 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			if err := d.setupNetwork(vmi, netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)); err != nil {
+			nets := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
+			nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+				return iface.State != v1.InterfaceStateAbsent
+			})
+			nonAbsentNets := netvmispec.FilterNetworksByInterfaces(nets, nonAbsentIfaces)
+
+			if err := d.setupNetwork(vmi, nonAbsentNets); err != nil {
 				log.Log.Object(vmi).Error(err.Error())
 				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
 				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)

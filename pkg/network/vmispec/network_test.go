@@ -36,7 +36,9 @@ var _ = Describe("Network", func() {
 	multusSecondaryNetwork3 := createMultusSecondaryNetwork("network3", "default/nad3")
 	DescribeTable("should return only Multus non-default networks", func(inputNetworks, expectFilteredNetworks []v1.Network) {
 		filteredNetworks := vmispec.FilterMultusNonDefaultNetworks(inputNetworks)
+		genericFilteredNetworks := vmispec.FilterNetworksSpec(inputNetworks, vmispec.IsSecondaryMultusNetwork)
 
+		Expect(filteredNetworks).To(Equal(genericFilteredNetworks))
 		Expect(filteredNetworks).To(Equal(expectFilteredNetworks))
 	},
 		Entry("when there are no networks", []v1.Network{}, nil),

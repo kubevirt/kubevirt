@@ -1260,10 +1260,11 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				}
 			}
 		}
-		if len(vmispec.NetworksToHotplug(vmi.Spec.Networks, vmi.Status.Interfaces)) > 0 {
-			if err := c.handleDynamicInterfaceRequests(vmi, pod); err != nil {
+
+		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi, pod); dynamicIfacesExist {
+			if err := c.handleDynamicInterfaceRequests(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
 				return &syncErrorImpl{
-					err:    fmt.Errorf("failed to hotplug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
+					err:    fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
 					reason: FailedHotplugSyncReason,
 				}
 			}
@@ -2263,12 +2264,12 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
 }
 
-func (c *VMIController) handleDynamicInterfaceRequests(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
 	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
-	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(vmi.Spec.Networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := services.GenerateMultusCNIAnnotationFromNameScheme(vmi, networkToPodIfaceMap)
+	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
+	multusAnnotations, err := services.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap)
 	if err != nil {
 		return err
 	}
@@ -2300,15 +2301,17 @@ func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance
 			return fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		if _, exists := indexedMultusStatusIfaces[podIfaceName]; exists {
-			if vmiIfaceStatus == nil {
-				vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
-					Name:       network.Name,
-					InfoSource: vmispec.InfoSourceMultusStatus,
-				})
-			} else {
-				vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-			}
+		_, exists := indexedMultusStatusIfaces[podIfaceName]
+		switch {
+		case exists && vmiIfaceStatus == nil:
+			vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{
+				Name:       network.Name,
+				InfoSource: vmispec.InfoSourceMultusStatus,
+			})
+		case exists && vmiIfaceStatus != nil:
+			vmiIfaceStatus.InfoSource = vmispec.AddInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+		case !exists && vmiIfaceStatus != nil:
+			vmiIfaceStatus.InfoSource = vmispec.RemoveInfoSource(vmiIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
 		}
 	}
 

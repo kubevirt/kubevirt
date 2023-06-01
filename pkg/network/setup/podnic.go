@@ -109,7 +109,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		return nil, fmt.Errorf("Network not implemented")
 	}
 
-	correspondingNetworkIface := vmispec.LookupInterfaceByNetwork(vmi.Spec.Domain.Devices.Interfaces, network)
+	correspondingNetworkIface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, network.Name)
 	if correspondingNetworkIface == nil {
 		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
@@ -178,12 +178,6 @@ func (l *podNIC) sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
 }
 
 func (l *podNIC) discoverAndStoreCache() error {
-	ifaceLink, err := link.DiscoverByNetwork(l.handler, l.vmi.Spec.Networks, *l.vmiSpecNetwork)
-	if err != nil {
-		return err
-	}
-	l.podInterfaceName = ifaceLink.Attrs().Name
-
 	if err := l.setPodInterfaceCache(); err != nil {
 		return err
 	}

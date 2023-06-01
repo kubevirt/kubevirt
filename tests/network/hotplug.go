@@ -63,28 +63,6 @@ const (
 )
 
 var _ = SIGDescribe("nic-hotplug", func() {
-	verifyHotplug := func(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
-		if plugMethod == migrationBased {
-			migrate(vmi)
-		}
-
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		var secondaryNetworksNames []string
-		for _, net := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
-			secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
-		}
-		Expect(secondaryNetworksNames).NotTo(BeEmpty())
-		EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
-			return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-		}, 30*time.Second).Should(
-			ConsistOf(interfaceStatusFromInterfaceNames(secondaryNetworksNames...)))
-
-		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-		ExpectWithOffset(1, err).NotTo(HaveOccurred())
-		return vmi
-	}
 
 	BeforeEach(func() {
 		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
@@ -117,7 +95,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		})
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -125,7 +103,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 
 		DescribeTable("cannot hotplug multiple network interfaces for a q35 machine type by default", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			const secondHotpluggedIfaceName = "iface2"
 			Expect(
@@ -153,7 +131,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			migrate(hotPluggedVMI)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
@@ -163,7 +141,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		)
 
 		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			const subnetMask = "/24"
 			const ip1 = "10.1.1.1"
@@ -235,7 +213,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		})
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			const secondHotpluggedIfaceName = "iface2"
 			Expect(
@@ -250,7 +228,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				migrate(hotPluggedVMI)
 			}
 
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -292,7 +270,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -301,7 +279,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyHotplug(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("restarting the VM")
 			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
 				context.Background(),
@@ -381,6 +359,80 @@ var _ = SIGDescribe("nic-hotplug", func() {
 		})
 	})
 })
+
+var _ = SIGDescribe("nic-hotunplug", func() {
+	const (
+		linuxBridgeNetworkName1 = "red"
+		linuxBridgeNetworkName2 = "blue"
+	)
+
+	BeforeEach(func() {
+		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+	})
+
+	Context("a running VMI", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			By("creating a NAD")
+			Expect(createBridgeNetworkAttachmentDefinition(
+				testsuite.GetTestNamespace(nil), networkName, linuxBridgeName)).To(Succeed())
+
+			By("running a VMI")
+			opts := append(
+				libvmi.WithMasqueradeNetworking(),
+				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName1, networkName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, networkName)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)),
+			)
+			vmi = tests.RunVMIAndExpectLaunch(libvmi.NewAlpineWithTestTooling(opts...), 60)
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+		})
+
+		DescribeTable("can hot-unplug a network interface", func(plugMethod hotplugMethod) {
+			const guestNICName = "eth2"
+			Expect(libnet.InterfaceExists(vmi, guestNICName)).To(Succeed())
+			Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).RemoveInterface(
+				context.Background(),
+				vmi.Name,
+				&v1.RemoveInterfaceOptions{Name: linuxBridgeNetworkName2},
+			)).To(Succeed())
+			vmi = verifyDynamicInterfaceChange(vmi, plugMethod)
+			Expect(libnet.InterfaceExists(vmi, guestNICName)).NotTo(Succeed())
+		},
+			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
+			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+		)
+	})
+})
+
+func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+	if plugMethod == migrationBased {
+		migrate(vmi)
+	}
+
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
+	var secondaryNetworksNames []string
+	for _, net := range vmispec.FilterMultusNonDefaultNetworks(nonAbsentNets) {
+		secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
+	}
+	Expect(secondaryNetworksNames).NotTo(BeEmpty())
+	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
+		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
+	}, 30*time.Second).Should(
+		ConsistOf(interfaceStatusFromInterfaceNames(secondaryNetworksNames...)))
+
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return vmi
+}
 
 func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	EventuallyWithOffset(1, func() []v1.Network {

@@ -57,7 +57,7 @@ func CreateHashedNetworkNameScheme(vmiNetworks []v1.Network) map[string]string {
 
 func HashedPodInterfaceName(network v1.Network) string {
 	if vmispec.IsSecondaryMultusNetwork(network) {
-		return generateHashedInterfaceName(network.Name)
+		return GenerateHashedInterfaceName(network.Name)
 	}
 
 	return PrimaryPodInterfaceName
@@ -66,12 +66,12 @@ func HashedPodInterfaceName(network v1.Network) string {
 func mapMultusNonDefaultNetworksToPodInterfaceName(networks []v1.Network) map[string]string {
 	networkNameSchemeMap := map[string]string{}
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(networks) {
-		networkNameSchemeMap[network.Name] = generateHashedInterfaceName(network.Name)
+		networkNameSchemeMap[network.Name] = GenerateHashedInterfaceName(network.Name)
 	}
 	return networkNameSchemeMap
 }
 
-func generateHashedInterfaceName(networkName string) string {
+func GenerateHashedInterfaceName(networkName string) string {
 	hash := sha256.New()
 	_, _ = io.WriteString(hash, networkName)
 	hashedName := fmt.Sprintf("%x", hash.Sum(nil))[:maxIfaceNameLen]
@@ -135,17 +135,17 @@ func CreateNetworkNameSchemeByPodNetworkStatus(networks []v1.Network, networkSta
 // PodHasOrdinalInterfaceName check if the given pod network status has at least one pod interface with ordinal name
 func PodHasOrdinalInterfaceName(podNetworkStatus map[string]networkv1.NetworkStatus) bool {
 	for _, networkStatus := range podNetworkStatus {
-		if ordinalSecondaryInterfaceName(networkStatus.Interface) {
+		if OrdinalSecondaryInterfaceName(networkStatus.Interface) {
 			return true
 		}
 	}
 	return false
 }
 
-// ordinalSecondaryInterfaceName check if the given name is in form of the ordinal
+// OrdinalSecondaryInterfaceName check if the given name is in form of the ordinal
 // name scheme (e.g.: net1, net2..).
 // Primary iface name (eth0) is treated as non-ordinal interface name.
-func ordinalSecondaryInterfaceName(name string) bool {
+func OrdinalSecondaryInterfaceName(name string) bool {
 	const ordinalIfaceNameRegex = `^net\d+$`
 	match, err := regexp.MatchString(ordinalIfaceNameRegex, name)
 	if err != nil {

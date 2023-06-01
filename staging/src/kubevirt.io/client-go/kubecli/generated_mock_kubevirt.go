@@ -1277,6 +1277,16 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) AddInterface(arg0, arg1
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddInterface", arg0, arg1, arg2)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) RemoveInterface(ctx context.Context, name string, removeInterfaceOptions *v120.RemoveInterfaceOptions) error {
+	ret := _m.ctrl.Call(_m, "RemoveInterface", ctx, name, removeInterfaceOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) RemoveInterface(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveInterface", arg0, arg1, arg2)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller

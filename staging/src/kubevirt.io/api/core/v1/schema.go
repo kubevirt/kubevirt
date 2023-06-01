@@ -1186,7 +1186,17 @@ type Interface struct {
 	// This value is required to be unique across all devices and be between 1 and (16*1024-1).
 	// +optional
 	ACPIIndex int `json:"acpiIndex,omitempty"`
+	// State represents the requested operational state of the interface.
+	// The (only) value supported is `absent`, expressing a request to remove the interface.
+	// +optional
+	State InterfaceState `json:"state,omitempty"`
 }
+
+type InterfaceState string
+
+const (
+	InterfaceStateAbsent InterfaceState = "absent"
+)
 
 // Extra DHCP options to use in the interface.
 type DHCPOptions struct {

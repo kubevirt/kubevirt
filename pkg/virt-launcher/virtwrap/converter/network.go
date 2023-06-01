@@ -32,11 +32,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, ifacesToPlug []v1.Interface) ([]api.Interface, error) {
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) ([]api.Interface, error) {
 	isVirtioNetProhibited, err := c.IsVirtIONetProhibited()
 	if err != nil {
 		return nil, err
@@ -44,9 +45,14 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 
 	var domainInterfaces []api.Interface
 
-	networks := indexNetworksByName(vmi.Spec.Networks)
+	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
 
-	for i, iface := range ifacesToPlug {
+	networks := indexNetworksByName(nonAbsentNets)
+
+	for i, iface := range nonAbsentIfaces {
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
@@ -56,7 +62,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			continue
 		}
 
-		ifaceType := GetInterfaceType(&vmi.Spec.Domain.Devices.Interfaces[i])
+		ifaceType := GetInterfaceType(&nonAbsentIfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
 				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType),

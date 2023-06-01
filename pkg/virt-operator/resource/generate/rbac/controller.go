@@ -374,6 +374,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/addinterface",
+					"virtualmachineinstances/removeinterface",
 				},
 				Verbs: []string{
 					"update",

@@ -71,10 +71,20 @@ var _ = Describe("Dynamic Interface Attachment", func() {
 		Entry("missing the VM name as parameter for the `AddInterface` cmd", network.HotplugCmdName),
 		Entry("missing all required flags for the `AddInterface` cmd", network.HotplugCmdName, vmName),
 		Entry("missing the network attachment definition name flag for the `AddInterface` cmd", network.HotplugCmdName, vmName, "--name", testIfaceName),
+		Entry("missing the VM name as parameter for the `RemoveInterface` cmd", network.HotUnplugCmdName),
+		Entry("missing all required flags for the `RemoveInterface` cmd", network.HotUnplugCmdName, vmName),
 	)
 
-	It("fails when the VM name argument is missing but all flags are provided", func() {
-		cmd := clientcmd.NewVirtctlCommand(append([]string{network.HotplugCmdName}, requiredCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName)...)...)
+	It("fails AddInterface when the VM name argument is missing but all flags are provided", func() {
+		cmd := clientcmd.NewVirtctlCommand(append([]string{network.HotplugCmdName}, requiredAddCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName)...)...)
+		err := cmd.Execute()
+
+		const missingArgError = "argument validation failed"
+		Expect(err).To(MatchError(ContainSubstring(missingArgError)))
+	})
+
+	It("fails RemoveInterface when the VM name argument is missing but all flags are provided", func() {
+		cmd := clientcmd.NewVirtctlCommand(network.HotUnplugCmdName, "--name", testIfaceName)
 		err := cmd.Execute()
 
 		const missingArgError = "argument validation failed"
@@ -93,7 +103,7 @@ var _ = Describe("Dynamic Interface Attachment", func() {
 			vmi = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			mockVMIAddInterfaceEndpoints(vmi, vmName, testNetworkAttachmentDefinitionName, testIfaceName)
 
-			cmdArgs := append(requiredCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName))
+			cmdArgs := append(requiredAddCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName))
 			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotplugCmdName, vmName, cmdArgs...)...)
 			Expect(cmd.Execute()).To(Succeed())
 		})
@@ -102,22 +112,38 @@ var _ = Describe("Dynamic Interface Attachment", func() {
 			vm = kubecli.NewMockVirtualMachineInterface(ctrl)
 			mockVMAddInterfaceEndpoints(vm, vmName, testNetworkAttachmentDefinitionName, testIfaceName)
 
-			cmdArgs := append(requiredCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName), "--persist")
+			cmdArgs := append(requiredAddCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName), "--persist")
 			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotplugCmdName, vmName, cmdArgs...)...)
+			Expect(cmd.Execute()).To(Succeed())
+		})
+
+		It("hot-unplug an interface works", func() {
+			vmi = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			mockVMIRemoveInterfaceEndpoints(vmi, vmName, testIfaceName)
+
+			cmdArgs := []string{"--name", testIfaceName}
+			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotUnplugCmdName, vmName, cmdArgs...)...)
 			Expect(cmd.Execute()).To(Succeed())
 		})
 	})
 })
 
 func buildDynamicIfaceCmd(cmdType string, vmName string, requiredCmdArgs ...string) []string {
-	if cmdType == network.HotplugCmdName {
+	switch cmdType {
+	case network.HotplugCmdName:
 		return buildHotplugIfaceCmd(vmName, requiredCmdArgs...)
+	case network.HotUnplugCmdName:
+		return buildHotUnplugIfaceCmd(vmName, requiredCmdArgs...)
 	}
-	panic(fmt.Errorf("the only dynamic command currently implemented is for `addinterface`"))
+	panic(fmt.Errorf("unsupported dynamic command: %s", cmdType))
 }
 
 func buildHotplugIfaceCmd(vmName string, requiredCmdArgs ...string) []string {
 	return append([]string{network.HotplugCmdName, vmName}, requiredCmdArgs...)
+}
+
+func buildHotUnplugIfaceCmd(vmName string, requiredCmdArgs ...string) []string {
+	return append([]string{network.HotUnplugCmdName, vmName}, requiredCmdArgs...)
 }
 
 func mockVMIAddInterfaceEndpoints(vmi *kubecli.MockVirtualMachineInstanceInterface, vmName string, networkAttachmentDefinitionName string, name string) {
@@ -129,6 +155,18 @@ func mockVMIAddInterfaceEndpoints(vmi *kubecli.MockVirtualMachineInstanceInterfa
 	vmi.EXPECT().AddInterface(context.Background(), vmName, gomock.Any()).DoAndReturn(func(arg0, arg1, arg2 interface{}) interface{} {
 		Expect(arg2.(*v1.AddInterfaceOptions).NetworkAttachmentDefinitionName).To(Equal(networkAttachmentDefinitionName))
 		Expect(arg2.(*v1.AddInterfaceOptions).Name).To(Equal(name))
+		return nil
+	})
+}
+
+func mockVMIRemoveInterfaceEndpoints(vmi *kubecli.MockVirtualMachineInstanceInterface, vmName string, name string) {
+	kubecli.MockKubevirtClientInstance.
+		EXPECT().
+		VirtualMachineInstance(k8smetav1.NamespaceDefault).
+		Return(vmi).
+		Times(1)
+	vmi.EXPECT().RemoveInterface(context.Background(), vmName, gomock.Any()).DoAndReturn(func(arg0, arg1, arg2 interface{}) interface{} {
+		Expect(arg2.(*v1.RemoveInterfaceOptions).Name).To(Equal(name))
 		return nil
 	})
 }
@@ -146,6 +184,6 @@ func mockVMAddInterfaceEndpoints(vm *kubecli.MockVirtualMachineInterface, vmName
 	})
 }
 
-func requiredCmdFlags(networkAttachmentDefinitionName string, name string) []string {
+func requiredAddCmdFlags(networkAttachmentDefinitionName string, name string) []string {
 	return []string{"--network-attachment-definition-name", networkAttachmentDefinitionName, "--name", name}
 }

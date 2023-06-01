@@ -43,12 +43,13 @@ func NewConfigState(configStateCache configStateCacheReaderWriter, ns NSExecutor
 }
 
 // Run passes through the state machine flow, executing the following steps:
+// - PreRun processes the nics and potentially updates and filters them (e.g. filter-out networks marked for removal).
 // - Discover the current pod network configuration status and persist some of it for future use.
 // - Configure the pod network.
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c ConfigState) Run(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
 	var pendingNICs []podNIC
 	for _, nic := range nics {
 		state, err := c.cache.Read(nic.vmiSpecNetwork.Name)
@@ -72,6 +73,11 @@ func (c ConfigState) Run(nics []podNIC, discoverFunc func(*podNIC) error, config
 	}
 
 	err := c.ns.Do(func() error {
+		var preErr error
+		nics, preErr = preRunFunc(nics)
+		if preErr != nil {
+			return preErr
+		}
 		return c.plug(nics, discoverFunc, configFunc)
 	})
 	return err

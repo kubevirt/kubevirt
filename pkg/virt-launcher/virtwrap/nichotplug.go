@@ -24,12 +24,15 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
+	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -64,7 +67,7 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 			return err
 		}
 
-		relevantIface := domainInterfaceFromNetwork(updatedDomain, network)
+		relevantIface := lookupDomainInterfaceByName(updatedDomain.Spec.Devices.Interfaces, network.Name)
 		if relevantIface == nil {
 			return fmt.Errorf("could not retrieve the api.Interface object from the dummy domain")
 		}
@@ -87,9 +90,46 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 	return nil
 }
 
-func domainInterfaceFromNetwork(domain *api.Domain, network v1.Network) *api.Interface {
-	for _, iface := range domain.Spec.Devices.Interfaces {
-		if iface.Alias.GetName() == network.Name {
+func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
+	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, currentDomain.Spec.Devices.Interfaces) {
+		log.Log.Infof("preparing to hot-unplug %s", domainIface.Alias.GetName())
+
+		ifaceXML, err := xml.Marshal(domainIface)
+		if err != nil {
+			return err
+		}
+
+		if derr := vim.dom.DetachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); derr != nil {
+			log.Log.Reason(derr).Errorf("libvirt failed to detach interface %s: %v", domainIface.Alias.GetName(), derr)
+			return derr
+		}
+	}
+	return nil
+}
+
+func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, domainSpecInterfaces []api.Interface) []api.Interface {
+	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(i v1.Interface) bool {
+		return i.State == v1.InterfaceStateAbsent
+	})
+	var domainIfacesToRemove []api.Interface
+	for _, vmiIface := range ifaces2remove {
+		if domainIface := lookupDomainInterfaceByName(domainSpecInterfaces, vmiIface.Name); domainIface != nil {
+			if hasDeviceWithHashedTapName(domainIface.Target, vmiIface) {
+				domainIfacesToRemove = append(domainIfacesToRemove, *domainIface)
+			}
+		}
+	}
+	return domainIfacesToRemove
+}
+
+func hasDeviceWithHashedTapName(target *api.InterfaceTarget, vmiIface v1.Interface) bool {
+	return target != nil &&
+		target.Device == virtnetlink.GenerateTapDeviceName(namescheme.GenerateHashedInterfaceName(vmiIface.Name))
+}
+
+func lookupDomainInterfaceByName(domainIfaces []api.Interface, networkName string) *api.Interface {
+	for _, iface := range domainIfaces {
+		if iface.Alias.GetName() == networkName {
 			return &iface
 		}
 	}
@@ -102,10 +142,11 @@ func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineIns
 		vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 			_, exists := indexedDomainIfaces[ifaceStatus.Name]
+			vmiSpecIface := netvmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, ifaceStatus.Name)
 
 			return netvmispec.ContainsInfoSource(
 				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus,
-			) && !exists
+			) && !exists && vmiSpecIface.State != v1.InterfaceStateAbsent
 		},
 	)
 

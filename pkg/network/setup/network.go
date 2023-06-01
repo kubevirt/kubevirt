@@ -25,6 +25,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -69,7 +71,7 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 
 	for i := range networks {
 		// SR-IOV devices are not part of the phases.
-		if iface := vmispec.LookupInterfaceByNetwork(v.vmi.Spec.Domain.Devices.Interfaces, &networks[i]); iface.SRIOV != nil {
+		if iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name); iface.SRIOV != nil {
 			continue
 		}
 
@@ -90,6 +92,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 
 	err = configState.Run(
 		nics,
+		preConfigStateRun,
 		func(nic *podNIC) error {
 			return nic.discoverAndStoreCache()
 		},
@@ -116,4 +119,41 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 		}
 	}
 	return nil
+}
+
+func preConfigStateRun(nics []podNIC) ([]podNIC, error) {
+	nics, err := discoverPodInterfaces(nics)
+	if err != nil {
+		return nil, err
+	}
+
+	return filterOutAbsentIfaces(nics), nil
+}
+
+func discoverPodInterfaces(nics []podNIC) ([]podNIC, error) {
+	for idx, nic := range nics {
+		ifaceLink, err := link.DiscoverByNetwork(nic.handler, nic.vmi.Spec.Networks, *nic.vmiSpecNetwork)
+		if err != nil {
+			if nic.vmiSpecIface.State != v1.InterfaceStateAbsent {
+				return nil, err
+			}
+			// For a network marked for removal, it is reasonable not to find any interface.
+		} else {
+			nics[idx].podInterfaceName = ifaceLink.Attrs().Name
+		}
+	}
+	return nics, nil
+}
+
+func filterOutAbsentIfaces(nics []podNIC) []podNIC {
+	var filteredNics []podNIC
+	for _, nic := range nics {
+		toAdd := nic.vmiSpecIface.State != v1.InterfaceStateAbsent ||
+			(nic.vmiSpecIface.State == v1.InterfaceStateAbsent &&
+				namescheme.OrdinalSecondaryInterfaceName(nic.podInterfaceName))
+		if toAdd {
+			filteredNics = append(filteredNics, nic)
+		}
+	}
+	return filteredNics
 }
