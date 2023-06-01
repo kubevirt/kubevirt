@@ -15,17 +15,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 )
 
 var _ = Describe("Dashboard tests", func() {
 
-	schemeForTest := commonTestUtils.GetScheme()
+	schemeForTest := commontestutils.GetScheme()
 
 	var (
 		logger            = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("dashboard_test")
 		testFilesLocation = getTestFilesLocation() + "/dashboards"
-		hco               = commonTestUtils.NewHco()
+		hco               = commontestutils.NewHco()
 	)
 
 	Context("test dashboardHandlers", func() {
@@ -35,7 +35,7 @@ var _ = Describe("Dashboard tests", func() {
 			_ = os.Setenv(dashboardManifestLocationVarName, dir)
 
 			By("folder not exists", func() {
-				cli := commonTestUtils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]runtime.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -46,7 +46,7 @@ var _ = Describe("Dashboard tests", func() {
 			defer os.RemoveAll(dir)
 
 			By("folder is empty", func() {
-				cli := commonTestUtils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]runtime.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -62,7 +62,7 @@ var _ = Describe("Dashboard tests", func() {
 			_ = nonYaml.Close()
 
 			By("no yaml files", func() {
-				cli := commonTestUtils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]runtime.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -70,11 +70,11 @@ var _ = Describe("Dashboard tests", func() {
 			})
 
 			Expect(
-				commonTestUtils.CopyFile(path.Join(dir, "dashboard.yaml"), path.Join(testFilesLocation, "kubevirt-top-consumers.yaml")),
+				commontestutils.CopyFile(path.Join(dir, "dashboard.yaml"), path.Join(testFilesLocation, "kubevirt-top-consumers.yaml")),
 			).To(Succeed())
 
 			By("yaml file exists", func() {
-				cli := commonTestUtils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]runtime.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -94,7 +94,7 @@ var _ = Describe("Dashboard tests", func() {
 
 			_ = os.Setenv(dashboardManifestLocationVarName, filePath)
 			By("check that getDashboardHandlers returns error", func() {
-				cli := commonTestUtils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]runtime.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).Should(HaveOccurred())
@@ -109,7 +109,7 @@ var _ = Describe("Dashboard tests", func() {
 		It("should create the Dashboard Configmap resource if not exists", func() {
 			_ = os.Setenv(dashboardManifestLocationVarName, testFilesLocation)
 
-			cli := commonTestUtils.InitClient([]runtime.Object{})
+			cli := commontestutils.InitClient([]runtime.Object{})
 			handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -122,9 +122,9 @@ var _ = Describe("Dashboard tests", func() {
 				exists = hooks.required.DeepCopy()
 			}
 
-			hco := commonTestUtils.NewHco()
+			hco := commontestutils.NewHco()
 			By("apply the configmap", func() {
-				req := commonTestUtils.NewReq(hco)
+				req := commontestutils.NewReq(hco)
 				res := handlers[0].ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 				Expect(res.Created).To(BeTrue())
@@ -143,14 +143,14 @@ var _ = Describe("Dashboard tests", func() {
 
 			_ = os.Setenv(dashboardManifestLocationVarName, testFilesLocation)
 
-			cli := commonTestUtils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]runtime.Object{exists})
 			handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
 
-			hco := commonTestUtils.NewHco()
+			hco := commontestutils.NewHco()
 			By("apply the confimap", func() {
-				req := commonTestUtils.NewReq(hco)
+				req := commontestutils.NewReq(hco)
 				res := handlers[0].ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 				Expect(res.Updated).To(BeTrue())

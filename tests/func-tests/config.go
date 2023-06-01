@@ -59,12 +59,12 @@ func loadConfig(fileName string) *TestConfig {
 	config := TestConfig{}
 
 	if fileName != "" {
-		configContent, err := os.ReadFile(fileName)
+		file, err := os.Open(fileName)
 		if err != nil {
 			panic(err)
 		}
-
-		err = yaml.Unmarshal(configContent, &config)
+		dec := yaml.NewDecoder(file)
+		err = dec.Decode(&config)
 		if err != nil {
 			panic(err)
 		}

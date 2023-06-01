@@ -31,13 +31,6 @@ jobs:
       - name: Do sanity checks
         run: make sanity
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.52.2
-          skip-pkg-cache: true
-          args: --timeout=5m --out-${NO_FUTURE}format line-number
-
       - name: Verify we can actually build the operator
         run: make build
 
@@ -53,3 +46,31 @@ jobs:
 
       - name: Verify the current manifests pass validation
         run: make container-build-validate-bundles
+
+  linters:
+    name: linter Checks
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.19' # The Go version to download (if necessary) and use.
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.52.2
+          skip-pkg-cache: true
+          args: --timeout=5m --out-${NO_FUTURE}format line-number
+
+      - name: Run golangci-lint on tests/
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.52.2
+          skip-pkg-cache: true
+          args: --timeout=5m --out-${NO_FUTURE}format line-number
+          working-directory: tests/

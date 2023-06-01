@@ -36,7 +36,7 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -65,7 +65,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 		BeforeEach(func() {
 			hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-				return commonTestUtils.ClusterInfoMock{}
+				return commontestutils.ClusterInfoMock{}
 			}
 		})
 
@@ -80,14 +80,14 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
+				_ = os.Setenv("VIRTIOWIN_CONTAINER", commontestutils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
-				hcoNamespace = commonTestUtils.NewHcoNamespace()
+				hcoNamespace = commontestutils.NewHcoNamespace()
 			})
 
 			It("should handle not found", func() {
-				cl := commonTestUtils.InitClient([]runtime.Object{})
+				cl := commontestutils.InitClient([]runtime.Object{})
 				r := initReconciler(cl, nil)
 
 				res, err := r.Reconcile(context.TODO(), request)
@@ -108,7 +108,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Conditions: []metav1.Condition{},
 					},
 				}
-				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 				r := initReconciler(cl, nil)
 
 				// Do the reconcile
@@ -130,7 +130,7 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  metav1.ConditionFalse,
 					Reason:  invalidRequestReason,
@@ -140,13 +140,13 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should create all managed resources", func() {
 
-				hco := commonTestUtils.NewHco()
+				hco := commontestutils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 					WithHostPassthroughCPU: pointer.Bool(true),
 				}
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
-				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
+				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commontestutils.NewEventEmitterMock(), commontestutils.GetScheme())
 
 				r := initReconciler(cl, nil)
 				r.monitoringReconciler = monitoringReconciler
@@ -166,31 +166,31 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  metav1.ConditionUnknown,
 					Reason:  reconcileInit,
 					Message: reconcileInitMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionAvailable,
 					Status:  metav1.ConditionFalse,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionProgressing,
 					Status:  metav1.ConditionTrue,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionDegraded,
 					Status:  metav1.ConditionFalse,
 					Reason:  reconcileInit,
 					Message: "Initializing HyperConverged cluster",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionUpgradeable,
 					Status:  metav1.ConditionUnknown,
 					Reason:  reconcileInit,
@@ -285,10 +285,10 @@ var _ = Describe("HyperconvergedController", func() {
 
 				resources := expected.toArray()
 				resources = append(resources, pm)
-				cl := commonTestUtils.InitClient(resources)
+				cl := commontestutils.InitClient(resources)
 
 				r := initReconciler(cl, nil)
-				r.monitoringReconciler = alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
+				r.monitoringReconciler = alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commontestutils.NewEventEmitterMock(), commontestutils.GetScheme())
 
 				// Do the reconcile
 				res, err := r.Reconcile(context.TODO(), request)
@@ -305,26 +305,26 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
 				// Why TTO? Because it is the last to be checked, so the last missing overwrites everything
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionAvailable,
 					Status:  metav1.ConditionFalse,
 					Reason:  "TektonTasksConditions",
 					Message: "TektonTasks resource has no conditions",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionProgressing,
 					Status:  metav1.ConditionTrue,
 					Reason:  "TektonTasksConditions",
 					Message: "TektonTasks resource has no conditions",
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionUpgradeable,
 					Status:  metav1.ConditionFalse,
 					Reason:  "TektonTasksConditions",
@@ -633,31 +633,31 @@ var _ = Describe("HyperconvergedController", func() {
 						foundResource),
 				).ToNot(HaveOccurred())
 				// Check conditions
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionAvailable,
 					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionProgressing,
 					Status:  metav1.ConditionFalse,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionDegraded,
 					Status:  metav1.ConditionFalse,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				})))
-				Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 					Type:    hcov1beta1.ConditionUpgradeable,
 					Status:  metav1.ConditionTrue,
 					Reason:  reconcileCompleted,
@@ -668,9 +668,9 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should increment counter when out-of-band change overwritten", func() {
-				hco := commonTestUtils.NewHco()
-				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco := commontestutils.NewHco()
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
@@ -687,7 +687,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
+				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
 				// mock a reconciliation triggered by a change in secondary CR
@@ -728,9 +728,9 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should not increment counter when CR was changed by HCO", func() {
-				hco := commonTestUtils.NewHco()
-				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+				hco := commontestutils.NewHco()
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 				existingResource, err := operands.NewKubeVirt(hco, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				existingResource.Kind = kubevirtcorev1.KubeVirtGroupVersionKind.Kind // necessary for metrics
@@ -747,7 +747,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
+				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
 				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
@@ -784,7 +784,7 @@ var _ = Describe("HyperconvergedController", func() {
 			It(`should be not available when components with missing "Available" condition`, func() {
 				expected := getBasicDeployment()
 
-				var cl *commonTestUtils.HcoTestClient
+				var cl *commontestutils.HcoTestClient
 				By("Check KV", func() {
 					origKvConds := expected.kv.Status.Conditions
 					expected.kv.Status.Conditions = expected.kv.Status.Conditions[1:]
@@ -867,7 +867,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
-				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commonTestUtils.NewEventEmitterMock(), commonTestUtils.GetScheme())
+				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commontestutils.NewEventEmitterMock(), commontestutils.GetScheme())
 				r.monitoringReconciler = monitoringReconciler
 
 				res, err := r.Reconcile(context.TODO(), request)
@@ -950,8 +950,8 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("Should not be ready if one of the operands is returns error, on create", func() {
-				hco := commonTestUtils.NewHco()
-				cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+				hco := commontestutils.NewHco()
+				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 				cl.InitiateCreateErrors(func(obj client.Object) error {
 					if _, ok := obj.(*cdiv1beta1.CDI); ok {
 						return errors.New("fake create error")
@@ -999,7 +999,7 @@ var _ = Describe("HyperconvergedController", func() {
 					return nil
 				})
 
-				hco := commonTestUtils.NewHco()
+				hco := commontestutils.NewHco()
 				r := initReconciler(cl, nil)
 
 				// Do the reconcile
@@ -1107,7 +1107,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Name: "cluster",
 					},
 					Spec: openshiftconfigv1.DNSSpec{
-						BaseDomain: commonTestUtils.BaseDomain,
+						BaseDomain: commontestutils.BaseDomain,
 					},
 				}
 
@@ -1116,7 +1116,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				resources := expected.toArray()
 				resources = append(resources, clusterVersion, infrastructure, ingress, apiServer, dns)
-				cl := commonTestUtils.InitClient(resources)
+				cl := commontestutils.InitClient(resources)
 
 				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("hyperconverged_controller_test")
 				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
@@ -1196,7 +1196,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
 
 				// mock a reconciliation triggered by a change in the APIServer CR
-				ph, err := getApiServerCRPlaceholder()
+				ph, err := getAPIServerCRPlaceholder()
 				Expect(err).ToNot(HaveOccurred())
 				rq := request
 				rq.NamespacedName = ph
@@ -1273,7 +1273,7 @@ var _ = Describe("HyperconvergedController", func() {
 			)
 
 			BeforeEach(func() {
-				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
+				_ = os.Setenv("VIRTIOWIN_CONTAINER", commontestutils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 
@@ -1327,7 +1327,7 @@ var _ = Describe("HyperconvergedController", func() {
 				origConditions = expected.hco.Status.Conditions
 				okConds = expected.hco.Status.Conditions
 
-				_ = os.Setenv("VIRTIOWIN_CONTAINER", commonTestUtils.VirtioWinImage)
+				_ = os.Setenv("VIRTIOWIN_CONTAINER", commontestutils.VirtioWinImage)
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
@@ -1350,7 +1350,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("Should update OperatorCondition Upgradeable to False", func() {
-				_ = commonTestUtils.GetScheme() // ensure the scheme is loaded so this test can be focused
+				_ = commontestutils.GetScheme() // ensure the scheme is loaded so this test can be focused
 
 				// old HCO Version is set
 				UpdateVersion(&expected.hco.Status, hcoVersionName, oldVersion)
@@ -1972,7 +1972,7 @@ var _ = Describe("HyperconvergedController", func() {
 					for _, r := range oldCRDs {
 						resources = append(resources, r)
 					}
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -2005,7 +2005,7 @@ var _ = Describe("HyperconvergedController", func() {
 					for _, r := range oldCRDs {
 						resources = append(resources, r)
 					}
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -2045,7 +2045,7 @@ var _ = Describe("HyperconvergedController", func() {
 					for _, r := range oldCRDs {
 						resources = append(resources, r)
 					}
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					_, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 
@@ -2085,7 +2085,7 @@ var _ = Describe("HyperconvergedController", func() {
 					for _, r := range oldCRDs {
 						resources = append(resources, r)
 					}
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeFalse())
 
@@ -2160,17 +2160,17 @@ var _ = Describe("HyperconvergedController", func() {
 						},
 					}
 
-					kvRef, err := reference.GetReference(commonTestUtils.GetScheme(), expected.kv)
+					kvRef, err := reference.GetReference(commontestutils.GetScheme(), expected.kv)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *kvRef)).ToNot(HaveOccurred())
 
-					oldQsRef, err := reference.GetReference(commonTestUtils.GetScheme(), oldQs)
+					oldQsRef, err := reference.GetReference(commontestutils.GetScheme(), oldQs)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(v1.SetObjectReference(&expected.hco.Status.RelatedObjects, *oldQsRef)).ToNot(HaveOccurred())
 
 					resources := append(expected.toArray(), oldQs)
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, _, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -2188,7 +2188,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			Context("Remove old metrics services and endpoints", func() {
-				serviceEvents := []commonTestUtils.MockEvent{
+				serviceEvents := []commontestutils.MockEvent{
 					{
 						EventType: corev1.EventTypeNormal,
 						Reason:    "Killing",
@@ -2201,7 +2201,7 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 				}
 
-				endpointsEvents := []commonTestUtils.MockEvent{
+				endpointsEvents := []commontestutils.MockEvent{
 					{
 						EventType: corev1.EventTypeNormal,
 						Reason:    "Killing",
@@ -2218,13 +2218,13 @@ var _ = Describe("HyperconvergedController", func() {
 					cl := expected.initClient()
 
 					r := initReconciler(cl, nil)
-					req := commonTestUtils.NewReq(expected.hco)
+					req := commontestutils.NewReq(expected.hco)
 
 					_, err := r.migrateBeforeUpgrade(req)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Check events")
-					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					events := r.eventEmitter.(*commontestutils.EventEmitterMock)
 					Expect(events.CheckEvents(serviceEvents)).To(BeFalse())
 					Expect(events.CheckEvents(endpointsEvents)).To(BeFalse())
 				})
@@ -2245,15 +2245,15 @@ var _ = Describe("HyperconvergedController", func() {
 						},
 					}
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					r := initReconciler(cl, nil)
-					req := commonTestUtils.NewReq(expected.hco)
+					req := commontestutils.NewReq(expected.hco)
 
 					_, err := r.migrateBeforeUpgrade(req)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Check events")
-					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					events := r.eventEmitter.(*commontestutils.EventEmitterMock)
 					Expect(events.CheckEvents(serviceEvents)).To(BeTrue())
 
 					By("Verify services do not exist anymore")
@@ -2277,17 +2277,17 @@ var _ = Describe("HyperconvergedController", func() {
 						},
 					}
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 
 					r := initReconciler(cl, nil)
 
-					req := commonTestUtils.NewReq(expected.hco)
+					req := commontestutils.NewReq(expected.hco)
 
 					_, err := r.migrateBeforeUpgrade(req)
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Check events")
-					events := r.eventEmitter.(*commonTestUtils.EventEmitterMock)
+					events := r.eventEmitter.(*commontestutils.EventEmitterMock)
 					Expect(events.CheckEvents(endpointsEvents)).To(BeTrue())
 
 					By("Verify endpoint do not exist anymore")
@@ -2373,7 +2373,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					resources := append(expected.toArray(), cmToBeRemoved1, cmToBeRemoved2, cmNotToBeRemoved1, cmNotToBeRemoved2)
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -2444,7 +2444,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					resources := append(expected.toArray(), cmToBeRemoved1, cmToBeRemoved2, cmNotToBeRemoved1, cmNotToBeRemoved2)
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -2560,7 +2560,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					resources := append(expected.toArray(), cmToBeRemoved1, roleToBeRemoved, roleBindingToBeRemoved, cmNotToBeRemoved1, cmNotToBeRemoved2)
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -2649,7 +2649,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					resources := append(expected.toArray(), cmToBeRemoved1, roleToBeRemoved, roleBindingToBeRemoved, cmNotToBeRemoved1, cmNotToBeRemoved2)
 
-					cl := commonTestUtils.InitClient(resources)
+					cl := commontestutils.InitClient(resources)
 					foundResource, reconciler, requeue := doReconcile(cl, expected.hco, nil)
 					Expect(requeue).To(BeTrue())
 					checkAvailability(foundResource, metav1.ConditionTrue)
@@ -3155,7 +3155,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
 				rs := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
-				cl.Status().(*commonTestUtils.HcoTestStatusWriter).InitiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
+				cl.Status().(*commontestutils.HcoTestStatusWriter).InitiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
 				r := initReconciler(cl, nil)
 
 				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
@@ -3178,8 +3178,8 @@ var _ = Describe("HyperconvergedController", func() {
 				hco          *hcov1beta1.HyperConverged
 			)
 			BeforeEach(func() {
-				hcoNamespace = commonTestUtils.NewHcoNamespace()
-				hco = commonTestUtils.NewHco()
+				hcoNamespace = commontestutils.NewHcoNamespace()
+				hco = commontestutils.NewHco()
 				UpdateVersion(&hco.Status, hcoVersionName, version.Version)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
@@ -3199,7 +3199,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3216,7 +3216,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					By("Verify HC conditions", func() {
-						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 							Type:    hcov1beta1.ConditionTaintedConfiguration,
 							Status:  metav1.ConditionTrue,
 							Reason:  taintedConfigurationReason,
@@ -3252,7 +3252,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3271,7 +3271,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3304,7 +3304,7 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3321,7 +3321,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3354,7 +3354,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3371,7 +3371,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					By("Verify HC conditions", func() {
-						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 							Type:    hcov1beta1.ConditionTaintedConfiguration,
 							Status:  metav1.ConditionTrue,
 							Reason:  taintedConfigurationReason,
@@ -3411,7 +3411,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3430,7 +3430,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3456,7 +3456,7 @@ var _ = Describe("HyperconvergedController", func() {
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3473,7 +3473,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3505,7 +3505,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3522,7 +3522,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					By("Verify HC conditions", func() {
-						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 							Type:    hcov1beta1.ConditionTaintedConfiguration,
 							Status:  metav1.ConditionTrue,
 							Reason:  taintedConfigurationReason,
@@ -3558,7 +3558,7 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3577,7 +3577,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3595,7 +3595,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3612,7 +3612,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3639,7 +3639,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3656,7 +3656,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					By("Verify HC conditions", func() {
-						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 							Type:    hcov1beta1.ConditionTaintedConfiguration,
 							Status:  metav1.ConditionTrue,
 							Reason:  taintedConfigurationReason,
@@ -3690,7 +3690,7 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3709,7 +3709,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3727,7 +3727,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3744,7 +3744,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					// Check conditions
-					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+					Expect(foundResource.Status.Conditions).To(Not(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 						Type:    hcov1beta1.ConditionTaintedConfiguration,
 						Status:  metav1.ConditionTrue,
 						Reason:  taintedConfigurationReason,
@@ -3804,7 +3804,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3821,7 +3821,7 @@ var _ = Describe("HyperconvergedController", func() {
 					).To(Succeed())
 
 					By("Verify HC conditions", func() {
-						Expect(foundResource.Status.Conditions).To(ContainElement(commonTestUtils.RepresentCondition(metav1.Condition{
+						Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
 							Type:    hcov1beta1.ConditionTaintedConfiguration,
 							Status:  metav1.ConditionTrue,
 							Reason:  taintedConfigurationReason,

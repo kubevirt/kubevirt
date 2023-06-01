@@ -59,10 +59,10 @@ var _ = Describe("nonRoot -> root FG", func() {
 		func(nonRootFG *bool, rootFG *bool, expectedErr error, expectedNonRootFG *bool, expectedRootFG *bool) {
 			if expectedErr == nil {
 				hc := tests.GetHCO(ctx, cli)
-				hc.Spec.FeatureGates.NonRoot = nonRootFG
+				hc.Spec.FeatureGates.NonRoot = nonRootFG //nolint SA1019
 				hc.Spec.FeatureGates.Root = rootFG
 				hc = tests.UpdateHCORetry(ctx, cli, hc)
-				Expect(hc.Spec.FeatureGates.NonRoot).To(Equal(expectedNonRootFG))
+				Expect(hc.Spec.FeatureGates.NonRoot).To(Equal(expectedNonRootFG)) //nolint SA1019
 				Expect(hc.Spec.FeatureGates.Root).To(Equal(expectedRootFG))
 
 				Eventually(func() bool {

@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
@@ -48,7 +48,7 @@ var _ = Describe("test HyperConverged mutator", func() {
 				Spec: v1beta1.HyperConvergedSpec{},
 			}
 			cr.Spec.FeatureGates.Root = pointer.Bool(false)
-			cli = commonTestUtils.InitClient(nil)
+			cli = commontestutils.InitClient(nil)
 			mutator = initHCMutator(s, cli)
 		})
 

@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
@@ -32,8 +32,8 @@ func TestAlerts(t *testing.T) {
 
 var _ = Describe("alert tests", func() {
 	var (
-		ci            = commonTestUtils.ClusterInfoMock{}
-		ee            = commonTestUtils.NewEventEmitterMock()
+		ci            = commontestutils.ClusterInfoMock{}
+		ee            = commontestutils.NewEventEmitterMock()
 		ns            *corev1.Namespace
 		req           *common.HcoRequest
 		currentMetric float64
@@ -43,16 +43,16 @@ var _ = Describe("alert tests", func() {
 		ee.Reset()
 		ns = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: commonTestUtils.Namespace,
+				Name: commontestutils.Namespace,
 			},
 		}
 
-		req = commonTestUtils.NewReq(nil)
+		req = commontestutils.NewReq(nil)
 	})
 
 	Context("test reconciler", func() {
 
-		expectedEvents := []commonTestUtils.MockEvent{
+		expectedEvents := []commontestutils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
 				Reason:    "Created",
@@ -81,8 +81,8 @@ var _ = Describe("alert tests", func() {
 		}
 
 		It("should create all the resources if missing", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{ns})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 
@@ -97,8 +97,8 @@ var _ = Describe("alert tests", func() {
 			rb := &rbacv1.RoleBinding{}
 			Expect(cl.Get(context.Background(), client.ObjectKey{Namespace: r.namespace, Name: roleName}, rb)).Should(Succeed())
 
-			hco := commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req = commontestutils.NewReq(hco)
 			Expect(r.UpdateRelatedObjects(req)).Should(Succeed())
 			Expect(req.StatusDirty).To(BeTrue())
 			Expect(hco.Status.RelatedObjects).To(HaveLen(5))
@@ -107,7 +107,7 @@ var _ = Describe("alert tests", func() {
 		})
 
 		It("should fail on error", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			cl := commontestutils.InitClient([]runtime.Object{ns})
 			fakeError := fmt.Errorf("fake error")
 			cl.InitiateCreateErrors(func(obj client.Object) error {
 				if obj.GetObjectKind().GroupVersionKind().Kind == "Service" {
@@ -115,7 +115,7 @@ var _ = Describe("alert tests", func() {
 				}
 				return nil
 			})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			err := r.Reconcile(req, false)
 			Expect(err).To(HaveOccurred())
@@ -132,7 +132,7 @@ var _ = Describe("alert tests", func() {
 			os.Unsetenv(runbookURLTemplateEnv)
 		})
 
-		expectedEvents := []commonTestUtils.MockEvent{
+		expectedEvents := []commontestutils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
 				Reason:    "Updated",
@@ -142,15 +142,15 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
 			existRule.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -163,11 +163,11 @@ var _ = Describe("alert tests", func() {
 
 		It("should add the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
 			existRule.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -187,9 +187,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -218,9 +218,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -234,7 +234,7 @@ var _ = Describe("alert tests", func() {
 			Expect(pr.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
 			Expect(pr.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
-			overrideExpectedEvents := []commonTestUtils.MockEvent{
+			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    "Overwritten",
@@ -248,10 +248,10 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
 			existRule.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -271,7 +271,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the spec if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
 
 			existRule.Spec.Groups[0].Rules = []monitoringv1.Rule{
 				existRule.Spec.Groups[0].Rules[0],
@@ -281,8 +281,8 @@ var _ = Describe("alert tests", func() {
 			// modify the first rule
 			existRule.Spec.Groups[0].Rules[0].Alert = "modified alert"
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -295,12 +295,12 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the spec if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
 
 			existRule.Spec = monitoringv1.PrometheusRuleSpec{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -313,7 +313,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should use the default runbook URL template when no ENV Variable is set", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			promRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			promRule := newPrometheusRule(commontestutils.Namespace, owner)
 
 			for _, group := range promRule.Spec.Groups {
 				for _, rule := range group.Rules {
@@ -331,7 +331,7 @@ var _ = Describe("alert tests", func() {
 			os.Setenv(runbookURLTemplateEnv, desiredRunbookURLTemplate)
 
 			owner := getDeploymentReference(ci.GetDeployment())
-			promRule := newPrometheusRule(commonTestUtils.Namespace, owner)
+			promRule := newPrometheusRule(commontestutils.Namespace, owner)
 
 			for _, group := range promRule.Spec.Groups {
 				for _, rule := range group.Rules {
@@ -356,9 +356,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRule := newPrometheusRule(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRule})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRule := newPrometheusRule(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRule})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, firstLoop)).Should(Succeed())
 			pr := &monitoringv1.PrometheusRule{}
@@ -383,7 +383,7 @@ var _ = Describe("alert tests", func() {
 			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("Role", roleName)
 		})
 
-		expectedEvents := []commonTestUtils.MockEvent{
+		expectedEvents := []commontestutils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
 				Reason:    "Updated",
@@ -393,15 +393,15 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRole := newRole(owner, commonTestUtils.Namespace)
+			existRole := newRole(owner, commontestutils.Namespace)
 			existRole.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -414,11 +414,11 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRole := newRole(owner, commonTestUtils.Namespace)
+			existRole := newRole(owner, commontestutils.Namespace)
 			existRole.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -438,9 +438,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRole := newRole(owner, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRole := newRole(owner, commontestutils.Namespace)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -469,9 +469,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRole := newRole(owner, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRole := newRole(owner, commontestutils.Namespace)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -485,7 +485,7 @@ var _ = Describe("alert tests", func() {
 			Expect(role.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
 			Expect(role.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
-			overrideExpectedEvents := []commonTestUtils.MockEvent{
+			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    "Overwritten",
@@ -499,10 +499,10 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existRole := newRole(owner, commonTestUtils.Namespace)
+			existRole := newRole(owner, commontestutils.Namespace)
 			existRole.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -522,7 +522,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Rules if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRole := newRole(owner, commonTestUtils.Namespace)
+			existRole := newRole(owner, commontestutils.Namespace)
 
 			existRole.Rules = []rbacv1.PolicyRule{
 				{
@@ -536,8 +536,8 @@ var _ = Describe("alert tests", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -553,12 +553,12 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Rules if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRole := newRole(owner, commonTestUtils.Namespace)
+			existRole := newRole(owner, commontestutils.Namespace)
 
 			existRole.Rules = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRole})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRole})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			role := &rbacv1.Role{}
@@ -578,7 +578,7 @@ var _ = Describe("alert tests", func() {
 			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)
 		})
 
-		expectedEvents := []commonTestUtils.MockEvent{
+		expectedEvents := []commontestutils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
 				Reason:    "Updated",
@@ -588,15 +588,15 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 			existRB.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -609,11 +609,11 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 			existRB.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -633,9 +633,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -664,9 +664,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -680,7 +680,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
 			Expect(rb.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
-			overrideExpectedEvents := []commonTestUtils.MockEvent{
+			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    "Overwritten",
@@ -694,10 +694,10 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 			existRB.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -717,7 +717,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the RoleRef if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 
 			existRB.RoleRef = rbacv1.RoleRef{
 				APIGroup: "wrongAPIGroup",
@@ -725,8 +725,8 @@ var _ = Describe("alert tests", func() {
 				Name:     "wrongName",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -741,12 +741,12 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the RoleRef if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 
 			existRB.RoleRef = rbacv1.RoleRef{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -761,7 +761,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Subjects if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 
 			existRB.Subjects = []rbacv1.Subject{
 				{
@@ -776,8 +776,8 @@ var _ = Describe("alert tests", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			rb := &rbacv1.RoleBinding{}
@@ -793,12 +793,12 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Subjects if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commonTestUtils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace)
 
 			existRB.Subjects = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existRB})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existRB})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 
@@ -819,7 +819,7 @@ var _ = Describe("alert tests", func() {
 			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("Service", serviceName)
 		})
 
-		expectedEvents := []commonTestUtils.MockEvent{
+		expectedEvents := []commontestutils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
 				Reason:    "Updated",
@@ -829,15 +829,15 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
 			existSM.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -850,11 +850,11 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
 			existSM.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -874,9 +874,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -905,9 +905,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -921,7 +921,7 @@ var _ = Describe("alert tests", func() {
 			Expect(svc.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
 			Expect(svc.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
-			overrideExpectedEvents := []commonTestUtils.MockEvent{
+			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    "Overwritten",
@@ -935,10 +935,10 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
 			existSM.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -958,7 +958,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Spec if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
 
 			existSM.Spec = corev1.ServiceSpec{
 				Ports: []corev1.ServicePort{
@@ -978,8 +978,8 @@ var _ = Describe("alert tests", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -996,12 +996,12 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Spec if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewMetricsService(commonTestUtils.Namespace, owner)
+			existSM := NewMetricsService(commontestutils.Namespace, owner)
 
 			existSM.Spec = corev1.ServiceSpec{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			svc := &corev1.Service{}
@@ -1022,7 +1022,7 @@ var _ = Describe("alert tests", func() {
 			currentMetric, _ = metrics.HcoMetrics.GetOverwrittenModificationsCount("ServiceMonitor", serviceName)
 		})
 
-		expectedEvents := []commonTestUtils.MockEvent{
+		expectedEvents := []commontestutils.MockEvent{
 			{
 				EventType: corev1.EventTypeNormal,
 				Reason:    "Updated",
@@ -1032,15 +1032,15 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
 			existSM.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
 				"wrongKey3": "wrongValue3",
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1053,11 +1053,11 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
 			existSM.Labels = nil
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1077,9 +1077,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1108,9 +1108,9 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1124,7 +1124,7 @@ var _ = Describe("alert tests", func() {
 			Expect(sm.OwnerReferences[0].APIVersion).Should(Equal(appsv1.GroupName + "/v1"))
 			Expect(sm.OwnerReferences[0].UID).Should(Equal(deployment.UID))
 
-			overrideExpectedEvents := []commonTestUtils.MockEvent{
+			overrideExpectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    "Overwritten",
@@ -1138,10 +1138,10 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
 			existSM.OwnerReferences = nil
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1161,7 +1161,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Spec if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
 
 			existSM.Spec = monitoringv1.ServiceMonitorSpec{
 				Selector: metav1.LabelSelector{
@@ -1173,8 +1173,8 @@ var _ = Describe("alert tests", func() {
 				Endpoints: []monitoringv1.Endpoint{{Port: "wrongPort", Path: "/metrics"}},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1188,12 +1188,12 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Spec if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existSM := NewServiceMonitor(commonTestUtils.Namespace, owner)
+			existSM := NewServiceMonitor(commontestutils.Namespace, owner)
 
 			existSM.Spec = monitoringv1.ServiceMonitorSpec{}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{ns, existSM})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns, existSM})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 			sm := &monitoringv1.ServiceMonitor{}
@@ -1209,8 +1209,8 @@ var _ = Describe("alert tests", func() {
 	Context("test Namespace", func() {
 
 		DescribeTable("validate the annotation and the label", func(nsGenerator func() *corev1.Namespace) {
-			cl := commonTestUtils.InitClient([]runtime.Object{nsGenerator()})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{nsGenerator()})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 
@@ -1251,8 +1251,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should not modify other labels", func() {
 			ns.Labels = map[string]string{"aaa": "AAA", "bbb": "BBB"}
-			cl := commonTestUtils.InitClient([]runtime.Object{ns})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 
@@ -1267,8 +1267,8 @@ var _ = Describe("alert tests", func() {
 
 		It("should not modify other annotations", func() {
 			ns.Annotations = map[string]string{"aaa": "AAA", "bbb": "BBB"}
-			cl := commonTestUtils.InitClient([]runtime.Object{ns})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{ns})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(Succeed())
 
@@ -1282,19 +1282,19 @@ var _ = Describe("alert tests", func() {
 		})
 
 		It("should return error if can't read the namespace", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{})
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			Expect(r.Reconcile(req, false)).Should(HaveOccurred())
 		})
 
 		It("should return error if failed to read the namespace", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			cl := commontestutils.InitClient([]runtime.Object{ns})
 			err := errors.New("fake error")
 			cl.InitiateGetErrors(func(_ client.ObjectKey) error {
 				return err
 			})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			retErr := r.Reconcile(req, false)
 			Expect(retErr).Should(HaveOccurred())
@@ -1302,12 +1302,12 @@ var _ = Describe("alert tests", func() {
 		})
 
 		It("should return error if can't update the namespace", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{ns})
+			cl := commontestutils.InitClient([]runtime.Object{ns})
 			err := errors.New("fake error")
 			cl.InitiateUpdateErrors(func(_ client.Object) error {
 				return err
 			})
-			r := NewMonitoringReconciler(ci, cl, ee, commonTestUtils.GetScheme())
+			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			retErr := r.Reconcile(req, false)
 			Expect(retErr).Should(HaveOccurred())

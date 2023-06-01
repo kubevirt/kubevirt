@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,12 +30,12 @@ func TestHyperconverged(t *testing.T) {
 
 	BeforeSuite(func() {
 		hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-			return &commonTestUtils.ClusterInfoMock{}
+			return &commontestutils.ClusterInfoMock{}
 		}
 
 		wd, _ := os.Getwd()
 		destFile = path.Join(wd, "upgradePatches.json")
-		Expect(commonTestUtils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))).To(Succeed())
+		Expect(commontestutils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))).To(Succeed())
 	})
 
 	AfterSuite(func() {

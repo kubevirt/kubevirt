@@ -17,7 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -29,14 +29,14 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("Should setup the controller if on Openshift", func() {
 				resources := []runtime.Object{}
-				cl := commonTestUtils.InitClient(resources)
+				cl := commontestutils.InitClient(resources)
 
-				ci := commonTestUtils.ClusterInfoMock{}
+				ci := commontestutils.ClusterInfoMock{}
 				Expect(ci.IsOpenshift()).To(BeTrue())
 
-				mgr, err := commonTestUtils.NewManagerMock(&rest.Config{}, manager.Options{}, cl, logger)
+				mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{}, cl, logger)
 				Expect(err).ToNot(HaveOccurred())
-				mockmgr, ok := mgr.(*commonTestUtils.ManagerMock)
+				mockmgr, ok := mgr.(*commontestutils.ManagerMock)
 				Expect(ok).To(BeTrue())
 
 				// we should have no runnable before registering the controller
@@ -49,14 +49,14 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("Should not setup the controller if not on Openshift", func() {
 				resources := []runtime.Object{}
-				cl := commonTestUtils.InitClient(resources)
+				cl := commontestutils.InitClient(resources)
 
 				ci := hcoutil.GetClusterInfo()
 				Expect(ci.IsOpenshift()).To(BeFalse())
 
-				mgr, err := commonTestUtils.NewManagerMock(&rest.Config{}, manager.Options{}, cl, logger)
+				mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{}, cl, logger)
 				Expect(err).ToNot(HaveOccurred())
-				mockmgr, ok := mgr.(*commonTestUtils.ManagerMock)
+				mockmgr, ok := mgr.(*commontestutils.ManagerMock)
 				Expect(ok).To(BeTrue())
 
 				// we should have no runnable before registering the controller
@@ -131,12 +131,12 @@ var _ = Describe("HyperconvergedController", func() {
 						Name: "cluster",
 					},
 					Spec: openshiftconfigv1.DNSSpec{
-						BaseDomain: commonTestUtils.BaseDomain,
+						BaseDomain: commontestutils.BaseDomain,
 					},
 				}
 
 				resources := []runtime.Object{clusterVersion, infrastructure, ingress, apiServer, dns}
-				cl := commonTestUtils.InitClient(resources)
+				cl := commontestutils.InitClient(resources)
 
 				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 				ci := hcoutil.GetClusterInfo()

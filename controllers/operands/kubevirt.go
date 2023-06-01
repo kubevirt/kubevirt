@@ -195,8 +195,8 @@ type kubevirtHooks struct {
 }
 
 type rateLimits struct {
-	Qps   float32
-	Burst int
+	QPS   float32 `json:"qps"`
+	Burst int     `json:"burst"`
 }
 
 func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
@@ -295,7 +295,7 @@ func getHcoAnnotationTuning(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.Relo
 			return nil, err
 		}
 
-		if rates.Qps <= 0 {
+		if rates.QPS <= 0 {
 			return nil, fmt.Errorf("qps parameter not found in annotation")
 		}
 		if rates.Burst <= 0 {
@@ -305,7 +305,7 @@ func getHcoAnnotationTuning(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.Relo
 			RestClient: &kubevirtcorev1.RESTClientConfiguration{
 				RateLimiter: &kubevirtcorev1.RateLimiter{
 					TokenBucketRateLimiter: &kubevirtcorev1.TokenBucketRateLimiter{
-						QPS:   rates.Qps,
+						QPS:   rates.QPS,
 						Burst: rates.Burst,
 					},
 				},
@@ -519,7 +519,7 @@ func toKvMediatedDevices(hcoMediatedDevices []hcov1beta1.MediatedHostDevice) []k
 }
 
 func hcLiveMigrationToKv(lm hcov1beta1.LiveMigrationConfigurations) (*kubevirtcorev1.MigrationConfiguration, error) {
-	var bandwidthPerMigration *resource.Quantity = nil
+	var bandwidthPerMigration *resource.Quantity
 	if lm.BandwidthPerMigration != nil {
 		bandwidthPerMigrationObject, err := resource.ParseQuantity(*lm.BandwidthPerMigration)
 		if err != nil {

@@ -9,7 +9,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 )
 
 var origFile string
@@ -19,7 +19,7 @@ var _ = Describe("upgradePatches", func() {
 	BeforeEach(func() {
 		wd, _ := os.Getwd()
 		origFile = path.Join(wd, "upgradePatches.json")
-		Expect(commonTestUtils.CopyFile(origFile+".orig", origFile)).To(Succeed())
+		Expect(commontestutils.CopyFile(origFile+".orig", origFile)).To(Succeed())
 		hcoUpgradeChangesRead = false
 	})
 
@@ -34,12 +34,12 @@ var _ = Describe("upgradePatches", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
+			hco = commontestutils.NewHco()
+			req = commontestutils.NewReq(hco)
 		})
 
 		AfterEach(func() {
-			Expect(commonTestUtils.CopyFile(origFile, origFile+".orig")).To(Succeed())
+			Expect(commontestutils.CopyFile(origFile, origFile+".orig")).To(Succeed())
 		})
 
 		It("should correctly parse and validate actual upgradePatches.json", func() {
@@ -156,5 +156,5 @@ var _ = Describe("upgradePatches", func() {
 
 func copyTestFile(filename string) error {
 	testFilesLocation := getTestFilesLocation() + "/upgradePatches"
-	return commonTestUtils.CopyFile(origFile, path.Join(testFilesLocation, filename))
+	return commontestutils.CopyFile(origFile, path.Join(testFilesLocation, filename))
 }

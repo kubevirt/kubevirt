@@ -103,7 +103,7 @@ func ToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 }
 
 // GetRuntimeObject will query the apiserver for the object
-func GetRuntimeObject(ctx context.Context, c client.Client, obj client.Object, logger logr.Logger) error {
+func GetRuntimeObject(ctx context.Context, c client.Client, obj client.Object) error {
 	key := client.ObjectKeyFromObject(obj)
 	return c.Get(ctx, key, obj)
 }
@@ -208,7 +208,7 @@ func validateDeletion(ctx context.Context, c client.Client, resource *unstructur
 // EnsureDeleted calls ComponentResourceRemoval if the runtime object exists
 // with wait=true it will wait, (util ctx timeout, please set it!) for the resource to be effectively deleted
 func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoName string, logger logr.Logger, dryRun bool, wait bool, protectNonHCOObjects bool) (bool, error) {
-	err := GetRuntimeObject(ctx, c, obj, logger)
+	err := GetRuntimeObject(ctx, c, obj)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {

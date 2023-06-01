@@ -14,11 +14,7 @@ func UnmarshalYamlFileToObject(file io.Reader, o interface{}) error {
 		return err
 	}
 
-	if err = yaml.Unmarshal(yamlBytes, o); err != nil {
-		return err
-	}
-
-	return nil
+	return yaml.Unmarshal(yamlBytes, o)
 }
 
 // ValidateManifestDir checks a directory contains manifests file in YAML format

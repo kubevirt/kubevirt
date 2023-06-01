@@ -1,12 +1,12 @@
-package commonTestUtils
+package commontestutils
 
 import (
 	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint dot-imports
+	. "github.com/onsi/gomega"    //nolint dot-imports
 	gomegatypes "github.com/onsi/gomega/types"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"

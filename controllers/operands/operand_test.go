@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -96,8 +96,8 @@ var _ = Describe("Test operator.go", func() {
 
 	Context("Test addCrToTheRelatedObjectList", func() {
 		It("Should return error when apiVersion, kind and name missing", func() {
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 			found := &cdiv1beta1.CDI{}
 
 			operand := genericOperand{Scheme: scheme.Scheme}
@@ -107,8 +107,8 @@ var _ = Describe("Test operator.go", func() {
 		})
 
 		It("Should add into the list when it is missing", func() {
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 			found := &cdiv1beta1.CDI{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CDI",
@@ -130,8 +130,8 @@ var _ = Describe("Test operator.go", func() {
 		It("Should update the list and set StatusDirty=true when the resourceVersion is different", func() {
 			const oldVersion = "111"
 			const newVersion = "112"
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 			found := &cdiv1beta1.CDI{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "CDI",
@@ -165,13 +165,13 @@ var _ = Describe("Test operator.go", func() {
 	Context("Test createNewCr", func() {
 
 		It("Should successfully create an object", func() {
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco})
+			cl := commontestutils.InitClient([]runtime.Object{hco})
 
 			res := NewEnsureResult(expectedResource)
 
@@ -193,14 +193,14 @@ var _ = Describe("Test operator.go", func() {
 		})
 
 		It("Should not fail due to existing resourceVersions", func() {
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ResourceVersion = "1234"
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco})
+			cl := commontestutils.InitClient([]runtime.Object{hco})
 
 			res := NewEnsureResult(expectedResource)
 
@@ -222,13 +222,13 @@ var _ = Describe("Test operator.go", func() {
 		})
 
 		It("Should fail if the object was already there", func() {
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
 
 			res := NewEnsureResult(expectedResource)
 

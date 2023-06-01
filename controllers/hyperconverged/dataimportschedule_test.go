@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 )
 
 var _ = Describe("test data import schedule", func() {
@@ -18,8 +18,8 @@ var _ = Describe("test data import schedule", func() {
 
 		for i := 0; i < 1000; i++ { // testing random number - need some statistic confidence, so running this 1000 times
 			dataImportSchedule = ""
-			hco := commonTestUtils.NewHco()
-			req := commonTestUtils.NewReq(hco)
+			hco := commontestutils.NewHco()
+			req := commontestutils.NewReq(hco)
 
 			applyDataImportSchedule(req)
 
@@ -45,8 +45,8 @@ var _ = Describe("test data import schedule", func() {
 	})
 
 	It("should update the status if the variable is set", func() {
-		hco := commonTestUtils.NewHco()
-		req := commonTestUtils.NewReq(hco)
+		hco := commontestutils.NewHco()
+		req := commontestutils.NewReq(hco)
 
 		dataImportSchedule = schedule
 
@@ -58,9 +58,9 @@ var _ = Describe("test data import schedule", func() {
 	})
 
 	It("should update the variable if it empty and the status is set", func() {
-		hco := commonTestUtils.NewHco()
+		hco := commontestutils.NewHco()
 		hco.Status.DataImportSchedule = schedule
-		req := commonTestUtils.NewReq(hco)
+		req := commontestutils.NewReq(hco)
 
 		dataImportSchedule = ""
 
@@ -72,9 +72,9 @@ var _ = Describe("test data import schedule", func() {
 	})
 
 	It("should update the variable if it different than the status", func() {
-		hco := commonTestUtils.NewHco()
+		hco := commontestutils.NewHco()
 		hco.Status.DataImportSchedule = schedule
-		req := commonTestUtils.NewReq(hco)
+		req := commontestutils.NewReq(hco)
 
 		dataImportSchedule = "24 2/12 * * *"
 

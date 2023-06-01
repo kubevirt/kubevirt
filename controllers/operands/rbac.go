@@ -86,7 +86,7 @@ type roleBindingHooks struct {
 	required *rbacv1.RoleBinding
 }
 
-func (h roleBindingHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+func (h roleBindingHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
 	return h.required.DeepCopy(), nil
 }
 func (h roleBindingHooks) getEmptyCr() client.Object {

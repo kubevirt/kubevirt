@@ -263,7 +263,7 @@ var _ = Describe("test clusterInfo", func() {
 			"check TLSSecurityProfile on different configurations ...",
 			func(isOnOpenshift bool, clusterTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile, expectedTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) {
 
-				testApiServer := &openshiftconfigv1.APIServer{
+				testAPIServer := &openshiftconfigv1.APIServer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster",
 					},
@@ -280,7 +280,7 @@ var _ = Describe("test clusterInfo", func() {
 					os.Setenv(OperatorConditionNameEnvVar, "aValue")
 					cl = fake.NewClientBuilder().
 						WithScheme(testScheme).
-						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer, dns).
+						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testAPIServer, dns).
 						Build()
 				}
 				Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
@@ -440,7 +440,7 @@ var _ = Describe("test clusterInfo", func() {
 				Modern: &openshiftconfigv1.ModernTLSProfile{},
 			}
 
-			testApiServer := &openshiftconfigv1.APIServer{
+			testAPIServer := &openshiftconfigv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "cluster",
 				},
@@ -451,7 +451,7 @@ var _ = Describe("test clusterInfo", func() {
 
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testApiServer, dns).
+				WithRuntimeObjects(clusterVersion, infrastructure, ingress, testAPIServer, dns).
 				Build()
 			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
@@ -460,8 +460,8 @@ var _ = Describe("test clusterInfo", func() {
 
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should return the initial value")
 
-			testApiServer.Spec.TLSSecurityProfile = updatedTLSSecurityProfile
-			Expect(cl.Update(context.TODO(), testApiServer)).To(Succeed())
+			testAPIServer.Spec.TLSSecurityProfile = updatedTLSSecurityProfile
+			Expect(cl.Update(context.TODO(), testAPIServer)).To(Succeed())
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
 
 			Expect(GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())

@@ -30,7 +30,7 @@ var (
 // Implement reconcile.Reconciler so the controller can reconcile objects
 var _ reconcile.Reconciler = &ReconcileAPIServer{}
 
-func (r *ReconcileAPIServer) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileAPIServer) Reconcile(ctx context.Context, _ reconcile.Request) (reconcile.Result, error) {
 	err := r.ci.RefreshAPIServerCR(ctx, r.client)
 	// TODO: once https://github.com/kubernetes-sigs/controller-runtime/issues/2032
 	// is properly addressed, avoid polling on the APIServer CR
@@ -70,8 +70,5 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch APIServer and enqueue APIServer object key
-	if err := c.Watch(&source.Kind{Type: &openshiftconfigv1.APIServer{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return err
-	}
-	return nil
+	return c.Watch(&source.Kind{Type: &openshiftconfigv1.APIServer{}}, &handler.EnqueueRequestForObject{})
 }

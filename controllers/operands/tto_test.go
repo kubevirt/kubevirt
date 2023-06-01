@@ -11,7 +11,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
 )
@@ -22,15 +22,15 @@ var _ = Describe("TTO Operands", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
+			hco = commontestutils.NewHco()
+			req = commontestutils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource := NewTTO(hco)
 
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := (*genericOperand)(newTtoHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{})
+			handler := (*genericOperand)(newTtoHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeTrue())
 			Expect(res.Updated).To(BeFalse())
@@ -45,15 +45,15 @@ var _ = Describe("TTO Operands", func() {
 					foundResource),
 			).ToNot(HaveOccurred())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
 		It("should find if present", func() {
 			expectedResource := NewTTO(hco)
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newTtoHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newTtoHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
@@ -79,8 +79,8 @@ var _ = Describe("TTO Operands", func() {
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newTtoHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newTtoHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -108,8 +108,8 @@ var _ = Describe("TTO Operands", func() {
 		})
 
 		Context("Cache", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newTtoHandler(cl, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{})
+			handler := newTtoHandler(cl, commontestutils.GetScheme())
 
 			It("should start with empty cache", func() {
 				Expect(handler.hooks.(*ttoHooks).cache).To(BeNil())

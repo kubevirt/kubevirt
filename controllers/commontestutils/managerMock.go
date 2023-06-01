@@ -1,4 +1,4 @@
-package commonTestUtils
+package commontestutils
 
 import (
 	"context"
@@ -46,78 +46,78 @@ func (mm *ManagerMock) Add(r manager.Runnable) error {
 }
 
 // Deprecated: use the equivalent Options field to set a field. This method will be removed in v0.10.
-func (mm ManagerMock) SetFields(i interface{}) error {
+func (mm *ManagerMock) SetFields(_ interface{}) error {
 	return nil
 }
 
 // AddMetricsExtraHandler adds extra handler served on path to the http server that serves metrics.
-func (mm ManagerMock) AddMetricsExtraHandler(path string, handler http.Handler) error {
+func (mm *ManagerMock) AddMetricsExtraHandler(_ string, _ http.Handler) error {
 	return nil
 }
 
 // AddHealthzCheck allows you to add Healthz checker.
-func (mm ManagerMock) AddHealthzCheck(name string, check healthz.Checker) error {
+func (mm *ManagerMock) AddHealthzCheck(_ string, _ healthz.Checker) error {
 	return nil
 }
 
 // AddReadyzCheck allows you to add Readyz checker.
-func (mm ManagerMock) AddReadyzCheck(name string, check healthz.Checker) error {
+func (mm *ManagerMock) AddReadyzCheck(_ string, _ healthz.Checker) error {
 	return nil
 }
 
-func (mm ManagerMock) GetConfig() *rest.Config {
+func (mm *ManagerMock) GetConfig() *rest.Config {
 	return mm.cluster.GetConfig()
 }
 
-func (mm ManagerMock) GetClient() client.Client {
+func (mm *ManagerMock) GetClient() client.Client {
 	return mm.cluster.GetClient()
 }
 
-func (mm ManagerMock) GetScheme() *runtime.Scheme {
+func (mm *ManagerMock) GetScheme() *runtime.Scheme {
 	return mm.cluster.GetScheme()
 }
 
-func (mm ManagerMock) GetFieldIndexer() client.FieldIndexer {
+func (mm *ManagerMock) GetFieldIndexer() client.FieldIndexer {
 	return mm.cluster.GetFieldIndexer()
 }
 
-func (mm ManagerMock) GetCache() cache.Cache {
+func (mm *ManagerMock) GetCache() cache.Cache {
 	return mm.cluster.GetCache()
 }
 
-func (mm ManagerMock) GetEventRecorderFor(name string) record.EventRecorder {
+func (mm *ManagerMock) GetEventRecorderFor(name string) record.EventRecorder {
 	return mm.cluster.GetEventRecorderFor(name)
 }
 
-func (mm ManagerMock) GetRESTMapper() meta.RESTMapper {
+func (mm *ManagerMock) GetRESTMapper() meta.RESTMapper {
 	return mm.cluster.GetRESTMapper()
 }
 
-func (mm ManagerMock) GetAPIReader() client.Reader {
+func (mm *ManagerMock) GetAPIReader() client.Reader {
 	return mm.cluster.GetAPIReader()
 }
 
-func (mm ManagerMock) GetWebhookServer() *webhook.Server {
+func (mm *ManagerMock) GetWebhookServer() *webhook.Server {
 	return mm.webhookServer
 }
 
-func (mm ManagerMock) GetLogger() logr.Logger {
+func (mm *ManagerMock) GetLogger() logr.Logger {
 	return mm.logger
 }
 
-func (mm ManagerMock) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
+func (mm *ManagerMock) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
 	return mm.controllerOptions
 }
 
-func (mm ManagerMock) Start(ctx context.Context) (err error) {
+func (mm *ManagerMock) Start(_ context.Context) (err error) {
 	return nil
 }
 
-func (mm ManagerMock) Elected() <-chan struct{} {
+func (mm *ManagerMock) Elected() <-chan struct{} {
 	return mm.elected
 }
 
-func (mm ManagerMock) GetRunnables() []manager.Runnable {
+func (mm *ManagerMock) GetRunnables() []manager.Runnable {
 	return mm.runnables
 }
 

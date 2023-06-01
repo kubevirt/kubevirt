@@ -223,7 +223,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		}
 	}
 
-	apiServerCRPlaceholder, err := getApiServerCRPlaceholder()
+	apiServerCRPlaceholder, err := getAPIServerCRPlaceholder()
 	if err != nil {
 		return err
 	}
@@ -361,7 +361,7 @@ func (r *ReconcileHyperConverged) resolveReconcileRequest(ctx context.Context, l
 		NamespacedName: hc,
 	}
 
-	apiServerCRTriggered, err := isTriggeredByApiServerCR(originalRequest)
+	apiServerCRTriggered, err := isTriggeredByAPIServerCR(originalRequest)
 	if err != nil {
 		return reconcile.Request{}, hcoTriggered, err
 	}
@@ -385,7 +385,7 @@ func isTriggeredByHyperConverged(request reconcile.Request) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	apiServerPlaceholder, err := getApiServerCRPlaceholder()
+	apiServerPlaceholder, err := getAPIServerCRPlaceholder()
 	if err != nil {
 		return false, err
 	}
@@ -394,14 +394,13 @@ func isTriggeredByHyperConverged(request reconcile.Request) (bool, error) {
 	return isHyperConverged, nil
 }
 
-func isTriggeredByApiServerCR(request reconcile.Request) (bool, error) {
-	placeholder, err := getApiServerCRPlaceholder()
+func isTriggeredByAPIServerCR(request reconcile.Request) (bool, error) {
+	placeholder, err := getAPIServerCRPlaceholder()
 	if err != nil {
 		return false, err
 	}
 
-	isApiServer := request.NamespacedName == placeholder
-	return isApiServer, nil
+	return request.NamespacedName == placeholder, nil
 }
 
 func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile.Result, error) {
@@ -1213,13 +1212,13 @@ func (r *ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (b
 		return false, err
 	}
 
-	hcoJson, err := json.Marshal(req.Instance)
+	hcoJSON, err := json.Marshal(req.Instance)
 	if err != nil {
 		return false, err
 	}
 
 	for _, p := range hcoUpgradeChanges.HCOCRPatchList {
-		hcoJson, err = r.applyUpgradePatch(req, hcoJson, knownHcoSV, p)
+		hcoJSON, err = r.applyUpgradePatch(req, hcoJSON, knownHcoSV, p)
 		if err != nil {
 			return false, err
 		}
@@ -1233,7 +1232,7 @@ func (r *ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (b
 	}
 
 	tmpInstance := &hcov1beta1.HyperConverged{}
-	err = json.Unmarshal(hcoJson, tmpInstance)
+	err = json.Unmarshal(hcoJSON, tmpInstance)
 	if err != nil {
 		return false, err
 	}
@@ -1247,24 +1246,24 @@ func (r *ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (b
 	return modified, nil
 }
 
-func (r *ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJson []byte, knownHcoSV semver.Version, p hcoCRPatch) ([]byte, error) {
+func (r *ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJSON []byte, knownHcoSV semver.Version, p hcoCRPatch) ([]byte, error) {
 	affectedRange, err := semver.ParseRange(p.SemverRange)
 	if err != nil {
-		return hcoJson, err
+		return hcoJSON, err
 	}
 	if affectedRange(knownHcoSV) {
 		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", p.SemverRange, "patches", p.JSONPatch)
-		patchedBytes, err := p.JSONPatch.Apply(hcoJson)
+		patchedBytes, err := p.JSONPatch.Apply(hcoJSON)
 		if err != nil {
 			if errors.Cause(err) == jsonpatch.ErrTestFailed {
-				return hcoJson, nil
+				return hcoJSON, nil
 			}
 
-			return hcoJson, err
+			return hcoJSON, err
 		}
 		return patchedBytes, nil
 	}
-	return hcoJson, nil
+	return hcoJSON, nil
 }
 
 func (r *ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHcoSV semver.Version, p objectToBeRemoved) (bool, error) {
@@ -1281,10 +1280,10 @@ func (r *ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHc
 		if gerr != nil {
 			if apierrors.IsNotFound(gerr) {
 				return false, nil
-			} else {
-				req.Logger.Error(gerr, "failed looking for leftovers", "objectToBeRemoved", p)
-				return false, gerr
 			}
+
+			req.Logger.Error(gerr, "failed looking for leftovers", "objectToBeRemoved", p)
+			return false, gerr
 		}
 		return r.deleteObj(req, u, false)
 
@@ -1468,7 +1467,7 @@ func getSecondaryCRPlaceholder() (types.NamespacedName, error) {
 	return fakeHco, nil
 }
 
-func getApiServerCRPlaceholder() (types.NamespacedName, error) {
+func getAPIServerCRPlaceholder() (types.NamespacedName, error) {
 	fakeHco := types.NamespacedName{
 		Name: apiServerCRPrefix + randomConstSuffix,
 	}

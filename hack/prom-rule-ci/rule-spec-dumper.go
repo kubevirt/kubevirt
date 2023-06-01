@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func verifyArgs(args []string) error {
+func verifyArgs() error {
 	numOfArgs := len(os.Args[1:])
 	if numOfArgs != 1 {
 		return fmt.Errorf("expected exactly 1 argument, got: %d", numOfArgs)
@@ -18,7 +18,7 @@ func verifyArgs(args []string) error {
 }
 
 func main() {
-	if err := verifyArgs(os.Args); err != nil {
+	if err := verifyArgs(); err != nil {
 		fmt.Printf("ERROR: %v\n", err)
 		os.Exit(1)
 	}

@@ -6,13 +6,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 )
 
 var _ = Describe("HyperConverged Ensure Result", func() {
 
 	Context("HyperConverged Ensure Result", func() {
-		kv, err := NewKubeVirt(commonTestUtils.NewHco())
+		kv, err := NewKubeVirt(commontestutils.NewHco())
 		Expect(err).ToNot(HaveOccurred())
 
 		It("should create new EnsureResult with default values", func() {

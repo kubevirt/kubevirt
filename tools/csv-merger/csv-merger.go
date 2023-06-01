@@ -56,8 +56,8 @@ const (
 )
 
 var (
-	supported_archs = []string{"arch.amd64"}
-	supported_os    = []string{"os.linux"}
+	supportedArches = []string{"arch.amd64"}
+	supportedOS     = []string{"os.linux"}
 )
 
 type EnvVarFlags []corev1.EnvVar
@@ -91,7 +91,7 @@ var (
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	webhookImage        = flag.String("webhook-image-name", "", "HyperConverged Cluster Webhook image")
 	cliDownloadsImage   = flag.String("cli-downloads-image-name", "", "Downloads Server image")
-	kvUiPluginImage     = flag.String("kubevirt-consoleplugin-image-name", "", "KubeVirt Console Plugin image")
+	kvUIPluginImage     = flag.String("kubevirt-consoleplugin-image-name", "", "KubeVirt Console Plugin image")
 	kvVirtIOWinImage    = flag.String("kv-virtiowin-image-name", "", "KubeVirt VirtIO Win image")
 	smbios              = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
 	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
@@ -125,15 +125,6 @@ var (
 
 	envVars EnvVarFlags
 )
-
-func genHcoCrds() error {
-	// Write out CRDs and CR
-	if err := util.MarshallObject(components.GetOperatorCRD(*apiSources), os.Stdout); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func IOReadDir(root string) ([]string, error) {
 	var files []string
@@ -264,7 +255,7 @@ func main() {
 
 	switch *outputMode {
 	case CRDMode:
-		panicOnError(genHcoCrds())
+		panicOnError(util.MarshallObject(components.GetOperatorCRD(*apiSources), os.Stdout))
 	case CSVMode:
 		getHcoCsv()
 
@@ -444,10 +435,10 @@ func setSupported(csvBase *csvv1alpha1.ClusterServiceVersion) {
 	if csvBase.Labels == nil {
 		csvBase.Labels = make(map[string]string)
 	}
-	for _, ele := range supported_archs {
+	for _, ele := range supportedArches {
 		csvBase.Labels[operatorFrameworkPrefix+ele] = supported
 	}
-	for _, ele := range supported_os {
+	for _, ele := range supportedOS {
 		csvBase.Labels[operatorFrameworkPrefix+ele] = supported
 	}
 }
@@ -519,7 +510,7 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		Image:              *operatorImage,
 		WebhookImage:       *webhookImage,
 		CliDownloadsImage:  *cliDownloadsImage,
-		KvUiPluginImage:    *kvUiPluginImage,
+		KVUIPluginImage:    *kvUIPluginImage,
 		ImagePullPolicy:    "IfNotPresent",
 		VirtIOWinContainer: *kvVirtIOWinImage,
 		Smbios:             *smbios,

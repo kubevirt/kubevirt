@@ -48,10 +48,10 @@ type WebhookHandler struct {
 	decoder     *admission.Decoder
 }
 
-var hcoTlsConfigCache *openshiftconfigv1.TLSSecurityProfile
+var hcoTLSConfigCache *openshiftconfigv1.TLSSecurityProfile
 
-func NewWebhookHandler(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool, hcoTlsSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
-	hcoTlsConfigCache = hcoTlsSecurityProfile
+func NewWebhookHandler(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
+	hcoTLSConfigCache = hcoTLSSecurityProfile
 	return &WebhookHandler{
 		logger:      logger,
 		cli:         cli,
@@ -121,7 +121,7 @@ func (wh *WebhookHandler) InjectDecoder(d *admission.Decoder) error {
 	return nil
 }
 
-func (wh *WebhookHandler) ValidateCreate(ctx context.Context, dryrun bool, hc *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) ValidateCreate(_ context.Context, dryrun bool, hc *v1beta1.HyperConverged) error {
 	wh.logger.Info("Validating create", "name", hc.Name, "namespace:", hc.Namespace)
 
 	if err := wh.validateCertConfig(hc); err != nil {
@@ -136,7 +136,7 @@ func (wh *WebhookHandler) ValidateCreate(ctx context.Context, dryrun bool, hc *v
 		return err
 	}
 
-	if err := wh.validateTlsSecurityProfiles(hc); err != nil {
+	if err := wh.validateTLSSecurityProfiles(hc); err != nil {
 		return err
 	}
 
@@ -157,7 +157,7 @@ func (wh *WebhookHandler) ValidateCreate(ctx context.Context, dryrun bool, hc *v
 	}
 
 	if !dryrun {
-		hcoTlsConfigCache = hc.Spec.TLSSecurityProfile
+		hcoTLSConfigCache = hc.Spec.TLSSecurityProfile
 	}
 
 	return nil
@@ -188,12 +188,12 @@ func (wh *WebhookHandler) getOperands(requested *v1beta1.HyperConverged) (*kubev
 
 // ValidateUpdate is the ValidateUpdate webhook implementation. It calls all the resources in parallel, to dry-run the
 // upgrade.
-func (wh *WebhookHandler) ValidateUpdate(extCtx context.Context, dryrun bool, requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
 	if err := wh.validateDataImportCronTemplates(requested); err != nil {
 		return err
 	}
 
-	if err := wh.validateTlsSecurityProfiles(requested); err != nil {
+	if err := wh.validateTLSSecurityProfiles(requested); err != nil {
 		return err
 	}
 
@@ -262,14 +262,14 @@ func (wh *WebhookHandler) ValidateUpdate(extCtx context.Context, dryrun bool, re
 		}
 
 		if !dryrun {
-			hcoTlsConfigCache = requested.Spec.TLSSecurityProfile
+			hcoTLSConfigCache = requested.Spec.TLSSecurityProfile
 		}
 		return nil
 	}
 }
 
-func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.HyperConverged, exists client.Object, opts *client.UpdateOptions) error {
-	err := hcoutil.GetRuntimeObject(ctx, wh.cli, exists, wh.logger)
+func (wh *WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.HyperConverged, exists client.Object, opts *client.UpdateOptions) error {
+	err := hcoutil.GetRuntimeObject(ctx, wh.cli, exists)
 	if err != nil {
 		wh.logger.Error(err, "failed to get object from kubernetes", "kind", exists.GetObjectKind())
 		return err
@@ -322,7 +322,7 @@ func (wh WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.Hyper
 	return nil
 }
 
-func (wh WebhookHandler) ValidateDelete(ctx context.Context, dryrun bool, hc *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) ValidateDelete(ctx context.Context, dryrun bool, hc *v1beta1.HyperConverged) error {
 	wh.logger.Info("Validating delete", "name", hc.Name, "namespace", hc.Namespace)
 
 	kv := operands.NewKubeVirtWithNameOnly(hc)
@@ -339,12 +339,12 @@ func (wh WebhookHandler) ValidateDelete(ctx context.Context, dryrun bool, hc *v1
 		}
 	}
 	if !dryrun {
-		hcoTlsConfigCache = nil
+		hcoTLSConfigCache = nil
 	}
 	return nil
 }
 
-func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
 	minimalDuration := metav1.Duration{Duration: 10 * time.Minute}
 
 	ccValues := make(map[string]time.Duration)
@@ -374,7 +374,7 @@ func (wh WebhookHandler) validateCertConfig(hc *v1beta1.HyperConverged) error {
 	return nil
 }
 
-func (wh WebhookHandler) validateDataImportCronTemplates(hc *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) validateDataImportCronTemplates(hc *v1beta1.HyperConverged) error {
 
 	for _, dict := range hc.Spec.DataImportCronTemplates {
 		val, ok := dict.Annotations[hcoutil.DataImportCronEnabledAnnotation]
@@ -393,7 +393,7 @@ func (wh WebhookHandler) validateDataImportCronTemplates(hc *v1beta1.HyperConver
 	return nil
 }
 
-func (wh WebhookHandler) validateTlsSecurityProfiles(hc *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) validateTLSSecurityProfiles(hc *v1beta1.HyperConverged) error {
 	tlsSP := hc.Spec.TLSSecurityProfile
 
 	if tlsSP == nil || tlsSP.Custom == nil {
@@ -417,7 +417,7 @@ func hasRequiredHTTP2Ciphers(ciphers []string) bool {
 	return lo.Some[string](requiredHTTP2Ciphers, ciphers)
 }
 
-func (wh WebhookHandler) MutateTLSConfig(cfg *tls.Config) {
+func (wh *WebhookHandler) MutateTLSConfig(cfg *tls.Config) {
 	// This callback executes on each client call returning a new config to be used
 	// please be aware that the APIServer is using http keepalive so this is going to
 	// be executed only after a while for fresh connections and not on existing ones
@@ -429,9 +429,9 @@ func (wh WebhookHandler) MutateTLSConfig(cfg *tls.Config) {
 	}
 }
 
-func (wh WebhookHandler) selectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtocolVersion) {
+func (wh *WebhookHandler) selectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtocolVersion) {
 	ci := hcoutil.GetClusterInfo()
-	profile := ci.GetTLSSecurityProfile(hcoTlsConfigCache)
+	profile := ci.GetTLSSecurityProfile(hcoTLSConfigCache)
 
 	if profile.Custom != nil {
 		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion

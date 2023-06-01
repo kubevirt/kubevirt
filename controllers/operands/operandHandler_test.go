@@ -16,7 +16,7 @@ import (
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
@@ -33,23 +33,23 @@ var _ = Describe("Test operandHandler", func() {
 			_ = os.Setenv(quickStartManifestLocationVarName, testFileLocation+"/quickstarts")
 			_ = os.Setenv(dashboardManifestLocationVarName, testFileLocation+"/dashboards")
 			_ = os.Setenv("VIRTIOWIN_CONTAINER", "just-a-value:version")
-			hcoNamespace = commonTestUtils.NewHcoNamespace()
+			hcoNamespace = commontestutils.NewHcoNamespace()
 		})
 
 		It("should create all objects are created", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 
 			Expect(handler.Ensure(req)).To(Succeed())
-			expectedEvents := []commonTestUtils.MockEvent{
+			expectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Created",
@@ -139,16 +139,16 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("should handle errors on ensure loop", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 
 			// fail to create CDI
 			fakeError := fmt.Errorf("fake create CDI error")
@@ -181,22 +181,22 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("make sure the all objects are deleted", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 			Expect(handler.Ensure(req)).To(Succeed())
 
 			eventEmitter.Reset()
 			Expect(handler.EnsureDeleted(req)).To(Succeed())
 
-			expectedEvents := []commonTestUtils.MockEvent{
+			expectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Killing",
@@ -274,16 +274,16 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("delete KV error handling", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 			Expect(handler.Ensure(req)).To(Succeed())
 
 			fakeError := fmt.Errorf("fake KV deletion error")
@@ -297,7 +297,7 @@ var _ = Describe("Test operandHandler", func() {
 				return nil
 			})
 
-			expectedEvents := []commonTestUtils.MockEvent{
+			expectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    ErrVirtUninstall,
@@ -323,16 +323,16 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("delete CDI error handling", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 			Expect(handler.Ensure(req)).To(Succeed())
 
 			fakeError := fmt.Errorf("fake CDI deletion error")
@@ -346,7 +346,7 @@ var _ = Describe("Test operandHandler", func() {
 				return nil
 			})
 
-			expectedEvents := []commonTestUtils.MockEvent{
+			expectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    ErrCDIUninstall,
@@ -373,17 +373,17 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("default delete error handling", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
 			fakeError := fmt.Errorf("fake CNA deletion error")
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 			Expect(handler.Ensure(req)).To(Succeed())
 
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
@@ -396,7 +396,7 @@ var _ = Describe("Test operandHandler", func() {
 				return nil
 			})
 
-			expectedEvents := []commonTestUtils.MockEvent{
+			expectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeWarning,
 					Reason:    ErrHCOUninstall,
@@ -423,16 +423,16 @@ var _ = Describe("Test operandHandler", func() {
 		})
 
 		It("delete timeout error handling", func() {
-			hco := commonTestUtils.NewHco()
-			cli := commonTestUtils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
+			hco := commontestutils.NewHco()
+			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, qsCrd, hco})
 
-			eventEmitter := commonTestUtils.NewEventEmitterMock()
-			ci := commonTestUtils.ClusterInfoMock{}
+			eventEmitter := commontestutils.NewEventEmitterMock()
+			ci := commontestutils.ClusterInfoMock{}
 
-			handler := NewOperandHandler(cli, commonTestUtils.GetScheme(), ci, eventEmitter)
-			handler.FirstUseInitiation(commonTestUtils.GetScheme(), ci, hco)
+			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
+			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
-			req := commonTestUtils.NewReq(hco)
+			req := commontestutils.NewReq(hco)
 			Expect(handler.Ensure(req)).To(Succeed())
 
 			cli.InitiateDeleteErrors(func(obj client.Object) error {
@@ -453,7 +453,7 @@ var _ = Describe("Test operandHandler", func() {
 			Expect(err).Should(HaveOccurred())
 			Expect(err.Error()).Should(Equal("context deadline exceeded"))
 
-			expectedEvents := []commonTestUtils.MockEvent{
+			expectedEvents := []commontestutils.MockEvent{
 				{
 					EventType: corev1.EventTypeNormal,
 					Reason:    "Killing",

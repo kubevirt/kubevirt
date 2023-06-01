@@ -76,7 +76,7 @@ func (*cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 func (*cliDownloadHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLIDownload {
-	baseUrl := "https://" + cliDownloadsServiceName + "-" + hc.Namespace + "." + hcoutil.GetClusterInfo().GetDomain()
+	baseURL := "https://" + cliDownloadsServiceName + "-" + hc.Namespace + "." + hcoutil.GetClusterInfo().GetDomain()
 
 	return &consolev1.ConsoleCLIDownload{
 		ObjectMeta: metav1.ObjectMeta{
@@ -89,15 +89,15 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 			DisplayName: displayName,
 			Links: []consolev1.CLIDownloadLink{
 				{
-					Href: baseUrl + "/amd64/linux/virtctl.tar.gz",
+					Href: baseURL + "/amd64/linux/virtctl.tar.gz",
 					Text: "Download virtctl for Linux for x86_64",
 				},
 				{
-					Href: baseUrl + "/amd64/mac/virtctl.zip",
+					Href: baseURL + "/amd64/mac/virtctl.zip",
 					Text: "Download virtctl for Mac for x86_64",
 				},
 				{
-					Href: baseUrl + "/amd64/windows/virtctl.zip",
+					Href: baseURL + "/amd64/windows/virtctl.zip",
 					Text: "Download virtctl for Windows for x86_64",
 				},
 			},

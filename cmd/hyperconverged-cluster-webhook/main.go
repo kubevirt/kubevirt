@@ -131,7 +131,7 @@ func main() {
 	hcoCR.Name = hcoutil.HyperConvergedName
 	hcoCR.Namespace = operatorNamespace
 
-	var hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile = nil
+	var hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
 	err = apiClient.Get(ctx, client.ObjectKeyFromObject(hcoCR), hcoCR)
 	if err != nil && !apierrors.IsNotFound(err) {
 		cmdHelper.ExitOnError(err, "Cannot read existing HCO CR")

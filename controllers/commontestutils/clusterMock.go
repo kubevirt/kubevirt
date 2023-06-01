@@ -1,4 +1,4 @@
-package commonTestUtils
+package commontestutils
 
 import (
 	"context"
@@ -41,7 +41,7 @@ type clusterMock struct {
 	logger logr.Logger
 }
 
-func (cm *clusterMock) SetFields(i interface{}) error {
+func (cm *clusterMock) SetFields(_ interface{}) error {
 	return nil
 }
 
@@ -65,7 +65,7 @@ func (cm *clusterMock) GetCache() cache.Cache {
 	return cm.cache
 }
 
-func (cm *clusterMock) GetEventRecorderFor(name string) record.EventRecorder {
+func (cm *clusterMock) GetEventRecorderFor(_ string) record.EventRecorder {
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (cm *clusterMock) GetLogger() logr.Logger {
 	return cm.logger
 }
 
-func (cm *clusterMock) Start(ctx context.Context) error {
+func (cm *clusterMock) Start(_ context.Context) error {
 	return nil
 }
 

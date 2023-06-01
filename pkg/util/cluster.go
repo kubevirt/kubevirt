@@ -51,7 +51,7 @@ type ClusterInfoImp struct {
 
 var clusterInfo ClusterInfo
 
-var validatedApiServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
+var validatedAPIServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
 
 var GetClusterInfo = func() ClusterInfo {
 	return clusterInfo
@@ -79,7 +79,7 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 		return err
 	}
 
-	varValue, varExists := os.LookupEnv(KvUiPluginImageEnvV)
+	varValue, varExists := os.LookupEnv(KVUIPluginImageEnvV)
 	c.consolePluginImageProvided = varExists && len(varValue) > 0
 
 	err = c.RefreshAPIServerCR(ctx, cl)
@@ -143,47 +143,47 @@ func (c *ClusterInfoImp) initOpenshift(ctx context.Context, cl client.Client) er
 	return nil
 }
 
-func (c ClusterInfoImp) IsManagedByOLM() bool {
+func (c *ClusterInfoImp) IsManagedByOLM() bool {
 	return c.managedByOLM
 }
 
-func (c ClusterInfoImp) IsOpenshift() bool {
+func (c *ClusterInfoImp) IsOpenshift() bool {
 	return c.runningInOpenshift
 }
 
-func (c ClusterInfoImp) IsConsolePluginImageProvided() bool {
+func (c *ClusterInfoImp) IsConsolePluginImageProvided() bool {
 	return c.consolePluginImageProvided
 }
 
-func (c ClusterInfoImp) IsRunningLocally() bool {
+func (c *ClusterInfoImp) IsRunningLocally() bool {
 	return c.runningLocally
 }
 
-func (c ClusterInfoImp) IsControlPlaneHighlyAvailable() bool {
+func (c *ClusterInfoImp) IsControlPlaneHighlyAvailable() bool {
 	return c.controlPlaneHighlyAvailable
 }
 
-func (c ClusterInfoImp) IsInfrastructureHighlyAvailable() bool {
+func (c *ClusterInfoImp) IsInfrastructureHighlyAvailable() bool {
 	return c.infrastructureHighlyAvailable
 }
 
-func (c ClusterInfoImp) GetDomain() string {
+func (c *ClusterInfoImp) GetDomain() string {
 	return c.domain
 }
 
-func (c ClusterInfoImp) GetBaseDomain() string {
+func (c *ClusterInfoImp) GetBaseDomain() string {
 	return c.baseDomain
 }
 
-func (c ClusterInfoImp) GetPod() *corev1.Pod {
+func (c *ClusterInfoImp) GetPod() *corev1.Pod {
 	return c.ownResources.GetPod()
 }
 
-func (c ClusterInfoImp) GetDeployment() *appsv1.Deployment {
+func (c *ClusterInfoImp) GetDeployment() *appsv1.Deployment {
 	return c.ownResources.GetDeployment()
 }
 
-func (c ClusterInfoImp) GetCSV() *csvv1alpha1.ClusterServiceVersion {
+func (c *ClusterInfoImp) GetCSV() *csvv1alpha1.ClusterServiceVersion {
 	return c.ownResources.GetCSV()
 }
 
@@ -253,8 +253,8 @@ func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client) err
 func (c *ClusterInfoImp) GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {
 	if hcoTLSSecurityProfile != nil {
 		return hcoTLSSecurityProfile
-	} else if validatedApiServerTLSSecurityProfile != nil {
-		return validatedApiServerTLSSecurityProfile
+	} else if validatedAPIServerTLSSecurityProfile != nil {
+		return validatedAPIServerTLSSecurityProfile
 	}
 	return &openshiftconfigv1.TLSSecurityProfile{
 		Type:         openshiftconfigv1.TLSProfileIntermediateType,
@@ -266,16 +266,16 @@ func (c *ClusterInfoImp) RefreshAPIServerCR(ctx context.Context, cl client.Clien
 	if c.IsOpenshift() {
 		instance := &openshiftconfigv1.APIServer{}
 
-		key := client.ObjectKey{Namespace: UndefinedNamespace, Name: ApiServerCRName}
+		key := client.ObjectKey{Namespace: UndefinedNamespace, Name: APIServerCRName}
 		err := cl.Get(ctx, key, instance)
 		if err != nil {
 			return err
 		}
-		validatedApiServerTLSSecurityProfile = c.validateAPIServerTLSSecurityProfile(instance.Spec.TLSSecurityProfile)
+		validatedAPIServerTLSSecurityProfile = c.validateAPIServerTLSSecurityProfile(instance.Spec.TLSSecurityProfile)
 		return nil
-	} else {
-		validatedApiServerTLSSecurityProfile = nil
 	}
+	validatedAPIServerTLSSecurityProfile = nil
+
 	return nil
 }
 
@@ -283,7 +283,7 @@ func (c *ClusterInfoImp) validateAPIServerTLSSecurityProfile(apiServerTLSSecurit
 	if apiServerTLSSecurityProfile == nil || apiServerTLSSecurityProfile.Type != openshiftconfigv1.TLSProfileCustomType {
 		return apiServerTLSSecurityProfile
 	}
-	validatedApiServerTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
+	validatedAPIServerTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
 		Type: openshiftconfigv1.TLSProfileCustomType,
 		Custom: &openshiftconfigv1.CustomTLSProfile{
 			TLSProfileSpec: openshiftconfigv1.TLSProfileSpec{
@@ -293,11 +293,11 @@ func (c *ClusterInfoImp) validateAPIServerTLSSecurityProfile(apiServerTLSSecurit
 		},
 	}
 	if apiServerTLSSecurityProfile.Custom != nil {
-		validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion = apiServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion
-		validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = nil
+		validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion = apiServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion
+		validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = nil
 		for _, cipher := range apiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers {
 			if isValidCipherName(cipher) {
-				validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = append(validatedApiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers, cipher)
+				validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = append(validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers, cipher)
 			} else {
 				c.logger.Error(nil, "invalid cipher name on the APIServer CR, ignoring it", "cipher", cipher)
 			}
@@ -305,7 +305,7 @@ func (c *ClusterInfoImp) validateAPIServerTLSSecurityProfile(apiServerTLSSecurit
 	} else {
 		c.logger.Error(nil, "invalid custom configuration for TLSSecurityProfile on the APIServer CR, taking default values", "apiServerTLSSecurityProfile", apiServerTLSSecurityProfile)
 	}
-	return validatedApiServerTLSSecurityProfile
+	return validatedAPIServerTLSSecurityProfile
 }
 
 func isValidCipherName(str string) bool {

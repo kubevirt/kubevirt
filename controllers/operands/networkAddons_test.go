@@ -20,7 +20,7 @@ import (
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 )
@@ -32,15 +32,15 @@ var _ = Describe("CNA Operand", func() {
 		var req *common.HcoRequest
 
 		BeforeEach(func() {
-			hco = commonTestUtils.NewHco()
-			req = commonTestUtils.NewReq(hco)
+			hco = commontestutils.NewHco()
+			req = commontestutils.NewReq(hco)
 		})
 
 		It("should create if not present", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -52,7 +52,7 @@ var _ = Describe("CNA Operand", func() {
 					foundResource),
 			).To(Succeed())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commonTestUtils.Name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, commontestutils.Name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 			Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsshared.Multus{}))
 			Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsshared.LinuxBridge{}))
@@ -62,8 +62,8 @@ var _ = Describe("CNA Operand", func() {
 		It("should find if present", func() {
 			expectedResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -75,19 +75,19 @@ var _ = Describe("CNA Operand", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionAvailable,
 				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
-			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionProgressing,
 				Status:  metav1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigConditions",
 				Message: "NetworkAddonsConfig resource has no conditions",
 			}))
-			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionUpgradeable,
 				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigConditions",
@@ -100,8 +100,8 @@ var _ = Describe("CNA Operand", func() {
 			Expect(err).ToNot(HaveOccurred())
 			existingResource.Spec.ImagePullPolicy = corev1.PullAlways // set non-default value
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -132,11 +132,11 @@ var _ = Describe("CNA Operand", func() {
 			existingResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -164,14 +164,14 @@ var _ = Describe("CNA Operand", func() {
 
 		It("should remove node placement if missing in HCO CR", func() {
 
-			hcoNodePlacement := commonTestUtils.NewHco()
-			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hcoNodePlacement := commontestutils.NewHco()
+			hcoNodePlacement.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+			hcoNodePlacement.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 			existingResource, err := NewNetworkAddons(hcoNodePlacement)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -192,8 +192,8 @@ var _ = Describe("CNA Operand", func() {
 
 		It("should modify node placement according to HCO CR", func() {
 
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 			existingResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -205,8 +205,8 @@ var _ = Describe("CNA Operand", func() {
 
 			hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -231,8 +231,8 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		It("should overwrite node placement if directly set on CNAO CR", func() {
-			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
-			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commonTestUtils.NewNodePlacement()}
+			hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+			hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 			existingResource, err := NewNetworkAddons(hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -251,8 +251,8 @@ var _ = Describe("CNA Operand", func() {
 			existingResource.Spec.PlacementConfiguration.Infra.NodeSelector["key1"] = "BADvalue1"
 			existingResource.Spec.PlacementConfiguration.Workloads.NodeSelector["key2"] = "BADvalue2"
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -294,8 +294,8 @@ var _ = Describe("CNA Operand", func() {
 				},
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -321,8 +321,8 @@ var _ = Describe("CNA Operand", func() {
 		It("should set self signed configuration to defaults if missing in HCO CR", func() {
 			existingResource := NewNetworkAddonsWithNameOnly(hco)
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeFalse())
@@ -368,8 +368,8 @@ var _ = Describe("CNA Operand", func() {
 			hco.Spec.CertConfig.Server.Duration.Duration *= 2
 			hco.Spec.CertConfig.Server.RenewBefore.Duration *= 2
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -423,8 +423,8 @@ var _ = Describe("CNA Operand", func() {
 			existingResource.Spec.SelfSignConfiguration.CertRotateInterval = "24h0m0s"
 			existingResource.Spec.SelfSignConfiguration.CertOverlapInterval = "1h0m0s"
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Updated).To(BeTrue())
@@ -474,8 +474,8 @@ var _ = Describe("CNA Operand", func() {
 				}
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCNAO})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingCNAO})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -547,8 +547,8 @@ var _ = Describe("CNA Operand", func() {
 				hco.Spec.KubeSecondaryDNSNameServerIP = &kubeSecondaryDNSNameServerIP
 			}
 
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, existingCNAO})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, existingCNAO})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -602,7 +602,7 @@ var _ = Describe("CNA Operand", func() {
 				getClusterInfo := hcoutil.GetClusterInfo
 
 				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-					return &commonTestUtils.ClusterInfoMock{}
+					return &commontestutils.ClusterInfoMock{}
 				}
 
 				DeferCleanup(func() {
@@ -616,7 +616,7 @@ var _ = Describe("CNA Operand", func() {
 					setFeatureGate:     true,
 					featureGateValue:   true,
 					ksdDeployExpected:  true,
-					expectedBaseDomain: commonTestUtils.BaseDomain,
+					expectedBaseDomain: commontestutils.BaseDomain,
 				}),
 				Entry("should not have KSD if feature gate is set to false", ksdAnnotationParams{
 					ksdExists:          true,
@@ -658,8 +658,8 @@ var _ = Describe("CNA Operand", func() {
 					Message: "Bar",
 				},
 			}
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -671,25 +671,25 @@ var _ = Describe("CNA Operand", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
-			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionAvailable]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionAvailable,
 				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigNotAvailable",
 				Message: "NetworkAddonsConfig is not available: Bar",
 			}))
-			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionProgressing]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionProgressing,
 				Status:  metav1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigProgressing",
 				Message: "NetworkAddonsConfig is progressing: Bar",
 			}))
-			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionUpgradeable,
 				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigProgressing",
 				Message: "NetworkAddonsConfig is progressing: Bar",
 			}))
-			Expect(req.Conditions[hcov1beta1.ConditionDegraded]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionDegraded]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionDegraded,
 				Status:  metav1.ConditionTrue,
 				Reason:  "NetworkAddonsConfigDegraded",
@@ -712,8 +712,8 @@ var _ = Describe("CNA Operand", func() {
 					Message: "Bar",
 				},
 			}
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -726,7 +726,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
 			Expect(req.Conditions).To(HaveLen(1))
-			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionUpgradeable,
 				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigNotUpgradeable",
@@ -756,8 +756,8 @@ var _ = Describe("CNA Operand", func() {
 					Message: "Bar",
 				},
 			}
-			cl := commonTestUtils.InitClient([]runtime.Object{hco, expectedResource})
-			handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -770,7 +770,7 @@ var _ = Describe("CNA Operand", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			// Check conditions
 			Expect(req.Conditions).To(HaveLen(1))
-			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commonTestUtils.RepresentCondition(metav1.Condition{
+			Expect(req.Conditions[hcov1beta1.ConditionUpgradeable]).To(commontestutils.RepresentCondition(metav1.Condition{
 				Type:    hcov1beta1.ConditionUpgradeable,
 				Status:  metav1.ConditionFalse,
 				Reason:  "NetworkAddonsConfigNotUpgradeable",
@@ -829,8 +829,8 @@ var _ = Describe("CNA Operand", func() {
 				]`}
 
 				expectedResource := NewNetworkAddonsWithNameOnly(hco)
-				cl := commonTestUtils.InitClient([]runtime.Object{})
-				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				cl := commontestutils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -858,8 +858,8 @@ var _ = Describe("CNA Operand", func() {
 				]`}
 
 				expectedResource := NewNetworkAddonsWithNameOnly(hco)
-				cl := commonTestUtils.InitClient([]runtime.Object{})
-				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				cl := commontestutils.InitClient([]runtime.Object{})
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
 
@@ -890,9 +890,9 @@ var _ = Describe("CNA Operand", func() {
 					}
 				]`}
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCna})
+				cl := commontestutils.InitClient([]runtime.Object{hco, existsCna})
 
-				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
 				Expect(res.Updated).To(BeTrue())
@@ -924,9 +924,9 @@ var _ = Describe("CNA Operand", func() {
 					}
 				]`}
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existsCna})
+				cl := commontestutils.InitClient([]runtime.Object{hco, existsCna})
 
-				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
 
@@ -946,8 +946,8 @@ var _ = Describe("CNA Operand", func() {
 		})
 
 		Context("Cache", func() {
-			cl := commonTestUtils.InitClient([]runtime.Object{})
-			handler := newCnaHandler(cl, commonTestUtils.GetScheme())
+			cl := commontestutils.InitClient([]runtime.Object{})
+			handler := newCnaHandler(cl, commontestutils.GetScheme())
 
 			It("should start with empty cache", func() {
 				Expect(handler.hooks.(*cnaHooks).cache).To(BeNil())
@@ -1022,8 +1022,8 @@ var _ = Describe("CNA Operand", func() {
 				// now, modify HCO's TLSSecurityProfile
 				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())
@@ -1052,8 +1052,8 @@ var _ = Describe("CNA Operand", func() {
 				// now, modify CNAO node placement
 				existingResource.Spec.TLSSecurityProfile = modernTLSSecurityProfile
 
-				cl := commonTestUtils.InitClient([]runtime.Object{hco, existingResource})
-				handler := (*genericOperand)(newCnaHandler(cl, commonTestUtils.GetScheme()))
+				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newCnaHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
 				Expect(res.Updated).To(BeTrue())

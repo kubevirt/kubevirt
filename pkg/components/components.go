@@ -56,7 +56,7 @@ type DeploymentOperatorParams struct {
 	Image               string
 	WebhookImage        string
 	CliDownloadsImage   string
-	KvUiPluginImage     string
+	KVUIPluginImage     string
 	ImagePullPolicy     string
 	ConversionContainer string
 	VmwareContainer     string
@@ -247,8 +247,8 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 								Value: params.HppoVersion,
 							},
 							{
-								Name:  util.KvUiPluginImageEnvV,
-								Value: params.KvUiPluginImage,
+								Name:  util.KVUIPluginImageEnvV,
+								Value: params.KVUIPluginImage,
 							},
 						}, params.Env...),
 						Resources: v1.ResourceRequirements{

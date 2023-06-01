@@ -1,4 +1,4 @@
-package commonTestUtils
+package commontestutils
 
 import (
 	"io"

@@ -56,7 +56,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		kvtutil.PanicOnError(err)
 
 		tests.SkipIfNotOpenShift(virtCli, "Prometheus")
-		promClient = initializePromClient(getPrometheusUrl(virtCli), getAuthorizationTokenForPrometheus(virtCli))
+		promClient = initializePromClient(getPrometheusURL(virtCli), getAuthorizationTokenForPrometheus(virtCli))
 		prometheusRule = getPrometheusRule(virtCli)
 
 		initialOperatorHealthMetricValue = getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
@@ -70,7 +70,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 						"%s summary is missing or empty", rule.Alert)
 					Expect(rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
 						"%s runbook_url is missing or empty", rule.Alert)
-					checkRunbookUrlAvailability(rule)
+					checkRunbookURLAvailability(rule)
 				}
 			}
 		}
@@ -182,19 +182,19 @@ func getPrometheusRule(client kubecli.KubevirtClient) monitoringv1.PrometheusRul
 	return prometheusRule
 }
 
-func checkRunbookUrlAvailability(rule monitoringv1.Rule) {
+func checkRunbookURLAvailability(rule monitoringv1.Rule) {
 	resp, err := runbookClient.Head(rule.Annotations["runbook_url"])
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
 	ExpectWithOffset(1, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
 
-func initializePromClient(prometheusUrl string, token string) promApiv1.API {
+func initializePromClient(prometheusURL string, token string) promApiv1.API {
 	defaultRoundTripper := promApi.DefaultRoundTripper
 	tripper := defaultRoundTripper.(*http.Transport)
 	tripper.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	c, err := promApi.NewClient(promApi.Config{
-		Address:      prometheusUrl,
+		Address:      prometheusURL,
 		RoundTripper: promConfig.NewAuthorizationCredentialsRoundTripper("Bearer", promConfig.Secret(token), defaultRoundTripper),
 	})
 
@@ -227,7 +227,7 @@ func getAuthorizationTokenForPrometheus(cli kubecli.KubevirtClient) string {
 	return token
 }
 
-func getPrometheusUrl(cli kubecli.KubevirtClient) string {
+func getPrometheusURL(cli kubecli.KubevirtClient) string {
 	s := scheme.Scheme
 	_ = openshiftroutev1.Install(s)
 	s.AddKnownTypes(openshiftroutev1.GroupVersion)

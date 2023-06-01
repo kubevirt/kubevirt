@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,10 +63,10 @@ var _ = Describe("Hyperconverged API: Webhook", func() {
 			os.Setenv(webHookCertDirEnv, testFilesLocation)
 
 			resources := []runtime.Object{}
-			cl := commonTestUtils.InitClient(resources)
+			cl := commontestutils.InitClient(resources)
 
 			ws := &webhook.Server{}
-			mgr, err := commonTestUtils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
+			mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(SetupWebhookWithManager(context.TODO(), mgr, true, nil)).To(Succeed())
@@ -74,10 +74,10 @@ var _ = Describe("Hyperconverged API: Webhook", func() {
 
 		It("should fail setting up the webhooks with the manager when certificates are not accessible", func() {
 			resources := []runtime.Object{}
-			cl := commonTestUtils.InitClient(resources)
+			cl := commontestutils.InitClient(resources)
 
 			ws := &webhook.Server{}
-			mgr, err := commonTestUtils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
+			mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = SetupWebhookWithManager(context.TODO(), mgr, true, nil)

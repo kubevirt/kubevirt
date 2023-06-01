@@ -124,7 +124,7 @@ func validateUpgradePatch(req *common.HcoRequest, p hcoCRPatch) error {
 	return nil
 }
 
-func validateUpgradeLeftover(req *common.HcoRequest, r objectToBeRemoved) error {
+func validateUpgradeLeftover(_ *common.HcoRequest, r objectToBeRemoved) error {
 	_, err := semver.ParseRange(r.SemverRange)
 	if err != nil {
 		return err

@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,7 +80,7 @@ var _ = Describe("webhooks mutator", func() {
 		}
 
 		It("should allow the delete of the hcoNamespace if Hyperconverged CR doesn't exist", func() {
-			cli := commonTestUtils.InitClient(nil)
+			cli := commontestutils.InitClient(nil)
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Delete, ns, corev1Codec)}
 
@@ -89,7 +89,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should not allow the delete of the hcoNamespace if Hyperconverged CR exists", func() {
-			cli := commonTestUtils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]runtime.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Delete, ns, corev1Codec)}
 
@@ -98,7 +98,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should not allow when the request is not valid", func() {
-			cli := commonTestUtils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]runtime.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: admissionv1.AdmissionRequest{Operation: admissionv1.Delete}}
 
@@ -107,7 +107,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should not allow the delete of the hcoNamespace if failed to get Hyperconverged CR", func() {
-			cli := commonTestUtils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]runtime.Object{cr})
 
 			cli.InitiateGetErrors(func(key client.ObjectKey) error {
 				if key.Name == util.HyperConvergedName {
@@ -124,7 +124,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should ignore other namespaces even if Hyperconverged CR exists", func() {
-			cli := commonTestUtils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]runtime.Object{cr})
 			otherNs := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: ResourceInvalidNamespace,
@@ -139,7 +139,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should allow other operations", func() {
-			cli := commonTestUtils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]runtime.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Update, ns, corev1Codec)}
 

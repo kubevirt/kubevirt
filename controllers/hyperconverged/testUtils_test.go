@@ -29,7 +29,7 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commonTestUtils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -51,9 +51,9 @@ var (
 )
 
 func initReconciler(client client.Client, old *ReconcileHyperConverged) *ReconcileHyperConverged {
-	s := commonTestUtils.GetScheme()
-	eventEmitter := commonTestUtils.NewEventEmitterMock()
-	ci := commonTestUtils.ClusterInfoMock{}
+	s := commontestutils.GetScheme()
+	eventEmitter := commontestutils.NewEventEmitterMock()
+	ci := commontestutils.ClusterInfoMock{}
 	operandHandler := operands.NewOperandHandler(client, s, ci, eventEmitter)
 	upgradeMode := false
 	firstLoop := true
@@ -159,8 +159,8 @@ func (be BasicExpected) toArray() []runtime.Object {
 	}
 }
 
-func (be BasicExpected) initClient() *commonTestUtils.HcoTestClient {
-	return commonTestUtils.InitClient(be.toArray())
+func (be BasicExpected) initClient() *commontestutils.HcoTestClient {
+	return commontestutils.InitClient(be.toArray())
 }
 
 func getBasicDeployment() *BasicExpected {
@@ -275,14 +275,14 @@ func getBasicDeployment() *BasicExpected {
 	expectedVirtioWinRoleBinding := operands.NewVirtioWinCmReaderRoleBinding(hco)
 	res.virtioWinRoleBinding = expectedVirtioWinRoleBinding
 
-	expectedConsolePluginDeployment, err := operands.NewKvUiPluginDeplymnt(hco)
+	expectedConsolePluginDeployment, err := operands.NewKvUIPluginDeplymnt(hco)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	res.consolePluginDeploy = expectedConsolePluginDeployment
 
-	expectedConsolePluginService := operands.NewKvUiPluginSvc(hco)
+	expectedConsolePluginService := operands.NewKvUIPluginSvc(hco)
 	res.consolePluginSvc = expectedConsolePluginService
 
-	expectedConsolePlugin := operands.NewKvConsolePlugin(hco)
+	expectedConsolePlugin := operands.NewKVConsolePlugin(hco)
 	res.consolePlugin = expectedConsolePlugin
 
 	expectedConsoleConfig := &operatorv1.Console{

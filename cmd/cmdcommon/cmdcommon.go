@@ -72,9 +72,8 @@ func (h HcCmdHelper) RegisterPPROFServer(mgr manager.Manager) error {
 	return mgr.Add(manager.RunnableFunc(func(ctx context.Context) error {
 		errCh := make(chan error)
 		defer func() {
-			for range errCh {
-				// drain errCh for GC
-			}
+			// drain errCh for GC
+			<-errCh
 		}()
 
 		go func() {
