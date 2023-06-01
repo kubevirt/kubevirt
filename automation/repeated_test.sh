@@ -18,6 +18,19 @@
 #
 set -euo pipefail
 
+# According to https://dl.acm.org/doi/abs/10.1145/3476105
+#
+# * almost all flaky tests were independent of the execution platform, so environmental issues should be considered with higher priority
+# * devs may be unaware of many flakes due to order-dependent tests
+# * simple techniques of reversing or shuffling the test order may be more efficient and effective than more sophisticated approaches
+# * “One study found that 88% of flaky tests were found to consecutively fail up to a maximum of five times before passing,
+#    though another reported finding new flaky tests even after 10,000 test suite runs.”
+#
+# Therefore we by default
+# * use only latest kubevirtci provider,
+# * run all changed tests five times and
+# * randomize the test order each time
+
 export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
@@ -25,7 +38,7 @@ function usage {
 usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provider[ kubevirtci_provider ...]]
 
     run test lanes repeatedly using the set of test files that have been
-    changed or added since last merge commit, set NEW_TESTS to explicitly name the tests to run)
+    changed or added since last merge commit, set NEW_TESTS to explicitly name the tests to run
 
     options:
         NUM_TESTS       how often each test lane is run, default is 3
@@ -36,11 +49,15 @@ usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provid
                         If /clonerefs is at work you need to provide a target commit, as then the latest commit is a
                         merge commit (resulting in no changes detected)
 
-    example:
+    examples:
 
-        NEW_TESTS='operator_test' ./automation/repeated_test.sh 'k8s-1.16.2'
+      1.    NEW_TESTS='operator_test' ./automation/repeated_test.sh 'k8s-1.27'
 
-        runs tests/operator_test.go three times on kubevirtci provider k8s-1.16.2
+            runs tests/operator_test.go x times on kubevirtci provider k8s-1.27
+
+      2.    NEW_TESTS='operator_test' ./automation/repeated_test.sh
+
+            runs tests/operator_test.go x times on latest kubevirtci provider found
 
 EOF
 }
@@ -101,7 +118,7 @@ if (( $# > 0 )); then
         shift
     done
 else
-    mapfile -t TEST_LANES < <( find cluster-up/cluster -name 'k8s-[0-9].[0-9][0-9]' -print | sort -rV | grep -oE 'k8s.*' | head -3 )
+    mapfile -t TEST_LANES < <( find cluster-up/cluster -name 'k8s-[0-9].[0-9][0-9]' -print | sort -rV | grep -oE 'k8s.*' | head -1 )
 fi
 echo "Test lanes: ${TEST_LANES[*]}"
 for lane in "${TEST_LANES[@]}"; do
@@ -128,7 +145,7 @@ if [[ -z "${NEW_TESTS}" ]]; then
 fi
 echo "Test files touched: $(echo ${NEW_TESTS} | tr '|' ',')"
 
-NUM_TESTS=${NUM_TESTS-3}
+NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
 
 if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
