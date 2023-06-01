@@ -65,17 +65,25 @@ bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 
-# cross-compile virtctl for
+# compile virtctl for amd64 and arm64
 
 # linux
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
 
+bazel run \
+    --config=${HOST_ARCHITECTURE} \
+    :build-virtctl-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-arm64
+
 # darwin
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
+
+bazel run \
+    --config=${HOST_ARCHITECTURE} \
+    :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
 
 # windows
 bazel run \
