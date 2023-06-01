@@ -297,8 +297,6 @@ type KubeInformerFactory interface {
 	// Pod returns an informer for ALL Pods in the system
 	Pod() cache.SharedIndexInformer
 
-	ResourceQuota() cache.SharedIndexInformer
-
 	K8SInformerFactory() informers.SharedInformerFactory
 }
 
@@ -1270,13 +1268,6 @@ func (f *kubeInformerFactory) Pod() cache.SharedIndexInformer {
 	return f.getInformer("podInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
-func (f *kubeInformerFactory) ResourceQuota() cache.SharedIndexInformer {
-	return f.getInformer("resourceQuotaInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "resourcequotas", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &k8sv1.ResourceQuota{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

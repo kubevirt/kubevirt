@@ -199,7 +199,6 @@ type VirtControllerApp struct {
 	vmRestoreInformer            cache.SharedIndexInformer
 	storageClassInformer         cache.SharedIndexInformer
 	allPodInformer               cache.SharedIndexInformer
-	resourceQuotaInformer        cache.SharedIndexInformer
 
 	crdInformer cache.SharedIndexInformer
 
@@ -386,7 +385,6 @@ func Execute() {
 	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
 	app.allPodInformer = app.informerFactory.Pod()
 	app.exportServiceInformer = app.informerFactory.ExportService()
-	app.resourceQuotaInformer = app.informerFactory.ResourceQuota()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -635,7 +633,6 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.persistentVolumeClaimInformer,
 		vca.pdbInformer,
 		vca.migrationPolicyInformer,
-		vca.resourceQuotaInformer,
 		vca.vmiRecorder,
 		vca.clientSet,
 		vca.clusterConfig,

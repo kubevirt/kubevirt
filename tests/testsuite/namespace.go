@@ -170,17 +170,6 @@ func CleanNamespaces() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// Remove all ResourceQuota
-		rqList, err := virtCli.CoreV1().ResourceQuotas(namespace).List(context.Background(), metav1.ListOptions{})
-		util.PanicOnError(err)
-		for _, rq := range rqList.Items {
-			err := virtCli.CoreV1().ResourceQuotas(namespace).Delete(context.Background(), rq.Name, metav1.DeleteOptions{})
-			if errors.IsNotFound(err) {
-				continue
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
 		// Remove PVCs
 		util.PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error())
 		if libstorage.HasCDI() {

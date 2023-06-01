@@ -100,7 +100,6 @@ type MigrationController struct {
 	pvcInformer             cache.SharedIndexInformer
 	pdbInformer             cache.SharedIndexInformer
 	migrationPolicyInformer cache.SharedIndexInformer
-	resourceQuotaInformer   cache.SharedIndexInformer
 	recorder                record.EventRecorder
 	podExpectations         *controller.UIDTrackingControllerExpectations
 	migrationStartLock      *sync.Mutex
@@ -124,7 +123,6 @@ func NewMigrationController(templateService services.TemplateService,
 	pvcInformer cache.SharedIndexInformer,
 	pdbInformer cache.SharedIndexInformer,
 	migrationPolicyInformer cache.SharedIndexInformer,
-	resourceQuotaInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -139,7 +137,6 @@ func NewMigrationController(templateService services.TemplateService,
 		nodeInformer:            nodeInformer,
 		pvcInformer:             pvcInformer,
 		pdbInformer:             pdbInformer,
-		resourceQuotaInformer:   resourceQuotaInformer,
 		migrationPolicyInformer: migrationPolicyInformer,
 		recorder:                recorder,
 		clientset:               clientset,
@@ -187,14 +184,6 @@ func NewMigrationController(templateService services.TemplateService,
 		return nil, err
 	}
 
-	_, err = c.resourceQuotaInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updateResourceQuota,
-		DeleteFunc: c.deleteResourceQuota,
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	return c, nil
 }
 
@@ -204,7 +193,8 @@ func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting migration controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced, c.pdbInformer.HasSynced, c.resourceQuotaInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.migrationInformer.HasSynced, c.pdbInformer.HasSynced)
+
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
@@ -349,7 +339,7 @@ func (c *MigrationController) execute(key string) error {
 		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
-	err = c.updateStatus(migration, vmi, targetPods, syncErr)
+	err = c.updateStatus(migration, vmi, targetPods)
 	if err != nil {
 		return err
 	}
@@ -403,7 +393,7 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 
 }
 
-func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
+func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
 	var attachmentPod *k8sv1.Pod = nil
@@ -522,18 +512,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				} else {
 					migrationCopy.Status.Phase = virtv1.MigrationScheduling
 				}
-			} else if syncError != nil && strings.Contains(syncError.Error(), "exceeded quota") && !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
-				condition := virtv1.VirtualMachineInstanceMigrationCondition{
-					Type:          virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota,
-					Status:        k8sv1.ConditionTrue,
-					LastProbeTime: v1.Now(),
-				}
-				migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 			}
 		case virtv1.MigrationScheduling:
-			if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
-				conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
-			}
 			if isPodReady(pod) {
 				if controller.VMIHasHotplugVolumes(vmi) {
 					if attachmentPodExists && isPodReady(attachmentPod) {
@@ -1441,46 +1421,6 @@ func (c *MigrationController) updatePod(old, cur interface{}) {
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
 	c.enqueueMigration(migration)
-	return
-}
-
-// When a resourceQuota is updated, figure out if there are pending migration in the namespace
-// if there are we should push them into the queue to accelerate the target creation process
-func (c *MigrationController) updateResourceQuota(_, cur interface{}) {
-	curResourceQuota := cur.(*k8sv1.ResourceQuota)
-	log.Log.V(4).Object(curResourceQuota).Infof("ResourceQuota updated")
-	objs, _ := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
-	for _, obj := range objs {
-		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-		if migration.Status.Conditions == nil {
-			continue
-		}
-		for _, cond := range migration.Status.Conditions {
-			if cond.Type == virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
-				c.enqueueMigration(migration)
-			}
-		}
-	}
-	return
-}
-
-// When a resourceQuota is deleted, figure out if there are pending migration in the namespace
-// if there are we should push them into the queue to accelerate the target creation process
-func (c *MigrationController) deleteResourceQuota(obj interface{}) {
-	resourceQuota := obj.(*k8sv1.ResourceQuota)
-	log.Log.V(4).Object(resourceQuota).Infof("ResourceQuota deleted")
-	objs, _ := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
-	for _, obj := range objs {
-		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-		if migration.Status.Conditions == nil {
-			continue
-		}
-		for _, cond := range migration.Status.Conditions {
-			if cond.Type == virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota {
-				c.enqueueMigration(migration)
-			}
-		}
-	}
 	return
 }
 

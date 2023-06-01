@@ -92,7 +92,6 @@ var _ = Describe("Application", func() {
 		pdbInformer, _ := testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		migrationPolicyInformer, _ := testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		podInformer, _ := testutils.NewFakeInformerFor(&kubev1.Pod{})
-		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&kubev1.ResourceQuota{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&kubev1.PersistentVolumeClaim{})
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
@@ -155,7 +154,6 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			pdbInformer,
 			migrationPolicyInformer,
-			resourceQuotaInformer,
 			recorder,
 			virtClient,
 			config,
