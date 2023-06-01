@@ -296,3 +296,14 @@ func (v *vm) AddInterface(ctx context.Context, name string, addInterfaceOptions 
 
 	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
 }
+
+func (v *vm) RemoveInterface(ctx context.Context, name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removeinterface")
+
+	JSON, err := json.Marshal(removeInterfaceOptions)
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
+}
