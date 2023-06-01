@@ -6,6 +6,7 @@ go_library(
         "application.go",
         "migration.go",
         "migrationpolicy.go",
+        "network.go",
         "node.go",
         "pool.go",
         "replicaset.go",
@@ -107,6 +108,7 @@ go_test(
     srcs = [
         "application_test.go",
         "migration_test.go",
+        "network_test.go",
         "node_test.go",
         "pool_test.go",
         "replicaset_test.go",

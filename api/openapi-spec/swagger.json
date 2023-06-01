@@ -11626,6 +11626,57 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removeinterface": {
+    "put": {
+     "description": "Remove a network interface from a running Virtual Machine Instance",
+     "operationId": "v1vmi-removeinterface",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveInterfaceOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
@@ -13127,6 +13178,57 @@
       "type": "string",
       "description": "The protocol for portforward on the VirtualMachineInstance.",
       "name": "protocol",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstances/{name:[a-z0-9][a-z0-9\\-]*}/removeinterface": {
+    "put": {
+     "description": "Remove a network interface from a running Virtual Machine Instance",
+     "operationId": "v1alpha3vmi-removeinterface",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveInterfaceOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
       "in": "path",
       "required": true
      }
@@ -17130,6 +17232,10 @@
      "sriov": {
       "$ref": "#/definitions/v1.InterfaceSRIOV"
      },
+     "state": {
+      "description": "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+      "type": "string"
+     },
      "tag": {
       "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
       "type": "string"
@@ -18354,6 +18460,20 @@
      "restClient": {
       "description": "RestClient can be used to tune certain aspects of the k8s client in use.",
       "$ref": "#/definitions/v1.RESTClientConfiguration"
+     }
+    }
+   },
+   "v1.RemoveInterfaceOptions": {
+    "description": "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name indicates the logical name of the interface.",
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -20000,6 +20120,10 @@
      "addInterfaceOptions": {
       "description": "AddInterfaceOptions when set indicates a network interface should be added. The details within this field specify how to add the interface",
       "$ref": "#/definitions/v1.AddInterfaceOptions"
+     },
+     "removeInterfaceOptions": {
+      "description": "RemoveInterfaceOptions when set indicates a network interface should be removed. The details within this field specify how to remove the interface",
+      "$ref": "#/definitions/v1.RemoveInterfaceOptions"
      }
     }
    },

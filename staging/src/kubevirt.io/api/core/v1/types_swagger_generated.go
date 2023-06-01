@@ -385,7 +385,8 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"addInterfaceOptions": "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
+		"addInterfaceOptions":    "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
+		"removeInterfaceOptions": "RemoveInterfaceOptions when set indicates a network interface should be removed.\nThe details within this field specify how to remove the interface",
 	}
 }
 
@@ -673,6 +674,13 @@ func (AddInterfaceOptions) SwaggerDoc() map[string]string {
 		"":                                "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
 		"networkAttachmentDefinitionName": "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:\n<networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not\nspecified, VMI namespace is assumed.",
 		"name":                            "Name indicates the logical name of the interface.",
+	}
+}
+
+func (RemoveInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
+		"name": "Name indicates the logical name of the interface.",
 	}
 }
 

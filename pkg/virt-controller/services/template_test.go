@@ -953,6 +953,7 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
+								Interfaces:     []v1.Interface{{Name: "default"}, {Name: "test1"}, {Name: "other-test1"}},
 							},
 						},
 						Networks: []v1.Network{
@@ -995,6 +996,7 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
 								DisableHotplug: true,
+								Interfaces:     []v1.Interface{{Name: "default"}, {Name: "test1"}},
 							},
 						},
 						Networks: []v1.Network{
@@ -1032,6 +1034,7 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								DisableHotplug: true,
 								Interfaces: []v1.Interface{
+									{Name: "default"},
 									{
 										Name: "test1",
 										InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -1089,6 +1092,11 @@ var _ = Describe("Template", func() {
 									NetworkSource: v1.NetworkSource{
 										Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"},
 									}},
+							},
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{
+									Interfaces: []v1.Interface{{Name: "default"}, {Name: "blue"}, {Name: "red"}},
+								},
 							},
 						},
 					}
@@ -4268,14 +4276,14 @@ var _ = Describe("getResourceNameForNetwork", func() {
 var _ = Describe("getNamespaceAndNetworkName", func() {
 	It("should return vmi namespace when namespace is implicit", func() {
 		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := getNamespaceAndNetworkName(vmi, "testnet")
+		namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, "testnet")
 		Expect(namespace).To(Equal("testns"))
 		Expect(networkName).To(Equal("testnet"))
 	})
 
 	It("should return namespace from networkName when namespace is explicit", func() {
 		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
-		namespace, networkName := getNamespaceAndNetworkName(vmi, "otherns/testnet")
+		namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, "otherns/testnet")
 		Expect(namespace).To(Equal("otherns"))
 		Expect(networkName).To(Equal("testnet"))
 	})

@@ -253,6 +253,7 @@ type VirtualMachineInstanceInterface interface {
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 	AddInterface(ctx context.Context, name string, addInterfaceOptions *v1.AddInterfaceOptions) error
+	RemoveInterface(ctx context.Context, name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error
 }
 
 type ReplicaSetInterface interface {

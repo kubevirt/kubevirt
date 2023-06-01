@@ -25,6 +25,17 @@ func AddInfoSource(infoSourceData, name string) string {
 	return NewInfoSource(infoSources...)
 }
 
+func RemoveInfoSource(infoSourceData, name string) string {
+	var newInfoSources []string
+	infoSources := strings.Split(infoSourceData, seperator)
+	for _, infoSourceName := range infoSources {
+		if infoSourceName != name {
+			newInfoSources = append(newInfoSources, infoSourceName)
+		}
+	}
+	return NewInfoSource(newInfoSources...)
+}
+
 func ContainsInfoSource(infoSourceData, name string) bool {
 	infoSources := strings.Split(infoSourceData, seperator)
 	for _, infoSourceName := range infoSources {

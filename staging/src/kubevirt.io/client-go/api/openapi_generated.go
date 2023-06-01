@@ -440,6 +440,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.RateLimiter":                                                        schema_kubevirtio_api_core_v1_RateLimiter(ref),
 		"kubevirt.io/api/core/v1.Realtime":                                                           schema_kubevirtio_api_core_v1_Realtime(ref),
 		"kubevirt.io/api/core/v1.ReloadableComponentConfiguration":                                   schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref),
+		"kubevirt.io/api/core/v1.RemoveInterfaceOptions":                                             schema_kubevirtio_api_core_v1_RemoveInterfaceOptions(ref),
 		"kubevirt.io/api/core/v1.RemoveVolumeOptions":                                                schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                               schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                     schema_kubevirtio_api_core_v1_RestartOptions(ref),
@@ -18383,6 +18384,13 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 							Format:      "int32",
 						},
 					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -20739,6 +20747,28 @@ func schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref common.R
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.RESTClientConfiguration"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_RemoveInterfaceOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name indicates the logical name of the interface.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
 	}
 }
 
@@ -23715,11 +23745,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInterfaceRequest(ref common.Ref
 							Ref:         ref("kubevirt.io/api/core/v1.AddInterfaceOptions"),
 						},
 					},
+					"removeInterfaceOptions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RemoveInterfaceOptions when set indicates a network interface should be removed. The details within this field specify how to remove the interface",
+							Ref:         ref("kubevirt.io/api/core/v1.RemoveInterfaceOptions"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.AddInterfaceOptions"},
+			"kubevirt.io/api/core/v1.AddInterfaceOptions", "kubevirt.io/api/core/v1.RemoveInterfaceOptions"},
 	}
 }
 

@@ -264,7 +264,8 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 
 	if namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
 		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(vmi, ordinalNameScheme)
+		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(
+			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme)
 		if err != nil {
 			return nil, err
 		}
@@ -1106,15 +1107,12 @@ func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) s
 	return "" // meaning the network is not served by resources
 }
 
-func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName string) (namespace string, networkName string) {
+func getNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
 	if strings.Contains(fullNetworkName, "/") {
 		res := strings.SplitN(fullNetworkName, "/", 2)
-		namespace, networkName = res[0], res[1]
-	} else {
-		namespace = precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-		networkName = fullNetworkName
+		return res[0], res[1]
 	}
-	return
+	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
 
 func NewTemplateService(launcherImage string,
@@ -1254,7 +1252,11 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi)
+	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
+	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets)
 	if err != nil {
 		return nil, err
 	}

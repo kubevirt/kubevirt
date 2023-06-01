@@ -347,4 +347,92 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			).To(BeEmpty())
 		})
 	})
+
+	Context("Remove Interface Subresource api", func() {
+		const (
+			ifaceToHotUnplug    = "pluggediface1"
+			existingNetworkName = ifaceToHotUnplug
+		)
+
+		BeforeEach(func() {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+		})
+
+		AfterEach(func() {
+			restoreKubeVirtClusterConfig()
+		})
+
+		createVMI := func() *v1.VirtualMachineInstance {
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = "default"
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name: existingNetworkName,
+			})
+			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+				Name: existingNetworkName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: existingNetworkName,
+					},
+				},
+			})
+			return vmi
+		}
+
+		successfulMockScenarioForVMI := func(removeOpts *v1.RemoveInterfaceOptions) {
+			vmi := createVMI()
+
+			request.Request.Body = newRemoveInterfaceBody(removeOpts)
+
+			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vmi, nil)
+		}
+
+		It("Should succeed a remove interface request on VMI", func() {
+			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
+			removeOpts := &v1.RemoveInterfaceOptions{Name: ifaceToHotUnplug}
+			successfulMockScenarioForVMI(removeOpts)
+
+			app.VMIRemoveInterfaceRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+		})
+
+		It("Should generate expected vmi patch when the remove interface request features all required data", func() {
+			vmi := api.NewMinimalVMI(request.PathParameter("name"))
+			vmi.Namespace = "default"
+			vmi.Status.Phase = v1.Running
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name: existingNetworkName,
+			})
+			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
+				Name: existingNetworkName,
+			})
+
+			Expect(
+				generateVMIInterfaceRequestPatch(
+					vmi,
+					&v1.VirtualMachineInterfaceRequest{
+						RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: ifaceToHotUnplug},
+					},
+				),
+			).To(
+				MatchJSON(
+					fmt.Sprintf(`[
+						{ "op": "test", "path": "/spec/networks", "value": [{"name":%[1]q}]},
+						{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": [{"name":%[1]q}]},
+						{ "op": "add", "path": "/spec/networks", "value": [{"name":%[1]q}]},
+						{ "op": "add", "path": "/spec/domain/devices/interfaces", "value": [{"name":%[1]q,"state":"absent"}]}
+					]`, existingNetworkName),
+				),
+			)
+		})
+	})
 })
+
+func newRemoveInterfaceBody(opts *v1.RemoveInterfaceOptions) io.ReadCloser {
+	optsJson, _ := json.Marshal(opts)
+	return &readCloserWrapper{bytes.NewReader(optsJson)}
+}

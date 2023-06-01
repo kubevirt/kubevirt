@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -84,9 +86,31 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 			map[string]api.Interface{networkName: {Alias: api.NewUserDefinedAlias(networkName)}},
 			nil,
 		),
+		Entry("vmi with 1 network marked for removal, pod interface ready and no interfaces in the domain",
+			&v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Networks: []v1.Network{generateNetwork(networkName, nadName)},
+					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
+						Name:  networkName,
+						State: v1.InterfaceStateAbsent,
+					}}}},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+						Name:       networkName,
+						InfoSource: vmispec.InfoSourceMultusStatus,
+					}},
+				},
+			},
+			map[string]api.Interface{},
+			nil,
+		),
 		Entry("vmi with 1 network (when the pod interface *is* ready), but no interfaces in the domain",
 			&v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{generateNetwork(networkName, nadName)}},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Networks: []v1.Network{generateNetwork(networkName, nadName)},
+					Domain:   v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{Name: networkName}}}},
+				},
 				Status: v1.VirtualMachineInstanceStatus{
 					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
 						Name:       networkName,
@@ -145,6 +169,48 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 			dummyDomain(networkName),
 			&fakeVMConfigurator{},
 			libvirtClientResult{expectedError: fmt.Errorf("boom")},
+		),
+	)
+})
+
+var _ = Describe("nic hot-unplug on virt-launcher", func() {
+	const (
+		networkName   = "n1"
+		ordinalDevice = "tap2"
+	)
+
+	hashedDevice := "tap" + namescheme.GenerateHashedInterfaceName(networkName)[3:]
+
+	DescribeTable("domain interfaces to hot-unplug",
+		func(vmiSpecIfaces []v1.Interface, domainSpecIfaces []api.Interface, expectedDomainSpecIfaces []api.Interface) {
+			Expect(interfacesToHotUnplug(vmiSpecIfaces, domainSpecIfaces)).To(ConsistOf(expectedDomainSpecIfaces))
+		},
+		Entry("given no VMI interfaces and no domain interfaces", nil, nil, nil),
+		Entry("given no VMI interfaces and 1 domain interface",
+			nil,
+			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
+			nil,
+		),
+		Entry("given 1 VMI non-absent interface and an associated interface in the domain",
+			[]v1.Interface{{Name: networkName}},
+			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
+			nil,
+		),
+		Entry("given 1 VMI absent interface and an associated interface in the domain is using ordinal device",
+			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent}},
+			[]api.Interface{
+				{Target: &api.InterfaceTarget{Device: ordinalDevice}, Alias: api.NewUserDefinedAlias(networkName)},
+			},
+			nil,
+		),
+		Entry("given 1 VMI absent interface and an associated interface in the domain is using hashed device",
+			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent}},
+			[]api.Interface{{
+				Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
+			},
+			[]api.Interface{
+				{Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
+			},
 		),
 	)
 })
