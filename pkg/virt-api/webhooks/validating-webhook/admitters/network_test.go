@@ -23,50 +23,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
 )
 
 var _ = Describe("Validating VMI network spec", func() {
-
-	DescribeTable("network interface resources requests valid value", func(value string) {
-		vm := api.NewMinimalVMI("testvm")
-		vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-			resource.ResourceInterface: k8sresource.MustParse(value),
-		}
-		Expect(validateInterfaceRequestIsInRange(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
-	},
-		Entry("is an integer between 0 to 32", "5"),
-		Entry("is an integer between 0 to 32 with symbol", "10000m"),
-		Entry("is the minimum", "0"),
-		Entry("is the maximum", "32"),
-	)
-
-	DescribeTable("network interface resources requests invalid value", func(value string) {
-		vm := api.NewMinimalVMI("testvm")
-		vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-			resource.ResourceInterface: k8sresource.MustParse(value),
-		}
-		Expect(validateInterfaceRequestIsInRange(k8sfield.NewPath("fake"), &vm.Spec)).To(
-			ConsistOf(metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "provided resources interface requests must be an integer between 0 to 32",
-				Field:   "fake.domain.resources.requests.kubevirt.io/interface",
-			}))
-	},
-		Entry("is not an integer", "1.2"),
-		Entry("is negative", "-2"),
-		Entry("is beyond the maximum", "33"),
-		Entry("is beyond the maximum with size symbol", "1M"),
-	)
 
 	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
 		vm := api.NewMinimalVMI("testvm")

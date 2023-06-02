@@ -31,7 +31,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -48,6 +47,12 @@ type virtIOInterfaceManager struct {
 	dom          cli.VirDomain
 	configurator vmConfigurator
 }
+
+const (
+	// ReservedInterfaces represents the number of interfaces the domain
+	// should reserve for future hotplug additions.
+	ReservedInterfaces = 4
+)
 
 func newVirtIOInterfaceManager(
 	libvirtClient cli.VirDomain,
@@ -194,10 +199,11 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 }
 
 func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
+	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
+		return domainSpec
+	}
 	domainSpecWithIfacesResource := domainSpec.DeepCopy()
-	requests := resource.ExtendedResourceList{ResourceList: vmi.Spec.Domain.Resources.Requests}
-	reqInterfaces := int(requests.Interface().Value())
-	interfacePlaceholderCount := reqInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
+	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
 	for i := 0; i < interfacePlaceholderCount; i++ {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(
 			domainSpecWithIfacesResource.Devices.Interfaces,
