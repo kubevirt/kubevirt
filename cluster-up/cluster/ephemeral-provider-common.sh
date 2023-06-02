@@ -124,6 +124,10 @@ function _add_common_params() {
         params=" --single-stack $params"
     fi
 
+    if [ $KUBEVIRT_ENABLE_AUDIT == "true" ]; then
+        params=" --enable-audit $params"
+    fi
+
     if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
         params=" --enable-nfs-csi $params"
     fi
