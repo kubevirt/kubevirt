@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -50,6 +52,10 @@ var _ = Describe("Patches", func() {
 		Spec: appsv1.DeploymentSpec{},
 	}
 
+	pr := components.NewPrometheusRuleCR(namespace, false)
+
+	sm := components.NewServiceMonitorCR("fake-name", namespace, true)
+
 	flags := &v1.Flags{
 		Controller: map[string]string{
 			"v": "4",
@@ -69,6 +75,18 @@ var _ = Describe("Patches", func() {
 					ResourceName: "*",
 					ResourceType: "Deployment",
 					Patch:        `{"spec":{"template":{"spec":{"imagePullSecrets":[{"name":"image-pull"}]}}}}`,
+					Type:         v1.StrategicMergePatchType,
+				},
+				{
+					ResourceName: components.KUBEVIRT_PROMETHEUS_RULE_NAME,
+					ResourceType: "PrometheusRule",
+					Patch:        `[{"op":"replace","path" : "/spec/groups/0/rules/1/record","value":"customized_kubevirt_allocatable_nodes_count"}]`,
+					Type:         v1.JSONPatchType,
+				},
+				{
+					ResourceName: components.KUBEVIRT_PROMETHEUS_RULE_NAME,
+					ResourceType: "ServiceMonitor",
+					Patch:        `{"metadata":{"labels":{"new-key":"added-this-label"}}}`,
 					Type:         v1.StrategicMergePatchType,
 				},
 			},
@@ -96,6 +114,37 @@ var _ = Describe("Patches", func() {
 			expectedFlags := []string{components.VirtControllerName}
 			expectedFlags = append(expectedFlags, flagsToArray(flags.Controller)...)
 			Expect(deployment.Spec.Template.Spec.Containers[0].Command).To(Equal(expectedFlags))
+
+			err = config.GenericApplyPatches([]string{"string"})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should apply to prometheusrules", func() {
+			prs := []*promv1.PrometheusRule{
+				pr,
+			}
+
+			fmt.Printf("%+v", config.GetPatches())
+			err := config.GenericApplyPatches(prs)
+			Expect(err).ToNot(HaveOccurred())
+			// Rules[0] should not be affected by the patch to others
+			Expect(pr.Spec.Groups[0].Rules[0].Record).To(Equal("kubevirt_virt_api_up_total"))
+			// Original value is kubevirt_allocatable_nodes_count
+			Expect(pr.Spec.Groups[0].Rules[1].Record).To(Equal("customized_kubevirt_allocatable_nodes_count"))
+
+			err = config.GenericApplyPatches([]string{"string"})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should apply to servicemonitors", func() {
+			sms := []*promv1.ServiceMonitor{
+				sm,
+			}
+
+			fmt.Printf("%+v", config.GetPatches())
+			err := config.GenericApplyPatches(sms)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sm.ObjectMeta.Labels["new-key"]).To(Equal("added-this-label"))
 
 			err = config.GenericApplyPatches([]string{"string"})
 			Expect(err).To(HaveOccurred())

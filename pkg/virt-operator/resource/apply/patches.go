@@ -148,6 +148,14 @@ func (c *Customizer) Apply(targetStrategy *install.Strategy) error {
 	if err != nil {
 		return err
 	}
+	err = c.GenericApplyPatches(targetStrategy.ServiceMonitors())
+	if err != nil {
+		return err
+	}
+	err = c.GenericApplyPatches(targetStrategy.PrometheusRules())
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
