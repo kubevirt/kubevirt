@@ -90,8 +90,11 @@ func generateVMInterfaceRequestPatch(vm *v1.VirtualMachine, interfaceRequest *v1
 	const verb = "add"
 
 	vmCopy := vm.DeepCopy()
-	if interfaceRequest.AddInterfaceOptions != nil {
+	switch {
+	case interfaceRequest.AddInterfaceOptions != nil:
 		addAddInterfaceRequests(vm, interfaceRequest, vmCopy)
+	case interfaceRequest.RemoveInterfaceOptions != nil:
+		addRemoveInterfaceRequests(vm, interfaceRequest, vmCopy)
 	}
 
 	if equality.Semantic.DeepEqual(vm.Status.InterfaceRequests, vmCopy.Status.InterfaceRequests) {
@@ -116,16 +119,48 @@ func generateVMInterfaceRequestPatch(vm *v1.VirtualMachine, interfaceRequest *v1
 
 func addAddInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMachineInterfaceRequest, vmCopy *v1.VirtualMachine) {
 	canonicalIfaceName := ifaceRequest.AddInterfaceOptions.Name
-	existingIface := filterInterfaceRequests(
-		vm.Status.InterfaceRequests,
-		func(ifaceReq v1.VirtualMachineInterfaceRequest) bool {
-			return ifaceReq.AddInterfaceOptions.Name == canonicalIfaceName
-		},
-	)
+	existingIfaceAddRequests := filterAddInterfaceRequests(vm, canonicalIfaceName)
+	existingIfaceRemoveRequests := filterRemoveInterfaceRequests(vm, canonicalIfaceName)
 
-	if len(existingIface) == 0 {
+	if len(existingIfaceAddRequests) == 0 {
+		if len(existingIfaceRemoveRequests) > 0 {
+			log.Log.Object(vm).Warningf("cannot handle interface %q add request because there is an existing remove request", canonicalIfaceName)
+			return
+		}
 		vmCopy.Status.InterfaceRequests = append(vm.Status.InterfaceRequests, *ifaceRequest)
 	}
+}
+
+func addRemoveInterfaceRequests(vm *v1.VirtualMachine, ifaceRequest *v1.VirtualMachineInterfaceRequest, vmCopy *v1.VirtualMachine) {
+	canonicalIfaceName := ifaceRequest.RemoveInterfaceOptions.Name
+	existingIfaceRemoveRequests := filterRemoveInterfaceRequests(vm, canonicalIfaceName)
+	existingIfaceAddRequests := filterAddInterfaceRequests(vm, canonicalIfaceName)
+
+	if len(existingIfaceRemoveRequests) == 0 {
+		if len(existingIfaceAddRequests) > 0 {
+			log.Log.Object(vm).Warningf("cannot handle interface %q remove request because there is an existing add request", canonicalIfaceName)
+			return
+		}
+		vmCopy.Status.InterfaceRequests = append(vm.Status.InterfaceRequests, *ifaceRequest)
+	}
+}
+
+func filterAddInterfaceRequests(vm *v1.VirtualMachine, canonicalIfaceName string) []v1.VirtualMachineInterfaceRequest {
+	return filterInterfaceRequests(
+		vm.Status.InterfaceRequests,
+		func(ifaceReq v1.VirtualMachineInterfaceRequest) bool {
+			return ifaceReq.AddInterfaceOptions != nil && ifaceReq.AddInterfaceOptions.Name == canonicalIfaceName
+		},
+	)
+}
+
+func filterRemoveInterfaceRequests(vm *v1.VirtualMachine, canonicalIfaceName string) []v1.VirtualMachineInterfaceRequest {
+	return filterInterfaceRequests(
+		vm.Status.InterfaceRequests,
+		func(ifaceReq v1.VirtualMachineInterfaceRequest) bool {
+			return ifaceReq.RemoveInterfaceOptions != nil && ifaceReq.RemoveInterfaceOptions.Name == canonicalIfaceName
+		},
+	)
 }
 
 func ApplyAddInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
@@ -180,6 +215,28 @@ func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Requ
 		return
 	}
 
+	response.WriteHeader(http.StatusAccepted)
+}
+
+// VMRemoveInterfaceRequestHandler handles the subresource for hot unplugging a network interface.
+func (app *SubresourceAPIApp) VMRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
+	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
+		writeError(featureGateNotEnableError(), response)
+		return
+	}
+
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+	interfaceRequest, err := app.newRemoveInterfaceRequest(request)
+	if err != nil {
+		writeError(errors.NewBadRequest(err.Error()), response)
+		return
+	}
+
+	if err := app.vmInterfacePatchStatus(name, namespace, &interfaceRequest); err != nil {
+		writeError(err, response)
+		return
+	}
 	response.WriteHeader(http.StatusAccepted)
 }
 

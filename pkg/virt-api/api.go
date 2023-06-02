@@ -531,6 +531,15 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removeinterface")).
+			To(subresourceApp.VMRemoveInterfaceRequestHandler).
+			Reads(v1.RemoveInterfaceOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-removeinterface").
+			Doc("Remove a network interface from a running Virtual Machine").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -603,6 +612,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/addinterface",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/removeinterface",
 						Namespaced: true,
 					},
 					{
