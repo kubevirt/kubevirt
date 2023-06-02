@@ -111,7 +111,7 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 	}
 }
 
-func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOption {
+func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		vcpus := calcVCPUs(cpu)
 		if vcpus != 0 && cpuAllocationRatio > 0 {
@@ -122,6 +122,10 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOp
 				vcpusStr = fmt.Sprintf("%gm", val)
 			}
 			renderer.calculatedRequests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+
+			if withCPULimits {
+				renderer.calculatedLimits[k8sv1.ResourceCPU] = resource.MustParse(strconv.FormatInt(vcpus, 10))
+			}
 		}
 	}
 }

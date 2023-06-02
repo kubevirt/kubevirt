@@ -2343,8 +2343,15 @@ type KubeVirtConfiguration struct {
 	// The storage class must support RWX in filesystem mode.
 	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
+
 	// KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).
 	KSMConfiguration *KSMConfiguration `json:"ksmConfiguration,omitempty"`
+
+	// When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside
+	// namespaces that match the label selector.
+	// The CPU limit will equal the number of requested vCPUs.
+	// This setting does not apply to VMIs with dedicated CPUs.
+	AutoCPULimitNamespaceLabelSelector *metav1.LabelSelector `json:"autoCPULimitNamespaceLabelSelector,omitempty"`
 }
 
 type ArchConfiguration struct {

@@ -17423,6 +17423,10 @@
      "architectureConfiguration": {
       "$ref": "#/definitions/v1.ArchConfiguration"
      },
+     "autoCPULimitNamespaceLabelSelector": {
+      "description": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside namespaces that match the label selector. The CPU limit will equal the number of requested vCPUs. This setting does not apply to VMIs with dedicated CPUs.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
      "controllerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },

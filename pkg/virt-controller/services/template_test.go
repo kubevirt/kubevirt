@@ -24,6 +24,11 @@ import (
 	"strconv"
 	"strings"
 
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
+
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -119,6 +124,8 @@ var _ = Describe("Template", func() {
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
 			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+			k8sClient := k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			// Sadly, we cannot pass desired attachment objects into
 			// Clientset constructor because UnsafeGuessKindToResource
 			// calculates incorrect object kind (without dashes). Instead
@@ -4251,6 +4258,91 @@ var _ = Describe("Template", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pod).ToNot(BeNil())
 			Expect(pod.Spec.Containers[0].Resources.Limits).To(HaveKey(kubev1.ResourceName(VhostVsockDevice)))
+		})
+	})
+
+	Context("with auto CPU limits", func() {
+		BeforeEach(func() {
+			By("setting the expected label only on the default namespace")
+			k8sClient := k8sfake.NewSimpleClientset()
+			k8sClient.Fake.PrependReactor("get", "namespaces", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				var ns k8sv1.Namespace
+				update, ok := action.(testing.GetAction)
+				Expect(ok).To(BeTrue())
+				if update.GetName() == "default" {
+					ns = k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   "default",
+							Labels: map[string]string{"testAutoLimits": "true"},
+						},
+					}
+				} else {
+					ns = k8sv1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: update.GetName(),
+						},
+					}
+				}
+				return true, &ns, nil
+			})
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+
+			By("enabling the auto CPU limit namespace selector")
+			config, kvInformer, svc = configFactory(defaultArch)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{"testAutoLimits": "true"},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+		})
+
+		It("should automatically set CPU limits when enabled on both the CR and the namespace", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores: 2,
+						},
+					},
+				},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			cpuRequests := resource.MustParse("200m")
+			cpuLimit := resource.MustParse("2")
+			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+			Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
+			Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpuLimit)).To(BeZero())
+		})
+
+		It("should not automatically set CPU limits when enabled on the CR but not on the namespace", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "somethingelse",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores: 2,
+						},
+					},
+				},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			cpuRequests := resource.MustParse("200m")
+			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+			Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
+			Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
 		})
 	})
 })

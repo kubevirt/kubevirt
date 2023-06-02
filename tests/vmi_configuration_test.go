@@ -1930,6 +1930,52 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
+	Context("[Serial]with automatic CPU limit configured in the CR", Serial, func() {
+		BeforeEach(func() {
+			By("Adding a label selector to the CR for auto CPU limit")
+			kv := util.GetCurrentKv(virtClient)
+			config := kv.Spec.Configuration
+			config.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{"autocpulimit": "true"},
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(config)
+		})
+		It("should not set a CPU limit if the namespace doesn't match the selector", func() {
+			By("Creating a running VMI")
+			vmi := tests.NewRandomVMI()
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			By("Ensuring no CPU limit is set")
+			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
+			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			_, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
+			Expect(exists).To(BeFalse(), "CPU limit set on the compute container when none was expected")
+		})
+		It("should set a CPU limit if the namespace matches the selector", func() {
+			By("Creating a VMI object")
+			vmi := tests.NewRandomVMI()
+
+			By("Adding the right label to VMI namespace")
+			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			namespace.Labels["autocpulimit"] = "true"
+			namespace, err = virtClient.CoreV1().Namespaces().Update(context.Background(), namespace, metav1.UpdateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Starting the VMI")
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			By("Ensuring the CPU limit is set to the correct value")
+			readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
+			computeContainer := tests.GetComputeContainerOfPod(readyPod)
+			limits, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
+			Expect(exists).To(BeTrue(), "expected CPU limit not set on the compute container")
+			Expect(limits.String()).To(Equal("1"))
+		})
+	})
+
 	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, decorators.StorageReq, func() {
 		var dataVolume *cdiv1.DataVolume
 

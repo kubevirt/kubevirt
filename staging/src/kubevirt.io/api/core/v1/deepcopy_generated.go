@@ -2367,6 +2367,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(KSMConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AutoCPULimitNamespaceLabelSelector != nil {
+		in, out := &in.AutoCPULimitNamespaceLabelSelector, &out.AutoCPULimitNamespaceLabelSelector
+		*out = new(metav1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
