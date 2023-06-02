@@ -28,6 +28,8 @@ function ensure_gh_cli_installed() {
     gh config set prompt disabled
 }
 
+BUILD_ARCH=aarch64,x86_64
+
 function build_release_artifacts() {
     make
     make build-verify
@@ -37,7 +39,7 @@ function build_release_artifacts() {
     make olm-verify
     make prom-rules-verify
 
-    QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
+    BUILD_ARCH="${BUILD_ARCH}" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
 
     make build-functests
 }
