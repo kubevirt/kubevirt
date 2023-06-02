@@ -345,7 +345,7 @@ As per the PR template, if the PR requires additional action from users switchin
 ## The 'sig/' Labels Used for Release Notes
 
 * ```sig/security```: The PR is relevant to SIG Security.
-* ```sig/virtualization```: The PR is relevant to SIG Virtualization.
+* ```sig/compute```: The PR is relevant to SIG Compute.
 * ```sig/network```:  The PR is relevant to SIG Networking.
 * ```sig/storage```: The PR is relevant to SIG Storage.
 * ```sig/code-quality```: The PR is relevant to SIG Code Quality.
