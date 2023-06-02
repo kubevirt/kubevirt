@@ -116,98 +116,14 @@ var _ = Describe("AccessCredentials", func() {
 	It("should handle dynamically updating ssh key with qemu agent", func() {
 		domName := "some-domain"
 		user := "someowner"
-		filePath := "/home/someowner/.ssh"
 
-		authorizedKeys := "ssh some injected key"
+		authorizedKeys := []string{"ssh some injected key"}
 
-		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
-		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
-		expectedOpenCmdRes := `{"return":1000}`
+		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
+		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
+		mockDomain.EXPECT().Free().Times(1)
 
-		existingKey := base64.StdEncoding.EncodeToString([]byte("ssh some existing key"))
-		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
-		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": "%s"}}`, existingKey)
-
-		mergedKeys := base64.StdEncoding.EncodeToString([]byte(authorizedKeys))
-		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "%s" } }`, mergedKeys)
-
-		expectedCloseCmd := `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
-
-		expectedExecReturn := `{"return":{"pid":789}}`
-		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
-
-		getentBase64Str := base64.StdEncoding.EncodeToString([]byte("someowner:x:1111:2222:Some Owner:/home/someowner:/bin/bash"))
-		expectedHomeDirCmd := `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
-		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":"%s","exited":true}}`, getentBase64Str)
-
-		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", "%s" ], "capture-output":true } }`, filePath)
-		expectedMkdirRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s" ], "capture-output":true } }`, filePath)
-		expectedParentChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", "%s" ], "capture-output":true } }`, filePath)
-		expectedParentChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedFileChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		expectedFileChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedFileChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "600", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		expectedFileChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		//
-		//
-		//
-		//
-		// Detect user home dir
-		//
-		mockConn.EXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedHomeDirCmdRes, nil)
-
-		//
-		//
-		//
-		// Expected Read File
-		//
-		mockConn.EXPECT().QemuAgentCommand(expectedOpenCmd, domName).Return(expectedOpenCmdRes, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedReadCmd, domName).Return(expectedReadCmdRes, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil)
-
-		//
-		//
-		//
-		// Expected prepare directory
-		//
-		mockConn.EXPECT().QemuAgentCommand(expectedMkdirCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedMkdirRes, nil)
-
-		mockConn.EXPECT().QemuAgentCommand(expectedParentChownCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChownRes, nil)
-
-		mockConn.EXPECT().QemuAgentCommand(expectedParentChmodCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChmodRes, nil)
-
-		//
-		//
-		//
-		// Expected Write file
-		//
-		mockConn.EXPECT().QemuAgentCommand(expectedWriteOpenCmd, domName).Return(expectedOpenCmdRes, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedWriteCmd, domName).Return("", nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil)
-
-		//
-		//
-		//
-		// Expected set file permissions
-		//
-		mockConn.EXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil)
-
-		mockConn.EXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil)
-
-		Expect(manager.agentWriteAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
+		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
 
 	It("should trigger updating a credential when secret propagation change occurs.", func() {
