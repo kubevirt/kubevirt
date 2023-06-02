@@ -39,6 +39,15 @@ go_binary(
 )
 
 go_binary(
+    name = "virtctl-darwin-arm64",
+    embed = [":go_default_library"],
+    goarch = "arm64",
+    goos = "darwin",
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+go_binary(
     name = "virtctl-windows",
     embed = [":go_default_library"],
     goarch = "amd64",

@@ -77,6 +77,11 @@ bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
+# darwin arm64
+bazel run \
+    --config=${HOST_ARCHITECTURE} \
+    :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
+
 # windows
 bazel run \
     --config=${HOST_ARCHITECTURE} \
