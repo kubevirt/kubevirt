@@ -353,6 +353,16 @@ genrule(
 )
 
 genrule(
+    name = "build-virtctl-darwin-arm64",
+    srcs = [
+        "//cmd/virtctl:virtctl-darwin-arm64",
+    ],
+    outs = ["virtctl-copier-darwin-arm64"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-virtctl-windows",
     srcs = [
         "//cmd/virtctl:virtctl-windows",
