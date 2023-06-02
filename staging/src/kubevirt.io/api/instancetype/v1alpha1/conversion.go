@@ -21,7 +21,6 @@ package v1alpha1
 
 import (
 	conversion "k8s.io/apimachinery/pkg/conversion"
-
 	"kubevirt.io/api/instancetype/v1beta1"
 )
 
@@ -55,4 +54,8 @@ func Convert_v1alpha1_CPUPreferences_To_v1beta1_CPUPreferences(in *CPUPreference
 
 func Convert_v1beta1_VirtualMachinePreferenceSpec_To_v1alpha1_VirtualMachinePreferenceSpec(in *v1beta1.VirtualMachinePreferenceSpec, out *VirtualMachinePreferenceSpec, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1alpha1_VirtualMachinePreferenceSpec(in, out, s)
+}
+
+func Convert_v1beta1_DevicePreferences_To_v1alpha1_DevicePreferences(in *v1beta1.DevicePreferences, out *DevicePreferences, s conversion.Scope) error {
+	return autoConvert_v1beta1_DevicePreferences_To_v1alpha1_DevicePreferences(in, out, s)
 }

@@ -41,3 +41,17 @@ func Convert_v1alpha2_CPUPreferences_To_v1beta1_CPUPreferences(in *CPUPreference
 
 	return autoConvert_v1alpha2_CPUPreferences_To_v1beta1_CPUPreferences(in, out, s)
 }
+
+/*
+ * The following functions are manually defined to workaround conversion-gen
+ * warnings about attributes in newer versions not being present in older
+ * versions of the API.
+ *
+ * No custom code should be needed in such cases with each attribute
+ * automatically being documented in generated comments within the used
+ * autoConvert funcs.
+ */
+
+func Convert_v1beta1_DevicePreferences_To_v1alpha2_DevicePreferences(in *v1beta1.DevicePreferences, out *DevicePreferences, s conversion.Scope) error {
+	return autoConvert_v1beta1_DevicePreferences_To_v1alpha2_DevicePreferences(in, out, s)
+}

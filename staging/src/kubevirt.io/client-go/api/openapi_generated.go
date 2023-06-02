@@ -27278,11 +27278,17 @@ func schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref common.Ref
 							Ref:         ref("kubevirt.io/api/core/v1.TPMDevice"),
 						},
 					},
+					"preferredInterfaceMasquerade": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInterfaceMasquerade optionally defines the preferred masquerade configuration to use with each network interface.",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMasquerade"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
 	}
 }
 
