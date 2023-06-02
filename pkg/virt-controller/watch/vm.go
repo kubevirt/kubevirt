@@ -2538,10 +2538,10 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		vmCopy := vm.DeepCopy()
 
 		if c.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			if err := c.handleInterfaceRequests(vmCopy, vmi); err != nil {
-				log.Log.Object(vm).Errorf("error encountered while handling network interface hotplug request: %v", err)
+			if err := c.handleDynamicInterfaceRequests(vmCopy, vmi); err != nil {
+				log.Log.Object(vm).Errorf("error encountered while handling dynamic interface request: %v", err)
 				ifaceHotplugError = &syncErrorImpl{
-					err:    fmt.Errorf("error encountered while handling network interface hotplug requests: %v", err),
+					err:    fmt.Errorf("error encountered while handling dynamic interface request: %v", err),
 					reason: HotPlugNetworkInterfaceErrorReason,
 				}
 			}
@@ -2628,7 +2628,7 @@ func (c *VMController) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *vi
 	return nil, nil
 }
 
-func (c *VMController) handleInterfaceRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if len(vm.Status.InterfaceRequests) == 0 {
 		return nil
 	}
@@ -2646,12 +2646,20 @@ func (c *VMController) handleInterfaceRequests(vm *virtv1.VirtualMachine, vmi *v
 			continue
 		}
 
-		if _, exists := interfaceMap[ifaceRequest.AddInterfaceOptions.Name]; exists {
-			continue
+		if ifaceRequest.AddInterfaceOptions != nil {
+			if _, exists := interfaceMap[ifaceRequest.AddInterfaceOptions.Name]; !exists {
+				if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddInterface(context.Background(), vmi.Name, ifaceRequest.AddInterfaceOptions); err != nil {
+					return err
+				}
+			}
 		}
 
-		if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddInterface(context.Background(), vmi.Name, ifaceRequest.AddInterfaceOptions); err != nil {
-			return err
+		if ifaceRequest.RemoveInterfaceOptions != nil {
+			if _, exists := interfaceMap[ifaceRequest.RemoveInterfaceOptions.Name]; exists {
+				if err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveInterface(context.Background(), vmi.Name, ifaceRequest.RemoveInterfaceOptions); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -2668,20 +2676,22 @@ func (c *VMController) trimDoneInterfaceRequests(vm *virtv1.VirtualMachine) {
 	updateIfaceRequests := make([]virtv1.VirtualMachineInterfaceRequest, 0)
 	for _, request := range vm.Status.InterfaceRequests {
 
-		var added bool
 		var ifaceName string
 
 		removeRequest := false
 
-		if request.AddInterfaceOptions != nil {
+		switch {
+		case request.AddInterfaceOptions != nil:
 			ifaceName = request.AddInterfaceOptions.Name
-			added = true
-		}
-
-		_, ifaceExists := indexedInterfaces[ifaceName]
-
-		if added && ifaceExists {
-			removeRequest = true
+			if _, exists := indexedInterfaces[ifaceName]; exists {
+				removeRequest = true
+			}
+		case request.RemoveInterfaceOptions != nil:
+			ifaceName = request.RemoveInterfaceOptions.Name
+			if iface, exists := indexedInterfaces[ifaceName]; exists &&
+				iface.State == virtv1.InterfaceStateAbsent {
+				removeRequest = true
+			}
 		}
 
 		if !removeRequest {
