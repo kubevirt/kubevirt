@@ -1532,5 +1532,25 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Clock.Timer).To(Equal(*preferenceSpec.Clock.PreferredTimer))
 			})
 		})
+
+		Context("Preference.PreferredTerminationGracePeriodSeconds", func() {
+			It("should apply to VMI", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferredTerminationGracePeriodSeconds: pointer.Int64(180),
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(*preferenceSpec.PreferredTerminationGracePeriodSeconds))
+			})
+
+			It("should not overwrite user defined value", func() {
+				const userDefinedValue = int64(100)
+				vmi.Spec.TerminationGracePeriodSeconds = pointer.Int64(userDefinedValue)
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferredTerminationGracePeriodSeconds: pointer.Int64(180),
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(userDefinedValue))
+			})
+		})
 	})
 })

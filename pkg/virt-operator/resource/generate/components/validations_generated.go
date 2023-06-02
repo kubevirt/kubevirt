@@ -8310,6 +8310,11 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        preferredTerminationGracePeriodSeconds:
+          description: Grace period observed after signalling a VirtualMachineInstance
+            to stop after which the VirtualMachineInstance is force terminated.
+          format: int64
+          type: integer
         volumes:
           description: Volumes optionally defines preferences associated with the
             Volumes attribute of a VirtualMachineInstace DomainSpec
@@ -20954,6 +20959,11 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        preferredTerminationGracePeriodSeconds:
+          description: Grace period observed after signalling a VirtualMachineInstance
+            to stop after which the VirtualMachineInstance is force terminated.
+          format: int64
+          type: integer
         volumes:
           description: Volumes optionally defines preferences associated with the
             Volumes attribute of a VirtualMachineInstace DomainSpec

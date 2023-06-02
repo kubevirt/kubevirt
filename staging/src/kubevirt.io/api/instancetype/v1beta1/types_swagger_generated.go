@@ -90,14 +90,15 @@ func (VirtualMachineClusterPreferenceList) SwaggerDoc() map[string]string {
 
 func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
-		"clock":    "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"cpu":      "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"devices":  "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"features": "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"firmware": "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"machine":  "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"volumes":  "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec\n\n+optional",
+		"":                                       "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
+		"clock":                                  "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"cpu":                                    "CPU optionally defines preferences associated with the CPU attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"devices":                                "Devices optionally defines preferences associated with the Devices attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"features":                               "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"firmware":                               "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"machine":                                "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
+		"volumes":                                "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec\n\n+optional",
+		"preferredTerminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.\n\n+optional",
 	}
 }
 

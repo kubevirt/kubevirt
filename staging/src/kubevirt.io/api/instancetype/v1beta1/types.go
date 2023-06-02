@@ -236,6 +236,11 @@ type VirtualMachinePreferenceSpec struct {
 	//
 	//+optional
 	Volumes *VolumePreferences `json:"volumes,omitempty"`
+
+	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
+	//
+	//+optional
+	PreferredTerminationGracePeriodSeconds *int64 `json:"preferredTerminationGracePeriodSeconds,omitempty"`
 }
 
 type VolumePreferences struct {

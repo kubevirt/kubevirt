@@ -27941,6 +27941,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.VolumePreferences"),
 						},
 					},
+					"preferredTerminationGracePeriodSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 			},
 		},
