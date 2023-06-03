@@ -600,7 +600,7 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 			return nil
 		}
 		if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, true); err != nil {
-			log.Log.Object(vmi).V(1).Errorf("unable to patch vmi to add memory dump volume: %v", err)
+			log.Log.Object(vmi).Errorf("unable to patch vmi to add memory dump volume: %v", err)
 			return err
 		}
 	case virtv1.MemoryDumpUnmounting, virtv1.MemoryDumpFailed:
@@ -614,7 +614,7 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 		}
 
 		if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
-			log.Log.Object(vmi).V(1).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
+			log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
 			return err
 		}
 	case virtv1.MemoryDumpDissociating:
@@ -622,7 +622,7 @@ func (c *VMController) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *v
 		// if it still there remove it to make it unmount from virt launcher
 		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
 			if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
-				log.Log.Object(vmi).V(1).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
+				log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
 				return err
 			}
 		}

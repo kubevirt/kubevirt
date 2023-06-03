@@ -80,12 +80,12 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 
 	response, err := h.buildResponse(m)
 	if err != nil {
-		log.Log.V(4).Reason(err).Error("DHCPv6 failed building a response to the client")
+		log.Log.Reason(err).Error("DHCPv6 failed building a response to the client")
 
 	}
 
 	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
-		log.Log.V(4).Reason(err).Error("DHCPv6 failed sending a response to the client")
+		log.Log.Reason(err).Error("DHCPv6 failed sending a response to the client")
 	}
 }
 

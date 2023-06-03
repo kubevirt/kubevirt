@@ -492,7 +492,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		}
 	})
 
-	logger := log.Log
+	logger := log.Log.V(2)
 	if !failed {
 		logger = logger.V(4)
 	}
