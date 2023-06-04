@@ -404,6 +404,8 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	}
 
 	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
+	diff = int(math.Max(float64(diff), 0))
+
 	remaining := freeSpots - diff
 	remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
 
