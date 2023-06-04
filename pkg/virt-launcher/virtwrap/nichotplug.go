@@ -193,9 +193,11 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 		return nil, err
 	}
 	domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
-	domainSpecWithoutIfacePlaceholders.DeepCopyInto(domainSpec)
+	// Only the devices are taken into account because some parameters are not assured to be returned when
+	// getting the domain spec (e.g. the `qemu:commandline` section).
+	domainSpecWithoutIfacePlaceholders.Devices.DeepCopyInto(&domainSpec.Devices)
 
-	return f(vmi, domainSpecWithoutIfacePlaceholders)
+	return f(vmi, domainSpec)
 }
 
 func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
