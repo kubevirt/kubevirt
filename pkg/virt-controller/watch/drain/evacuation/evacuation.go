@@ -403,10 +403,10 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
-	diff = int(math.Max(float64(diff), 0))
+	vmsToEvacuate := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
+	vmsToEvacuate = int(math.Max(float64(vmsToEvacuate), 0))
 
-	remaining := freeSpots - diff
+	remaining := freeSpots - vmsToEvacuate
 	remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
 
 	if remainingForNonMigrateableDiff > 0 {
@@ -417,7 +417,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 
 	}
 
-	if diff == 0 {
+	if vmsToEvacuate == 0 {
 		if remainingForNonMigrateableDiff > 0 {
 			// Let's ensure that some warnings will stay in the event log and periodically update
 			// In theory the warnings could disappear after one hour if nothing else updates
@@ -428,16 +428,16 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	}
 
 	// TODO: should the order be randomized?
-	selectedCandidates := migrationCandidates[0:diff]
+	selectedCandidates := migrationCandidates[0:vmsToEvacuate]
 
 	log.DefaultLogger().Infof("node: %v, migrations: %v, candidates: %v, selected: %v", node.Name, len(activeMigrations), len(migrationCandidates), len(selectedCandidates))
 
 	wg := &sync.WaitGroup{}
-	wg.Add(diff)
+	wg.Add(vmsToEvacuate)
 
-	errChan := make(chan error, diff)
+	errChan := make(chan error, vmsToEvacuate)
 
-	c.migrationExpectations.ExpectCreations(node.Name, diff)
+	c.migrationExpectations.ExpectCreations(node.Name, vmsToEvacuate)
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
