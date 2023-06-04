@@ -98,6 +98,9 @@ const (
 
 	// Enable the installation of the KubeVirt seccomp profile
 	kvKubevirtSeccompProfile = "KubevirtSeccompProfile"
+
+	// Allow attaching a NIC to a running VMI
+	kvHotplugNicsGate = "HotplugNICs"
 )
 
 const (
@@ -121,6 +124,7 @@ var (
 		kvVMExportGate,
 		kvDisableCustomSELinuxPolicyGate,
 		kvKubevirtSeccompProfile,
+		kvHotplugNicsGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
