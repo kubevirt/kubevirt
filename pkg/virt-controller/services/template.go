@@ -1675,23 +1675,25 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 				},
 			},
 		})
-		if !skipMount {
-			pvc := claimMap[volume.Name]
-			if pvc != nil {
-				if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
-					pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
-						Name:       volume.Name,
-						DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),
-					})
-					pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
-						RunAsUser: &[]int64{0}[0],
-					}
-				} else {
-					pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-						Name:      volume.Name,
-						MountPath: fmt.Sprintf("/%s", volume.Name),
-					})
-				}
+
+		pvc := claimMap[volume.Name]
+		if pvc == nil {
+			continue
+		}
+		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock {
+			pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices, k8sv1.VolumeDevice{
+				Name:       volume.Name,
+				DevicePath: fmt.Sprintf("/path/%s/%s", volume.Name, pvc.GetUID()),
+			})
+			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{
+				RunAsUser: &[]int64{0}[0],
+			}
+		} else {
+			if !skipMount {
+				pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+					Name:      volume.Name,
+					MountPath: fmt.Sprintf("/%s", volume.Name),
+				})
 			}
 		}
 	}
