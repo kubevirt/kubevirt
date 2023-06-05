@@ -232,6 +232,22 @@ var _ = Describe("domain network interfaces resources", func() {
 		Entry("the interface resource-request is equal to the defined interfaces", []v1.Interface{{}, {}, {}, {}}),
 	)
 
+	It("are ignored when placePCIDevicesOnRootComplex annotation is used on the VMI", func() {
+		vmi := &v1.VirtualMachineInstance{}
+		vmi.Annotations = map[string]string{v1.PlacePCIDevicesOnRootComplex: "true"}
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
+		domainSpec := &api.DomainSpec{}
+		countCalls := 0
+		_, _ = withNetworkIfacesResources(vmi, domainSpec, func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
+			countCalls++
+			return nil, nil
+		})
+		// The counter tracks the tested function behavior.
+		// It is expected that the callback function is called only once when there is no need
+		// to add placeholders interfaces.
+		Expect(countCalls).To(Equal(1))
+	})
+
 	It("are reserved when the default reserved interfaces count is larger than the defined interfaces", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}

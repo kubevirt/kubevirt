@@ -204,6 +204,9 @@ func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, doma
 	if len(vmi.Spec.Domain.Devices.Interfaces) == 0 {
 		return domainSpec
 	}
+	if val := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]; val == "true" {
+		return domainSpec
+	}
 	domainSpecWithIfacesResource := domainSpec.DeepCopy()
 	interfacePlaceholderCount := ReservedInterfaces - len(vmi.Spec.Domain.Devices.Interfaces)
 	for i := 0; i < interfacePlaceholderCount; i++ {
