@@ -70,6 +70,7 @@ type DomainStats struct {
 	// extra stats
 	CPUMapSet bool
 	CPUMap    [][]bool
+	NrVirtCpu uint
 }
 
 type DomainStatsCPU struct {

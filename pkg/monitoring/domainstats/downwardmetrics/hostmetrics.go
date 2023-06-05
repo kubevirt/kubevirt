@@ -48,7 +48,7 @@ func (h *hostMetricsCollector) hostMemoryMetrics() (metrics []api.Metric) {
 		metrics = append(metrics,
 			metricspkg.MustToHostMetric(memInfo.MemFree, "FreePhysicalMemory", "KiB"),
 			metricspkg.MustToHostMetric(memInfo.MemFree+memInfo.SwapFree, "FreeVirtualMemory", "KiB"),
-			metricspkg.MustToHostMetric(memInfo.MemTotal-memInfo.MemFree-memInfo.Buffers-memInfo.Cached, "AllocatedToVirtualServers", "KiB"),
+			metricspkg.MustToHostMetric(memInfo.MemTotal-memInfo.MemFree-memInfo.Buffers-memInfo.Cached, "MemoryAllocatedToVirtualServers", "KiB"),
 			metricspkg.MustToHostMetric(memInfo.MemTotal+memInfo.SwapTotal-memInfo.MemFree-memInfo.Cached-memInfo.Buffers-memInfo.SwapCached, "UsedVirtualMemory", "KiB"),
 		)
 	} else {

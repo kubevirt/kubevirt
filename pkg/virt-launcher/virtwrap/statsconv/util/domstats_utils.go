@@ -257,7 +257,8 @@ var Testdataexpected = `{
      }
    ],
    "CPUMapSet": false,
-   "CPUMap": null
+   "CPUMap": null,
+   "NrVirtCpu": 0
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {
