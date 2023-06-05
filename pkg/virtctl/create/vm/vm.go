@@ -56,9 +56,18 @@ const (
 	CloudInitNetworkDataFlag   = "cloud-init-network-data"
 	InferInstancetypeFlag      = "infer-instancetype"
 	InferPreferenceFlag        = "infer-preference"
+	VolumeImportFlag           = "volume-import"
 
 	cloudInitDisk    = "cloudinitdisk"
 	inferNoOptDefVal = "inferNoOptDefVal"
+	blank            = "blank"
+	http             = "http"
+	imageIO          = "imageio"
+	pvc              = "pvc"
+	registry         = "registry"
+	s3               = "s3"
+	vddk             = "vddk"
+	snapshot         = "snapshot"
 )
 
 type createVM struct {
@@ -77,6 +86,7 @@ type createVM struct {
 	cloudInitNetworkData   string
 	inferInstancetype      string
 	inferPreference        string
+	volumeImport           []string
 
 	bootOrders map[uint]string
 }
@@ -120,6 +130,7 @@ var optFns = map[string]optionFn{
 	BlankVolumeFlag:          withBlankVolume,
 	CloudInitUserDataFlag:    withCloudInitUserData,
 	CloudInitNetworkDataFlag: withCloudInitNetworkData,
+	VolumeImportFlag:         withImportedVolume,
 }
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
@@ -135,10 +146,97 @@ var flags = []string{
 	ClonePvcVolumeFlag,
 	PvcVolumeFlag,
 	BlankVolumeFlag,
+	VolumeImportFlag,
 	CloudInitUserDataFlag,
 	CloudInitNetworkDataFlag,
 	InferInstancetypeFlag,
 	InferPreferenceFlag,
+}
+
+type dataVolumeSourceBlank struct {
+	Size *resource.Quantity `param:"size"`
+	Type string             `param:"type"`
+	Name string             `param:"name"`
+}
+
+type dataVolumeSourceHttp struct {
+	CertConfigMap      string             `param:"certconfigmap"`
+	ExtraHeaders       []string           `param:"extraheaders"`
+	SecretExtraHeaders []string           `param:"secretextraheaders"`
+	SecretRef          string             `param:"secretref"`
+	URL                string             `param:"url"`
+	Size               *resource.Quantity `param:"size"`
+	Type               string             `param:"type"`
+	Name               string             `param:"name"`
+}
+
+type dataVolumeSourceImageIO struct {
+	CertConfigMap string             `param:"certconfigmap"`
+	DiskId        string             `param:"diskid"`
+	SecretRef     string             `param:"secretref"`
+	URL           string             `param:"url"`
+	Size          *resource.Quantity `param:"size"`
+	Type          string             `param:"type"`
+	Name          string             `param:"name"`
+}
+
+type dataVolumeSourcePVC struct {
+	Name      string             `param:"name"`
+	Namespace string             `param:"namespace"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+}
+
+type dataVolumeSourceRegistry struct {
+	CertConfigMap string             `param:"certconfigmap"`
+	ImageStream   string             `param:"imagestream"`
+	PullMethod    string             `param:"pullmethod"`
+	SecretRef     string             `param:"secretref"`
+	URL           string             `param:"url"`
+	Size          *resource.Quantity `param:"size"`
+	Type          string             `param:"type"`
+	Name          string             `param:"name"`
+}
+
+type dataVolumeSourceS3 struct {
+	CertConfigMap string             `param:"certconfigmap"`
+	SecretRef     string             `param:"secretref"`
+	URL           string             `param:"url"`
+	Size          *resource.Quantity `param:"size"`
+	Type          string             `param:"type"`
+	Name          string             `param:"name"`
+}
+
+type dataVolumeSourceVDDK struct {
+	BackingFile  string             `param:"backingfile"`
+	InitImageUrl string             `param:"initimageurl"`
+	SecretRef    string             `param:"secretref"`
+	ThumbPrint   string             `param:"thumbprint"`
+	URL          string             `param:"url"`
+	UUID         string             `param:"uuid"`
+	Size         *resource.Quantity `param:"size"`
+	Type         string             `param:"type"`
+	Name         string             `param:"name"`
+}
+
+type dataVolumeSourceSnapshot struct {
+	Name      string             `param:"name"`
+	Namespace string             `param:"namespace"`
+	Size      *resource.Quantity `param:"size"`
+	Type      string             `param:"type"`
+}
+
+type volumeImportFn func(string, *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error)
+
+var volumeImportOptions = map[string]volumeImportFn{
+	blank:    withVolumeSourceBlank,
+	http:     withVolumeSourceHttp,
+	imageIO:  withVolumeSourceImageIO,
+	pvc:      withVolumeSourcePVC,
+	registry: withVolumeSourceRegistry,
+	s3:       withVolumeSourceS3,
+	vddk:     withVolumeSourceVDDK,
+	snapshot: withVolumeSourceSnapshot,
 }
 
 var runStrategies = []string{
@@ -182,6 +280,17 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, fmt.Sprintf("Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
 	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(pvcVolume{})))
 	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
+	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
+		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
+		blank, params.Supported(dataVolumeSourceBlank{}),
+		http, params.Supported(dataVolumeSourceHttp{}),
+		imageIO, params.Supported(dataVolumeSourceImageIO{}),
+		pvc, params.Supported(dataVolumeSourcePVC{}),
+		registry, params.Supported(dataVolumeSourceRegistry{}),
+		s3, params.Supported(dataVolumeSourceS3{}),
+		vddk, params.Supported(dataVolumeSourceVDDK{}),
+		snapshot, params.Supported(dataVolumeSourceSnapshot{}),
+	))
 
 	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
 	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData, "Specify the base64 encoded cloud-init network data of the VM.")
@@ -308,7 +417,10 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-datasource=src:my-ds1 --volume-datasource=src:my-ds2
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and directly used PVC
-  {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-pvc=my-pvc`
+  {{ProgramName}} create vm --instancetype=my-instancetype --preference=my-preference --volume-pvc=my-pvc
+
+  # Create a manifest for a VirtualMachine with a specified DataVolumeTemplate
+  {{ProgramName}} create vm --volume-import type:pvc,name:my-pvc,namespace:default,size:256Mi`
 }
 
 func (c *createVM) newVM() (*v1.VirtualMachine, error) {
@@ -774,6 +886,253 @@ func withCloudInitData(flag string, c *createVM, vm *v1.VirtualMachine) error {
 		Name: cloudInitDisk,
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: cloudInitNoCloud,
+		},
+	})
+
+	return nil
+}
+
+func withImportedVolume(c *createVM, vm *v1.VirtualMachine) error {
+	for _, volume := range c.volumeImport {
+		volumeSourceType, err := params.GetParamByName("type", volume)
+		if err != nil {
+			return err
+		}
+
+		sourceFn, found := volumeImportOptions[volumeSourceType]
+		if !found {
+			return params.FlagErr(VolumeImportFlag, fmt.Sprintf("unknown source type used - %s", volumeSourceType))
+		}
+
+		source, err := sourceFn(volume, vm)
+		if err != nil {
+			return err
+		}
+
+		size, err := params.GetParamByName("size", volume)
+		if err != nil {
+			return err
+		}
+
+		name, err := params.GetParamByName("name", volume)
+		if err != nil {
+			name = fmt.Sprintf("imported-volume-%s", rand.String(4))
+		}
+
+		if err := createVolumeWithSource(source, size, name, vm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func withVolumeSourceBlank(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceBlank{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	source := cdiv1.DataVolumeSource{
+		Blank: &cdiv1.DataVolumeBlankImage{},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceHttp(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceHttp{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.URL == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "URL is required with http volume source")
+	}
+
+	source := cdiv1.DataVolumeSource{
+		HTTP: &cdiv1.DataVolumeSourceHTTP{
+			URL:                sourceStruct.URL,
+			SecretRef:          sourceStruct.SecretRef,
+			CertConfigMap:      sourceStruct.CertConfigMap,
+			ExtraHeaders:       sourceStruct.ExtraHeaders,
+			SecretExtraHeaders: sourceStruct.SecretExtraHeaders,
+		},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceImageIO(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceImageIO{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.URL == "" || sourceStruct.DiskId == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "URL and diskid are both required with imageIO volume source")
+	}
+
+	source := cdiv1.DataVolumeSource{
+		Imageio: &cdiv1.DataVolumeSourceImageIO{
+			URL:           sourceStruct.URL,
+			DiskID:        sourceStruct.DiskId,
+			SecretRef:     sourceStruct.SecretRef,
+			CertConfigMap: sourceStruct.CertConfigMap,
+		},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourcePVC(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourcePVC{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.Name == "" || sourceStruct.Namespace == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "name and namespace are both required with PVC volume source")
+	}
+
+	source := cdiv1.DataVolumeSource{
+		PVC: &cdiv1.DataVolumeSourcePVC{
+			Name:      sourceStruct.Name,
+			Namespace: sourceStruct.Namespace,
+		},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceRegistry(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceRegistry{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.PullMethod != "" &&
+		(sourceStruct.PullMethod != string(cdiv1.RegistryPullPod) && sourceStruct.PullMethod != string(cdiv1.RegistryPullNode)) {
+		return nil, params.FlagErr(VolumeImportFlag, "pullmethod must be set to pod or node")
+	}
+
+	if (sourceStruct.URL == "" && sourceStruct.ImageStream == "") ||
+		(sourceStruct.URL != "" && sourceStruct.ImageStream != "") {
+		return nil, params.FlagErr(VolumeImportFlag, "exactly one of url or imagestream must be defined")
+	}
+
+	source := cdiv1.DataVolumeSource{Registry: &cdiv1.DataVolumeSourceRegistry{}}
+
+	if sourceStruct.PullMethod != "" {
+		source.Registry.PullMethod = (*cdiv1.RegistryPullMethod)(&sourceStruct.PullMethod)
+	}
+
+	if sourceStruct.CertConfigMap != "" {
+		source.Registry.CertConfigMap = &sourceStruct.CertConfigMap
+	}
+
+	if sourceStruct.ImageStream != "" {
+		source.Registry.ImageStream = &sourceStruct.ImageStream
+	}
+
+	if sourceStruct.URL != "" {
+		source.Registry.URL = &sourceStruct.URL
+	}
+
+	if sourceStruct.SecretRef != "" {
+		source.Registry.SecretRef = &sourceStruct.SecretRef
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceS3(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceS3{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.URL == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "URL is required with S3 volume source")
+	}
+
+	source := cdiv1.DataVolumeSource{
+		S3: &cdiv1.DataVolumeSourceS3{
+			URL:           sourceStruct.URL,
+			CertConfigMap: sourceStruct.CertConfigMap,
+			SecretRef:     sourceStruct.SecretRef,
+		},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceVDDK(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceVDDK{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	source := cdiv1.DataVolumeSource{
+		VDDK: &cdiv1.DataVolumeSourceVDDK{
+			URL:          sourceStruct.URL,
+			UUID:         sourceStruct.UUID,
+			Thumbprint:   sourceStruct.ThumbPrint,
+			SecretRef:    sourceStruct.SecretRef,
+			InitImageURL: sourceStruct.InitImageUrl,
+			BackingFile:  sourceStruct.BackingFile,
+		},
+	}
+
+	return &source, nil
+}
+
+func withVolumeSourceSnapshot(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error) {
+	sourceStruct := dataVolumeSourceSnapshot{}
+	if err := params.Map(VolumeImportFlag, paramStr, &sourceStruct); err != nil {
+		return nil, err
+	}
+
+	if sourceStruct.Name == "" || sourceStruct.Namespace == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "name and namespace are both required with Snapshot volume source")
+	}
+
+	source := cdiv1.DataVolumeSource{
+		Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+			Name:      sourceStruct.Name,
+			Namespace: sourceStruct.Namespace,
+		},
+	}
+
+	return &source, nil
+}
+
+func createVolumeWithSource(source *cdiv1.DataVolumeSource, size string, name string, vm *v1.VirtualMachine) error {
+	if err := volumeShouldNotExist(VolumeImportFlag, vm, name); err != nil {
+		return err
+	}
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: source,
+			Storage: &cdiv1.StorageSpec{
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse(size),
+					},
+				},
+			},
+		},
+	})
+
+	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: name,
+			},
 		},
 	})
 

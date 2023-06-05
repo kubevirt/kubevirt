@@ -1972,10 +1972,10 @@ k8s.io/utils v0.0.0-20210802155522-efc7438f0176/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20221107191617-1a15be271d1d/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 k8s.io/utils v0.0.0-20230505201702-9f6742963106 h1:EObNQ3TW2D+WptiYXlApGNLVy0zm/JIBVY9i+M4wpAU=
 k8s.io/utils v0.0.0-20230505201702-9f6742963106/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
-kubevirt.io/containerized-data-importer v1.55.0 h1:AcO/b1OPVEhPpobB2fY9SKZ+jOO9KLq1jHmlRxXTTBU=
-kubevirt.io/containerized-data-importer v1.55.0/go.mod h1:zb6UhVnep9rCOxm25B/IApPGWZjQfLRj79FtFoavSZE=
-kubevirt.io/containerized-data-importer-api v1.55.2 h1:AzYnKIUFkKwO6c0uCQZYlAIxfzbiPkJXP29hFhauaQ8=
-kubevirt.io/containerized-data-importer-api v1.55.2/go.mod h1:92HiQEyzPoeMiCbgfG5Qe10JQVbtWMZOXucy56dKdGg=
+kubevirt.io/containerized-data-importer v1.56.0 h1:3HjrFVRbzAkL/6MEUoNpaiNS+EuVXQ/Ox5h8wDw5kTs=
+kubevirt.io/containerized-data-importer v1.56.0/go.mod h1:vPg/z+FjgNgXtwcYVpGmW2FJ8dVSuKZb2jEwoNRoMfM=
+kubevirt.io/containerized-data-importer-api v1.56.0 h1:Ehc6CbT3mG2uz+9s3t2N4HnpdK5GfQMt2DCCXCz2sDI=
+kubevirt.io/containerized-data-importer-api v1.56.0/go.mod h1:92HiQEyzPoeMiCbgfG5Qe10JQVbtWMZOXucy56dKdGg=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 h1:QMrd0nKP0BGbnxTqakhDZAUhGKxPiPiN5gSDqKUmGGc=
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90/go.mod h1:018lASpFYBsYN6XwmA2TIrPCx6e0gviTd/ZNtSitKgc=
 kubevirt.io/qe-tools v0.1.8 h1:Ar7qicmzHdd+Ia+6rjHDg3D7GReIyq7QFXoC4F7TjhQ=
