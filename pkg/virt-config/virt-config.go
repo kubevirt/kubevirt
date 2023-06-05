@@ -37,7 +37,7 @@ import (
 const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
-	BandwithPerMigrationDefault                     = "0Mi"
+	BandwidthPerMigrationDefault                    = "0Mi"
 	MigrationAllowAutoConverge               bool   = false
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150

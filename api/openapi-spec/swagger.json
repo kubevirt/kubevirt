@@ -17968,7 +17968,7 @@
       "type": "boolean"
      },
      "bandwidthPerMigration": {
-      "description": "BandwidthPerMigration limits the amount of network bandwith live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
+      "description": "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
@@ -18076,7 +18076,7 @@
     }
    },
    "v1.NodeMediatedDeviceTypesConfig": {
-    "description": "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.",
+    "description": "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.",
     "type": "object",
     "required": [
      "nodeSelector"
