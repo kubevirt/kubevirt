@@ -19,6 +19,9 @@
 
 set -ex
 
+# TODO remove
+getenforce
+
 export TIMESTAMP=${TIMESTAMP:-1}
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
@@ -26,6 +29,8 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+# affects only kind SR-IOV, might be done nicer
+export DEPLOY_SRIOV="{$DEPLOY_SRIOV:-true}"
 
 if [ ${CI} == "true" ]; then
   if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
@@ -94,7 +99,7 @@ if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   exit 1
 fi
 
-if [[ $TARGET =~ sriov.* ]]; then
+if [[ $TARGET =~ sriov.* ]] && [[ $DEPLOY_SRIOV == true ]]; then
   if [[ $TARGET =~ kind.* ]]; then
     export KUBEVIRT_NUM_NODES=3
   fi
@@ -328,7 +333,8 @@ kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
+# FIXME
+if ([[ $TARGET =~ .*kind.* ]] && [[ $DEPLOY_SRIOV == true ]]) || [[ $TARGET =~ .*k3d.* ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
@@ -421,7 +427,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
     else
       label_filter='(sig-operator)'
     fi
-  elif [[ $TARGET =~ sriov.* ]]; then
+  elif [[ $TARGET =~ sriov.* ]] && [[ $DEPLOY_SRIOV == true ]]; then
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
