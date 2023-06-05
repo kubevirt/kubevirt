@@ -8,6 +8,7 @@ import (
 
 	restful "github.com/emicklei/go-restful/v3"
 	"k8s.io/apimachinery/pkg/api/errors"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -69,6 +70,9 @@ func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *erro
 	}
 
 	addr := fmt.Sprintf("%s:%s", targetIP, port)
+	if netutils.IsIPv6String(targetIP) {
+		addr = fmt.Sprintf("[%s]:%s", targetIP, port)
+	}
 	conn, err := net.Dial(protocol, addr)
 	if err != nil {
 		logger.Reason(err).Errorf("Can't dial %s %s", protocol, addr)

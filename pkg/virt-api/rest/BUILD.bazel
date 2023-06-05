@@ -53,6 +53,7 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
@@ -61,6 +62,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "authorizer_test.go",
+        "dialers_test.go",
         "expand_test.go",
         "interfacehotplug_test.go",
         "profiler_test.go",
