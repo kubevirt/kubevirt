@@ -22,6 +22,7 @@ package memorydump
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -327,6 +328,12 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		Name:         vmexportName,
 		ExportSource: exportSource,
 	}
+	// User wants the output in a file, create
+	output, err := os.Create(vmExportInfo.OutputFile)
+	if err != nil {
+		return err
+	}
+	vmExportInfo.OutputWriter = output
 	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
 }
 
