@@ -111,6 +111,16 @@ var _ = Describe("DHCPv6", func() {
 			expectedLength := len(handler.modifiers) + 1
 			Expect(replyMessage.Options.Options).To(HaveLen(expectedLength))
 		})
+		It("handle request without iana option", func() {
+			clientMac, _ := net.ParseMAC("34:56:78:9A:BC:DE")
+			duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: clientMac}
+			clientMessage, err := dhcpv6.NewMessage(dhcpv6.WithClientID(duid))
+			Expect(err).ToNot(HaveOccurred())
+			clientMessage.MessageType = dhcpv6.MessageTypeInformationRequest
+
+			_, err = handler.buildResponse(clientMessage)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 })
 

@@ -81,7 +81,7 @@ func (h *DHCPv6Handler) ServeDHCPv6(conn net.PacketConn, peer net.Addr, m dhcpv6
 	response, err := h.buildResponse(m)
 	if err != nil {
 		log.Log.Reason(err).Error("DHCPv6 failed building a response to the client")
-
+		return
 	}
 
 	if _, err := conn.WriteTo(response.ToBytes(), peer); err != nil {
@@ -113,9 +113,11 @@ func (h *DHCPv6Handler) buildResponse(msg dhcpv6.DHCPv6) (*dhcpv6.Message, error
 	}
 
 	ianaRequest := dhcpv6Msg.Options.OneIANA()
-	ianaResponse := response.Options.OneIANA()
-	ianaResponse.IaId = ianaRequest.IaId
-	response.UpdateOption(ianaResponse)
+	if ianaRequest != nil {
+		ianaResponse := response.Options.OneIANA()
+		ianaResponse.IaId = ianaRequest.IaId
+		response.UpdateOption(ianaResponse)
+	}
 	return response, nil
 }
 
