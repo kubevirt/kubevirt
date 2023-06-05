@@ -152,7 +152,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 				Address: &api.Address{
 					Type:     api.AddressPCI,
 					Domain:   "0x0000",
-					Bus:      "0x04",
+					Bus:      "0x07",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
@@ -190,7 +190,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 				Address: &api.Address{
 					Type:     api.AddressPCI,
 					Domain:   "0x0000",
-					Bus:      "0x04",
+					Bus:      "0x07",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
@@ -201,7 +201,7 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 				Address: &api.Address{
 					Type:     api.AddressPCI,
 					Domain:   "0x0000",
-					Bus:      "0x04",
+					Bus:      "0x07",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
