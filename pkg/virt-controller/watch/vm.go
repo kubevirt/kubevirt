@@ -1983,7 +1983,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	vm.Status.Ready = ready
 
 	c.trimDoneVolumeRequests(vm)
-	c.trimDoneInterfaceRequests(vm)
+	trimDoneInterfaceRequests(vm)
 	c.updateMemoryDumpRequest(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
@@ -2665,38 +2665,4 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 
 	vm.Spec.Template.Spec = *vmTemplateCopy
 	return nil
-}
-
-func (c *VMController) trimDoneInterfaceRequests(vm *virtv1.VirtualMachine) {
-	if len(vm.Status.InterfaceRequests) == 0 {
-		return
-	}
-
-	indexedInterfaces := netvmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
-	updateIfaceRequests := make([]virtv1.VirtualMachineInterfaceRequest, 0)
-	for _, request := range vm.Status.InterfaceRequests {
-
-		var ifaceName string
-
-		removeRequest := false
-
-		switch {
-		case request.AddInterfaceOptions != nil:
-			ifaceName = request.AddInterfaceOptions.Name
-			if _, exists := indexedInterfaces[ifaceName]; exists {
-				removeRequest = true
-			}
-		case request.RemoveInterfaceOptions != nil:
-			ifaceName = request.RemoveInterfaceOptions.Name
-			if iface, exists := indexedInterfaces[ifaceName]; exists &&
-				iface.State == virtv1.InterfaceStateAbsent {
-				removeRequest = true
-			}
-		}
-
-		if !removeRequest {
-			updateIfaceRequests = append(updateIfaceRequests, request)
-		}
-	}
-	vm.Status.InterfaceRequests = updateIfaceRequests
 }

@@ -29,6 +29,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -161,6 +163,39 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			[]v1.Interface{{Name: testNetworkName2}},
 			[]v1.Network{{Name: testNetworkName2}},
 			expectToChange,
+		),
+	)
+
+	DescribeTable("VM status interfaces requests",
+		func(ifaces []v1.Interface, ifaceRequests, expectedIfaceRequests []v1.VirtualMachineInterfaceRequest) {
+			vm := kubecli.NewMinimalVM("test")
+			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
+			vm.Status.InterfaceRequests = ifaceRequests
+
+			trimDoneInterfaceRequests(vm)
+
+			Expect(vm.Status.InterfaceRequests).To(Equal(expectedIfaceRequests))
+		},
+		Entry("have request removed on successful hotplug",
+			[]v1.Interface{{Name: "blue"}},
+			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
+			[]v1.VirtualMachineInterfaceRequest{},
+		),
+		Entry("keep interface request for pending hotplug",
+			[]v1.Interface{},
+			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
+			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
+		),
+		Entry("have request removed on successful unplug",
+			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
+			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
+			[]v1.VirtualMachineInterfaceRequest{},
+		),
+		Entry("keep interface request for pending unplug",
+			[]v1.Interface{{Name: "blue"}},
+			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
+			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
 		),
 	)
 })
