@@ -1433,6 +1433,26 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 			}
+			addDataVolumeLunDisk := func(vmi *virtv1.VirtualMachineInstance, deviceName, claimName string) {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
+					Name: deviceName,
+					DiskDevice: virtv1.DiskDevice{
+						LUN: &virtv1.LunTarget{
+							Bus:      v1.DiskBusSCSI,
+							ReadOnly: false,
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name: deviceName,
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: claimName,
+						},
+					},
+				})
+
+			}
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
@@ -1447,10 +1467,10 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
-			It("should run the VMI", func() {
+			DescribeTable("should run the VMI using", func(addLunDisk func(*virtv1.VirtualMachineInstance, string, string)) {
 				By("Creating VMI with LUN disk")
 				vmi := libvmi.NewAlpine()
-				addPVCLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
+				addLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
@@ -1460,8 +1480,10 @@ var _ = SIGDescribe("Storage", func() {
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
-			})
-
+			},
+				Entry("PVC source", addPVCLunDisk),
+				Entry("DataVolume source", addDataVolumeLunDisk),
+			)
 		})
 	})
 })
