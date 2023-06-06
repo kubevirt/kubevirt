@@ -1389,13 +1389,30 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 			}
+			addDataVolumeLunDisk := func(vmi *virtv1.VirtualMachineInstance, deviceName, claimName string) {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, virtv1.Disk{
+					Name: deviceName,
+					DiskDevice: virtv1.DiskDevice{
+						LUN: &virtv1.LunTarget{
+							Bus:      v1.DiskBusSCSI,
+							ReadOnly: false,
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name: deviceName,
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: claimName,
+						},
+					},
+				})
+
+			}
 
 			BeforeEach(func() {
 				nodeName = tests.NodeNameWithHandler()
 				address, device = tests.CreateSCSIDisk(nodeName, []string{})
-				var err error
-				pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
-				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 			})
 
 			AfterEach(func() {
@@ -1403,11 +1420,14 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
-			It("should run the VMI", func() {
+			DescribeTable("should run the VMI using", func(addLunDisk func(*virtv1.VirtualMachineInstance, string, string)) {
+				pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
+				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
+
 				By("Creating VMI with LUN disk")
 				vmi := libvmi.NewAlpine()
-				addPVCLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				addLunDisk(vmi, "lun0", pvc.ObjectMeta.Name)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
 				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
@@ -1416,8 +1436,56 @@ var _ = SIGDescribe("Storage", func() {
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
-			})
+			},
+				Entry("PVC source", addPVCLunDisk),
+				Entry("DataVolume source", addDataVolumeLunDisk),
+			)
 
+			It("should run the VMI created with a DataVolume source and use the LUN disk", func() {
+				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+				if !foundSC {
+					Skip("Unable to find valid storage class")
+				}
+				pv, err = tests.CreatePVwithSCSIDisk(sc, "scsipv", nodeName, device)
+				Expect(err).ToNot(HaveOccurred())
+				dv := libdv.NewDataVolume(
+					libdv.WithBlankImageSource(),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+						libdv.PVCWithBlockVolumeMode(),
+						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
+						libdv.PVCWithVolumeSize("8Mi"),
+					),
+				)
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating VMI with LUN disk")
+				vmi := libvmi.NewCirros(libvmi.WithResourceMemory("512M"))
+				addDataVolumeLunDisk(vmi, "lun0", dv.Name)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
+
+				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 240)
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+				By(fmt.Sprintf("Checking that %s has a capacity of 8Mi", device))
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("sudo blockdev --getsize64 %s\n", device)},
+					&expect.BExp{R: "8388608"}, // 8Mi in bytes
+				}, 30)).To(Succeed())
+
+				By(fmt.Sprintf("Checking if we can write to %s", device))
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", device)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: tests.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 30)).To(Succeed())
+
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			})
 		})
 	})
 })
