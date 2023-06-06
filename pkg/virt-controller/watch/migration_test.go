@@ -524,7 +524,6 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 			controller.Execute()
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
-
 		})
 		It("should create target pod", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
@@ -1838,6 +1837,57 @@ var _ = Describe("Migration watcher", func() {
 			shouldExpectPodCreation(vmi.UID, pendingMigration.UID, 1, 0, 0)
 		})
 	})
+
+	Context("Migration target SELinux level", func() {
+		shouldExpectTargetPodWithSELinuxLevel := func(level string) {
+			// Expect pod creation
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				update, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				pod := update.GetObject().(*k8sv1.Pod)
+				if level != "" {
+					Expect(pod.Spec.SecurityContext.SELinuxOptions.Level).To(Equal(level))
+				} else {
+					if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.SELinuxOptions != nil {
+						Expect(pod.Spec.SecurityContext.SELinuxOptions.Level).To(BeEmpty())
+					}
+				}
+
+				return true, update.GetObject(), nil
+			})
+		}
+
+		It("should be forced to the SELinux level of the source by default", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			shouldExpectTargetPodWithSELinuxLevel("s0:c1,c2")
+
+			controller.Execute()
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not be forced to the SELinux level of the source if the CR option is set to false", func() {
+			initController(&virtv1.KubeVirtConfiguration{
+				MigrationConfiguration: &virtv1.MigrationConfiguration{
+					MatchSELinuxLevelOnMigration: pointer.BoolPtr(false),
+				},
+			})
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			shouldExpectTargetPodWithSELinuxLevel("")
+
+			controller.Execute()
+			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
+		})
+	})
 })
 
 func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *policyv1.PodDisruptionBudget {
@@ -1892,6 +1942,7 @@ func newVirtualMachine(name string, phase virtv1.VirtualMachineInstancePhase) *v
 	vmi.UID = types.UID(name)
 	vmi.Status.Phase = phase
 	vmi.Status.NodeName = "tefwegwrerg"
+	vmi.Status.SelinuxContext = "system_u:object_r:container_file_t:s0:c1,c2"
 	vmi.ObjectMeta.Labels = make(map[string]string)
 	// This would be set by mutation webhook
 	vmi.Status.RuntimeUser = 107

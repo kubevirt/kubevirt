@@ -308,6 +308,56 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			}, 30*time.Second, 10*time.Second).Should(BeNil())
 		})
 	})
+	Context("The VMI SELinux context status", func() {
+		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
+			vmi := libvmi.NewAlpine(libvmi.WithMasqueradeNetworking()...)
+
+			By("Starting a New VMI")
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			Expect(err).NotTo(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Ensuring VMI is running by logging in")
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+			By("Ensuring the VMI SELinux context status gets set")
+			seContext := ""
+			Eventually(func() string {
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				seContext = vmi.Status.SelinuxContext
+				return seContext
+			}, 30*time.Second, 10*time.Second).ShouldNot(BeEmpty(), "VMI SELinux context status never got set")
+
+			By("Ensuring the VMI SELinux context status matches the virt-launcher pod files")
+			stdout := tests.RunCommandOnVmiPod(vmi, []string{"ls", "-lZd", "/"})
+			Expect(stdout).To(ContainSubstring(seContext))
+
+			By("Migrating the VMI")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+
+			By("Ensuring the VMI SELinux context status didn't change")
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmi.Status.SelinuxContext).To(Equal(seContext))
+
+			By("Fetching virt-launcher Pod")
+			pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the right SELinux context is set on the target pod")
+			Expect(pod.Spec.SecurityContext).NotTo(BeNil())
+			Expect(pod.Spec.SecurityContext.SELinuxOptions).NotTo(BeNil(), fmt.Sprintf("%#v", pod.Spec.SecurityContext))
+			ctx := strings.Split(seContext, ":")
+			Expect(ctx).To(HaveLen(5))
+			Expect(pod.Spec.SecurityContext.SELinuxOptions.Level).To(Equal(strings.Join(ctx[3:], ":")))
+
+			By("Ensuring the target virt-launcher has the same SELinux context as the source")
+			stdout = tests.RunCommandOnVmiPod(vmi, []string{"ls", "-lZd", "/"})
+			Expect(stdout).To(ContainSubstring(seContext))
+		})
+	})
 })
 
 func runOnAllSchedulableNodes(virtClient kubecli.KubevirtClient, command []string, forbiddenString string) error {
