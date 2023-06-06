@@ -1016,10 +1016,10 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 		}
 
 		// Verify Lun disks are only mapped to network/block devices.
-		if disk.LUN != nil && volumeExists && matchingVolume.PersistentVolumeClaim == nil {
+		if disk.LUN != nil && volumeExists && matchingVolume.PersistentVolumeClaim == nil && matchingVolume.DataVolume == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s can only be mapped to a PersistentVolumeClaim volume.", field.Child("domain", "devices", "disks").Index(idx).Child("lun").String()),
+				Message: fmt.Sprintf("%s can only be mapped to a DataVolume or PersistentVolumeClaim volume.", field.Child("domain", "devices", "disks").Index(idx).Child("lun").String()),
 				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("lun").String(),
 			})
 		}
