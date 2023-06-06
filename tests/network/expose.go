@@ -90,43 +90,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	randomizeName := func(currentName string) string {
-		return currentName + rand.String(5)
-	}
-
-	validateClusterIp := func(clusterIp string, ipFamily ipFamily) error {
-		var correctPrimaryFamily bool
-		switch ipFamily {
-		case ipv4, dualIPv4Primary:
-			correctPrimaryFamily = netutils.IsIPv4String(clusterIp)
-		case ipv6, dualIPv6Primary:
-			correctPrimaryFamily = netutils.IsIPv6String(clusterIp)
-		}
-		if !correctPrimaryFamily {
-			return fmt.Errorf("the ClusterIP %s belongs to the wrong ip family", clusterIp)
-		}
-		return nil
-	}
-
-	skipIfNotSupportedCluster := func(ipFamily ipFamily) {
-		if includesIpv4(ipFamily) {
-			libnet.SkipWhenClusterNotSupportIpv4()
-		}
-		if inlcudesIpv6(ipFamily) {
-			libnet.SkipWhenClusterNotSupportIpv6()
-		}
-		if isDualStack(ipFamily) {
-			checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
-		}
-	}
-
-	appendIpFamilyToExposeArgs := func(ipFamily ipFamily, vmiExposeArgs []string) []string {
-		if inlcudesIpv6(ipFamily) {
-			vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
-		}
-		return vmiExposeArgs
-	}
-
 	createAndWaitForJobToSucceed := func(jobFactory func(host, port string) *batchv1.Job, namespace, ip, port, viaMessage string) error {
 		By(fmt.Sprintf("Starting a job which tries to reach the VMI via the %s", viaMessage))
 		job := jobFactory(ip, port)
@@ -135,11 +98,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 		By("Waiting for the job to report a successful connection attempt")
 		return tests.WaitForJobToSucceed(job, time.Duration(120)*time.Second)
-	}
-
-	executeVirtctlExposeCommand := func(ExposeArgs []string) error {
-		virtctl := clientcmd.NewRepeatableVirtctlCommand(ExposeArgs...)
-		return virtctl()
 	}
 
 	getService := func(namespace, serviceName string) (*k8sv1.Service, error) {
@@ -776,6 +734,48 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		})
 	})
 })
+
+func randomizeName(currentName string) string {
+	return currentName + rand.String(5)
+}
+
+func validateClusterIp(clusterIp string, ipFamily ipFamily) error {
+	var correctPrimaryFamily bool
+	switch ipFamily {
+	case ipv4, dualIPv4Primary:
+		correctPrimaryFamily = netutils.IsIPv4String(clusterIp)
+	case ipv6, dualIPv6Primary:
+		correctPrimaryFamily = netutils.IsIPv6String(clusterIp)
+	}
+	if !correctPrimaryFamily {
+		return fmt.Errorf("the ClusterIP %s belongs to the wrong ip family", clusterIp)
+	}
+	return nil
+}
+
+func skipIfNotSupportedCluster(ipFamily ipFamily) {
+	if includesIpv4(ipFamily) {
+		libnet.SkipWhenClusterNotSupportIpv4()
+	}
+	if inlcudesIpv6(ipFamily) {
+		libnet.SkipWhenClusterNotSupportIpv6()
+	}
+	if isDualStack(ipFamily) {
+		checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
+	}
+}
+
+func appendIpFamilyToExposeArgs(ipFamily ipFamily, vmiExposeArgs []string) []string {
+	if inlcudesIpv6(ipFamily) {
+		vmiExposeArgs = append(vmiExposeArgs, "--ip-family", string(ipFamily))
+	}
+	return vmiExposeArgs
+}
+
+func executeVirtctlExposeCommand(ExposeArgs []string) error {
+	virtctl := clientcmd.NewRepeatableVirtctlCommand(ExposeArgs...)
+	return virtctl()
+}
 
 func getNodeHostname(nodeAddresses []k8sv1.NodeAddress) *string {
 	for _, address := range nodeAddresses {
