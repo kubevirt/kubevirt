@@ -126,16 +126,21 @@ for arg in $args; do
             kubevirt::version::get_version_vars
             echo "$KUBEVIRT_GIT_VERSION" >${CMD_OUT_DIR}/${BIN_NAME}/.version
 
-            # build virtctl also for darwin and windows and for arm64 when on amd64 on linux
-            if [ "${BIN_NAME}" = "virtctl" -a "${ARCH}" = "amd64" -a -z "${LINUX_ONLY}" ]; then
-                GOOS=darwin GOARCH=amd64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
-                GOOS=windows GOARCH=amd64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
-                GOOS=linux GOARCH=arm64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-linux-arm64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux arm64)
-                GOOS=windows GOARCH=arm64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-arm64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows arm64)
-                GOOS=darwin GOARCH=arm64 go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-arm64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin arm64)
-                # Create symlinks to the latest binary of amd64 architecture
-                (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-darwin-amd64 ${BIN_NAME}-darwin)
-                (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-windows-amd64.exe ${BIN_NAME}-windows.exe)
+            # build virtctl for all architectures if requested
+            if [ "${BIN_NAME}" = "virtctl" -a "${KUBEVIRT_RELEASE}" = "true" ]; then
+                for arch in amd64 arm64; do
+                    for os in linux darwin windows; do
+                        if [ "${os}" = "windows" ]; then
+                            extension=".exe"
+                        else
+                            extension=""
+                        fi
+
+                        GOOS=${os} GOARCH=${arch} go_build -tags "${KUBEVIRT_GO_BUILD_TAGS}" -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-${os}-${arch}${extension} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir ${os} ${arch})
+                        # Create symlinks to the latest binary
+                        (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-${os}-${arch}${extension} ${BIN_NAME}-${os}-${arch}${extension})
+                    done
+                done
             fi
         )
     else
