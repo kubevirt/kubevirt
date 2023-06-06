@@ -245,6 +245,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.PersistentReservation != nil {
+		in, out := &in.PersistentReservation, &out.PersistentReservation
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

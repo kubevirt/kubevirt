@@ -1076,6 +1076,16 @@ spec:
                     description: "Enables rootless virt-launcher. \n Deprecated: please
                       use the root FG."
                     type: boolean
+                  persistentReservation:
+                    default: false
+                    description: Enable persistent reservation of a LUN through the
+                      SCSI Persistent Reserve commands on Kubevirt. In order to issue
+                      privileged SCSI ioctls, the VM requires activation of the persistent
+                      reservation flag. Once this feature gate is enabled, then the
+                      additional container with the qemu-pr-helper is deployed inside
+                      the virt-handler pod. Enabling (or removing) the feature gate
+                      causes the redeployment of the virt-handler pod.
+                    type: boolean
                   root:
                     description: 'Enable root virt-launcher (default: false).'
                     type: boolean

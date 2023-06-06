@@ -356,6 +356,15 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	DisableMDevConfiguration *bool `json:"disableMDevConfiguration,omitempty"`
+
+	// Enable persistent reservation of a LUN through the SCSI Persistent Reserve commands on Kubevirt.
+	// In order to issue privileged SCSI ioctls, the VM requires activation of the persistent reservation flag.
+	// Once this feature gate is enabled, then the additional container with the qemu-pr-helper is deployed inside the virt-handler pod.
+	// Enabling (or removing) the feature gate causes the redeployment of the virt-handler pod.
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	PersistentReservation *bool `json:"persistentReservation,omitempty"`
 }
 
 // PermittedHostDevices holds information about devices allowed for passthrough

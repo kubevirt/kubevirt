@@ -153,6 +153,7 @@ const (
 	kvWithHostPassthroughCPU = "WithHostPassthroughCPU"
 	kvRoot                   = "Root"
 	kvDisableMDevConfig      = "DisableMDEVConfiguration"
+	kvPersistentReservation  = "PersistentReservation"
 )
 
 // CPU Plugin default values
@@ -679,6 +680,9 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 	}
 	if featureGates.DisableMDevConfiguration != nil && *featureGates.DisableMDevConfiguration {
 		fgs = append(fgs, kvDisableMDevConfig)
+	}
+	if featureGates.PersistentReservation != nil && *featureGates.PersistentReservation {
+		fgs = append(fgs, kvPersistentReservation)
 	}
 
 	return fgs
