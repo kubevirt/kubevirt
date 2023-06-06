@@ -16,10 +16,13 @@ RUN eval $(cat /tmp/config  |grep KUBEVIRT_VERSION=) && \
     echo "KUBEVIRT_VERSION: $KUBEVIRT_VERSION" && \
     curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-linux-amd64" && \
     mkdir -p ./amd64/linux && tar -zhcf ./amd64/linux/virtctl.tar.gz virtctl && rm virtctl && \
+    ( curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-linux-arm64" && mkdir -p ./arm64/linux && tar -zhcf ./amd64/linux/virtctl.tar.gz virtctl && rm virtctl ) || true && \
     curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-darwin-amd64" && \
     mkdir -p ./amd64/mac && zip -r -q ./amd64/mac/virtctl.zip virtctl && rm virtctl && \
+    ( curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-darwin-arm64" && mkdir -p ./arm64/mac && zip -r -q ./amd64/mac/virtctl.zip virtctl && rm virtctl ) || true && \
     curl -v --fail -L -o virtctl.exe "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe" && \
-    mkdir -p ./amd64/windows && zip -r -q ./amd64/windows/virtctl.zip virtctl.exe && rm virtctl.exe
+    mkdir -p ./amd64/windows && zip -r -q ./amd64/windows/virtctl.zip virtctl.exe && rm virtctl.exe && \
+    ( curl -v --fail -L -o virtctl.exe "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-windows-arm64.exe" && mkdir -p ./arm64/windows && zip -r -q ./arm64/windows/virtctl.zip virtctl.exe && rm virtctl.exe ) || true
 
 
 ARG git_url=https://github.com/kubevirt/hyperconverged-cluster-operator.git

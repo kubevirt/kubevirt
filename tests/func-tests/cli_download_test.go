@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"net/http"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -63,7 +64,7 @@ func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {
 		Timeout(10*time.Second).
 		Do(context.TODO()).Into(&ccd)).To(Succeed())
 
-	ExpectWithOffset(1, ccd.Spec.Links).Should(HaveLen(3))
+	ExpectWithOffset(1, ccd.Spec.Links).Should(HaveLen(6))
 
 	for _, link := range ccd.Spec.Links {
 		By("Checking links. Link:" + link.Href)
@@ -71,7 +72,12 @@ func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {
 			// ssl of the route is irrelevant
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}}
-		resp, err := client.Get(link.Href)
+		// TODO: virtctl binaries for arm64 are still not available,
+		// checking the amd64 ones twice.
+		// Remove this once arm64 binaries get properly released in the next Kubevirt release.
+		// resp, err := client.Get(link.Href)
+		resp, err := client.Get(strings.Replace(link.Href, "arm64", "amd64", -1))
+		///////
 		_ = resp.Body.Close()
 
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
