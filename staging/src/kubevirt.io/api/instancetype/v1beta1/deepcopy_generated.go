@@ -628,6 +628,11 @@ func (in *VirtualMachinePreferenceSpec) DeepCopyInto(out *VirtualMachinePreferen
 		*out = new(VolumePreferences)
 		**out = **in
 	}
+	if in.PreferredSubdomain != nil {
+		in, out := &in.PreferredSubdomain, &out.PreferredSubdomain
+		*out = new(string)
+		**out = **in
+	}
 	if in.PreferredTerminationGracePeriodSeconds != nil {
 		in, out := &in.PreferredTerminationGracePeriodSeconds, &out.PreferredTerminationGracePeriodSeconds
 		*out = new(int64)

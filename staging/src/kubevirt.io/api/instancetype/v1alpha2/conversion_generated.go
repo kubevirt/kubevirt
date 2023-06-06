@@ -744,6 +744,7 @@ func autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1alpha2_VirtualMachine
 	out.Firmware = (*FirmwarePreferences)(unsafe.Pointer(in.Firmware))
 	out.Machine = (*MachinePreferences)(unsafe.Pointer(in.Machine))
 	out.Volumes = (*VolumePreferences)(unsafe.Pointer(in.Volumes))
+	// WARNING: in.PreferredSubdomain requires manual conversion: does not exist in peer-type
 	// WARNING: in.PreferredTerminationGracePeriodSeconds requires manual conversion: does not exist in peer-type
 	return nil
 }

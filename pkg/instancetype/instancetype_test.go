@@ -1533,6 +1533,26 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 		})
 
+		Context("Preference.PreferredSubdomain", func() {
+			It("should apply to VMI", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferredSubdomain: pointer.String("kubevirt.io"),
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(vmi.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
+			})
+
+			It("should not overwrite user defined value", func() {
+				const userDefinedValue = "foo.com"
+				vmi.Spec.Subdomain = userDefinedValue
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferredSubdomain: pointer.String("kubevirt.io"),
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(vmi.Spec.Subdomain).To(Equal(userDefinedValue))
+			})
+		})
+
 		Context("Preference.PreferredTerminationGracePeriodSeconds", func() {
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{

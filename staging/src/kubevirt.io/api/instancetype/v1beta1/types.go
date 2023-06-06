@@ -237,6 +237,11 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	Volumes *VolumePreferences `json:"volumes,omitempty"`
 
+	// Subdomain of the VirtualMachineInstance
+	//
+	//+optional
+	PreferredSubdomain *string `json:"preferredSubdomain,omitempty"`
+
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	//
 	//+optional

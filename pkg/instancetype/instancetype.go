@@ -352,6 +352,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
 		applyMachinePreferences(preferenceSpec, vmiSpec)
 		applyClockPreferences(preferenceSpec, vmiSpec)
+		applySubdomain(preferenceSpec, vmiSpec)
 		applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
 	}
 
@@ -1203,6 +1204,12 @@ func applyClockPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePre
 
 	if preferenceSpec.Clock.PreferredTimer != nil && vmiSpec.Domain.Clock.Timer == nil {
 		vmiSpec.Domain.Clock.Timer = preferenceSpec.Clock.PreferredTimer.DeepCopy()
+	}
+}
+
+func applySubdomain(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if vmiSpec.Subdomain == "" && preferenceSpec.PreferredSubdomain != nil {
+		vmiSpec.Subdomain = *preferenceSpec.PreferredSubdomain
 	}
 }
 
