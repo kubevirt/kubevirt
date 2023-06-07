@@ -143,7 +143,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	duration += 5 * time.Second
 	since := time.Now().Add(-duration)
 
-	nodes := getNodeList(virtCli)
+	nodeList := getNodeList(virtCli)
+	workerNodeNames := getWorkerNodeNames(virtCli)
 	nodesWithTestPods := getNodesRunningTests(virtCli)
 	pods := getPodList(virtCli)
 	virtHandlerPods := getVirtHandlerList(virtCli)
@@ -164,7 +165,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logSecrets(virtCli)
 	r.logNetworkAttachmentDefinitionInfo(virtCli)
 	r.logKubeVirtCR(virtCli)
-	r.logNodes(virtCli, nodes)
+	r.logNodes(virtCli, nodeList)
 	r.logPods(virtCli, pods)
 	r.logVMs(virtCli)
 	r.logVMSnapshot(virtCli)
@@ -176,8 +177,8 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 
 	r.logAuditLogs(virtCli, nodesDir, nodesWithTestPods, since)
 	r.logDMESG(virtCli, nodesDir, nodesWithTestPods, since)
-	r.logJournal(virtCli, nodesDir, nodesWithTestPods, duration, "")
-	r.logJournal(virtCli, nodesDir, nodesWithTestPods, duration, "kubelet")
+	r.logJournal(virtCli, nodesDir, workerNodeNames, duration, "")
+	r.logJournal(virtCli, nodesDir, workerNodeNames, duration, "kubelet")
 
 	r.logLogs(virtCli, podsDir, pods, since)
 
@@ -923,6 +924,23 @@ func getNodeList(virtCli kubecli.KubevirtClient) *v1.NodeList {
 	}
 
 	return nodes
+}
+
+func getWorkerNodeNames(virtCli kubecli.KubevirtClient) []string {
+	nodes, err := virtCli.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "node-role.kubernetes.io/worker",
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch nodes: %v\n", err)
+		return nil
+	}
+
+	nodeNames := []string{}
+	for _, node := range nodes.Items {
+		nodeNames = append(nodeNames, node.Name)
+	}
+
+	return nodeNames
 }
 
 func getPodList(virtCli kubecli.KubevirtClient) *v1.PodList {
