@@ -1001,7 +1001,7 @@ var CRDsValidation map[string]string = map[string]string{
                 nodeMediatedDeviceTypes:
                   items:
                     description: NodeMediatedDeviceTypesConfig holds information about
-                      MDEV types to be defined in a specifc node that matches the
+                      MDEV types to be defined in a specific node that matches the
                       NodeSelector field.
                     properties:
                       mediatedDeviceTypes:
@@ -1056,8 +1056,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - type: integer
                   - type: string
                   description: BandwidthPerMigration limits the amount of network
-                    bandwith live migrations are allowed to use. The value is in quantity
-                    per second. Defaults to 0 (no limit)
+                    bandwidth live migrations are allowed to use. The value is in
+                    quantity per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
@@ -11582,8 +11582,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - type: integer
                   - type: string
                   description: BandwidthPerMigration limits the amount of network
-                    bandwith live migrations are allowed to use. The value is in quantity
-                    per second. Defaults to 0 (no limit)
+                    bandwidth live migrations are allowed to use. The value is in
+                    quantity per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
@@ -11970,8 +11970,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - type: integer
                   - type: string
                   description: BandwidthPerMigration limits the amount of network
-                    bandwith live migrations are allowed to use. The value is in quantity
-                    per second. Defaults to 0 (no limit)
+                    bandwidth live migrations are allowed to use. The value is in
+                    quantity per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:

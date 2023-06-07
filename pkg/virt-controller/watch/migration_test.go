@@ -2063,7 +2063,7 @@ func getDefaultMigrationConfiguration() *virtv1.MigrationConfiguration {
 	parallelOutboundMigrationsPerNode := virtconfig.ParallelOutboundMigrationsPerNodeDefault
 	parallelMigrationsPerCluster := virtconfig.ParallelMigrationsPerClusterDefault
 	allowAutoConverge := virtconfig.MigrationAllowAutoConverge
-	bandwidthPerMigration := resource.MustParse(virtconfig.BandwithPerMigrationDefault)
+	bandwidthPerMigration := resource.MustParse(virtconfig.BandwidthPerMigrationDefault)
 	completionTimeoutPerGiB := virtconfig.MigrationCompletionTimeoutPerGiB
 	progressTimeout := virtconfig.MigrationProgressTimeout
 	unsafeMigrationOverride := virtconfig.DefaultUnsafeMigrationOverride
