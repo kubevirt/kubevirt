@@ -128,7 +128,7 @@ deps-sync:
 rpm-deps:
 	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} ./hack/rpm-deps.sh"
 
-bump-images:
+bump-images: builder-bump
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
 
 verify-rpm-deps:
@@ -166,6 +166,9 @@ builder-build:
 
 builder-publish:
 	./hack/builder/publish.sh
+
+builder-bump:
+	./hack/builder/bump.sh
 
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
