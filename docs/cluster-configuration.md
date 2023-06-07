@@ -824,6 +824,20 @@ Possible values:
 `LiveMigrate` is the default behaviour.
 
 
+## VM state storage class
+
+`VMStateStorageClass` defines the [Kubernetes Storage Class](https://kubernetes.io/docs/concepts/storage/storage-classes/)
+to be used for creating persistent state PVCs for VMs, used for example for persisting the state of the vTPM.
+The storage class must be of type "filesystem" and support the ReadWriteMany (RWX) access mode.
+This option should be set simply to the storage class name. Example:
+```yaml
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  vmStateStorageClass: "rook-cephfs"
+```
+
 ## Hyperconverged Kubevirt cluster-wide Crypto Policy API
 
 Starting from OCP/OKD 4.6, a [cluster-wide API](https://github.com/openshift/enhancements/blob/master/enhancements/kube-apiserver/tls-config.md) is available for cluster administrators to set TLS profiles for OCP/OKD core components.

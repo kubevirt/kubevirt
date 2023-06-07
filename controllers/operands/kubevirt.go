@@ -429,6 +429,10 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 		config.CPUModel = *hc.Spec.DefaultCPUModel
 	}
 
+	if hc.Spec.VMStateStorageClass != nil {
+		config.VMStateStorageClass = *hc.Spec.VMStateStorageClass
+	}
+
 	return config, nil
 }
 

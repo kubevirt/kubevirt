@@ -2694,6 +2694,36 @@ Version: 1.2.3`)
 			})
 		})
 
+		Context("VM state storage class", func() {
+			It("should modify storage class according to HCO CR", func() {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Modify HCO's VM state storage class configuration")
+				hco.Spec.VMStateStorageClass = pointer.String("rook-cephfs")
+
+				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Configuration.VMStateStorageClass).To(BeEmpty())
+
+				Expect(foundResource.Spec.Configuration.VMStateStorageClass).To(Equal("rook-cephfs"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())

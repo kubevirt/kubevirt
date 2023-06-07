@@ -190,6 +190,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | tektonPipelinesNamespace | TektonPipelinesNamespace defines namespace in which example pipelines will be deployed. | *string |  | false |
 | kubeSecondaryDNSNameServerIP | KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS | *string |  | false |
 | evictionStrategy | EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one. | *v1.EvictionStrategy | LiveMigrate | false |
+| vmStateStorageClass | VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode. | *string |  | false |
 
 [Back to TOC](#table-of-contents)
 

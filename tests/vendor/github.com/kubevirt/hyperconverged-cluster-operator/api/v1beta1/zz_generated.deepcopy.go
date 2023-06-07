@@ -408,6 +408,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(corev1.EvictionStrategy)
 		**out = **in
 	}
+	if in.VMStateStorageClass != nil {
+		in, out := &in.VMStateStorageClass, &out.VMStateStorageClass
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
