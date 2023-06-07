@@ -196,10 +196,9 @@ func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, 
 		return
 	}
 
-	if preferenceSpec != nil && preferenceSpec.Volumes != nil {
-		datavolumes := vm.Spec.DataVolumeTemplates
-		for _, dv := range datavolumes {
-			if dv.Spec.PVC.StorageClassName == nil {
+	if preferenceSpec != nil && preferenceSpec.Volumes != nil && preferenceSpec.Volumes.PreferredStorageClassName != "" {
+		for _, dv := range vm.Spec.DataVolumeTemplates {
+			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {
 				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
 			}
 		}
