@@ -1783,7 +1783,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 			if len(option.Name) == 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Option.Name must not be empty for value: %s", *option.Value),
+					Message: fmt.Sprintf("Option.Name must not be empty"),
 					Field:   "options",
 				})
 			}
