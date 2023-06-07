@@ -53,3 +53,37 @@ func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) 
 	}
 	return vmiSpecIfaces, vmiSpecNets, isIfaceChangeRequired
 }
+
+func trimDoneInterfaceRequests(vm *v1.VirtualMachine) {
+	if len(vm.Status.InterfaceRequests) == 0 {
+		return
+	}
+
+	indexedInterfaces := vmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
+	updateIfaceRequests := make([]v1.VirtualMachineInterfaceRequest, 0)
+	for _, request := range vm.Status.InterfaceRequests {
+
+		var ifaceName string
+
+		removeRequest := false
+
+		switch {
+		case request.AddInterfaceOptions != nil:
+			ifaceName = request.AddInterfaceOptions.Name
+			if _, exists := indexedInterfaces[ifaceName]; exists {
+				removeRequest = true
+			}
+		case request.RemoveInterfaceOptions != nil:
+			ifaceName = request.RemoveInterfaceOptions.Name
+			if iface, exists := indexedInterfaces[ifaceName]; exists &&
+				iface.State == v1.InterfaceStateAbsent {
+				removeRequest = true
+			}
+		}
+
+		if !removeRequest {
+			updateIfaceRequests = append(updateIfaceRequests, request)
+		}
+	}
+	vm.Status.InterfaceRequests = updateIfaceRequests
+}

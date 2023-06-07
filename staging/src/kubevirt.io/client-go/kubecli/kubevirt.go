@@ -302,6 +302,7 @@ type VirtualMachineInterface interface {
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
 	AddInterface(ctx context.Context, name string, addInterfaceOptions *v1.AddInterfaceOptions) error
+	RemoveInterface(ctx context.Context, name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
