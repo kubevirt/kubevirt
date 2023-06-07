@@ -1311,17 +1311,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 	d.updatePausedConditions(vmi, domain, condManager)
 
-	// Handle sync error
-	var criticalNetErr *neterrors.CriticalNetworkError
-	if goerror.As(syncError, &criticalNetErr) {
-		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
-		vmi.Status.Phase = v1.Failed
-	}
-	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
-		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
-		vmi.Status.Phase = v1.Failed
-	}
-	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
+	handleSyncError(vmi, condManager, syncError)
 
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
@@ -1338,17 +1328,34 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 	// Record an event on the VMI when the VMI's phase changes
 	if oldStatus.Phase != vmi.Status.Phase {
-		switch vmi.Status.Phase {
-		case v1.Running:
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), VMIStarted)
-		case v1.Succeeded:
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), VMIShutdown)
-		case v1.Failed:
-			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Stopped.String(), VMICrashed)
-		}
+		d.recordPhaseChangeEvent(vmi)
 	}
 
 	return nil
+}
+
+func handleSyncError(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager, syncError error) {
+	var criticalNetErr *neterrors.CriticalNetworkError
+	if goerror.As(syncError, &criticalNetErr) {
+		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
+	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
+		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
+	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
+}
+
+func (d *VirtualMachineController) recordPhaseChangeEvent(vmi *v1.VirtualMachineInstance) {
+	switch vmi.Status.Phase {
+	case v1.Running:
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), VMIStarted)
+	case v1.Succeeded:
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), VMIShutdown)
+	case v1.Failed:
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Stopped.String(), VMICrashed)
+	}
 }
 
 func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.GuestAgentCommandInfo) bool {
