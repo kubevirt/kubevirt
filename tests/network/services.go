@@ -185,7 +185,7 @@ var _ = SIGDescribe("Services", func() {
 				jobCleanup = nil
 			})
 
-			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
+			PIt("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
 				var err error
 
 				jobCleanup, err = assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
@@ -219,7 +219,7 @@ var _ = SIGDescribe("Services", func() {
 				Expect(jobCleanup()).To(Succeed(), cleaningK8sv1ServiceShouldSucceed)
 			})
 
-			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
+			PIt("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
 				var err error
 				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
 

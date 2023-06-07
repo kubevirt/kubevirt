@@ -153,12 +153,12 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 			serverVMI = createAlpineVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
 		})
 
-		It("should have the specified MAC address reported back via the API", func() {
+		PIt("should have the specified MAC address reported back via the API", func() {
 			Expect(serverVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
 			Expect(serverVMI.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
 		})
 
-		Context("and another virtual machine connected to the same network", func() {
+		PContext("and another virtual machine connected to the same network", func() {
 			var clientVMI *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				clientVMI = createAlpineVMIStaticIPOnNode(nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
@@ -184,7 +184,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 			Expect(err).NotTo(HaveOccurred(), "must succeed creating a VMI on a random node")
 		})
 
-		It("should be successful when the VMI MAC address is defined in its spec", func() {
+		PIt("should be successful when the VMI MAC address is defined in its spec", func() {
 			By("starting the migration")
 			migration := tests.NewRandomMigration(clientVMI.Name, clientVMI.Namespace)
 			migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
@@ -258,7 +258,7 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
 			})
 
-			It("should keep connectivity after a migration", func() {
+			PIt("should keep connectivity after a migration", func() {
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI

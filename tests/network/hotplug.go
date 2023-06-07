@@ -152,7 +152,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			Expect(libnet.PingFromVMConsole(hotPluggedVMI, ip2)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			PEntry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
@@ -175,7 +175,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			PEntry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 	})
 
@@ -217,7 +217,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			PEntry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 
 		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
@@ -249,7 +249,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
-			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
+			PEntry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 	})
 

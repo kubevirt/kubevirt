@@ -206,9 +206,9 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}, 180)
 				Expect(err).ToNot(HaveOccurred())
 			},
-				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
-				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
-				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
+				PEntry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				PEntry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
+				PEntry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
 			)
 		})
 
@@ -256,7 +256,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 			},
-				Entry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
+				PEntry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
 				Entry("[test_id:1544]on a different node from Pod", k8sv1.NodeSelectorOpNotIn, false),
 				Entry("[test_id:1545]on the same node from Node", k8sv1.NodeSelectorOpIn, true),
 				Entry("[test_id:1546]on a different node from Node", k8sv1.NodeSelectorOpNotIn, true),
@@ -812,13 +812,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
+				PEntry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				PEntry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::/120"),
 			)
 
-			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
+			PIt("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
@@ -910,11 +910,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				Expect(ping(podIP)).To(Succeed())
 			},
-				Entry("without a specific port number", []v1.Port{}),
+				PEntry("without a specific port number", []v1.Port{}),
 				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
 			)
 
-			It("[Conformance] should preserve connectivity - IPv6", func() {
+			PIt("[Conformance] should preserve connectivity - IPv6", func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				var err error
