@@ -20,12 +20,7 @@
 package libvmi
 
 import (
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	kvirtv1 "kubevirt.io/api/core/v1"
-
-	k6tresource "kubevirt.io/kubevirt/pkg/apimachinery/resource"
 
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -125,15 +120,5 @@ func MultusNetwork(name, nadName string) *kvirtv1.Network {
 				NetworkName: nadName,
 			},
 		},
-	}
-}
-
-// WithResourceRequestInterface specifies the vmi network interface resource.
-func WithResourceRequestInterface(value string) Option {
-	return func(vmi *kvirtv1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Resources.Requests == nil {
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-		}
-		vmi.Spec.Domain.Resources.Requests[k6tresource.ResourceInterface] = resource.MustParse(value)
 	}
 }

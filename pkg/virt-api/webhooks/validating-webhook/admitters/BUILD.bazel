@@ -26,7 +26,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apimachinery/resource:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
@@ -103,7 +102,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/apimachinery/resource:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/testutils:go_default_library",

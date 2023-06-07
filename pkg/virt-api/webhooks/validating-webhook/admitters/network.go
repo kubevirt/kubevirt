@@ -28,36 +28,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/resource"
 )
-
-const (
-	ifaceRequestMinValue = 0
-	ifaceRequestMaxValue = 32
-)
-
-func validateInterfaceRequestIsInRange(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	requests := resource.ExtendedResourceList{ResourceList: spec.Domain.Resources.Requests}
-	value := requests.Interface().Value()
-
-	if !isIntegerValue(value, requests) || value < ifaceRequestMinValue || value > ifaceRequestMaxValue {
-		return []metav1.StatusCause{{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(
-				"provided resources interface requests must be an integer between %d to %d",
-				ifaceRequestMinValue,
-				ifaceRequestMaxValue,
-			),
-			Field: field.Child("domain", "resources", "requests", string(resource.ResourceInterface)).String(),
-		}}
-	}
-	return nil
-}
-
-func isIntegerValue(value int64, requests resource.ExtendedResourceList) bool {
-	return value*1000 == requests.Interface().MilliValue()
-}
 
 func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
