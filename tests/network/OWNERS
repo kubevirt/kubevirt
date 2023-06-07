@@ -1,6 +1,6 @@
 reviewers:
-  - network-reviewers
+  - sig-network-reviewers
 approvers:
-  - network-approvers
+  - sig-network-approvers
 labels:
   - sig/network
