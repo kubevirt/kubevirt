@@ -217,6 +217,7 @@ var _ = Describe("HyperconvergedController", func() {
 					"DisableCustomSELinuxPolicy",
 					"KubevirtSeccompProfile",
 					"HotplugNICs",
+					"VMPersistentState",
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}

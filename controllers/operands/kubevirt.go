@@ -101,6 +101,9 @@ const (
 
 	// Allow attaching a NIC to a running VMI
 	kvHotplugNicsGate = "HotplugNICs"
+
+	// Enable VM state persistence
+	kvVMPersistentState = "VMPersistentState"
 )
 
 const (
@@ -125,6 +128,7 @@ var (
 		kvDisableCustomSELinuxPolicyGate,
 		kvKubevirtSeccompProfile,
 		kvHotplugNicsGate,
+		kvVMPersistentState,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
