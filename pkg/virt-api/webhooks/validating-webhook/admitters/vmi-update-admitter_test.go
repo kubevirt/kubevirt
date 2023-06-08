@@ -443,7 +443,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 
-		result := admitHotplug(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
+		result := admitHotplugStorage(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	},
 		Entry("Should accept if no volumes are there or added",
@@ -534,6 +534,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {
 		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.CPU = &v1.CPU{}
 		vmi.Spec.Volumes = makeVolumes(1)
 		vmi.Spec.Domain.Devices.Disks = makeDisks(1)
 		vmi.Status.VolumeStatus = makeStatus(1, 0)
@@ -563,4 +564,37 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Entry("Should admit internal sa", "system:serviceaccount:kubevirt:"+components.ApiServiceAccountName, BeTrue()),
 		Entry("Should reject regular user", "system:serviceaccount:someNamespace:someUser", BeFalse()),
 	)
+
+	DescribeTable("Updates in CPU topology", func(oldCPUTopology, newCPUTopology *v1.CPU, expected types.GomegaMatcher) {
+		vmi := api.NewMinimalVMI("testvmi")
+		updateVmi := vmi.DeepCopy()
+		vmi.Spec.Domain.CPU = oldCPUTopology
+		updateVmi.Spec.Domain.CPU = newCPUTopology
+
+		newVMIBytes, _ := json.Marshal(&updateVmi)
+		oldVMIBytes, _ := json.Marshal(&vmi)
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				UserInfo: authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + components.ControllerServiceAccountName},
+				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: newVMIBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldVMIBytes,
+				},
+				Operation: admissionv1.Update,
+			},
+		}
+		resp := vmiUpdateAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(expected)
+	},
+		Entry("deny update of maxSockets",
+			&v1.CPU{
+				MaxSockets: 16,
+			},
+			&v1.CPU{
+				MaxSockets: 8,
+			},
+			BeFalse()))
 })

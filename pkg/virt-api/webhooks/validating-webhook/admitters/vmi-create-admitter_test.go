@@ -4693,6 +4693,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("allow otherwise", "5", true),
 		)
 	})
+
+	Context("with CPU hotplug", func() {
+		When("number of sockets higher than maxSockets", func() {
+			It("deny VMI creation", func() {
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					MaxSockets: 8,
+					Sockets:    16,
+				}
+
+				vmiBytes, _ := json.Marshal(&vmi)
+
+				ar := &admissionv1.AdmissionReview{
+					Request: &admissionv1.AdmissionRequest{
+						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmiBytes,
+						},
+					},
+				}
+
+				resp := vmiCreateAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu.sockets"))
+
+			})
+		})
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
@@ -5103,5 +5132,4 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
 		Expect(causes).To(BeEmpty())
 	})
-
 })
