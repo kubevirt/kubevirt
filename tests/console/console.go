@@ -176,7 +176,6 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
-		return err
 	}
 
 	return err
@@ -204,7 +203,28 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("BIOS: %+v", res)
+	}
+
+	return err
+}
+
+// LinuxExpecter should be called early in the VMI boot process.
+// It will catch the first logs printed by the Linux kernel.
+// If this function succeeds, the VMI is guaranteed to be post-firmware (BIOS/EFI).
+func LinuxExpecter(vmi *v1.VirtualMachineInstance) error {
+	virtClient := kubevirt.Client()
+	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
+	if err != nil {
 		return err
+	}
+	defer expecter.Close()
+
+	b := []expect.Batcher{
+		&expect.BExp{R: `\[    0.000000\] Linux version`},
+	}
+	res, err := expecter.ExpectBatch(b, time.Minute)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Failed to find Linux boot logs in: %+v", res)
 	}
 
 	return err

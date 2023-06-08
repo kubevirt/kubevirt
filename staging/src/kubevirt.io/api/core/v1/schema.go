@@ -246,6 +246,10 @@ type EFI struct {
 	// Defaults to true
 	// +optional
 	SecureBoot *bool `json:"secureBoot,omitempty"`
+	// If set to true, Persistent will persist the EFI NVRAM across reboots.
+	// Defaults to false
+	// +optional
+	Persistent *bool `json:"persistent,omitempty"`
 }
 
 // If set, the VM will be booted from the defined kernel / initrd.

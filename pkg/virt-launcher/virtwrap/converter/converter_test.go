@@ -958,7 +958,9 @@ var _ = Describe("Converter", func() {
   <os>
     <type arch="aarch64" machine="virt">hvm</type>
     <loader readonly="yes" secure="no" type="pflash"></loader>
-    <nvram>/tmp/mynamespace_testvmi</nvram>
+    <nvram type="file">
+      <source file="/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"></source>
+    </nvram>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -3066,19 +3068,43 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
+			vmi.Status.RuntimeUser = 107
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
 			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
 			Expect(domainSpec.OS.BootLoader.Secure).To(Equal(secureLoader))
 			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(efiCode))
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
-			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
+			Expect(domainSpec.OS.NVRam.Source.File).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		},
 			Entry("should use SecureBoot", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
 			Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
 			Entry("should not use SecureBoot", False(), "OVMF_CODE.fd", "OVMF_VARS.fd"),
 			Entry("should not use SecureBoot when OVMF_CODE.fd not present", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.fd"),
 		)
+
+		It("EFI vars should be in the right place when running as root", func() {
+			c.EFIConfiguration = &EFIConfiguration{
+				EFICode:      "OVMF_CODE.fd",
+				EFIVars:      "OVMF_VARS.fd",
+				SecureLoader: false,
+			}
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.BoolPtr(false),
+					},
+				},
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+			Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
+			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(c.EFIConfiguration.EFICode))
+			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(c.EFIConfiguration.EFIVars))
+			Expect(domainSpec.OS.NVRam.Source.File).To(Equal("/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"))
+		})
 	})
 
 	Context("Kernel Boot", func() {
