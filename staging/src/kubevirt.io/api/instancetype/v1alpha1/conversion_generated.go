@@ -24,9 +24,10 @@ package v1alpha1
 import (
 	unsafe "unsafe"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
@@ -222,11 +223,17 @@ func RegisterConversions(s *runtime.Scheme) error {
 
 func autoConvert_v1beta1_CPUInstancetype_To_v1alpha1_CPUInstancetype(in *v1beta1.CPUInstancetype, out *CPUInstancetype, s conversion.Scope) error {
 	out.Guest = in.Guest
-	out.Model = in.Model
-	out.DedicatedCPUPlacement = in.DedicatedCPUPlacement
-	out.NUMA = (*v1.NUMA)(unsafe.Pointer(in.NUMA))
-	out.IsolateEmulatorThread = in.IsolateEmulatorThread
-	out.Realtime = (*v1.Realtime)(unsafe.Pointer(in.Realtime))
+	if err := v1.Convert_Pointer_string_To_string(&in.Model, &out.Model, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_Pointer_bool_To_bool(&in.DedicatedCPUPlacement, &out.DedicatedCPUPlacement, s); err != nil {
+		return err
+	}
+	out.NUMA = (*corev1.NUMA)(unsafe.Pointer(in.NUMA))
+	if err := v1.Convert_Pointer_bool_To_bool(&in.IsolateEmulatorThread, &out.IsolateEmulatorThread, s); err != nil {
+		return err
+	}
+	out.Realtime = (*corev1.Realtime)(unsafe.Pointer(in.Realtime))
 	return nil
 }
 
@@ -237,11 +244,17 @@ func Convert_v1beta1_CPUInstancetype_To_v1alpha1_CPUInstancetype(in *v1beta1.CPU
 
 func autoConvert_v1alpha1_CPUInstancetype_To_v1beta1_CPUInstancetype(in *CPUInstancetype, out *v1beta1.CPUInstancetype, s conversion.Scope) error {
 	out.Guest = in.Guest
-	out.Model = in.Model
-	out.DedicatedCPUPlacement = in.DedicatedCPUPlacement
-	out.NUMA = (*v1.NUMA)(unsafe.Pointer(in.NUMA))
-	out.IsolateEmulatorThread = in.IsolateEmulatorThread
-	out.Realtime = (*v1.Realtime)(unsafe.Pointer(in.Realtime))
+	if err := v1.Convert_string_To_Pointer_string(&in.Model, &out.Model, s); err != nil {
+		return err
+	}
+	if err := v1.Convert_bool_To_Pointer_bool(&in.DedicatedCPUPlacement, &out.DedicatedCPUPlacement, s); err != nil {
+		return err
+	}
+	out.NUMA = (*corev1.NUMA)(unsafe.Pointer(in.NUMA))
+	if err := v1.Convert_bool_To_Pointer_bool(&in.IsolateEmulatorThread, &out.IsolateEmulatorThread, s); err != nil {
+		return err
+	}
+	out.Realtime = (*corev1.Realtime)(unsafe.Pointer(in.Realtime))
 	return nil
 }
 
@@ -252,6 +265,7 @@ func Convert_v1alpha1_CPUInstancetype_To_v1beta1_CPUInstancetype(in *CPUInstance
 
 func autoConvert_v1beta1_CPUPreferences_To_v1alpha1_CPUPreferences(in *v1beta1.CPUPreferences, out *CPUPreferences, s conversion.Scope) error {
 	// WARNING: in.PreferredCPUTopology requires manual conversion: inconvertible types (*kubevirt.io/api/instancetype/v1beta1.PreferredCPUTopology vs kubevirt.io/api/instancetype/v1alpha1.PreferredCPUTopology)
+	// WARNING: in.PreferredCPUFeatures requires manual conversion: does not exist in peer-type
 	return nil
 }
 
@@ -261,8 +275,8 @@ func autoConvert_v1alpha1_CPUPreferences_To_v1beta1_CPUPreferences(in *CPUPrefer
 }
 
 func autoConvert_v1beta1_ClockPreferences_To_v1alpha1_ClockPreferences(in *v1beta1.ClockPreferences, out *ClockPreferences, s conversion.Scope) error {
-	out.PreferredClockOffset = (*v1.ClockOffset)(unsafe.Pointer(in.PreferredClockOffset))
-	out.PreferredTimer = (*v1.Timer)(unsafe.Pointer(in.PreferredTimer))
+	out.PreferredClockOffset = (*corev1.ClockOffset)(unsafe.Pointer(in.PreferredClockOffset))
+	out.PreferredTimer = (*corev1.Timer)(unsafe.Pointer(in.PreferredTimer))
 	return nil
 }
 
@@ -272,8 +286,8 @@ func Convert_v1beta1_ClockPreferences_To_v1alpha1_ClockPreferences(in *v1beta1.C
 }
 
 func autoConvert_v1alpha1_ClockPreferences_To_v1beta1_ClockPreferences(in *ClockPreferences, out *v1beta1.ClockPreferences, s conversion.Scope) error {
-	out.PreferredClockOffset = (*v1.ClockOffset)(unsafe.Pointer(in.PreferredClockOffset))
-	out.PreferredTimer = (*v1.Timer)(unsafe.Pointer(in.PreferredTimer))
+	out.PreferredClockOffset = (*corev1.ClockOffset)(unsafe.Pointer(in.PreferredClockOffset))
+	out.PreferredTimer = (*corev1.Timer)(unsafe.Pointer(in.PreferredTimer))
 	return nil
 }
 
@@ -289,23 +303,23 @@ func autoConvert_v1beta1_DevicePreferences_To_v1alpha1_DevicePreferences(in *v1b
 	out.PreferredAutoattachSerialConsole = (*bool)(unsafe.Pointer(in.PreferredAutoattachSerialConsole))
 	out.PreferredAutoattachInputDevice = (*bool)(unsafe.Pointer(in.PreferredAutoattachInputDevice))
 	out.PreferredDisableHotplug = (*bool)(unsafe.Pointer(in.PreferredDisableHotplug))
-	out.PreferredVirtualGPUOptions = (*v1.VGPUOptions)(unsafe.Pointer(in.PreferredVirtualGPUOptions))
+	out.PreferredVirtualGPUOptions = (*corev1.VGPUOptions)(unsafe.Pointer(in.PreferredVirtualGPUOptions))
 	out.PreferredSoundModel = in.PreferredSoundModel
 	out.PreferredUseVirtioTransitional = (*bool)(unsafe.Pointer(in.PreferredUseVirtioTransitional))
-	out.PreferredInputBus = v1.InputBus(in.PreferredInputBus)
-	out.PreferredInputType = v1.InputType(in.PreferredInputType)
-	out.PreferredDiskBus = v1.DiskBus(in.PreferredDiskBus)
-	out.PreferredLunBus = v1.DiskBus(in.PreferredLunBus)
-	out.PreferredCdromBus = v1.DiskBus(in.PreferredCdromBus)
+	out.PreferredInputBus = corev1.InputBus(in.PreferredInputBus)
+	out.PreferredInputType = corev1.InputType(in.PreferredInputType)
+	out.PreferredDiskBus = corev1.DiskBus(in.PreferredDiskBus)
+	out.PreferredLunBus = corev1.DiskBus(in.PreferredLunBus)
+	out.PreferredCdromBus = corev1.DiskBus(in.PreferredCdromBus)
 	out.PreferredDiskDedicatedIoThread = (*bool)(unsafe.Pointer(in.PreferredDiskDedicatedIoThread))
-	out.PreferredDiskCache = v1.DriverCache(in.PreferredDiskCache)
-	out.PreferredDiskIO = v1.DriverIO(in.PreferredDiskIO)
-	out.PreferredDiskBlockSize = (*v1.BlockSize)(unsafe.Pointer(in.PreferredDiskBlockSize))
+	out.PreferredDiskCache = corev1.DriverCache(in.PreferredDiskCache)
+	out.PreferredDiskIO = corev1.DriverIO(in.PreferredDiskIO)
+	out.PreferredDiskBlockSize = (*corev1.BlockSize)(unsafe.Pointer(in.PreferredDiskBlockSize))
 	out.PreferredInterfaceModel = in.PreferredInterfaceModel
-	out.PreferredRng = (*v1.Rng)(unsafe.Pointer(in.PreferredRng))
+	out.PreferredRng = (*corev1.Rng)(unsafe.Pointer(in.PreferredRng))
 	out.PreferredBlockMultiQueue = (*bool)(unsafe.Pointer(in.PreferredBlockMultiQueue))
 	out.PreferredNetworkInterfaceMultiQueue = (*bool)(unsafe.Pointer(in.PreferredNetworkInterfaceMultiQueue))
-	out.PreferredTPM = (*v1.TPMDevice)(unsafe.Pointer(in.PreferredTPM))
+	out.PreferredTPM = (*corev1.TPMDevice)(unsafe.Pointer(in.PreferredTPM))
 	// WARNING: in.PreferredInterfaceMasquerade requires manual conversion: does not exist in peer-type
 	return nil
 }
@@ -317,23 +331,23 @@ func autoConvert_v1alpha1_DevicePreferences_To_v1beta1_DevicePreferences(in *Dev
 	out.PreferredAutoattachSerialConsole = (*bool)(unsafe.Pointer(in.PreferredAutoattachSerialConsole))
 	out.PreferredAutoattachInputDevice = (*bool)(unsafe.Pointer(in.PreferredAutoattachInputDevice))
 	out.PreferredDisableHotplug = (*bool)(unsafe.Pointer(in.PreferredDisableHotplug))
-	out.PreferredVirtualGPUOptions = (*v1.VGPUOptions)(unsafe.Pointer(in.PreferredVirtualGPUOptions))
+	out.PreferredVirtualGPUOptions = (*corev1.VGPUOptions)(unsafe.Pointer(in.PreferredVirtualGPUOptions))
 	out.PreferredSoundModel = in.PreferredSoundModel
 	out.PreferredUseVirtioTransitional = (*bool)(unsafe.Pointer(in.PreferredUseVirtioTransitional))
-	out.PreferredInputBus = v1.InputBus(in.PreferredInputBus)
-	out.PreferredInputType = v1.InputType(in.PreferredInputType)
-	out.PreferredDiskBus = v1.DiskBus(in.PreferredDiskBus)
-	out.PreferredLunBus = v1.DiskBus(in.PreferredLunBus)
-	out.PreferredCdromBus = v1.DiskBus(in.PreferredCdromBus)
+	out.PreferredInputBus = corev1.InputBus(in.PreferredInputBus)
+	out.PreferredInputType = corev1.InputType(in.PreferredInputType)
+	out.PreferredDiskBus = corev1.DiskBus(in.PreferredDiskBus)
+	out.PreferredLunBus = corev1.DiskBus(in.PreferredLunBus)
+	out.PreferredCdromBus = corev1.DiskBus(in.PreferredCdromBus)
 	out.PreferredDiskDedicatedIoThread = (*bool)(unsafe.Pointer(in.PreferredDiskDedicatedIoThread))
-	out.PreferredDiskCache = v1.DriverCache(in.PreferredDiskCache)
-	out.PreferredDiskIO = v1.DriverIO(in.PreferredDiskIO)
-	out.PreferredDiskBlockSize = (*v1.BlockSize)(unsafe.Pointer(in.PreferredDiskBlockSize))
+	out.PreferredDiskCache = corev1.DriverCache(in.PreferredDiskCache)
+	out.PreferredDiskIO = corev1.DriverIO(in.PreferredDiskIO)
+	out.PreferredDiskBlockSize = (*corev1.BlockSize)(unsafe.Pointer(in.PreferredDiskBlockSize))
 	out.PreferredInterfaceModel = in.PreferredInterfaceModel
-	out.PreferredRng = (*v1.Rng)(unsafe.Pointer(in.PreferredRng))
+	out.PreferredRng = (*corev1.Rng)(unsafe.Pointer(in.PreferredRng))
 	out.PreferredBlockMultiQueue = (*bool)(unsafe.Pointer(in.PreferredBlockMultiQueue))
 	out.PreferredNetworkInterfaceMultiQueue = (*bool)(unsafe.Pointer(in.PreferredNetworkInterfaceMultiQueue))
-	out.PreferredTPM = (*v1.TPMDevice)(unsafe.Pointer(in.PreferredTPM))
+	out.PreferredTPM = (*corev1.TPMDevice)(unsafe.Pointer(in.PreferredTPM))
 	return nil
 }
 
@@ -343,12 +357,12 @@ func Convert_v1alpha1_DevicePreferences_To_v1beta1_DevicePreferences(in *DeviceP
 }
 
 func autoConvert_v1beta1_FeaturePreferences_To_v1alpha1_FeaturePreferences(in *v1beta1.FeaturePreferences, out *FeaturePreferences, s conversion.Scope) error {
-	out.PreferredAcpi = (*v1.FeatureState)(unsafe.Pointer(in.PreferredAcpi))
-	out.PreferredApic = (*v1.FeatureAPIC)(unsafe.Pointer(in.PreferredApic))
-	out.PreferredHyperv = (*v1.FeatureHyperv)(unsafe.Pointer(in.PreferredHyperv))
-	out.PreferredKvm = (*v1.FeatureKVM)(unsafe.Pointer(in.PreferredKvm))
-	out.PreferredPvspinlock = (*v1.FeatureState)(unsafe.Pointer(in.PreferredPvspinlock))
-	out.PreferredSmm = (*v1.FeatureState)(unsafe.Pointer(in.PreferredSmm))
+	out.PreferredAcpi = (*corev1.FeatureState)(unsafe.Pointer(in.PreferredAcpi))
+	out.PreferredApic = (*corev1.FeatureAPIC)(unsafe.Pointer(in.PreferredApic))
+	out.PreferredHyperv = (*corev1.FeatureHyperv)(unsafe.Pointer(in.PreferredHyperv))
+	out.PreferredKvm = (*corev1.FeatureKVM)(unsafe.Pointer(in.PreferredKvm))
+	out.PreferredPvspinlock = (*corev1.FeatureState)(unsafe.Pointer(in.PreferredPvspinlock))
+	out.PreferredSmm = (*corev1.FeatureState)(unsafe.Pointer(in.PreferredSmm))
 	return nil
 }
 
@@ -358,12 +372,12 @@ func Convert_v1beta1_FeaturePreferences_To_v1alpha1_FeaturePreferences(in *v1bet
 }
 
 func autoConvert_v1alpha1_FeaturePreferences_To_v1beta1_FeaturePreferences(in *FeaturePreferences, out *v1beta1.FeaturePreferences, s conversion.Scope) error {
-	out.PreferredAcpi = (*v1.FeatureState)(unsafe.Pointer(in.PreferredAcpi))
-	out.PreferredApic = (*v1.FeatureAPIC)(unsafe.Pointer(in.PreferredApic))
-	out.PreferredHyperv = (*v1.FeatureHyperv)(unsafe.Pointer(in.PreferredHyperv))
-	out.PreferredKvm = (*v1.FeatureKVM)(unsafe.Pointer(in.PreferredKvm))
-	out.PreferredPvspinlock = (*v1.FeatureState)(unsafe.Pointer(in.PreferredPvspinlock))
-	out.PreferredSmm = (*v1.FeatureState)(unsafe.Pointer(in.PreferredSmm))
+	out.PreferredAcpi = (*corev1.FeatureState)(unsafe.Pointer(in.PreferredAcpi))
+	out.PreferredApic = (*corev1.FeatureAPIC)(unsafe.Pointer(in.PreferredApic))
+	out.PreferredHyperv = (*corev1.FeatureHyperv)(unsafe.Pointer(in.PreferredHyperv))
+	out.PreferredKvm = (*corev1.FeatureKVM)(unsafe.Pointer(in.PreferredKvm))
+	out.PreferredPvspinlock = (*corev1.FeatureState)(unsafe.Pointer(in.PreferredPvspinlock))
+	out.PreferredSmm = (*corev1.FeatureState)(unsafe.Pointer(in.PreferredSmm))
 	return nil
 }
 
@@ -420,7 +434,7 @@ func Convert_v1alpha1_MachinePreferences_To_v1beta1_MachinePreferences(in *Machi
 
 func autoConvert_v1beta1_MemoryInstancetype_To_v1alpha1_MemoryInstancetype(in *v1beta1.MemoryInstancetype, out *MemoryInstancetype, s conversion.Scope) error {
 	out.Guest = in.Guest
-	out.Hugepages = (*v1.Hugepages)(unsafe.Pointer(in.Hugepages))
+	out.Hugepages = (*corev1.Hugepages)(unsafe.Pointer(in.Hugepages))
 	return nil
 }
 
@@ -431,7 +445,7 @@ func Convert_v1beta1_MemoryInstancetype_To_v1alpha1_MemoryInstancetype(in *v1bet
 
 func autoConvert_v1alpha1_MemoryInstancetype_To_v1beta1_MemoryInstancetype(in *MemoryInstancetype, out *v1beta1.MemoryInstancetype, s conversion.Scope) error {
 	out.Guest = in.Guest
-	out.Hugepages = (*v1.Hugepages)(unsafe.Pointer(in.Hugepages))
+	out.Hugepages = (*corev1.Hugepages)(unsafe.Pointer(in.Hugepages))
 	return nil
 }
 
@@ -468,7 +482,17 @@ func Convert_v1alpha1_VirtualMachineClusterInstancetype_To_v1beta1_VirtualMachin
 
 func autoConvert_v1beta1_VirtualMachineClusterInstancetypeList_To_v1alpha1_VirtualMachineClusterInstancetypeList(in *v1beta1.VirtualMachineClusterInstancetypeList, out *VirtualMachineClusterInstancetypeList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]VirtualMachineClusterInstancetype)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]VirtualMachineClusterInstancetype, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_VirtualMachineClusterInstancetype_To_v1alpha1_VirtualMachineClusterInstancetype(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -479,7 +503,17 @@ func Convert_v1beta1_VirtualMachineClusterInstancetypeList_To_v1alpha1_VirtualMa
 
 func autoConvert_v1alpha1_VirtualMachineClusterInstancetypeList_To_v1beta1_VirtualMachineClusterInstancetypeList(in *VirtualMachineClusterInstancetypeList, out *v1beta1.VirtualMachineClusterInstancetypeList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta1.VirtualMachineClusterInstancetype)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta1.VirtualMachineClusterInstancetype, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_VirtualMachineClusterInstancetype_To_v1beta1_VirtualMachineClusterInstancetype(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -584,7 +618,17 @@ func Convert_v1alpha1_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstan
 
 func autoConvert_v1beta1_VirtualMachineInstancetypeList_To_v1alpha1_VirtualMachineInstancetypeList(in *v1beta1.VirtualMachineInstancetypeList, out *VirtualMachineInstancetypeList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]VirtualMachineInstancetype)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]VirtualMachineInstancetype, len(*in))
+		for i := range *in {
+			if err := Convert_v1beta1_VirtualMachineInstancetype_To_v1alpha1_VirtualMachineInstancetype(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -595,7 +639,17 @@ func Convert_v1beta1_VirtualMachineInstancetypeList_To_v1alpha1_VirtualMachineIn
 
 func autoConvert_v1alpha1_VirtualMachineInstancetypeList_To_v1beta1_VirtualMachineInstancetypeList(in *VirtualMachineInstancetypeList, out *v1beta1.VirtualMachineInstancetypeList, s conversion.Scope) error {
 	out.ListMeta = in.ListMeta
-	out.Items = *(*[]v1beta1.VirtualMachineInstancetype)(unsafe.Pointer(&in.Items))
+	if in.Items != nil {
+		in, out := &in.Items, &out.Items
+		*out = make([]v1beta1.VirtualMachineInstancetype, len(*in))
+		for i := range *in {
+			if err := Convert_v1alpha1_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(&(*in)[i], &(*out)[i], s); err != nil {
+				return err
+			}
+		}
+	} else {
+		out.Items = nil
+	}
 	return nil
 }
 
@@ -611,10 +665,10 @@ func autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1alpha1_VirtualMachi
 	if err := Convert_v1beta1_MemoryInstancetype_To_v1alpha1_MemoryInstancetype(&in.Memory, &out.Memory, s); err != nil {
 		return err
 	}
-	out.GPUs = *(*[]v1.GPU)(unsafe.Pointer(&in.GPUs))
-	out.HostDevices = *(*[]v1.HostDevice)(unsafe.Pointer(&in.HostDevices))
-	out.IOThreadsPolicy = (*v1.IOThreadsPolicy)(unsafe.Pointer(in.IOThreadsPolicy))
-	out.LaunchSecurity = (*v1.LaunchSecurity)(unsafe.Pointer(in.LaunchSecurity))
+	out.GPUs = *(*[]corev1.GPU)(unsafe.Pointer(&in.GPUs))
+	out.HostDevices = *(*[]corev1.HostDevice)(unsafe.Pointer(&in.HostDevices))
+	out.IOThreadsPolicy = (*corev1.IOThreadsPolicy)(unsafe.Pointer(in.IOThreadsPolicy))
+	out.LaunchSecurity = (*corev1.LaunchSecurity)(unsafe.Pointer(in.LaunchSecurity))
 	return nil
 }
 
@@ -630,10 +684,10 @@ func autoConvert_v1alpha1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachi
 	if err := Convert_v1alpha1_MemoryInstancetype_To_v1beta1_MemoryInstancetype(&in.Memory, &out.Memory, s); err != nil {
 		return err
 	}
-	out.GPUs = *(*[]v1.GPU)(unsafe.Pointer(&in.GPUs))
-	out.HostDevices = *(*[]v1.HostDevice)(unsafe.Pointer(&in.HostDevices))
-	out.IOThreadsPolicy = (*v1.IOThreadsPolicy)(unsafe.Pointer(in.IOThreadsPolicy))
-	out.LaunchSecurity = (*v1.LaunchSecurity)(unsafe.Pointer(in.LaunchSecurity))
+	out.GPUs = *(*[]corev1.GPU)(unsafe.Pointer(&in.GPUs))
+	out.HostDevices = *(*[]corev1.HostDevice)(unsafe.Pointer(&in.HostDevices))
+	out.IOThreadsPolicy = (*corev1.IOThreadsPolicy)(unsafe.Pointer(in.IOThreadsPolicy))
+	out.LaunchSecurity = (*corev1.LaunchSecurity)(unsafe.Pointer(in.LaunchSecurity))
 	return nil
 }
 

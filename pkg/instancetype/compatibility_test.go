@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
 
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -44,6 +45,10 @@ var _ = Describe("compatibility", func() {
 			expectedInstancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 				CPU: instancetypev1beta1.CPUInstancetype{
 					Guest: 4,
+					// Set the following values to be compatible with objects converted from prior API versions
+					Model:                 pointer.String(""),
+					DedicatedCPUPlacement: pointer.Bool(false),
+					IsolateEmulatorThread: pointer.Bool(false),
 				},
 				Memory: instancetypev1beta1.MemoryInstancetype{
 					Guest: resource.MustParse("128Mi"),
@@ -162,7 +167,7 @@ var _ = Describe("compatibility", func() {
 						Kind:       "VirtualMachineInstancetype",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "VirtualMachineClusterInstancetype",
+						Name: "VirtualMachineInstancetype",
 					},
 					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
 						CPU: instancetypev1alpha2.CPUInstancetype{
@@ -202,13 +207,18 @@ var _ = Describe("compatibility", func() {
 				return instancetypeBytes
 			}),
 			Entry("v1beta1 VirtualMachineInstancetype", func() []byte {
+				// Omit optional pointer fields with default values
+				expectedInstancetypeSpec.CPU = instancetypev1beta1.CPUInstancetype{
+					Guest: 4,
+				}
+
 				instancetype := instancetypev1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "VirtualMachineClusterInstancetype",
+						Name: "VirtualMachineInstancetype",
 					},
 					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 						CPU: instancetypev1beta1.CPUInstancetype{
@@ -225,6 +235,11 @@ var _ = Describe("compatibility", func() {
 				return instancetypeBytes
 			}),
 			Entry("v1beta1 VirtualMachineClusterInstancetype", func() []byte {
+				// Omit optional pointer fields with default values
+				expectedInstancetypeSpec.CPU = instancetypev1beta1.CPUInstancetype{
+					Guest: 4,
+				}
+
 				instancetype := instancetypev1beta1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),

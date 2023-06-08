@@ -58,6 +58,15 @@ type InstancetypeMethods struct {
 
 var _ Methods = &InstancetypeMethods{}
 
+func getPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) instancetypev1beta1.PreferredCPUTopology {
+	// Default to PreferSockets when a PreferredCPUTopology isn't provided
+	preferredTopology := instancetypev1beta1.PreferSockets
+	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
+		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
+	}
+	return preferredTopology
+}
+
 func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
 	return fmt.Sprintf("%s-%s-%s-%d", vmName, resourceName, resourceUID, resourceGeneration)
 }
@@ -347,6 +356,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 
 	if preferenceSpec != nil {
 		// By design Preferences can't conflict with the VMI so we don't return any
+		applyCPUPreferences(preferenceSpec, vmiSpec)
 		ApplyDevicePreferences(preferenceSpec, vmiSpec)
 		applyFeaturePreferences(preferenceSpec, vmiSpec)
 		applyFirmwarePreferences(preferenceSpec, vmiSpec)
@@ -760,36 +770,41 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 }
 
 func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
-	if vmiSpec.Domain.CPU != nil {
-		return Conflicts{field.Child("domain", "cpu")}
+	if vmiSpec.Domain.CPU == nil {
+		vmiSpec.Domain.CPU = &virtv1.CPU{}
 	}
 
-	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
-		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU))}
+	// If we have any conflicts return as there's no need to apply the topology below
+	if conflicts := validateCPU(field, instancetypeSpec, vmiSpec); len(conflicts) > 0 {
+		return conflicts
 	}
 
-	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
-		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceCPU))}
+	if vmiSpec.Domain.CPU.Model == "" && instancetypeSpec.CPU.Model != nil {
+		vmiSpec.Domain.CPU.Model = *instancetypeSpec.CPU.Model
 	}
 
-	vmiSpec.Domain.CPU = &virtv1.CPU{
-		Sockets:               uint32(1),
-		Cores:                 uint32(1),
-		Threads:               uint32(1),
-		Model:                 instancetypeSpec.CPU.Model,
-		DedicatedCPUPlacement: instancetypeSpec.CPU.DedicatedCPUPlacement,
-		IsolateEmulatorThread: instancetypeSpec.CPU.IsolateEmulatorThread,
-		NUMA:                  instancetypeSpec.CPU.NUMA.DeepCopy(),
-		Realtime:              instancetypeSpec.CPU.Realtime.DeepCopy(),
+	if instancetypeSpec.CPU.DedicatedCPUPlacement != nil {
+		vmiSpec.Domain.CPU.DedicatedCPUPlacement = *instancetypeSpec.CPU.DedicatedCPUPlacement
 	}
 
-	// Default to PreferSockets when a PreferredCPUTopology isn't provided
-	preferredTopology := instancetypev1beta1.PreferSockets
-	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
-		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
+	if instancetypeSpec.CPU.IsolateEmulatorThread != nil {
+		vmiSpec.Domain.CPU.IsolateEmulatorThread = *instancetypeSpec.CPU.IsolateEmulatorThread
 	}
 
-	switch preferredTopology {
+	if vmiSpec.Domain.CPU.NUMA == nil && instancetypeSpec.CPU.NUMA != nil {
+		vmiSpec.Domain.CPU.NUMA = instancetypeSpec.CPU.NUMA.DeepCopy()
+	}
+
+	if vmiSpec.Domain.CPU.Realtime == nil && instancetypeSpec.CPU.Realtime != nil {
+		vmiSpec.Domain.CPU.Realtime = instancetypeSpec.CPU.Realtime.DeepCopy()
+	}
+
+	// Apply the default topology here to avoid duplication below
+	vmiSpec.Domain.CPU.Cores = 1
+	vmiSpec.Domain.CPU.Sockets = 1
+	vmiSpec.Domain.CPU.Threads = 1
+
+	switch getPreferredTopology(preferenceSpec) {
 	case instancetypev1beta1.PreferCores:
 		vmiSpec.Domain.CPU.Cores = instancetypeSpec.CPU.Guest
 	case instancetypev1beta1.PreferSockets:
@@ -799,6 +814,50 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 	}
 
 	return nil
+}
+
+func validateCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflicts Conflicts) {
+	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
+		conflicts = append(conflicts, field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU)))
+	}
+
+	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
+		conflicts = append(conflicts, field.Child("domain", "resources", "limits", string(k8sv1.ResourceCPU)))
+	}
+
+	if vmiSpec.Domain.CPU.Sockets != 0 {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "sockets"))
+	}
+
+	if vmiSpec.Domain.CPU.Cores != 0 {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "cores"))
+	}
+
+	if vmiSpec.Domain.CPU.Threads != 0 {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "threads"))
+	}
+
+	if vmiSpec.Domain.CPU.Model != "" && instancetypeSpec.CPU.Model != nil {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "model"))
+	}
+
+	if vmiSpec.Domain.CPU.DedicatedCPUPlacement && instancetypeSpec.CPU.DedicatedCPUPlacement != nil {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "dedicatedCPUPlacement"))
+	}
+
+	if vmiSpec.Domain.CPU.IsolateEmulatorThread && instancetypeSpec.CPU.IsolateEmulatorThread != nil {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "isolateEmulatorThread"))
+	}
+
+	if vmiSpec.Domain.CPU.NUMA != nil && instancetypeSpec.CPU.NUMA != nil {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "numa"))
+	}
+
+	if vmiSpec.Domain.CPU.Realtime != nil && instancetypeSpec.CPU.Realtime != nil {
+		conflicts = append(conflicts, field.Child("domain", "cpu", "realtime"))
+	}
+
+	return
 }
 
 func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
@@ -915,6 +974,22 @@ func applyHostDevices(field *k8sfield.Path, instancetypeSpec *instancetypev1beta
 	copy(vmiSpec.Domain.Devices.HostDevices, instancetypeSpec.HostDevices)
 
 	return nil
+}
+
+func applyCPUPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
+		return
+	}
+	// Only apply any preferred CPU features when the same feature has not been provided by a user already
+	cpuFeatureNames := make(map[string]struct{})
+	for _, cpuFeature := range vmiSpec.Domain.CPU.Features {
+		cpuFeatureNames[cpuFeature.Name] = struct{}{}
+	}
+	for _, preferredCPUFeature := range preferenceSpec.CPU.PreferredCPUFeatures {
+		if _, foundCPUFeature := cpuFeatureNames[preferredCPUFeature.Name]; !foundCPUFeature {
+			vmiSpec.Domain.CPU.Features = append(vmiSpec.Domain.CPU.Features, preferredCPUFeature)
+		}
+	}
 }
 
 func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {

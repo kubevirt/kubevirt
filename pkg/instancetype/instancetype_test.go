@@ -289,6 +289,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+				clusterInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
+					Guest: uint32(2),
+					// Set the following values to be compatible with objects converted from v1alpha1
+					Model:                 pointer.String(""),
+					DedicatedCPUPlacement: pointer.Bool(false),
+					IsolateEmulatorThread: pointer.Bool(false),
+				}
+
 				specData, err := json.Marshal(clusterInstancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -471,6 +479,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
+				fakeInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
+					Guest: uint32(2),
+					// Set the following values to be compatible with objects converted from v1alpha1
+					Model:                 pointer.String(""),
+					DedicatedCPUPlacement: pointer.Bool(false),
+					IsolateEmulatorThread: pointer.Bool(false),
+				}
+
 				specData, err := json.Marshal(fakeInstancetype.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -904,9 +920,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
 						Guest:                 uint32(2),
-						Model:                 "host-passthrough",
-						DedicatedCPUPlacement: true,
-						IsolateEmulatorThread: true,
+						Model:                 pointer.String("host-passthrough"),
+						DedicatedCPUPlacement: pointer.Bool(true),
+						IsolateEmulatorThread: pointer.Bool(true),
 						NUMA: &v1.NUMA{
 							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
 						},
@@ -927,9 +943,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 
@@ -945,9 +961,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(instancetypeSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
@@ -962,9 +978,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(instancetypeSpec.CPU.Guest))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
@@ -979,9 +995,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
 				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
-				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(instancetypeSpec.CPU.Model))
-				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(instancetypeSpec.CPU.DedicatedCPUPlacement))
-				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(instancetypeSpec.CPU.IsolateEmulatorThread))
+				Expect(vmi.Spec.Domain.CPU.Model).To(Equal(*instancetypeSpec.CPU.Model))
+				Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(Equal(*instancetypeSpec.CPU.DedicatedCPUPlacement))
+				Expect(vmi.Spec.Domain.CPU.IsolateEmulatorThread).To(Equal(*instancetypeSpec.CPU.IsolateEmulatorThread))
 				Expect(*vmi.Spec.Domain.CPU.NUMA).To(Equal(*instancetypeSpec.CPU.NUMA))
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
@@ -1000,8 +1016,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
-				Expect(conflicts).To(HaveLen(1))
-				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu"))
+				Expect(conflicts).To(HaveLen(3))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.cpu.sockets"))
+				Expect(conflicts[1].String()).To(Equal("spec.template.spec.domain.cpu.cores"))
+				Expect(conflicts[2].String()).To(Equal("spec.template.spec.domain.cpu.threads"))
 			})
 
 			It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {
@@ -1039,7 +1057,45 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(conflicts).To(HaveLen(1))
 				Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.cpu"))
 			})
+
+			It("should apply PreferredCPUFeatures", func() {
+				preferenceSpec := &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUFeatures: []v1.CPUFeature{
+							{
+								Name:   "foo",
+								Policy: "require",
+							},
+							{
+								Name:   "bar",
+								Policy: "force",
+							},
+						},
+					},
+				}
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Features: []v1.CPUFeature{
+						{
+							Name:   "bar",
+							Policy: "optional",
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(2))
+				Expect(vmi.Spec.Domain.CPU.Features).To(ContainElements([]v1.CPUFeature{
+					{
+						Name:   "foo",
+						Policy: "require",
+					},
+					{
+						Name:   "bar",
+						Policy: "optional",
+					},
+				}))
+			})
 		})
+
 		Context("instancetype.Spec.Memory", func() {
 			BeforeEach(func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{

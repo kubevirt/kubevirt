@@ -120,12 +120,12 @@ type CPUInstancetype struct {
 	// and "host-model" to get CPU closest to the node one.
 	// Defaults to host-model.
 	// +optional
-	Model string `json:"model,omitempty"`
+	Model *string `json:"model,omitempty"`
 
 	// DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node
 	// with enough dedicated pCPUs and pin the vCPUs to it.
 	// +optional
-	DedicatedCPUPlacement bool `json:"dedicatedCPUPlacement,omitempty"`
+	DedicatedCPUPlacement *bool `json:"dedicatedCPUPlacement,omitempty"`
 
 	// NUMA allows specifying settings for the guest NUMA topology
 	// +optional
@@ -134,7 +134,7 @@ type CPUInstancetype struct {
 	// IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
 	// the emulator thread on it.
 	// +optional
-	IsolateEmulatorThread bool `json:"isolateEmulatorThread,omitempty"`
+	IsolateEmulatorThread *bool `json:"isolateEmulatorThread,omitempty"`
 
 	// Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads
 	// +optional
@@ -278,6 +278,11 @@ type CPUPreferences struct {
 	//
 	//+optional
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
+
+	// PreferredCPUFeatures optionally defines a slice of preferred CPU features.
+	//
+	//+optional
+	PreferredCPUFeatures []v1.CPUFeature `json:"preferredCPUFeatures,omitempty"`
 }
 
 // DevicePreferences contains various optional Device preferences.
