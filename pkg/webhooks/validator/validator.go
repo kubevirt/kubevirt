@@ -2,7 +2,6 @@ package validator
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,8 +26,6 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
 
-	"github.com/openshift/library-go/pkg/crypto"
-
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -50,13 +47,14 @@ type WebhookHandler struct {
 
 var hcoTLSConfigCache *openshiftconfigv1.TLSSecurityProfile
 
-func NewWebhookHandler(logger logr.Logger, cli client.Client, namespace string, isOpenshift bool, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
+func NewWebhookHandler(logger logr.Logger, cli client.Client, decoder *admission.Decoder, namespace string, isOpenshift bool, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *WebhookHandler {
 	hcoTLSConfigCache = hcoTLSSecurityProfile
 	return &WebhookHandler{
 		logger:      logger,
 		cli:         cli,
 		namespace:   namespace,
 		isOpenshift: isOpenshift,
+		decoder:     decoder,
 	}
 }
 
@@ -110,15 +108,6 @@ func (wh *WebhookHandler) Handle(ctx context.Context, req admission.Request) adm
 
 	// Return allowed if everything succeeded.
 	return admission.Allowed("")
-}
-
-var _ admission.DecoderInjector = &WebhookHandler{}
-
-// InjectDecoder injects the decoder.
-// WebhookHandler implements admission.DecoderInjector so a decoder will be automatically injected.
-func (wh *WebhookHandler) InjectDecoder(d *admission.Decoder) error {
-	wh.decoder = d
-	return nil
 }
 
 func (wh *WebhookHandler) ValidateCreate(_ context.Context, dryrun bool, hc *v1beta1.HyperConverged) error {
@@ -417,29 +406,6 @@ func hasRequiredHTTP2Ciphers(ciphers []string) bool {
 	return lo.Some[string](requiredHTTP2Ciphers, ciphers)
 }
 
-func (wh *WebhookHandler) MutateTLSConfig(cfg *tls.Config) {
-	// This callback executes on each client call returning a new config to be used
-	// please be aware that the APIServer is using http keepalive so this is going to
-	// be executed only after a while for fresh connections and not on existing ones
-	cfg.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
-		cipherNames, minTypedTLSVersion := wh.selectCipherSuitesAndMinTLSVersion()
-		cfg.CipherSuites = crypto.CipherSuitesOrDie(crypto.OpenSSLToIANACipherSuites(cipherNames))
-		cfg.MinVersion = crypto.TLSVersionOrDie(string(minTypedTLSVersion))
-		return cfg, nil
-	}
-}
-
-func (wh *WebhookHandler) selectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtocolVersion) {
-	ci := hcoutil.GetClusterInfo()
-	profile := ci.GetTLSSecurityProfile(hcoTLSConfigCache)
-
-	if profile.Custom != nil {
-		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion
-	}
-
-	return openshiftconfigv1.TLSProfiles[profile.Type].Ciphers, openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion
-}
-
 // validationResponseFromStatus returns a response for admitting a request with provided Status object.
 func validationResponseFromStatus(allowed bool, status metav1.Status) admission.Response {
 	resp := admission.Response{
@@ -449,4 +415,15 @@ func validationResponseFromStatus(allowed bool, status metav1.Status) admission.
 		},
 	}
 	return resp
+}
+
+func SelectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtocolVersion) {
+	ci := hcoutil.GetClusterInfo()
+	profile := ci.GetTLSSecurityProfile(hcoTLSConfigCache)
+
+	if profile.Custom != nil {
+		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion
+	}
+
+	return openshiftconfigv1.TLSProfiles[profile.Type].Ciphers, openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion
 }

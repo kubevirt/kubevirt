@@ -13,9 +13,9 @@ import (
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
@@ -53,7 +53,7 @@ var _ = Describe("imageStream tests", func() {
 				return testFilesLocation
 			}
 
-			cli := commontestutils.InitClient([]runtime.Object{})
+			cli := commontestutils.InitClient([]client.Object{})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -102,7 +102,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -132,7 +132,7 @@ var _ = Describe("imageStream tests", func() {
 			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 			eventEmitter := commontestutils.NewEventEmitterMock()
 			ci := commontestutils.ClusterInfoMock{}
-			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
 			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
@@ -191,7 +191,7 @@ var _ = Describe("imageStream tests", func() {
 
 			hcoNamespace := commontestutils.NewHcoNamespace()
 			hco := commontestutils.NewHco()
-			cli := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 
 			eventEmitter := commontestutils.NewEventEmitterMock()
 			ci := commontestutils.ClusterInfoMock{}
@@ -222,7 +222,7 @@ var _ = Describe("imageStream tests", func() {
 
 			hco := commontestutils.NewHco()
 			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
-			cli := commontestutils.InitClient([]runtime.Object{hco})
+			cli := commontestutils.InitClient([]client.Object{hco})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -268,7 +268,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -332,7 +332,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -405,7 +405,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -474,7 +474,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -543,7 +543,7 @@ var _ = Describe("imageStream tests", func() {
 				},
 			}
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -613,7 +613,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -682,7 +682,7 @@ var _ = Describe("imageStream tests", func() {
 			exists.Labels = getLabels(hco, util.AppComponentCompute)
 			exists.ObjectMeta.Labels["to-be-removed"] = "test"
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))

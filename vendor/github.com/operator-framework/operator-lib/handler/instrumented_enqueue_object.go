@@ -15,6 +15,8 @@
 package handler
 
 import (
+	"context"
+
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -39,23 +41,23 @@ type InstrumentedEnqueueRequestForObject struct {
 }
 
 // Create implements EventHandler, and creates the metrics.
-func (h InstrumentedEnqueueRequestForObject) Create(e event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (h InstrumentedEnqueueRequestForObject) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
 	setResourceMetric(e.Object)
-	h.EnqueueRequestForObject.Create(e, q)
+	h.EnqueueRequestForObject.Create(ctx, e, q)
 }
 
 // Update implements EventHandler, and updates the metrics.
-func (h InstrumentedEnqueueRequestForObject) Update(e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (h InstrumentedEnqueueRequestForObject) Update(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	setResourceMetric(e.ObjectOld)
 	setResourceMetric(e.ObjectNew)
 
-	h.EnqueueRequestForObject.Update(e, q)
+	h.EnqueueRequestForObject.Update(ctx, e, q)
 }
 
 // Delete implements EventHandler, and deletes metrics.
-func (h InstrumentedEnqueueRequestForObject) Delete(e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (h InstrumentedEnqueueRequestForObject) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
 	deleteResourceMetric(e.Object)
-	h.EnqueueRequestForObject.Delete(e, q)
+	h.EnqueueRequestForObject.Delete(ctx, e, q)
 }
 
 func setResourceMetric(obj client.Object) {

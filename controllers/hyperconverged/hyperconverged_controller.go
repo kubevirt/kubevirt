@@ -160,7 +160,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 
 	// Watch for changes to primary resource HyperConverged
 	err = c.Watch(
-		&source.Kind{Type: &hcov1beta1.HyperConverged{}},
+		source.Kind(mgr.GetCache(), &hcov1beta1.HyperConverged{}),
 		&operatorhandler.InstrumentedEnqueueRequestForObject{},
 		predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))
 	if err != nil {
@@ -207,8 +207,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	for _, resource := range secondaryResources {
 		msg := fmt.Sprintf("Reconciling for %T", resource)
 		err = c.Watch(
-			&source.Kind{Type: resource},
-			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+			source.Kind(mgr.GetCache(), resource),
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 				// enqueue using a placeholder to be able to discriminate request triggered
 				// by changes on the HyperConverged object from request triggered by changes
 				// on a secondary CR controlled by HCO
@@ -232,8 +232,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		// Watch openshiftconfigv1.APIServer separately
 		msg := "Reconciling for openshiftconfigv1.APIServer"
 		err = c.Watch(
-			&source.Kind{Type: &openshiftconfigv1.APIServer{}},
-			handler.EnqueueRequestsFromMapFunc(func(a client.Object) []reconcile.Request {
+			source.Kind(mgr.GetCache(), &openshiftconfigv1.APIServer{}),
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
 				// enqueue using a placeholder to signal that the change is not
 				// directly on HCO CR but on the APIServer CR that we want to reload
 				// only if really changed
@@ -569,22 +569,38 @@ func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoReques
 	// Since the status subresource is enabled for the HyperConverged kind,
 	// we need to update the status and the metadata separately.
 	// Moreover, we need to update the status first, in order to prevent a conflict.
-	// In addition, spec changes are removed by status update, but since status update done first, we need
-	// to store the spec and recover it after status update
+	// In addition, metadata and spec changes are removed by status update, but since status update done first, we need
+	// to store metadata and spec and recover it after status update
 
+	var spec hcov1beta1.HyperConvergedSpec
+	var meta metav1.ObjectMeta
 	if request.Dirty {
-		err := r.updateHyperConvergedSpecMetadata(request)
-		if err != nil {
-			r.logHyperConvergedUpdateError(request, err, "Failed to update HCO CR")
-			return false, err
-		}
-		return true, nil
+		request.Instance.Spec.DeepCopyInto(&spec)
+		request.Instance.ObjectMeta.DeepCopyInto(&meta)
 	}
 
 	err := r.updateHyperConvergedStatus(request)
 	if err != nil {
 		r.logHyperConvergedUpdateError(request, err, "Failed to update HCO Status")
 		return false, err
+	}
+
+	if request.Dirty {
+		request.Instance.ObjectMeta.Annotations = meta.Annotations
+		request.Instance.ObjectMeta.Finalizers = meta.Finalizers
+		request.Instance.ObjectMeta.Labels = meta.Labels
+		request.Instance.Spec = spec
+
+		err := r.updateHyperConvergedSpecMetadata(request)
+		if err != nil {
+			r.logHyperConvergedUpdateError(request, err, "Failed to update HCO CR")
+			return false, err
+		}
+		// version update is a two step process
+		knownHcoVersion, _ := GetVersion(&request.Instance.Status, hcoVersionName)
+		if r.ownVersion != knownHcoVersion && request.StatusDirty {
+			return true, nil
+		}
 	}
 
 	return false, nil

@@ -99,7 +99,8 @@ var _ = Describe("Test general utilities", func() {
 		It("should delete an existing resource", func() {
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(pod).
+				WithObjects(pod).
+				WithStatusSubresource(pod).
 				Build()
 
 			deleted, err := EnsureDeleted(ctx, cl, pod, appName, logger, false, true, true)

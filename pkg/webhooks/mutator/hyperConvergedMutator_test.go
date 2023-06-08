@@ -277,12 +277,8 @@ var _ = Describe("test HyperConverged mutator", func() {
 })
 
 func initHCMutator(s *runtime.Scheme, testClient client.Client) *HyperConvergedMutator {
-	mutator := NewHyperConvergedMutator(testClient)
-
-	decoder, err := admission.NewDecoder(s)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
-
-	ExpectWithOffset(1, mutator.InjectDecoder(decoder)).Should(Succeed())
+	decoder := admission.NewDecoder(s)
+	mutator := NewHyperConvergedMutator(testClient, decoder)
 
 	return mutator
 }

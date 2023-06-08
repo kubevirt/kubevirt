@@ -16,10 +16,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -47,7 +47,7 @@ var _ = Describe("SSP Operands", func() {
 		It("should create if not present", func() {
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeTrue())
@@ -70,7 +70,7 @@ var _ = Describe("SSP Operands", func() {
 		It("should find if present", func() {
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
@@ -102,7 +102,7 @@ var _ = Describe("SSP Operands", func() {
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 			handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
@@ -139,7 +139,7 @@ var _ = Describe("SSP Operands", func() {
 				hco.Spec.Workloads.NodePlacement = commontestutils.NewNodePlacement()
 				hco.Spec.Infra.NodePlacement = commontestutils.NewOtherNodePlacement()
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
@@ -171,7 +171,7 @@ var _ = Describe("SSP Operands", func() {
 				existingResource, _, err := NewSSP(hcoNodePlacement, commontestutils.Namespace)
 				Expect(err).ToNot(HaveOccurred())
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
@@ -214,7 +214,7 @@ var _ = Describe("SSP Operands", func() {
 				})
 				hco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "something entirely else"
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Created).To(BeFalse())
@@ -270,7 +270,7 @@ var _ = Describe("SSP Operands", func() {
 				})
 				existingResource.Spec.TemplateValidator.Placement.NodeSelector["key3"] = "BADvalue3"
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -339,7 +339,7 @@ var _ = Describe("SSP Operands", func() {
 				]`}
 
 				expectedResource := NewSSPWithNameOnly(hco)
-				cl := commontestutils.InitClient([]runtime.Object{})
+				cl := commontestutils.InitClient([]client.Object{})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -367,7 +367,7 @@ var _ = Describe("SSP Operands", func() {
 				]`}
 
 				expectedResource := NewSSPWithNameOnly(hco)
-				cl := commontestutils.InitClient([]runtime.Object{})
+				cl := commontestutils.InitClient([]client.Object{})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
@@ -394,7 +394,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 				]`}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existsSsp})
+				cl := commontestutils.InitClient([]client.Object{hco, existsSsp})
 
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
@@ -427,7 +427,7 @@ var _ = Describe("SSP Operands", func() {
 					}
 				]`}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existsSsp})
+				cl := commontestutils.InitClient([]client.Object{hco, existsSsp})
 
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
@@ -448,7 +448,7 @@ var _ = Describe("SSP Operands", func() {
 		})
 
 		Context("Cache", func() {
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 
 			It("should start with empty cache", func() {
@@ -1192,7 +1192,7 @@ var _ = Describe("SSP Operands", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]runtime.Object{})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeTrue())
@@ -1221,7 +1221,7 @@ var _ = Describe("SSP Operands", func() {
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]runtime.Object{})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeTrue())
@@ -1250,7 +1250,7 @@ var _ = Describe("SSP Operands", func() {
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]runtime.Object{})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeTrue())
@@ -1288,7 +1288,7 @@ var _ = Describe("SSP Operands", func() {
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]runtime.Object{})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeTrue())
@@ -1332,7 +1332,7 @@ var _ = Describe("SSP Operands", func() {
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]runtime.Object{})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeTrue())
@@ -1377,7 +1377,7 @@ var _ = Describe("SSP Operands", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]runtime.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{expectedResource})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1409,7 +1409,7 @@ var _ = Describe("SSP Operands", func() {
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 
-						cl := commontestutils.InitClient([]runtime.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{expectedResource})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1441,7 +1441,7 @@ var _ = Describe("SSP Operands", func() {
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
 
-						cl := commontestutils.InitClient([]runtime.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{expectedResource})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1481,7 +1481,7 @@ var _ = Describe("SSP Operands", func() {
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
 
-						cl := commontestutils.InitClient([]runtime.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{expectedResource})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1523,7 +1523,7 @@ var _ = Describe("SSP Operands", func() {
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 
-						cl := commontestutils.InitClient([]runtime.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{expectedResource})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1632,7 +1632,7 @@ var _ = Describe("SSP Operands", func() {
 				// now, modify HCO's TLSSecurityProfile
 				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1662,7 +1662,7 @@ var _ = Describe("SSP Operands", func() {
 				// now, modify SSP TLSSecurityProfile
 				existingResource.Spec.TLSSecurityProfile = modernTLSSecurityProfile
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())

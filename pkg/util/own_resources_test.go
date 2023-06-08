@@ -125,7 +125,8 @@ var _ = Describe("Test OwnResources", func() {
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(csv, dep, rs, pod).
+			WithObjects(csv, dep, rs, pod).
+			WithStatusSubresource(csv, dep, rs, pod).
 			Build()
 
 		or := findOwnResources(context.Background(), cl, logger)

@@ -3,11 +3,14 @@ package util
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/discovery"
 
 	"github.com/go-logr/logr"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
@@ -211,7 +214,8 @@ func EnsureDeleted(ctx context.Context, c client.Client, obj client.Object, hcoN
 	err := GetRuntimeObject(ctx, c, obj)
 
 	if err != nil {
-		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+		var gdferr *discovery.ErrGroupDiscoveryFailed
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) || errors.As(err, &gdferr) {
 			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", obj.GetObjectKind())
 			return false, nil
 		}

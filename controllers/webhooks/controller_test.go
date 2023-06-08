@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -28,7 +28,7 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("Setup", func() {
 
 			It("Should setup the controller if on Openshift", func() {
-				resources := []runtime.Object{}
+				resources := []client.Object{}
 				cl := commontestutils.InitClient(resources)
 
 				ci := commontestutils.ClusterInfoMock{}
@@ -48,7 +48,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("Should not setup the controller if not on Openshift", func() {
-				resources := []runtime.Object{}
+				resources := []client.Object{}
 				cl := commontestutils.InitClient(resources)
 
 				ci := hcoutil.GetClusterInfo()
@@ -135,7 +135,7 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 				}
 
-				resources := []runtime.Object{clusterVersion, infrastructure, ingress, apiServer, dns}
+				resources := []client.Object{clusterVersion, infrastructure, ingress, apiServer, dns}
 				cl := commontestutils.InitClient(resources)
 
 				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())

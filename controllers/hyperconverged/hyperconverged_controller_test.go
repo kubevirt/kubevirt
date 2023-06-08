@@ -25,7 +25,6 @@ import (
 	k8sTime "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
@@ -87,7 +86,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should handle not found", func() {
-				cl := commontestutils.InitClient([]runtime.Object{})
+				cl := commontestutils.InitClient([]client.Object{})
 				r := initReconciler(cl, nil)
 
 				res, err := r.Reconcile(context.TODO(), request)
@@ -108,7 +107,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Conditions: []metav1.Condition{},
 					},
 				}
-				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 				r := initReconciler(cl, nil)
 
 				// Do the reconcile
@@ -145,7 +144,7 @@ var _ = Describe("HyperconvergedController", func() {
 					WithHostPassthroughCPU: pointer.Bool(true),
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commontestutils.NewEventEmitterMock(), commontestutils.GetScheme())
 
 				r := initReconciler(cl, nil)
@@ -688,7 +687,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
 				// mock a reconciliation triggered by a change in secondary CR
@@ -748,7 +747,7 @@ var _ = Describe("HyperconvergedController", func() {
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco, existingResource})
 				r := initReconciler(cl, nil)
 
 				counterValueBefore, err := metrics.HcoMetrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
@@ -937,7 +936,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl, nil)
 				res, err := r.Reconcile(context.TODO(), request)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				Expect(res.Requeue).To(BeFalse())
 
 				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
@@ -952,7 +951,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("Should not be ready if one of the operands is returns error, on create", func() {
 				hco := commontestutils.NewHco()
-				cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 				cl.InitiateCreateErrors(func(obj client.Object) error {
 					if _, ok := obj.(*cdiv1beta1.CDI); ok {
 						return errors.New("fake create error")
@@ -1408,15 +1407,9 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
-				// Call again - requeue
-				foundResource, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
+				// ensure we are not hot-looping setting the version
+				_, reconciler, requeue = doReconcile(cl, expected.hco, reconciler)
 				Expect(requeue).To(BeFalse())
-				checkAvailability(foundResource, metav1.ConditionFalse)
-
-				// check that the HCO version is not set, because upgrade is not completed
-				ver, ok = GetVersion(&foundResource.Status, hcoVersionName)
-				Expect(ok).To(BeTrue())
-				Expect(ver).Should(Equal(oldVersion))
 
 				validateOperatorCondition(reconciler, metav1.ConditionFalse, hcoutil.UpgradeableUpgradingReason, hcoutil.UpgradeableUpgradingMessage)
 
@@ -2231,7 +2224,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("Should remove services", func() {
-					resources := []runtime.Object{
+					resources := []client.Object{
 						&corev1.Service{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      operatorMetrics,
@@ -2269,7 +2262,7 @@ var _ = Describe("HyperconvergedController", func() {
 				})
 
 				It("Should remove endpoints", func() {
-					resources := []runtime.Object{
+					resources := []client.Object{
 						&corev1.Endpoints{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:      operatorMetrics,
@@ -3200,7 +3193,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchKVAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3253,7 +3246,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchKVAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3261,7 +3254,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
-					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+					Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
 
 					// Get the HCO
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3305,13 +3298,13 @@ var _ = Describe("HyperconvergedController", func() {
 						]`,
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res.Requeue).To(BeFalse())
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3355,7 +3348,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3412,7 +3405,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCDIAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3420,7 +3413,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
-					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+					Expect(res.Requeue).To(BeFalse())
 
 					// Get the HCO
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3457,13 +3450,13 @@ var _ = Describe("HyperconvergedController", func() {
 						common.JSONPatchKVAnnotationName: `[{`,
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
 						res, err := r.Reconcile(context.TODO(), request)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+						Expect(res.Requeue).To(BeFalse())
 					})
 
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3506,7 +3499,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3559,7 +3552,7 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3567,7 +3560,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
-					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+					Expect(res.Requeue).To(BeFalse())
 
 					// Get the HCO
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3596,7 +3589,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3640,7 +3633,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3691,7 +3684,7 @@ var _ = Describe("HyperconvergedController", func() {
 					})
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					// Do the reconcile
@@ -3699,7 +3692,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Expecting "Requeue: false" since the conditions aren't empty
-					Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+					Expect(res.Requeue).To(BeFalse())
 
 					// Get the HCO
 					foundResource := &hcov1beta1.HyperConverged{}
@@ -3728,7 +3721,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(5, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {
@@ -3805,7 +3798,7 @@ var _ = Describe("HyperconvergedController", func() {
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchCNAOAnnotationName)).To(Succeed())
 					Expect(metrics.HcoMetrics.SetUnsafeModificationCount(0, common.JSONPatchSSPAnnotationName)).To(Succeed())
 
-					cl := commontestutils.InitClient([]runtime.Object{hcoNamespace, hco})
+					cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
 					r := initReconciler(cl, nil)
 
 					By("Reconcile", func() {

@@ -70,5 +70,5 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch APIServer and enqueue APIServer object key
-	return c.Watch(&source.Kind{Type: &openshiftconfigv1.APIServer{}}, &handler.EnqueueRequestForObject{})
+	return c.Watch(source.Kind(mgr.GetCache(), &openshiftconfigv1.APIServer{}), &handler.EnqueueRequestForObject{})
 }

@@ -5,9 +5,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -29,7 +29,7 @@ var _ = Describe("TTO Operands", func() {
 		It("should create if not present", func() {
 			expectedResource := NewTTO(hco)
 
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newTtoHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeTrue())
@@ -52,7 +52,7 @@ var _ = Describe("TTO Operands", func() {
 		It("should find if present", func() {
 			expectedResource := NewTTO(hco)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newTtoHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
@@ -79,7 +79,7 @@ var _ = Describe("TTO Operands", func() {
 
 			req.HCOTriggered = false // mock a reconciliation triggered by a change in NewKubeVirtCommonTemplateBundle CR
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 			handler := (*genericOperand)(newTtoHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Created).To(BeFalse())
@@ -108,7 +108,7 @@ var _ = Describe("TTO Operands", func() {
 		})
 
 		Context("Cache", func() {
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := newTtoHandler(cl, commontestutils.GetScheme())
 
 			It("should start with empty cache", func() {

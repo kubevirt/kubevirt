@@ -6,10 +6,10 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 
@@ -171,7 +171,7 @@ var _ = Describe("Test operator.go", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commontestutils.InitClient([]runtime.Object{hco})
+			cl := commontestutils.InitClient([]client.Object{hco})
 
 			res := NewEnsureResult(expectedResource)
 
@@ -199,8 +199,7 @@ var _ = Describe("Test operator.go", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 			expectedResource.ResourceVersion = "1234"
-
-			cl := commontestutils.InitClient([]runtime.Object{hco})
+			cl := commontestutils.InitClient([]client.Object{hco})
 
 			res := NewEnsureResult(expectedResource)
 
@@ -228,7 +227,7 @@ var _ = Describe("Test operator.go", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 
 			res := NewEnsureResult(expectedResource)
 

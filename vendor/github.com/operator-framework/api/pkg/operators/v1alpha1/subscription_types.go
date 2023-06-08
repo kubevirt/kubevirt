@@ -111,6 +111,12 @@ const (
 
 	// SubscriptionResolutionFailed indicates that the dependency resolution in the namespace in which the subscription is created has failed
 	SubscriptionResolutionFailed SubscriptionConditionType = "ResolutionFailed"
+
+	// SubscriptionBundleUnpacking indicates that the unpack job is currently running
+	SubscriptionBundleUnpacking SubscriptionConditionType = "BundleUnpacking"
+
+	// SubscriptionBundleUnpackFailed indicates that the unpack job failed
+	SubscriptionBundleUnpackFailed SubscriptionConditionType = "BundleUnpackFailed"
 )
 
 const (

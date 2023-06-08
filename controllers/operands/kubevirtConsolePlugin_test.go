@@ -11,9 +11,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -43,7 +43,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 		It("should create plugin CR if not present", func() {
 			expectedResource := NewKVConsolePlugin(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler, err := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -65,7 +65,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 		It("should find plugin CR if present", func() {
 			expectedResource := NewKVConsolePlugin(hco)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource, expectedConsoleConfig})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource, expectedConsoleConfig})
 			handler, err := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -88,7 +88,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.Spec.Backend.Service.Port = int32(6666)
 			outdatedResource.Spec.DisplayName = "fake plugin name"
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, err := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -122,7 +122,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 			outdatedResource.Labels[hcoutil.AppLabel] = "changed"
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, err := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -147,7 +147,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 			outdatedResource.Labels["fake_label"] = "something"
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, err := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -172,7 +172,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 			delete(outdatedResource.Labels, hcoutil.AppLabel)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, outdatedResource, expectedConsoleConfig})
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource, expectedConsoleConfig})
 			handler, err := newKvUIPluginCRHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -205,7 +205,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource, err := NewKvUIPluginDeplymnt(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -229,7 +229,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource, err := NewKvUIPluginDeplymnt(hco)
 			Expect(err).ToNot(HaveOccurred())
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -259,7 +259,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.ObjectMeta.Labels[hcoutil.AppLabel] = "wrong label"
 			outdatedResource.Spec.Template.Spec.Containers[0].Image = "quay.io/fake/image:latest"
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, outdatedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
 			handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
 			Expect(err).ToNot(HaveOccurred())
 			res := handler[0].ensure(req)
@@ -300,7 +300,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 
 		It("should create plugin service if not present", func() {
 			expectedResource := NewKvUIPluginSvc(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newServiceHandler(cl, commontestutils.GetScheme(), NewKvUIPluginSvc))
 
 			res := handler.ensure(req)
@@ -321,7 +321,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 		It("should find plugin service if present", func() {
 			expectedResource := NewKvUIPluginSvc(hco)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newServiceHandler(cl, commontestutils.GetScheme(), NewKvUIPluginSvc))
 
 			res := handler.ensure(req)
@@ -350,7 +350,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.ObjectMeta.Labels[hcoutil.AppLabel] = "wrong label"
 			outdatedResource.Spec.Ports[0].Port = 6666
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, outdatedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
 			handler := (*genericOperand)(newServiceHandler(cl, commontestutils.GetScheme(), NewKvUIPluginSvc))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())

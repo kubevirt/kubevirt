@@ -10,8 +10,8 @@ import (
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -103,7 +103,8 @@ var _ = Describe("test clusterInfo", func() {
 		os.Setenv(OperatorConditionNameEnvVar, "aValue")
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
+			WithObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
+			WithStatusSubresource(clusterVersion, infrastructure, ingress, apiServer, dns).
 			Build()
 		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
@@ -120,7 +121,8 @@ var _ = Describe("test clusterInfo", func() {
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithRuntimeObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
+			WithObjects(clusterVersion, infrastructure, ingress, apiServer, dns).
+			WithStatusSubresource(clusterVersion, infrastructure, ingress, apiServer, dns).
 			Build()
 		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
@@ -148,7 +150,8 @@ var _ = Describe("test clusterInfo", func() {
 			os.Setenv(OperatorConditionNameEnvVar, "aValue")
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(clusterVersion, testInfrastructure, ingress, apiServer, dns).
+				WithObjects(clusterVersion, testInfrastructure, ingress, apiServer, dns).
+				WithStatusSubresource(clusterVersion, testInfrastructure, ingress, apiServer, dns).
 				Build()
 			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
@@ -191,7 +194,7 @@ var _ = Describe("test clusterInfo", func() {
 		"check Init on k8s, infrastructure topology ...",
 		func(numMasterNodes, numWorkerNodes int, expectedIsControlPlaneHighlyAvailable, expectedIsInfrastructureHighlyAvailable bool) {
 
-			var nodesArray []runtime.Object
+			var nodesArray []client.Object
 			for i := 0; i < numMasterNodes; i++ {
 				masterNode := &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
@@ -217,7 +220,8 @@ var _ = Describe("test clusterInfo", func() {
 			os.Unsetenv(OperatorConditionNameEnvVar)
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
-				WithRuntimeObjects(nodesArray...).
+				WithObjects(nodesArray...).
+				WithStatusSubresource(nodesArray...).
 				Build()
 
 			Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())

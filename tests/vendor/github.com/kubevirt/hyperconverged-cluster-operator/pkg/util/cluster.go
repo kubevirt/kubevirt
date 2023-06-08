@@ -2,10 +2,12 @@ package util
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/client-go/discovery"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -227,7 +229,8 @@ func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client) err
 	}
 
 	if err := cl.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion); err != nil {
-		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) {
+		var gdferr *discovery.ErrGroupDiscoveryFailed
+		if meta.IsNoMatchError(err) || apierrors.IsNotFound(err) || errors.As(err, &gdferr) {
 			// Not on OpenShift
 			c.runningInOpenshift = false
 			c.logger.Info("Cluster type = kubernetes")

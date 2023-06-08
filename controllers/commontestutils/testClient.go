@@ -3,6 +3,8 @@ package commontestutils
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -22,6 +24,14 @@ type HcoTestClient struct {
 	createError FakeWriteErrorGenerator
 	updateError FakeWriteErrorGenerator
 	deleteError FakeWriteErrorGenerator
+}
+
+func (c *HcoTestClient) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return c.client.GroupVersionKindFor(obj)
+}
+
+func (c *HcoTestClient) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return c.client.IsObjectNamespaced(obj)
 }
 
 func (c *HcoTestClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
@@ -167,11 +177,12 @@ func (errs *TestErrors) GetNextError() (bool, error) {
 	return true, err
 }
 
-func InitClient(clientObjects []runtime.Object) *HcoTestClient {
+func InitClient(clientObjects []client.Object) *HcoTestClient {
 	// Create a fake client to mock API calls
 	cl := fake.NewClientBuilder().
-		WithRuntimeObjects(clientObjects...).
+		WithObjects(clientObjects...).
 		WithScheme(GetScheme()).
+		WithStatusSubresource(clientObjects...).
 		Build()
 
 	return &HcoTestClient{client: cl, sw: &HcoTestStatusWriter{client: cl.Status()}}

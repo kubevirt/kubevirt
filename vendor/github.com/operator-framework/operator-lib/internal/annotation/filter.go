@@ -22,6 +22,7 @@
 package annotation
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -87,24 +88,24 @@ func newEventHandler(key string, opts Options) (handler.EventHandler, error) {
 
 	f.hdlr = &handler.EnqueueRequestForObject{}
 	return handler.Funcs{
-		CreateFunc: func(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+		CreateFunc: func(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 			if f.Create(evt) {
-				f.hdlr.Create(evt, q)
+				f.hdlr.Create(ctx, evt, q)
 			}
 		},
-		UpdateFunc: func(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+		UpdateFunc: func(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 			if f.Update(evt) {
-				f.hdlr.Update(evt, q)
+				f.hdlr.Update(ctx, evt, q)
 			}
 		},
-		DeleteFunc: func(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+		DeleteFunc: func(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 			if f.Delete(evt) {
-				f.hdlr.Delete(evt, q)
+				f.hdlr.Delete(ctx, evt, q)
 			}
 		},
-		GenericFunc: func(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+		GenericFunc: func(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 			if f.Generic(evt) {
-				f.hdlr.Generic(evt, q)
+				f.hdlr.Generic(ctx, evt, q)
 			}
 		},
 	}, nil

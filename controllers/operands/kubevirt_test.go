@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +46,7 @@ var _ = Describe("KubeVirt Operand", func() {
 
 		It("should create if not present", func() {
 			expectedResource := NewKubeVirtPriorityClass(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -63,7 +62,7 @@ var _ = Describe("KubeVirt Operand", func() {
 
 		It("should do nothing if already exists", func() {
 			expectedResource := NewKubeVirtPriorityClass(hco)
-			cl := commontestutils.InitClient([]runtime.Object{expectedResource})
+			cl := commontestutils.InitClient([]client.Object{expectedResource})
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -75,7 +74,7 @@ var _ = Describe("KubeVirt Operand", func() {
 		})
 
 		DescribeTable("should update if something changed", func(modifiedResource *schedulingv1.PriorityClass) {
-			cl := commontestutils.InitClient([]runtime.Object{modifiedResource})
+			cl := commontestutils.InitClient([]client.Object{modifiedResource})
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -125,7 +124,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			modifiedResource := NewKubeVirtPriorityClass(hco)
 			modifiedResource.Labels = map[string]string{"foo": "bar"}
 
-			cl := commontestutils.InitClient([]runtime.Object{modifiedResource})
+			cl := commontestutils.InitClient([]client.Object{modifiedResource})
 			expectedError := initiateErrors(cl)
 
 			handler := (*genericOperand)(newKvPriorityClassHandler(cl, commontestutils.GetScheme()))
@@ -199,7 +198,7 @@ Version: 1.2.3`)
 
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -257,7 +256,7 @@ Version: 1.2.3`)
 		It("should find if present", func() {
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -339,7 +338,7 @@ Version: 1.2.3`)
 				AllowPostCopy:                     pointer.Bool(false),
 			}
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+			cl := commontestutils.InitClient([]client.Object{hco, existKv})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 
@@ -418,7 +417,7 @@ Version: 1.2.3`)
 			Expect(err).ToNot(HaveOccurred())
 			missingUSResource.Spec.UninstallStrategy = ""
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, missingUSResource})
+			cl := commontestutils.InitClient([]client.Object{hco, missingUSResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -442,7 +441,7 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 				hco.Spec.UninstallStrategy = ""
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+				cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -464,7 +463,7 @@ Version: 1.2.3`)
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist
 				hco.Spec.UninstallStrategy = uninstallStrategy
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+				cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -486,7 +485,7 @@ Version: 1.2.3`)
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads
 				hco.Spec.UninstallStrategy = uninstallStrategy
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+				cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -524,7 +523,7 @@ Version: 1.2.3`)
 			hco.Spec.LiveMigrationConfig.AllowAutoConverge = pointer.Bool(true)
 			hco.Spec.LiveMigrationConfig.AllowPostCopy = pointer.Bool(true)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+			cl := commontestutils.InitClient([]client.Object{hco, existKv})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 
@@ -570,7 +569,7 @@ Version: 1.2.3`)
 					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 
@@ -617,7 +616,7 @@ Version: 1.2.3`)
 					},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 
@@ -655,7 +654,7 @@ Version: 1.2.3`)
 					MediatedDevicesTypes: []string{"nvidia-181", "nvidia-191", "nvidia-224"},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 
 				By("Check before reconciling", func() {
 					foundResource := &kubevirtcorev1.KubeVirt{}
@@ -755,7 +754,7 @@ Version: 1.2.3`)
 					},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 
@@ -918,7 +917,7 @@ Version: 1.2.3`)
 					},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 
 				By("Check before reconciling", func() {
 					foundResource := &kubevirtcorev1.KubeVirt{}
@@ -1046,7 +1045,7 @@ Version: 1.2.3`)
 				testCPUModel := "testValue"
 				hco.Spec.DefaultCPUModel = pointer.String(testCPUModel)
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 
@@ -1073,7 +1072,7 @@ Version: 1.2.3`)
 
 				hco.Spec.DefaultCPUModel = nil
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 
@@ -1103,7 +1102,7 @@ Version: 1.2.3`)
 				testCPUModel := "testValue"
 				hco.Spec.DefaultCPUModel = &testCPUModel
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 
 				By("Check before reconciling", func() {
 					foundResource := &kubevirtcorev1.KubeVirt{}
@@ -1170,7 +1169,7 @@ Version: 1.2.3`)
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1208,7 +1207,7 @@ Version: 1.2.3`)
 				existingResource, err := NewKubeVirt(hcoNodePlacement)
 				Expect(err).ToNot(HaveOccurred())
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1246,7 +1245,7 @@ Version: 1.2.3`)
 
 				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1300,7 +1299,7 @@ Version: 1.2.3`)
 				existingResource.Spec.Infra.NodePlacement.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodePlacement.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1594,7 +1593,7 @@ Version: 1.2.3`)
 						DisableMDevConfiguration: pointer.Bool(true),
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1625,7 +1624,7 @@ Version: 1.2.3`)
 						DisableMDevConfiguration: pointer.Bool(false),
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1656,7 +1655,7 @@ Version: 1.2.3`)
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1698,7 +1697,7 @@ Version: 1.2.3`)
 							To(ContainElements(kvWithHostPassthroughCPU))
 					})
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1737,7 +1736,7 @@ Version: 1.2.3`)
 						WithHostPassthroughCPU: pointer.Bool(false),
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1774,7 +1773,7 @@ Version: 1.2.3`)
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1811,7 +1810,7 @@ Version: 1.2.3`)
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -1981,7 +1980,7 @@ Version: 1.2.3`)
 						MinCPUModel: "Penryn",
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingKV})
+					cl := commontestutils.InitClient([]client.Object{hco, existingKV})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -2025,7 +2024,7 @@ Version: 1.2.3`)
 						MinCPUModel: "Penryn",
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingKV})
+					cl := commontestutils.InitClient([]client.Object{hco, existingKV})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -2065,7 +2064,7 @@ Version: 1.2.3`)
 						"ccc": true,
 					}
 
-					cl := commontestutils.InitClient([]runtime.Object{hco, existingKV})
+					cl := commontestutils.InitClient([]client.Object{hco, existingKV})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 					res := handler.ensure(req)
 					Expect(res.UpgradeDone).To(BeFalse())
@@ -2110,7 +2109,7 @@ Version: 1.2.3`)
 					},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2137,7 +2136,7 @@ Version: 1.2.3`)
 			It("should set certificate rotation strategy to defaults if missing in HCO CR", func() {
 				existingResource := NewKubeVirtWithNameOnly(hco)
 
-				cl := commontestutils.InitClient([]runtime.Object{hco})
+				cl := commontestutils.InitClient([]client.Object{hco})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2184,7 +2183,7 @@ Version: 1.2.3`)
 				hco.Spec.CertConfig.Server.Duration.Duration *= 2
 				hco.Spec.CertConfig.Server.RenewBefore.Duration *= 2
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2239,7 +2238,7 @@ Version: 1.2.3`)
 				existingResource.Spec.CertificateRotationStrategy.SelfSigned.Server.Duration = &metav1.Duration{Duration: 24 * time.Hour}
 				existingResource.Spec.CertificateRotationStrategy.SelfSigned.Server.RenewBefore = &metav1.Duration{Duration: 1 * time.Hour}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2296,7 +2295,7 @@ Version: 1.2.3`)
 					BatchEvictionSize:     &defaultBatchEvictionSize,
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2323,7 +2322,7 @@ Version: 1.2.3`)
 			It("should set Workload Update Strategy to defaults if missing in HCO CR", func() {
 				existingResource := NewKubeVirtWithNameOnly(hco)
 
-				cl := commontestutils.InitClient([]runtime.Object{hco})
+				cl := commontestutils.InitClient([]client.Object{hco})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2361,7 +2360,7 @@ Version: 1.2.3`)
 				hco.Spec.WorkloadUpdateStrategy.BatchEvictionInterval = &metav1.Duration{Duration: time.Minute * 3}
 				hco.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &modifiedBatchEvictionSize
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existingKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2410,7 +2409,7 @@ Version: 1.2.3`)
 				existingKV.Spec.WorkloadUpdateStrategy.BatchEvictionSize = &kvModifiedBatchEvictionSize
 				existingKV.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []kubevirtcorev1.WorkloadUpdateMethod{kubevirtcorev1.WorkloadUpdateMethodEvict}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingKV})
+				cl := commontestutils.InitClient([]client.Object{hco, existingKV})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2636,7 +2635,7 @@ Version: 1.2.3`)
 				liveMigrateEvictionStrategy := kubevirtcorev1.EvictionStrategyLiveMigrate
 				hco.Spec.EvictionStrategy = &liveMigrateEvictionStrategy
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2668,7 +2667,7 @@ Version: 1.2.3`)
 				evictionStrategyExternal := kubevirtcorev1.EvictionStrategyExternal
 				hco.Spec.EvictionStrategy = &evictionStrategyExternal
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2702,7 +2701,7 @@ Version: 1.2.3`)
 				By("Modify HCO's VM state storage class configuration")
 				hco.Spec.VMStateStorageClass = pointer.String("rook-cephfs")
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -2747,7 +2746,7 @@ Version: 1.2.3`)
 					Message: "Bar",
 				},
 			}
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -2983,7 +2982,7 @@ Version: 1.2.3`)
 				]`}
 
 				expectedResource := NewKubeVirtWithNameOnly(hco)
-				cl := commontestutils.InitClient([]runtime.Object{hco})
+				cl := commontestutils.InitClient([]client.Object{hco})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Created).To(BeTrue())
@@ -3020,7 +3019,7 @@ Version: 1.2.3`)
 				]`}
 
 				expectedResource := NewKubeVirtWithNameOnly(hco)
-				cl := commontestutils.InitClient([]runtime.Object{hco})
+				cl := commontestutils.InitClient([]client.Object{hco})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
@@ -3057,7 +3056,7 @@ Version: 1.2.3`)
 					}
 				]`}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existsCdi})
+				cl := commontestutils.InitClient([]client.Object{hco, existsCdi})
 
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
@@ -3098,7 +3097,7 @@ Version: 1.2.3`)
 					}
 				]`}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existsKv})
+				cl := commontestutils.InitClient([]client.Object{hco, existsKv})
 
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
@@ -3123,7 +3122,7 @@ Version: 1.2.3`)
 		})
 
 		Context("Cache", func() {
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := newKubevirtHandler(cl, commontestutils.GetScheme())
 
 			It("should start with empty cache", func() {
@@ -3451,7 +3450,7 @@ Version: 1.2.3`)
 				// now, modify HCO's TLSSecurityProfile
 				hco.Spec.TLSSecurityProfile = hcoTLSSecurityProfile
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -3515,7 +3514,7 @@ Version: 1.2.3`)
 			existingResource.Spec.Configuration.TLSConfiguration.MinTLSVersion = kubevirtcorev1.VersionTLS13
 			existingResource.Spec.Configuration.TLSConfiguration.Ciphers = kvModernCiphers
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())

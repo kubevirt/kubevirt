@@ -27,9 +27,10 @@ type HyperConvergedMutator struct {
 	cli     client.Client
 }
 
-func NewHyperConvergedMutator(cli client.Client) *HyperConvergedMutator {
+func NewHyperConvergedMutator(cli client.Client, decoder *admission.Decoder) *HyperConvergedMutator {
 	return &HyperConvergedMutator{
-		cli: cli,
+		cli:     cli,
+		decoder: decoder,
 	}
 }
 
@@ -43,15 +44,6 @@ func (hcm *HyperConvergedMutator) Handle(ctx context.Context, req admission.Requ
 	// ignoring other operations
 	return admission.Allowed(ignoreOperationMessage)
 
-}
-
-// HyperConvergedMutator implements admission.DecoderInjector.
-// A decoder will be automatically injected.
-
-// InjectDecoder injects the decoder.
-func (hcm *HyperConvergedMutator) InjectDecoder(d *admission.Decoder) error {
-	hcm.decoder = d
-	return nil
 }
 
 const (

@@ -12,7 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
@@ -35,7 +35,7 @@ var _ = Describe("Dashboard tests", func() {
 			_ = os.Setenv(dashboardManifestLocationVarName, dir)
 
 			By("folder not exists", func() {
-				cli := commontestutils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]client.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -46,7 +46,7 @@ var _ = Describe("Dashboard tests", func() {
 			defer os.RemoveAll(dir)
 
 			By("folder is empty", func() {
-				cli := commontestutils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]client.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -62,7 +62,7 @@ var _ = Describe("Dashboard tests", func() {
 			_ = nonYaml.Close()
 
 			By("no yaml files", func() {
-				cli := commontestutils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]client.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -74,7 +74,7 @@ var _ = Describe("Dashboard tests", func() {
 			).To(Succeed())
 
 			By("yaml file exists", func() {
-				cli := commontestutils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]client.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -94,7 +94,7 @@ var _ = Describe("Dashboard tests", func() {
 
 			_ = os.Setenv(dashboardManifestLocationVarName, filePath)
 			By("check that getDashboardHandlers returns error", func() {
-				cli := commontestutils.InitClient([]runtime.Object{})
+				cli := commontestutils.InitClient([]client.Object{})
 				handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 
 				Expect(err).Should(HaveOccurred())
@@ -109,7 +109,7 @@ var _ = Describe("Dashboard tests", func() {
 		It("should create the Dashboard Configmap resource if not exists", func() {
 			_ = os.Setenv(dashboardManifestLocationVarName, testFilesLocation)
 
-			cli := commontestutils.InitClient([]runtime.Object{})
+			cli := commontestutils.InitClient([]client.Object{})
 			handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))
@@ -143,7 +143,7 @@ var _ = Describe("Dashboard tests", func() {
 
 			_ = os.Setenv(dashboardManifestLocationVarName, testFilesLocation)
 
-			cli := commontestutils.InitClient([]runtime.Object{exists})
+			cli := commontestutils.InitClient([]client.Object{exists})
 			handlers, err := getDashboardHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(handlers).To(HaveLen(1))

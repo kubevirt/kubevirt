@@ -2,6 +2,7 @@ package commontestutils
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -16,6 +17,10 @@ import (
 type clusterMock struct {
 	// config is the rest.config used to talk to the apiserver.  Required.
 	config *rest.Config
+
+	// HTTPClient is the http client that will be used to create the default
+	// Cache and Client.
+	httpClient *http.Client
 
 	// scheme is the scheme injected into Controllers, EventHandlers, Sources and Predicates.  Defaults
 	// to scheme.scheme.
@@ -43,6 +48,10 @@ type clusterMock struct {
 
 func (cm *clusterMock) SetFields(_ interface{}) error {
 	return nil
+}
+
+func (cm *clusterMock) GetHTTPClient() *http.Client {
+	return cm.httpClient
 }
 
 func (cm *clusterMock) GetConfig() *rest.Config {
@@ -86,12 +95,11 @@ func (cm *clusterMock) Start(_ context.Context) error {
 }
 
 // NewClusterMock returns a new mocked Cluster for creating Controllers.
-func NewClusterMock(config *rest.Config, client client.Client, logger logr.Logger) (cluster.Cluster, error) {
-
-	options := cluster.Options{}
+func NewClusterMock(config *rest.Config, options cluster.Options, client client.Client, logger logr.Logger) (cluster.Cluster, error) {
 
 	return &clusterMock{
 		config:       config,
+		httpClient:   options.HTTPClient,
 		scheme:       options.Scheme,
 		cache:        nil,
 		fieldIndexes: nil,

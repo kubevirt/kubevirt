@@ -7,10 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/client-go/kubernetes/scheme"
+
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
@@ -62,27 +64,15 @@ var _ = Describe("Hyperconverged API: Webhook", func() {
 			testFilesLocation := getTestFilesLocation()
 			os.Setenv(webHookCertDirEnv, testFilesLocation)
 
-			resources := []runtime.Object{}
+			resources := []client.Object{}
 			cl := commontestutils.InitClient(resources)
+			s := scheme.Scheme
 
-			ws := &webhook.Server{}
-			mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
+			ws := webhook.NewServer(webhook.Options{})
+			mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws, Scheme: s}, cl, logger)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(SetupWebhookWithManager(context.TODO(), mgr, true, nil)).To(Succeed())
-		})
-
-		It("should fail setting up the webhooks with the manager when certificates are not accessible", func() {
-			resources := []runtime.Object{}
-			cl := commontestutils.InitClient(resources)
-
-			ws := &webhook.Server{}
-			mgr, err := commontestutils.NewManagerMock(&rest.Config{}, manager.Options{WebhookServer: ws}, cl, logger)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = SetupWebhookWithManager(context.TODO(), mgr, true, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(MatchError("stat /apiserver.local.config/certificates/apiserver.crt: no such file or directory"))
 		})
 
 	})

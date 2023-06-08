@@ -31,10 +31,11 @@ type NsMutator struct {
 	namespace string
 }
 
-func NewNsMutator(cli client.Client, namespace string) *NsMutator {
+func NewNsMutator(cli client.Client, decoder *admission.Decoder, namespace string) *NsMutator {
 	return &NsMutator{
 		cli:       cli,
 		namespace: namespace,
+		decoder:   decoder,
 	}
 }
 
@@ -71,15 +72,6 @@ func (nm *NsMutator) handleNsDelete(ctx context.Context, req admission.Request) 
 	}
 
 	return admission.Denied(deniedDeletionMessage)
-}
-
-// NsMutator implements admission.DecoderInjector.
-// A decoder will be automatically injected.
-
-// InjectDecoder injects the decoder.
-func (nm *NsMutator) InjectDecoder(d *admission.Decoder) error {
-	nm.decoder = d
-	return nil
 }
 
 func (nm *NsMutator) handleMutatingNsDelete(ctx context.Context, ns *corev1.Namespace) (bool, error) {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"sigs.k8s.io/controller-runtime/pkg/config"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -12,7 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
-	"sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -25,7 +26,7 @@ type ManagerMock struct {
 	cluster cluster.Cluster
 
 	// controllerOptions are the global controller options.
-	controllerOptions v1alpha1.ControllerConfigurationSpec
+	controllerOptions config.Controller
 
 	// Logger is the logger that should be used by this manager.
 	// If none is set, it defaults to log.Log global logger.
@@ -65,6 +66,10 @@ func (mm *ManagerMock) AddReadyzCheck(_ string, _ healthz.Checker) error {
 	return nil
 }
 
+func (mm *ManagerMock) GetHTTPClient() *http.Client {
+	return mm.cluster.GetHTTPClient()
+}
+
 func (mm *ManagerMock) GetConfig() *rest.Config {
 	return mm.cluster.GetConfig()
 }
@@ -97,15 +102,15 @@ func (mm *ManagerMock) GetAPIReader() client.Reader {
 	return mm.cluster.GetAPIReader()
 }
 
-func (mm *ManagerMock) GetWebhookServer() *webhook.Server {
-	return mm.webhookServer
+func (mm *ManagerMock) GetWebhookServer() webhook.Server {
+	return *mm.webhookServer
 }
 
 func (mm *ManagerMock) GetLogger() logr.Logger {
 	return mm.logger
 }
 
-func (mm *ManagerMock) GetControllerOptions() v1alpha1.ControllerConfigurationSpec {
+func (mm *ManagerMock) GetControllerOptions() config.Controller {
 	return mm.controllerOptions
 }
 
@@ -124,7 +129,7 @@ func (mm *ManagerMock) GetRunnables() []manager.Runnable {
 // NewManagerMock returns a new mocked Manager for unit test which involves Controller Managers
 func NewManagerMock(config *rest.Config, options manager.Options, client client.Client, logger logr.Logger) (manager.Manager, error) {
 
-	cluster, err := NewClusterMock(config, client, logger)
+	cluster, err := NewClusterMock(config, cluster.Options{Scheme: options.Scheme}, client, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +142,6 @@ func NewManagerMock(config *rest.Config, options manager.Options, client client.
 		controllerOptions: options.Controller,
 		logger:            logger,
 		elected:           make(chan struct{}),
-		webhookServer:     options.WebhookServer,
+		webhookServer:     &options.WebhookServer,
 	}, nil
 }

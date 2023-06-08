@@ -14,11 +14,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -40,7 +41,7 @@ var _ = Describe("CDI Operand", func() {
 
 		It("should create if not present", func() {
 			expectedResource := NewCDIWithNameOnly(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -61,7 +62,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should find if present", func() {
 			expectedResource, err := NewCDI(hco)
 			Expect(err).ToNot(HaveOccurred())
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -101,7 +102,7 @@ var _ = Describe("CDI Operand", func() {
 			Expect(err).ToNot(HaveOccurred())
 			missingUSResource.Spec.UninstallStrategy = nil
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, missingUSResource})
+			cl := commontestutils.InitClient([]client.Object{hco, missingUSResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -127,7 +128,7 @@ var _ = Describe("CDI Operand", func() {
 				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -167,7 +168,7 @@ var _ = Describe("CDI Operand", func() {
 				existingResource, err := NewCDI(hcoNodePlacement)
 				Expect(err).ToNot(HaveOccurred())
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -213,7 +214,7 @@ var _ = Describe("CDI Operand", func() {
 
 				hco.Spec.Workloads.NodePlacement.NodeSelector["key1"] = "something else"
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -258,7 +259,7 @@ var _ = Describe("CDI Operand", func() {
 				existingResource.Spec.Infra.NodeSelector["key1"] = "BADvalue1"
 				existingResource.Spec.Workloads.NodeSelector["key2"] = "BADvalue2"
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -305,7 +306,7 @@ var _ = Describe("CDI Operand", func() {
 					},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -354,7 +355,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).Should(Equal(resource.MustParse("250m")))
 				Expect(existingResource.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceMemory]).Should(Equal(resource.MustParse("1Gi")))
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -394,7 +395,7 @@ var _ = Describe("CDI Operand", func() {
 				hco.Spec.ResourceRequirements.StorageWorkloads.Requests[corev1.ResourceCPU] = resource.MustParse("500m")
 				hco.Spec.ResourceRequirements.StorageWorkloads.Requests[corev1.ResourceMemory] = resource.MustParse("2Gi")
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -434,7 +435,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(err).ToNot(HaveOccurred())
 				hco.Spec.FilesystemOverhead = &hcoFilesystemOverheadValue
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -465,7 +466,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(existingCdi.Spec.Config.FilesystemOverhead).ToNot(BeNil())
 				Expect(*existingCdi.Spec.Config.FilesystemOverhead).Should(Equal(cdiFilesystemOverheadValue))
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingCdi})
+				cl := commontestutils.InitClient([]client.Object{hco, existingCdi})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -494,7 +495,7 @@ var _ = Describe("CDI Operand", func() {
 
 				hco.Spec.FilesystemOverhead = &hcoFilesystemOverheadValue
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingCDI})
+				cl := commontestutils.InitClient([]client.Object{hco, existingCDI})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -524,7 +525,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(err).ToNot(HaveOccurred())
 				hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClassValue
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -555,7 +556,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(existingCdi.Spec.Config.ScratchSpaceStorageClass).ToNot(BeNil())
 				Expect(*existingCdi.Spec.Config.ScratchSpaceStorageClass).Should(Equal(cdiScratchSpaceStorageClassValue))
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingCdi})
+				cl := commontestutils.InitClient([]client.Object{hco, existingCdi})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -584,7 +585,7 @@ var _ = Describe("CDI Operand", func() {
 
 				hco.Spec.ScratchSpaceStorageClass = &hcoScratchSpaceStorageClassValue
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingCDI})
+				cl := commontestutils.InitClient([]client.Object{hco, existingCDI})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -613,7 +614,7 @@ var _ = Describe("CDI Operand", func() {
 					InsecureRegistries: []string{"first:5000", "second:5000", "third:5000"},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -639,7 +640,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(err).ToNot(HaveOccurred())
 				existingCdi.Spec.Config.InsecureRegistries = []string{"first:5000", "second:5000", "third:5000"}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingCdi})
+				cl := commontestutils.InitClient([]client.Object{hco, existingCdi})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -667,7 +668,7 @@ var _ = Describe("CDI Operand", func() {
 					InsecureRegistries: []string{"other1:5000", "other2:5000"},
 				}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingCDI})
+				cl := commontestutils.InitClient([]client.Object{hco, existingCDI})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -694,7 +695,7 @@ var _ = Describe("CDI Operand", func() {
 				Expect(err).ToNot(HaveOccurred())
 				hco.Spec.UninstallStrategy = ""
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -716,7 +717,7 @@ var _ = Describe("CDI Operand", func() {
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyBlockUninstallIfWorkloadsExist
 				hco.Spec.UninstallStrategy = uninstallStrategy
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -738,7 +739,7 @@ var _ = Describe("CDI Operand", func() {
 				uninstallStrategy := hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads
 				hco.Spec.UninstallStrategy = uninstallStrategy
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).ToNot(HaveOccurred())
@@ -774,7 +775,7 @@ var _ = Describe("CDI Operand", func() {
 				FilesystemOverhead:       &cdiv1beta1.FilesystemOverhead{Global: "5"},
 			}
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -807,7 +808,7 @@ var _ = Describe("CDI Operand", func() {
 			// mock a reconciliation triggered by a change in CDI CR
 			req.HCOTriggered = false
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -829,7 +830,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should add cert configuration if missing in CDI", func() {
 			existingResource := NewCDIWithNameOnly(hco)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 
@@ -858,7 +859,7 @@ var _ = Describe("CDI Operand", func() {
 		It("should set cert config to defaults if missing in HCO CR", func() {
 			existingResource := NewCDIWithNameOnly(hco)
 
-			cl := commontestutils.InitClient([]runtime.Object{hco})
+			cl := commontestutils.InitClient([]client.Object{hco})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -900,7 +901,7 @@ var _ = Describe("CDI Operand", func() {
 				},
 			}
 
-			cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+			cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -960,7 +961,7 @@ var _ = Describe("CDI Operand", func() {
 					Message: "Bar",
 				},
 			}
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.UpgradeDone).To(BeFalse())
@@ -1053,7 +1054,7 @@ var _ = Describe("CDI Operand", func() {
 				]`}
 
 				expectedResource := NewCDIWithNameOnly(hco)
-				cl := commontestutils.InitClient([]runtime.Object{})
+				cl := commontestutils.InitClient([]client.Object{})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1085,7 +1086,7 @@ var _ = Describe("CDI Operand", func() {
 				]`}
 
 				expectedResource := NewCDIWithNameOnly(hco)
-				cl := commontestutils.InitClient([]runtime.Object{})
+				cl := commontestutils.InitClient([]client.Object{})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.Err).To(HaveOccurred())
@@ -1117,7 +1118,7 @@ var _ = Describe("CDI Operand", func() {
 					}
 				]`}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existsCdi})
+				cl := commontestutils.InitClient([]client.Object{hco, existsCdi})
 
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
@@ -1156,7 +1157,7 @@ var _ = Describe("CDI Operand", func() {
 					}
 				]`}
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existsCdi})
+				cl := commontestutils.InitClient([]client.Object{hco, existsCdi})
 
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
@@ -1178,7 +1179,7 @@ var _ = Describe("CDI Operand", func() {
 		})
 
 		Context("Cache", func() {
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := newCdiHandler(cl, commontestutils.GetScheme())
 
 			It("should start with empty cache", func() {
@@ -1245,7 +1246,7 @@ var _ = Describe("CDI Operand", func() {
 				// now, modify HCO's TLSSecurityProfile
 				hco.Spec.TLSSecurityProfile = modernTLSSecurityProfile
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())
@@ -1275,7 +1276,7 @@ var _ = Describe("CDI Operand", func() {
 				// now, modify CDI node placement
 				existingResource.Spec.Config.TLSSecurityProfile = modernTLSSecurityProfile
 
-				cl := commontestutils.InitClient([]runtime.Object{hco, existingResource})
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newCdiHandler(cl, commontestutils.GetScheme()))
 				res := handler.ensure(req)
 				Expect(res.UpgradeDone).To(BeFalse())

@@ -89,7 +89,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should not allow the delete of the hcoNamespace if Hyperconverged CR exists", func() {
-			cli := commontestutils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]client.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Delete, ns, corev1Codec)}
 
@@ -98,7 +98,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should not allow when the request is not valid", func() {
-			cli := commontestutils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]client.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: admissionv1.AdmissionRequest{Operation: admissionv1.Delete}}
 
@@ -107,7 +107,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should not allow the delete of the hcoNamespace if failed to get Hyperconverged CR", func() {
-			cli := commontestutils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]client.Object{cr})
 
 			cli.InitiateGetErrors(func(key client.ObjectKey) error {
 				if key.Name == util.HyperConvergedName {
@@ -124,7 +124,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should ignore other namespaces even if Hyperconverged CR exists", func() {
-			cli := commontestutils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]client.Object{cr})
 			otherNs := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: ResourceInvalidNamespace,
@@ -139,7 +139,7 @@ var _ = Describe("webhooks mutator", func() {
 		})
 
 		It("should allow other operations", func() {
-			cli := commontestutils.InitClient([]runtime.Object{cr})
+			cli := commontestutils.InitClient([]client.Object{cr})
 			nsMutator := initMutator(s, cli)
 			req := admission.Request{AdmissionRequest: newRequest(admissionv1.Update, ns, corev1Codec)}
 
@@ -151,12 +151,8 @@ var _ = Describe("webhooks mutator", func() {
 })
 
 func initMutator(s *runtime.Scheme, testClient client.Client) *NsMutator {
-	nsMutator := NewNsMutator(testClient, HcoValidNamespace)
-
-	decoder, err := admission.NewDecoder(s)
-	ExpectWithOffset(1, err).ShouldNot(HaveOccurred())
-
-	ExpectWithOffset(1, nsMutator.InjectDecoder(decoder)).Should(Succeed())
+	decoder := admission.NewDecoder(s)
+	nsMutator := NewNsMutator(testClient, decoder, HcoValidNamespace)
 
 	return nsMutator
 }

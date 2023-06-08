@@ -179,73 +179,72 @@ func main() {
 
 // Restricts the cache's ListWatch to specific fields/labels per GVK at the specified object to control the memory impact
 // this is used to completely overwrite the NewCache function so all the interesting objects should be explicitly listed here
-func getNewManagerCache(operatorNamespace string) cache.NewCacheFunc {
+func getCacheOption(operatorNamespace string) cache.Options {
 	namespaceSelector := fields.Set{"metadata.namespace": operatorNamespace}.AsSelector()
 	labelSelector := labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}.AsSelector()
 	labelSelectorForNamespace := labels.Set{hcoutil.KubernetesMetadataName: operatorNamespace}.AsSelector()
-	return cache.BuilderWithOptions(
-		cache.Options{
-			SelectorsByObject: cache.SelectorsByObject{
-				&hcov1beta1.HyperConverged{}:           {},
-				&kubevirtcorev1.KubeVirt{}:             {},
-				&cdiv1beta1.CDI{}:                      {},
-				&networkaddonsv1.NetworkAddonsConfig{}: {},
-				&sspv1beta1.SSP{}:                      {},
-				&ttov1alpha1.TektonTasks{}:             {},
-				&schedulingv1.PriorityClass{}: {
-					Label: labels.SelectorFromSet(labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}),
-				},
-				&corev1.ConfigMap{}: {
-					Label: labelSelector,
-				},
-				&corev1.Service{}: {
-					Field: namespaceSelector,
-				},
-				&corev1.Endpoints{}: {
-					Field: namespaceSelector,
-				},
-				&monitoringv1.ServiceMonitor{}: {
-					Label: labelSelector,
-					Field: namespaceSelector,
-				},
-				&monitoringv1.PrometheusRule{}: {
-					Label: labelSelector,
-					Field: namespaceSelector,
-				},
-				&rbacv1.Role{}: {
-					Label: labelSelector,
-					Field: namespaceSelector,
-				},
-				&rbacv1.RoleBinding{}: {
-					Label: labelSelector,
-					Field: namespaceSelector,
-				},
-				&openshiftroutev1.Route{}: {
-					Field: namespaceSelector,
-				},
-				&imagev1.ImageStream{}: {
-					Label: labelSelector,
-				},
-				&corev1.Namespace{}: {
-					Label: labelSelectorForNamespace,
-				},
-				&openshiftconfigv1.APIServer{}: {},
-				&consolev1.ConsoleCLIDownload{}: {
-					Label: labelSelector,
-				},
-				&consolev1.ConsoleQuickStart{}: {
-					Label: labelSelector,
-				},
-				&consolev1.ConsolePlugin{}: {
-					Label: labelSelector,
-				},
-				&appsv1.Deployment{}: {
-					Label: labelSelector,
-					Field: namespaceSelector,
-				},
+
+	return cache.Options{
+		ByObject: map[client.Object]cache.ByObject{
+			&hcov1beta1.HyperConverged{}:           {},
+			&kubevirtcorev1.KubeVirt{}:             {},
+			&cdiv1beta1.CDI{}:                      {},
+			&networkaddonsv1.NetworkAddonsConfig{}: {},
+			&sspv1beta1.SSP{}:                      {},
+			&ttov1alpha1.TektonTasks{}:             {},
+			&schedulingv1.PriorityClass{}: {
+				Label: labels.SelectorFromSet(labels.Set{hcoutil.AppLabel: hcoutil.HyperConvergedName}),
+			},
+			&corev1.ConfigMap{}: {
+				Label: labelSelector,
+			},
+			&corev1.Service{}: {
+				Field: namespaceSelector,
+			},
+			&corev1.Endpoints{}: {
+				Field: namespaceSelector,
+			},
+			&monitoringv1.ServiceMonitor{}: {
+				Label: labelSelector,
+				Field: namespaceSelector,
+			},
+			&monitoringv1.PrometheusRule{}: {
+				Label: labelSelector,
+				Field: namespaceSelector,
+			},
+			&rbacv1.Role{}: {
+				Label: labelSelector,
+				Field: namespaceSelector,
+			},
+			&rbacv1.RoleBinding{}: {
+				Label: labelSelector,
+				Field: namespaceSelector,
+			},
+			&openshiftroutev1.Route{}: {
+				Field: namespaceSelector,
+			},
+			&imagev1.ImageStream{}: {
+				Label: labelSelector,
+			},
+			&corev1.Namespace{}: {
+				Label: labelSelectorForNamespace,
+			},
+			&openshiftconfigv1.APIServer{}: {},
+			&consolev1.ConsoleCLIDownload{}: {
+				Label: labelSelector,
+			},
+			&consolev1.ConsoleQuickStart{}: {
+				Label: labelSelector,
+			},
+			&consolev1.ConsolePlugin{}: {
+				Label: labelSelector,
+			},
+			&appsv1.Deployment{}: {
+				Label: labelSelector,
+				Field: namespaceSelector,
 			},
 		},
-	)
+	}
 }
 
 func getManagerOptions(watchNamespace string, operatorNamespace string, needLeaderElection bool, scheme *apiruntime.Scheme) manager.Options {
@@ -258,7 +257,7 @@ func getManagerOptions(watchNamespace string, operatorNamespace string, needLead
 		LeaderElection:             needLeaderElection,
 		LeaderElectionResourceLock: resourcelock.ConfigMapsLeasesResourceLock,
 		LeaderElectionID:           "hyperconverged-cluster-operator-lock",
-		NewCache:                   getNewManagerCache(operatorNamespace),
+		Cache:                      getCacheOption(operatorNamespace),
 		Scheme:                     scheme,
 	}
 }

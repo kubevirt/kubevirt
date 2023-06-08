@@ -9,7 +9,6 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,7 +32,7 @@ var _ = Describe("CLI Download", func() {
 
 		It("should create if not present", func() {
 			expectedResource := NewConsoleCLIDownload(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newCliDownloadHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -49,7 +48,7 @@ var _ = Describe("CLI Download", func() {
 
 		It("should find if present", func() {
 			expectedResource := NewConsoleCLIDownload(hco)
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCliDownloadHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -68,7 +67,7 @@ var _ = Describe("CLI Download", func() {
 			expectedResource.DeepCopyInto(modifiedResource)
 			modify(modifiedResource)
 
-			cl := commontestutils.InitClient([]runtime.Object{modifiedResource})
+			cl := commontestutils.InitClient([]client.Object{modifiedResource})
 			handler := (*genericOperand)(newCliDownloadHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -117,7 +116,7 @@ var _ = Describe("Downloads Service", func() {
 
 		It("should create if not present", func() {
 			expectedResource := NewCliDownloadsService(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newServiceHandler(cl, commontestutils.GetScheme(), NewCliDownloadsService))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -132,7 +131,7 @@ var _ = Describe("Downloads Service", func() {
 
 		It("should find if present", func() {
 			expectedResource := NewCliDownloadsService(hco)
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newServiceHandler(cl, commontestutils.GetScheme(), NewCliDownloadsService))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -151,7 +150,7 @@ var _ = Describe("Downloads Service", func() {
 			expectedResource.DeepCopyInto(modifiedResource)
 			modify(modifiedResource)
 
-			cl := commontestutils.InitClient([]runtime.Object{modifiedResource})
+			cl := commontestutils.InitClient([]client.Object{modifiedResource})
 
 			handler := (*genericOperand)(newServiceHandler(cl, commontestutils.GetScheme(), NewCliDownloadsService))
 			res := handler.ensure(req)
@@ -198,7 +197,7 @@ var _ = Describe("Cli Downloads Route", func() {
 
 		It("should create if not present", func() {
 			expectedResource := NewCliDownloadsRoute(hco)
-			cl := commontestutils.InitClient([]runtime.Object{})
+			cl := commontestutils.InitClient([]client.Object{})
 			handler := (*genericOperand)(newCliDownloadsRouteHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -213,7 +212,7 @@ var _ = Describe("Cli Downloads Route", func() {
 
 		It("should find if present", func() {
 			expectedResource := NewCliDownloadsRoute(hco)
-			cl := commontestutils.InitClient([]runtime.Object{hco, expectedResource})
+			cl := commontestutils.InitClient([]client.Object{hco, expectedResource})
 			handler := (*genericOperand)(newCliDownloadsRouteHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())
@@ -232,7 +231,7 @@ var _ = Describe("Cli Downloads Route", func() {
 			expectedResource.DeepCopyInto(modifiedResource)
 			modify(modifiedResource)
 
-			cl := commontestutils.InitClient([]runtime.Object{modifiedResource})
+			cl := commontestutils.InitClient([]client.Object{modifiedResource})
 			handler := (*genericOperand)(newCliDownloadsRouteHandler(cl, commontestutils.GetScheme()))
 			res := handler.ensure(req)
 			Expect(res.Err).ToNot(HaveOccurred())

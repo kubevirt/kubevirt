@@ -19,7 +19,6 @@ import (
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -133,8 +132,8 @@ type BasicExpected struct {
 	consoleConfig        *operatorv1.Console
 }
 
-func (be BasicExpected) toArray() []runtime.Object {
-	return []runtime.Object{
+func (be BasicExpected) toArray() []client.Object {
+	return []client.Object{
 		be.namespace,
 		be.hco,
 		be.pc,
@@ -374,6 +373,6 @@ func checkAvailability(hco *hcov1beta1.HyperConverged, expected metav1.Condition
 	}
 
 	if !found {
-		Fail(fmt.Sprintf(`Can't find 'Available' condition; %v`, hco.Status.Conditions))
+		Fail(fmt.Sprintf(`Can't find 'Available' condition; %+v`, hco.Status.Conditions))
 	}
 }
