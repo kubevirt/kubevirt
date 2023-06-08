@@ -968,6 +968,9 @@ const (
 	// This annotation does not allow to enable freePageReporting for high performance vmis,
 	// in which freePageReporting is always disabled.
 	FreePageReportingDisabledAnnotation string = "kubevirt.io/free-page-reporting-disabled"
+
+	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
+	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

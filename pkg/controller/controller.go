@@ -365,6 +365,11 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func VMIHasHotplugCPU(vmi *v1.VirtualMachineInstance) bool {
+	vmiConditionManager := NewVirtualMachineInstanceConditionManager()
+	return vmiConditionManager.HasCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+}
+
 func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
 	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
 	if err != nil {

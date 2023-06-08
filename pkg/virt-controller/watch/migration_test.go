@@ -495,6 +495,69 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 
+	Context("Migration with hotplug cpu", func() {
+		var (
+			vmi       *virtv1.VirtualMachineInstance
+			migration *virtv1.VirtualMachineInstanceMigration
+			targetPod *k8sv1.Pod
+		)
+
+		BeforeEach(func() {
+			vmi = newVirtualMachine("testvmi", virtv1.Running)
+			migration = newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+			targetPod = newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+			vmi.Status.NodeName = "node02"
+		})
+
+		It("should annotate VMI with dedicated CPU limits", func() {
+
+			vmi.Spec.Domain = virtv1.DomainSpec{
+				CPU: &v1.CPU{
+					DedicatedCPUPlacement: true,
+					Cores:                 2,
+					Sockets:               1,
+					Threads:               1,
+				},
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions,
+				virtv1.VirtualMachineInstanceCondition{
+					Type:   virtv1.VirtualMachineInstanceVCPUChange,
+					Status: k8sv1.ConditionTrue,
+				})
+
+			targetPod.Spec.Containers = append(targetPod.Spec.Containers, k8sv1.Container{
+				Name: "compute",
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("4"),
+					},
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU: resource.MustParse("4"),
+					},
+				},
+			})
+			targetPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			podFeeder.Add(targetPod)
+
+			patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, v1.VirtualMachinePodCPULimitsLabel)
+			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
+				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
+				`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
+				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
+				targetPod.Name, getMigrationConfigPatch(), patchCPULimitsLabelValue)
+
+			shouldExpectVirtualMachineInstancePatch(vmi, patch)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		})
+	})
+
 	Context("Migration object in pending state", func() {
 
 		It("should patch VMI with nonroot user", func() {
