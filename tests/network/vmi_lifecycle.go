@@ -58,23 +58,26 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			It("[Serial]VMIs with Bridge Networking shouldn't fail after the kubelet restarts", Serial, decorators.Networking, func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-				bridgeVMI := vmi
-				// Remove the masquerade interface to use the default bridge one
-				bridgeVMI.Spec.Domain.Devices.Interfaces = nil
-				bridgeVMI.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(bridgeVMI)
-				Expect(bridgeVMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+			DescribeTable("[Serial]VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+				if bridgeNetworking {
+					libnet.SkipWhenClusterNotSupportIpv4()
+					// Remove the masquerade interface to use the default bridge one
+					vmi.Spec.Domain.Devices.Interfaces = nil
+					vmi.Spec.Networks = nil
+					v1.SetDefaults_NetworkInterface(vmi)
+					Expect(vmi.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+				}
 
-				By("starting a VMI with bridged network on a node")
-				bridgeVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(bridgeVMI)).Create(context.Background(), bridgeVMI)
+				By("starting a VMI on a node")
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should submit VMI successfully")
 
-				// Start a VirtualMachineInstance with bridged networking
-				nodeName := libwait.WaitForSuccessfulVMIStart(bridgeVMI).Status.NodeName
+				// Start a VirtualMachineInstance
+				nodeName := libwait.WaitForSuccessfulVMIStart(vmi).Status.NodeName
 
-				verifyDummyNicForBridgeNetwork(bridgeVMI)
+				if bridgeNetworking {
+					verifyDummyNicForBridgeNetwork(vmi)
+				}
 
 				By("restarting kubelet")
 				pod := renderPkillAllPod("kubelet")
@@ -95,10 +98,14 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 					Expect(err).ToNot(HaveOccurred())
 					return nil
 				}, 100, 10).Should(Succeed(), "Should be able to start a new VM")
+				libwait.WaitForSuccessfulVMIStart(newVMI)
 
 				By("checking if the VMI with bridged networking is still running, it will verify the CNI didn't cause the pod to be killed")
-				bridgeVMI = libwait.WaitForSuccessfulVMIStart(bridgeVMI)
-			})
+				libwait.WaitForSuccessfulVMIStart(vmi)
+			},
+				Entry("[sig-network]with bridge networking", Serial, decorators.SigNetwork, true),
+				Entry("[sig-compute]with default networking", Serial, decorators.SigCompute, false),
+			)
 
 			It("VMIs with Bridge Networking should work with Duplicate Address Detection (DAD)", decorators.Networking, func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
