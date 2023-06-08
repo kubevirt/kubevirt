@@ -364,48 +364,56 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 			interfaces, err := parseInterfaces(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_INTERFACES, interfaces)
 		case GET_OSINFO:
 			osInfo, err := parseGuestOSInfo(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_OSINFO, osInfo)
 		case GET_HOSTNAME:
 			hostname, err := parseHostname(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_HOSTNAME, hostname)
 		case GET_TIMEZONE:
 			timezone, err := parseTimezone(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_TIMEZONE, timezone)
 		case GET_USERS:
 			users, err := parseUsers(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_USERS, users)
 		case GET_FSFREEZE_STATUS:
 			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_FSFREEZE_STATUS, fsfreezeStatus)
 		case GET_FILESYSTEM:
 			filesystems, err := parseFilesystem(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_FILESYSTEM, filesystems)
 		case GET_AGENT:
 			agent, err := parseAgent(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
+				continue
 			}
 			agentStore.Store(GET_AGENT, agent)
 		}
