@@ -66,20 +66,22 @@ bazel run \
 
 # compile virtctl for amd64 and arm64
 
-# linux
-bazel run \
-    :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
+if [[ "${KUBEVIRT_RELEASE}" == "true" || "${CI}" == "true" ]]; then
+    # linux
+    bazel run \
+        :build-virtctl-amd64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
 
-bazel run \
-    :build-virtctl-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-arm64
+    bazel run \
+        :build-virtctl-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-arm64
 
-# darwin
-bazel run \
-    :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
+    # darwin
+    bazel run \
+        :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
-bazel run \
-    :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
+    bazel run \
+        :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
 
-# windows
-bazel run \
-    :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
+    # windows
+    bazel run \
+        :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
+fi

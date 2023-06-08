@@ -13,7 +13,7 @@ bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
-	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && export DOCKER_TAG=${DOCKER_TAG} && hack/bazel-fmt.sh && ./hack/multi-arch.sh build"
+	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && export DOCKER_TAG=${DOCKER_TAG} && export CI=${CI} && export KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} && hack/bazel-fmt.sh && ./hack/multi-arch.sh build"
 
 bazel-build-functests:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build-functests.sh"
