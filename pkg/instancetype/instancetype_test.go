@@ -1060,7 +1060,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			})
 
 			It("should apply PreferredCPUFeatures", func() {
-				preferenceSpec := &instancetypev1beta1.VirtualMachinePreferenceSpec{
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1beta1.CPUPreferences{
 						PreferredCPUFeatures: []v1.CPUFeature{
 							{

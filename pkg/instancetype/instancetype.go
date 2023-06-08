@@ -929,7 +929,7 @@ func validateCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 		conflicts = append(conflicts, field.Child("domain", "cpu", "realtime"))
 	}
 
-	return
+	return conflicts
 }
 
 func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
@@ -984,11 +984,12 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 
 	// If memory overcommit has been requested, set the memory requests to be
 	// lower than the guest memory by the requested percent.
+	const totalPercentage = 100
 	if instancetypeMemoryOvercommit := instancetypeSpec.Memory.OvercommitPercent; instancetypeMemoryOvercommit > 0 {
 		if vmiSpec.Domain.Resources.Requests == nil {
 			vmiSpec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
-		podRequestedMemory := instancetypeMemoryGuest.Value() * (1 - int64(instancetypeMemoryOvercommit)/int64(100))
+		podRequestedMemory := instancetypeMemoryGuest.Value() * (1 - int64(instancetypeMemoryOvercommit)/int64(totalPercentage))
 		vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(podRequestedMemory, instancetypeMemoryGuest.Format)
 	}
 
