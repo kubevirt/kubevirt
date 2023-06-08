@@ -30,6 +30,10 @@ import (
 	"strings"
 	"time"
 
+	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
+
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+
 	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
@@ -62,7 +66,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/status"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
 const (
@@ -1386,6 +1389,29 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 	}
 
+	VMIDefaults := &virtv1.VirtualMachineInstance{}
+	webhooks.SetDefaultGuestCPUTopology(c.clusterConfig, &VMIDefaults.Spec)
+
+	vmi.Status.CurrentCPUTopology = &virtv1.CPUTopology{
+		Sockets: VMIDefaults.Spec.Domain.CPU.Sockets,
+		Cores:   VMIDefaults.Spec.Domain.CPU.Cores,
+		Threads: VMIDefaults.Spec.Domain.CPU.Threads,
+	}
+
+	if topology := vm.Spec.Template.Spec.Domain.CPU; topology != nil {
+		if topology.Sockets != 0 {
+			vmi.Status.CurrentCPUTopology.Sockets = topology.Sockets
+		}
+		if topology.Cores != 0 {
+			vmi.Status.CurrentCPUTopology.Cores = topology.Cores
+		}
+		if topology.Threads != 0 {
+			vmi.Status.CurrentCPUTopology.Threads = topology.Threads
+		}
+	}
+
+	c.setupLiveFeatures(vm, vmi, VMIDefaults)
+
 	return vmi
 }
 
@@ -2667,4 +2693,36 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 
 	vm.Spec.Template.Spec = *vmTemplateCopy
 	return nil
+}
+
+func (c *VMController) setupLiveFeatures(
+	vm *virtv1.VirtualMachine,
+	vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
+	const (
+		maxSocketsRatio = 4
+	)
+
+	if vm.Spec.LiveUpdateFeatures == nil {
+		return
+	}
+
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &virtv1.CPU{}
+	}
+
+	if vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
+		vmi.Spec.Domain.CPU.MaxSockets = *vm.Spec.LiveUpdateFeatures.CPU.MaxSockets
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = c.clusterConfig.GetMaximumCpuSockets()
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * maxSocketsRatio
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = VMIDefaults.Spec.Domain.CPU.Sockets * maxSocketsRatio
+	}
 }
