@@ -578,6 +578,19 @@ spec:
   defaultCPUModel: "EPYC"
 ```
 
+## Default RuntimeClass
+User can specify a cluster-wide default RuntimeClass for VMIs pods: default RuntimeClass is set when vmi doesn't have any specific RuntimeClass.
+When vmi RuntimeClass is set, then vmi's RuntimeClass is preferred. When default RuntimeClass is not set and vmi's RuntimeClass is not set too, RuntimeClass will not be configured on VMIs pods .
+Default RuntimeClass can be changed when kubevirt is running, existing VMIs are not impacted till the next restart/live-migration when they are eventually going to consume the new default RuntimeClass.
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  defaultRuntimeClass: "myCustomRuntimeClass"
+```
+
 ## Common templates namespace
 User can specify namespace in which common templates will be deployed. This will override default `openshift` namespace.
 ```yaml

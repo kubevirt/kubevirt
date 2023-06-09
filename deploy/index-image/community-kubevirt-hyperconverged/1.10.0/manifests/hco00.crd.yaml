@@ -1030,6 +1030,13 @@ spec:
                   host-model will be set. Default CPU model can be changed when kubevirt
                   is running.'
                 type: string
+              defaultRuntimeClass:
+                description: DefaultRuntimeClass defines a cluster default for the
+                  RuntimeClass to be used for VMIs pods if not set there. Default
+                  RuntimeClass can be changed when kubevirt is running, existing VMIs
+                  are not impacted till the next restart/live-migration when they
+                  are eventually going to consume the new default RuntimeClass.
+                type: string
               evictionStrategy:
                 default: LiveMigrate
                 description: EvictionStrategy defines at the cluster level if the

@@ -3199,6 +3199,30 @@ Version: 1.2.3`)
 			)
 
 		})
+
+		Context("DefaultRuntimeClass", func() {
+
+			It("Should be defined for KubevirtCR if defined in HCO CR", func() {
+				runtimeClass := "myCustomRuntimeClass"
+				hco.Spec.DefaultRuntimeClass = &runtimeClass
+				kv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(kv.Spec.Configuration.DefaultRuntimeClass).To(Equal(runtimeClass))
+			})
+
+			DescribeTable("Should be empty on KubevirtCR if not defined in HCO CR", func(runtimeClass *string) {
+				hco.Spec.DefaultRuntimeClass = runtimeClass
+				kv, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(kv.Spec.Configuration.DefaultRuntimeClass).To(BeEmpty())
+			},
+				Entry("nil defaultRuntimeClass", nil),
+				Entry("empty defaultRuntimeClass", pointer.String("")),
+			)
+
+		})
 	})
 
 	Context("Test hcLiveMigrationToKv", func() {

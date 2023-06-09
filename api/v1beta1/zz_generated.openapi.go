@@ -398,6 +398,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 							Format:      "",
 						},
 					},
+					"defaultRuntimeClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultRuntimeClass defines a cluster default for the RuntimeClass to be used for VMIs pods if not set there. Default RuntimeClass can be changed when kubevirt is running, existing VMIs are not impacted till the next restart/live-migration when they are eventually going to consume the new default RuntimeClass.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"obsoleteCPUs": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models",

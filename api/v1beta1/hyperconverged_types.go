@@ -112,6 +112,12 @@ type HyperConvergedSpec struct {
 	// +optional
 	DefaultCPUModel *string `json:"defaultCPUModel,omitempty"`
 
+	// DefaultRuntimeClass defines a cluster default for the RuntimeClass to be used for VMIs pods if not set there.
+	// Default RuntimeClass can be changed when kubevirt is running, existing VMIs are not impacted till
+	// the next restart/live-migration when they are eventually going to consume the new default RuntimeClass.
+	// +optional
+	DefaultRuntimeClass *string `json:"defaultRuntimeClass,omitempty"`
+
 	// ObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models
 	// +optional
 	ObsoleteCPUs *HyperConvergedObsoleteCPUs `json:"obsoleteCPUs,omitempty"`
