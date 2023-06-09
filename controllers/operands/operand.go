@@ -115,13 +115,20 @@ func (h *genericOperand) handleExistingCr(req *common.HcoRequest, key client.Obj
 	if err != nil {
 		return res.Error(err)
 	}
+	if updated {
+		// refresh the object
+		err = h.Client.Get(req.Ctx, key, found)
+		if err != nil {
+			return res.Error(err)
+		}
+	}
 
+	// update resourceVersions of objects in relatedObjects
 	if err = h.addCrToTheRelatedObjectList(req, found); err != nil {
 		return res.Error(err)
 	}
 
 	if updated {
-		// update resourceVersions of objects in relatedObjects
 		req.StatusDirty = true
 		return res.SetUpdated().SetOverwritten(overwritten)
 	}
