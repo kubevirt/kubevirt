@@ -21844,6 +21844,20 @@
      }
     }
    },
+   "v1beta1.CPUPreferenceRequirement": {
+    "type": "object",
+    "required": [
+     "guest"
+    ],
+    "properties": {
+     "guest": {
+      "description": "Minimal number of vCPUs required by the preference.",
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+     }
+    }
+   },
    "v1beta1.CPUPreferences": {
     "description": "CPUPreferences contains various optional CPU preferences.",
     "type": "object",
@@ -22394,6 +22408,32 @@
      }
     }
    },
+   "v1beta1.MemoryPreferenceRequirement": {
+    "type": "object",
+    "required": [
+     "guest"
+    ],
+    "properties": {
+     "guest": {
+      "description": "Minimal amount of memory required by the preference.",
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     }
+    }
+   },
+   "v1beta1.PreferenceRequirements": {
+    "type": "object",
+    "properties": {
+     "cpu": {
+      "description": "Required CPU related attributes of the instancetype.",
+      "$ref": "#/definitions/v1beta1.CPUPreferenceRequirement"
+     },
+     "memory": {
+      "description": "Required Memory related attributes of the instancetype.",
+      "$ref": "#/definitions/v1beta1.MemoryPreferenceRequirement"
+     }
+    }
+   },
    "v1beta1.StorageSpec": {
     "description": "StorageSpec defines the Storage type specification",
     "type": "object",
@@ -22741,6 +22781,10 @@
       "description": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
       "type": "integer",
       "format": "int64"
+     },
+     "requirements": {
+      "description": "Requirements defines the minium amount of instance type defined resources required by a set of preferences",
+      "$ref": "#/definitions/v1beta1.PreferenceRequirements"
      },
      "volumes": {
       "description": "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec",

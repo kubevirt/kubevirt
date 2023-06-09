@@ -8503,6 +8503,34 @@ var CRDsValidation map[string]string = map[string]string{
             to stop after which the VirtualMachineInstance is force terminated.
           format: int64
           type: integer
+        requirements:
+          description: Requirements defines the minium amount of instance type defined
+            resources required by a set of preferences
+          properties:
+            cpu:
+              description: Required CPU related attributes of the instancetype.
+              properties:
+                guest:
+                  description: Minimal number of vCPUs required by the preference.
+                  format: int32
+                  type: integer
+              required:
+              - guest
+              type: object
+            memory:
+              description: Required Memory related attributes of the instancetype.
+              properties:
+                guest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: Minimal amount of memory required by the preference.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              required:
+              - guest
+              type: object
+          type: object
         volumes:
           description: Volumes optionally defines preferences associated with the
             Volumes attribute of a VirtualMachineInstace DomainSpec
@@ -21284,6 +21312,34 @@ var CRDsValidation map[string]string = map[string]string{
             to stop after which the VirtualMachineInstance is force terminated.
           format: int64
           type: integer
+        requirements:
+          description: Requirements defines the minium amount of instance type defined
+            resources required by a set of preferences
+          properties:
+            cpu:
+              description: Required CPU related attributes of the instancetype.
+              properties:
+                guest:
+                  description: Minimal number of vCPUs required by the preference.
+                  format: int32
+                  type: integer
+              required:
+              - guest
+              type: object
+            memory:
+              description: Required Memory related attributes of the instancetype.
+              properties:
+                guest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: Minimal amount of memory required by the preference.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              required:
+              - guest
+              type: object
+          type: object
         volumes:
           description: Volumes optionally defines preferences associated with the
             Volumes attribute of a VirtualMachineInstace DomainSpec

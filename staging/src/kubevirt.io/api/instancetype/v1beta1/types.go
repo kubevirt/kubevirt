@@ -246,6 +246,11 @@ type VirtualMachinePreferenceSpec struct {
 	//
 	//+optional
 	PreferredTerminationGracePeriodSeconds *int64 `json:"preferredTerminationGracePeriodSeconds,omitempty"`
+
+	// Requirements defines the minium amount of instance type defined resources required by a set of preferences
+	//
+	//+optional
+	Requirements *PreferenceRequirements `json:"requirements,omitempty"`
 }
 
 type VolumePreferences struct {
@@ -492,4 +497,29 @@ type ClockPreferences struct {
 	//
 	// +optional
 	PreferredTimer *v1.Timer `json:"preferredTimer,omitempty"`
+}
+
+type PreferenceRequirements struct {
+
+	// Required CPU related attributes of the instancetype.
+	//
+	//+optional
+	CPU *CPUPreferenceRequirement `json:"cpu,omitempty"`
+
+	// Required Memory related attributes of the instancetype.
+	//
+	//+optional
+	Memory *MemoryPreferenceRequirement `json:"memory,omitempty"`
+}
+
+type CPUPreferenceRequirement struct {
+
+	// Minimal number of vCPUs required by the preference.
+	Guest uint32 `json:"guest"`
+}
+
+type MemoryPreferenceRequirement struct {
+
+	// Minimal amount of memory required by the preference.
+	Guest resource.Quantity `json:"guest"`
 }

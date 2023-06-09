@@ -1628,6 +1628,20 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
 
 		})
+
+		It("should reject if preference requirements are not met", func() {
+			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
+				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
+			}
+			instancetypeMethods.CheckPreferenceRequirementsFunc = func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (*k8sfield.Path, error) {
+				return k8sfield.NewPath("spec", "instancetype"), fmt.Errorf("requirements not met")
+			}
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.instancetype"))
+			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("failure checking preference requirements"))
+		})
 	})
 })
 

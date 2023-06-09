@@ -10,12 +10,13 @@ import (
 )
 
 type MockInstancetypeMethods struct {
-	FindInstancetypeSpecFunc     func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
-	ApplyToVmiFunc               func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts
-	FindPreferenceSpecFunc       func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
-	StoreControllerRevisionsFunc func(vm *v1.VirtualMachine) error
-	InferDefaultInstancetypeFunc func(vm *v1.VirtualMachine) (*v1.InstancetypeMatcher, error)
-	InferDefaultPreferenceFunc   func(vm *v1.VirtualMachine) (*v1.PreferenceMatcher, error)
+	FindInstancetypeSpecFunc        func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
+	ApplyToVmiFunc                  func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts
+	FindPreferenceSpecFunc          func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
+	StoreControllerRevisionsFunc    func(vm *v1.VirtualMachine) error
+	InferDefaultInstancetypeFunc    func(vm *v1.VirtualMachine) (*v1.InstancetypeMatcher, error)
+	InferDefaultPreferenceFunc      func(vm *v1.VirtualMachine) (*v1.PreferenceMatcher, error)
+	CheckPreferenceRequirementsFunc func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (*k8sfield.Path, error)
 }
 
 var _ instancetype.Methods = &MockInstancetypeMethods{}
@@ -44,6 +45,10 @@ func (m *MockInstancetypeMethods) InferDefaultPreference(vm *v1.VirtualMachine) 
 	return m.InferDefaultPreferenceFunc(vm)
 }
 
+func (m *MockInstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (*k8sfield.Path, error) {
+	return m.CheckPreferenceRequirementsFunc(instancetypeSpec, preferenceSpec, vmiSpec)
+}
+
 func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 	return &MockInstancetypeMethods{
 		FindInstancetypeSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
@@ -62,6 +67,9 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 			return nil, nil
 		},
 		InferDefaultPreferenceFunc: func(_ *v1.VirtualMachine) (*v1.PreferenceMatcher, error) {
+			return nil, nil
+		},
+		CheckPreferenceRequirementsFunc: func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) (*k8sfield.Path, error) {
 			return nil, nil
 		},
 	}
