@@ -27485,6 +27485,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_MemoryInstancetype(ref common.Re
 							Ref:         ref("kubevirt.io/api/core/v1.Hugepages"),
 						},
 					},
+					"overcommitPercent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OvercommitPercent is the percentage of the guest memory which will be overcommitted. This means that the VMIs parent pod (virt-launcher) will request less physical memory by a factor specified by the OvercommitPercent. Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully. Defaults to 0",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"guest"},
 			},

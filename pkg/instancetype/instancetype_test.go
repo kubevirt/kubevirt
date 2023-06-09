@@ -1117,6 +1117,18 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Memory.Hugepages).To(Equal(*instancetypeSpec.Memory.Hugepages))
 			})
 
+			It("should apply memory overcommit correctly to VMI", func() {
+				instancetypeSpec.Memory.Hugepages = nil
+				instancetypeSpec.Memory.OvercommitPercent = 15
+
+				expectedOverhead := instancetypeSpec.Memory.Guest.Value() * (1 - int64(instancetypeSpec.Memory.OvercommitPercent)/int64(100))
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+				memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+				Expect(memRequest.Value()).To(Equal(expectedOverhead))
+			})
+
 			It("should detect memory conflict", func() {
 				vmiMemGuest := resource.MustParse("512M")
 				vmi.Spec.Domain.Memory = &v1.Memory{

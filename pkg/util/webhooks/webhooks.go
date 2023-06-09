@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v12 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
@@ -184,4 +185,28 @@ func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.Virtual
 	}
 
 	return &newVM, nil, nil
+}
+
+func GetInstanceTypeSpecFromAdmissionRequest(request *admissionv1.AdmissionRequest) (new *instancetypev1beta1.VirtualMachineInstancetypeSpec, old *instancetypev1beta1.VirtualMachineInstancetypeSpec, err error) {
+
+	raw := request.Object.Raw
+	instancetypeObj := instancetypev1beta1.VirtualMachineInstancetype{}
+
+	err = json.Unmarshal(raw, &instancetypeObj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if request.Operation == admissionv1.Update {
+		raw := request.OldObject.Raw
+		oldInstancetypeObj := instancetypev1beta1.VirtualMachineInstancetype{}
+
+		err = json.Unmarshal(raw, &oldInstancetypeObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &instancetypeObj.Spec, &oldInstancetypeObj.Spec, nil
+	}
+
+	return &instancetypeObj.Spec, nil, nil
 }

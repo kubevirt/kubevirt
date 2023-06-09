@@ -7969,6 +7969,15 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+            overcommitPercent:
+              description: OvercommitPercent is the percentage of the guest memory
+                which will be overcommitted. This means that the VMIs parent pod (virt-launcher)
+                will request less physical memory by a factor specified by the OvercommitPercent.
+                Overcommits can lead to memory exhaustion, which in turn can lead
+                to crashes. Use carefully. Defaults to 0
+              maximum: 100
+              minimum: 0
+              type: integer
           required:
           - guest
           type: object
@@ -16641,6 +16650,15 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+            overcommitPercent:
+              description: OvercommitPercent is the percentage of the guest memory
+                which will be overcommitted. This means that the VMIs parent pod (virt-launcher)
+                will request less physical memory by a factor specified by the OvercommitPercent.
+                Overcommits can lead to memory exhaustion, which in turn can lead
+                to crashes. Use carefully. Defaults to 0
+              maximum: 100
+              minimum: 0
+              type: integer
           required:
           - guest
           type: object

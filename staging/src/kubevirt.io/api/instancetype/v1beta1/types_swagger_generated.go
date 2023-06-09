@@ -54,9 +54,10 @@ func (CPUInstancetype) SwaggerDoc() map[string]string {
 
 func (MemoryInstancetype) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the instancetype.",
-		"guest":     "Required amount of memory which is visible inside the guest OS.",
-		"hugepages": "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"":                  "MemoryInstancetype contains the Memory related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the amount of RAM to be exposed to the guest by the instancetype.",
+		"guest":             "Required amount of memory which is visible inside the guest OS.",
+		"hugepages":         "Optionally enables the use of hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"overcommitPercent": "OvercommitPercent is the percentage of the guest memory which will be overcommitted.\nThis means that the VMIs parent pod (virt-launcher) will request less\nphysical memory by a factor specified by the OvercommitPercent.\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 0\n+optional\n+kubebuilder:validation:Maximum=100\n+kubebuilder:validation:Minimum=0",
 	}
 }
 
