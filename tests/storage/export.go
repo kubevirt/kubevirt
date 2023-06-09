@@ -355,6 +355,8 @@ var _ = SIGDescribe("Export", func() {
 		)
 
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
 			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
