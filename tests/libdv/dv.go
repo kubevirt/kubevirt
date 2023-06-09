@@ -167,6 +167,18 @@ func WithDefaultInstancetypeLabels(defaultInstancetype, defaultInstancetypeKind,
 	}
 }
 
+func WithDataVolumeSourceRef(kind, namespace, name string) dvOption {
+	return func(dv *v1beta1.DataVolume) {
+		dv.Spec.SourceRef = &v1beta1.DataVolumeSourceRef{
+			Kind: kind,
+			Name: name,
+		}
+		if namespace != "" {
+			dv.Spec.SourceRef.Namespace = &namespace
+		}
+	}
+}
+
 func randName() string {
 	return "test-datavolume-" + rand.String(dvRandomNameLength)
 }

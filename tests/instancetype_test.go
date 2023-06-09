@@ -1117,18 +1117,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					dataVolume := libdv.NewDataVolume(
+					return libdv.NewDataVolume(
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDataVolumeSourceRef("DataSource", util.NamespaceTestDefault, dataSource.Name),
 					)
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: &util.NamespaceTestDefault,
-						Name:      dataSource.Name,
-					}
-					return dataVolume
 				},
 			),
 			Entry("without labels, DataVolumeSourceRef without namespace, DataSource and labelled PVC",
@@ -1152,18 +1146,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					dataVolume := libdv.NewDataVolume(
+					return libdv.NewDataVolume(
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDataVolumeSourceRef("DataSource", "", dataSource.Name),
 					)
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: nil,
-						Name:      dataSource.Name,
-					}
-					return dataVolume
 				},
 			),
 			Entry("without labels, DataVolumeSourceRef and DataSource with labels",
@@ -1193,19 +1181,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					dataVolume := libdv.NewDataVolume(
+					return libdv.NewDataVolume(
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDataVolumeSourceRef("DataSource", util.NamespaceTestDefault, dataSource.Name),
 					)
-
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: &util.NamespaceTestDefault,
-						Name:      dataSource.Name,
-					}
-					return dataVolume
 				},
 			),
 			Entry("without labels, DataVolumeSourceRef without namespace and DataSource with labels",
@@ -1235,19 +1216,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					dataSource, err = virtClient.CdiClient().CdiV1beta1().DataSources(util.NamespaceTestDefault).Create(context.Background(), dataSource, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					dataVolume := libdv.NewDataVolume(
+					return libdv.NewDataVolume(
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDataVolumeSourceRef("DataSource", "", dataSource.Name),
 					)
-
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: nil,
-						Name:      dataSource.Name,
-					}
-					return dataVolume
 				},
 			),
 		)
@@ -1305,14 +1279,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDataVolumeSourceRef("DataSource", util.NamespaceTestDefault, dataSource.Name),
 					)
-
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: &util.NamespaceTestDefault,
-						Name:      dataSource.Name,
-					}
 
 					return []v1.DataVolumeTemplateSpec{{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1353,14 +1321,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDataVolumeSourceRef("DataSource", util.NamespaceTestDefault, dataSource.Name),
 					)
-
-					// TODO - Add WithDataVolumeSourceRef support to libdv and use here
-					dataVolume.Spec.SourceRef = &cdiv1beta1.DataVolumeSourceRef{
-						Kind:      "DataSource",
-						Namespace: &util.NamespaceTestDefault,
-						Name:      dataSource.Name,
-					}
 
 					return []v1.DataVolumeTemplateSpec{{
 						ObjectMeta: metav1.ObjectMeta{
