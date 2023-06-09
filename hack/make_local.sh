@@ -21,7 +21,7 @@ sed -i "s|-f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-o
 
 chmod +x _local/deploy.sh
 
-ln -s assets/upgradePatches.json upgradePatches.json
+ln -sf assets/upgradePatches.json upgradePatches.json
 
 kubectl config set-context --current --namespace=${hco_namespace}
 _local/deploy.sh

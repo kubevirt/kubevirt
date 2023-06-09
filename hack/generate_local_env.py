@@ -31,9 +31,14 @@ def get_env_file(outdir, file_format='txt'):
     with open('deploy/images.csv') as image_file:
         reader = csv.DictReader(image_file, delimiter=',')
         for row in reader:
-            if row['image_var'] in ['VMWARE_IMAGE', 'CONVERSION_IMAGE', 'KUBEVIRT_VIRTIO_IMAGE']:
+            if row['image_var'] in ['VMWARE_IMAGE', 'CONVERSION_IMAGE', 'KUBEVIRT_VIRTIO_IMAGE', 'KUBEVIRT_CONSOLE_PLUGIN_IMAGE']:
                 image = f"{row['name']}@sha256:{row['digest']}"
-                env = 'VIRTIOWIN_CONTAINER' if row['image_var'] == 'KUBEVIRT_VIRTIO_IMAGE' else row['image_var'].replace("_IMAGE", "_CONTAINER")
+                if row['image_var'] == 'KUBEVIRT_VIRTIO_IMAGE':
+                    env = 'VIRTIOWIN_CONTAINER'
+                elif row['image_var'] == 'KUBEVIRT_CONSOLE_PLUGIN_IMAGE':
+                    env = row['image_var'].replace("KUBEVIRT", "KV")
+                else:
+                    env = row['image_var'].replace("_IMAGE", "_CONTAINER")
                 vars_list.append(f"{env}={image}")
 
     vars_list.extend([
