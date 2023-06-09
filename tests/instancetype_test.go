@@ -1008,14 +1008,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				libdv.WithForceBindAnnotation(),
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+				libdv.WithDefaultInstancetypeLabels(
+					instancetype.Name,
+					instancetypeapi.SingularResourceName,
+					preference.Name,
+					instancetypeapi.SingularPreferenceResourceName,
+				),
 			)
-			// TODO - Add withDefault{Instancetype,Preference}Label support to libdv
-			sourceDV.Labels = map[string]string{
-				instancetypeapi.DefaultInstancetypeLabel:     instancetype.Name,
-				instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
-				instancetypeapi.DefaultPreferenceLabel:       preference.Name,
-				instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
-			}
 			sourceDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(util.NamespaceTestDefault).Create(context.Background(), sourceDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1073,20 +1072,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		},
 			Entry("with labels",
 				func() *cdiv1beta1.DataVolume {
-					dv := libdv.NewDataVolume(
+					return libdv.NewDataVolume(
 						libdv.WithNamespace(util.NamespaceTestDefault),
 						libdv.WithForceBindAnnotation(),
 						libdv.WithPVCSource(util.NamespaceTestDefault, sourceDV.Name),
 						libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1G")),
+						libdv.WithDefaultInstancetypeLabels(
+							instancetype.Name,
+							instancetypeapi.SingularResourceName,
+							preference.Name,
+							instancetypeapi.SingularPreferenceResourceName,
+						),
 					)
-					// TODO - Add withDefault{Instancetype,Preference}Label support to libdv
-					dv.Labels = map[string]string{
-						instancetypeapi.DefaultInstancetypeLabel:     instancetype.Name,
-						instancetypeapi.DefaultInstancetypeKindLabel: instancetypeapi.SingularResourceName,
-						instancetypeapi.DefaultPreferenceLabel:       preference.Name,
-						instancetypeapi.DefaultPreferenceKindLabel:   instancetypeapi.SingularPreferenceResourceName,
-					}
-					return dv
 				},
 			),
 			Entry("without labels and labelled DataVolumeSourcePVC",

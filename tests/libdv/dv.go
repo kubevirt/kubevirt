@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	instancetypeapi "kubevirt.io/api/instancetype"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
@@ -142,6 +144,26 @@ func WithForceBindAnnotation() dvOption {
 			dv.Annotations = make(map[string]string)
 		}
 		dv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
+	}
+}
+
+func WithDefaultInstancetypeLabels(defaultInstancetype, defaultInstancetypeKind, defaultPreference, defaultPreferenceKind string) dvOption {
+	return func(dv *v1beta1.DataVolume) {
+		if dv.Labels == nil {
+			dv.Labels = make(map[string]string)
+		}
+		if defaultInstancetype != "" {
+			dv.Labels[instancetypeapi.DefaultInstancetypeLabel] = defaultInstancetype
+		}
+		if defaultInstancetypeKind != "" {
+			dv.Labels[instancetypeapi.DefaultInstancetypeKindLabel] = defaultInstancetypeKind
+		}
+		if defaultPreference != "" {
+			dv.Labels[instancetypeapi.DefaultPreferenceLabel] = defaultPreference
+		}
+		if defaultPreferenceKind != "" {
+			dv.Labels[instancetypeapi.DefaultPreferenceKindLabel] = defaultPreferenceKind
+		}
 	}
 }
 
