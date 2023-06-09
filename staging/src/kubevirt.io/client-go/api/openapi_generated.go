@@ -650,6 +650,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeCondition":      schema_pkg_apis_core_v1beta1_DataVolumeCondition(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeList":           schema_pkg_apis_core_v1beta1_DataVolumeList(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSource":         schema_pkg_apis_core_v1beta1_DataVolumeSource(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceGCS":      schema_pkg_apis_core_v1beta1_DataVolumeSourceGCS(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceHTTP":     schema_pkg_apis_core_v1beta1_DataVolumeSourceHTTP(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceImageIO":  schema_pkg_apis_core_v1beta1_DataVolumeSourceImageIO(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourcePVC":      schema_pkg_apis_core_v1beta1_DataVolumeSourcePVC(ref),
@@ -663,6 +664,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeStatus":         schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead":       schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy":              schema_pkg_apis_core_v1beta1_ImportProxy(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType":         schema_pkg_apis_core_v1beta1_ImportSourceType(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportStatus":             schema_pkg_apis_core_v1beta1_ImportStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransfer":           schema_pkg_apis_core_v1beta1_ObjectTransfer(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferCondition":  schema_pkg_apis_core_v1beta1_ObjectTransferCondition(ref),
@@ -676,6 +678,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.StorageSpec":              schema_pkg_apis_core_v1beta1_StorageSpec(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TransferSource":           schema_pkg_apis_core_v1beta1_TransferSource(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TransferTarget":           schema_pkg_apis_core_v1beta1_TransferTarget(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSource":        schema_pkg_apis_core_v1beta1_VolumeCloneSource(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSourceList":    schema_pkg_apis_core_v1beta1_VolumeCloneSourceList(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSourceSpec":    schema_pkg_apis_core_v1beta1_VolumeCloneSourceSpec(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSource":       schema_pkg_apis_core_v1beta1_VolumeImportSource(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceList":   schema_pkg_apis_core_v1beta1_VolumeImportSourceList(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceSpec":   schema_pkg_apis_core_v1beta1_VolumeImportSourceSpec(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceStatus": schema_pkg_apis_core_v1beta1_VolumeImportSourceStatus(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSource":       schema_pkg_apis_core_v1beta1_VolumeUploadSource(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceList":   schema_pkg_apis_core_v1beta1_VolumeUploadSourceList(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceSpec":   schema_pkg_apis_core_v1beta1_VolumeUploadSourceSpec(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceStatus": schema_pkg_apis_core_v1beta1_VolumeUploadSourceStatus(ref),
 	}
 }
 
@@ -29671,11 +29684,25 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 							Ref:         ref("github.com/openshift/api/config/v1.TLSSecurityProfile"),
 						},
 					},
+					"imagePullSecrets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The imagePullSecrets used to pull the container images",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/openshift/api/config/v1.TLSSecurityProfile", "k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
+			"github.com/openshift/api/config/v1.TLSSecurityProfile", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
 	}
 }
 
@@ -29725,11 +29752,25 @@ func schema_pkg_apis_core_v1beta1_CDIConfigStatus(ref common.ReferenceCallback) 
 							Format:      "",
 						},
 					},
+					"imagePullSecrets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The imagePullSecrets used to pull the container images",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
+			"k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
 	}
 }
 
@@ -30723,7 +30764,7 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSource(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
+				Description: "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, GCS, Registry or an existing PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"http": {
@@ -30734,6 +30775,11 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSource(ref common.ReferenceCallback)
 					"s3": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceS3"),
+						},
+					},
+					"gcs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceGCS"),
 						},
 					},
 					"registry": {
@@ -30775,7 +30821,36 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSource(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceSnapshot", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceUpload", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceVDDK"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceGCS", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceSnapshot", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceUpload", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceVDDK"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_DataVolumeSourceGCS(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DataVolumeSourceGCS provides the parameters to create a Data Volume from an GCS source",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the url of the GCS source",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef provides the secret reference needed to access the GCS source",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"url"},
+			},
+		},
 	}
 }
 
@@ -31349,6 +31424,56 @@ func schema_pkg_apis_core_v1beta1_ImportProxy(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_pkg_apis_core_v1beta1_ImportSourceType(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ImportSourceType contains each one of the source types allowed in a VolumeImportSource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"http": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceHTTP"),
+						},
+					},
+					"s3": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceS3"),
+						},
+					},
+					"registry": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceRegistry"),
+						},
+					},
+					"gcs": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceGCS"),
+						},
+					},
+					"blank": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeBlankImage"),
+						},
+					},
+					"imageio": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceImageIO"),
+						},
+					},
+					"vddk": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceVDDK"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceGCS", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSourceVDDK"},
+	}
+}
+
 func schema_pkg_apis_core_v1beta1_ImportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -31866,14 +31991,14 @@ func schema_pkg_apis_core_v1beta1_StorageSpec(ref common.ReferenceCallback) comm
 					"dataSourceRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies the object from which to populate the volume with data, if a non-empty volume is desired. This may be any local object from a non-empty API group (non core object) or a PersistentVolumeClaim object. When this field is specified, volume binding will only succeed if the type of the specified object matches some installed volume populator or dynamic provisioner. This field will replace the functionality of the DataSource field and as such if both fields are non-empty, they must have the same value. For backwards compatibility, both fields (DataSource and DataSourceRef) will be set to the same value automatically if one of them is empty and the other is non-empty. There are two important differences between DataSource and DataSourceRef: * While DataSource only allows two specific types of objects, DataSourceRef allows any non-core object, as well as PersistentVolumeClaim objects. * While DataSource ignores disallowed values (dropping them), DataSourceRef preserves all values, and generates an error if a disallowed value is specified. (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.",
-							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+							Ref:         ref("k8s.io/api/core/v1.TypedObjectReference"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/api/core/v1.TypedObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
@@ -31953,6 +32078,415 @@ func schema_pkg_apis_core_v1beta1_TransferTarget(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeCloneSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeCloneSource refers to a PVC/VolumeSnapshot of any storageclass/volumemode to be used as the source of a new PVC",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSourceSpec"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSourceSpec"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeCloneSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeCloneSourceList provides the needed parameters to do request a list of VolumeCloneSources from the system",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items provides a list of DataSources",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSource"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSource"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeCloneSourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeCloneSourceSpec defines the Spec field for VolumeCloneSource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is the src of the data to be cloned to the target PVC",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+						},
+					},
+					"preallocation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Preallocation controls whether storage for the target PVC should be allocated in advance.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"priorityClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PriorityClassName is the priorityclass for the claim",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeImportSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeImportSource works as a specification to populate PersistentVolumeClaims with data imported from an HTTP/S3/Registry/Blank/ImageIO/VDDK source",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceSpec", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSourceStatus"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeImportSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeImportSourceList provides the needed parameters to do request a list of Import Sources from the system",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items provides a list of DataSources",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSource"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSource"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeImportSourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeImportSourceSpec defines the Spec field for VolumeImportSource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is the src of the data to be imported in the target PVC",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType"),
+						},
+					},
+					"preallocation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Preallocation controls whether storage for the target PVC should be allocated in advance.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"contentType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ContentType represents the type of the imported data (Kubevirt or archive)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeImportSourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeImportSourceStatus provides the most recently observed status of the VolumeImportSource",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeUploadSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeUploadSource is a specification to populate PersistentVolumeClaims with upload data",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceSpec", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeUploadSourceStatus"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeUploadSourceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeUploadSourceList provides the needed parameters to do request a list of Upload Sources from the system",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items provides a list of DataSources",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSource"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeImportSource"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeUploadSourceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeUploadSourceSpec defines specification for VolumeUploadSource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"contentType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ContentType represents the type of the upload data (Kubevirt or archive)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"preallocation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Preallocation controls whether storage for the target PVC should be allocated in advance.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_VolumeUploadSourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeUploadSourceStatus provides the most recently observed status of the VolumeUploadSource",
+				Type:        []string{"object"},
 			},
 		},
 	}

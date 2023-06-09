@@ -196,7 +196,7 @@ func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolum
 	if pvcExists {
 		var err error
 		pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
-		ready, err = cdiv1.IsPopulated(pvc, dataVolumeFunc)
+		ready, err = cdiv1.IsSucceededOrPendingPopulation(pvc, dataVolumeFunc)
 		if err != nil {
 			return false, false, err
 		}
