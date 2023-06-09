@@ -859,15 +859,15 @@ tests:
 
     alert_rule_test:
       - eval_time: 1m
-        alertname: KubeVirtDeprecatedAPIsRequested
+        alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
       - eval_time: 2m
-        alertname: KubeVirtDeprecatedAPIsRequested
+        alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts:
           - exp_annotations:
               description: "Detected requests to the deprecated virtualmachines.kubevirt.io/v1alpha3 API."
               summary: "Detected 1 requests in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtDeprecatedAPIsRequested"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtDeprecatedAPIRequested"
             exp_labels:
               severity: "info"
               operator_health_impact: "none"
@@ -877,12 +877,12 @@ tests:
               group: "kubevirt.io"
               version: "v1alpha3"
       - eval_time: 3m
-        alertname: KubeVirtDeprecatedAPIsRequested
+        alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts:
           - exp_annotations:
               description: "Detected requests to the deprecated virtualmachines.kubevirt.io/v1alpha3 API."
               summary: "Detected 2 requests in the last 10 minutes."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtDeprecatedAPIsRequested"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtDeprecatedAPIRequested"
             exp_labels:
               severity: "info"
               operator_health_impact: "none"
@@ -892,5 +892,5 @@ tests:
               group: "kubevirt.io"
               version: "v1alpha3"
       - eval_time: 13m
-        alertname: KubeVirtDeprecatedAPIsRequested
+        alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
