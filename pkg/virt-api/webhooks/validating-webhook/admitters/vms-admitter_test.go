@@ -1652,6 +1652,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			BeforeEach(func() {
 				vmi := api.NewMinimalVMI("testvmi")
+				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
 				vm = &v1.VirtualMachine{
 					Spec: v1.VirtualMachineSpec{
 						LiveUpdateFeatures: &v1.LiveUpdateFeatures{
@@ -1665,6 +1666,16 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 				}
+			})
+			Context("feature gate disabled", func() {
+				It("should reject when the feature gate is disabled", func() {
+					disableFeatureGates()
+					response := admitVm(vmsAdmitter, vm)
+					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes).To(HaveLen(1))
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VMLiveUpdateFeaturesGate)))
+				})
 			})
 
 			It("should reject configuration of maxSockets in VM template", func() {

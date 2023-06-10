@@ -393,6 +393,14 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	// Validate live update features
+	if spec.LiveUpdateFeatures != nil && !config.VMLiveUpdateFeaturesEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMLiveUpdateFeaturesGate),
+			Field:   field.Child("liveUpdateFeatures").String(),
+		})
+	}
+
 	if spec.Template.Spec.Domain.CPU != nil && spec.Template.Spec.Domain.CPU.MaxSockets != 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
