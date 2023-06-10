@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
-	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
 )
 
@@ -105,7 +104,6 @@ func main() {
 	processVars := flag.Bool("process-vars", false, "")
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
 	packageName := flag.String("package-name", "", "")
-	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
 	virtOperatorSha := flag.String("virt-operator-sha", "", shaEnvDeprecationMsg)
 	virtApiSha := flag.String("virt-api-sha", "", shaEnvDeprecationMsg)
@@ -194,27 +192,6 @@ func main() {
 		}
 		if *infraReplicas != 0 {
 			data.InfraReplicas = uint8(*infraReplicas)
-		}
-
-		// operator deployment differs a bit in normal manifest and CSV
-		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
-			// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
-			if *bundleOutDir != "" && data.QuayRepository != "" {
-				bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
-				if err != nil {
-					panic(err)
-				}
-				latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
-				if latestVersion != "" {
-					// prevent generating the same version again
-					if strings.HasSuffix(latestVersion, *csvVersion) {
-						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
-					}
-					data.ReplacesCsvVersion = latestVersion
-					// also copy old manifests to out dir
-					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
-				}
-			}
 		}
 
 	} else {
