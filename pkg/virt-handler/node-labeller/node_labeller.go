@@ -63,6 +63,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HypervLabel,
 	kubevirtv1.RealtimeLabel,
 	kubevirtv1.SEVLabel,
+	kubevirtv1.SEVESLabel,
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
@@ -324,6 +325,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 
 	if n.SEV.Supported == "yes" {
 		newLabels[kubevirtv1.SEVLabel] = ""
+	}
+
+	if n.SEV.SupportedES == "yes" {
+		newLabels[kubevirtv1.SEVESLabel] = ""
 	}
 
 	if n.KSM.Enabled {

@@ -1066,24 +1066,91 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
 	})
 
-	It("should add SEV node label selector with SEV workload", func() {
-		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.SEVLabel: ""}))
-	})
-
-	It("should not add SEV node label selector when no SEV workload", func() {
-		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
-		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
-	})
-
-	It("should not overwrite existing node label selectors with SEV workload", func() {
-		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
-		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""}))
-	})
+	DescribeTable("When scheduling SEV workloads",
+		func(nodeSelectorBefore map[string]string,
+			nodeSelectorAfter map[string]string,
+			launchSec *v1.LaunchSecurity) {
+			vmi.Spec.NodeSelector = nodeSelectorBefore
+			vmi.Spec.Domain.LaunchSecurity = launchSec
+			_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+			Expect(vmiSpec.NodeSelector).NotTo(BeNil())
+			Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(nodeSelectorAfter))
+		},
+		Entry("It should add SEV node label selector with SEV workload",
+			map[string]string{},
+			map[string]string{v1.SEVLabel: ""},
+			&v1.LaunchSecurity{SEV: &v1.SEV{}}),
+		Entry("It should not add SEV node label selector when no SEV workload",
+			map[string]string{v1.NodeSchedulable: "true"},
+			map[string]string{v1.NodeSchedulable: "true"},
+			&v1.LaunchSecurity{}),
+		Entry("It should not overwrite existing node label selectors with SEV workload",
+			map[string]string{v1.NodeSchedulable: "true"},
+			map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""},
+			&v1.LaunchSecurity{SEV: &v1.SEV{}}),
+		Entry("It should add SEV and SEV-ES node label selector with SEV-ES workload",
+			map[string]string{},
+			map[string]string{
+				v1.SEVLabel:   "",
+				v1.SEVESLabel: "",
+			},
+			&v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Policy: &v1.SEVPolicy{
+						EncryptedState: pointer.Bool(true),
+					},
+				},
+			}),
+		Entry("It should not add SEV-ES node label selector when no SEV policy is set",
+			map[string]string{v1.NodeSchedulable: "true"},
+			map[string]string{
+				v1.NodeSchedulable: "true",
+				v1.SEVLabel:        "",
+			},
+			&v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Policy: &v1.SEVPolicy{},
+				},
+			}),
+		Entry("It should not add SEV-ES node label selector when no SEV-ES policy bit is set",
+			map[string]string{v1.NodeSchedulable: "true"},
+			map[string]string{
+				v1.NodeSchedulable: "true",
+				v1.SEVLabel:        "",
+			},
+			&v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Policy: &v1.SEVPolicy{
+						EncryptedState: nil,
+					},
+				},
+			}),
+		Entry("It should not add SEV-ES node label selector when SEV-ES policy bit is set to false",
+			map[string]string{v1.NodeSchedulable: "true"},
+			map[string]string{
+				v1.NodeSchedulable: "true",
+				v1.SEVLabel:        "",
+			},
+			&v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Policy: &v1.SEVPolicy{
+						EncryptedState: pointer.Bool(false),
+					},
+				},
+			}),
+		Entry("It should not overwrite existing node label selectors with SEV-ES workload",
+			map[string]string{v1.NodeSchedulable: "true"},
+			map[string]string{
+				v1.NodeSchedulable: "true",
+				v1.SEVLabel:        "",
+				v1.SEVESLabel:      "",
+			},
+			&v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Policy: &v1.SEVPolicy{
+						EncryptedState: pointer.Bool(true),
+					},
+				},
+			}),
+	)
 })

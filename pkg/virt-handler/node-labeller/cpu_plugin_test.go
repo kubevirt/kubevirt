@@ -165,25 +165,44 @@ var _ = Describe("Node-labeller config", func() {
 	})
 
 	Context("return correct SEV capabilities", func() {
-		It("when SEV is supported", func() {
-			nlController.domCapabilitiesFileName = "domcapabilities_sev.xml"
-			err := nlController.loadDomCapabilities()
-			Expect(err).ToNot(HaveOccurred())
+		DescribeTable("for SEV and SEV-ES",
+			func(isSupported bool, withES bool) {
+				if isSupported && withES {
+					nlController.domCapabilitiesFileName = "domcapabilities_sev.xml"
+				} else if isSupported {
+					nlController.domCapabilitiesFileName = "domcapabilities_noseves.xml"
+				} else {
+					nlController.domCapabilitiesFileName = "domcapabilities_nosev.xml"
+				}
+				err := nlController.loadDomCapabilities()
+				Expect(err).ToNot(HaveOccurred())
 
-			Expect(nlController.SEV.Supported).To(Equal("yes"))
-			Expect(nlController.SEV.Cbitpos).To(Equal("47"))
-			Expect(nlController.SEV.ReducedPhysBits).To(Equal("1"))
-		})
+				if isSupported {
+					Expect(nlController.SEV.Supported).To(Equal("yes"))
+					Expect(nlController.SEV.CBitPos).To(Equal(uint(47)))
+					Expect(nlController.SEV.ReducedPhysBits).To(Equal(uint(1)))
+					Expect(nlController.SEV.MaxGuests).To(Equal(uint(15)))
 
-		It("when SEV is not supported", func() {
-			nlController.domCapabilitiesFileName = "domcapabilities_nosev.xml"
-			err := nlController.loadDomCapabilities()
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(nlController.SEV.Supported).To(Equal("no"))
-			Expect(nlController.SEV.Cbitpos).To(BeEmpty())
-			Expect(nlController.SEV.ReducedPhysBits).To(BeEmpty())
-		})
+					if withES {
+						Expect(nlController.SEV.SupportedES).To(Equal("yes"))
+						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15)))
+					} else {
+						Expect(nlController.SEV.SupportedES).To(Equal("no"))
+						Expect(nlController.SEV.MaxESGuests).To(BeZero())
+					}
+				} else {
+					Expect(nlController.SEV.Supported).To(Equal("no"))
+					Expect(nlController.SEV.CBitPos).To(BeZero())
+					Expect(nlController.SEV.ReducedPhysBits).To(BeZero())
+					Expect(nlController.SEV.MaxGuests).To(BeZero())
+					Expect(nlController.SEV.SupportedES).To(Equal("no"))
+					Expect(nlController.SEV.MaxESGuests).To(BeZero())
+				}
+			},
+			Entry("when only SEV is supported", true, false),
+			Entry("when both SEV and SEV-ES are supported", true, true),
+			Entry("when neither SEV nor SEV-ES are supported", false, false),
+		)
 	})
 
 	It("Make sure proper labels are removed on removeLabellerLabels()", func() {
