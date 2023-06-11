@@ -53,13 +53,14 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Net
 	var nics []podNIC
 
 	for i := range networks {
+		// SR-IOV devices are not part of the phases.
+		if iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name); iface.SRIOV != nil {
+			continue
+		}
+
 		nic, err := newPhase1PodNIC(v.vmi, &networks[i], v.handler, v.cacheCreator, launcherPID)
 		if err != nil {
 			return nil, err
-		}
-		// SR-IOV devices are not part of the phases.
-		if nic.vmiSpecIface.SRIOV != nil {
-			continue
 		}
 		nics = append(nics, *nic)
 	}

@@ -58,6 +58,9 @@ var _ = Describe("netconf", func() {
 
 	It("fails the setup run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactory(nsFailureFactory, &tempCacheCreator{})
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name: "default",
+		}}
 		vmi.Spec.Networks = []v1.Network{{
 			Name:          "default",
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
