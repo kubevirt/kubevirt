@@ -18,7 +18,7 @@ import (
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
-const percentValueMustBeInRangeMessagePattern = "%s '%s': must be in range between 0 and 100."
+const percentValueMustBeInRangeMessagePattern = "%s '%d': must be in range between 0 and 100."
 
 var supportedInstancetypeVersions = []string{
 	instancetypev1alpha1.SchemeGroupVersion.Version,
@@ -48,7 +48,7 @@ func validateMemoryOvercommitPercentSetting(field *k8sfield.Path, spec *instance
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(percentValueMustBeInRangeMessagePattern, field.Child("memory", "overcommitPercent").String(),
-				string(spec.Memory.OvercommitPercent)),
+				spec.Memory.OvercommitPercent),
 			Field: field.Child("memory", "overcommitPercent").String(),
 		})
 	}
