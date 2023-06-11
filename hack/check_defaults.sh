@@ -28,7 +28,6 @@ PERMITTED_HOST_DEVICES_DEFAULT1='{"pciDeviceSelector":"10DE:1DB6","resourceName"
 PERMITTED_HOST_DEVICES_DEFAULT2='{"pciDeviceSelector":"10DE:1EB8","resourceName":"nvidia.com/TU104GL_Tesla_T4"}'
 WORKLOAD_UPDATE_STRATEGY_DEFAULT='{"batchEvictionInterval":"1m0s","batchEvictionSize":10,"workloadUpdateMethods":["LiveMigrate"]}'
 UNINSTALL_STRATEGY_DEFAULT='BlockUninstallIfWorkloadsExist'
-EVICTION_STRATEGY_DEFAULT='LiveMigrate'
 
 CERTCONFIGPATHS=(
     "/spec/certConfig/ca/duration"
@@ -72,11 +71,6 @@ WORKLOAD_UPDATE_STRATEGY_PATHS=(
 
 UNINSTALL_STRATEGY_PATHS=(
     "/spec/uninstallStrategy"
-    "/spec"
-)
-
-EVICTION_STRATEGY_PATHS=(
-    "/spec/evictionStrategy"
     "/spec"
 )
 
@@ -145,15 +139,3 @@ for JPATH in "${UNINSTALL_STRATEGY_PATHS[@]}"; do
     sleep 2
 done
 
-echo "Check that evictionStrategy default is behaving as expected"
-
-./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type=json kubevirt-hyperconverged -p '[{ \"op\": \"replace\", \"path\": /spec, \"value\": {} }]'"
-for JPATH in "${EVICTION_STRATEGY_PATHS[@]}"; do
-    ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n \"${INSTALLED_NAMESPACE}\" --type='json' kubevirt-hyperconverged -p '[{ \"op\": \"remove\", \"path\": '\"${JPATH}\"' }]'"
-    EVICTION_STRATEGY=$(${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o jsonpath='{.spec.evictionStrategy}')
-    if [[ "${EVICTION_STRATEGY_DEFAULT}" != "${EVICTION_STRATEGY}" ]]; then
-        echo "Failed checking CR defaults for evictionStrategy"
-        exit 1
-    fi
-    sleep 2
-done

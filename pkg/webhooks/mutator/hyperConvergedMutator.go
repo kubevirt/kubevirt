@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,6 +15,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
 )
 
 var (
@@ -87,6 +90,24 @@ func (hcm *HyperConvergedMutator) mutateHyperConverged(_ context.Context, req ad
 			Path:      "/spec/featureGates/root",
 			Value:     value,
 		})
+	}
+
+	if hc.Spec.EvictionStrategy == nil {
+		ci := hcoutil.GetClusterInfo()
+		if ci.IsInfrastructureHighlyAvailable() {
+			patches = append(patches, jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/spec/evictionStrategy",
+				Value:     kubevirtcorev1.EvictionStrategyLiveMigrate,
+			})
+		} else {
+			patches = append(patches, jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/spec/evictionStrategy",
+				Value:     kubevirtcorev1.EvictionStrategyNone,
+			})
+		}
+
 	}
 
 	if len(patches) > 0 {

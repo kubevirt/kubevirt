@@ -492,7 +492,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					},
 					"evictionStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
+							Description: "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one. Defaults to LiveMigrate with multiple worker nodes, None on single worker clusters.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

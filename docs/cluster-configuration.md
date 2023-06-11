@@ -834,7 +834,7 @@ Possible values:
 - `LiveMigrate` migrate the VM on eviction.
 - `External` block eviction and notify an external controller.
 
-`LiveMigrate` is the default behaviour.
+`LiveMigrate` is the default behaviour with multiple worker nodes, `None` on single worker clusters.
 
 
 ## VM state storage class

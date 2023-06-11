@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+
 	"k8s.io/utils/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +23,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 var _ = Describe("test HyperConverged mutator", func() {
@@ -48,6 +51,8 @@ var _ = Describe("test HyperConverged mutator", func() {
 				Spec: v1beta1.HyperConvergedSpec{},
 			}
 			cr.Spec.FeatureGates.Root = pointer.Bool(false)
+			evictionStrategy := kubevirtcorev1.EvictionStrategyLiveMigrate
+			cr.Spec.EvictionStrategy = &evictionStrategy
 			cli = commontestutils.InitClient(nil)
 			mutator = initHCMutator(s, cli)
 		})
@@ -273,6 +278,85 @@ var _ = Describe("test HyperConverged mutator", func() {
 			}))
 		})
 
+		Context("Check defaults for cluster level EvictionStrategy", func() {
+
+			getClusterInfo := hcoutil.GetClusterInfo
+
+			AfterEach(func() {
+				hcoutil.GetClusterInfo = getClusterInfo
+			})
+
+			DescribeTable("check EvictionStrategy default", func(SNO bool, strategy *kubevirtcorev1.EvictionStrategy, patches []jsonpatch.JsonPatchOperation) {
+				if SNO {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commontestutils.ClusterInfoSNOMock{}
+					}
+				} else {
+					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+						return &commontestutils.ClusterInfoMock{}
+					}
+				}
+
+				cr.Spec.EvictionStrategy = strategy
+
+				req := admission.Request{AdmissionRequest: newCreateRequest(cr, hcoV1beta1Codec)}
+
+				res := mutator.Handle(context.TODO(), req)
+				Expect(res.Allowed).To(BeTrue())
+
+				Expect(res.Patches).To(Equal(patches))
+			},
+				Entry("should set EvictionStrategyNone if not set and on SNO",
+					true,
+					nil,
+					[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/evictionStrategy",
+						Value:     kubevirtcorev1.EvictionStrategyNone,
+					}},
+				),
+				Entry("should not override EvictionStrategy if set and on SNO - 1",
+					true,
+					pointerEvictionStrategy(kubevirtcorev1.EvictionStrategyNone),
+					nil,
+				),
+				Entry("should not override EvictionStrategy if set and on SNO - 2",
+					true,
+					pointerEvictionStrategy(kubevirtcorev1.EvictionStrategyLiveMigrate),
+					nil,
+				),
+				Entry("should not override EvictionStrategy if set and on SNO - 3",
+					true,
+					pointerEvictionStrategy(kubevirtcorev1.EvictionStrategyExternal),
+					nil,
+				),
+				Entry("should set EvictionStrategyLiveMigrate if not set and not on SNO",
+					false,
+					nil,
+					[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/evictionStrategy",
+						Value:     kubevirtcorev1.EvictionStrategyLiveMigrate,
+					}},
+				),
+				Entry("should not override EvictionStrategy if set and not on SNO - 1",
+					false,
+					pointerEvictionStrategy(kubevirtcorev1.EvictionStrategyNone),
+					nil,
+				),
+				Entry("should not override EvictionStrategy if set and not on SNO - 2",
+					false,
+					pointerEvictionStrategy(kubevirtcorev1.EvictionStrategyLiveMigrate),
+					nil,
+				),
+				Entry("should not override EvictionStrategy if set and not on SNO - 3",
+					false,
+					pointerEvictionStrategy(kubevirtcorev1.EvictionStrategyExternal),
+					nil,
+				),
+			)
+		})
+
 	})
 })
 
@@ -281,4 +365,9 @@ func initHCMutator(s *runtime.Scheme, testClient client.Client) *HyperConvergedM
 	mutator := NewHyperConvergedMutator(testClient, decoder)
 
 	return mutator
+}
+
+func pointerEvictionStrategy(strategy kubevirtcorev1.EvictionStrategy) *kubevirtcorev1.EvictionStrategy {
+	str := strategy
+	return &str
 }

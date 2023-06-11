@@ -51,7 +51,6 @@ spec:
                 server:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
-              evictionStrategy: LiveMigrate
               featureGates:
                 deployKubeSecondaryDNS: false
                 deployTektonTaskResources: false
@@ -1038,11 +1037,11 @@ spec:
                   are eventually going to consume the new default RuntimeClass.
                 type: string
               evictionStrategy:
-                default: LiveMigrate
                 description: EvictionStrategy defines at the cluster level if the
                   VirtualMachineInstance should be migrated instead of shut-off in
                   case of a node drain. If the VirtualMachineInstance specific field
-                  is set it overrides the cluster level one.
+                  is set it overrides the cluster level one. Defaults to LiveMigrate
+                  with multiple worker nodes, None on single worker clusters.
                 enum:
                 - None
                 - LiveMigrate
