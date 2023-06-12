@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"sync"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -37,10 +39,15 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type ConfigStateExecutor interface {
+	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
+	Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error
+}
+
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
-	configState      map[string]*ConfigState
+	configState      map[string]ConfigStateExecutor
 	configStateMutex *sync.RWMutex
 }
 
@@ -54,10 +61,10 @@ func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
 	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory, map[string]*ConfigState{})
+	}, cacheFactory, map[string]ConfigStateExecutor{})
 }
 
-func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]*ConfigState) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]ConfigStateExecutor) *NetConf {
 	return &NetConf{
 		configState:      configState,
 		configStateMutex: &sync.RWMutex{},
@@ -72,7 +79,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
 
 	c.configStateMutex.RLock()
 	configState, ok := c.configState[string(vmi.UID)]
@@ -84,17 +91,30 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 			return err
 		}
 		ns := c.nsFactory(launcherPid)
-		newConfigState := NewConfigState(configStateCache, ns, launcherPid)
+		newConfigState := NewConfigState(configStateCache, ns)
 		configState = &newConfigState
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
 		c.configStateMutex.Unlock()
 	}
 
+	// Absent networks are passed as well since, Absent network with ordinary name has to be plugged
 	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
 
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
+	}
+
+	absentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
+	if len(absentIfaces) != 0 {
+		err = c.hotUnplugInterfaces(vmi, absentNets, configState, launcherPid)
+	}
+
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -136,14 +156,7 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (c *NetConf) HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error {
-	c.configStateMutex.RLock()
-	configState, ok := c.configState[string(vmi.UID)]
-	c.configStateMutex.RUnlock()
-
-	if !ok {
-		return nil
-	}
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
-	return netConfigurator.UnplugPodNetworksPhase1(vmi, configState)
+func (c *NetConf) hotUnplugInterfaces(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor, launcherPid int) error {
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
+	return netConfigurator.UnplugPodNetworksPhase1(vmi, networks, configState)
 }

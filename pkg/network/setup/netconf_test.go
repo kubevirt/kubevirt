@@ -25,8 +25,6 @@ import (
 	"os"
 	"sync"
 
-	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -40,13 +38,17 @@ import (
 )
 
 var _ = Describe("netconf", func() {
-	var netConf *netsetup.NetConf
-	var vmi *v1.VirtualMachineInstance
+	var (
+		netConf   *netsetup.NetConf
+		vmi       *v1.VirtualMachineInstance
+		configMap map[string]netsetup.ConfigStateExecutor
+	)
 
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, map[string]*netsetup.ConfigState{})
+		configMap = map[string]netsetup.ConfigStateExecutor{}
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, configMap)
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
 	})
 
@@ -59,7 +61,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the setup run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, map[string]*netsetup.ConfigState{})
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, configMap)
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name: "default",
 		}}
@@ -71,25 +73,21 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the teardown run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, map[string]*netsetup.ConfigState{})
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, configMap)
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
 	})
 
-	Context("HotUnplugInterfaces", func() {
+	Context("hot unplug", func() {
 		const (
 			netName = "multusNet"
 			nadName = "blue"
 		)
 
-		var (
-			nsStub       netnsStub
-			configMap    map[string]*netsetup.ConfigState
-			cacheCreator tempCacheCreator
-			configCache  netsetup.ConfigStateCache
-		)
+		var configState netsetup.ConfigStateStub
 
 		BeforeEach(func() {
-			dutils.MockDefaultOwnershipManager()
+			configState = netsetup.ConfigStateStub{}
+			configMap[string(vmi.UID)] = &configState
 
 			vmi.Spec.Networks = []v1.Network{{
 				Name: netName,
@@ -101,31 +99,20 @@ var _ = Describe("netconf", func() {
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		})
 
-			cacheCreator = tempCacheCreator{}
-			nsStub = netnsStub{}
-			configMap = map[string]*netsetup.ConfigState{}
-
-			podIfaceCacheData := &cache.PodIfaceCacheData{State: cache.PodIfaceNetworkPreparationFinished}
-			Expect(cache.WritePodInterfaceCache(&cacheCreator, string(vmi.UID), netName, podIfaceCacheData)).To(Succeed())
+		It("runs setup successfully when there are absent interfaces", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateAbsent
 
-			configCache = netsetup.NewConfigStateCache(string(vmi.UID), &cacheCreator)
-			netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, &cacheCreator, configMap)
+			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+			Expect(configState.UnplugWasExecuted).To(BeTrue())
+			Expect(configState.RunWasExecuted).To(BeTrue())
 		})
 
-		It("runs successfully", func() {
-			configState := netsetup.NewConfigStateWithPodIfaceMap(&configCache, nsStub, launcherPid, map[string]string{netName: "pod1"})
-			configMap[string(vmi.UID)] = &configState
-
-			Expect(netConf.HotUnplugInterfaces(vmi)).To(Succeed())
-		})
-		It("fails the unplug", func() {
-			nsStub.shouldFail = true
-			configState := netsetup.NewConfigStateWithPodIfaceMap(&configCache, nsStub, launcherPid, map[string]string{netName: "pod1"})
-			configMap[string(vmi.UID)] = &configState
-
-			Expect(netConf.HotUnplugInterfaces(vmi)).NotTo(Succeed())
+		It("runs setup successfully when there are no absent interfaces", func() {
+			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+			Expect(configState.UnplugWasExecuted).To(BeFalse())
+			Expect(configState.RunWasExecuted).To(BeTrue())
 		})
 	})
 })
@@ -135,7 +122,7 @@ type netnsStub struct {
 }
 
 func (n netnsStub) Do(func() error) error {
-	if n.shouldFail == true {
+	if n.shouldFail {
 		return fmt.Errorf("do-netns failure")
 	}
 	return nil

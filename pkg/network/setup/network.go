@@ -35,22 +35,20 @@ type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheCreator cacheCreator
+	launcherPid  *int
 }
 
-type configStateUnplugger interface {
-	UnplugNetworks(specInterfaces []v1.Interface, discoverFunc func() (map[string]string, error), cleanupFunc func(network string, launcherPid int) error) error
-}
-
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *VMNetworkConfigurator {
+func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPid *int) *VMNetworkConfigurator {
 	return &VMNetworkConfigurator{
 		vmi:          vmi,
 		handler:      handler,
 		cacheCreator: cacheCreator,
+		launcherPid:  launcherPid,
 	}
 }
 
-func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator)
+func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator, launcherPid *int) *VMNetworkConfigurator {
+	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator, launcherPid)
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Network) ([]podNIC, error) {
@@ -89,7 +87,7 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 	return nics, nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network, configState *ConfigState) error {
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network, configState ConfigStateExecutor) error {
 	nics, err := n.getPhase1NICs(&launcherPID, networks)
 	if err != nil {
 		return err
@@ -172,27 +170,34 @@ func filterOutAbsentIfaces(nics []podNIC) []podNIC {
 	return filteredNics
 }
 
-func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, configState configStateUnplugger) error {
-	networkByName := vmispec.IndexNetworkSpecByName(vmi.Spec.Networks)
-	err := configState.UnplugNetworks(
-		vmi.Spec.Domain.Devices.Interfaces,
-		func() (map[string]string, error) {
-			podIfaceNameByNet := map[string]string{}
-			for _, net := range vmi.Spec.Networks {
-				podIfaceName, err := discoverPodInterfaceName(n.handler, vmi.Spec.Networks, net)
-				if err != nil {
-					return nil, err
-				}
-				podIfaceNameByNet[net.Name] = podIfaceName
-			}
-			return podIfaceNameByNet, nil
+func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor) error {
+	networkByName := vmispec.IndexNetworkSpecByName(networks)
+	err := configState.Unplug(
+		networks,
+		func(netsToFilter []v1.Network) ([]string, error) {
+			return n.filterOutOrdinalInterfaces(netsToFilter, vmi)
 		},
-		func(network string, launcherPid int) error {
-			unpluggedPodNic := NewUnpluggedpodnic(string(vmi.UID), networkByName[network], n.handler, launcherPid, n.cacheCreator)
+		func(network string) error {
+			unpluggedPodNic := NewUnpluggedpodnic(string(vmi.UID), networkByName[network], n.handler, *n.launcherPid, n.cacheCreator)
 			return unpluggedPodNic.UnplugPhase1()
 		})
 	if err != nil {
 		return fmt.Errorf("failed unplug pod networks phase1: %w", err)
 	}
 	return nil
+}
+
+func (n *VMNetworkConfigurator) filterOutOrdinalInterfaces(networks []v1.Network, vmi *v1.VirtualMachineInstance) ([]string, error) {
+	networksToUnplug := []string{}
+	for _, net := range networks {
+		podIfaceName, err := discoverPodInterfaceName(n.handler, vmi.Spec.Networks, net)
+		if err != nil {
+			return nil, err
+		}
+		// podIfaceName can be empty in case the interface was already unplugged from the pod or not yet plugged
+		if podIfaceName == "" || !namescheme.OrdinalSecondaryInterfaceName(podIfaceName) {
+			networksToUnplug = append(networksToUnplug, net.Name)
+		}
+	}
+	return networksToUnplug, nil
 }

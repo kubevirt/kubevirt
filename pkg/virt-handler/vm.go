@@ -101,7 +101,6 @@ import (
 
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
-	HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
@@ -2957,21 +2956,21 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			nets := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
+			netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
 			nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 				return iface.State != v1.InterfaceStateAbsent
 			})
-			nonAbsentNets := netvmispec.FilterNetworksByInterfaces(nets, nonAbsentIfaces)
+			netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
 
-			if err := d.setupNetwork(vmi, nonAbsentNets); err != nil {
+			ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+				return iface.State == v1.InterfaceStateAbsent
+			})
+			netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
+
+			setupNets := append(netsToHotplug, netsToHotunplug...)
+			if err := d.setupNetwork(vmi, setupNets); err != nil {
 				log.Log.Object(vmi).Error(err.Error())
 				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
-				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
-			}
-
-			if err := d.netConf.HotUnplugInterfaces(vmi); err != nil {
-				log.Log.Object(vmi).Error(err.Error())
-				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotunplug", err.Error())
 				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
 			}
 		}

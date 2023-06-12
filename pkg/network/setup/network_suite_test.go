@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -103,4 +104,23 @@ type nsExecutorStub struct {
 func (n nsExecutorStub) Do(f func() error) error {
 	Expect(n.shouldNotBeExecuted).To(BeFalse(), "The namespace executor shouldn't be invoked")
 	return f()
+}
+
+type ConfigStateStub struct {
+	UnplugShouldFail  bool
+	UnplugWasExecuted bool
+	RunWasExecuted    bool
+}
+
+func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func([]v1.Network) ([]string, error), _ func(string) error) error {
+	c.UnplugWasExecuted = true
+	if c.UnplugShouldFail {
+		return fmt.Errorf("Unplug failure")
+	}
+	return nil
+}
+
+func (c *ConfigStateStub) Run(_ []podNIC, _ func([]podNIC) ([]podNIC, error), _ func(*podNIC) error, _ func(*podNIC) error) error {
+	c.RunWasExecuted = true
+	return nil
 }
