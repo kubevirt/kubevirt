@@ -143,13 +143,19 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 }
 
 func verifyOperatorHealthMetricValue(promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
-	Eventually(func() bool {
-		systemHealthMetricValue := getMetricValue(promClient, "kubevirt_hco_system_health_status")
-		operatorHealthMetricValue := getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
+	Eventually(func(g Gomega) {
+		if alertImpact >= initialOperatorHealthMetricValue {
+			systemHealthMetricValue := getMetricValue(promClient, "kubevirt_hco_system_health_status")
+			operatorHealthMetricValue := getMetricValue(promClient, "kubevirt_hyperconverged_operator_health_status")
+			expectedOperatorHealthMetricValue := math.Max(alertImpact, systemHealthMetricValue)
 
-		expectedOperatorHealthMetricValue := math.Max(alertImpact, math.Max(systemHealthMetricValue, initialOperatorHealthMetricValue))
-		return operatorHealthMetricValue == expectedOperatorHealthMetricValue
-	}, 60*time.Second, 5*time.Second).Should(BeTrue())
+			g.Expect(operatorHealthMetricValue).To(Equal(expectedOperatorHealthMetricValue),
+				"kubevirt_hyperconverged_operator_health_status value is %f, but its expected value is %f, "+
+					"while kubevirt_hco_system_health_status value is %f.",
+				operatorHealthMetricValue, expectedOperatorHealthMetricValue, systemHealthMetricValue)
+		}
+
+	}, 60*time.Second, 5*time.Second).Should(Succeed())
 }
 
 func getMetricValue(promClient promApiv1.API, metricName string) float64 {
