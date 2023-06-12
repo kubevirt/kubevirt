@@ -22,11 +22,9 @@ package network
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	v1 "kubevirt.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/util/errors"
-
-	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/log"
 
@@ -41,18 +39,12 @@ type configStateCacheRUD interface {
 }
 
 type ConfigState struct {
-	cache                 configStateCacheRUD
-	ns                    NSExecutor
-	launcherPid           int
-	podIfaceNameByNetwork map[string]string
+	cache configStateCacheRUD
+	ns    NSExecutor
 }
 
-func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor, launcherPid int) ConfigState {
-	return NewConfigStateWithPodIfaceMap(configStateCache, ns, launcherPid, nil)
-}
-
-func NewConfigStateWithPodIfaceMap(configStateCache configStateCacheRUD, ns NSExecutor, launcherPid int, podIfaceNameByNetwork map[string]string) ConfigState {
-	return ConfigState{cache: configStateCache, ns: ns, launcherPid: launcherPid, podIfaceNameByNetwork: podIfaceNameByNetwork}
+func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigState {
+	return ConfigState{cache: configStateCache, ns: ns}
 }
 
 // Run passes through the state machine flow, executing the following steps:
@@ -91,14 +83,6 @@ func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, er
 		if preErr != nil {
 			return preErr
 		}
-		if c.podIfaceNameByNetwork == nil {
-			c.podIfaceNameByNetwork = map[string]string{}
-		}
-		for _, nic := range nics {
-			if _, exist := c.podIfaceNameByNetwork[nic.vmiSpecNetwork.Name]; !exist {
-				c.podIfaceNameByNetwork[nic.vmiSpecNetwork.Name] = nic.podInterfaceName
-			}
-		}
 		return c.plug(nics, discoverFunc, configFunc)
 	})
 	return err
@@ -136,30 +120,25 @@ func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, conf
 	return nil
 }
 
-func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, dicoverFunc func() (map[string]string, error), cleanupFunc func(string, int) error) error {
-	if c.podIfaceNameByNetwork == nil {
-		err := c.ns.Do(func() error {
-			var dErr error
-			c.podIfaceNameByNetwork, dErr = dicoverFunc()
-			return dErr
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	networksToUnplug, err := c.networksToUnplug(specInterfaces)
-	if err != nil {
+func (c *ConfigState) Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error {
+	var nonPendingNetworks []v1.Network
+	var err error
+	if nonPendingNetworks, err = c.nonPendingNetworks(networks); err != nil {
 		return err
 	}
 
-	if len(networksToUnplug) == 0 {
+	if len(nonPendingNetworks) == 0 {
 		return nil
 	}
 	err = c.ns.Do(func() error {
+		networksToUnplug, doErr := filterFunc(nonPendingNetworks)
+		if doErr != nil {
+			return doErr
+		}
+
 		var cleanupErrors []error
 		for _, net := range networksToUnplug {
-			if cleanupErr := cleanupFunc(net, c.launcherPid); cleanupErr != nil {
+			if cleanupErr := cleanupFunc(net); cleanupErr != nil {
 				cleanupErrors = append(cleanupErrors, cleanupErr)
 			} else if cleanupErr := c.cache.Delete(net); cleanupErr != nil {
 				cleanupErrors = append(cleanupErrors, cleanupErr)
@@ -170,23 +149,18 @@ func (c *ConfigState) UnplugNetworks(specInterfaces []v1.Interface, dicoverFunc 
 	return err
 }
 
-func (c *ConfigState) networksToUnplug(specInterfaces []v1.Interface) ([]string, error) {
-	var networksToUnplug []string
+func (c *ConfigState) nonPendingNetworks(networks []v1.Network) ([]v1.Network, error) {
+	var nonPendingNetworks []v1.Network
 
-	for _, specIface := range specInterfaces {
-		if specIface.State == v1.InterfaceStateAbsent {
-			if podIfaceName, exist := c.podIfaceNameByNetwork[specIface.Name]; exist && namescheme.OrdinalSecondaryInterfaceName(podIfaceName) {
-				continue
-			}
+	for _, net := range networks {
 
-			state, err := c.cache.Read(specIface.Name)
-			if err != nil {
-				return nil, err
-			}
-			if state != cache.PodIfaceNetworkPreparationPending {
-				networksToUnplug = append(networksToUnplug, specIface.Name)
-			}
+		state, err := c.cache.Read(net.Name)
+		if err != nil {
+			return nil, err
+		}
+		if state != cache.PodIfaceNetworkPreparationPending {
+			nonPendingNetworks = append(nonPendingNetworks, net)
 		}
 	}
-	return networksToUnplug, nil
+	return nonPendingNetworks, nil
 }

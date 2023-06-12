@@ -52,7 +52,7 @@ var _ = Describe("config state", func() {
 		BeforeEach(func() {
 			configStateCache = newConfigStateCacheStub()
 			ns = nsExecutorStub{}
-			configState = NewConfigState(&configStateCache, ns, launcherPid)
+			configState = NewConfigState(&configStateCache, ns)
 			nics = []podNIC{{
 				vmiSpecNetwork: &v1.Network{Name: testNet0},
 			}}
@@ -149,7 +149,7 @@ var _ = Describe("config state", func() {
 		It("runs and fails reading the cache", func() {
 			injectedErr := fmt.Errorf("fail read cache")
 			configStateCache.readErr = injectedErr
-			configState = NewConfigState(&configStateCache, ns, launcherPid)
+			configState = NewConfigState(&configStateCache, ns)
 
 			discover, config := &plugFuncStub{}, &plugFuncStub{}
 
@@ -163,7 +163,7 @@ var _ = Describe("config state", func() {
 		It("runs and fails writing the cache", func() {
 			injectedErr := fmt.Errorf("fail write cache")
 			configStateCache.writeErr = injectedErr
-			configState = NewConfigState(&configStateCache, ns, launcherPid)
+			configState = NewConfigState(&configStateCache, ns)
 
 			discover, config := &plugFuncStub{}, &plugFuncStub{}
 
@@ -225,69 +225,78 @@ var _ = Describe("config state", func() {
 		})
 	})
 
-	Context("UnplugNetworks", func() {
+	Context("Unplug", func() {
 		var (
-			specInterfaces []v1.Interface
-			discoverFunc   *discoverFuncStub
+			filterFunc *filterFuncStub
 		)
 
 		BeforeEach(func() {
 			configStateCache = newConfigStateCacheStub()
-			ns = nsExecutorStub{}
-			configState = NewConfigState(&configStateCache, ns, launcherPid)
-			specInterfaces = []v1.Interface{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
+			configState = NewConfigState(&configStateCache, nsExecutorStub{})
+
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 			Expect(configStateCache.Write(testNet1, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
 			Expect(configStateCache.Write(testNet2, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
-
-			discoverFunc = &discoverFuncStub{map[string]string{testNet0: "pod1", testNet1: "pod2", testNet2: "pod3"}}
 		})
 		It("There are no networks to unplug", func() {
-			ns.shouldNotBeExecuted = true
+			specNetworks := []v1.Network{}
+			filterFunc = &filterFuncStub{[]string{}}
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
+		})
+		It("There are no networks to unplug since they are filtered out", func() {
+			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
+			filterFunc = &filterFuncStub{[]string{}}
+			unplugFunc := &unplugFuncStub{}
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
 		})
 		It("There is one network to unplug", func() {
-			specInterfaces[0].State = v1.InterfaceStateAbsent
+			specNetworks := []v1.Network{{Name: testNet0}}
+			filterFunc = &filterFuncStub{nil}
 
-			ns.shouldNotBeExecuted = false
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0}))
 		})
-		It("There is one network to unplug but is has ordinal name", func() {
-			specInterfaces[0].State = v1.InterfaceStateAbsent
-			discoverFunc.podIfaceByNet[testNet0] = "net1"
-
+		It("There is one network to unplug but it is Pending", func() {
+			specNetworks := []v1.Network{{Name: testNet0}}
 			ns.shouldNotBeExecuted = true
+			filterFunc = &filterFuncStub{nil}
+			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
 		})
-		It("There are multiple networks to unplug", func() {
-			specInterfaces[0].State = v1.InterfaceStateAbsent
-			specInterfaces[1].State = v1.InterfaceStateAbsent
-
-			ns.shouldNotBeExecuted = false
+		It("There are multiple networks to unplug but one is Pending", func() {
+			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
+			filterFunc = &filterFuncStub{nil}
+			Expect(configStateCache.Write(testNet2, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 			unplugFunc := &unplugFuncStub{}
-			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1}))
+		})
+		It("There are multiple networks to unplug but one is filtered out", func() {
+			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
+			filterFunc = &filterFuncStub{[]string{testNet0, testNet1}}
+			unplugFunc := &unplugFuncStub{}
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1}))
 		})
 		It("There are multiple networks to unplug and some have errors on cleanup", func() {
-			specInterfaces[0].State = v1.InterfaceStateAbsent
-			specInterfaces[1].State = v1.InterfaceStateAbsent
-			specInterfaces[2].State = v1.InterfaceStateAbsent
-
-			ns.shouldNotBeExecuted = false
+			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
+			filterFunc = &filterFuncStub{nil}
 			injectedErr := fmt.Errorf("fails unplug")
 			injectedErr2 := fmt.Errorf("fails unplug2")
 			unplugFunc := &unplugFuncStub{errRunForPodIfaces: map[string]error{testNet0: injectedErr, testNet2: injectedErr2}}
-			err := configState.UnplugNetworks(specInterfaces, discoverFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
 			Expect(err.Error()).To(ContainSubstring(injectedErr.Error()))
 			Expect(err.Error()).To(ContainSubstring(injectedErr2.Error()))
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1, testNet2}))
@@ -318,8 +327,7 @@ type unplugFuncStub struct {
 	errRunForPodIfaces map[string]error
 }
 
-func (f *unplugFuncStub) f(name string, pid int) error {
-	Expect(pid).To(Equal(launcherPid))
+func (f *unplugFuncStub) f(name string) error {
 	f.executedNetworks = append(f.executedNetworks, name)
 	return f.errRunForPodIfaces[name]
 }
@@ -328,10 +336,17 @@ func noopCSPreRun(nics []podNIC) ([]podNIC, error) {
 	return nics, nil
 }
 
-type discoverFuncStub struct {
-	podIfaceByNet map[string]string
+type filterFuncStub struct {
+	networks []string
 }
 
-func (f *discoverFuncStub) f() (map[string]string, error) {
-	return f.podIfaceByNet, nil
+func (f *filterFuncStub) f(networks []v1.Network) ([]string, error) {
+	if f.networks == nil {
+		netNames := []string{}
+		for _, network := range networks {
+			netNames = append(netNames, network.Name)
+		}
+		return netNames, nil
+	}
+	return f.networks, nil
 }
