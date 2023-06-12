@@ -11,6 +11,14 @@ env:
   VERSION: v0.51.0.10
 
 jobs:
+  clean:
+    name: clean
+    runs-on: ubuntu-22.04
+    steps: 
+      - name: clean
+        run: |
+         sudo rm -rf /usr/share/dotnet 
+         sudo rm -rf "$AGENT_TOOLSDIRECTORY"
   build_x86:
     name: Build x86
     runs-on: ubuntu-22.04
