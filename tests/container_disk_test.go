@@ -60,9 +60,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
-		_, ok := obj.(*v1.VirtualMachineInstance)
+		vmiObj, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		libwait.WaitForSuccessfulVMIStart(obj)
+		libwait.WaitForSuccessfulVMIStart(vmiObj)
 
 		// Verify Registry Disks are Online
 		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
@@ -112,7 +112,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					By("Starting the VirtualMachineInstance")
 					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 					Expect(err).ToNot(HaveOccurred())
-					libwait.WaitForSuccessfulVMIStart(obj)
+					vmiObj, ok := obj.(*v1.VirtualMachineInstance)
+					Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+					libwait.WaitForSuccessfulVMIStart(vmiObj)
 
 					By("Stopping the VirtualMachineInstance")
 					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()

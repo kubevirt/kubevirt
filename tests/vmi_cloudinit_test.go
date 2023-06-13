@@ -95,7 +95,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		By("Waiting the VirtualMachineInstance start")
 		vmi, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(libwait.WaitForSuccessfulVMIStart(obj).Status.NodeName).ToNot(BeEmpty())
+		Expect(libwait.WaitForSuccessfulVMIStart(vmi).Status.NodeName).ToNot(BeEmpty())
 		return vmi
 	}
 
