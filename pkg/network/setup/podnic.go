@@ -37,7 +37,6 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -56,8 +55,8 @@ type podNIC struct {
 	domainGenerator   domainspec.LibvirtSpecGenerator
 }
 
-func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, handler, cacheCreator, launcherPID)
+func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator, launcherPID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +85,8 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	return podnic, nil
 }
 
-func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, handler, cacheCreator, nil)
+func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain) (*podNIC, error) {
+	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -108,14 +107,9 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 	return podnic, nil
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
 	if network.Pod == nil && network.Multus == nil {
 		return nil, fmt.Errorf("Network not implemented")
-	}
-
-	correspondingNetworkIface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, network.Name)
-	if correspondingNetworkIface == nil {
-		return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 	}
 
 	return &podNIC{
@@ -123,7 +117,7 @@ func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handler netd
 		handler:        handler,
 		vmi:            vmi,
 		vmiSpecNetwork: network,
-		vmiSpecIface:   correspondingNetworkIface,
+		vmiSpecIface:   iface,
 		launcherPID:    launcherPID,
 	}, nil
 }

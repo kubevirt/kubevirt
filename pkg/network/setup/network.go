@@ -55,12 +55,17 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Net
 	var nics []podNIC
 
 	for i := range networks {
-		// SR-IOV devices are not part of the phases.
-		if iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name); iface.SRIOV != nil {
+		iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name)
+		if iface == nil {
+			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
+		}
+
+		// SR-IOV devices are not part of the phases
+		if iface.SRIOV != nil {
 			continue
 		}
 
-		nic, err := newPhase1PodNIC(v.vmi, &networks[i], v.handler, v.cacheCreator, launcherPID)
+		nic, err := newPhase1PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, launcherPID)
 		if err != nil {
 			return nil, err
 		}
@@ -73,12 +78,17 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 	var nics []podNIC
 
 	for i := range networks {
-		// SR-IOV devices are not part of the phases.
-		if iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name); iface.SRIOV != nil {
+		iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name)
+		if iface == nil {
+			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
+		}
+
+		// SR-IOV devices are not part of the phases
+		if iface.SRIOV != nil {
 			continue
 		}
 
-		nic, err := newPhase2PodNIC(v.vmi, &networks[i], v.handler, v.cacheCreator, domain)
+		nic, err := newPhase2PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, domain)
 		if err != nil {
 			return nil, err
 		}
