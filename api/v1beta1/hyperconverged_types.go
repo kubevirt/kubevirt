@@ -170,10 +170,15 @@ type HyperConvergedSpec struct {
 	// +optional
 	TLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 
-	// TektonPipelinesNamespace defines namespace in which example pipelines will
-	// be deployed.
+	// TektonPipelinesNamespace defines namespace in which example pipelines will be deployed.
+	// If unset, then the default value is the operator namespace.
 	// +optional
 	TektonPipelinesNamespace *string `json:"tektonPipelinesNamespace,omitempty"`
+
+	// TektonTasksNamespace defines namespace in which tekton tasks will be deployed.
+	// If unset, then the default value is the operator namespace.
+	// +optional
+	TektonTasksNamespace *string `json:"tektonTasksNamespace,omitempty"`
 
 	// KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS
 	// +optional
@@ -331,7 +336,7 @@ type HyperConvergedFeatureGates struct {
 	// +default=true
 	EnableCommonBootImageImport *bool `json:"enableCommonBootImageImport,omitempty"`
 
-	// deploy resources (kubevirt tekton tasks and example pipelines) in Tekton tasks operator
+	// deploy resources (kubevirt tekton tasks and example pipelines) in SSP operator
 	// +optional
 	// +kubebuilder:default=false
 	// +default=false

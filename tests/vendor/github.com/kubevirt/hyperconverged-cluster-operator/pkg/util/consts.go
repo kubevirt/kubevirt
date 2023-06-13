@@ -12,7 +12,6 @@ const (
 	CdiVersionEnvV                   = "CDI_VERSION"
 	CnaoVersionEnvV                  = "NETWORK_ADDONS_VERSION"
 	SspVersionEnvV                   = "SSP_VERSION"
-	TtoVersionEnvV                   = "TTO_VERSION"
 	HppoVersionEnvV                  = "HPPO_VERSION"
 	KVUIPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	HcoValidatingWebhook             = "validate-hco.kubevirt.io"

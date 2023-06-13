@@ -159,7 +159,6 @@ sleep 20
 OPERATORS=(
     "cdi-operator"
     "cluster-network-addons-operator"
-    "tekton-tasks-operator"
 )
 
 if [ "$IS_OPENSHIFT" = "true" ]; then

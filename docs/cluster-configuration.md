@@ -152,10 +152,10 @@ the [dataImportCronTemplates field](#configure-custom-golden-images), even if th
 **Default**: `true`
 
 ### deployTektonTaskResources Feature Gate
-Set the `deployTektonTaskResources` feature gate to true to allow Tekton Tasks operator (TTO) to deploy its resources. TTO will
-deploy example pipelines and cluster tasks which enables tekton to work with VMs, disks and common-templates.
+Set the `deployTektonTaskResources` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
+deploy example pipelines and tasks which enables tekton to work with VMs, disks and common-templates.
 
-**Note**: Once `deployTektonTaskResources` is set to true, TTO will not delete deployed resources if `deployTektonTaskResources` is
+**Note**: Once `deployTektonTaskResources` is set to true, SSP operator will not delete deployed resources if `deployTektonTaskResources` is 
 reverted back to false.
 
 **Default**: `false`
@@ -612,6 +612,19 @@ metadata:
 spec:
   tektonPipelinesNamespace: kubevirt
 ```
+In case the namespace is unspecified, the operator namespace will serve as the default value.
+
+## Tekton Tasks namespace
+User can specify namespace in which tekton tasks will be deployed.
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  tektonTasksNamespace: kubevirt
+```
+In case the namespace is unspecified, the operator namespace will serve as the default value.
 
 ## Enable eventual launcher updates by default
 us the HyperConverged `spec.workloadUpdateStrategy` object to define how to handle automated workload updates at the cluster

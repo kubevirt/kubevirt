@@ -60,9 +60,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.85.2
         - name: SSP_VERSION
-          value: v0.17.0
-        - name: TTO_VERSION
-          value: v0.5.0
+          value: v0.18.0-rc.2
         - name: HPPO_VERSION
           value: v0.16.0
         - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -509,13 +507,15 @@ spec:
         env:
         - name: KVM_INFO_IMAGE
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator:v0.17.0
+          value: quay.io/kubevirt/kubevirt-template-validator:v0.18.0-rc.2
         - name: VIRT_LAUNCHER_IMAGE
         - name: NODE_LABELLER_IMAGE
         - name: CPU_PLUGIN_IMAGE
         - name: OPERATOR_VERSION
-          value: v0.17.0
-        image: quay.io/kubevirt/ssp-operator@sha256:e93f2b49f2189ee60e17a756942b9847cc9d09602f23bc25ab95d5fe332e0256
+          value: v0.18.0-rc.2
+        - name: TEKTON_TASKS_IMAGE
+        - name: TEKTON_TASKS_DISK_VIRT_IMAGE
+        image: quay.io/kubevirt/ssp-operator@sha256:cb9c9bd4ce854b71f073e0f8c6677234e1e965efb2843ff72eab5a8d95ac14a4
         livenessProbe:
           httpGet:
             path: /healthz
@@ -565,85 +565,6 @@ spec:
           - key: tls.key
             path: apiserver.key
           secretName: ssp-operator-service-cert
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/component: tekton
-    app.kubernetes.io/part-of: hyperconverged-cluster
-    app.kubernetes.io/version: 1.10.0
-    name: tekton-tasks-operator
-  name: tekton-tasks-operator
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      control-plane: tekton-tasks-operator
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: tekton
-        app.kubernetes.io/part-of: hyperconverged-cluster
-        app.kubernetes.io/version: 1.10.0
-        control-plane: tekton-tasks-operator
-        name: tekton-tasks-operator
-      namespace: kubevirt-hyperconverged
-    spec:
-      containers:
-      - args:
-        - --leader-elect
-        command:
-        - /manager
-        env:
-        - name: OPERATOR_VERSION
-          value: v0.5.0
-        - name: CLEANUP_VM_IMG
-        - name: COPY_TEMPLATE_IMG
-        - name: MODIFY_DATA_OBJECT_IMG
-        - name: CREATE_VM_IMG
-        - name: DISK_VIRT_CUSTOMIZE_IMG
-        - name: DISK_VIRT_SYSPREP_IMG
-        - name: MODIFY_VM_TEMPLATE_IMG
-        - name: WAIT_FOR_VMI_STATUS_IMG
-        - name: GENERATE_SSH_KEYS_IMG
-        - name: VIRTIO_IMG
-          value: quay.io/kubevirt/virtio-container-disk@sha256:5b99c78ed831401048e72d72f9ec805710ee7625131fd9ad277b38ab1e67cfb9
-        - name: OPERATOR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: quay.io/kubevirt/tekton-tasks-operator@sha256:6c6e296d48eb5e81236443155ffecb39a44bc490d4cd6ac897d02c13908ea3ca
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 20
-        name: manager
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        resources:
-          requests:
-            cpu: 100m
-            memory: 150Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-      priorityClassName: system-cluster-critical
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
-      serviceAccountName: tekton-tasks-operator
-      terminationGracePeriodSeconds: 10
 ---
 apiVersion: apps/v1
 kind: Deployment

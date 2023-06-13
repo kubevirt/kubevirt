@@ -1064,7 +1064,7 @@ spec:
                   deployTektonTaskResources:
                     default: false
                     description: deploy resources (kubevirt tekton tasks and example
-                      pipelines) in Tekton tasks operator
+                      pipelines) in SSP operator
                     type: boolean
                   disableMDevConfiguration:
                     default: false
@@ -2401,7 +2401,13 @@ spec:
                 type: object
               tektonPipelinesNamespace:
                 description: TektonPipelinesNamespace defines namespace in which example
-                  pipelines will be deployed.
+                  pipelines will be deployed. If unset, then the default value is
+                  the operator namespace.
+                type: string
+              tektonTasksNamespace:
+                description: TektonTasksNamespace defines namespace in which tekton
+                  tasks will be deployed. If unset, then the default value is the
+                  operator namespace.
                 type: string
               tlsSecurityProfile:
                 description: TLSSecurityProfile specifies the settings for TLS connections

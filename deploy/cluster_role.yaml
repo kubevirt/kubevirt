@@ -132,45 +132,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
-    name: tekton-tasks-operator
-  name: tekton-tasks-operator
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  labels:
     name: cdi-operator
   name: cdi-operator
 rules:
@@ -463,18 +424,6 @@ rules:
   resources:
   - ssps
   - ssps/finalizers
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-- apiGroups:
-  - tektontasks.kubevirt.io
-  resources:
-  - tektontasks
-  - tektontasks/finalizers
   verbs:
   - get
   - list
@@ -1888,6 +1837,33 @@ rules:
   - update
   - watch
 - apiGroups:
+  - '*'
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - '*'
+- apiGroups:
+  - '*'
+  resources:
+  - pods
+  verbs:
+  - create
+- apiGroups:
+  - '*'
+  resources:
+  - secrets
+  verbs:
+  - '*'
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -1972,6 +1948,7 @@ rules:
   resources:
   - datavolumes
   verbs:
+  - '*'
   - create
   - delete
   - get
@@ -2065,6 +2042,18 @@ rules:
   - ""
   resources:
   - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
   - services
   verbs:
   - create
@@ -2109,11 +2098,29 @@ rules:
 - apiGroups:
   - kubevirt.io
   resources:
+  - virtualmachineinstances
+  - virtualmachines
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - kubevirt.io
+  resources:
   - virtualmachines
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines/finalizers
+  verbs:
+  - '*'
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -2146,7 +2153,32 @@ rules:
   resources:
   - clusterroles
   - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - rolebindings
   - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
   verbs:
   - create
   - delete
@@ -2276,136 +2308,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - template.openshift.io
-  resources:
-  - templates
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    name: tekton-tasks-operator
-  name: tekton-tasks-operator
-rules:
-- apiGroups:
-  - '*'
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - delete
-  - list
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - persistentvolumeclaims
-  verbs:
-  - '*'
-- apiGroups:
-  - '*'
-  resources:
-  - pods
-  verbs:
-  - create
-- apiGroups:
-  - '*'
-  resources:
-  - secrets
-  verbs:
-  - '*'
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cdi.kubevirt.io
-  resources:
-  - datasources
-  verbs:
-  - create
-  - delete
-  - get
-- apiGroups:
-  - cdi.kubevirt.io
-  resources:
-  - datavolumes
-  verbs:
-  - '*'
-- apiGroups:
-  - config.openshift.io
-  resources:
-  - clusterversions
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - kubevirt.io
-  resources:
-  - virtualmachineinstances
-  - virtualmachines
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - kubevirt.io
-  resources:
-  - virtualmachines/finalizers
-  verbs:
-  - '*'
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  - rolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachines/restart
@@ -2417,14 +2319,13 @@ rules:
   - tekton.dev
   resources:
   - clustertasks
+  - tasks
   verbs:
-  - create
   - delete
   - get
   - list
   - patch
   - update
-  - watch
 - apiGroups:
   - tekton.dev
   resources:
@@ -2438,9 +2339,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - tektontasks.kubevirt.io
+  - tekton.dev
   resources:
-  - tektontasks
+  - tasks
   verbs:
   - create
   - delete
@@ -2449,20 +2350,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - tektontasks.kubevirt.io
-  resources:
-  - tektontasks/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - tektontasks.kubevirt.io
-  resources:
-  - tektontasks/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - template.openshift.io
   resources:

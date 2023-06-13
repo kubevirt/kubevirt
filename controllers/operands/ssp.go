@@ -123,7 +123,7 @@ func (h *sspHooks) justBeforeComplete(req *common.HcoRequest) {
 	}
 }
 
-func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov1beta1.DataImportCronTemplateStatus, error) {
+func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, []hcov1beta1.DataImportCronTemplateStatus, error) {
 	replicas := int32(defaultTemplateValidatorReplicas)
 	templatesNamespace := defaultCommonTemplatesNamespace
 
@@ -156,7 +156,30 @@ func NewSSP(hc *hcov1beta1.HyperConverged, _ ...string) (*sspv1beta1.SSP, []hcov
 		// causing nil pointers dereferences at the DeepCopyInto() below.
 		NodeLabeller:       &sspv1beta1.NodeLabeller{},
 		TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
+		FeatureGates:       &sspv1beta1.FeatureGates{},
+		TektonPipelines:    &sspv1beta1.TektonPipelines{},
+		TektonTasks:        &sspv1beta1.TektonTasks{},
 	}
+
+	if hc.Spec.FeatureGates.DeployTektonTaskResources != nil {
+		spec.FeatureGates.DeployTektonTaskResources = *hc.Spec.FeatureGates.DeployTektonTaskResources
+	}
+
+	// Default value is the operator namespace
+	pipelinesNamespace := getNamespace(hc.Namespace, opts)
+	if hc.Spec.TektonPipelinesNamespace != nil {
+		pipelinesNamespace = *hc.Spec.TektonPipelinesNamespace
+	}
+
+	spec.TektonPipelines.Namespace = pipelinesNamespace
+
+	// Default value is the operator namespace
+	tasksNamespace := getNamespace(hc.Namespace, opts)
+	if hc.Spec.TektonTasksNamespace != nil {
+		tasksNamespace = *hc.Spec.TektonTasksNamespace
+	}
+
+	spec.TektonTasks.Namespace = tasksNamespace
 
 	if hc.Spec.Infra.NodePlacement != nil {
 		spec.TemplateValidator.Placement = hc.Spec.Infra.NodePlacement.DeepCopy()

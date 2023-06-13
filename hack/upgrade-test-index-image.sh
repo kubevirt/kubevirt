@@ -320,6 +320,22 @@ else
     echo "v2v references removed from .status.relatedObjects"
 fi
 
+Msg "Check that the TTO CRD was removed"
+if ${CMD} get crd | grep -q tektontasks.tektontasks.kubevirt.io; then
+    echo "The TTO CRD should not be found; it had to be removed."
+    exit 1
+else
+    echo "TTO CRD removed"
+fi
+
+Msg "Check that the TTO references were removed from .status.relatedObjects"
+if ${CMD} -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o=jsonpath={.status.relatedObjects[*].apiVersion} | grep -q tektontasks.kubevirt.io; then
+    echo "TTO reference should not be found in relatedObjects; it has to be removed."
+    exit 1
+else
+    echo "TTO reference removed from .status.relatedObjects"
+fi
+
 Msg "check golden images"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_golden_images.sh
 

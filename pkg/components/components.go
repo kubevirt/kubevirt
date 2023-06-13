@@ -68,7 +68,6 @@ type DeploymentOperatorParams struct {
 	CdiVersion          string
 	CnaoVersion         string
 	SspVersion          string
-	TtoVersion          string
 	HppoVersion         string
 	Env                 []corev1.EnvVar
 }
@@ -237,10 +236,6 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  util.SspVersionEnvV,
 								Value: params.SspVersion,
-							},
-							{
-								Name:  util.TtoVersionEnvV,
-								Value: params.TtoVersion,
 							},
 							{
 								Name:  util.HppoVersionEnvV,
@@ -460,7 +455,6 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("kubevirt.io", stringListToSlice("kubevirts", "kubevirts/finalizers")),
 		roleWithAllPermissions("cdi.kubevirt.io", stringListToSlice("cdis", "cdis/finalizers")),
 		roleWithAllPermissions("ssp.kubevirt.io", stringListToSlice("ssps", "ssps/finalizers")),
-		roleWithAllPermissions("tektontasks.kubevirt.io", stringListToSlice("tektontasks", "tektontasks/finalizers")),
 		roleWithAllPermissions("networkaddonsoperator.network.kubevirt.io", stringListToSlice("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
 		roleWithAllPermissions("", stringListToSlice("configmaps")),
 		{

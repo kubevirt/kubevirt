@@ -52,7 +52,6 @@ PACKAGE_NAME="community-kubevirt-hyperconverged"
 CSV_DIR="${OLM_DIR}/${PACKAGE_NAME}/${CSV_VERSION}"
 DEFAULT_CSV_GENERATOR="/usr/bin/csv-generator"
 SSP_CSV_GENERATOR="/csv-generator"
-TTO_CSV_GENERATOR="/csv-generator"
 
 INDEX_IMAGE_DIR=${DEPLOY_DIR}/index-image
 CSV_INDEX_IMAGE_DIR="${INDEX_IMAGE_DIR}/${PACKAGE_NAME}/${CSV_VERSION}"
@@ -154,21 +153,6 @@ function create_ssp_csv() {
   echo "${operatorName}"
 }
 
-function create_tto_csv() {
-  local operatorName="tekton-tasks-operator"
-  local dumpCRDsArg="--dump-crds"
-  local operatorArgs=" \
-    --namespace=${OPERATOR_NAMESPACE} \
-    --csv-version=${CSV_VERSION} \
-    --operator-image=${TTO_OPERATOR_IMAGE} \
-    --operator-version=${TTO_VERSION} \
-    --virtio-image=${KUBEVIRT_VIRTIO_IMAGE} \
-  "
-
-  gen_csv ${TTO_CSV_GENERATOR} ${operatorName} "${TTO_OPERATOR_IMAGE}" ${dumpCRDsArg} ${operatorArgs}
-  echo "${operatorName}"
-}
-
 function create_cdi_csv() {
   local operatorName="containerized-data-importer"
 
@@ -218,8 +202,6 @@ cnaFile=$(create_cna_csv)
 cnaCsv="${TEMPDIR}/${cnaFile}.${CSV_EXT}"
 sspFile=$(create_ssp_csv)
 sspCsv="${TEMPDIR}/${sspFile}.${CSV_EXT}"
-ttoFile=$(create_tto_csv)
-ttoCsv="${TEMPDIR}/${ttoFile}.${CSV_EXT}"
 cdiFile=$(create_cdi_csv)
 cdiCsv="${TEMPDIR}/${cdiFile}.${CSV_EXT}"
 hppFile=$(create_hpp_csv)
@@ -270,7 +252,7 @@ EOM
 )
 
 # validate CSVs. Make sure each one of them contain an image (and so, also not empty):
-csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${ttoCsv}" "${cdiCsv}" "${hppCsv}")
+csvs=("${cnaCsv}" "${virtCsv}" "${sspCsv}" "${cdiCsv}" "${hppCsv}")
 for csv in "${csvs[@]}"; do
   grep -E "^ *image: [a-zA-Z0-9/\.:@\-]+$" ${csv}
 done
@@ -282,7 +264,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cna-csv="$(<${cnaCsv})" \
   --virt-csv="$(<${virtCsv})" \
   --ssp-csv="$(<${sspCsv})" \
-  --tto-csv="$(<${ttoCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
   --hpp-csv="$(<${hppCsv})" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
@@ -293,7 +274,6 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cdi-version="${CDI_VERSION}" \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
-  --tto-version="${TTO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --operator-image="${HCO_OPERATOR_IMAGE}" \
   --webhook-image="${HCO_WEBHOOK_IMAGE}" \
@@ -315,7 +295,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cna-csv="$(<${cnaCsv})" \
   --virt-csv="$(<${virtCsv})" \
   --ssp-csv="$(<${sspCsv})" \
-  --tto-csv="$(<${ttoCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
   --hpp-csv="$(<${hppCsv})" \
   --kv-virtiowin-image-name="${KUBEVIRT_VIRTIO_IMAGE}" \
@@ -333,7 +312,6 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cdi-version="${CDI_VERSION}" \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
-  --tto-version="${TTO_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \

@@ -10,7 +10,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/imdario/mergo v0.3.15
 	github.com/kubevirt/cluster-network-addons-operator v0.85.2
-	github.com/kubevirt/tekton-tasks-operator/api v0.5.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
 	github.com/openshift/api v3.9.1-0.20190517100836-d5b34b957e91+incompatible
@@ -35,7 +34,7 @@ require (
 	kubevirt.io/api v1.0.0-beta.0
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
-	kubevirt.io/ssp-operator/api v0.17.0
+	kubevirt.io/ssp-operator/api v0.18.0-rc.2
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/controller-tools v0.12.0
 )
@@ -94,7 +93,6 @@ require (
 	k8s.io/apiserver v0.27.2 // indirect
 	k8s.io/component-base v0.27.2 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
-	kubevirt.io/controller-lifecycle-operator-sdk v0.2.3 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect

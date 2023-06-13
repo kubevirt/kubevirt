@@ -10,7 +10,6 @@ A unified operator deploying and controlling [KubeVirt](https://github.com/kubev
 
 - [Containerized Data Importer](https://github.com/kubevirt/containerized-data-importer)
 - [Scheduling, Scale and Performance](https://github.com/kubevirt/ssp-operator)
-- [Tekton tasks operator](https://github.com/kubevirt/tekton-tasks-operator)
 - [Cluster Network Addons](https://github.com/kubevirt/cluster-network-addons-operator)
 - [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 

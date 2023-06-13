@@ -91,6 +91,30 @@ type SSPSpec struct {
 
 	// CommonInstancetypes is the configuration of the common-instancetypes operand
 	CommonInstancetypes *CommonInstancetypes `json:"commonInstancetypes,omitempty"`
+
+	// TektonPipelines is the configuration of the tekton-pipelines operand
+	TektonPipelines *TektonPipelines `json:"tektonPipelines,omitempty"`
+
+	// TektonTasks is the configuration of the tekton-tasks operand
+	TektonTasks *TektonTasks `json:"tektonTasks,omitempty"`
+
+	// FeatureGates is the configuration of the tekton operands
+	FeatureGates *FeatureGates `json:"featureGates,omitempty"`
+}
+
+// TektonPipelines defines the desired state of pipelines
+type TektonPipelines struct {
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// TektonTasks defines variables for configuration of tasks
+type TektonTasks struct {
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// FeatureGates defines feature gate for tto operator
+type FeatureGates struct {
+	DeployTektonTaskResources bool `json:"deployTektonTaskResources,omitempty"`
 }
 
 // DataImportCronTemplate defines the template type for DataImportCrons.

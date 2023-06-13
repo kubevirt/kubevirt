@@ -33,7 +33,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
-	ttov1alpha1 "github.com/kubevirt/tekton-tasks-operator/api/v1alpha1"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
@@ -116,7 +115,6 @@ type BasicExpected struct {
 	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
 	ssp                  *sspv1beta1.SSP
-	tto                  *ttov1alpha1.TektonTasks
 	mService             *corev1.Service
 	serviceMonitor       *monitoringv1.ServiceMonitor
 	cliDownload          *consolev1.ConsoleCLIDownload
@@ -141,7 +139,6 @@ func (be BasicExpected) toArray() []client.Object {
 		be.cdi,
 		be.cna,
 		be.ssp,
-		be.tto,
 		be.mService,
 		be.serviceMonitor,
 		be.cliDownload,
@@ -250,10 +247,6 @@ func getBasicDeployment() *BasicExpected {
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	expectedSSP.Status.Conditions = getGenericCompletedConditions()
 	res.ssp = expectedSSP
-
-	expectedTTO := operands.NewTTO(hco)
-	expectedTTO.Status.Conditions = getGenericCompletedConditions()
-	res.tto = expectedTTO
 
 	expectedCliDownload := operands.NewConsoleCLIDownload(hco)
 	res.cliDownload = expectedCliDownload
