@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/testsuite"
+
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
@@ -69,6 +71,7 @@ func WaitForVMIPhase(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineI
 		waiting.ctx = ctx
 	}
 
+	WithWarningsIgnoreList(testsuite.TestRunConfiguration.WarningToIgnoreList)(&waiting)
 	return waiting.watchVMIForPhase(vmi)
 }
 
