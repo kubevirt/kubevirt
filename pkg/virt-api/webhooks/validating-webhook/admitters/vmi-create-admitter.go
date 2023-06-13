@@ -156,6 +156,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateNUMA(field, spec, config)...)
 	causes = append(causes, validateCPUIsolatorThread(field, spec)...)
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
+	causes = append(causes, validateCPUHotplug(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
 	causes = append(causes, validateRealtime(field, spec, !root)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
@@ -2657,4 +2658,17 @@ func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	}
 
 	return
+}
+
+func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU != nil && spec.Domain.CPU.MaxSockets != 0 {
+		if spec.Domain.CPU.Sockets > spec.Domain.CPU.MaxSockets {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
+				Field:   field.Child("domain", "cpu", "sockets").String(),
+			})
+		}
+	}
+	return causes
 }

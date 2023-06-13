@@ -174,6 +174,23 @@ func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequ
 
 }
 
+func (l *Launcher) SyncVirtualMachineCPUs(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.UpdateVCPUs(vmi, request.Options); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI vCPUs")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("VMI vCPUs has been updated")
+	return response, nil
+}
+
 func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)

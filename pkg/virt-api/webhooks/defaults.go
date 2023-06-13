@@ -81,7 +81,7 @@ func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	setDefaultArchitecture(clusterConfig, spec)
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
-	setDefaultGuestCPUTopology(clusterConfig, spec)
+	SetDefaultGuestCPUTopology(clusterConfig, spec)
 	setDefaultPullPoliciesOnContainerDisks(clusterConfig, spec)
 	if err := clusterConfig.SetVMISpecDefaultNetworkInterface(spec); err != nil {
 		return err
@@ -170,7 +170,7 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 	}
 }
 
-func setDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func SetDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	cores := uint32(1)
 	threads := uint32(1)
 	sockets := uint32(1)

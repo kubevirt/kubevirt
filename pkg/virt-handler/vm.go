@@ -764,7 +764,7 @@ func (d *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
-		d.finalizeMigration(vmi)
+		d.finalizeMigration(vmiCopy)
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -3239,6 +3239,11 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
+	if err := d.hotplugCPU(vmi, client); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
+	}
+
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
@@ -3348,4 +3353,57 @@ func (d *VirtualMachineController) updateMachineType(vmi *v1.VirtualMachineInsta
 	if domain.Spec.OS.Type.Machine != "" {
 		vmi.Status.Machine = &v1.Machine{Type: domain.Spec.OS.Type.Machine}
 	}
+}
+
+func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+
+	removeVMIVCPUChangeConditionAndLabel := func() {
+		delete(vmi.Labels, v1.VirtualMachinePodCPULimitsLabel)
+		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+	}
+	defer removeVMIVCPUChangeConditionAndLabel()
+
+	if !vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceVCPUChange) {
+		return nil
+	}
+
+	if vmi.IsCPUDedicated() {
+		cpuLimitStr, ok := vmi.Labels[v1.VirtualMachinePodCPULimitsLabel]
+		if !ok || len(cpuLimitStr) == 0 {
+			return fmt.Errorf("cannot read CPU limit from VMI annotation")
+		}
+
+		cpuLimit, err := strconv.Atoi(cpuLimitStr)
+		if err != nil {
+			return fmt.Errorf("cannot parse CPU limit from VMI annotation: %v", err)
+		}
+
+		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+		if vcpus > int64(cpuLimit) {
+			return fmt.Errorf("number of requested VCPUS (%d) exceeds the limit (%d)", vcpus, cpuLimit)
+		}
+	}
+
+	options := virtualMachineOptions(
+		nil,
+		0,
+		nil,
+		d.capabilities,
+		nil,
+		d.clusterConfig)
+
+	if err := client.SyncVirtualMachineCPUs(vmi, options); err != nil {
+		return err
+	}
+
+	if vmi.Status.CurrentCPUTopology == nil {
+		vmi.Status.CurrentCPUTopology = &v1.CPUTopology{}
+	}
+
+	vmi.Status.CurrentCPUTopology.Sockets = vmi.Spec.Domain.CPU.Sockets
+	vmi.Status.CurrentCPUTopology.Cores = vmi.Spec.Domain.CPU.Cores
+	vmi.Status.CurrentCPUTopology.Threads = vmi.Spec.Domain.CPU.Threads
+
+	return nil
 }

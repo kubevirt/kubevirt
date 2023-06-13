@@ -79,6 +79,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"VSOCKCID":                      "VSOCKCID is used to track the allocated VSOCK CID in the VM.\n+optional",
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
+		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
 	}
 }
 
@@ -331,6 +332,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"liveUpdateFeatures":  "LiveUpdateFeatures references a configuration of hotpluggable resources",
 	}
 }
 
@@ -719,6 +721,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.\nThe storage class must support RWX in filesystem mode.",
 		"ksmConfiguration":                   "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
 		"autoCPULimitNamespaceLabelSelector": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside\nnamespaces that match the label selector.\nThe CPU limit will equal the number of requested vCPUs.\nThis setting does not apply to VMIs with dedicated CPUs.",
+		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 	}
 }
 
@@ -912,5 +915,23 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 		"kind":            "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
 		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
 		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
+	}
+}
+
+func (LiveUpdateFeatures) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"cpu": "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
+	}
+}
+
+func (LiveUpdateCPU) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"maxSockets": "The maximum amount of sockets that can be hot-plugged to the Virtual Machine",
+	}
+}
+
+func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"maxCpuSockets": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
 	}
 }

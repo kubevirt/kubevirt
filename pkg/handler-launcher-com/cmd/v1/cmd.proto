@@ -29,6 +29,7 @@ service Cmd {
   rpc GuestPing(GuestPingRequest) returns (GuestPingResponse) {}
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
   rpc GetQemuVersion(EmptyRequest) returns (QemuVersionResponse){}
+  rpc SyncVirtualMachineCPUs(VMIRequest) returns (Response) {}
 }
 
 message QemuVersionResponse {

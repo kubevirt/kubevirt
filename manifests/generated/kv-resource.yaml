@@ -450,6 +450,16 @@ spec:
                             type: object
                         type: object
                     type: object
+                  liveUpdateConfiguration:
+                    description: LiveUpdateConfiguration holds defaults for live update
+                      features
+                    properties:
+                      maxCpuSockets:
+                        description: MaxCpuSockets holds the maximum amount of sockets
+                          that can be hotplugged
+                        format: int32
+                        type: integer
+                    type: object
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
@@ -3437,6 +3447,16 @@ spec:
                               only "value". The requirements are ANDed.
                             type: object
                         type: object
+                    type: object
+                  liveUpdateConfiguration:
+                    description: LiveUpdateConfiguration holds defaults for live update
+                      features
+                    properties:
+                      maxCpuSockets:
+                        description: MaxCpuSockets holds the maximum amount of sockets
+                          that can be hotplugged
+                        format: int32
+                        type: integer
                     type: object
                   machineType:
                     type: string

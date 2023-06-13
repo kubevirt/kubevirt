@@ -431,3 +431,12 @@ func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
 func (c *ClusterConfig) GetKSMConfiguration() *v1.KSMConfiguration {
 	return c.GetConfig().KSMConfiguration
 }
+
+func (c *ClusterConfig) GetMaximumCpuSockets() (numOfSockets uint32) {
+	liveConfig := c.GetConfig().LiveUpdateConfiguration
+	if liveConfig != nil && liveConfig.MaxCpuSockets != nil {
+		numOfSockets = *liveConfig.MaxCpuSockets
+	}
+
+	return
+}

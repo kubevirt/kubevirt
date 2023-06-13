@@ -276,6 +276,10 @@ type VirtualMachineInstanceStatus struct {
 	// than the machine type selected in the spec, due to qemus machine type alias mechanism.
 	// +optional
 	Machine *Machine `json:"machine,omitempty"`
+	// CurrentCPUTopology specifies the current CPU topology used by the VM workload.
+	// Current topology may differ from the desired topology in the spec while CPU hotplug
+	// takes place.
+	CurrentCPUTopology *CPUTopology `json:"currentCPUTopology,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -514,6 +518,9 @@ const (
 	// Reason means that VMI is not live migratable because it uses dedicated CPU and emulator thread isolation
 
 	VirtualMachineInstanceReasonDedicatedCPU = "DedicatedCPUNotLiveMigratable"
+
+	// Indicates that the VMI is in progress of Hot vCPU Plug/UnPlug
+	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
 )
 
 const (
@@ -961,6 +968,9 @@ const (
 	// This annotation does not allow to enable freePageReporting for high performance vmis,
 	// in which freePageReporting is always disabled.
 	FreePageReportingDisabledAnnotation string = "kubevirt.io/free-page-reporting-disabled"
+
+	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
+	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1405,6 +1415,9 @@ type VirtualMachineSpec struct {
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []DataVolumeTemplateSpec `json:"dataVolumeTemplates,omitempty"`
+
+	// LiveUpdateFeatures references a configuration of hotpluggable resources
+	LiveUpdateFeatures *LiveUpdateFeatures `json:"liveUpdateFeatures,omitempty" optional:"true"`
 }
 
 // StateChangeRequestType represents the existing state change requests that are possible
@@ -2355,6 +2368,8 @@ type KubeVirtConfiguration struct {
 	// The CPU limit will equal the number of requested vCPUs.
 	// This setting does not apply to VMIs with dedicated CPUs.
 	AutoCPULimitNamespaceLabelSelector *metav1.LabelSelector `json:"autoCPULimitNamespaceLabelSelector,omitempty"`
+	// LiveUpdateConfiguration holds defaults for live update features
+	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
 }
 
 type ArchConfiguration struct {
@@ -2732,4 +2747,22 @@ func (p PreferenceMatcher) GetName() string {
 
 func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
+}
+
+type LiveUpdateFeatures struct {
+	// LiveUpdateCPU holds hotplug configuration for the CPU resource.
+	// Empty struct indicates that default will be used for maxSockets.
+	// Default is specified on cluster level.
+	// Absence of the struct means opt-out from CPU hotplug functionality.
+	CPU *LiveUpdateCPU `json:"cpu,omitempty" optional:"true"`
+}
+
+type LiveUpdateCPU struct {
+	// The maximum amount of sockets that can be hot-plugged to the Virtual Machine
+	MaxSockets *uint32 `json:"maxSockets,omitempty" optional:"true"`
+}
+
+type LiveUpdateConfiguration struct {
+	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
+	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 }

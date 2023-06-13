@@ -87,7 +87,7 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 			return err
 		}
 
-		if err := vim.dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); err != nil {
+		if err := vim.dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
 			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", network.Name, err)
 			return err
 		}
@@ -104,7 +104,7 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 			return err
 		}
 
-		if derr := vim.dom.DetachDeviceFlags(strings.ToLower(string(ifaceXML)), affectLiveAndConfigLibvirtFlags); derr != nil {
+		if derr := vim.dom.DetachDeviceFlags(strings.ToLower(string(ifaceXML)), affectDeviceLiveAndConfigLibvirtFlags); derr != nil {
 			log.Log.Reason(derr).Errorf("libvirt failed to detach interface %s: %v", domainIface.Alias.GetName(), derr)
 			return derr
 		}
