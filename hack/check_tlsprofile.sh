@@ -21,26 +21,38 @@
 set -ex
 
 clean_nmap_output () {
-  sed -i '/^$/d' $1
-  sed -i '/^Starting Nmap.*$/d' $1
-  sed -i '/^Nmap scan report for.*$/d' $1
-  sed -i '/^Starting Nmap.*$/d' $1
-  sed -i '/^Host is up.*$/d' $1
-  sed -i '/^Nmap done:.*$/d' $1
-  sed -i '/^MAC Address: .* (Unknown)$/d' $1
+  sed -i '/^$/d' "$1"
+  sed -i '/^Starting Nmap.*$/d' "$1"
+  sed -i '/^Nmap scan report for.*$/d' "$1"
+  sed -i '/^Starting Nmap.*$/d' "$1"
+  sed -i '/^Host is up.*$/d' "$1"
+  sed -i '/^Nmap done:.*$/d' "$1"
+  sed -i '/^MAC Address: .* (Unknown)$/d' "$1"
 }
 
 run_nmap () {
-  nmap -T2 --max-parallelism 1 --max-retries 5 --script +ssl-enum-ciphers -p 4343 ${IPADDR} > $1
+  nmap -T2 --max-parallelism 1 --max-retries 5 --script +ssl-enum-ciphers -p 4343 "${IPADDR}" > "$1"
 }
 
-if ${KUBECTL_BINARY} get service -n ${INSTALLED_NAMESPACE} hyperconverged-cluster-webhook-service ; then
+check_ssp_up() {
+  if [[ -n $SSP_DEPLOYED ]]; then
+    ${KUBECTL_BINARY} wait deployment -n "${INSTALLED_NAMESPACE}" ssp-operator --for=condition=Available --timeout="240s"
+  fi
+}
+
+# check that SSP is deployed. If it is, we'll need to make sure that SSP operator
+# is up and running after each modification to the HyperConverged's tlsSecurityProfile field.
+if [[ $(${KUBECTL_BINARY} get ssp -n "${INSTALLED_NAMESPACE}") ]]; then
+  SSP_DEPLOYED=true
+fi
+
+if ${KUBECTL_BINARY} get service -n "${INSTALLED_NAMESPACE}" hyperconverged-cluster-webhook-service ; then
     SERVICE=service/hyperconverged-cluster-webhook-service
-elif ${KUBECTL_BINARY} get service -n ${INSTALLED_NAMESPACE} hco-webhook-service ; then
+elif ${KUBECTL_BINARY} get service -n "${INSTALLED_NAMESPACE}" hco-webhook-service ; then
     SERVICE=service/hco-webhook-service
 else
     echo "Unable tp identify the service fot HCO webhook "
-    exit -1
+    exit 1
 fi
 
 if ! which nmap ; then
@@ -60,7 +72,7 @@ else
   FIPS=""
   IPADDR=127.0.0.1
   echo "Enable portforwarding to HCO webhook"
-  ${KUBECTL_BINARY} port-forward -n ${INSTALLED_NAMESPACE} ${SERVICE} 4343:4343 &
+  ${KUBECTL_BINARY} port-forward -n "${INSTALLED_NAMESPACE}" ${SERVICE} 4343:4343 &
   PF_PID=$!
   sleep 5
 fi
@@ -69,39 +81,44 @@ fi
 sleep 2
 run_nmap old.txt
 clean_nmap_output old.txt
-diff old.txt hack/tlsprofiles/old.expected${FIPS}
+diff old.txt "hack/tlsprofiles/old.expected${FIPS}"
 
 # nothing should happen in dry-run mode
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco --dry-run=client -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {modern: {}, type: \"Modern\"} }]'"
 sleep 2
 run_nmap old.txt
 clean_nmap_output old.txt
-diff old.txt hack/tlsprofiles/old.expected${FIPS}
+diff old.txt "hack/tlsprofiles/old.expected${FIPS}"
+check_ssp_up
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {intermediate: {}, type: \"Intermediate\"} }]'"
 sleep 2
 run_nmap intermediate.txt
 clean_nmap_output intermediate.txt
-diff intermediate.txt hack/tlsprofiles/intermediate.expected${FIPS}
+diff intermediate.txt "hack/tlsprofiles/intermediate.expected${FIPS}"
+check_ssp_up
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {modern: {}, type: \"Modern\"} }]'"
 sleep 2
 run_nmap modern.txt
 clean_nmap_output modern.txt
-diff modern.txt hack/tlsprofiles/modern.expected${FIPS}
+diff modern.txt "hack/tlsprofiles/modern.expected${FIPS}"
+check_ssp_up
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {custom: {minTLSVersion: \"VersionTLS12\", ciphers: [\"ECDHE-ECDSA-CHACHA20-POLY1305\", \"ECDHE-ECDSA-AES256-GCM-SHA384\", \"AES256-GCM-SHA384\", \"AES128-SHA256\"]}, type: \"Custom\"} }]'  2>&1 | grep 'missing an HTTP/2-required'"
+check_ssp_up
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"replace\", \"path\": /spec/tlsSecurityProfile, \"value\": {custom: {minTLSVersion: \"VersionTLS12\", ciphers: [\"ECDHE-RSA-AES128-GCM-SHA256\", \"ECDHE-ECDSA-CHACHA20-POLY1305\", \"ECDHE-ECDSA-AES256-GCM-SHA384\", \"AES256-GCM-SHA384\", \"AES128-SHA256\"]}, type: \"Custom\"} }]'"
 run_nmap custom.txt
 clean_nmap_output custom.txt
-diff custom.txt hack/tlsprofiles/custom.expected${FIPS}
+diff custom.txt "hack/tlsprofiles/custom.expected${FIPS}"
+check_ssp_up
 
 ./hack/retry.sh 10 3 "${KUBECTL_BINARY} patch hco -n ${INSTALLED_NAMESPACE} --type=json kubevirt-hyperconverged -p '[{\"op\": \"remove\", \"path\": /spec/tlsSecurityProfile }]'"
 sleep 2
 run_nmap default.txt
 clean_nmap_output default.txt
-diff default.txt hack/tlsprofiles/intermediate.expected${FIPS}
+diff default.txt "hack/tlsprofiles/intermediate.expected${FIPS}"
 
 if [ -n "$PF_PID" ]; then
   echo "Terminating port forwarding"
