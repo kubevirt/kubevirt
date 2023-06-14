@@ -240,7 +240,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
-			expectedOverhead := instancetype.Spec.Memory.Guest.Value() * (1 - int64(instancetype.Spec.Memory.OvercommitPercent)/int64(100))
+			expectedOverhead := int64(float32(instancetype.Spec.Memory.Guest.Value()) * (1 - float32(instancetype.Spec.Memory.OvercommitPercent)/100))
+			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
 			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
 
@@ -406,7 +407,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
-			expectedOverhead := instancetype.Spec.Memory.Guest.Value() * (1 - int64(instancetype.Spec.Memory.OvercommitPercent)/int64(100))
+
+			expectedOverhead := int64(float32(instancetype.Spec.Memory.Guest.Value()) * (1 - float32(instancetype.Spec.Memory.OvercommitPercent)/100))
+			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
 			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
 
