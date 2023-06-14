@@ -156,6 +156,13 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 	domain.Spec = *domSpec
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	// update cpu count to maximum hot plugable CPUs
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+	}
 	domain.Spec.CPU.Topology = cpuTopology
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
