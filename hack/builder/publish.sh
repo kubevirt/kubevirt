@@ -32,7 +32,7 @@ export DOCKER_CLI_EXPERIMENTAL=enabled
 ${KUBEVIRT_CRI} manifest create --amend quay.io/kubevirt/builder:${VERSION} ${TMP_IMAGES}
 
 if [ "${KUBEVIRT_CRI}" = "podman" ]; then
-    # Workaround https://github.com/containers/podman/issues/18360 and remove once https://github.com/containers/podman/commit/bab4217cd16be609ac35ccf3061d1e34f787856f is released
+    # FIXME: Workaround https://github.com/containers/podman/issues/18360 and remove once https://github.com/containers/podman/commit/bab4217cd16be609ac35ccf3061d1e34f787856f is released
     ${KUBEVIRT_CRI} manifest push quay.io/kubevirt/builder:${VERSION} quay.io/kubevirt/builder:${VERSION}
 else
     ${KUBEVIRT_CRI} manifest push quay.io/kubevirt/builder:${VERSION}
