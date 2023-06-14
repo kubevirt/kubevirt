@@ -511,6 +511,152 @@ func expandVirtualMachine(namespace string, virtClient kubecli.KubevirtClient, o
 	return nil
 }
 
+func startVirtualMachine(vmiName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
+	err := virtClient.VirtualMachine(namespace).Start(context.Background(), vmiName, &v1.StartOptions{Paused: startPaused, DryRun: *dryRunOption})
+	if err != nil {
+		return fmt.Errorf("Error starting VirtualMachine %v", err)
+	}
+
+	return nil
+}
+
+func stopVirtualMachine(vmiName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
+	if gracePeriodIsSet(gracePeriod) {
+		if !forceRestart {
+			return fmt.Errorf("Can not set gracePeriod without --force=true")
+		} else {
+			err := virtClient.VirtualMachine(namespace).ForceStop(context.Background(), vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: *dryRunOption})
+			if err != nil {
+				return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
+			}
+			return nil
+		}
+	}
+
+	if forceRestart {
+		return fmt.Errorf("Can not force stop without gracePeriod")
+	}
+
+	err := virtClient.VirtualMachine(namespace).Stop(context.Background(), vmiName, &v1.StopOptions{DryRun: *dryRunOption})
+	if err != nil {
+		return fmt.Errorf("Error stopping VirtualMachine %v", err)
+	}
+
+	return nil
+}
+
+func restartVirtualMachine(vmiName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
+	if gracePeriodIsSet(gracePeriod) {
+		if !forceRestart {
+			return fmt.Errorf("Can not set gracePeriod without --force=true")
+		} else {
+			err := virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: *dryRunOption})
+			if err != nil {
+				return fmt.Errorf("Error restarting VirtualMachine, %v", err)
+			}
+			return nil
+		}
+	}
+
+	if forceRestart {
+		return fmt.Errorf("Can not force restart without gracePeriod")
+	}
+
+	err := virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: *dryRunOption})
+	if err != nil {
+		return fmt.Errorf("Error restarting VirtualMachine %v", err)
+	}
+
+	return nil
+}
+
+func migrateVirtualMachine(vmiName, namespace string, virtClient kubecli.KubevirtClient, dryRunOption *[]string) error {
+	err := virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: *dryRunOption})
+	if err != nil {
+		return fmt.Errorf("Error migrating VirtualMachine %v", err)
+	}
+
+	return nil
+}
+
+func cancelVirtualMachineMigration(vmiName, namespace string, virtClient kubecli.KubevirtClient) error {
+	// get a list of migrations for vmiName (use LabelSelector filter)
+	labelselector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)
+	migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{
+		LabelSelector: labelselector})
+	if err != nil {
+		return fmt.Errorf("Error fetching virtual machine instance migration list  %v", err)
+	}
+
+	// There may be a single active migrations but several completed/failed ones
+	// go over the migrations list and find the active one
+	done := false
+	for _, mig := range migrations.Items {
+		migname := mig.ObjectMeta.Name
+
+		if !mig.IsFinal() {
+			// Cancel the active migration by calling Delete
+			err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(migname, &metav1.DeleteOptions{})
+			if err != nil {
+				return fmt.Errorf("Error canceling migration %s of a VirtualMachine %s: %v", migname, vmiName, err)
+			}
+			done = true
+			break
+		}
+	}
+
+	if !done {
+		return fmt.Errorf("Found no migration to cancel for %s", vmiName)
+	}
+
+	return nil
+}
+
+func getGuestOsInfo(vmiName, namespace string, virtClient kubecli.KubevirtClient) error {
+	guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(context.Background(), vmiName)
+	if err != nil {
+		return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
+	}
+
+	data, err := json.MarshalIndent(guestosinfo, "", "  ")
+	if err != nil {
+		return fmt.Errorf("Cannot marshal guestosinfo %v", err)
+	}
+
+	fmt.Printf("%s\n", string(data))
+	return nil
+}
+
+func getUserList(vmiName, namespace string, virtClient kubecli.KubevirtClient) error {
+	userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(context.Background(), vmiName)
+	if err != nil {
+		return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
+	}
+
+	data, err := json.MarshalIndent(userlist, "", "  ")
+	if err != nil {
+		return fmt.Errorf("Cannot marshal userlist %v", err)
+	}
+
+	fmt.Printf("%s\n", string(data))
+	return nil
+}
+
+func getFSList(vmiName, namespace string, virtClient kubecli.KubevirtClient) error {
+	fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(context.Background(), vmiName)
+	if err != nil {
+		return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
+	}
+
+	data, err := json.MarshalIndent(fslist, "", "  ")
+	if err != nil {
+		return fmt.Errorf("Cannot marshal filesystem list %v", err)
+	}
+
+	fmt.Printf("%s\n", string(data))
+	return nil
+}
+
 func (o *Command) Run(args []string) error {
 	if len(args) != 0 {
 		vmiName = args[0]
@@ -532,121 +678,36 @@ func (o *Command) Run(args []string) error {
 	}
 	switch o.command {
 	case COMMAND_START:
-		err = virtClient.VirtualMachine(namespace).Start(context.Background(), vmiName, &v1.StartOptions{Paused: startPaused, DryRun: dryRunOption})
+		err = startVirtualMachine(vmiName, namespace, virtClient, &dryRunOption)
 		if err != nil {
-			return fmt.Errorf("Error starting VirtualMachine %v", err)
+			return err
 		}
 	case COMMAND_STOP:
-		if gracePeriodIsSet(gracePeriod) && forceRestart == false {
-			return fmt.Errorf("Can not set gracePeriod without --force=true")
-		}
-		if forceRestart {
-			if gracePeriodIsSet(gracePeriod) {
-				err = virtClient.VirtualMachine(namespace).ForceStop(context.Background(), vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
-				if err != nil {
-					return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
-				}
-			} else if !gracePeriodIsSet(gracePeriod) {
-				return fmt.Errorf("Can not force stop without gracePeriod")
-			}
-			break
-		}
-		err = virtClient.VirtualMachine(namespace).Stop(context.Background(), vmiName, &v1.StopOptions{DryRun: dryRunOption})
+		err = stopVirtualMachine(vmiName, namespace, virtClient, &dryRunOption)
 		if err != nil {
-			return fmt.Errorf("Error stopping VirtualMachine %v", err)
+			return err
 		}
 	case COMMAND_RESTART:
-		if gracePeriod != notDefinedGracePeriod && forceRestart == false {
-			return fmt.Errorf("Can not set gracePeriod without --force=true")
-		}
-		if forceRestart {
-			if gracePeriod != notDefinedGracePeriod {
-				err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
-				if err != nil {
-					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
-				}
-			} else if gracePeriod == notDefinedGracePeriod {
-				return fmt.Errorf("Can not force restart without gracePeriod")
-			}
-			break
-		}
-		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
+		err = restartVirtualMachine(vmiName, namespace, virtClient, &dryRunOption)
 		if err != nil {
-			return fmt.Errorf("Error restarting VirtualMachine %v", err)
+			return err
 		}
 	case COMMAND_MIGRATE:
-		err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+		err = migrateVirtualMachine(vmiName, namespace, virtClient, &dryRunOption)
 		if err != nil {
-			return fmt.Errorf("Error migrating VirtualMachine %v", err)
+			return err
 		}
 	case COMMAND_MIGRATE_CANCEL:
-		// get a list of migrations for vmiName (use LabelSelector filter)
-		labelselector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)
-		migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{
-			LabelSelector: labelselector})
+		err = cancelVirtualMachineMigration(vmiName, namespace, virtClient)
 		if err != nil {
-			return fmt.Errorf("Error fetching virtual machine instance migration list  %v", err)
-		}
-
-		// There may be a single active migrations but several completed/failed ones
-		// go over the migrations list and find the active one
-		done := false
-		for _, mig := range migrations.Items {
-			migname := mig.ObjectMeta.Name
-
-			if !mig.IsFinal() {
-				// Cancel the active migration by calling Delete
-				err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(migname, &metav1.DeleteOptions{})
-				if err != nil {
-					return fmt.Errorf("Error canceling migration %s of a VirtualMachine %s: %v", migname, vmiName, err)
-				}
-				done = true
-				break
-			}
-		}
-
-		if !done {
-			return fmt.Errorf("Found no migration to cancel for %s", vmiName)
+			return err
 		}
 	case COMMAND_GUESTOSINFO:
-		guestosinfo, err := virtClient.VirtualMachineInstance(namespace).GuestOsInfo(context.Background(), vmiName)
-		if err != nil {
-			return fmt.Errorf("Error getting guestosinfo of VirtualMachineInstance %s, %v", vmiName, err)
-		}
-
-		data, err := json.MarshalIndent(guestosinfo, "", "  ")
-		if err != nil {
-			return fmt.Errorf("Cannot marshal guestosinfo %v", err)
-		}
-
-		fmt.Printf("%s\n", string(data))
-		return nil
+		return getGuestOsInfo(vmiName, namespace, virtClient)
 	case COMMAND_USERLIST:
-		userlist, err := virtClient.VirtualMachineInstance(namespace).UserList(context.Background(), vmiName)
-		if err != nil {
-			return fmt.Errorf("Error listing users of VirtualMachineInstance %s, %v", vmiName, err)
-		}
-
-		data, err := json.MarshalIndent(userlist, "", "  ")
-		if err != nil {
-			return fmt.Errorf("Cannot marshal userlist %v", err)
-		}
-
-		fmt.Printf("%s\n", string(data))
-		return nil
+		return getUserList(vmiName, namespace, virtClient)
 	case COMMAND_FSLIST:
-		fslist, err := virtClient.VirtualMachineInstance(namespace).FilesystemList(context.Background(), vmiName)
-		if err != nil {
-			return fmt.Errorf("Error listing filesystems of VirtualMachineInstance %s, %v", vmiName, err)
-		}
-
-		data, err := json.MarshalIndent(fslist, "", "  ")
-		if err != nil {
-			return fmt.Errorf("Cannot marshal filesystem list %v", err)
-		}
-
-		fmt.Printf("%s\n", string(data))
-		return nil
+		return getFSList(vmiName, namespace, virtClient)
 	case COMMAND_ADDVOLUME:
 		return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 	case COMMAND_REMOVEVOLUME:
