@@ -1263,6 +1263,33 @@ func (d *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func (d *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	d.updateIsoSizeStatus(vmi)
+	err := d.updateSELinuxContext(vmi)
+	if err != nil {
+		log.Log.Reason(err).Errorf("couldn't find the SELinux context for %s", vmi.Name)
+	}
+	d.setMigrationProgressStatus(vmi, domain)
+	d.updateGuestInfoFromDomain(vmi, domain)
+	d.updateVolumeStatusesFromDomain(vmi, domain)
+	d.updateFSFreezeStatus(vmi, domain)
+	d.updateMachineType(vmi, domain)
+	err = d.netStat.UpdateStatus(vmi, domain)
+	return err
+}
+
+func (d *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
+	d.updateAccessCredentialConditions(vmi, domain, condManager)
+	d.updateLiveMigrationConditions(vmi, condManager)
+	err := d.updateGuestAgentConditions(vmi, domain, condManager)
+	if err != nil {
+		return err
+	}
+	d.updatePausedConditions(vmi, domain, condManager)
+
+	return nil
+}
+
 func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -1281,17 +1308,7 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	oldStatus := *vmi.Status.DeepCopy()
 
 	// Update VMI status fields based on what is reported on the domain
-	d.updateIsoSizeStatus(vmi)
-	err = d.updateSELinuxContext(vmi)
-	if err != nil {
-		log.Log.Reason(err).Errorf("couldn't find the SELinux context for %s", vmi.Name)
-	}
-	d.setMigrationProgressStatus(vmi, domain)
-	d.updateGuestInfoFromDomain(vmi, domain)
-	d.updateVolumeStatusesFromDomain(vmi, domain)
-	d.updateFSFreezeStatus(vmi, domain)
-	d.updateMachineType(vmi, domain)
-	err = d.netStat.UpdateStatus(vmi, domain)
+	err = d.updateVMIStatusFromDomain(vmi, domain)
 	if err != nil {
 		return err
 	}
@@ -1303,25 +1320,13 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	// Update conditions on VMI Status
-	d.updateAccessCredentialConditions(vmi, domain, condManager)
-	d.updateLiveMigrationConditions(vmi, condManager)
-	err = d.updateGuestAgentConditions(vmi, domain, condManager)
+	err = d.updateVMIConditions(vmi, domain, condManager)
 	if err != nil {
 		return err
 	}
-	d.updatePausedConditions(vmi, domain, condManager)
 
 	// Handle sync error
-	var criticalNetErr *neterrors.CriticalNetworkError
-	if goerror.As(syncError, &criticalNetErr) {
-		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
-		vmi.Status.Phase = v1.Failed
-	}
-	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
-		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
-		vmi.Status.Phase = v1.Failed
-	}
-	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
+	handleSyncError(vmi, condManager, syncError)
 
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
@@ -1338,17 +1343,34 @@ func (d *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 
 	// Record an event on the VMI when the VMI's phase changes
 	if oldStatus.Phase != vmi.Status.Phase {
-		switch vmi.Status.Phase {
-		case v1.Running:
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), VMIStarted)
-		case v1.Succeeded:
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), VMIShutdown)
-		case v1.Failed:
-			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Stopped.String(), VMICrashed)
-		}
+		d.recordPhaseChangeEvent(vmi)
 	}
 
 	return nil
+}
+
+func handleSyncError(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager, syncError error) {
+	var criticalNetErr *neterrors.CriticalNetworkError
+	if goerror.As(syncError, &criticalNetErr) {
+		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
+	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
+		log.Log.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
+	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
+}
+
+func (d *VirtualMachineController) recordPhaseChangeEvent(vmi *v1.VirtualMachineInstance) {
+	switch vmi.Status.Phase {
+	case v1.Running:
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Started.String(), VMIStarted)
+	case v1.Succeeded:
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Stopped.String(), VMIShutdown)
+	case v1.Failed:
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Stopped.String(), VMICrashed)
+	}
 }
 
 func _guestAgentCommandSubsetSupported(requiredCommands []string, commands []v1.GuestAgentCommandInfo) bool {
