@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "add_volume.go",
+        "common.go",
         "expand.go",
         "fs_list.go",
         "guestosinfo.go",
@@ -14,7 +15,6 @@ go_library(
         "start.go",
         "stop.go",
         "user_list.go",
-        "vm.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/vm",
     visibility = ["//visibility:public"],

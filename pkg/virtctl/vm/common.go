@@ -23,10 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/spf13/cobra"
 
 	"kubevirt.io/client-go/kubecli"
 )
@@ -46,7 +43,6 @@ const (
 )
 
 var (
-	vmiName      string
 	forceRestart bool
 	gracePeriod  int64
 	volumeName   string
@@ -57,53 +53,26 @@ var (
 type Command struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
-	cmd          *cobra.Command
 }
 
 func usage(cmd string) string {
 	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
-		usage := fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n", strings.Title(cmd))
-		usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
-		return usage
+		return fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
 	}
 
-	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
-	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
-	return usage
+	return fmt.Sprintf("  # %s a virtual machine called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
 }
 
-func gracePeriodIsSet(period int64) bool {
-	return period != notDefinedGracePeriod
-}
-
-func getDryRunOption(dryRun bool) []string {
-	if dryRun {
-		return []string{metav1.DryRunAll}
-	}
-	return nil
-}
-
-func (o *Command) Run(args []string) error {
-	if len(args) != 0 {
-		vmiName = args[0]
-	}
-
-	namespace, _, err := o.clientConfig.Namespace()
+func GetNamespaceAndClient(clientConfig clientcmd.ClientConfig) (kubecli.KubevirtClient, string, error) {
+	namespace, _, err := clientConfig.Namespace()
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
+	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
-		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
+		return nil, "", fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
-	dryRunOption := getDryRunOption(dryRun)
-	if len(dryRunOption) > 0 && dryRunOption[0] == metav1.DryRunAll {
-		fmt.Printf("Dry Run execution\n")
-	}
-
-	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
-
-	return nil
+	return virtClient, namespace, nil
 }
