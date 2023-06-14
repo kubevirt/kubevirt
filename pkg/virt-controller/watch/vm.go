@@ -2065,7 +2065,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	vm.Status.Ready = ready
 
 	c.trimDoneVolumeRequests(vm)
-	trimDoneInterfaceRequests(vm)
+	trimDoneInterfaceRequests(vm, vmi)
 	c.updateMemoryDumpRequest(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
