@@ -726,28 +726,28 @@ func (f *kubeInformerFactory) VirtualMachineClone() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) VirtualMachineInstancetype() cache.SharedIndexInformer {
 	return f.getInformer("vmInstancetypeInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1alpha2().RESTClient(), instancetypeapi.PluralResourceName, k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1beta1().RESTClient(), instancetypeapi.PluralResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &instancetypev1beta1.VirtualMachineInstancetype{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
 func (f *kubeInformerFactory) VirtualMachineClusterInstancetype() cache.SharedIndexInformer {
 	return f.getInformer("vmClusterInstancetypeInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1alpha2().RESTClient(), instancetypeapi.ClusterPluralResourceName, k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1beta1().RESTClient(), instancetypeapi.ClusterPluralResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &instancetypev1beta1.VirtualMachineClusterInstancetype{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
 func (f *kubeInformerFactory) VirtualMachinePreference() cache.SharedIndexInformer {
 	return f.getInformer("vmPreferenceInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1alpha2().RESTClient(), instancetypeapi.PluralPreferenceResourceName, k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1beta1().RESTClient(), instancetypeapi.PluralPreferenceResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &instancetypev1beta1.VirtualMachinePreference{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
 func (f *kubeInformerFactory) VirtualMachineClusterPreference() cache.SharedIndexInformer {
 	return f.getInformer("vmClusterPreferenceInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1alpha2().RESTClient(), instancetypeapi.ClusterPluralPreferenceResourceName, k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1beta1().RESTClient(), instancetypeapi.ClusterPluralPreferenceResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &instancetypev1beta1.VirtualMachineClusterPreference{}, f.defaultResync, cache.Indexers{})
 	})
 }
