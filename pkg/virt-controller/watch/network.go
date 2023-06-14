@@ -43,30 +43,43 @@ func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance) ([]v1.Interface,
 	return vmiSpecIfaces, vmiSpecNets, isIfaceChangeRequired
 }
 
-func trimDoneInterfaceRequests(vm *v1.VirtualMachine) {
+func trimDoneInterfaceRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 	if len(vm.Status.InterfaceRequests) == 0 {
 		return
 	}
 
-	indexedInterfaces := vmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
+	vmiExist := vmi != nil
+	var vmiIndexedInterfaces map[string]v1.Interface
+	if vmiExist {
+		vmiIndexedInterfaces = vmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
+	}
+
+	vmIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
 	updateIfaceRequests := make([]v1.VirtualMachineInterfaceRequest, 0)
 	for _, request := range vm.Status.InterfaceRequests {
-
-		var ifaceName string
-
 		removeRequest := false
-
 		switch {
 		case request.AddInterfaceOptions != nil:
-			ifaceName = request.AddInterfaceOptions.Name
-			if _, exists := indexedInterfaces[ifaceName]; exists {
-				removeRequest = true
+			ifaceName := request.AddInterfaceOptions.Name
+			_, existsInVMTemplate := vmIndexedInterfaces[ifaceName]
+
+			if vmiExist {
+				_, existsInVMISpec := vmiIndexedInterfaces[ifaceName]
+				removeRequest = existsInVMTemplate && existsInVMISpec
+			} else {
+				removeRequest = existsInVMTemplate
 			}
 		case request.RemoveInterfaceOptions != nil:
-			ifaceName = request.RemoveInterfaceOptions.Name
-			if iface, exists := indexedInterfaces[ifaceName]; exists &&
-				iface.State == v1.InterfaceStateAbsent {
-				removeRequest = true
+			ifaceName := request.RemoveInterfaceOptions.Name
+			vmIface, existsInVMTemplate := vmIndexedInterfaces[ifaceName]
+			absentIfaceInVMTemplate := existsInVMTemplate && vmIface.State == v1.InterfaceStateAbsent
+
+			if vmiExist {
+				vmiIface, existsInVMISpec := vmiIndexedInterfaces[ifaceName]
+				absentIfaceInVMISpec := existsInVMISpec && vmiIface.State == v1.InterfaceStateAbsent
+				removeRequest = absentIfaceInVMTemplate && absentIfaceInVMISpec
+			} else {
+				removeRequest = absentIfaceInVMTemplate
 			}
 		}
 
