@@ -2307,7 +2307,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Options: []k8sv1.PodDNSConfigOption{
 					{Value: &dnsConfigTestOption},
 				},
-			}, 1, []string{fmt.Sprintf("Option.Name must not be empty for value: %s", dnsConfigTestOption)}),
+			}, 1, []string{"Option.Name must not be empty"}),
 			Entry("with DNSPolicy None and nil DNSConfig", k8sv1.DNSNone, interface{}(nil), 1,
 				[]string{fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone)}),
 		)

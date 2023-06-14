@@ -169,9 +169,10 @@ github.com/google/go-querystring/query
 # github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 ## explicit
 github.com/google/goexpect
-# github.com/google/gofuzz v1.1.0
+# github.com/google/gofuzz v1.2.0
 ## explicit; go 1.12
 github.com/google/gofuzz
+github.com/google/gofuzz/bytesource
 # github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
 ## explicit
 github.com/google/goterm/term

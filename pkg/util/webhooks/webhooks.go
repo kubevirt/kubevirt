@@ -54,13 +54,25 @@ func ToAdmissionResponseError(err error) *admissionv1.AdmissionResponse {
 func ToAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
 
+	causeLen := len(causes)
+
+	lenDiff := 0
+	if causeLen > 10 {
+		causeLen = 10
+		lenDiff = len(causes) - 10
+	}
+
 	globalMessage := ""
-	for _, cause := range causes {
+	for _, cause := range causes[:causeLen] {
 		if globalMessage == "" {
 			globalMessage = cause.Message
 		} else {
 			globalMessage = fmt.Sprintf("%s, %s", globalMessage, cause.Message)
 		}
+	}
+
+	if lenDiff > 0 {
+		globalMessage = fmt.Sprintf("%s, and %v more validation errors", globalMessage, lenDiff)
 	}
 
 	return &admissionv1.AdmissionResponse{
@@ -69,7 +81,7 @@ func ToAdmissionResponse(causes []v1.StatusCause) *admissionv1.AdmissionResponse
 			Reason:  v1.StatusReasonInvalid,
 			Code:    http.StatusUnprocessableEntity,
 			Details: &v1.StatusDetails{
-				Causes: causes,
+				Causes: causes[:causeLen],
 			},
 		},
 	}
