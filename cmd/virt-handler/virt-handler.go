@@ -338,17 +338,17 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
-	// Currently nodeLabeller only support x86_64
 	var capabilities *api.Capabilities
 	var hostCpuModel string
-	if virtconfig.IsAMD64(runtime.GOARCH) {
-		nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
-		nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, nodeLabellerrecorder)
-		if err != nil {
-			panic(err)
-		}
-		capabilities = nodeLabellerController.HostCapabilities()
+	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
+	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig, app.virtCli, app.HostOverride, app.namespace, nodeLabellerrecorder)
+	if err != nil {
+		panic(err)
+	}
+	capabilities = nodeLabellerController.HostCapabilities()
 
+	// Node labelling is only relevant on x86_64 arch.
+	if virtconfig.IsAMD64(runtime.GOARCH) {
 		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
 		go nodeLabellerController.Run(10, stop)

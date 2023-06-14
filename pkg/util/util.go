@@ -113,6 +113,20 @@ func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState == true
 }
 
+func IsAMD64VMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Architecture == "amd64" {
+		return true
+	}
+	return false
+}
+
+func IsARM64VMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Architecture == "arm64" {
+		return true
+	}
+	return false
+}
+
 func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
 	if vmi == nil {
 		return false

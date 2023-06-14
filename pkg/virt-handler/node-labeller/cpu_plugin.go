@@ -24,17 +24,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
-
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const (
+	isSupported            string = "yes"
 	isUnusable             string = "no"
 	isRequired             string = "require"
 	nodeLabellerVolumePath        = "/var/lib/kubevirt-node-labeller/"
@@ -91,6 +93,11 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	usableModels := make([]string, 0)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Name == v1.CPUModeHostModel {
+			if virtconfig.IsARM64(runtime.GOARCH) {
+				log.Log.Warning("host-model cpu mode is not supported for ARM architecture")
+				continue
+			}
+
 			n.cpuModelVendor = mode.Vendor.Name
 
 			if len(mode.Model) < 1 {
@@ -166,14 +173,19 @@ func (n *NodeLabeller) loadCPUInfo() error {
 	}
 
 	models := make(map[string]cpuFeatures)
+	archPrefix, ok := util.DefaultArchitecturePrefix[runtime.GOARCH]
+	// Only arm64 and amd64 architectures are currently supported.
+	if !ok {
+		return fmt.Errorf("unsupported system architecture")
+	}
 	for _, f := range files {
 		fileName := f.Name()
-		if strings.HasPrefix(fileName, "x86_") {
+		if strings.HasPrefix(fileName, archPrefix) {
 			features, err := n.loadFeatures(fileName)
 			if err != nil {
 				return err
 			}
-			cpuName := strings.TrimSuffix(strings.TrimPrefix(fileName, "x86_"), ".xml")
+			cpuName := strings.TrimSuffix(strings.TrimPrefix(fileName, archPrefix), ".xml")
 
 			models[cpuName] = features
 		}

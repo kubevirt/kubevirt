@@ -142,7 +142,11 @@ var _ = Describe("Node-labeller config", func() {
 		var hostCpuModel hostCPUModel
 
 		BeforeEach(func() {
-			err := nlController.loadHostSupportedFeatures()
+			nlController.domCapabilitiesFileName = "virsh_domcapabilities.xml"
+			err := nlController.loadDomCapabilities()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = nlController.loadHostSupportedFeatures()
 			Expect(err).ToNot(HaveOccurred())
 
 			hostCpuModel = nlController.GetHostCpuModel()

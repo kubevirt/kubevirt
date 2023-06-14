@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -167,10 +168,14 @@ func (n *NodeLabeller) loadAll() error {
 		return err
 	}
 
-	err = n.loadHostSupportedFeatures()
-	if err != nil {
-		n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
-		return err
+	// host supported features is only available on AMD64 nodes.
+	// This is because hypervisor-cpu-baseline virsh command doesnt work for ARM64 architecture.
+	if virtconfig.IsAMD64(runtime.GOARCH) {
+		err = n.loadHostSupportedFeatures()
+		if err != nil {
+			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+			return err
+		}
 	}
 
 	err = n.loadDomCapabilities()

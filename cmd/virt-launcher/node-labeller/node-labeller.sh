@@ -2,8 +2,11 @@
 
 set -xeo pipefail
 
-# nodelabeller currently only support x86.
-if ! uname -m | grep x86_64; then
+ARCH=$(uname -m)
+MACHINE=q35
+if [ "$ARCH" == "aarch64" ]; then
+  MACHINE=virt
+elif [ "$ARCH" != "x86_64" ]; then
   exit 0
 fi
 
@@ -31,9 +34,13 @@ fi
 
 virtqemud -d
 
-virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
+virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/virsh_domcapabilities.xml
 
 cp -r /usr/share/libvirt/cpu_map /var/lib/kubevirt-node-labeller
 
-virsh domcapabilities --machine q35 --arch x86_64 --virttype $VIRTTYPE | virsh hypervisor-cpu-baseline --features /dev/stdin --machine q35 --arch x86_64 --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
+# hypervisor-cpu-baseline command only works on x86
+if [ "$ARCH" == "x86_64" ]; then
+   virsh domcapabilities --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE | virsh hypervisor-cpu-baseline --features /dev/stdin --machine $MACHINE --arch $ARCH --virttype $VIRTTYPE > /var/lib/kubevirt-node-labeller/supported_features.xml
+fi
+
 virsh capabilities > /var/lib/kubevirt-node-labeller/capabilities.xml
