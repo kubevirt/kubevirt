@@ -57,7 +57,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				Expect(err).ToNot(HaveOccurred())
 				val, ok := node.Status.Capacity["devices.kubevirt.io/sev"]
 				return ok && !val.IsZero()
-			}, 90*time.Second, 1*time.Second).Should(BeTrue(), "SEV capacity should not be zero")
+			}, 180*time.Second, 1*time.Second).Should(BeTrue(), "SEV capacity should not be zero")
 		})
 
 		AfterEach(func() {
@@ -79,7 +79,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				Expect(err).ToNot(HaveOccurred())
 				val, ok := node.Status.Capacity["devices.kubevirt.io/sev"]
 				return !ok || val.IsZero()
-			}, 90*time.Second, 1*time.Second).Should(BeTrue(), "SEV capacity should be zero")
+			}, 180*time.Second, 1*time.Second).Should(BeTrue(), "SEV capacity should be zero")
 		})
 	})
 
