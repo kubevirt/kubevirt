@@ -54,5 +54,6 @@ digraph component {
 	"deployment/hco-operator" -> "NetworkAddonsConfig/cluster"
 	"NetworkAddonsConfig/cluster" -> "SSP/ssp-kubevirt-hyperconverged"
 	"SSP/ssp-kubevirt-hyperconverged" -> "CDI/cdi-kubevirt-hyperconverged"
+	"CDI/cdi-kubevirt-hyperconverged" -> "deployment/virt-template-validator"
 	"deployment/virt-template-validator" -> "HyperConverged/kubevirt-hyperconverged"
 }
