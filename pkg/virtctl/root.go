@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
+	"kubevirt.io/kubevirt/pkg/virtctl/credentials"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
@@ -111,6 +112,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		create.NewCommand(),
 		network.NewAddInterfaceCommand(clientConfig),
 		network.NewRemoveInterfaceCommand(clientConfig),
+		credentials.NewCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd, clientConfig
