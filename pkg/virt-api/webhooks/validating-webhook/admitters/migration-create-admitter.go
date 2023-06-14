@@ -54,12 +54,12 @@ func isMigratable(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (admitter *MigrationCreateAdmitter) ensureNoConflict(migration *v1.VirtualMachineInstanceMigration) error {
-	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, migration.Spec.VMIName))
+func EnsureNoMigrationConflict(virtClient kubecli.KubevirtClient, vmiName string, namespace string) error {
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmiName))
 	if err != nil {
 		return err
 	}
-	list, err := admitter.VirtClient.VirtualMachineInstanceMigration(migration.Namespace).List(&metav1.ListOptions{
+	list, err := virtClient.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 	if err != nil {
@@ -113,7 +113,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *admissionv1.AdmissionReview) 
 
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
-	err = admitter.ensureNoConflict(migration)
+	err = EnsureNoMigrationConflict(admitter.VirtClient, migration.Spec.VMIName, migration.Namespace)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
