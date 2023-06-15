@@ -34,6 +34,10 @@ import (
 
 var _ = Describe("Credentials add-ssh-key", func() {
 	const (
+		testKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR2Ah+NcKPU9wDXP7DibuXrkvXCL/YH/w++3M3zZK27WSfjngsawM/Kai8oGXwmjFCprP77COkdBqg2Dpr/ulQ/7h4GwVb/Cjcwov/LOWg5aRAUa1NYRZ75CErMuGW9kSAd42mxeSslLK91hdlCFJP3qMPbkTvlrGAw+6WzwQEmQA1S1D7KC1yJTW6gtgkkKVYNnOhvuGDrCzoOyxb1SfjAhKSk3OkkotdBlWK8TWynGkYhptLAP9pQvCgtRMJPBQ6OWjVV5qkT6yY2hjG6frYnwDotI5OXdOBjbx0Oaa3sFRC983YDIh9lbEKeQxckykg9Iys2fT/NZUbze46hSA/8bG4hDqU0X7+dHN+Ite2/vRjEeaRaWzm9t7+/nxzxibr2x38fkxtNwGYv6VHTyoBTVj/mVqku+NM7pzGGD5X2nB28gbJTCnRPtd4kLIHfg7IYjfHpIBXwfq5jnRlYrIraqkEljZ6iAF4xZGQkQYZQhhwNErJ4+cOFadwG11pdhs= test-key-1"
+	)
+
+	const (
 		vmName     = "test-vm"
 		secretName = "test-secret"
 		userName   = "test-user"
@@ -184,7 +188,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 	It("should fail if VM does not exist", func() {
 		err := runAddKeyCommand(
 			"--user", userName,
-			"--value", "test-key",
+			"--value", testKey,
 			"nonexisting-vmi",
 		)
 		Expect(err).To(MatchError(ContainSubstring("\"nonexisting-vmi\" not found")))
@@ -192,14 +196,13 @@ var _ = Describe("Credentials add-ssh-key", func() {
 
 	It("should fail if no user is specified", func() {
 		err := runAddKeyCommand(
-			"--value", "test-key",
+			"--value", testKey,
 			vmName,
 		)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should add a new secret, if no secret is specified for a user", func() {
-		const testKey = "test-key"
 		const newUser = "new-user"
 
 		// VM is not running
@@ -249,17 +252,29 @@ var _ = Describe("Credentials add-ssh-key", func() {
 
 		err := runAddKeyCommand(
 			"--user", userName,
-			"--value", "test-key",
+			"--value", testKey,
 			vmName,
 		)
 		Expect(err).To(MatchError(ContainSubstring("multiple secrets specified")))
 	})
 
 	It("should patch secret", func() {
-		const testKey = "test-key"
 		err := runAddKeyCommand(
 			"--user", userName,
 			"--value", testKey,
+			vmName,
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		expectSecretToContainKey(kubeClient, secretName, testKey)
+	})
+
+	It("should patch secret and trim space from key", func() {
+		const spacedKey = testKey + "\n"
+
+		err := runAddKeyCommand(
+			"--user", userName,
+			"--value", spacedKey,
 			vmName,
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -274,7 +289,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			}
 		})
 
-		const testKey = "test-key"
 		err := runAddKeyCommand(
 			"--user", userName,
 			"--value", testKey,
@@ -290,8 +304,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 	})
 
 	It("should patch secret with key from file", func() {
-		const testKey = "key contents in file"
-
 		filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
 		Expect(os.WriteFile(filename, []byte(testKey), 0666)).To(Succeed())
 
@@ -339,7 +351,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 					},
 				}})
 
-		const testKey = "test-key"
 		err = runAddKeyCommand(
 			"--user", userName,
 			"--secret", secondSecretName,
@@ -352,8 +363,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 	})
 
 	It("should not add key if secret already contains the key", func() {
-		const testKey = "test-key"
-
 		updateSecret(kubeClient, secretName, func(secret *corev1.Secret) {
 			secret.Data = map[string][]byte{
 				"some-name": []byte(testKey),
@@ -377,7 +386,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 
 		err := runAddKeyCommand(
 			"--user", userName,
-			"--value", "test-key",
+			"--value", testKey,
 			vmName,
 		)
 		Expect(err).To(MatchError(ContainSubstring("does not have an owner reference pointing to VM")))
@@ -388,7 +397,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			secret.OwnerReferences = nil
 		})
 
-		const testKey = "test-key"
 		err := runAddKeyCommand(
 			"--user", userName,
 			"--value", testKey,
@@ -405,7 +413,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			// VM should not be running
 			vmi = nil
 
-			const testKey = "test-key"
 			err := runAddKeyCommand(
 				"--user", userName,
 				"--value", testKey,
@@ -429,7 +436,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 
 			vm.Spec.Template.Spec.AccessCredentials = nil
 
-			const testKey = "test-key"
 			err := runAddKeyCommand(
 				"--user", userName,
 				"--value", testKey,
@@ -450,7 +456,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		It("should fail to add secret for running VM", func() {
 			err := runAddKeyCommand(
 				"--user", userName,
-				"--value", "test-key",
+				"--value", testKey,
 				"--create-secret",
 				vmName,
 			)
@@ -458,7 +464,6 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		})
 
 		It("should add secret to running VM with --force option", func() {
-			const testKey = "test-key"
 			err := runAddKeyCommand(
 				"--user", userName,
 				"--value", testKey,
@@ -482,7 +487,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		It("should fail if no secret is specified for a user", func() {
 			err := runAddKeyCommand(
 				"--user", "unknown-user",
-				"--value", "test-key",
+				"--value", testKey,
 				"--update-secret",
 				vmName,
 			)

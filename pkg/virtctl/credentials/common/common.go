@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
@@ -57,7 +58,7 @@ func (s *SshCommandFlags) AddToCommand(cmd *cobra.Command) {
 
 func GetSshKey(flags *SshCommandFlags) (string, error) {
 	if flags.SshPubKeyLiteral != "" {
-		return flags.SshPubKeyLiteral, nil
+		return strings.TrimSpace(flags.SshPubKeyLiteral), nil
 	}
 
 	if flags.SshPubKeyFile == "" {
@@ -67,7 +68,24 @@ func GetSshKey(flags *SshCommandFlags) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+	if len(data) == 0 {
+		return "", fmt.Errorf("ssh public key file %s is empty", flags.SshPubKeyFile)
+	}
+
+	dataLines := strings.Split(string(data), "\n")
+
+	return strings.TrimSpace(dataLines[0]), nil
+}
+
+func ValidateSshPublicKey(key string) error {
+	_, _, _, rest, err := ssh.ParseAuthorizedKey([]byte(key))
+	if err != nil {
+		return err
+	}
+	if len(rest) > 0 {
+		return fmt.Errorf("only one key can be provided")
+	}
+	return nil
 }
 
 func GetSshSecretsForUser(accessCredentials []v1.AccessCredential, user string) []string {

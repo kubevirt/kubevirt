@@ -89,6 +89,10 @@ func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSshKeyFl
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
 
+	if err = common.ValidateSshPublicKey(sshKey); err != nil {
+		return fmt.Errorf("ssh public key is not valid: %w", err)
+	}
+
 	cli, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
 		return fmt.Errorf("error getting kubevirt client: %w", err)

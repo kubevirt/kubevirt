@@ -33,6 +33,10 @@ import (
 
 var _ = Describe("Credentials", func() {
 	const (
+		testKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDR2Ah+NcKPU9wDXP7DibuXrkvXCL/YH/w++3M3zZK27WSfjngsawM/Kai8oGXwmjFCprP77COkdBqg2Dpr/ulQ/7h4GwVb/Cjcwov/LOWg5aRAUa1NYRZ75CErMuGW9kSAd42mxeSslLK91hdlCFJP3qMPbkTvlrGAw+6WzwQEmQA1S1D7KC1yJTW6gtgkkKVYNnOhvuGDrCzoOyxb1SfjAhKSk3OkkotdBlWK8TWynGkYhptLAP9pQvCgtRMJPBQ6OWjVV5qkT6yY2hjG6frYnwDotI5OXdOBjbx0Oaa3sFRC983YDIh9lbEKeQxckykg9Iys2fT/NZUbze46hSA/8bG4hDqU0X7+dHN+Ite2/vRjEeaRaWzm9t7+/nxzxibr2x38fkxtNwGYv6VHTyoBTVj/mVqku+NM7pzGGD5X2nB28gbJTCnRPtd4kLIHfg7IYjfHpIBXwfq5jnRlYrIraqkEljZ6iAF4xZGQkQYZQhhwNErJ4+cOFadwG11pdhs= test-key-1"
+	)
+
+	const (
 		vmName     = "test-vm"
 		secretName = "test-secret"
 		userName   = "test-user"
@@ -44,8 +48,6 @@ var _ = Describe("Credentials", func() {
 		vmi *v1.VirtualMachineInstance
 		vm  *v1.VirtualMachine
 	)
-
-	const testKey = "test-key"
 
 	BeforeEach(func() {
 		kubeClient = fake.NewSimpleClientset()
