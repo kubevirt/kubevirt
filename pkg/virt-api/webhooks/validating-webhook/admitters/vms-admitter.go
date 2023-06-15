@@ -717,6 +717,11 @@ func (admitter *VMsAdmitter) shouldAllowCPUHotPlug(vm *v1.VirtualMachine) error 
 		!vmi.Status.MigrationState.Completed {
 		return fmt.Errorf("cannot update CPU sockets while VMI migration is in progress")
 	}
+
+	err = EnsureNoMigrationConflict(admitter.VirtClient, vm.Name, vm.Namespace)
+	if err != nil {
+		return fmt.Errorf("cannot update CPU sockets while VMI migration is in progress: %v", err)
+	}
 	return nil
 }
 

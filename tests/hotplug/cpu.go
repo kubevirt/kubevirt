@@ -180,7 +180,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			const (
-				maxSockets uint32 = 2
+				maxSockets uint32 = 3
 			)
 
 			vmi := libvmi.NewAlpineWithTestTooling(
@@ -212,14 +212,31 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			expCpu := resource.MustParse("2")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
-			By("Ensuring the libvirt domain has 2 enabled cores and 2 disabled cores")
+			By("Ensuring the libvirt domain has 2 enabled cores and 4 disabled cores")
 			Expect(countDomCPUs(vmi)).To(Equal(cpuCount{
 				enabled:  2,
-				disabled: 2,
+				disabled: 4,
 			}))
 
-			By("Enabling the second socket")
+			By("starting the migration")
+			migration := tests.NewRandomMigration(vm.Name, vm.Namespace)
+			migration, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Create(migration, &metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// This validation is being added here because currently it is very
+			// costly to run it in a separate test.
+			// Chaning the WorkloadUpdateMethods takes a very long time and
+			// restarts the whole control plane
+			By("Making sure that a hot CPU change is not allowed during an inflight migration")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
+			Expect(err).To(HaveOccurred())
+
+			tests.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
+
+			By("Enabling the second socket")
+			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -229,7 +246,6 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceVCPUChange))
 
 			By("Ensuring live-migration started")
-			var migration *v1.VirtualMachineInstanceMigration
 			Eventually(func() bool {
 				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -250,7 +266,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				return countDomCPUs(vmi)
 			}, 30*time.Second, time.Second).Should(Equal(cpuCount{
 				enabled:  4,
-				disabled: 0,
+				disabled: 2,
 			}))
 
 			By("Ensuring the virt-launcher pod now has 4 CPU")
