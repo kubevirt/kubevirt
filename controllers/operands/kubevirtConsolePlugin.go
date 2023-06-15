@@ -62,7 +62,7 @@ func NewKvUIPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 	kvUIPluginImage, _ := os.LookupEnv(hcoutil.KVUIPluginImageEnvV)
 	labels := getLabels(hc, hcoutil.AppComponentDeployment)
 
-	return &appsv1.Deployment{
+	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kvUIPluginDeploymentName,
 			Labels:    labels,
@@ -141,7 +141,26 @@ func NewKvUIPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, e
 				},
 			},
 		},
-	}, nil
+	}
+
+	if hc.Spec.Infra.NodePlacement != nil {
+		if hc.Spec.Infra.NodePlacement.Affinity != nil {
+			deployment.Spec.Template.Spec.NodeSelector = make(map[string]string)
+			for key, value := range hc.Spec.Infra.NodePlacement.NodeSelector {
+				deployment.Spec.Template.Spec.NodeSelector[key] = value
+			}
+		}
+
+		if hc.Spec.Infra.NodePlacement.Affinity != nil {
+			deployment.Spec.Template.Spec.Affinity = hc.Spec.Infra.NodePlacement.Affinity.DeepCopy()
+		}
+
+		if hc.Spec.Infra.NodePlacement.Tolerations != nil {
+			deployment.Spec.Template.Spec.Tolerations = make([]corev1.Toleration, len(hc.Spec.Infra.NodePlacement.Tolerations))
+			copy(deployment.Spec.Template.Spec.Tolerations, hc.Spec.Infra.NodePlacement.Tolerations)
+		}
+	}
+	return deployment, nil
 }
 
 func NewKvUIPluginSvc(hc *hcov1beta1.HyperConverged) *corev1.Service {

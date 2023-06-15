@@ -344,6 +344,159 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			// let's check the object UID to ensure that the object get really deleted and recreated
 			Expect(foundResource.GetUID()).ToNot(Equal(types.UID("oldObjectUID")))
 		})
+
+		Context("Node Placement", func() {
+
+			It("should add node placement if missing", func() {
+				existingResource, err := NewKvUIPluginDeplymnt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.Workloads.NodePlacement = commontestutils.NewNodePlacement()
+				hco.Spec.Infra.NodePlacement = commontestutils.NewOtherNodePlacement()
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
+				Expect(err).ToNot(HaveOccurred())
+				res := handler[0].ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &appsv1.Deployment{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+				Expect(existingResource.Spec.Template.Spec.Affinity).To(BeNil())
+				Expect(existingResource.Spec.Template.Spec.Tolerations).To(BeEmpty())
+
+				Expect(foundResource.Spec.Template.Spec.NodeSelector).To(BeEquivalentTo(hco.Spec.Infra.NodePlacement.NodeSelector))
+				Expect(foundResource.Spec.Template.Spec.Affinity).To(BeEquivalentTo(hco.Spec.Infra.NodePlacement.Affinity))
+				Expect(foundResource.Spec.Template.Spec.Tolerations).To(BeEquivalentTo(hco.Spec.Infra.NodePlacement.Tolerations))
+			})
+
+			It("should remove node placement if missing in HCO CR", func() {
+
+				hcoNodePlacement := commontestutils.NewHco()
+				hcoNodePlacement.Spec.Workloads.NodePlacement = commontestutils.NewNodePlacement()
+				hcoNodePlacement.Spec.Infra.NodePlacement = commontestutils.NewOtherNodePlacement()
+				existingResource, err := NewKvUIPluginDeplymnt(hcoNodePlacement)
+				Expect(err).ToNot(HaveOccurred())
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
+				Expect(err).ToNot(HaveOccurred())
+				res := handler[0].ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &appsv1.Deployment{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Template.Spec.NodeSelector).ToNot(BeEmpty())
+				Expect(existingResource.Spec.Template.Spec.Affinity).ToNot(BeNil())
+				Expect(existingResource.Spec.Template.Spec.Tolerations).ToNot(BeEmpty())
+				Expect(foundResource.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+				Expect(foundResource.Spec.Template.Spec.Affinity).To(BeNil())
+				Expect(foundResource.Spec.Template.Spec.Tolerations).To(BeEmpty())
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should modify node placement according to HCO CR", func() {
+
+				hco.Spec.Workloads.NodePlacement = commontestutils.NewNodePlacement()
+				hco.Spec.Infra.NodePlacement = commontestutils.NewOtherNodePlacement()
+				existingResource, err := NewKvUIPluginDeplymnt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				// now, modify HCO's node placement
+				seconds34 := int64(34)
+				hco.Spec.Infra.NodePlacement.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, v1.Toleration{
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+				})
+				hco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "something entirely else"
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
+				Expect(err).ToNot(HaveOccurred())
+				res := handler[0].ensure(req)
+				Expect(res.Created).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &appsv1.Deployment{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Template.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+				Expect(existingResource.Spec.Template.Spec.Tolerations).To(HaveLen(2))
+				Expect(existingResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "value3"))
+
+				Expect(foundResource.Spec.Template.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+				Expect(foundResource.Spec.Template.Spec.Tolerations).To(HaveLen(3))
+				Expect(foundResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "something entirely else"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+
+			It("should overwrite node placement if directly set on Kubevirt Console Plugin Deployment", func() {
+				hco.Spec.Workloads = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewNodePlacement()}
+				hco.Spec.Infra = hcov1beta1.HyperConvergedConfig{NodePlacement: commontestutils.NewOtherNodePlacement()}
+				existingResource, err := NewKvUIPluginDeplymnt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				// mock a reconciliation triggered by a change in the deployment
+				req.HCOTriggered = false
+
+				// now, modify deployment Kubevirt Console Plugin Deployment node placement
+				seconds34 := int64(34)
+				existingResource.Spec.Template.Spec.Tolerations = append(hco.Spec.Infra.NodePlacement.Tolerations, v1.Toleration{
+					Key: "key34", Operator: "operator34", Value: "value34", Effect: "effect34", TolerationSeconds: &seconds34,
+				})
+				existingResource.Spec.Template.Spec.NodeSelector["key3"] = "BADvalue3"
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler, err := newKvUIPluginDeploymentHandler(logger, cl, commontestutils.GetScheme(), hco)
+				Expect(err).ToNot(HaveOccurred())
+				res := handler[0].ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &appsv1.Deployment{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Template.Spec.Tolerations).To(HaveLen(3))
+				Expect(existingResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "BADvalue3"))
+
+				Expect(foundResource.Spec.Template.Spec.Tolerations).To(HaveLen(2))
+				Expect(foundResource.Spec.Template.Spec.NodeSelector).Should(HaveKeyWithValue("key3", "value3"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
 	})
 
 	Context("Kubevirt Plugin Service", func() {
