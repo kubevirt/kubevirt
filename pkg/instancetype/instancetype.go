@@ -989,7 +989,8 @@ func applyMemory(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 		if vmiSpec.Domain.Resources.Requests == nil {
 			vmiSpec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
-		podRequestedMemory := instancetypeMemoryGuest.Value() * (1 - int64(instancetypeMemoryOvercommit)/int64(totalPercentage))
+		podRequestedMemory := int64(float32(instancetypeSpec.Memory.Guest.Value()) * (1 - float32(instancetypeSpec.Memory.OvercommitPercent)/totalPercentage))
+
 		vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(podRequestedMemory, instancetypeMemoryGuest.Format)
 	}
 

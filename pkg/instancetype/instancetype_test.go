@@ -1121,7 +1121,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeSpec.Memory.Hugepages = nil
 				instancetypeSpec.Memory.OvercommitPercent = 15
 
-				expectedOverhead := instancetypeSpec.Memory.Guest.Value() * (1 - int64(instancetypeSpec.Memory.OvercommitPercent)/int64(100))
+				expectedOverhead := int64(float32(instancetypeSpec.Memory.Guest.Value()) * (1 - float32(instancetypeSpec.Memory.OvercommitPercent)/100))
+				Expect(expectedOverhead).ToNot(Equal(instancetypeSpec.Memory.Guest.Value()))
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
