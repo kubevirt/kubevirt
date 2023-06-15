@@ -1029,6 +1029,15 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
 					},
 				}, 0),
+			Entry("and accept DataVolume sources",
+				&v1.Volume{
+					Name: "testdisk",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "testDV",
+						},
+					},
+				}, 0),
 		)
 		It("should accept a single interface and network", func() {
 			vm := api.NewMinimalVMI("testvm")
