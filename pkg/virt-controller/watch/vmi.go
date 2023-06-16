@@ -2012,7 +2012,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
 	}
 	for volumeName, pvc := range volumeNamesPVCMap {
 		//Verify the PVC is ready to be used.
-		populated, err := cdiv1.IsPopulated(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
+		populated, err := cdiv1.IsSucceededOrPendingPopulation(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
 			dv, exists, _ := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 			if !exists {
 				return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
