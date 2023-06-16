@@ -58,13 +58,20 @@ var _ = Describe("Instancetype and Preferences", func() {
 		controllerrevisionInformerStore  cache.Store
 	)
 
-	expectControllerRevisionCreation := func(instancetypeSpecRevision *appsv1.ControllerRevision) {
+	expectControllerRevisionCreation := func(expectedControllerRevision *appsv1.ControllerRevision) {
 		k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			created, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 
 			createObj := created.GetObject().(*appsv1.ControllerRevision)
-			Expect(createObj).To(Equal(instancetypeSpecRevision))
+
+			// This is already covered by the below assertion but be explicit here to ensure coverage
+			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectGenerationLabel))
+			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectKindLabel))
+			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectNameLabel))
+			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectUIDLabel))
+			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectVersionLabel))
+			Expect(createObj).To(Equal(expectedControllerRevision))
 
 			return true, created.GetObject(), nil
 		})
@@ -112,7 +119,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		vm.Namespace = k8sv1.NamespaceDefault
 	})
 
-	Context("Find and store Instancetype Spec", func() {
+	Context("Find and store instancetype", func() {
 
 		It("find returns nil when no instancetype is specified", func() {
 			vm.Spec.Instancetype = nil
@@ -564,7 +571,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		})
 	})
 
-	Context("Find and store VirtualMachinePreferenceSpec", func() {
+	Context("Find and store preference", func() {
 
 		It("find returns nil when no preference is specified", func() {
 			vm.Spec.Preference = nil
@@ -606,6 +613,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				preferredCPUTopology := instancetypev1beta1.PreferCores
 				clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachineClusterPreference",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-cluster-preference",
 						UID:        resourceUID,
@@ -735,6 +746,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				preferredCPUTopology := instancetypev1beta1.PreferCores
 				preference = &instancetypev1beta1.VirtualMachinePreference{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachinePreference",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "test-preference",
 						Namespace:  vm.Namespace,

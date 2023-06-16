@@ -208,6 +208,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 
 	snapshotCR := existingCR.DeepCopy()
 	snapshotCR.ObjectMeta.Reset()
+	snapshotCR.ObjectMeta.SetLabels(existingCR.Labels)
 
 	// We strip out the source VM name from the CR name and replace it with the snapshot name
 	snapshotCR.Name = strings.Replace(existingCR.Name, s.snapshot.Spec.Source.Name, s.snapshot.Name, 1)
