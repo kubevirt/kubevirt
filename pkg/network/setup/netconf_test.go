@@ -38,14 +38,18 @@ import (
 )
 
 var _ = Describe("netconf", func() {
-	var netConf *netsetup.NetConf
-	var vmi *v1.VirtualMachineInstance
+	var (
+		netConf   *netsetup.NetConf
+		vmi       *v1.VirtualMachineInstance
+		configMap map[string]netsetup.ConfigStateExecutor
+	)
 
 	const launcherPid = 0
 
 	BeforeEach(func() {
-		netConf = netsetup.NewNetConfWithCustomFactory(nsNoopFactory, &tempCacheCreator{})
-		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
+		configMap = map[string]netsetup.ConfigStateExecutor{}
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, configMap)
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
 	})
 
 	It("runs setup successfully", func() {
@@ -57,7 +61,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the setup run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactory(nsFailureFactory, &tempCacheCreator{})
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, configMap)
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name: "default",
 		}}
@@ -69,8 +73,47 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the teardown run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactory(nil, failingCacheCreator{})
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, configMap)
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
+	})
+
+	Context("hot unplug", func() {
+		const (
+			netName = "multusNet"
+			nadName = "blue"
+		)
+
+		var configState netsetup.ConfigStateStub
+
+		BeforeEach(func() {
+			configState = netsetup.ConfigStateStub{}
+			configMap[string(vmi.UID)] = &configState
+
+			vmi.Spec.Networks = []v1.Network{{
+				Name: netName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: nadName}},
+			}}
+			iface := v1.Interface{
+				Name:                   netName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		})
+
+		It("runs setup successfully when there are absent interfaces", func() {
+			vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateAbsent
+
+			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+			Expect(configState.UnplugWasExecuted).To(BeTrue())
+			Expect(configState.RunWasExecuted).To(BeTrue())
+		})
+
+		It("runs setup successfully when there are no absent interfaces", func() {
+			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+			Expect(configState.UnplugWasExecuted).To(BeFalse())
+			Expect(configState.RunWasExecuted).To(BeTrue())
+		})
 	})
 })
 

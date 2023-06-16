@@ -71,6 +71,7 @@ type NetworkHandler interface {
 	LinkSetUp(link netlink.Link) error
 	LinkSetName(link netlink.Link, name string) error
 	LinkAdd(link netlink.Link) error
+	LinkDel(link netlink.Link) error
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
 	LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error
@@ -126,6 +127,9 @@ func (h *NetworkUtilsHandler) LinkSetName(link netlink.Link, name string) error 
 }
 func (h *NetworkUtilsHandler) LinkAdd(link netlink.Link) error {
 	return netlink.LinkAdd(link)
+}
+func (h *NetworkUtilsHandler) LinkDel(link netlink.Link) error {
+	return netlink.LinkDel(link)
 }
 func (h *NetworkUtilsHandler) LinkSetLearningOff(link netlink.Link) error {
 	return netlink.LinkSetLearning(link, false)

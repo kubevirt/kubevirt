@@ -149,6 +149,16 @@ func (_mr *_MockNetworkHandlerRecorder) LinkAdd(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkAdd", arg0)
 }
 
+func (_m *MockNetworkHandler) LinkDel(link netlink.Link) error {
+	ret := _m.ctrl.Call(_m, "LinkDel", link)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) LinkDel(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkDel", arg0)
+}
+
 func (_m *MockNetworkHandler) LinkSetLearningOff(link netlink.Link) error {
 	ret := _m.ctrl.Call(_m, "LinkSetLearningOff", link)
 	ret0, _ := ret[0].(error)

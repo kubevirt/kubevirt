@@ -52,6 +52,14 @@ func NewDomainInterfaceCache(creator cacheCreator, pid string) DomainInterfaceCa
 	return DomainInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir))}
 }
 
+func DeleteDomainInterfaceCache(c cacheCreator, pid, ifaceName string) error {
+	domainCache, err := NewDomainInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return domainCache.Delete()
+}
+
 func (d DomainInterfaceCache) IfaceEntry(ifaceName string) (DomainInterfaceCache, error) {
 	const domainIfaceCacheFileFormat = "interface-cache-%s.json"
 	cacheFileName := fmt.Sprintf(domainIfaceCacheFileFormat, ifaceName)
@@ -71,4 +79,8 @@ func (d DomainInterfaceCache) Read() (*api.Interface, error) {
 
 func (d DomainInterfaceCache) Write(domainInterface *api.Interface) error {
 	return d.cache.Write(domainInterface)
+}
+
+func (d DomainInterfaceCache) Delete() error {
+	return d.cache.Delete()
 }

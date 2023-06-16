@@ -49,6 +49,14 @@ func WriteDHCPInterfaceCache(c cacheCreator, pid, ifaceName string, dhcpConfig *
 	return dhcpCache.Write(dhcpConfig)
 }
 
+func DeleteDHCPInterfaceCache(c cacheCreator, pid, ifaceName string) error {
+	dhcpCache, err := NewDHCPInterfaceCache(c, pid).IfaceEntry(ifaceName)
+	if err != nil {
+		return err
+	}
+	return dhcpCache.Delete()
+}
+
 func NewDHCPInterfaceCache(creator cacheCreator, pid string) DHCPInterfaceCache {
 	podRootFilesystemPath := fmt.Sprintf("/proc/%s/root", pid)
 	return DHCPInterfaceCache{creator.New(filepath.Join(podRootFilesystemPath, util.VirtPrivateDir))}
@@ -73,6 +81,10 @@ func (d DHCPInterfaceCache) Read() (*DHCPConfig, error) {
 
 func (d DHCPInterfaceCache) Write(dhcpConfig *DHCPConfig) error {
 	return d.cache.Write(dhcpConfig)
+}
+
+func (d DHCPInterfaceCache) Delete() error {
+	return d.cache.Delete()
 }
 
 type DHCPConfig struct {
