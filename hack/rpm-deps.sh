@@ -91,6 +91,7 @@ launcherbase_main="
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   passt-${PASST_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
+  qemu-kvm-device-usb-host-${QEMU_VERSION}
   swtpm-tools-${SWTPM_VERSION}
 "
 launcherbase_x86_64="
