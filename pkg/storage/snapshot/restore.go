@@ -648,6 +648,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 	restoredCRName := strings.Replace(vmSnapshotRevisionName, vmSnapshotName, vm.Name, 1)
 	restoredCR := snapshotCR.DeepCopy()
 	restoredCR.ObjectMeta.Reset()
+	restoredCR.ObjectMeta.SetLabels(snapshotCR.Labels)
 	restoredCR.Name = restoredCRName
 
 	// If the target VirtualMachine already exists it's likely that the original ControllerRevision is already present.
