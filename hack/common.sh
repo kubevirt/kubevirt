@@ -104,3 +104,38 @@ function go_build() {
 
 DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
 DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
+
+# We are formatting the architecture name here to ensure that
+# it is consistent with the platform name specified in ../.bazelrc
+# if the second argument is set, the function formats arch name for
+# image tag.
+function format_archname() {
+    local local_platform=$(uname -m)
+    local platform=$1
+    local tag=$2
+
+    if [ $# -lt 1 ]; then
+        echo ${local_platform}
+    else
+        case ${platform} in
+        x86_64 | amd64)
+            [[ $tag ]] && echo "amd64" && return
+            arch="x86_64"
+            echo ${arch}
+            ;;
+        crossbuild-aarch64 | aarch64 | arm64)
+            [[ $tag ]] && echo "arm64" && return
+            if [ ${local_platform} != "aarch64" ]; then
+                arch="crossbuild-aarch64"
+            else
+                arch="aarch64"
+            fi
+            echo ${arch}
+            ;;
+        *)
+            echo "ERROR: invalid Arch, ${platform}, only support x86_64 and aarch64"
+            exit 1
+            ;;
+        esac
+    fi
+}
