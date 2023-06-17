@@ -59,6 +59,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	var vmsAdmitter *VMsAdmitter
 	var dataSourceInformer cache.SharedIndexInformer
 	var instancetypeMethods *testutils.MockInstancetypeMethods
+	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
 	var virtClient *kubecli.MockKubevirtClient
 
@@ -95,6 +96,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmsAdmitter = &VMsAdmitter{
 			VirtClient:          virtClient,
@@ -1685,6 +1687,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 				response := admitVm(vmsAdmitter, vm)
 				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.maxSockets"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring(""))
 			})
 
 			It("should reject VM creation when VM has instance type assigned", func() {
@@ -1693,6 +1697,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				}
 				response := admitVm(vmsAdmitter, vm)
 				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Live update features cannot be used when instance type is configured"))
 			})
 
 			It("should reject VM creation when number of sockets exceeds the maximum configured", func() {
@@ -1701,6 +1707,8 @@ var _ = Describe("Validating VM Admitter", func() {
 				}
 				response := admitVm(vmsAdmitter, vm)
 				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
 			})
 
 			It("should reject VM creation when resource requests are configured", func() {
@@ -1709,6 +1717,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 				response := admitVm(vmsAdmitter, vm)
 				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
 			})
 
 			It("should reject VM creation when resource limits are configured", func() {
@@ -1717,6 +1727,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 				response := admitVm(vmsAdmitter, vm)
 				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"))
 			})
 
 			When("Hot CPU change is in progress", func() {
@@ -1732,6 +1744,11 @@ var _ = Describe("Validating VM Admitter", func() {
 						Status:             k8sv1.ConditionTrue,
 					}
 					vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
+					vm.ObjectMeta = metav1.ObjectMeta{
+						Name:      vmi.Name,
+						Namespace: vmi.Namespace,
+					}
+
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						Cores:   2,
 						Sockets: 1,
@@ -1745,7 +1762,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					ar := &admissionv1.AdmissionReview{
 						Request: &admissionv1.AdmissionRequest{
-							Resource: webhooks.MigrationGroupVersionResource,
+							Resource: webhooks.VirtualMachineGroupVersionResource,
 							Object: runtime.RawExtension{
 								Raw: newVMBytes,
 							},
@@ -1756,14 +1773,20 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					}
 
+					virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+					mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update CPU sockets while another CPU change is in progress"))
 				})
 			})
 			When("VMI is migratng", func() {
 
 				BeforeEach(func() {
-					vm.Status.Ready = true
+					vm.Status = v1.VirtualMachineStatus{
+						Ready: true,
+					}
 				})
 				It("should reject updating CPU Sockets while VMI is migrating ", func() {
 					now := metav1.Now()
@@ -1773,6 +1796,10 @@ var _ = Describe("Validating VM Admitter", func() {
 							StartTimestamp: &now,
 						},
 					}
+					vm.ObjectMeta = metav1.ObjectMeta{
+						Name:      vmi.Name,
+						Namespace: vmi.Namespace,
+					}
 					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 						Cores:   2,
 						Sockets: 1,
@@ -1786,7 +1813,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					ar := &admissionv1.AdmissionReview{
 						Request: &admissionv1.AdmissionRequest{
-							Resource: webhooks.MigrationGroupVersionResource,
+							Resource: webhooks.VirtualMachineGroupVersionResource,
 							Object: runtime.RawExtension{
 								Raw: newVMBytes,
 							},
@@ -1797,13 +1824,67 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					}
 
+					virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+					mockVMIClient.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil)
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update CPU sockets while VMI migration is in progress"))
+				})
+				It("should reject updating CPU Sockets while VMIMigration exist ", func() {
+					vmi := api.NewMinimalVMI("testvmi")
+
+					inFlightMigration := v1.VirtualMachineInstanceMigration{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: vmi.Namespace,
+						},
+						Spec: v1.VirtualMachineInstanceMigrationSpec{
+							VMIName: vmi.Name,
+						},
+					}
+					vm.ObjectMeta = metav1.ObjectMeta{
+						Name:      vmi.Name,
+						Namespace: vmi.Namespace,
+					}
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Cores:   2,
+						Sockets: 1,
+					}
+					oldVMBytes, err := json.Marshal(&vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					vm.Spec.Template.Spec.Domain.CPU.Sockets++
+					newVMBytes, err := json.Marshal(&vm)
+					Expect(err).ToNot(HaveOccurred())
+
+					ar := &admissionv1.AdmissionReview{
+						Request: &admissionv1.AdmissionRequest{
+							Resource: webhooks.VirtualMachineGroupVersionResource,
+							Object: runtime.RawExtension{
+								Raw: newVMBytes,
+							},
+							OldObject: runtime.RawExtension{
+								Raw: oldVMBytes,
+							},
+							Operation: admissionv1.Update,
+						},
+					}
+					virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+					mockVMIClient.EXPECT().Get(context.Background(), inFlightMigration.Spec.VMIName, gomock.Any()).Return(vmi, nil)
+					virtClient.EXPECT().VirtualMachineInstanceMigration(gomock.Any()).Return(migrationInterface)
+					migrationInterface.EXPECT().List(gomock.Any()).Return(kubecli.NewMigrationList(inFlightMigration), nil).AnyTimes()
+
+					response := vmsAdmitter.Admit(ar)
+					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update CPU sockets while VMI migration is in progress: in-flight migration detected"))
 				})
 			})
 			When("VM is running", func() {
 				BeforeEach(func() {
-					vm.Status.Ready = true
+					vm.Status = v1.VirtualMachineStatus{
+						Ready: true,
+					}
 				})
 
 				It("should reject updating of VM live update features", func() {
@@ -1816,7 +1897,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					ar := &admissionv1.AdmissionReview{
 						Request: &admissionv1.AdmissionRequest{
-							Resource: webhooks.MigrationGroupVersionResource,
+							Resource: webhooks.VirtualMachineGroupVersionResource,
 							Object: runtime.RawExtension{
 								Raw: newVMBytes,
 							},
@@ -1829,6 +1910,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Cannot update VM live features while VM is running"))
 				})
 
 				It("should reject updating CPU cores while CPU update feature is enabled ", func() {
@@ -1844,7 +1927,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					ar := &admissionv1.AdmissionReview{
 						Request: &admissionv1.AdmissionRequest{
-							Resource: webhooks.MigrationGroupVersionResource,
+							Resource: webhooks.VirtualMachineGroupVersionResource,
 							Object: runtime.RawExtension{
 								Raw: newVMBytes,
 							},
@@ -1857,6 +1940,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.cores"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Cannot update CPU cores while live update features configured"))
 				})
 
 				It("should reject updating CPU threads while CPU update feature is enabled", func() {
@@ -1872,7 +1957,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					ar := &admissionv1.AdmissionReview{
 						Request: &admissionv1.AdmissionRequest{
-							Resource: webhooks.MigrationGroupVersionResource,
+							Resource: webhooks.VirtualMachineGroupVersionResource,
 							Object: runtime.RawExtension{
 								Raw: newVMBytes,
 							},
@@ -1885,6 +1970,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
+					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.threads"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Cannot update CPU threads while live update features configured"))
 				})
 			})
 		})
