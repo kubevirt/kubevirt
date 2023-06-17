@@ -29,7 +29,7 @@ void error_log(const char *format, ...)
     fprintf(stderr, "%s",asctime(localtime(&ltime)));
     fprintf(stderr, "error: ");
     va_start(arglist, format);
-    fprintf(stderr, format, arglist);
+    vfprintf(stderr, format, arglist);
     va_end(arglist);
 }
 
