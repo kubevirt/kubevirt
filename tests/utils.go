@@ -272,7 +272,14 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
+	virtCli := kubevirt.Client()
+	kv := util2.GetCurrentKv(virtCli)
 	By(WaitingVMInstanceStart)
+	if kv.Spec.Configuration.EvictionStrategy != nil &&
+		*kv.Spec.Configuration.EvictionStrategy == v1.EvictionStrategyLiveMigrate {
+		warningsIgnoreList := []string{"EvictionStrategy is set but vmi is not migratable"}
+		return libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings(obj, timeout, warningsIgnoreList)
+	}
 	return libwait.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 }
 
@@ -281,11 +288,8 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	By("Waiting until the DataVolume is ready")
 	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
 	By(WaitingVMInstanceStart)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: warningsIgnoreList}
-	return libwait.WaitForVMIStart(ctx, obj, timeout, wp)
+	return libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings(obj, timeout, warningsIgnoreList)
 }
 
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
@@ -2171,7 +2175,7 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 		// Warnings are okay. We'll receive a warning that the agent isn't connected
 		// during bootup, but that is transient
-		Expect(libwait.WaitForSuccessfulVMIStartIgnoreWarnings(obj).Status.NodeName).ToNot(BeEmpty())
+		Expect(libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi).Status.NodeName).ToNot(BeEmpty())
 		return vmi
 	}
 }
