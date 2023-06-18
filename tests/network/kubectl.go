@@ -80,7 +80,7 @@ var _ = SIGDescribe("kubectl", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeIfaceName1, linuxBridgeNetworkName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeIfaceName2, linuxBridgeNetworkName)),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName1)),
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+			libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName2)),
 		)
 

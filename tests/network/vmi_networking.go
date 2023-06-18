@@ -512,7 +512,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	It("VMI with an interface that has ACPI Index set", func() {
 		const acpiIndex = 101
 		const pciAddress = "0000:01:00.0"
-		iface := *v1.DefaultBridgeNetworkInterface()
+		iface := *v1.DefaultMasqueradeNetworkInterface()
 		iface.ACPIIndex = acpiIndex
 		iface.PciAddress = pciAddress
 		testVMI := libvmi.NewAlpine(
