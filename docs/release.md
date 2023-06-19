@@ -331,6 +331,11 @@ second using a 'sig/' label where applicable.
 In some cases, 'kubevirt-bot' applies one or more of these labels automatically,
 however they might need to be manually applied by either the author or a reviewer of the PR.
 
+Add a label by including the ```/kind``` and ```/sig``` commands in the ```release-note-labels``` part of the PR description template. For example:
+```
+/kind enhancement /sig security /sig compute
+```
+
 If a PR matches more than one 'kind/' or 'sig/' label, add all that apply. The release note will be included in whichever takes the greater priority.
 
 As per the PR template, if the PR requires additional action from users switching to the new release, include the string "action required" in the release note. The PR will be flagged accordingly.

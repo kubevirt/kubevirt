@@ -17,3 +17,8 @@ Fixes #
 ```release-note
 
 ```
+<!-- Add the relevant release notes labels here by using the ```/kind <name>``` and ```/sig <name>``` commands. For a list of these labels, visit: https://github.com/kubevirt/kubevirt/docs/release.md
+-->
+```release-note-labels
+
+```
