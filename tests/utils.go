@@ -271,31 +271,44 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 }
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	obj := RunVMI(vmi, timeout)
+	vmi = RunVMI(vmi, timeout)
 	virtCli := kubevirt.Client()
 	kv := util2.GetCurrentKv(virtCli)
 	By(WaitingVMInstanceStart)
+	opts := []libwait.Option{
+		libwait.WithTimeout(timeout),
+	}
 	if kv.Spec.Configuration.EvictionStrategy != nil &&
 		*kv.Spec.Configuration.EvictionStrategy == v1.EvictionStrategyLiveMigrate {
-		warningsIgnoreList := []string{"EvictionStrategy is set but vmi is not migratable"}
-		return libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings(obj, timeout, warningsIgnoreList)
+		opts = append(opts, libwait.WithWarningsIgnoreList([]string{"EvictionStrategy is set but vmi is not migratable"}))
 	}
-	return libwait.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+
+	return libwait.WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Running},
+		opts...,
+	)
 }
 
 func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume, timeout int) *v1.VirtualMachineInstance {
-	obj := RunVMI(vmi, timeout)
+	vmi = RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
 	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
 	By(WaitingVMInstanceStart)
 	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
-	return libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreSelectedWarnings(obj, timeout, warningsIgnoreList)
+	return libwait.WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Running},
+		libwait.WithWarningsIgnoreList(warningsIgnoreList),
+		libwait.WithTimeout(timeout),
+	)
 }
 
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By(WaitingVMInstanceStart)
-	return libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+	return libwait.WaitForSuccessfulVMIStart(obj,
+		libwait.WithFailOnWarnings(false),
+		libwait.WithTimeout(timeout),
+	)
 }
 
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
@@ -304,9 +317,13 @@ func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.
 }
 
 func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, timeout int, wp watcher.WarningsPolicy) *v1.VirtualMachineInstance {
-	obj := RunVMI(vmi, timeout)
+	vmi = RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
-	return libwait.WaitForVMIScheduling(obj, timeout, wp)
+	return libwait.WaitForVMIPhase(vmi,
+		[]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running},
+		libwait.WithWarningsPolicy(&wp),
+		libwait.WithTimeout(timeout),
+	)
 }
 
 func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
@@ -2175,7 +2192,10 @@ func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.V
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 		// Warnings are okay. We'll receive a warning that the agent isn't connected
 		// during bootup, but that is transient
-		Expect(libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi).Status.NodeName).ToNot(BeEmpty())
+		Expect(libwait.WaitForSuccessfulVMIStart(vmi,
+			libwait.WithFailOnWarnings(false),
+			libwait.WithTimeout(180),
+		).Status.NodeName).ToNot(BeEmpty())
 		return vmi
 	}
 }

@@ -129,7 +129,9 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(60),
+			)
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -175,7 +177,9 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &k8smetav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(60),
+			)
 
 			By("Logging in as root")
 			err = console.LoginToFedora(vmi)
@@ -238,7 +242,9 @@ var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{})
 				return err
 			}, 300*time.Second, 1*time.Second).Should(Succeed())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(60),
+			)
 
 			By("Removing the VMI")
 			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{})

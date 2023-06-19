@@ -727,7 +727,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				// Ensure that the VMI is running. This is necessary to ensure that virt-handler is fully responsible for
 				// the VMI. Otherwise virt-controller may move the VMI to failed instead of the node controller.
-				nodeName = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi).Status.NodeName
+				nodeName = libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithFailOnWarnings(false),
+					libwait.WithTimeout(180),
+				).Status.NodeName
 
 				virtHandler, err = libnode.GetVirtHandlerPod(virtClient, nodeName)
 				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client")

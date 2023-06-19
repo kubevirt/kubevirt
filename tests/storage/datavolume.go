@@ -297,7 +297,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 
 				for idx := 0; idx < numVmis; idx++ {
-					libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmis[idx], 500)
+					libwait.WaitForSuccessfulVMIStart(vmis[idx],
+						libwait.WithFailOnWarnings(false),
+						libwait.WithTimeout(500),
+					)
 					By(checkingVMInstanceConsoleExpectedOut)
 					Expect(console.LoginToAlpine(vmis[idx])).To(Succeed())
 

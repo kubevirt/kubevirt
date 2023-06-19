@@ -513,7 +513,9 @@ var _ = SIGDescribe("Hotplug", func() {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if waitToStart {
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 		}
 		By(addingVolumeRunningVM)
 		addVolumeFunc(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
@@ -593,7 +595,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			checks.SkipIfNonRoot("root owned disk.img")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 			dvNames := make([]string, 0)
 			for i := 0; i < numPVs; i++ {
 				dv := libdv.NewDataVolume(
@@ -694,7 +698,9 @@ var _ = SIGDescribe("Hotplug", func() {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				getVmiConsoleAndLogin(vmi)
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 				testVolumes := make([]string, 0)
 				for i := 0; i < 5; i++ {
 					volumeName := fmt.Sprintf("volume%d", i)
@@ -734,7 +740,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			DescribeTable("Should be able to add and remove and re-add multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode corev1.PersistentVolumeMode, vmiOnly bool) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 				testVolumes := make([]string, 0)
 				dvNames := make([]string, 0)
 				for i := 0; i < 5; i++ {
@@ -822,7 +830,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 
 				By(addingVolumeRunningVM)
 				addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
@@ -868,7 +878,9 @@ var _ = SIGDescribe("Hotplug", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 
 				By(addingVolumeRunningVM)
 				err = virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, getAddVolumeOptions("disk0", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
@@ -884,7 +896,9 @@ var _ = SIGDescribe("Hotplug", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 
 				By(addingVolumeRunningVM)
 				addPVCVolumeVMI(vmi.Name, vmi.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
@@ -908,7 +922,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			DescribeTable("should reject removing a volume", func(volName, expectedErr string) {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 
 				By(removingVolumeFromVM)
 				err = virtClient.VirtualMachine(vm.Namespace).RemoveVolume(context.Background(), vm.Name, &v1.RemoveVolumeOptions{Name: volName})
@@ -925,7 +941,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 				getVmiConsoleAndLogin(vmi)
 
 				By(addingVolumeRunningVM)
@@ -1020,7 +1038,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
 				By("Verifying the VMI is migrateable")
 				Eventually(matcher.ThisVMI(vmi), 90*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceIsMigratable))
 
@@ -1351,7 +1371,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 
 			By(addingVolumeRunningVM)
 			addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
@@ -1464,7 +1486,9 @@ var _ = SIGDescribe("Hotplug", func() {
 		It("should attach a hostpath based volume to running VM", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 
 			By(addingVolumeRunningVM)
 			name := fmt.Sprintf("disk-%s", tests.CustomHostPath)
@@ -1520,7 +1544,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 
 			By(addingVolumeRunningVM)
 			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
@@ -1575,7 +1601,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 
 			By(addingVolumeRunningVM)
 			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, false, "")
@@ -1614,7 +1642,9 @@ var _ = SIGDescribe("Hotplug", func() {
 		DescribeTable("should add volume according to options", func(dryRun bool) {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
@@ -1648,7 +1678,9 @@ var _ = SIGDescribe("Hotplug", func() {
 		DescribeTable("should remove volume according to options", func(dryRun bool) {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 240)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(240),
+			)
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
 				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),

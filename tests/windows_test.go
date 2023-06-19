@@ -102,7 +102,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
@@ -164,7 +164,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+				libwait.WaitForSuccessfulVMIStart(windowsVMI)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})
@@ -189,7 +189,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 420)
+				libwait.WaitForSuccessfulVMIStart(windowsVMI,
+					libwait.WithTimeout(420),
+				)
 
 				cli = winrnLoginCommand(virtClient, windowsVMI)
 			})

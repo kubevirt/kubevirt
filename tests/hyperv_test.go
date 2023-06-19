@@ -81,7 +81,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				By("Migrating the VM")
 				migration := tests.NewRandomMigration(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
@@ -96,7 +96,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				reEnlightenmentVMI = libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				virtLauncherPod := tests.GetPodByVirtualMachineInstance(reEnlightenmentVMI)
 
@@ -145,7 +145,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
 			})
 
@@ -154,7 +154,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(reEnlightenmentVMI, 360)
+				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 
 				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 				isNonMigratable := func() error {

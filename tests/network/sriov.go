@@ -712,7 +712,7 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	// Kubevirt re-enqueue the request once it happens, so its safe to ignore this warning.
 	// see https://github.com/kubevirt/kubevirt/issues/5027
 	warningsIgnoreList := []string{"unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"}
-	libwait.WaitUntilVMIReadyIgnoreSelectedWarnings(vmi, console.LoginToFedora, warningsIgnoreList)
+	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
 
 	virtClient := kubevirt.Client()
 

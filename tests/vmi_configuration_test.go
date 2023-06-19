@@ -624,7 +624,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			wp := watcher.WarningsPolicy{FailOnWarnings: false}
-			libwait.WaitForVMIStartOrFailed(vmi, 180, wp)
+			libwait.WaitForVMIPhase(vmi,
+				[]v1.VirtualMachineInstancePhase{v1.Running, v1.Failed},
+				libwait.WithWarningsPolicy(&wp),
+				libwait.WithTimeout(180),
+				libwait.WithWaitForFail(true),
+			)
 			vmiMeta, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 

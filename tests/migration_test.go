@@ -3372,8 +3372,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Eventually(AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 
 					By("waiting for VMI")
-					libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
-
+					libwait.WaitForSuccessfulVMIStart(vmi,
+						libwait.WithTimeout(60),
+					)
 					By("deleting the VMI")
 					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
@@ -3392,7 +3393,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
 				Eventually(AllPDBs(vmi.Namespace), 60*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 				By("waiting for VMI")
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 60)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(60),
+				)
 
 				By("deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -3405,7 +3408,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				createdVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				By("waiting for VMI")
-				libwait.WaitForSuccessfulVMIStartWithTimeout(createdVMI, 60)
+				libwait.WaitForSuccessfulVMIStart(createdVMI,
+					libwait.WithTimeout(60),
+				)
 
 				By("Adding a fake old virt-controller PDB")
 				two := intstr.FromInt(2)
@@ -3763,7 +3768,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("waiting until the VMIs are ready")
 				for _, vmi := range vmis {
-					libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+					libwait.WaitForSuccessfulVMIStart(vmi,
+						libwait.WithTimeout(180),
+					)
 				}
 
 				By("selecting a node as the target")
@@ -4354,7 +4361,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			vmi := tests.CreateVmiOnNodeLabeled(migratableVMI, testLabel1, "true")
 
 			By("waiting until the VirtualMachineInstance starts")
-			libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithTimeout(120),
+			)
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

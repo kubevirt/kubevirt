@@ -89,7 +89,10 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 			return err
 		}, 100*time.Second, time.Second).Should(BeNil(), "Failed to create vmi")
 
-		libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 240)
+		libwait.WaitForSuccessfulVMIStart(vmi,
+			libwait.WithFailOnWarnings(false),
+			libwait.WithTimeout(240),
+		)
 
 		By("Expecting  paused event on VMI ")
 		Eventually(func() bool {

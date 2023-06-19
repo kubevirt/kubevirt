@@ -328,7 +328,9 @@ var _ = Describe("[Serial][Sysprep][sig-compute]Syspreped VirtualMachineInstance
 			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), windowsVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 720)
+			libwait.WaitForSuccessfulVMIStart(windowsVMI,
+				libwait.WithTimeout(720),
+			)
 
 			windowsVMI, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Get(context.Background(), windowsVMI.Name, &metav1.GetOptions{})
 			vmiIp = windowsVMI.Status.Interfaces[0].IP
