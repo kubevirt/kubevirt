@@ -27,7 +27,7 @@ import (
 
 const (
 	kvUIPluginName           = "kubevirt-plugin"
-	kvUIPluginDeploymentName = "kubevirt-console-plugin"
+	kvUIPluginDeploymentName = string(hcoutil.AppComponentUIPlugin)
 	kvUIPluginSvcName        = kvUIPluginDeploymentName + "-service"
 	kvUIPluginNameEnv        = "UI_PLUGIN_NAME"
 	kvServingCertName        = "plugin-serving-cert"
@@ -60,7 +60,7 @@ func newKvUIPluginCRHandler(_ log.Logger, Client client.Client, Scheme *runtime.
 func NewKvUIPluginDeplymnt(hc *hcov1beta1.HyperConverged) (*appsv1.Deployment, error) {
 	// The env var was validated prior to handler creation
 	kvUIPluginImage, _ := os.LookupEnv(hcoutil.KVUIPluginImageEnvV)
-	labels := getLabels(hc, hcoutil.AppComponentDeployment)
+	labels := getLabels(hc, hcoutil.AppComponentUIPlugin)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -167,22 +167,16 @@ func NewKvUIPluginSvc(hc *hcov1beta1.HyperConverged) *corev1.Service {
 	servicePorts := []corev1.ServicePort{
 		{Port: hcoutil.UIPluginServerPort, Name: kvUIPluginDeploymentName + "-port", Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: hcoutil.UIPluginServerPort}},
 	}
-	pluginName := kvUIPluginDeploymentName
-	val, ok := os.LookupEnv(kvUIPluginNameEnv)
-	if ok && val != "" {
-		pluginName = val
-	}
-	labelSelect := map[string]string{"app": pluginName}
 
 	spec := corev1.ServiceSpec{
 		Ports:    servicePorts,
-		Selector: labelSelect,
+		Selector: map[string]string{hcoutil.AppLabelComponent: string(hcoutil.AppComponentUIPlugin)},
 	}
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   kvUIPluginSvcName,
-			Labels: getLabels(hc, hcoutil.AppComponentDeployment),
+			Labels: getLabels(hc, hcoutil.AppComponentUIPlugin),
 			Annotations: map[string]string{
 				"service.beta.openshift.io/serving-cert-secret-name": kvServingCertName,
 			},
@@ -212,7 +206,7 @@ func NewKVUINginxCM(hc *hcov1beta1.HyperConverged) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nginxConfigMapName,
-			Labels:    getLabels(hc, hcoutil.AppComponentDeployment),
+			Labels:    getLabels(hc, hcoutil.AppComponentUIPlugin),
 			Namespace: hc.Namespace,
 		},
 		Data: map[string]string{
@@ -225,7 +219,7 @@ func NewKVConsolePlugin(hc *hcov1beta1.HyperConverged) *consolev1.ConsolePlugin 
 	return &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   kvUIPluginName,
-			Labels: getLabels(hc, hcoutil.AppComponentDeployment),
+			Labels: getLabels(hc, hcoutil.AppComponentUIPlugin),
 		},
 		Spec: consolev1.ConsolePluginSpec{
 			DisplayName: "Kubevirt Console Plugin",

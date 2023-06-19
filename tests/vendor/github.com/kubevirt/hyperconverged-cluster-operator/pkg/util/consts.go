@@ -79,5 +79,5 @@ const (
 	AppComponentMonitoring AppComponent = "monitoring"
 	AppComponentSchedule   AppComponent = "schedule"
 	AppComponentDeployment AppComponent = "deployment"
-	AppComponentTekton     AppComponent = "tekton"
+	AppComponentUIPlugin   AppComponent = "kubevirt-console-plugin"
 )
