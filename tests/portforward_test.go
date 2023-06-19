@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
@@ -42,21 +41,14 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 
-	var (
-		LaunchVMI func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
-	)
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})
 
 	It("should successfully open connection to guest", func() {
 		vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 		vmi.Namespace = util.NamespaceTestDefault
-
-		LaunchVMI(vmi)
+		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 		By("Opening PortForward Tunnel to SSH port")
 		var (

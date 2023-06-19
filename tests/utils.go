@@ -2180,26 +2180,6 @@ func RandTmpDir() string {
 	return filepath.Join(tmpPath, rand.String(10))
 }
 
-// VMILauncherIgnoreWarnings waiting for the VMI to be up but ignoring warnings like a disconnected guest-agent
-func VMILauncherIgnoreWarnings(virtClient kubecli.KubevirtClient) func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	return func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		By(StartingVMInstance)
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Waiting the VirtualMachineInstance start")
-		vmi, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		// Warnings are okay. We'll receive a warning that the agent isn't connected
-		// during bootup, but that is transient
-		Expect(libwait.WaitForSuccessfulVMIStart(vmi,
-			libwait.WithFailOnWarnings(false),
-			libwait.WithTimeout(180),
-		).Status.NodeName).ToNot(BeEmpty())
-		return vmi
-	}
-}
-
 func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
