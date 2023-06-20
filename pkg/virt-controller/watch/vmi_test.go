@@ -3276,6 +3276,36 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 
+		Context("network removal cancellation", func() {
+			BeforeEach(func() {
+				vmi = api.NewMinimalVMI(vmName)
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
+					virtv1.Interface{Name: "foo"}, virtv1.Interface{Name: "boo"})
+			})
+
+			It("has no effect when no networks are marked for removal", func() {
+				Expect(controller.cancelNetworksRemoval(vmi)).To(Succeed())
+			})
+
+			It("is issued when all networks are marked for removal", func() {
+				for ifIndex := range vmi.Spec.Domain.Devices.Interfaces {
+					vmi.Spec.Domain.Devices.Interfaces[ifIndex].State = virtv1.InterfaceStateAbsent
+				}
+
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+
+				Expect(controller.cancelNetworksRemoval(vmi)).To(Succeed())
+			})
+
+			It("is issued when one network (out of two) is marked for removal", func() {
+				vmi.Spec.Domain.Devices.Interfaces[0].State = virtv1.InterfaceStateAbsent
+
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Return(vmi, nil)
+
+				Expect(controller.cancelNetworksRemoval(vmi)).To(Succeed())
+			})
+		})
+
 		Context("interface status", func() {
 			const (
 				ifaceName   = "iface1"

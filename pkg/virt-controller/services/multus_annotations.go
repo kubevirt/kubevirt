@@ -99,8 +99,10 @@ func newMultusAnnotationData(namespace string, interfaces []v1.Interface, networ
 
 func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
 	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
+	if pod.Annotations == nil {
+		return indexedNetworkStatus
+	}
 	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
-
 	if !found {
 		return indexedNetworkStatus
 	}

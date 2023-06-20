@@ -1267,7 +1267,16 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			}
 		}
 
-		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi, pod); dynamicIfacesExist {
+		hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(services.NonDefaultMultusNetworksIndexedByIfaceName(pod))
+		if hasOrdinalIfaces {
+			if rerr := c.cancelNetworksRemoval(vmi); rerr != nil {
+				return &syncErrorImpl{
+					err:    fmt.Errorf("failed to remove network interfaces marked for removal [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), rerr),
+					reason: FailedHotplugSyncReason,
+				}
+			}
+		}
+		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi, hasOrdinalIfaces); dynamicIfacesExist {
 			if err := c.handleDynamicInterfaceRequests(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
 				return &syncErrorImpl{
 					err:    fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
@@ -1275,6 +1284,26 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (c *VMIController) cancelNetworksRemoval(vmi *virtv1.VirtualMachineInstance) syncError {
+	patchBytes, rerr := createPatchToCancelInterfacesRemoval(vmi.Spec.Domain.Devices.Interfaces)
+	if rerr != nil {
+		return &syncErrorImpl{err: rerr, reason: FailedHotplugSyncReason}
+	}
+	if len(patchBytes) > 0 {
+		patchedVMI, perr := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patchBytes), &v1.PatchOptions{})
+		if perr != nil {
+			return &syncErrorImpl{
+				err:    fmt.Errorf("patching of vmi networks and interfaces failed: %v", perr),
+				reason: FailedHotplugSyncReason,
+			}
+		}
+		vmi.Spec.Domain.Devices.Interfaces = patchedVMI.Spec.Domain.Devices.Interfaces
+
+		log.Log.Object(vmi).Infof("canceled networks removal")
 	}
 	return nil
 }

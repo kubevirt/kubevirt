@@ -19,24 +19,23 @@
 package watch
 
 import (
-	k8sv1 "k8s.io/api/core/v1"
+	"encoding/json"
+	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) ([]v1.Interface, []v1.Network, bool) {
+func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance, hasOrdinalIfaces bool) ([]v1.Interface, []v1.Network, bool) {
 	vmiSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiSpecIfaces)
 
-	if ifacesToHotUnplugExist && namescheme.PodHasOrdinalInterfaceName(services.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
+	if ifacesToHotUnplugExist && hasOrdinalIfaces {
 		vmiSpecIfaces = vmi.Spec.Domain.Devices.Interfaces
 		ifacesToHotUnplugExist = false
 		log.Log.Object(vmi).Error("hot-unplug is not supported on old VMIs with ordered pod interface names")
@@ -86,4 +85,35 @@ func trimDoneInterfaceRequests(vm *v1.VirtualMachine) {
 		}
 	}
 	vm.Status.InterfaceRequests = updateIfaceRequests
+}
+
+func createPatchToCancelInterfacesRemoval(interfaces []v1.Interface) ([]byte, error) {
+	absentIfaces := vmispec.FilterInterfacesSpec(interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	if len(absentIfaces) == 0 {
+		return nil, nil
+	}
+
+	var updatedInterfaces []v1.Interface
+	for _, iface := range interfaces {
+		iface.State = ""
+		updatedInterfaces = append(updatedInterfaces, iface)
+	}
+
+	oldIfacesJSON, err := json.Marshal(interfaces)
+	if err != nil {
+		return nil, err
+	}
+	newIfacesJSON, err := json.Marshal(updatedInterfaces)
+	if err != nil {
+		return nil, err
+	}
+
+	const verb = "add"
+	testInterfaces := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": %s}`, string(oldIfacesJSON))
+	updateInterfaces := fmt.Sprintf(`{ "op": %q, "path": "/spec/domain/devices/interfaces", "value": %s}`, verb, string(newIfacesJSON))
+
+	patch := fmt.Sprintf("[%s, %s]", testInterfaces, updateInterfaces)
+	return []byte(patch), nil
 }
