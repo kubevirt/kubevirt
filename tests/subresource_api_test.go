@@ -316,7 +316,9 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase == v1.Running
 				}, 180*time.Second, time.Second).Should(BeTrue())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(180),
+				)
 			})
 
 			It("[test_id:7476]Freeze without guest agent", func() {
@@ -352,7 +354,9 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase == v1.Running
 				}, 180*time.Second, time.Second).Should(BeTrue())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(300),
+				)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			})
 

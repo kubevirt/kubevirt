@@ -50,14 +50,11 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 	var virtClient kubecli.KubevirtClient
 
 	var (
-		LaunchVMI         func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
 		ExecutingBatchCmd func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		LaunchVMI = tests.VMILauncherIgnoreWarnings(virtClient)
 	})
 
 	ExecutingBatchCmd = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
@@ -111,7 +108,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			LaunchVMI(vmi)
+			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -177,7 +174,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			LaunchVMI(vmi)
+			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -238,7 +235,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			LaunchVMI(vmi)
+			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -286,7 +283,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			LaunchVMI(vmi)
+			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -342,7 +339,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			LaunchVMI(vmi)
+			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Verifying all three pub ssh keys in secret are in VMI guest")
 			ExecutingBatchCmd(vmi, []expect.Batcher{

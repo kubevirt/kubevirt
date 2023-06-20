@@ -225,7 +225,10 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			)
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi = tests.CreateVmiOnNode(vmi, node)
-			libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(180),
+			)
 			By("Requesting SCSI persistent reservation")
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 			Expect(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
@@ -249,14 +252,20 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			)
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi = tests.CreateVmiOnNode(vmi, node)
-			libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(180),
+			)
 
 			vmi2 := libvmi.NewFedora(
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 			)
 			vmi2.Namespace = util.NamespaceTestDefault
 			vmi2 = tests.CreateVmiOnNode(vmi2, node)
-			libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi2, 180)
+			libwait.WaitForSuccessfulVMIStart(vmi2,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(180),
+			)
 
 			By("Requesting SCSI persistent reservation from the first VM")
 			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")

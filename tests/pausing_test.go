@@ -349,7 +349,9 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStartWithTimeout(newVMI, 300)
+				libwait.WaitForSuccessfulVMIStart(newVMI,
+					libwait.WithTimeout(300),
+				)
 
 				By("Ensuring unpaused state")
 				Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))

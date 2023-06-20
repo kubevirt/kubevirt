@@ -112,7 +112,10 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(180),
+			)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp", console.LoginToCirros, true)
 
 			By("have containerPort in the pod manifest")
@@ -169,7 +172,10 @@ var _ = SIGDescribe("Slirp Networking", decorators.Networking, func() {
 			vmi := *vmiRef
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(180),
+			)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			dns := "google.com"

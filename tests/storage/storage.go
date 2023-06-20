@@ -164,7 +164,10 @@ var _ = SIGDescribe("Storage", func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
-				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithFailOnWarnings(false),
+					libwait.WithTimeout(180),
+				)
 
 				By("Reading from disk")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
@@ -1474,7 +1477,10 @@ var _ = SIGDescribe("Storage", func() {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
-				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 180)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithFailOnWarnings(false),
+					libwait.WithTimeout(180),
+				)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
@@ -1509,7 +1515,10 @@ var _ = SIGDescribe("Storage", func() {
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
 
-				libwait.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi, 240)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithFailOnWarnings(false),
+					libwait.WithTimeout(240),
+				)
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By(fmt.Sprintf("Checking that %s has a capacity of 8Mi", device))

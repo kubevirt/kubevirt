@@ -190,7 +190,10 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}()
-				libwait.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithFailOnWarnings(false),
+					libwait.WithTimeout(180),
+				)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}

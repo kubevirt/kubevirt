@@ -1480,7 +1480,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				vm, vmi = createAndStartVM(vm)
-				libwait.WaitForSuccessfulVMIStartWithTimeout(vmi, 300)
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(300),
+				)
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				doRestore("/dev/vdc", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))

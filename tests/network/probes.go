@@ -106,7 +106,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				By(specifyingVMReadinessProbe)
 				vmi = libvmi.NewFedora(
 					withMasqueradeNetworkingAndFurtherUserConfig(withReadinessProbe(readinessProbe))...)
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -131,7 +131,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 					withMasqueradeNetworkingAndFurtherUserConfig(
 						withReadinessProbe(
 							createGuestAgentPingProbe(period, initialSeconds)))...)
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -157,7 +157,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By(specifyingVMReadinessProbe)
 			vmi = vmiFactory(withReadinessProbe(readinessProbe))
-			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is consistently non-ready")
 			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
@@ -208,7 +208,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = libvmi.NewFedora(
 					withMasqueradeNetworkingAndFurtherUserConfig(
 						withLivelinessProbe(livenessProbe))...)
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -233,7 +233,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = libvmi.NewFedora(withMasqueradeNetworkingAndFurtherUserConfig(
 					withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)),
 				)...)
-				vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+				vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -252,7 +252,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
 			vmi = vmiFactory(withLivelinessProbe(livenessProbe))
-			vmi = tests.VMILauncherIgnoreWarnings(virtClient)(vmi)
+			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
