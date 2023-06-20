@@ -272,20 +272,10 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi = RunVMI(vmi, timeout)
-	virtCli := kubevirt.Client()
-	kv := util2.GetCurrentKv(virtCli)
 	By(WaitingVMInstanceStart)
-	opts := []libwait.Option{
-		libwait.WithTimeout(timeout),
-	}
-	if kv.Spec.Configuration.EvictionStrategy != nil &&
-		*kv.Spec.Configuration.EvictionStrategy == v1.EvictionStrategyLiveMigrate {
-		opts = append(opts, libwait.WithWarningsIgnoreList([]string{"EvictionStrategy is set but vmi is not migratable"}))
-	}
-
 	return libwait.WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
-		opts...,
+		libwait.WithTimeout(timeout),
 	)
 }
 

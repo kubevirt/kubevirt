@@ -7,6 +7,7 @@ go_library(
         "kubevirtresource.go",
         "manifest.go",
         "namespace.go",
+        "runconfiguration.go",
         "serviceaccount.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/testsuite",

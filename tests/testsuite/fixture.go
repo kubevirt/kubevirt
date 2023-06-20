@@ -95,6 +95,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	EnsureKVMPresent()
 	AdjustKubeVirtResource()
 	EnsureKubevirtReady()
+	InitRunConfiguration()
 
 	return nil
 }
