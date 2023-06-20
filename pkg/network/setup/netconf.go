@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"sync"
 
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -37,10 +39,15 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type ConfigStateExecutor interface {
+	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
+	Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error
+}
+
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
-	configState      map[string]ConfigState
+	configState      map[string]ConfigStateExecutor
 	configStateMutex *sync.RWMutex
 }
 
@@ -52,14 +59,14 @@ type NSExecutor interface {
 
 func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
-	return NewNetConfWithCustomFactory(func(pid int) NSExecutor {
+	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory)
+	}, cacheFactory, map[string]ConfigStateExecutor{})
 }
 
-func NewNetConfWithCustomFactory(nsFactory nsFactory, cacheCreator cacheCreator) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]ConfigStateExecutor) *NetConf {
 	return &NetConf{
-		configState:      map[string]ConfigState{},
+		configState:      configState,
 		configStateMutex: &sync.RWMutex{},
 		cacheCreator:     cacheCreator,
 		nsFactory:        nsFactory,
@@ -72,32 +79,47 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
 
 	c.configStateMutex.RLock()
 	configState, ok := c.configState[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
 		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
-		configStateCache, err := upgradeConfigStateCache(&cache, networks)
+		configStateCache, err := upgradeConfigStateCache(&cache, networks, c.cacheCreator, string(vmi.UID))
 		if err != nil {
 			return err
 		}
 		ns := c.nsFactory(launcherPid)
-		configState = NewConfigState(configStateCache, ns)
+		newConfigState := NewConfigState(configStateCache, ns)
+		configState = &newConfigState
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
 		c.configStateMutex.Unlock()
 	}
 
+	// Absent networks are passed as well since, Absent network with ordinary name has to be plugged
 	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
+
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
+	}
+
+	absentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
+	if len(absentIfaces) != 0 {
+		err = c.hotUnplugInterfaces(vmi, absentNets, configState, launcherPid)
+	}
+
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
-func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network) (*ConfigStateCache, error) {
+func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network, cacheCreator cacheCreator, vmiUID string) (*ConfigStateCache, error) {
 	for networkName, podIfaceName := range namescheme.CreateOrdinalNetworkNameScheme(networks) {
 		exists, err := stateCache.Exists(podIfaceName)
 		if err != nil {
@@ -112,7 +134,10 @@ func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network
 				return nil, wErr
 			}
 			if dErr := stateCache.Delete(podIfaceName); dErr != nil {
-				log.Log.Reason(dErr).Errorf("failed to delete pod interface network (%s) state from cache", podIfaceName)
+				log.Log.Reason(dErr).Errorf("failed to delete pod interface (%s) state from cache", podIfaceName)
+			}
+			if dErr := cache.DeletePodInterfaceCache(cacheCreator, vmiUID, podIfaceName); dErr != nil {
+				log.Log.Reason(dErr).Errorf("failed to delete pod interface (%s) from cache", podIfaceName)
 			}
 		}
 	}
@@ -129,4 +154,9 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return nil
+}
+
+func (c *NetConf) hotUnplugInterfaces(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor, launcherPid int) error {
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
+	return netConfigurator.UnplugPodNetworksPhase1(vmi, networks, configState)
 }

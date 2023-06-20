@@ -114,4 +114,16 @@ var _ = Describe("config state cache", func() {
 
 		})
 	})
+
+	Context("delete", func() {
+		It("from an empty cache", func() {
+			Expect(configStateCache.Delete(testNet)).To(Succeed())
+		})
+		It("successfully", func() {
+			Expect(configStateCache.Write(testNet, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
+			Expect(configStateCache.Read(testNet)).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+			Expect(configStateCache.Delete(testNet)).To(Succeed())
+			Expect(configStateCache.Read(testNet)).To(Equal(cache.PodIfaceNetworkPreparationPending))
+		})
+	})
 })

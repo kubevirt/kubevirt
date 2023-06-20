@@ -140,6 +140,8 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 
 	vmi.Status.Interfaces = interfacesStatus
 
+	c.removeAbsentIfacesFromVolatileCache(vmi)
+
 	return nil
 }
 
@@ -181,8 +183,29 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 	return podInterface, nil
 }
 
+func (c *NetStat) removeAbsentIfacesFromVolatileCache(vmi *v1.VirtualMachineInstance) {
+	interfaceByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
+	c.podInterfaceVolatileCache.Range(func(key, value interface{}) bool {
+		if strings.HasPrefix(key.(string), string(vmi.UID)) {
+			if iface, ok := interfaceByName[ifaceNameFromKey(key.(string), vmi.UID)]; ok && iface.State == v1.InterfaceStateAbsent {
+				c.podInterfaceVolatileCache.Delete(key)
+			}
+		}
+
+		return true
+	})
+}
+
 func vmiInterfaceKey(vmiUID types.UID, interfaceName string) string {
-	return fmt.Sprintf("%s/%s", vmiUID, interfaceName)
+	return fmt.Sprintf("%s%s", keyPrefix(vmiUID), interfaceName)
+}
+
+func keyPrefix(vmiUID types.UID) string {
+	return fmt.Sprintf("%s/", vmiUID)
+}
+
+func ifaceNameFromKey(key string, vmiUID types.UID) string {
+	return strings.TrimPrefix(key, keyPrefix(vmiUID))
 }
 
 func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.VirtualMachineInstanceNetworkInterface {

@@ -22,24 +22,29 @@ package network
 import (
 	"fmt"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"k8s.io/apimachinery/pkg/util/errors"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 )
 
-type configStateCacheReaderWriter interface {
+type configStateCacheRUD interface {
 	Read(networkName string) (cache.PodIfaceState, error)
 	Write(networkName string, state cache.PodIfaceState) error
+	Delete(networkName string) error
 }
 
 type ConfigState struct {
-	cache configStateCacheReaderWriter
+	cache configStateCacheRUD
 	ns    NSExecutor
 }
 
-func NewConfigState(configStateCache configStateCacheReaderWriter, ns NSExecutor) ConfigState {
-	return ConfigState{configStateCache, ns}
+func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigState {
+	return ConfigState{cache: configStateCache, ns: ns}
 }
 
 // Run passes through the state machine flow, executing the following steps:
@@ -49,7 +54,7 @@ func NewConfigState(configStateCache configStateCacheReaderWriter, ns NSExecutor
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
 	var pendingNICs []podNIC
 	for _, nic := range nics {
 		state, err := c.cache.Read(nic.vmiSpecNetwork.Name)
@@ -83,7 +88,7 @@ func (c ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, err
 	return err
 }
 
-func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
+func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error {
 	for i := range nics {
 		if ferr := discoverFunc(&nics[i]); ferr != nil {
 			return ferr
@@ -113,4 +118,49 @@ func (c ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, confi
 		}
 	}
 	return nil
+}
+
+func (c *ConfigState) Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error {
+	var nonPendingNetworks []v1.Network
+	var err error
+	if nonPendingNetworks, err = c.nonPendingNetworks(networks); err != nil {
+		return err
+	}
+
+	if len(nonPendingNetworks) == 0 {
+		return nil
+	}
+	err = c.ns.Do(func() error {
+		networksToUnplug, doErr := filterFunc(nonPendingNetworks)
+		if doErr != nil {
+			return doErr
+		}
+
+		var cleanupErrors []error
+		for _, net := range networksToUnplug {
+			if cleanupErr := cleanupFunc(net); cleanupErr != nil {
+				cleanupErrors = append(cleanupErrors, cleanupErr)
+			} else if cleanupErr := c.cache.Delete(net); cleanupErr != nil {
+				cleanupErrors = append(cleanupErrors, cleanupErr)
+			}
+		}
+		return errors.NewAggregate(cleanupErrors)
+	})
+	return err
+}
+
+func (c *ConfigState) nonPendingNetworks(networks []v1.Network) ([]v1.Network, error) {
+	var nonPendingNetworks []v1.Network
+
+	for _, net := range networks {
+
+		state, err := c.cache.Read(net.Name)
+		if err != nil {
+			return nil, err
+		}
+		if state != cache.PodIfaceNetworkPreparationPending {
+			nonPendingNetworks = append(nonPendingNetworks, net)
+		}
+	}
+	return nonPendingNetworks, nil
 }

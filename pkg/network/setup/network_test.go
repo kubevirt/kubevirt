@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"github.com/golang/mock/gomock"
@@ -41,14 +43,14 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
-	var (
-		baseCacheCreator tempCacheCreator
-	)
+	var baseCacheCreator tempCacheCreator
+
+	const launcherPID = 0
+
 	AfterEach(func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
@@ -60,19 +62,21 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				vmNetworkConfigurator *VMNetworkConfigurator
 				configState           ConfigState
 			)
+
 			BeforeEach(func() {
 				vmi = newVMIBridgeInterface("testnamespace", "testVmName")
 				vmi.Spec.Networks = []v1.Network{{
 					Name:          "default",
 					NetworkSource: v1.NetworkSource{},
 				}}
-				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator)
+				launcherPID := 0
+				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, &launcherPID)
 				stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
 				configState = NewConfigState(&stateCache, nsExecutorStub{})
 			})
 			It("should propagate errors when phase1 is called", func() {
 				launcherPID := 0
-				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID, vmi.Spec.Networks, configState)
+				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID, vmi.Spec.Networks, &configState)
 				Expect(err).To(MatchError("Network not implemented"))
 			})
 			It("should propagate errors when phase2 is called", func() {
@@ -85,10 +89,10 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			It("should configure bridged pod networking by default", func() {
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator)
+				launcherPID := 0
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator, &launcherPID)
 				iface := v1.DefaultBridgeNetworkInterface()
 				defaultNet := v1.DefaultPodNetwork()
-				launcherPID := 0
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
@@ -107,8 +111,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 			It("should accept empty network list", func() {
 				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, &launcherPID)
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(BeEmpty())
@@ -118,8 +122,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				iface := v1.DefaultBridgeNetworkInterface()
 				cniNet := vmiPrimaryNetwork()
 				vmi.Spec.Networks = []v1.Network{*cniNet}
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, &launcherPID)
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ConsistOf([]podNIC{{
@@ -183,8 +187,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 				vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator)
 				launcherPID := 0
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator, &launcherPID)
 				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(ContainElements([]podNIC{
@@ -243,8 +247,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				}
 				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, hotplugInterface)
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 				launcherPID := 0
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, &launcherPID)
 
 				Expect(vmNetworkConfigurator.getPhase1NICs(
 					&launcherPID,
@@ -277,8 +281,9 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 				}}
 
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
-				nics, err := vmNetworkConfigurator.getPhase1NICs(pointer.P(0), vmi.Spec.Networks)
+				launcherPID := 0
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil, &launcherPID)
+				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(BeEmpty())
 
@@ -307,7 +312,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmNetworkConfigurator = newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkH, &baseCacheCreator)
+			launcherPID := 0
+			vmNetworkConfigurator = newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkH, &baseCacheCreator, &launcherPID)
 			stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
 			configState = NewConfigState(&stateCache, nsExecutorStub{})
 		})
@@ -316,7 +322,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
 			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return("", "", fmt.Errorf("discovery error"))
 
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)
+			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)
 			Expect(err).To(HaveOccurred())
 			var errCritical *neterrors.CriticalNetworkError
 			Expect(errors.As(err, &errCritical)).To(BeFalse(), "expected a non-critical error, but got %v", err)
@@ -331,7 +337,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 			mockNetworkH.EXPECT().LinkSetDown(gomock.Any()).Return(fmt.Errorf("config error"))
 
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)
+			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)
 			Expect(err).To(HaveOccurred())
 			var errCritical *neterrors.CriticalNetworkError
 			Expect(errors.As(err, &errCritical)).To(BeTrue(), "expected critical error, but got %v", err)
@@ -358,13 +364,73 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			mockNetworkH.EXPECT().LinkSetUp(gomock.Any()).Return(nil)
 			mockNetworkH.EXPECT().LinkSetLearningOff(gomock.Any()).Return(nil)
 
-			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, configState)).To(Succeed())
+			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)).To(Succeed())
 
 			var podData *cache.PodIfaceCacheData
 			podData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, string(vmi.UID), "default")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(podData.PodIP).To(Equal(linkIP4))
 			Expect(podData.PodIPs).To(ConsistOf(linkIP4, linkIP6))
+		})
+	})
+	Context("UnplugPodNetworksPhase1", func() {
+		var (
+			vmi                   *v1.VirtualMachineInstance
+			vmNetworkConfigurator *VMNetworkConfigurator
+			configState           ConfigStateExecutor
+		)
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
+			vmi.Spec.Networks = []v1.Network{}
+			launcherPID := 0
+			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil, &launcherPID)
+		})
+		It("should succeed on successful Unplug", func() {
+			configState = &ConfigStateStub{}
+			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).To(Succeed())
+		})
+		It("should fail on failing Unplug", func() {
+			configState = &ConfigStateStub{UnplugShouldFail: true}
+			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).ToNot(Succeed())
+		})
+	})
+
+	Context("filter out ordinal interfaces", func() {
+		var (
+			vmi                   *v1.VirtualMachineInstance
+			vmNetworkConfigurator *VMNetworkConfigurator
+			mockNetworkH          *netdriver.MockNetworkHandler
+		)
+		const (
+			ordinalPodIfaceName = "net0"
+			hashPodIfaceName    = "pod123"
+		)
+
+		BeforeEach(func() {
+			ctrl := gomock.NewController(GinkgoT())
+			mockNetworkH = netdriver.NewMockNetworkHandler(ctrl)
+			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
+			vmi.Spec.Networks = []v1.Network{{
+				Name: testNet0,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{},
+				},
+			}}
+			launcherPID := 0
+			vmNetworkConfigurator = newVMNetworkConfiguratorWithHandlerAndCache(vmi, mockNetworkH, &baseCacheCreator, &launcherPID)
+		})
+		It("shouldn't filter the network, it has non-ordinal name", func() {
+			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: hashPodIfaceName}}, nil)
+			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(ConsistOf([]string{testNet0}))
+		})
+		It("shouldn't filter the ordinal network", func() {
+			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: ordinalPodIfaceName}}, nil)
+			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(BeEmpty())
+		})
+		It("shouldn't filter a network with no link", func() {
+			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(nil, netlink.LinkNotFoundError{}).AnyTimes()
+			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(ConsistOf([]string{testNet0}))
 		})
 	})
 })

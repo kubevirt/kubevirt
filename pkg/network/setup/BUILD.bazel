@@ -9,6 +9,7 @@ go_library(
         "netstat.go",
         "network.go",
         "podnic.go",
+        "unpluggedpodnic.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/setup",
     visibility = ["//visibility:public"],
@@ -29,7 +30,9 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/github.com/pkg/errors:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
     ],
 )
 
@@ -43,6 +46,7 @@ go_test(
         "network_suite_test.go",
         "network_test.go",
         "podnic_test.go",
+        "unpluggedpodnic_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -56,7 +60,6 @@ go_test(
         "//pkg/network/sriov:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/os/fs:go_default_library",
-        "//pkg/pointer:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
