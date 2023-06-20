@@ -103,6 +103,9 @@ github.com/json-iterator/go
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/shared
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
+# github.com/kubevirt/monitoring/test/metrics/prom-metrics-linter/metrics-parser v0.0.0-20230620074913-666a752cedc6
+## explicit; go 1.20
+github.com/kubevirt/monitoring/test/metrics/prom-metrics-linter/metrics-parser
 # github.com/mailru/easyjson v0.7.7
 ## explicit; go 1.12
 github.com/mailru/easyjson/buffer

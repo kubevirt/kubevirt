@@ -22,7 +22,7 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
-sanity: generate generate-doc validate-no-offensive-lang goimport
+sanity: generate generate-doc validate-no-offensive-lang goimport lint-metrics
 	go version
 	go fmt ./...
 	go mod tidy -v
@@ -224,6 +224,9 @@ deploy_hpp:
 validate-no-offensive-lang:
 	./hack/validate-no-offensive-lang.sh
 
+lint-metrics:
+	./hack/prom_metric_linter.sh --operator-name="kubevirt" --sub-operator-name="hco"
+
 .PHONY: start \
 		clean \
 		build \
@@ -269,5 +272,6 @@ validate-no-offensive-lang:
 		generate \
 		generate-doc \
 		validate-no-offensive-lang \
+		lint-metrics \
 		sanity \
 		goimport
