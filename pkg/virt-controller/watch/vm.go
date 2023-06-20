@@ -30,6 +30,9 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -117,6 +120,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
+	podInformer cache.SharedIndexInformer,
 	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -131,6 +135,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		dataVolumeInformer:     dataVolumeInformer,
 		pvcInformer:            pvcInformer,
 		crInformer:             crInformer,
+		podInformer:            podInformer,
 		instancetypeMethods:    instancetypeMethods,
 		recorder:               recorder,
 		clientset:              clientset,
@@ -189,6 +194,7 @@ type VMController struct {
 	dataVolumeInformer     cache.SharedIndexInformer
 	pvcInformer            cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
+	podInformer            cache.SharedIndexInformer
 	instancetypeMethods    instancetype.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
@@ -204,7 +210,7 @@ func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmInformer.HasSynced, c.dataVolumeInformer.HasSynced, c.podInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -2721,10 +2727,20 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 	vm.Spec.Template.Spec = *vmTemplateCopy
 
 	if vmi != nil && vmi.DeletionTimestamp == nil {
+		hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi)
+		if err != nil {
+			return err
+		}
+
 		vmiSpecCopy := vmi.Spec.DeepCopy()
 		for i := range vm.Status.InterfaceRequests {
-			vmiSpecCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
-				vmiSpecCopy, &vm.Status.InterfaceRequests[i])
+			request := &vm.Status.InterfaceRequests[i]
+			switch {
+			case request.AddInterfaceOptions != nil:
+				vmiSpecCopy = controller.ApplyNetworkInterfaceAddRequest(vmiSpecCopy, request.AddInterfaceOptions)
+			case !hasOrdinalIfaces && request.RemoveInterfaceOptions != nil:
+				vmiSpecCopy = controller.ApplyNetworkInterfaceRemoveRequest(vmiSpecCopy, request.RemoveInterfaceOptions)
+			}
 		}
 		if err := c.vmiInterfacesPatch(vmiSpecCopy, vmi); err != nil {
 			return err
@@ -2732,6 +2748,20 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 	}
 
 	return nil
+}
+
+func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineInstance) (bool, error) {
+	pod, err := controller.CurrentVMIPod(vmi, c.podInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
+		return false, err
+	}
+	if pod == nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to find VMI pod in cache.")
+		return false, err
+	}
+	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(services.NonDefaultMultusNetworksIndexedByIfaceName(pod))
+	return hasOrdinalIfaces, nil
 }
 
 func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInstanceSpec, vmi *virtv1.VirtualMachineInstance) error {
