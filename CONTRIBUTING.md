@@ -47,7 +47,7 @@ of changes:
 To make yourself comfortable with the code, you might want to work on some
 Issues marked with one or more of the following labels:
 [good-first-issue](https://github.com/kubevirt/kubevirt/labels/good-first-issue),
-[help wanted](https://github.com/kubevirt/kubevirt/labels/help%20wanted)
+[help-wanted](https://github.com/kubevirt/kubevirt/labels/help-wanted)
 or [kind/bug](https://github.com/kubevirt/kubevirt/labels/kind%2Fbug).
 Any help is highly appreciated.
 
@@ -59,6 +59,21 @@ thinking about a contribution, also think about testability. All tests can be
 run local without the need of CI. Have a look at the
 [Testing](docs/getting-started.md#testing)
 section in the [Developer Guide](docs/getting-started.md).
+
+#### Automated testing of pull requests
+
+Automated testing is triggered on pull requests (PRs) opened by members of the KubeVirt organization, with the exception of _[draft pull requests](CONTRIBUTING.md#consider-opening-your-pull-request-as-draft)_. Pull requests opened by new contributors are initially marked with the label [`needs-ok-to-test`](https://github.com/kubevirt/kubevirt/labels/needs-ok-to-test) and are not automatically tested. Test lanes will be created after a member of the KubeVirt organization adds [`/ok-to-test`](https://prow.ci.kubevirt.io/command-help#ok_to_test) on the PR.
+
+For more information about our CI, please have a look at the [docs](https://github.com/kubevirt/project-infra/tree/main/docs) in the project-infra repository.
+
+#### Consider opening your pull request as draft
+Not all pull requests are ready for review when they are created. This might be because the author wants to initiate a conversation or they might not be entirely sure whether the changes go in the right direction, or even because the changes are not complete.
+
+Please consider creating such PRs as [Draft Pull Requests](https://github.blog/2019-02-14-introducing-draft-pull-requests/). Draft PRs are skipped by CI, which saves CI resources. It also means that reviewers are not automatically assigned and the community will understand that this PR is not yet ready for review.
+
+After you mark your draft pull request as ready for review, reviewers will be assigned and tests will be triggered if the ok-to-test label is present (see [above](CONTRIBUTING.md#automated-testing-of-pull-requests)).
+
+**Note that organization members can always trigger lanes manually by commenting [`/test`](https://prow.ci.kubevirt.io/command-help#test) on the pull request.**
 
 ### Contributor compliance with Developer Certificate Of Origin (DCO)
 
