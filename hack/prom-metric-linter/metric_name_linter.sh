@@ -52,7 +52,7 @@ done
 errors=$(${KUBEVIRT_CRI} run -i "quay.io/kubevirt/prom-metrics-linter:$linter_image_tag" \
     --metric-families="$(cat "$metrics_file")" \
     --operator-name="$operator_name" \
-    --sub-operator-name="$sub_operator_name" 2>&1)
+    --sub-operator-name="$sub_operator_name" 2>/dev/null)
 
 # Check if the linter found any errors with the metrics names, if yes print and fail
 if [[ $errors != "" ]]; then
