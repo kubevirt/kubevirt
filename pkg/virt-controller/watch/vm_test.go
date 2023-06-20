@@ -68,6 +68,7 @@ var _ = Describe("VirtualMachine", func() {
 		var dataVolumeSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
+		var podInformer cache.SharedIndexInformer
 		var instancetypeMethods *testutils.MockInstancetypeMethods
 		var stop chan struct{}
 		var controller *VMController
@@ -119,6 +120,7 @@ var _ = Describe("VirtualMachine", func() {
 					return nil, nil
 				},
 			})
+			podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
 			instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
@@ -132,6 +134,7 @@ var _ = Describe("VirtualMachine", func() {
 				dataVolumeInformer,
 				pvcInformer,
 				crInformer,
+				podInformer,
 				instancetypeMethods,
 				recorder,
 				virtClient,
