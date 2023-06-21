@@ -77,8 +77,8 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			hotPluggedVM = newVMWithOneInterface()
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM)
-			ExpectWithOffset(1, err).NotTo(HaveOccurred())
-			EventuallyWithOffset(1, func() error {
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func() error {
 				var err error
 				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
 				return err
@@ -86,17 +86,14 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
 
 			By("Creating a NAD")
-			ExpectWithOffset(1,
-				createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), networkName, linuxBridgeName),
-			).To(Succeed())
+			Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), networkName, linuxBridgeName)).To(Succeed())
 
 			By("Hotplugging an interface to the VM")
-			ExpectWithOffset(1,
-				kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).AddInterface(
-					context.Background(),
-					hotPluggedVM.GetName(),
-					addIfaceOptions(networkName, ifaceName),
-				),
+			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).AddInterface(
+				context.Background(),
+				hotPluggedVM.GetName(),
+				addIfaceOptions(networkName, ifaceName),
+			),
 			).To(Succeed())
 		})
 
@@ -430,7 +427,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 	}
 
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
@@ -440,7 +437,7 @@ func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hot
 	for _, net := range vmispec.FilterMultusNonDefaultNetworks(nonAbsentNets) {
 		secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
 	}
-	Expect(secondaryNetworksNames).NotTo(BeEmpty())
+	ExpectWithOffset(1, secondaryNetworksNames).NotTo(BeEmpty())
 	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
 		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
 	}, 30*time.Second).Should(
@@ -536,13 +533,6 @@ func interfaceStatusFromInterfaceNames(ifaceNames ...string) []v1.VirtualMachine
 	return ifaceStatus
 }
 
-func filterVMISyncErrorEvents(events []corev1.Event) []string {
-	const desiredEvent = "SyncFailed"
-	return filterEvents(events, func(event corev1.Event) bool {
-		return event.Reason == desiredEvent
-	})
-}
-
 func filterEvents(events []corev1.Event, p func(event corev1.Event) bool) []string {
 	var eventMsgs []string
 	for _, event := range events {
@@ -551,10 +541,6 @@ func filterEvents(events []corev1.Event, p func(event corev1.Event) bool) []stri
 		}
 	}
 	return eventMsgs
-}
-
-func noPCISlotsAvailableError() string {
-	return "server error. command SyncVMI failed: \"LibvirtError(Code=1, Domain=20, Message='internal error: No more available PCI slots')\""
 }
 
 func newVMWithOneInterface() *v1.VirtualMachine {
