@@ -281,13 +281,6 @@ func CleanNamespaces() {
 		}
 
 		util.PanicOnError(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}))
-
-		// Remove events
-		eventList, err := virtCli.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
-		util.PanicOnError(err)
-		for _, event := range eventList.Items {
-			util.PanicOnError(virtCli.CoreV1().Events(namespace).Delete(context.Background(), event.Name, metav1.DeleteOptions{}))
-		}
 	}
 }
 
