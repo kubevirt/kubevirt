@@ -20,9 +20,7 @@
 package rest
 
 import (
-	"context"
 	"encoding/json"
-	goerrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,53 +36,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
-
-func generateVMIInterfaceRequestPatch(vmi *v1.VirtualMachineInstance, interfaceRequest *v1.VirtualMachineInterfaceRequest) (string, error) {
-	vmiCopy := vmi.DeepCopy()
-	switch {
-	case interfaceRequest.AddInterfaceOptions != nil:
-		vmiCopy.Spec = *ApplyAddInterfaceRequestOnVMISpec(&vmiCopy.Spec, interfaceRequest)
-	case interfaceRequest.RemoveInterfaceOptions != nil:
-		vmiCopy.Spec = *ApplyRemoveInterfaceRequestOnVMISpec(&vmiCopy.Spec, interfaceRequest)
-	}
-
-	if equality.Semantic.DeepEqual(vmiCopy.Spec, vmi.Spec) {
-		return "", nil
-	}
-
-	oldIfacesJSON, err := json.Marshal(vmi.Spec.Domain.Devices.Interfaces)
-	if err != nil {
-		return "", err
-	}
-
-	newIfacesJSON, err := json.Marshal(vmiCopy.Spec.Domain.Devices.Interfaces)
-	if err != nil {
-		return "", err
-	}
-
-	oldNetworksJSON, err := json.Marshal(vmi.Spec.Networks)
-	if err != nil {
-		return "", err
-	}
-
-	newNetworksJSON, err := json.Marshal(vmiCopy.Spec.Networks)
-	if err != nil {
-		return "", err
-	}
-
-	const verb = "add"
-	testNetworks := fmt.Sprintf(`{ "op": "test", "path": "/spec/networks", "value": %s}`, string(oldNetworksJSON))
-	updateNetworks := fmt.Sprintf(`{ "op": %q, "path": "/spec/networks", "value": %s}`, verb, string(newNetworksJSON))
-
-	testInterfaces := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": %s}`, string(oldIfacesJSON))
-	updateInterfaces := fmt.Sprintf(`{ "op": %q, "path": "/spec/domain/devices/interfaces", "value": %s}`, verb, string(newIfacesJSON))
-
-	patch := fmt.Sprintf("[%s, %s, %s, %s]", testNetworks, testInterfaces, updateNetworks, updateInterfaces)
-	return patch, nil
-}
 
 func generateVMInterfaceRequestPatch(vm *v1.VirtualMachine, interfaceRequest *v1.VirtualMachineInterfaceRequest) (string, error) {
 	const verb = "add"
@@ -163,38 +116,6 @@ func filterRemoveInterfaceRequests(vm *v1.VirtualMachine, canonicalIfaceName str
 	)
 }
 
-func ApplyAddInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
-	iface2AddName := request.AddInterfaceOptions.Name
-	iface2Add := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, iface2AddName)
-	if iface2Add == nil {
-		newInterface := v1.Interface{
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			Name:                   iface2AddName,
-		}
-		newNetwork := v1.Network{
-			Name: iface2AddName,
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{
-					NetworkName: request.AddInterfaceOptions.NetworkAttachmentDefinitionName,
-				},
-			},
-		}
-
-		vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newInterface)
-		vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
-	}
-	return vmiSpec
-}
-
-func ApplyRemoveInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
-	iface2RemoveName := request.RemoveInterfaceOptions.Name
-	iface2Remove := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, iface2RemoveName)
-	if iface2Remove != nil {
-		iface2Remove.State = v1.InterfaceStateAbsent
-	}
-	return vmiSpec
-}
-
 // VMAddInterfaceRequestHandler handles the subresource for hot plugging a network interface.
 func (app *SubresourceAPIApp) VMAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
 	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
@@ -234,50 +155,6 @@ func (app *SubresourceAPIApp) VMRemoveInterfaceRequestHandler(request *restful.R
 	}
 
 	if err := app.vmInterfacePatchStatus(name, namespace, &interfaceRequest); err != nil {
-		writeError(err, response)
-		return
-	}
-	response.WriteHeader(http.StatusAccepted)
-}
-
-// VMIAddInterfaceRequestHandler handles the subresource for hot plugging a network interface.
-func (app *SubresourceAPIApp) VMIAddInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
-		writeError(featureGateNotEnableError(), response)
-		return
-	}
-
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-	interfaceRequest, err := app.newAddInterfaceRequest(request)
-	if err != nil {
-		writeError(errors.NewBadRequest(err.Error()), response)
-		return
-	}
-
-	if err := app.vmiInterfacePatch(name, namespace, &interfaceRequest); err != nil {
-		writeError(err, response)
-		return
-	}
-	response.WriteHeader(http.StatusAccepted)
-}
-
-// VMIRemoveInterfaceRequestHandler handles the subresource for hot unplugging a network interface.
-func (app *SubresourceAPIApp) VMIRemoveInterfaceRequestHandler(request *restful.Request, response *restful.Response) {
-	if !app.clusterConfig.HotplugNetworkInterfacesEnabled() {
-		writeError(featureGateNotEnableError(), response)
-		return
-	}
-
-	name := request.PathParameter("name")
-	namespace := request.PathParameter("namespace")
-	interfaceRequest, err := app.newRemoveInterfaceRequest(request)
-	if err != nil {
-		writeError(errors.NewBadRequest(err.Error()), response)
-		return
-	}
-
-	if err := app.vmiInterfacePatch(name, namespace, &interfaceRequest); err != nil {
 		writeError(err, response)
 		return
 	}
@@ -331,36 +208,6 @@ func decodeInterfaceRequest[T any](request *restful.Request, opts *T) (*T, error
 		return nil, fmt.Errorf("no request body, unable to decode options")
 	}
 	return opts, nil
-}
-
-func (app *SubresourceAPIApp) vmiInterfacePatch(vmName string, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError {
-	vmi, statErr := app.FetchVirtualMachineInstance(namespace, vmName)
-	if statErr != nil {
-		return statErr
-	}
-
-	if !vmi.IsRunning() {
-		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmName, fmt.Errorf("VMI is not running"))
-	}
-
-	patch, err := generateVMIInterfaceRequestPatch(vmi, interfaceRequest)
-	if err != nil {
-		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmName, err)
-	} else if patch == "" {
-		log.Log.Object(vmi).V(4).Infof("Empty patch; nothing to do for VMI %s/%s", namespace, vmName)
-		return nil
-	}
-
-	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", patch)
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &k8smetav1.PatchOptions{}); err != nil {
-		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
-		var statusError *errors.StatusError
-		if goerrors.As(err, &statusError) {
-			return statusError
-		}
-		return errors.NewInternalError(fmt.Errorf("unable to patch vmi: %v", err))
-	}
-	return nil
 }
 
 func (app *SubresourceAPIApp) vmInterfacePatchStatus(vmName string, namespace string, interfaceRequest *v1.VirtualMachineInterfaceRequest) *errors.StatusError {

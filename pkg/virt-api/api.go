@@ -504,24 +504,6 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addinterface")).
-			To(subresourceApp.VMIAddInterfaceRequestHandler).
-			Reads(v1.AddInterfaceOptions{}).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"vmi-addinterface").
-			Doc("Add a network interface to a running Virtual Machine Instance").
-			Returns(http.StatusOK, "OK", "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
-
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("removeinterface")).
-			To(subresourceApp.VMIRemoveInterfaceRequestHandler).
-			Reads(v1.RemoveInterfaceOptions{}).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"vmi-removeinterface").
-			Doc("Remove a network interface from a running Virtual Machine Instance").
-			Returns(http.StatusOK, "OK", "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
-
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addinterface")).
 			To(subresourceApp.VMAddInterfaceRequestHandler).
 			Reads(v1.AddInterfaceOptions{}).
@@ -636,14 +618,6 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/removevolume",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/addinterface",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachineinstances/removeinterface",
 						Namespaced: true,
 					},
 				}
