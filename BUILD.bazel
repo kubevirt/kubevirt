@@ -287,7 +287,7 @@ container_push(
 )
 
 container_push(
-    name = "push-libguestfs",
+    name = "push-libguestfs-tools",
     format = "Docker",
     image = "//cmd/libguestfs:libguestfs-tools-image",
     registry = "$(container_prefix)",
