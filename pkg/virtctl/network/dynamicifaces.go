@@ -44,13 +44,11 @@ const (
 var (
 	ifaceName                       string
 	networkAttachmentDefinitionName string
-	persist                         bool
 )
 
 type dynamicIfacesCmd struct {
-	kvClient     kubecli.KubevirtClient
-	isPersistent bool
-	namespace    string
+	kvClient  kubecli.KubevirtClient
+	namespace string
 }
 
 func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -60,7 +58,7 @@ func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 		Example: usageAddInterface(),
 		Args:    templates.ExactArgs(HotplugCmdName, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := newDynamicIfaceCmd(clientConfig, persist)
+			c, err := newDynamicIfaceCmd(clientConfig)
 			if err != nil {
 				return fmt.Errorf("error creating the `AddInterface` command: %w", err)
 			}
@@ -72,7 +70,6 @@ func NewAddInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Command 
 	_ = cmd.MarkFlagRequired(networkAttachmentDefinitionNameArg)
 	cmd.Flags().StringVar(&ifaceName, ifaceNameArg, "", "Logical name of the interface to be plugged")
 	_ = cmd.MarkFlagRequired(ifaceNameArg)
-	cmd.Flags().BoolVar(&persist, "persist", false, "When set, the added interface will be persisted in the VM spec (if it exists)")
 
 	return cmd
 }
@@ -84,7 +81,7 @@ func NewRemoveInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Comma
 		Example: usageRemoveInterface(),
 		Args:    templates.ExactArgs(HotUnplugCmdName, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := newDynamicIfaceCmd(clientConfig, persist)
+			c, err := newDynamicIfaceCmd(clientConfig)
 			if err != nil {
 				return fmt.Errorf("error creating the `RemoveInterface` command: %w", err)
 			}
@@ -94,32 +91,25 @@ func NewRemoveInterfaceCommand(clientConfig clientcmd.ClientConfig) *cobra.Comma
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&ifaceName, ifaceNameArg, "", "Logical name of the interface to be plugged")
 	_ = cmd.MarkFlagRequired(ifaceNameArg)
-	cmd.Flags().BoolVar(&persist, "persist", false, "When set, the interface will be removed from the VM spec")
 
 	return cmd
 }
 
 func usageAddInterface() string {
-	usage := `  #Dynamically attach a network interface to a running VM.
-  {{ProgramName}} addinterface <vmi-name> --network-attachment-definition-name <network-attachment-definition name> --name <logical interface name>
-
-  #Dynamically attach a network interface to a running VM and persisting it in the VM spec. At next VM restart the network interface will be attached like any other network interface.
-  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --name <logical interface name> --persist
+	usage := `  #Dynamically attach a network interface to a running VM and persisting it in the VM spec. At next VM restart the network interface will be attached like any other network interface.
+  {{ProgramName}} addinterface <vm-name> --network-attachment-definition-name <network-attachment-definition name> --name <logical interface name>
   `
 	return usage
 }
 
 func usageRemoveInterface() string {
-	usage := `  #Dynamically detach a network interface from a running VM.
+	usage := `  #Dynamically detach a network interface from a running VM and persisting it in the VM spec. At next VM restart the network interface won't be attached to the VM.
   {{ProgramName}} removeinterface <vmi-name> --name <logical interface name>
-  
-  #Dynamically detach a network interface from a running VM and persisting it in the VM spec. At next VM restart the network interface won't be attached to the VM.
-  {{ProgramName}} removeinterface <vm-name> --name <logical interface name> --persist
   `
 	return usage
 }
 
-func newDynamicIfaceCmd(clientCfg clientcmd.ClientConfig, persistState bool) (*dynamicIfacesCmd, error) {
+func newDynamicIfaceCmd(clientCfg clientcmd.ClientConfig) (*dynamicIfacesCmd, error) {
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientCfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot obtain KubeVirt client: %v", err)
@@ -128,21 +118,11 @@ func newDynamicIfaceCmd(clientCfg clientcmd.ClientConfig, persistState bool) (*d
 	if err != nil {
 		return nil, err
 	}
-	return &dynamicIfacesCmd{kvClient: virtClient, isPersistent: persistState, namespace: namespace}, nil
+	return &dynamicIfacesCmd{kvClient: virtClient, namespace: namespace}, nil
 }
 
 func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefinitionName string, name string) error {
-	if dic.isPersistent {
-		return dic.kvClient.VirtualMachine(dic.namespace).AddInterface(
-			context.Background(),
-			vmName,
-			&v1.AddInterfaceOptions{
-				NetworkAttachmentDefinitionName: networkAttachmentDefinitionName,
-				Name:                            name,
-			},
-		)
-	}
-	return dic.kvClient.VirtualMachineInstance(dic.namespace).AddInterface(
+	return dic.kvClient.VirtualMachine(dic.namespace).AddInterface(
 		context.Background(),
 		vmName,
 		&v1.AddInterfaceOptions{
@@ -153,18 +133,11 @@ func (dic *dynamicIfacesCmd) addInterface(vmName string, networkAttachmentDefini
 }
 
 func (dic *dynamicIfacesCmd) removeInterface(vmName string, name string) error {
-	if dic.isPersistent {
-		return dic.kvClient.VirtualMachine(dic.namespace).RemoveInterface(
-			context.Background(),
-			vmName,
-			&v1.RemoveInterfaceOptions{
-				Name: name,
-			},
-		)
-	}
-	return dic.kvClient.VirtualMachineInstance(dic.namespace).RemoveInterface(
+	return dic.kvClient.VirtualMachine(dic.namespace).RemoveInterface(
 		context.Background(),
 		vmName,
-		&v1.RemoveInterfaceOptions{Name: name},
+		&v1.RemoveInterfaceOptions{
+			Name: name,
+		},
 	)
 }
