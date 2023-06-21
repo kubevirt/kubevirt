@@ -579,8 +579,6 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
-  - virtualmachineinstances/addinterface
-  - virtualmachineinstances/removeinterface
   verbs:
   - update
 - apiGroups:
@@ -826,7 +824,6 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
-  - virtualmachineinstances/addinterface
   verbs:
   - update
 - apiGroups:
@@ -972,7 +969,6 @@ rules:
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
-  - virtualmachineinstances/addinterface
   verbs:
   - update
 - apiGroups:
