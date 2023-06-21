@@ -124,3 +124,5 @@ if [ -n "$PF_PID" ]; then
   echo "Terminating port forwarding"
   kill ${PF_PID}
 fi
+
+check_ssp_up

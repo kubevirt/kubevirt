@@ -8,24 +8,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	"kubevirt.io/kubevirt/tests/flags"
-
 	"github.com/onsi/ginkgo/v2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	. "github.com/onsi/gomega" //nolint dot-imports
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/flags"
 	kvtutil "kubevirt.io/kubevirt/tests/util"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 var KubeVirtStorageClassLocal string
@@ -183,4 +183,12 @@ func UpdateHCO(ctx context.Context, client kubecli.KubevirtClient, input *v1beta
 		return nil, err
 	}
 	return output, nil
+}
+
+// PatchHCO updates the HCO CR using a DynamicClient, it can return errors on failures
+func PatchHCO(ctx context.Context, cl kubecli.KubevirtClient, patch []byte) error {
+	hcoGVR := schema.GroupVersionResource{Group: v1beta1.SchemeGroupVersion.Group, Version: v1beta1.SchemeGroupVersion.Version, Resource: resource}
+
+	_, err := cl.DynamicClient().Resource(hcoGVR).Namespace(flags.KubeVirtInstallNamespace).Patch(ctx, hcoutil.HyperConvergedName, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return err
 }

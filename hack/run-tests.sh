@@ -44,9 +44,6 @@ sleep 60
 
 ./hack/retry.sh 10 30 "KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_labels.sh"
 
-# Check the defaulting mechanism
-KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_defaults.sh
-
 # Check golden images
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
 

@@ -51,10 +51,8 @@ FGPATHS=(
 LMPATHS=(
     "/spec/liveMigrationConfig/parallelMigrationsPerCluster"
     "/spec/liveMigrationConfig/parallelOutboundMigrationsPerNode"
-    "/spec/liveMigrationConfig/bandwidthPerMigration"
     "/spec/liveMigrationConfig/completionTimeoutPerGiB"
     "/spec/liveMigrationConfig/progressTimeout"
-    "/spec/liveMigrationConfig/network"
     "/spec/liveMigrationConfig/allowAutoConverge"
     "/spec/liveMigrationConfig/allowPostCopy"
     "/spec/liveMigrationConfig"
