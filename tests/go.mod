@@ -3,7 +3,7 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tests
 go 1.19
 
 require (
-	github.com/kubevirt/cluster-network-addons-operator v0.85.2
+	github.com/kubevirt/cluster-network-addons-operator v0.86.1
 	github.com/kubevirt/hyperconverged-cluster-operator v1.8.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7

@@ -66,6 +66,12 @@ spec:
               macvtap:
                 description: MacvtapCni plugin allows users to define Kubernetes networks
                   on top of existing host interfaces
+                properties:
+                  devicePluginConfig:
+                    description: DevicePluginConfig allows the user to override the
+                      name of the `ConfigMap` where the device plugin configuration
+                      is held
+                    type: string
                 type: object
               multus:
                 description: Multus plugin enables attaching multiple network interfaces
@@ -1707,6 +1713,12 @@ spec:
               macvtap:
                 description: MacvtapCni plugin allows users to define Kubernetes networks
                   on top of existing host interfaces
+                properties:
+                  devicePluginConfig:
+                    description: DevicePluginConfig allows the user to override the
+                      name of the `ConfigMap` where the device plugin configuration
+                      is held
+                    type: string
                 type: object
               multus:
                 description: Multus plugin enables attaching multiple network interfaces
