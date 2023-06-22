@@ -60,7 +60,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -2714,12 +2713,8 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 		return nil
 	}
 
-	interfaceMap := map[string]virtv1.Interface{}
-	if vmi != nil {
-		interfaceMap = netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
-	}
 	vmTemplateCopy := vm.Spec.Template.Spec.DeepCopy()
-	for i, ifaceRequest := range vm.Status.InterfaceRequests {
+	for i := range vm.Status.InterfaceRequests {
 		vmTemplateCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
 			vmTemplateCopy, &vm.Status.InterfaceRequests[i])
 
@@ -2727,25 +2722,56 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 			continue
 		}
 
-		if ifaceRequest.AddInterfaceOptions != nil {
-			if _, exists := interfaceMap[ifaceRequest.AddInterfaceOptions.Name]; !exists {
-				if err := c.clientset.VirtualMachineInstance(vmi.Namespace).AddInterface(context.Background(), vmi.Name, ifaceRequest.AddInterfaceOptions); err != nil {
-					return err
-				}
-			}
-		}
+		vmiSpecCopy := vmi.Spec.DeepCopy()
+		vmiSpecCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
+			vmiSpecCopy, &vm.Status.InterfaceRequests[i])
 
-		if ifaceRequest.RemoveInterfaceOptions != nil {
-			if _, exists := interfaceMap[ifaceRequest.RemoveInterfaceOptions.Name]; exists {
-				if err := c.clientset.VirtualMachineInstance(vmi.Namespace).RemoveInterface(context.Background(), vmi.Name, ifaceRequest.RemoveInterfaceOptions); err != nil {
-					return err
-				}
-			}
+		if err := c.vmiInterfacesPatch(vmiSpecCopy, vmi); err != nil {
+			return err
 		}
 	}
 
 	vm.Spec.Template.Spec = *vmTemplateCopy
 	return nil
+}
+
+func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInstanceSpec, vmi *virtv1.VirtualMachineInstance) error {
+	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) {
+		return nil
+	}
+
+	oldIfacesJSON, err := json.Marshal(vmi.Spec.Domain.Devices.Interfaces)
+	if err != nil {
+		return err
+	}
+
+	newIfacesJSON, err := json.Marshal(newVmiSpec.Domain.Devices.Interfaces)
+	if err != nil {
+		return err
+	}
+
+	oldNetworksJSON, err := json.Marshal(vmi.Spec.Networks)
+	if err != nil {
+		return err
+	}
+
+	newNetworksJSON, err := json.Marshal(newVmiSpec.Networks)
+	if err != nil {
+		return err
+	}
+
+	const verb = "add"
+	testNetworks := fmt.Sprintf(`{ "op": "test", "path": "/spec/networks", "value": %s}`, string(oldNetworksJSON))
+	updateNetworks := fmt.Sprintf(`{ "op": %q, "path": "/spec/networks", "value": %s}`, verb, string(newNetworksJSON))
+
+	testInterfaces := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": %s}`, string(oldIfacesJSON))
+	updateInterfaces := fmt.Sprintf(`{ "op": %q, "path": "/spec/domain/devices/interfaces", "value": %s}`, verb, string(newIfacesJSON))
+
+	patch := fmt.Sprintf("[%s, %s, %s, %s]", testNetworks, testInterfaces, updateNetworks, updateInterfaces)
+
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+
+	return err
 }
 
 func (c *VMController) setupLiveFeatures(

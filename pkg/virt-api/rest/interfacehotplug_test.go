@@ -48,7 +48,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -62,7 +61,6 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		recorder   *httptest.ResponseRecorder
 		virtClient *kubecli.MockKubevirtClient
 		vmClient   *kubecli.MockVirtualMachineInterface
-		vmiClient  *kubecli.MockVirtualMachineInstanceInterface
 	)
 
 	kv := &v1.KubeVirt{
@@ -87,13 +85,10 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 		kubeClient = fake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmClient = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
 
 		app.virtCli = virtClient
 		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
@@ -183,51 +178,15 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			}
 		}
 
-		createVMI := func(addOpts *v1.AddInterfaceOptions) *v1.VirtualMachineInstance {
-			mutateIfaceRequest(addOpts)
-			vmi := api.NewMinimalVMI(request.PathParameter("name"))
-			vmi.Namespace = "default"
-			vmi.Status.Phase = v1.Running
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
-				Name: existingIfaceName,
-			})
-			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
-				Name: existingIfaceName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: existingNetworkName,
-					},
-				},
-			})
-			return vmi
-		}
-
-		successfulMockScenarioForVMI := func(addOpts *v1.AddInterfaceOptions) {
-			vmi := createVMI(addOpts)
-
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
-			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vmi, nil)
-
-			if addOpts != nil {
-				app.VMIAddInterfaceRequestHandler(request, response)
-			}
-		}
-
-		DescribeTable("Should succeed a dynamic interface request", func(addOpts *v1.AddInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions)) {
+		It("Should succeed a dynamic interface request for a VM with a valid add interface request", func() {
 			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
 
-			mockScenario(addOpts)
+			successfulMockScenarioForVM(&v1.AddInterfaceOptions{
+				NetworkAttachmentDefinitionName: networkToHotplug,
+				Name:                            ifaceToHotplug,
+			})
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-		},
-			Entry("VM with a valid add interface request", &v1.AddInterfaceOptions{
-				NetworkAttachmentDefinitionName: networkToHotplug,
-				Name:                            ifaceToHotplug,
-			}, successfulMockScenarioForVM),
-			Entry("VMI with a valid add interface request", &v1.AddInterfaceOptions{
-				NetworkAttachmentDefinitionName: networkToHotplug,
-				Name:                            ifaceToHotplug,
-			}, successfulMockScenarioForVMI),
-		)
+		})
 
 		DescribeTable("Should fail on invalid requests for a dynamic interfaces", func(addOpts *v1.AddInterfaceOptions, mockScenario func(addOpts *v1.AddInterfaceOptions), featuresToEnable ...string) {
 			for _, featureToEnable := range featuresToEnable {
@@ -248,34 +207,6 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 				Name:                            ifaceToHotplug,
 			}, failedMockScenarioForVM),
 		)
-
-		It("Should generate expected vmi patch when the add interface request features all required data", func() {
-			vmi := api.NewMinimalVMI(request.PathParameter("name"))
-			vmi.Namespace = "default"
-			vmi.Status.Phase = v1.Running
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
-				Name: existingIfaceName,
-			})
-			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
-				Name: existingIfaceName,
-			})
-
-			Expect(
-				generateVMIInterfaceRequestPatch(
-					vmi,
-					&v1.VirtualMachineInterfaceRequest{
-						AddInterfaceOptions: &v1.AddInterfaceOptions{
-							NetworkAttachmentDefinitionName: networkToHotplug,
-							Name:                            ifaceToHotplug,
-						},
-					},
-				),
-			).To(
-				Equal(
-					fmt.Sprintf(`[{ "op": "test", "path": "/spec/networks", "value": [{"name":%[1]q}]}, { "op": "test", "path": "/spec/domain/devices/interfaces", "value": [{"name":%[1]q}]}, { "op": "add", "path": "/spec/networks", "value": [{"name":%[1]q},{"name":%[2]q,"multus":{"networkName":%[3]q}}]}, { "op": "add", "path": "/spec/domain/devices/interfaces", "value": [{"name":%[1]q},{"name":%[2]q,"bridge":{}}]}]`, existingIfaceName, ifaceToHotplug, networkToHotplug),
-				),
-			)
-		})
 
 		DescribeTable("Should generate expected vm patch", func(interfaceRequest *v1.VirtualMachineInterfaceRequest, existingInterfaceRequests []v1.VirtualMachineInterfaceRequest, expectedPatch string) {
 			vm := newMinimalVM(request.PathParameter("name"))
@@ -383,33 +314,6 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			restoreKubeVirtClusterConfig()
 		})
 
-		createVMI := func() *v1.VirtualMachineInstance {
-			vmi := api.NewMinimalVMI(request.PathParameter("name"))
-			vmi.Namespace = "default"
-			vmi.Status.Phase = v1.Running
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
-				Name: existingNetworkName,
-			})
-			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
-				Name: existingNetworkName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: existingNetworkName,
-					},
-				},
-			})
-			return vmi
-		}
-
-		successfulMockScenarioForVMI := func(removeOpts *v1.RemoveInterfaceOptions) {
-			vmi := createVMI()
-
-			request.Request.Body = newRemoveInterfaceBody(removeOpts)
-
-			vmiClient.EXPECT().Get(context.Background(), vmi.Name, &k8smetav1.GetOptions{}).Return(vmi, nil)
-			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vmi, nil)
-		}
-
 		successfulMockScenarioForVM := func(removeOpts *v1.RemoveInterfaceOptions) {
 			vm := newMinimalVM(request.PathParameter("name"))
 
@@ -419,16 +323,6 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), &k8smetav1.PatchOptions{}).Return(vm, nil)
 		}
 
-		It("Should succeed a remove interface request on VMI", func() {
-			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
-			removeOpts := &v1.RemoveInterfaceOptions{Name: ifaceToHotUnplug}
-			successfulMockScenarioForVMI(removeOpts)
-
-			app.VMIRemoveInterfaceRequestHandler(request, response)
-
-			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-		})
-
 		It("Should succeed a remove interface request on VM", func() {
 			enableFeatureGate(virtconfig.HotplugNetworkIfacesGate)
 			removeOpts := &v1.RemoveInterfaceOptions{Name: ifaceToHotUnplug}
@@ -437,36 +331,6 @@ var _ = Describe("Interface Hotplug Subresource", func() {
 			app.VMRemoveInterfaceRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-		})
-
-		It("Should generate expected vmi patch when the remove interface request features all required data", func() {
-			vmi := api.NewMinimalVMI(request.PathParameter("name"))
-			vmi.Namespace = "default"
-			vmi.Status.Phase = v1.Running
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
-				Name: existingNetworkName,
-			})
-			vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{
-				Name: existingNetworkName,
-			})
-
-			Expect(
-				generateVMIInterfaceRequestPatch(
-					vmi,
-					&v1.VirtualMachineInterfaceRequest{
-						RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: ifaceToHotUnplug},
-					},
-				),
-			).To(
-				MatchJSON(
-					fmt.Sprintf(`[
-						{ "op": "test", "path": "/spec/networks", "value": [{"name":%[1]q}]},
-						{ "op": "test", "path": "/spec/domain/devices/interfaces", "value": [{"name":%[1]q}]},
-						{ "op": "add", "path": "/spec/networks", "value": [{"name":%[1]q}]},
-						{ "op": "add", "path": "/spec/domain/devices/interfaces", "value": [{"name":%[1]q,"state":"absent"}]}
-					]`, existingNetworkName),
-				),
-			)
 		})
 
 		It("Should return empty string given a VM with existing remove iface request", func() {
