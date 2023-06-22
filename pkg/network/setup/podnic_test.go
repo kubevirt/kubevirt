@@ -32,7 +32,7 @@ var _ = Describe("podNIC", func() {
 	)
 
 	newPhase2PodNICWithMocks := func(vmi *v1.VirtualMachineInstance) (*podNIC, error) {
-		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], mockNetwork, &baseCacheCreator, nil)
+		podnic, err := newPodNIC(vmi, &vmi.Spec.Networks[0], &vmi.Spec.Domain.Devices.Interfaces[0], mockNetwork, &baseCacheCreator, nil)
 		if err != nil {
 			return nil, err
 		}
