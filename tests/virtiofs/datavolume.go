@@ -37,6 +37,8 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -53,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -149,21 +152,43 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	})
 
 	Context("VirtIO-FS with an empty PVC", func() {
-
-		var pvc = "empty-pvc1"
+		var (
+			pvc            = "empty-pvc1"
+			originalConfig v1.KubeVirtConfiguration
+		)
 
 		BeforeEach(func() {
 			checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
+			originalConfig = *util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 			libstorage.CreateHostPathPv(pvc, testsuite.NamespacePrivileged, filepath.Join(testsuite.HostPathBase, pvc))
 			libstorage.CreateHostPathPVC(pvc, testsuite.NamespacePrivileged, "1G")
 		})
 
 		AfterEach(func() {
+			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			libstorage.DeletePVC(pvc, testsuite.NamespacePrivileged)
 			libstorage.DeletePV(pvc)
 		})
 
-		It("should be successfully started and virtiofs could be accessed", func() {
+		It("[Serial] should be successfully started and virtiofs could be accessed", Serial, func() {
+			resources := k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("2m"),
+					k8sv1.ResourceMemory: resource.MustParse("14M"),
+				},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("101m"),
+					k8sv1.ResourceMemory: resource.MustParse("81M"),
+				},
+			}
+			config := originalConfig.DeepCopy()
+			config.SupportContainerResources = []v1.SupportContainerResources{
+				{
+					Type:      v1.VirtioFS,
+					Resources: resources,
+				},
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(*config)
 			pvcName := fmt.Sprintf("disk-%s", pvc)
 			virtiofsMountPath := fmt.Sprintf("/mnt/virtiofs_%s", pvcName)
 			virtiofsTestFile := fmt.Sprintf("%s/virtiofs_test", virtiofsMountPath)
@@ -196,6 +221,36 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+			By("Finding virt-launcher pod")
+			var virtlauncherPod *k8sv1.Pod
+			Eventually(func() *k8sv1.Pod {
+				podList, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				if err != nil {
+					return nil
+				}
+				for _, pod := range podList.Items {
+					for _, ownerRef := range pod.GetOwnerReferences() {
+						if ownerRef.UID == vmi.GetUID() {
+							virtlauncherPod = &pod
+							break
+						}
+					}
+				}
+				return virtlauncherPod
+			}, 30*time.Second, 1*time.Second).ShouldNot(BeNil())
+			Expect(virtlauncherPod.Spec.Containers).To(HaveLen(3))
+			foundContainer := false
+			virtiofsContainerName := fmt.Sprintf("virtiofs-%s", pvcName)
+			for _, container := range virtlauncherPod.Spec.Containers {
+				if container.Name == virtiofsContainerName {
+					foundContainer = true
+					Expect(container.Resources.Requests.Cpu().Value()).To(Equal(resources.Requests.Cpu().Value()))
+					Expect(container.Resources.Requests.Memory().Value()).To(Equal(resources.Requests.Memory().Value()))
+					Expect(container.Resources.Limits.Cpu().Value()).To(Equal(resources.Limits.Cpu().Value()))
+					Expect(container.Resources.Limits.Memory().Value()).To(Equal(resources.Limits.Memory().Value()))
+				}
+			}
+			Expect(foundContainer).To(BeTrue())
 		})
 	})
 
@@ -273,6 +328,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
 		})
 	})
 })
