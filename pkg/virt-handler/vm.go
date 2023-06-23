@@ -1448,7 +1448,7 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 			LastProbeTime:      now,
 			LastTransitionTime: now,
 			Reason:             "PausedIOError",
-			Message:            "VMI was paused, IO error",
+			Message:            "VMI was paused, low-level IO error detected",
 		})
 	default:
 		log.Log.Object(vmi).V(3).Infof("Domain is paused for unknown reason, %s", reason)
