@@ -87,11 +87,9 @@ func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesRepo
 	}
 }
 
-func (r *KubernetesReporter) JustBeforeEach(specReport types.SpecReport) {
-	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
-}
-
 func (r *KubernetesReporter) JustAfterEach(specReport types.SpecReport) {
+	fmt.Fprintf(GinkgoWriter, "On failure, artifacts will be collected in %s/%d_*\n", r.artifactsDir, r.failureCount+1)
+
 	if r.failureCount > r.maxFails {
 		return
 	}
