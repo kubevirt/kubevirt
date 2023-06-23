@@ -35,8 +35,8 @@ __EOF__
 find * -type d -regex "^v[0-9.]*" \
     -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" \; | sort -r --version-sort -t '[' --key 2 >>README.md
 
-git config user.email "${GIT_AUTHOR_NAME:-kubevirt-bot}"
-git config user.name "${GIT_AUTHOR_EMAIL:-rmohr+kubebot@redhat.com}"
+git config user.email "${GIT_AUTHOR_EMAIL:-kubevirtbot@redhat.com}"
+git config user.name "${GIT_AUTHOR_NAME:-kubevirt-bot}"
 
 # NOTE: exclude index.html from match, because it is static except commit hash.
 if git status --porcelain | grep -v "index[.]html" | grep --quiet "^ [AM]"; then
