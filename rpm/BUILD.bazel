@@ -14,6 +14,12 @@ bazeldnf(
 )
 
 bazeldnf(
+    name = "sandbox_s390x",
+    command = "sandbox",
+    tar = ":sandboxroot_s390x",
+)
+
+bazeldnf(
     name = "ldd_x86_64",
     command = "ldd",
     libs = [
@@ -45,6 +51,23 @@ bazeldnf(
     ],
     rpmtree = ":libvirt-devel_aarch64",
     rulename = "libvirt-libs_aarch64",
+)
+
+bazeldnf(
+    name = "ldd_s390x",
+    command = "ldd",
+    libs = [
+        "/usr/lib64/libvirt-lxc.so.0",
+        "/usr/lib64/libvirt-qemu.so.0",
+        "/usr/lib64/libvirt.so.0",
+        "/usr/lib64/libgcrypt.so.20",
+        "/usr/lib64/libkrb5support.so.0",
+        "/usr/lib64/libkeyutils.so.1",
+        "/usr/lib64/liblz4.so.1",
+        "/usr/lib64/libmount.so.1",
+    ],
+    rpmtree = ":libvirt-devel_s390x",
+    rulename = "libvirt-libs_s390x",
 )
 
 rpmtree(
@@ -282,6 +305,16 @@ rpmtree(
         "@xz-libs-0__5.2.5-8.el9.aarch64//rpm",
         "@zlib-0__1.2.11-41.el9.aarch64//rpm",
     ],
+    symlinks = {
+        "/var/run": "../run",
+        "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
+    },
+    visibility = ["//visibility:public"],
+)
+
+rpmtree(
+    name = "handlerbase_s390x",
+    rpms = [],
     symlinks = {
         "/var/run": "../run",
         "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
@@ -613,6 +646,24 @@ rpmtree(
         "@yajl-0__2.1.0-22.el9.aarch64//rpm",
         "@zlib-0__1.2.11-41.el9.aarch64//rpm",
     ],
+    symlinks = {
+        "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
+        "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
+        "/var/run": "../run",
+        "/usr/sbin/iptables": "/usr/sbin/iptables-legacy",
+        "/usr/bin/nc": "/usr/bin/ncat",
+    },
+    visibility = ["//visibility:public"],
+)
+
+rpmtree(
+    name = "launcherbase_s390x",
+    capabilities = {
+        "/usr/libexec/qemu-kvm": [
+            "cap_net_bind_service",
+        ],
+    },
+    rpms = [],
     symlinks = {
         "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
         "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
@@ -1617,6 +1668,18 @@ rpmtree(
 )
 
 rpmtree(
+    name = "sandboxroot_s390x",
+    rpms = [],
+    symlinks = {
+        "/var/run": "../run",
+        "/usr/bin/python": "/usr/bin/python3.9",
+        "/usr/bin/python3": "/usr/bin/python3.9",
+        "/usr/bin/ld": "/usr/bin/ld.bfd",
+    },
+    visibility = ["//visibility:public"],
+)
+
+rpmtree(
     name = "sandboxroot_x86_64",
     rpms = [
         "@acl-0__2.3.1-4.el9.x86_64//rpm",
@@ -1990,6 +2053,18 @@ rpmtree(
         "@xz-libs-0__5.2.5-8.el9.aarch64//rpm",
         "@zlib-0__1.2.11-41.el9.aarch64//rpm",
     ],
+    symlinks = {
+        "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
+        "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
+        "/var/run": "../run",
+        "/usr/bin/nc": "/usr/bin/ncat",
+    },
+    visibility = ["//visibility:public"],
+)
+
+rpmtree(
+    name = "testimage_s390x",
+    rpms = [],
     symlinks = {
         "/etc/crypto-policies/back-ends/openssl.config": "/usr/share/crypto-policies/DEFAULT/openssl.txt",
         "/etc/crypto-policies/back-ends/opensslcnf.config": "/usr/share/crypto-policies/DEFAULT/opensslcnf.txt",
