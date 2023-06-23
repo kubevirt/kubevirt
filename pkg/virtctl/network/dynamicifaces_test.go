@@ -45,7 +45,6 @@ var _ = Describe("Dynamic Interface Attachment", func() {
 		ctrl       *gomock.Controller
 		kubeClient *fakek8sclient.Clientset
 		vm         *kubecli.MockVirtualMachineInterface
-		vmi        *kubecli.MockVirtualMachineInstanceInterface
 	)
 
 	BeforeEach(func() {
@@ -100,40 +99,21 @@ var _ = Describe("Dynamic Interface Attachment", func() {
 		})
 
 		It("hot-plug an interface works", func() {
-			vmi = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-			mockVMIAddInterfaceEndpoints(vmi, vmName, testNetworkAttachmentDefinitionName, testIfaceName)
+			vm = kubecli.NewMockVirtualMachineInterface(ctrl)
+			mockVMAddInterfaceEndpoints(vm, vmName, testNetworkAttachmentDefinitionName, testIfaceName)
 
 			cmdArgs := append(requiredAddCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName))
 			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotplugCmdName, vmName, cmdArgs...)...)
 			Expect(cmd.Execute()).To(Succeed())
 		})
 
-		It("hot-plug an interface with the `--persist` option works", func() {
-			vm = kubecli.NewMockVirtualMachineInterface(ctrl)
-			mockVMAddInterfaceEndpoints(vm, vmName, testNetworkAttachmentDefinitionName, testIfaceName)
-
-			cmdArgs := append(requiredAddCmdFlags(testNetworkAttachmentDefinitionName, testIfaceName), "--persist")
-			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotplugCmdName, vmName, cmdArgs...)...)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
 		It("hot-unplug an interface works", func() {
-			vmi = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-			mockVMIRemoveInterfaceEndpoints(vmi, vmName, testIfaceName)
+			vm = kubecli.NewMockVirtualMachineInterface(ctrl)
+			mockVMRemoveInterfaceEndpoints(vm, vmName, testIfaceName)
 
 			cmdArgs := []string{"--name", testIfaceName}
 			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotUnplugCmdName, vmName, cmdArgs...)...)
 			Expect(cmd.Execute()).To(Succeed())
-		})
-
-		It("hot-unplug an interface with the `--persist` option works", func() {
-			vm = kubecli.NewMockVirtualMachineInterface(ctrl)
-			mockVMRemoveInterfaceEndpoints(vm, vmName, testIfaceName)
-
-			cmdArgs := []string{"--name", testIfaceName, "--persist"}
-			cmd := clientcmd.NewVirtctlCommand(buildDynamicIfaceCmd(network.HotUnplugCmdName, vmName, cmdArgs...)...)
-			e := cmd.Execute()
-			Expect(e).To(Succeed())
 		})
 	})
 })
@@ -154,31 +134,6 @@ func buildHotplugIfaceCmd(vmName string, requiredCmdArgs ...string) []string {
 
 func buildHotUnplugIfaceCmd(vmName string, requiredCmdArgs ...string) []string {
 	return append([]string{network.HotUnplugCmdName, vmName}, requiredCmdArgs...)
-}
-
-func mockVMIAddInterfaceEndpoints(vmi *kubecli.MockVirtualMachineInstanceInterface, vmName string, networkAttachmentDefinitionName string, name string) {
-	kubecli.MockKubevirtClientInstance.
-		EXPECT().
-		VirtualMachineInstance(k8smetav1.NamespaceDefault).
-		Return(vmi).
-		Times(1)
-	vmi.EXPECT().AddInterface(context.Background(), vmName, gomock.Any()).DoAndReturn(func(arg0, arg1, arg2 interface{}) interface{} {
-		Expect(arg2.(*v1.AddInterfaceOptions).NetworkAttachmentDefinitionName).To(Equal(networkAttachmentDefinitionName))
-		Expect(arg2.(*v1.AddInterfaceOptions).Name).To(Equal(name))
-		return nil
-	})
-}
-
-func mockVMIRemoveInterfaceEndpoints(vmi *kubecli.MockVirtualMachineInstanceInterface, vmName string, name string) {
-	kubecli.MockKubevirtClientInstance.
-		EXPECT().
-		VirtualMachineInstance(k8smetav1.NamespaceDefault).
-		Return(vmi).
-		Times(1)
-	vmi.EXPECT().RemoveInterface(context.Background(), vmName, gomock.Any()).DoAndReturn(func(arg0, arg1, arg2 interface{}) interface{} {
-		Expect(arg2.(*v1.RemoveInterfaceOptions).Name).To(Equal(name))
-		return nil
-	})
 }
 
 func mockVMAddInterfaceEndpoints(vm *kubecli.MockVirtualMachineInterface, vmName string, networkAttachmentDefinitionName string, name string) {
