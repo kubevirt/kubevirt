@@ -23,3 +23,15 @@ repositories:
   baseurl: http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/
   name: centos/stream9-crb-aarch64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: s390x
+  baseurl: http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/
+  name: centos/stream9-baseos-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: s390x
+  baseurl: http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/
+  name: centos/stream9-appstream-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: s390x
+  baseurl: http://mirror.stream.centos.org/9-stream/CRB/s390x/os/
+  name: centos/stream9-crb-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
