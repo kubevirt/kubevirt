@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -63,7 +63,7 @@ func newSspHandler(Client client.Client, Scheme *runtime.Scheme) *sspHandler {
 }
 
 type sspHooks struct {
-	cache        *sspv1beta1.SSP
+	cache        *sspv1beta2.SSP
 	dictStatuses []hcov1beta1.DataImportCronTemplateStatus
 }
 
@@ -79,12 +79,12 @@ func (h *sspHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, erro
 	return h.cache, nil
 }
 
-func (*sspHooks) getEmptyCr() client.Object { return &sspv1beta1.SSP{} }
+func (*sspHooks) getEmptyCr() client.Object { return &sspv1beta2.SSP{} }
 func (*sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
-	return osConditionsToK8s(cr.(*sspv1beta1.SSP).Status.Conditions)
+	return osConditionsToK8s(cr.(*sspv1beta2.SSP).Status.Conditions)
 }
 func (*sspHooks) checkComponentVersion(cr runtime.Object) bool {
-	found := cr.(*sspv1beta1.SSP)
+	found := cr.(*sspv1beta2.SSP)
 	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
 }
 func (h *sspHooks) reset() {
@@ -93,8 +93,8 @@ func (h *sspHooks) reset() {
 }
 
 func (*sspHooks) updateCr(req *common.HcoRequest, client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
-	ssp, ok1 := required.(*sspv1beta1.SSP)
-	found, ok2 := exists.(*sspv1beta1.SSP)
+	ssp, ok1 := required.(*sspv1beta2.SSP)
+	found, ok2 := exists.(*sspv1beta2.SSP)
 	if !ok1 || !ok2 {
 		return false, false, errors.New("can't convert to SSP")
 	}
@@ -123,7 +123,7 @@ func (h *sspHooks) justBeforeComplete(req *common.HcoRequest) {
 	}
 }
 
-func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, []hcov1beta1.DataImportCronTemplateStatus, error) {
+func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []hcov1beta1.DataImportCronTemplateStatus, error) {
 	replicas := int32(defaultTemplateValidatorReplicas)
 	templatesNamespace := defaultCommonTemplatesNamespace
 
@@ -143,22 +143,21 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, []h
 		dataImportCronTemplates = append(dataImportCronTemplates, dictStatus.DataImportCronTemplate)
 	}
 
-	spec := sspv1beta1.SSPSpec{
-		TemplateValidator: &sspv1beta1.TemplateValidator{
+	spec := sspv1beta2.SSPSpec{
+		TemplateValidator: &sspv1beta2.TemplateValidator{
 			Replicas: &replicas,
 		},
-		CommonTemplates: sspv1beta1.CommonTemplates{
+		CommonTemplates: sspv1beta2.CommonTemplates{
 			Namespace:               templatesNamespace,
 			DataImportCronTemplates: hcoDictSliceToSSP(dataImportCronTemplates),
 		},
 		// NodeLabeller field is explicitly initialized to its zero-value,
 		// in order to future-proof from bugs if SSP changes it to pointer-type,
 		// causing nil pointers dereferences at the DeepCopyInto() below.
-		NodeLabeller:       &sspv1beta1.NodeLabeller{},
 		TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
-		FeatureGates:       &sspv1beta1.FeatureGates{},
-		TektonPipelines:    &sspv1beta1.TektonPipelines{},
-		TektonTasks:        &sspv1beta1.TektonTasks{},
+		FeatureGates:       &sspv1beta2.FeatureGates{},
+		TektonPipelines:    &sspv1beta2.TektonPipelines{},
+		TektonTasks:        &sspv1beta2.TektonTasks{},
 	}
 
 	if hc.Spec.FeatureGates.DeployTektonTaskResources != nil {
@@ -185,10 +184,6 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, []h
 		spec.TemplateValidator.Placement = hc.Spec.Infra.NodePlacement.DeepCopy()
 	}
 
-	if hc.Spec.Workloads.NodePlacement != nil {
-		spec.NodeLabeller.Placement = hc.Spec.Workloads.NodePlacement.DeepCopy()
-	}
-
 	ssp := NewSSPWithNameOnly(hc)
 	ssp.Spec = spec
 
@@ -199,8 +194,8 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta1.SSP, []h
 	return ssp, dataImportCronStatuses, nil
 }
 
-func NewSSPWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *sspv1beta1.SSP {
-	return &sspv1beta1.SSP{
+func NewSSPWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *sspv1beta2.SSP {
+	return &sspv1beta2.SSP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ssp-" + hc.Name,
 			Labels:    getLabels(hc, hcoutil.AppComponentSchedule),
@@ -347,13 +342,13 @@ func (d dataImportTemplateSlice) Len() int           { return len(d) }
 func (d dataImportTemplateSlice) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d dataImportTemplateSlice) Less(i, j int) bool { return d[i].Name < d[j].Name }
 
-func hcoDictToSSP(hcoDict hcov1beta1.DataImportCronTemplate) sspv1beta1.DataImportCronTemplate {
+func hcoDictToSSP(hcoDict hcov1beta1.DataImportCronTemplate) sspv1beta2.DataImportCronTemplate {
 	spec := cdiv1beta1.DataImportCronSpec{}
 	if hcoDict.Spec != nil {
 		hcoDict.Spec.DeepCopyInto(&spec)
 	}
 
-	dict := sspv1beta1.DataImportCronTemplate{
+	dict := sspv1beta2.DataImportCronTemplate{
 		ObjectMeta: *hcoDict.ObjectMeta.DeepCopy(),
 		Spec:       spec,
 	}
@@ -369,12 +364,12 @@ func hcoDictToSSP(hcoDict hcov1beta1.DataImportCronTemplate) sspv1beta1.DataImpo
 	return dict
 }
 
-func hcoDictSliceToSSP(hcoDicts []hcov1beta1.DataImportCronTemplate) []sspv1beta1.DataImportCronTemplate {
+func hcoDictSliceToSSP(hcoDicts []hcov1beta1.DataImportCronTemplate) []sspv1beta2.DataImportCronTemplate {
 	if len(hcoDicts) == 0 {
 		return nil
 	}
 
-	res := make([]sspv1beta1.DataImportCronTemplate, len(hcoDicts))
+	res := make([]sspv1beta2.DataImportCronTemplate, len(hcoDicts))
 
 	for i, hcoDict := range hcoDicts {
 		res[i] = hcoDictToSSP(hcoDict)

@@ -35,7 +35,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
 
 // Mock TestRequest to simulate Reconcile() being called on an event for a watched resource
@@ -114,7 +114,7 @@ type BasicExpected struct {
 	kv                   *kubevirtcorev1.KubeVirt
 	cdi                  *cdiv1beta1.CDI
 	cna                  *networkaddonsv1.NetworkAddonsConfig
-	ssp                  *sspv1beta1.SSP
+	ssp                  *sspv1beta2.SSP
 	mService             *corev1.Service
 	serviceMonitor       *monitoringv1.ServiceMonitor
 	cliDownload          *consolev1.ConsoleCLIDownload

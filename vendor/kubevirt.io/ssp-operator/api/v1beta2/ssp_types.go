@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1beta2
 
 import (
 	ocpv1 "github.com/openshift/api/config/v1"
@@ -48,11 +48,6 @@ type CommonTemplates struct {
 	DataImportCronTemplates []DataImportCronTemplate `json:"dataImportCronTemplates,omitempty"`
 }
 
-type NodeLabeller struct {
-	// Placement describes the node scheduling configuration
-	Placement *lifecycleapi.NodePlacement `json:"placement,omitempty"`
-}
-
 type CommonInstancetypes struct {
 	// URL of a remote Kustomize target from which to generate and deploy resources.
 	//
@@ -82,9 +77,6 @@ type SSPSpec struct {
 
 	// CommonTemplates is the configuration of the common templates operand
 	CommonTemplates CommonTemplates `json:"commonTemplates"`
-
-	// NodeLabeller is configuration of the node-labeller operand
-	NodeLabeller *NodeLabeller `json:"nodeLabeller,omitempty"`
 
 	// TLSSecurityProfile is a configuration for the TLS.
 	TLSSecurityProfile *ocpv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
@@ -146,7 +138,7 @@ type SSPStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-
+// +kubebuilder:storageversion
 // SSP is the Schema for the ssps API
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 type SSP struct {

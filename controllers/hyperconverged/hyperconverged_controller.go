@@ -49,7 +49,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
 
 var (
@@ -187,7 +187,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 	}
 	if ci.IsOpenshift() {
 		secondaryResources = append(secondaryResources, []client.Object{
-			&sspv1beta1.SSP{},
+			&sspv1beta2.SSP{},
 			&corev1.Service{},
 			&monitoringv1.ServiceMonitor{},
 			&monitoringv1.PrometheusRule{},

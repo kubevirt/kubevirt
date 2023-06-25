@@ -35,7 +35,7 @@ import (
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-	sspv1beta1 "kubevirt.io/ssp-operator/api/v1beta1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
 
 // Name and Namespace of our primary resource
@@ -151,7 +151,7 @@ func GetScheme() *runtime.Scheme {
 		kubevirtcorev1.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		networkaddonsv1.AddToScheme,
-		sspv1beta1.AddToScheme,
+		sspv1beta2.AddToScheme,
 		monitoringv1.AddToScheme,
 		apiextensionsv1.AddToScheme,
 		routev1.Install,
