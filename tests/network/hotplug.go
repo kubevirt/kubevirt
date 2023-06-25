@@ -206,10 +206,6 @@ var _ = SIGDescribe("nic-hotplug", func() {
 				),
 			).To(Succeed())
 
-			if plugMethod == migrationBased {
-				migrate(hotPluggedVMI)
-			}
-
 			By("wait for the second network to appear in the VMI spec")
 			EventuallyWithOffset(1, func() []v1.Network {
 				var err error
