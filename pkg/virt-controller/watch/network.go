@@ -21,6 +21,7 @@ package watch
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
@@ -88,4 +89,19 @@ func trimDoneInterfaceRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInst
 		}
 	}
 	vm.Status.InterfaceRequests = updateIfaceRequests
+}
+
+func handleDynamicInterfaceRequests(vm *v1.VirtualMachine) {
+	if len(vm.Status.InterfaceRequests) == 0 {
+		return
+	}
+
+	vmTemplateCopy := vm.Spec.Template.Spec.DeepCopy()
+	for i := range vm.Status.InterfaceRequests {
+		vmTemplateCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
+			vmTemplateCopy, &vm.Status.InterfaceRequests[i])
+	}
+	vm.Spec.Template.Spec = *vmTemplateCopy
+
+	return
 }
