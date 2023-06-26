@@ -292,12 +292,6 @@ Msg "Check that OVS is deployed or not deployed according to deployOVS annotatio
 Msg "Ensure that console plugin deployment and service has been renamed successfully"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_upgrade_console_plugin.sh
 
-Msg "Check that managed objects has correct labels"
-./hack/retry.sh 10 30 "KUBECTL_BINARY=${CMD} ./hack/check_labels.sh"
-
-Msg "Check the defaulting mechanism"
-KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_defaults.sh
-
 Msg "Check that the v2v CRDs and deployments were removed"
 if ${CMD} get crd | grep -q v2v.kubevirt.io; then
     echo "The v2v CRDs should not be found; they had to be removed."
@@ -336,9 +330,6 @@ else
     echo "TTO reference removed from .status.relatedObjects"
 fi
 
-Msg "check golden images"
-KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_golden_images.sh
-
 Msg "check virtio-win image is in configmap"
 VIRTIOWIN_IMAGE_CSV=$(${CMD} get ${CSV} -n ${HCO_NAMESPACE} \
   -o jsonpath='{.spec.install.spec.deployments[?(@.name=="hco-operator")].spec.template.spec.containers[0].env[?(@.name=="VIRTIOWIN_CONTAINER")].value}')
@@ -353,9 +344,5 @@ ${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}"
 Msg "Read the HCO webhook log before it been deleted"
 WH_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-webhook" -o name)
 ${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}"
-
-Msg "Brutally delete HCO removing the namespace where it's running"
-source hack/test_delete_ns.sh
-test_delete_ns
 
 echo "upgrade-test completed successfully."

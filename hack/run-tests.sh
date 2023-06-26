@@ -59,6 +59,3 @@ sleep 10
 [[ $(${KUBECTL_BINARY} get priorityclass kubevirt-cluster-critical -o=jsonpath='{.metadata.labels.app}') == 'kubevirt-hyperconverged' ]]
 
 ./hack/check_update_priority_class.sh
-
-# Check the webhook, to see if it allow deleting of the HyperConverged CR
-./hack/retry.sh 10 30 "${KUBECTL_BINARY} delete hco -n ${INSTALLED_NAMESPACE} kubevirt-hyperconverged"

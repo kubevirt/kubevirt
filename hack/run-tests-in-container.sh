@@ -119,3 +119,6 @@ echo "Exiting... Exit code: $exitCode"
 # exit non-zero if exit code of functest is not zero
 [[ "${exitCode}" == "0" ]]
 
+# Brutally delete HCO removing the namespace where it's running"
+source hack/test_delete_ns.sh
+test_delete_ns
