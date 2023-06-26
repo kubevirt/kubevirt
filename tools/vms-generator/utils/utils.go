@@ -988,7 +988,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		panic(err)
 	}
 	storageClassName := "local"
-	url := fmt.Sprintf("docker://%s/%s:%s", DockerPrefix, imageAlpine, DockerTag)
+	url := fmt.Sprintf("\"docker://%s/%s:%s\"", DockerPrefix, imageAlpine, DockerTag)
 	dataVolumeSpec := v1.DataVolumeTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "alpine-dv",
