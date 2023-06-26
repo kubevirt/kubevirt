@@ -2717,21 +2717,20 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 	for i := range vm.Status.InterfaceRequests {
 		vmTemplateCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
 			vmTemplateCopy, &vm.Status.InterfaceRequests[i])
+	}
+	vm.Spec.Template.Spec = *vmTemplateCopy
 
-		if vmi == nil || vmi.DeletionTimestamp != nil {
-			continue
-		}
-
+	if vmi != nil && vmi.DeletionTimestamp == nil {
 		vmiSpecCopy := vmi.Spec.DeepCopy()
-		vmiSpecCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
-			vmiSpecCopy, &vm.Status.InterfaceRequests[i])
-
+		for i := range vm.Status.InterfaceRequests {
+			vmiSpecCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
+				vmiSpecCopy, &vm.Status.InterfaceRequests[i])
+		}
 		if err := c.vmiInterfacesPatch(vmiSpecCopy, vmi); err != nil {
 			return err
 		}
 	}
 
-	vm.Spec.Template.Spec = *vmTemplateCopy
 	return nil
 }
 
