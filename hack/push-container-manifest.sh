@@ -27,28 +27,37 @@ fi
 
 fail_if_cri_bin_missing
 
+function podman_push_manifest() {
+    image=$1
+    # FIXME: Workaround https://github.com/containers/podman/issues/18360 and remove once https://github.com/containers/podman/commit/bab4217cd16be609ac35ccf3061d1e34f787856f is released
+    echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+    ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+    for ARCH in ${BUILD_ARCH//,/ }; do
+        FORMATED_ARCH=$(format_archname ${ARCH})
+        digest=$(cat ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest)
+        ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}@${digest}
+    done
+    ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+}
+
+function docker_push_manifest() {
+    image=$1
+    MANIFEST_IMAGES=""
+    for ARCH in ${BUILD_ARCH//,/ }; do
+        FORMATED_ARCH=$(format_archname ${ARCH})
+        digest=$(cat ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest)
+        MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${DOCKER_PREFIX}/${image}@${digest}"
+    done
+    echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
+    ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
+    ${KUBEVIRT_CRI} manifest push ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+}
+
 export DOCKER_CLI_EXPERIMENTAL=enabled
 for image in $(find ${DIGESTS_DIR}/*/bazel-bin/ -name '*.digest' -printf '%f\n' | sed s/^push-//g | sed s/\.digest$//g | sort -u); do
-    MANIFEST_IMAGES=""
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
-        # FIXME: Workaround https://github.com/containers/podman/issues/18360 and remove once https://github.com/containers/podman/commit/bab4217cd16be609ac35ccf3061d1e34f787856f is released
-        echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
-        ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
-        for ARCH in ${BUILD_ARCH//,/ }; do
-            ARCH=$(format_archname ${ARCH})
-            digest=$(cat ${DIGESTS_DIR}/${ARCH}/bazel-bin/push-$image.digest)
-            ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}@${digest}
-        done
-        ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+        podman_push_manifest $image
     else
-        for ARCH in ${BUILD_ARCH//,/ }; do
-            ARCH=$(format_archname ${ARCH})
-            digest=$(cat ${DIGESTS_DIR}/${ARCH}/bazel-bin/push-$image.digest)
-            MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${DOCKER_PREFIX}/${image}@${digest}"
-        done
-
-        echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
-        ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
-        ${KUBEVIRT_CRI} manifest push ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
+        docker_push_manifest $image
     fi
 done
