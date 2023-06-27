@@ -3868,7 +3868,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		Context("with a VMI running", func() {
 			Context("with no eviction strategy set", func() {
-				It("should block the eviction api and migrate", func() {
+				It("[test_id:10155]should block the eviction api and migrate", func() {
 					// no EvictionStrategy set
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -3905,7 +3905,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			Context("with eviction strategy set to 'None'", func() {
-				It("The VMI should get evicted", func() {
+				It("[test_id:10156]The VMI should get evicted", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					evictionStrategy := v1.EvictionStrategyNone
 					vmi.Spec.EvictionStrategy = &evictionStrategy
