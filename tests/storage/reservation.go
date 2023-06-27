@@ -94,10 +94,13 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		By(fmt.Sprintf("ldconfig: stdout: %v stderr: %v", stdout, stderr))
 		Expect(err).ToNot(HaveOccurred())
 
-		// Create backend file
+		// Create backend file. Let some room for metedata and create a
+		// slightly smaller backend image, we use 800M instead of 1G. In
+		// this case, the disk size doesn't matter as the disk is used
+		// mostly to test the SCSI persistent reservation ioctls.
 		executeTargetCli(podName, []string{
 			"backstores/fileio",
-			"create", backendDisk, "/disks/disk.img", "1G"})
+			"create", backendDisk, "/disks/disk.img", "800M"})
 		executeTargetCli(podName, []string{
 			"loopback/", "create", naa})
 		// Create LUN
