@@ -284,11 +284,13 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 			if policyRemovedByTest {
 				By("Re-installing custom SELinux policy on all nodes")
 				err = runOnAllSchedulableNodes(virtClient, []string{"cp", "/var/run/kubevirt/virt_launcher.cil", "/proc/1/root/tmp/"}, "")
-				Expect(err).ToNot(HaveOccurred())
-				err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-i", "/tmp/virt_launcher.cil"}, "")
-				Expect(err).ToNot(HaveOccurred())
-				err = runOnAllSchedulableNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
-				Expect(err).ToNot(HaveOccurred())
+				// That file may not be deployed on clusters that don't need the policy anymore
+				if err == nil {
+					err = runOnAllSchedulableNodes(virtClient, []string{"chroot", "/proc/1/root", "semodule", "-i", "/tmp/virt_launcher.cil"}, "")
+					Expect(err).ToNot(HaveOccurred())
+					err = runOnAllSchedulableNodes(virtClient, []string{"rm", "-f", "/proc/1/root/tmp/virt_launcher.cil"}, "")
+					Expect(err).ToNot(HaveOccurred())
+				}
 			}
 		})
 
