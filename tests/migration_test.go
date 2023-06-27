@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -3641,6 +3643,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi_evict1 := alpineVMIWithEvictionStrategy()
 					vmi_evict2 := alpineVMIWithEvictionStrategy()
 					vmi_noevict := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+					vmi_noevict.Spec.EvictionStrategy = kvpointer.P(v1.EvictionStrategyNone)
 
 					labelKey := "testkey"
 					labels := map[string]string{
