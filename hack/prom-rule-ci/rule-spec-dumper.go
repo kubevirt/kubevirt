@@ -25,7 +25,7 @@ func main() {
 
 	targetFile := os.Args[1]
 
-	promRuleSpec := components.NewPrometheusRuleSpec("ci", true)
+	promRuleSpec := components.NewPrometheusRuleSpec("ci")
 	b, err := json.Marshal(promRuleSpec)
 	if err != nil {
 		panic(err)

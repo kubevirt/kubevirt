@@ -1231,7 +1231,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		all = append(all, crd)
 	}
 	// cr
-	all = append(all, components.NewPrometheusRuleCR(config.GetNamespace(), config.WorkloadUpdatesEnabled()))
+	all = append(all, components.NewPrometheusRuleCR(config.GetNamespace()))
 	// sccs
 	all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 	all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
