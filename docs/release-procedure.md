@@ -93,7 +93,7 @@ The release process is mostly automatic and consists of the following steps:
    check that the binary artifacts got attached to the release at
    `https://github.com/kubevirt/kubevirt/releases/tag/${TAG}`
    and that the containers were correctly tagged and pushed to
-   <https://hub.docker.com/r/kubevirt/>
+   <https://quay.io/organization/kubevirt/>
 
 5. If release looks correct, click "edit" on the release in the github UI
    and uncheck the "This is a pre-release" box. This will make the release
@@ -115,7 +115,7 @@ The release itself is only a git signed tag as it's used for minor releases as w
    check that the binary artifacts got attached to the release at
    `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
    and that the containers were correctly tagged and pushed to
-   <https://hub.docker.com/r/kubevirt/>
+   <https://quay.io/organization/kubevirt/>
 
 3. If release looks correct, click "edit" on the release in the github UI
    and uncheck the "This is a pre-release" box. This will make the release
