@@ -225,11 +225,6 @@ container_bundle(
 # heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
 load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 
-docker_push(
-    name = "push-other-images",
-    bundle = ":build-other-images",
-)
-
 # we need to push virt images with the rule from container:container in order to get the digest file
 container_push(
     name = "push-virt-operator",
@@ -319,6 +314,147 @@ container_push(
     image = "//cmd/pr-helper:pr-helper",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)pr-helper",
+    tag = "$(container_tag)",
+)
+
+# The following container_push list is synced with the images in container_bundle "build-other-images".
+# cmd images
+container_push(
+    name = "push-example-hook-sidecar",
+    format = "Docker",
+    image = "//cmd/example-hook-sidecar:example-hook-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-example-disk-mutation-hook-sidecar",
+    format = "Docker",
+    image = "//cmd/example-disk-mutation-hook-sidecar:example-disk-mutation-hook-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-disk-mutation-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-example-cloudinit-hook-sidecar",
+    format = "Docker",
+    image = "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)example-cloudinit-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+# container-disk images
+container_push(
+    name = "push-alpine-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:alpine-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-cirros-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:cirros-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)cirros-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-cirros-custom-container-disk-demo",
+    format = "Docker",
+    image = "//containerimages:cirros-custom-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)cirros-custom-container-disk-demo",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-virtio-container-disk",
+    format = "Docker",
+    image = "//containerimages:virtio-container-disk-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)virtio-container-disk",
+    tag = "$(container_tag)",
+)
+
+# Kernel boot container
+container_push(
+    name = "push-alpine-ext-kernel-boot-demo",
+    format = "Docker",
+    image = "//containerimages:alpine-ext-kernel-boot-demo-container",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-ext-kernel-boot-demo",
+    tag = "$(container_tag)",
+)
+
+# Customized container-disk images
+container_push(
+    name = "push-fedora-with-test-tooling-container-disk",
+    format = "Docker",
+    image = "//containerimages:fedora-with-test-tooling",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)fedora-with-test-tooling-container-disk",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-alpine-with-test-tooling-container-disk",
+    format = "Docker",
+    image = "//containerimages:alpine-with-test-tooling",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)alpine-with-test-tooling-container-disk",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-fedora-realtime-container-disk",
+    format = "Docker",
+    image = "//containerimages:fedora-realtime",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)fedora-realtime-container-disk",
+    tag = "$(container_tag)",
+)
+
+# testing images
+container_push(
+    name = "push-disks-images-provider",
+    format = "Docker",
+    image = "//images/disks-images-provider:disks-images-provider-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)disks-images-provider",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-nfs-server",
+    format = "Docker",
+    image = "//images/nfs-server:nfs-server-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)nfs-server",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-vm-killer",
+    format = "Docker",
+    image = "//images/vm-killer:vm-killer-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)vm-killer",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-winrmcli",
+    format = "Docker",
+    image = "//images/winrmcli:winrmcli-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)winrmcli",
     tag = "$(container_tag)",
 )
 
