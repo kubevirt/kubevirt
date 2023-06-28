@@ -285,25 +285,3 @@ func (v *vm) RemoveVolume(ctx context.Context, name string, removeVolumeOptions 
 func (v *vm) PortForward(name string, port int, protocol string) (StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, buildPortForwardResourcePath(port, protocol), url.Values{})
 }
-
-func (v *vm) AddInterface(ctx context.Context, name string, addInterfaceOptions *v1.AddInterfaceOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "addinterface")
-
-	JSON, err := json.Marshal(addInterfaceOptions)
-	if err != nil {
-		return err
-	}
-
-	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
-}
-
-func (v *vm) RemoveInterface(ctx context.Context, name string, removeInterfaceOptions *v1.RemoveInterfaceOptions) error {
-	uri := fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion, v.namespace, name, "removeinterface")
-
-	JSON, err := json.Marshal(removeInterfaceOptions)
-	if err != nil {
-		return err
-	}
-
-	return v.restClient.Put().RequestURI(uri).Body(JSON).Do(ctx).Error()
-}
