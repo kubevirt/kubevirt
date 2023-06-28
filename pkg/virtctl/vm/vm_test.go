@@ -3,7 +3,6 @@ package vm_test
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"k8s.io/utils/pointer"
 
@@ -14,7 +13,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -27,25 +25,11 @@ import (
 	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
 )
 
-const (
-	vmName           = "testvm"
-	invalidFormat    = "test-format"
-	namespace        = "--namespace"
-	nonExistingVM    = "non-existing-vm"
-	testingNamespace = "testing-namespace"
-	outputFormat     = "--output"
-	fileInput        = "--file"
-)
-
 var _ = Describe("VirtualMachine", func() {
 
-	var vm *v1.VirtualMachine
-	var file *os.File
-	var err error
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
-	var expandSpecInterface *kubecli.MockExpandSpecInterface
 	var ctrl *gomock.Controller
 
 	runStrategyAlways := v1.RunStrategyAlways
@@ -62,7 +46,6 @@ var _ = Describe("VirtualMachine", func() {
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		expandSpecInterface = kubecli.NewMockExpandSpecInterface(ctrl)
 		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 	})
 
@@ -85,10 +68,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 		It("should fail a migrate-cancel", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel")
-			Expect(cmd()).NotTo(Succeed())
-		})
-		It("should fail a expand", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand("expand")
 			Expect(cmd()).NotTo(Succeed())
 		})
 	})
@@ -629,111 +608,4 @@ var _ = Describe("VirtualMachine", func() {
 		)
 	})
 
-	Context("Expand command", func() {
-		BeforeEach(func() {
-			vm = kubecli.NewMinimalVM(vmName)
-		})
-
-		It("should succeed when called on vm", func() {
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().GetWithExpandedSpec(context.Background(), vmName)
-
-			cmd := clientcmd.NewVirtctlCommand("expand", "--vm", vmName)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
-		DescribeTable("should succeed when called with ", func(formatName string) {
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().GetWithExpandedSpec(context.Background(), vmName)
-
-			cmd := clientcmd.NewVirtctlCommand("expand", outputFormat, formatName, "--vm", vmName)
-			Expect(cmd.Execute()).To(Succeed())
-		},
-			Entry("supported format json", "json"),
-			Entry("supported format yaml", "yaml"),
-		)
-
-		It("should fail when called on non existing vm", func() {
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().GetWithExpandedSpec(context.Background(), nonExistingVM).Return(nil, fmt.Errorf("\"%s\" not found", nonExistingVM))
-
-			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", "--vm", nonExistingVM)
-			err := cmd()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: \"non-existing-vm\" not found"))
-		})
-
-		It("should fail when called with non supported output format", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", outputFormat, invalidFormat, "--vm", vmName)
-			err := cmd()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(MatchError("error not supported output format defined: test-format"))
-		})
-	})
-
-	Context("Expand command with file input", func() {
-		const (
-			vmSpec = `apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-metadata:
-  name: testvm
-spec:
-  runStrategy: Always
-  template:
-    spec:
-      domain:
-        devices: {}
-        machine:
-          type: q35
-        resources: {}
-        volumes:
-status:
-`
-			invalidYaml = `apiVersion: kubevirt.io/v1kind: VirtualMachine`
-		)
-		BeforeEach(func() {
-			file, err = os.CreateTemp("", "file-*")
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should succeed when called with existing file input", func() {
-			Expect(os.WriteFile(file.Name(), []byte(vmSpec), 0777)).To(Succeed())
-			Expect(yaml.Unmarshal([]byte(vmSpec), vm)).To(Succeed())
-
-			kubecli.MockKubevirtClientInstance.EXPECT().ExpandSpec(k8smetav1.NamespaceDefault).Return(expandSpecInterface).Times(1)
-			expandSpecInterface.EXPECT().ForVirtualMachine(vm).Return(vm, nil).Times(1)
-
-			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", fileInput, file.Name())
-			err := cmd()
-
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should fail when called with invalid vm defined in file input", func() {
-			Expect(os.WriteFile(file.Name(), []byte(vmSpec), 0777)).To(Succeed())
-			Expect(yaml.Unmarshal([]byte(vmSpec), vm)).To(Succeed())
-
-			kubecli.MockKubevirtClientInstance.EXPECT().ExpandSpec(k8smetav1.NamespaceDefault).Return(expandSpecInterface).Times(1)
-			expandSpecInterface.EXPECT().ForVirtualMachine(vm).Return(nil, fmt.Errorf("error expanding vm from file")).Times(1)
-
-			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", fileInput, file.Name())
-			err := cmd()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(MatchError("error expanding VirtualMachine - testvm in namespace - default: error expanding vm from file"))
-		})
-
-		It("should fail when called with invalid yaml in file input", func() {
-			Expect(os.WriteFile(file.Name(), []byte(invalidYaml), 0777)).To(Succeed())
-			Expect(yaml.Unmarshal([]byte(invalidYaml), vm)).ToNot(Succeed())
-
-			cmd := clientcmd.NewRepeatableVirtctlCommand("expand", fileInput, file.Name())
-			err := cmd()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(MatchError("error decoding VirtualMachine error converting YAML to JSON: yaml: mapping values are not allowed in this context"))
-		})
-	})
 })
