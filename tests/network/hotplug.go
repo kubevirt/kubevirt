@@ -101,6 +101,24 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
 			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
+
+			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.Name, &metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			vmIfaceSpec := vmispec.LookupInterfaceByName(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces, ifaceName)
+			Expect(vmIfaceSpec).NotTo(BeNil(), "VM spec should contain the new interface")
+			Expect(vmIfaceSpec.MacAddress).NotTo(BeEmpty(), "VM iface spec should have MAC address")
+
+			Eventually(func(g Gomega) {
+				updatedVMI, err := kubevirt.Client().VirtualMachineInstance(hotPluggedVMI.Namespace).Get(context.Background(), hotPluggedVMI.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(updatedVMI.Status.Interfaces, ifaceName)
+				g.Expect(vmiIfaceStatus).NotTo(BeNil(), "VMI status should report the hotplugged interface")
+				g.Expect(vmiIfaceStatus.MAC).NotTo(BeEmpty(), "VMI hotplugged iface status should report MAC address")
+
+				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
+					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
+			}, time.Second*30, time.Second*3).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
