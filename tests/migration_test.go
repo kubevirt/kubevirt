@@ -3461,8 +3461,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
-					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
-
 					vmi = fedoraVMIWithEvictionStrategy()
 
 					By("Starting the VirtualMachineInstance")
@@ -3510,8 +3508,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
-					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
-
 					vmi = fedoraVMIWithEvictionStrategy()
 
 					By("Starting the VirtualMachineInstance")
@@ -3551,8 +3547,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
-					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
-
 					vmi = alpineVMIWithEvictionStrategy()
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
@@ -3585,8 +3579,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
-					checks.SkipIfVersionBelow("Eviction of completed pods requires v1.13 and above", "1.13")
-
 					vmi_evict1 := alpineVMIWithEvictionStrategy()
 					vmi_evict2 := alpineVMIWithEvictionStrategy()
 					vmi_noevict := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))

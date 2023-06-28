@@ -2432,8 +2432,6 @@ spec:
 			if !libstorage.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
-			checks.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
-
 			// This tests starting infrastructure with and without the DataVolumes feature gate
 			var foundSC bool
 			vm, foundSC = tests.NewRandomVMWithDataVolume(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil))

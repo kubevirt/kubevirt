@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -155,7 +154,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	)
 
 	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
-		checks.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
 		template := libvmi.NewCirros(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -234,7 +232,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	It("[test_id:1414]should return the correct data when using server-side printing", func() {
-		checks.SkipIfVersionBelow("server-side printing is only enabled by default from 1.11 on", "1.11")
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
