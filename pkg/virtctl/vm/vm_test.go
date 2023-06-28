@@ -23,7 +23,6 @@ var _ = Describe("VirtualMachine", func() {
 
 	var vmInterface *kubecli.MockVirtualMachineInterface
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
 	var ctrl *gomock.Controller
 
 	runStrategyAlways := v1.RunStrategyAlways
@@ -40,7 +39,6 @@ var _ = Describe("VirtualMachine", func() {
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
 	})
 
 	Context("With missing input parameters", func() {
@@ -58,10 +56,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 		It("should fail a migrate", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("migrate")
-			Expect(cmd()).NotTo(Succeed())
-		})
-		It("should fail a migrate-cancel", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand("migrate-cancel")
 			Expect(cmd()).NotTo(Succeed())
 		})
 	})
@@ -175,51 +169,6 @@ var _ = Describe("VirtualMachine", func() {
 			Entry("with default", &v1.MigrateOptions{}),
 			Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 		)
-	})
-
-	Context("with migrate-cancel VM cmd", func() {
-		vm := kubecli.NewMinimalVM(vmName)
-		migname := fmt.Sprintf("%s-%s", vm.Name, "migration") // "testvm-migration"
-		mig := kubecli.NewMinimalMigration(migname)
-		mig.Spec.VMIName = vm.Name // likely not required
-		labelselector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vm.Name)
-		listoptions := k8smetav1.ListOptions{LabelSelector: labelselector}
-		cmd := clientcmd.NewVirtctlCommand("migrate-cancel", vm.Name)
-		It("should cancel the vm migration", func() {
-			mig.Status.Phase = v1.MigrationRunning
-			migList := v1.VirtualMachineInstanceMigrationList{
-				Items: []v1.VirtualMachineInstanceMigration{
-					*mig,
-				},
-			}
-
-			kubecli.MockKubevirtClientInstance.EXPECT().
-				VirtualMachineInstanceMigration(k8smetav1.NamespaceDefault).
-				Return(migrationInterface).Times(2)
-
-			migrationInterface.EXPECT().List(&listoptions).Return(&migList, nil).Times(1)
-			migrationInterface.EXPECT().Delete(migname, &k8smetav1.DeleteOptions{}).Return(nil).Times(1)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-		It("Should fail if no active migration is found", func() {
-			mig.Status.Phase = v1.MigrationSucceeded
-			migList := v1.VirtualMachineInstanceMigrationList{
-				Items: []v1.VirtualMachineInstanceMigration{
-					*mig,
-				},
-			}
-
-			kubecli.MockKubevirtClientInstance.EXPECT().
-				VirtualMachineInstanceMigration(k8smetav1.NamespaceDefault).
-				Return(migrationInterface).Times(1)
-
-			migrationInterface.EXPECT().List(&listoptions).Return(&migList, nil).Times(1)
-
-			res := cmd.Execute()
-			Expect(res).To(HaveOccurred())
-			errstr := fmt.Sprintf("Found no migration to cancel for %s", vm.Name)
-			Expect(res.Error()).To(ContainSubstring(errstr))
-		})
 	})
 
 	Context("with restart VM cmd", func() {

@@ -38,6 +38,7 @@ go_test(
         "expand_test.go",
         "fs_list_test.go",
         "guestosinfo_test.go",
+        "migrate_cancel_test.go",
         "vm_suite_test.go",
         "vm_test.go",
     ],
