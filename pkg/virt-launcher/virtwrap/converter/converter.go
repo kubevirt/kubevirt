@@ -1288,7 +1288,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			},
 		}
 
-		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
+		if util.IsEFIVMI(vmi) {
 			domain.Spec.OS.BootLoader = &api.Loader{
 				Path:     c.EFIConfiguration.EFICode,
 				ReadOnly: "yes",
@@ -1805,14 +1805,26 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			)
 		} else {
-			domain.Spec.Devices.Video = []api.Video{
-				{
-					Model: api.VideoModel{
-						Type:  "vga",
-						Heads: &heads,
-						VRam:  &vram,
+			// For AMD64 + EFI, use bochs. For BIOS, use VGA
+			if util.IsEFIVMI(vmi) {
+				domain.Spec.Devices.Video = []api.Video{
+					{
+						Model: api.VideoModel{
+							Type:  "bochs",
+							Heads: &heads,
+						},
 					},
-				},
+				}
+			} else {
+				domain.Spec.Devices.Video = []api.Video{
+					{
+						Model: api.VideoModel{
+							Type:  "vga",
+							Heads: &heads,
+							VRam:  &vram,
+						},
+					},
+				}
 			}
 		}
 		domain.Spec.Devices.Graphics = []api.Graphics{
