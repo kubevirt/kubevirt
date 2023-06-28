@@ -36,6 +36,7 @@ go_test(
     srcs = [
         "add_volume_test.go",
         "expand_test.go",
+        "fs_list_test.go",
         "vm_suite_test.go",
         "vm_test.go",
     ],

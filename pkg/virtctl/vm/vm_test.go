@@ -377,28 +377,6 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(cmd.Execute()).To(Succeed())
 		})
 
-		It("should return filesystem  data", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-			fsList := v1.VirtualMachineInstanceFileSystemList{
-				Items: []v1.VirtualMachineInstanceFileSystem{
-					{
-						DiskName: "TEST",
-					},
-				},
-			}
-
-			kubecli.MockKubevirtClientInstance.
-				EXPECT().
-				VirtualMachineInstance(k8smetav1.NamespaceDefault).
-				Return(vmiInterface).
-				Times(1)
-
-			vmiInterface.EXPECT().FilesystemList(context.Background(), vm.Name).Return(fsList, nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("fslist", vm.Name)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
 		It("should return userlist  data", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 			userList := v1.VirtualMachineInstanceGuestOSUserList{
