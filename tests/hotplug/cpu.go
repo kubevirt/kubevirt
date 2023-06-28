@@ -63,8 +63,8 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		}
 		countDomCPUs := func(vmi *v1.VirtualMachineInstance) (count cpuCount) {
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(domSpec.VCPUs).NotTo(BeNil())
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
+			ExpectWithOffset(1, domSpec.VCPUs).NotTo(BeNil())
 			for _, cpu := range domSpec.VCPUs.VCPU {
 				if cpu.Enabled == "yes" {
 					count.enabled++
