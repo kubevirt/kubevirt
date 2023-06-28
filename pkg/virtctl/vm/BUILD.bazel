@@ -37,6 +37,7 @@ go_test(
         "add_volume_test.go",
         "expand_test.go",
         "fs_list_test.go",
+        "guestosinfo_test.go",
         "vm_suite_test.go",
         "vm_test.go",
     ],

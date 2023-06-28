@@ -359,24 +359,6 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("guest agent", func() {
 
-		It("should return guest agent data", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-			guestOSInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-				GAVersion: "3.1.0",
-			}
-
-			kubecli.MockKubevirtClientInstance.
-				EXPECT().
-				VirtualMachineInstance(k8smetav1.NamespaceDefault).
-				Return(vmiInterface).
-				Times(1)
-
-			vmiInterface.EXPECT().GuestOsInfo(context.Background(), vm.Name).Return(guestOSInfo, nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("guestosinfo", vm.Name)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
 		It("should return userlist  data", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 			userList := v1.VirtualMachineInstanceGuestOSUserList{
