@@ -56,7 +56,8 @@ linters-settings:
     dot-import-whitelist:
       - "github.com/onsi/ginkgo/v2"
       - "github.com/onsi/gomega"
-
+  ginkgolinter:
+    forbid-focus-container: true
 linters:
   disable-all: true
   enable:
@@ -67,6 +68,7 @@ linters:
     - exportloopref
     - exhaustive
     - funlen
+    - ginkgolinter
     - gochecknoinits
     - goconst
     - gocritic
