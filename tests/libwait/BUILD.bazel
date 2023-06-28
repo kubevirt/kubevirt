@@ -10,11 +10,11 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/console:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/testsuite:go_default_library",
         "//tests/watcher:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
     ],
 )

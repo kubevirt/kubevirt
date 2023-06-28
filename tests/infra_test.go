@@ -477,9 +477,11 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			Body(vmi).
 			Do(context.Background()).Get()
 		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+		vmiObj, ok := obj.(*v1.VirtualMachineInstance)
+		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 
 		By("Waiting until the VM is ready")
-		return libwait.WaitForSuccessfulVMIStart(obj).Status.NodeName
+		return libwait.WaitForSuccessfulVMIStart(vmiObj).Status.NodeName
 	}
 
 	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
@@ -1206,7 +1208,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 				By("Starting a new VirtualMachineInstance")
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(obj)
+				vmiObj, ok := obj.(*v1.VirtualMachineInstance)
+				Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+				libwait.WaitForSuccessfulVMIStart(vmiObj)
 			})
 		})
 
