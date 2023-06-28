@@ -504,24 +504,6 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addinterface")).
-			To(subresourceApp.VMAddInterfaceRequestHandler).
-			Reads(v1.AddInterfaceOptions{}).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"vm-addinterface").
-			Doc("Add a network interface to a running Virtual Machine.").
-			Returns(http.StatusOK, "OK", "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
-
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removeinterface")).
-			To(subresourceApp.VMRemoveInterfaceRequestHandler).
-			Reads(v1.RemoveInterfaceOptions{}).
-			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"vm-removeinterface").
-			Doc("Remove a network interface from a running Virtual Machine").
-			Returns(http.StatusOK, "OK", "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
-
 		// AMD SEV endpoints
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/fetchcertchain")).
 			To(subresourceApp.SEVFetchCertChainRequestHandler).
@@ -629,14 +611,6 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/expand-spec",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/addinterface",
-						Namespaced: true,
-					},
-					{
-						Name:       "virtualmachines/removeinterface",
 						Namespaced: true,
 					},
 					{
