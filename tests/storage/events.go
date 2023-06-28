@@ -27,10 +27,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/client-go/kubecli"
@@ -53,17 +53,6 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		pv         *k8sv1.PersistentVolume
 		pvc        *k8sv1.PersistentVolumeClaim
 	)
-
-	isExpectedIOEvent := func(e corev1.Event, vmiName string) bool {
-		if e.Type == "Warning" &&
-			e.Reason == "IOerror" &&
-			e.Message == "VM Paused due to IO error at the volume: "+diskName &&
-			e.InvolvedObject.Kind == "VirtualMachineInstance" &&
-			e.InvolvedObject.Name == vmiName {
-			return true
-		}
-		return false
-	}
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -95,17 +84,8 @@ var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
 		)
 
 		By("Expecting  paused event on VMI ")
-		Eventually(func() bool {
-			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			for _, e := range events.Items {
-				if isExpectedIOEvent(e, vmi.Name) {
-					return true
-				}
-			}
+		events.ExpectEvent(vmi, k8sv1.EventTypeWarning, "IOerror")
 
-			return false
-		}, 30*time.Second, 5*time.Second).Should(BeTrue())
 		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
 		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)

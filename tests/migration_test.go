@@ -44,6 +44,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -580,52 +581,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(errorMessageFormat, stdout, stderr, err))
 		pid := strings.TrimSuffix(stdout, "\n")
 		return pid
-	}
-
-	expectSerialRun := func() {
-		Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "this test is supported for serial tests only")
-	}
-
-	expectEvents := func(eventListOpts metav1.ListOptions, expectedEventsAmount int) {
-		// This function is dangerous to use from parallel tests as events might override each other.
-		// This can be removed in the future if these functions are used with great caution.
-		expectSerialRun()
-
-		Eventually(func() []k8sv1.Event {
-			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).List(context.Background(), eventListOpts)
-			Expect(err).ToNot(HaveOccurred())
-
-			return events.Items
-		}, 30*time.Second, 1*time.Second).Should(HaveLen(expectedEventsAmount))
-	}
-
-	expectEvent := func(eventListOpts metav1.ListOptions) {
-		// This function is dangerous to use from parallel tests as events might override each other.
-		// This can be removed in the future if these functions are used with great caution.
-		expectSerialRun()
-
-		Eventually(func() []k8sv1.Event {
-			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).List(context.Background(), eventListOpts)
-			Expect(err).ToNot(HaveOccurred())
-
-			return events.Items
-		}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
-	}
-
-	deleteEvents := func(eventListOpts metav1.ListOptions) {
-		// See comment in expectEvents() for more info on why that's needed.
-		expectSerialRun()
-
-		err = virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).DeleteCollection(context.Background(), metav1.DeleteOptions{}, eventListOpts)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Expecting alert to be removed")
-		Eventually(func() []k8sv1.Event {
-			events, err := virtClient.CoreV1().Events(testsuite.GetTestNamespace(nil)).List(context.Background(), eventListOpts)
-			Expect(err).ToNot(HaveOccurred())
-
-			return events.Items
-		}, 30*time.Second, 1*time.Second).Should(BeEmpty())
 	}
 
 	Context("with Headless service", func() {
@@ -3085,12 +3040,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					_ = tests.RunMigration(virtClient, migration)
 
-					By("Expecting for an alert to be triggered")
-					eventListOpts := metav1.ListOptions{
-						FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration),
-					}
-					expectEvents(eventListOpts, 1)
-					deleteEvents(eventListOpts)
+					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)
 				})
 
 			})
@@ -3153,10 +3103,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 					_ = tests.RunMigration(virtClient, migration)
 
-					By("Expecting for an alert to be triggered")
-					eventListOpts := metav1.ListOptions{FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)}
-					expectEvents(eventListOpts, 1)
-					deleteEvents(eventListOpts)
+					events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.NoSuitableNodesForHostModelMigration)
 				})
 
 			})
@@ -4577,7 +4524,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			)
 		})
 
-		It("[Serial] retrying immediately should be blocked by the migration backoff", Serial, func() {
+		It("retrying immediately should be blocked by the migration backoff", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -4591,15 +4538,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			setEvacuationAnnotation(migration)
 			_ = runMigrationAndExpectFailure(migration, tests.MigrationWaitTime)
 
-			By("Expecting for a MigrationBackoff event to be sent")
-			eventListOpts := metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.MigrationBackoffReason),
-			}
-			expectEvent(eventListOpts)
-			deleteEvents(eventListOpts)
+			events.ExpectEvent(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
 		})
 
-		It("[Serial] after a successful migration backoff should be cleared", Serial, func() {
+		It("after a successful migration backoff should be cleared", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -4618,10 +4560,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			setEvacuationAnnotation(migration)
 			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
-			eventListOpts := metav1.ListOptions{
-				FieldSelector: fmt.Sprintf("type=%s,reason=%s", k8sv1.EventTypeWarning, watch.MigrationBackoffReason),
-			}
-			deleteEvents(eventListOpts)
+			// Intentionally modifying history
+			events.DeleteEvents(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
 
 			By("There should be no backoff now")
 			migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -4629,7 +4569,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			_ = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
 			By("Checking that no backoff event occurred")
-			events, err := virtClient.CoreV1().Events(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, watch.MigrationBackoffReason)
+			events, err := virtClient.CoreV1().Events(util.NamespaceTestDefault).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ev := range events.Items {
 				Expect(ev.Reason).ToNot(Equal(watch.MigrationBackoffReason))
