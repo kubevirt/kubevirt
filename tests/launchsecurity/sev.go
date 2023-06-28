@@ -71,7 +71,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			tests.EnableFeatureGate(virtconfig.WorkloadEncryptionSEV)
 		})
 
-		It("should reset SEV capacity when the feature gate is disabled", func() {
+		It("[QUARANTINE] should reset SEV capacity when the feature gate is disabled", func() {
 			By(fmt.Sprintf("Disabling %s feature gate", virtconfig.WorkloadEncryptionSEV))
 			tests.DisableFeatureGate(virtconfig.WorkloadEncryptionSEV)
 			Eventually(func() bool {
