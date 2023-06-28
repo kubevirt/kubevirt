@@ -21,7 +21,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
-	"kubevirt.io/kubevirt/pkg/virtctl/network"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
 	"kubevirt.io/kubevirt/pkg/virtctl/scp"
@@ -110,8 +109,6 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		guestfs.NewGuestfsShellCommand(clientConfig),
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
 		create.NewCommand(),
-		network.NewAddInterfaceCommand(clientConfig),
-		network.NewRemoveInterfaceCommand(clientConfig),
 		credentials.NewCommand(clientConfig),
 		optionsCmd,
 	)
