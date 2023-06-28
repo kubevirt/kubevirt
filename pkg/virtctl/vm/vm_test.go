@@ -9,7 +9,6 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -52,10 +51,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 		It("should fail a restart", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("restart")
-			Expect(cmd()).NotTo(Succeed())
-		})
-		It("should fail a migrate", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand("migrate")
 			Expect(cmd()).NotTo(Succeed())
 		})
 	})
@@ -149,26 +144,6 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		})
 
-	})
-
-	Context("with migrate VM cmd", func() {
-		DescribeTable("should migrate a vm according to options", func(migrateOptions *v1.MigrateOptions) {
-			vm := kubecli.NewMinimalVM(vmName)
-
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Migrate(context.Background(), vm.Name, migrateOptions).Return(nil).Times(1)
-
-			var cmd *cobra.Command
-			if len(migrateOptions.DryRun) == 0 {
-				cmd = clientcmd.NewVirtctlCommand("migrate", vmName)
-			} else {
-				cmd = clientcmd.NewVirtctlCommand("migrate", "--dry-run", vmName)
-			}
-			Expect(cmd.Execute()).To(Succeed())
-		},
-			Entry("with default", &v1.MigrateOptions{}),
-			Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
-		)
 	})
 
 	Context("with restart VM cmd", func() {
