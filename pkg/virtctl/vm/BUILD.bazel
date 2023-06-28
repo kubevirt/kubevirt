@@ -40,6 +40,7 @@ go_test(
         "guestosinfo_test.go",
         "migrate_cancel_test.go",
         "migrate_test.go",
+        "remove_volume_test.go",
         "vm_suite_test.go",
         "vm_test.go",
     ],

@@ -2,7 +2,6 @@ package vm_test
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/utils/pointer"
 
@@ -304,35 +303,6 @@ var _ = Describe("VirtualMachine", func() {
 			cmd := clientcmd.NewVirtctlCommand("userlist", vm.Name)
 			Expect(cmd.Execute()).To(Succeed())
 		})
-	})
-
-	Context("remove volume", func() {
-		expectVMIEndpointRemoveVolumeError := func(vmiName, volumeName string) {
-			kubecli.MockKubevirtClientInstance.
-				EXPECT().
-				VirtualMachineInstance(k8smetav1.NamespaceDefault).
-				Return(vmiInterface).
-				Times(1)
-			vmiInterface.EXPECT().RemoveVolume(context.Background(), vmiName, gomock.Any()).DoAndReturn(func(ctx context.Context, arg0, arg1 interface{}) interface{} {
-				Expect(arg1.(*v1.RemoveVolumeOptions).Name).To(Equal(volumeName))
-				return fmt.Errorf("error removing")
-			})
-		}
-
-		DescribeTable("removevolume should report error if call returns error according to option", func(isDryRun bool) {
-			expectVMIEndpointRemoveVolumeError("testvmi", "testvolume")
-			commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
-			if isDryRun {
-				commandAndArgs = append(commandAndArgs, "--dry-run")
-			}
-			cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-			res := cmdAdd()
-			Expect(res).To(HaveOccurred())
-			Expect(res.Error()).To(ContainSubstring("error removing"))
-		},
-			Entry("with default", false),
-			Entry("with dry-run arg", true),
-		)
 	})
 
 })
