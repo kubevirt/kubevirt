@@ -63,6 +63,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -2732,12 +2733,17 @@ func (c *VMController) handleDynamicInterfaceRequests(vm *virtv1.VirtualMachine,
 			return err
 		}
 
+		updatedVMIfaces := vmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
 		vmiSpecCopy := vmi.Spec.DeepCopy()
 		for i := range vm.Status.InterfaceRequests {
 			request := &vm.Status.InterfaceRequests[i]
 			switch {
 			case request.AddInterfaceOptions != nil:
 				vmiSpecCopy = controller.ApplyNetworkInterfaceAddRequest(vmiSpecCopy, request.AddInterfaceOptions)
+
+				if iface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, request.AddInterfaceOptions.Name); iface != nil {
+					iface.MacAddress = updatedVMIfaces[request.AddInterfaceOptions.Name].MacAddress
+				}
 			case !hasOrdinalIfaces && request.RemoveInterfaceOptions != nil:
 				vmiSpecCopy = controller.ApplyNetworkInterfaceRemoveRequest(vmiSpecCopy, request.RemoveInterfaceOptions)
 			}
