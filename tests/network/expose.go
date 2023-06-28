@@ -14,7 +14,6 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnet/cluster"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -283,8 +282,6 @@ var _ = SIGDescribe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			DescribeTable("Should expose a ClusterIP service with the correct IPFamilyPolicy", func(ipFamiyPolicy k8sv1.IPFamilyPolicyType) {
-				checks.SkipIfVersionBelow("IPFamilyPolicy property on a service requires v1.20 and above", "1.20")
-
 				if ipFamiyPolicy == k8sv1.IPFamilyPolicyRequireDualStack {
 					libnet.SkipWhenNotDualStackCluster()
 				}
@@ -759,9 +756,6 @@ func skipIfNotSupportedCluster(ipFamily ipFamily) {
 	}
 	if inlcudesIpv6(ipFamily) {
 		libnet.SkipWhenClusterNotSupportIpv6()
-	}
-	if isDualStack(ipFamily) {
-		checks.SkipIfVersionBelow("Dual stack service requires v1.20 and above", "1.20")
 	}
 }
 
