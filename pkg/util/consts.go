@@ -16,6 +16,8 @@ const (
 	KVUIPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	HcoValidatingWebhook             = "validate-hco.kubevirt.io"
 	HcoMutatingWebhookNS             = "mutate-ns-hco.kubevirt.io"
+	PrometheusRuleCRDName            = "prometheusrules.monitoring.coreos.com"
+	ServiceMonitorCRDName            = "servicemonitors.monitoring.coreos.com"
 	HcoMutatingWebhookHyperConverged = "mutate-hyperconverged-hco.kubevirt.io"
 	AppLabel                         = "app"
 	UndefinedNamespace               = ""

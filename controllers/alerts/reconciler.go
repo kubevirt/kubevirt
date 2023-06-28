@@ -45,7 +45,7 @@ func NewMonitoringReconciler(ci hcoutil.ClusterInfo, cl client.Client, ee hcouti
 		reconcilers: []MetricReconciler{
 			newAlertRuleReconciler(namespace, owner),
 			newRoleReconciler(namespace, owner),
-			newRoleBindingReconciler(namespace, owner),
+			newRoleBindingReconciler(namespace, owner, ci),
 			newMetricServiceReconciler(namespace, owner),
 			newServiceMonitorReconciler(namespace, owner),
 		},

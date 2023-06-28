@@ -10,6 +10,7 @@ import (
 	"k8s.io/client-go/discovery"
 
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
@@ -31,6 +32,7 @@ type ClusterInfo interface {
 	IsControlPlaneHighlyAvailable() bool
 	IsInfrastructureHighlyAvailable() bool
 	IsConsolePluginImageProvided() bool
+	IsMonitoringAvailable() bool
 	GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile
 	RefreshAPIServerCR(ctx context.Context, c client.Client) error
 	GetPod() *corev1.Pod
@@ -45,6 +47,7 @@ type ClusterInfoImp struct {
 	controlPlaneHighlyAvailable   bool
 	infrastructureHighlyAvailable bool
 	consolePluginImageProvided    bool
+	monitoringAvailable           bool
 	domain                        string
 	baseDomain                    string
 	ownResources                  *OwnResources
@@ -83,6 +86,8 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 
 	varValue, varExists := os.LookupEnv(KVUIPluginImageEnvV)
 	c.consolePluginImageProvided = varExists && len(varValue) > 0
+
+	c.monitoringAvailable = isPrometheusExists(ctx, cl)
 
 	err = c.RefreshAPIServerCR(ctx, cl)
 	if err != nil {
@@ -157,6 +162,10 @@ func (c *ClusterInfoImp) IsConsolePluginImageProvided() bool {
 	return c.consolePluginImageProvided
 }
 
+func (c *ClusterInfoImp) IsMonitoringAvailable() bool {
+	return c.monitoringAvailable
+}
+
 func (c *ClusterInfoImp) IsRunningLocally() bool {
 	return c.runningLocally
 }
@@ -212,6 +221,20 @@ func getClusterBaseDomain(ctx context.Context, cl client.Client) (string, error)
 		return "", err
 	}
 	return clusterDNS.Spec.BaseDomain, nil
+}
+
+func isPrometheusExists(ctx context.Context, cl client.Client) bool {
+	prometheusRuleCRDExists := isCRDExists(ctx, cl, PrometheusRuleCRDName)
+	serviceMonitorCRDExists := isCRDExists(ctx, cl, ServiceMonitorCRDName)
+
+	return prometheusRuleCRDExists && serviceMonitorCRDExists
+}
+
+func isCRDExists(ctx context.Context, cl client.Client, crdName string) bool {
+	found := &apiextensionsv1.CustomResourceDefinition{}
+	key := client.ObjectKey{Name: crdName}
+	err := cl.Get(ctx, key, found)
+	return err == nil
 }
 
 func init() {

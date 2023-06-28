@@ -296,6 +296,9 @@ func (ClusterInfoMock) GetBaseDomain() string {
 func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 	return true
 }
+func (c ClusterInfoMock) IsMonitoringAvailable() bool {
+	return true
+}
 func (c ClusterInfoMock) GetPod() *corev1.Pod {
 	return pod
 }
@@ -364,8 +367,10 @@ func (ClusterInfoSNOMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurity
 func (ClusterInfoSNOMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
-
 func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
+	return true
+}
+func (c ClusterInfoSNOMock) IsMonitoringAvailable() bool {
 	return true
 }
 
@@ -408,6 +413,9 @@ func (ClusterInfoSRCPHAIMock) GetBaseDomain() string {
 	return BaseDomain
 }
 func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
+	return true
+}
+func (ClusterInfoSRCPHAIMock) IsMonitoringAvailable() bool {
 	return true
 }
 func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {

@@ -122,7 +122,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 		upgradeableCondition: upgradeableCond,
 	}
 
-	if ci.IsOpenshift() {
+	if ci.IsMonitoringAvailable() {
 		r.monitoringReconciler = alerts.NewMonitoringReconciler(ci, r.client, hcoutil.GetEventEmitter(), r.scheme)
 	}
 
@@ -185,12 +185,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		&rbacv1.Role{},
 		&rbacv1.RoleBinding{},
 	}
+	if ci.IsMonitoringAvailable() {
+		secondaryResources = append(secondaryResources, []client.Object{
+			&monitoringv1.ServiceMonitor{},
+			&monitoringv1.PrometheusRule{},
+		}...)
+	}
 	if ci.IsOpenshift() {
 		secondaryResources = append(secondaryResources, []client.Object{
 			&sspv1beta2.SSP{},
 			&corev1.Service{},
-			&monitoringv1.ServiceMonitor{},
-			&monitoringv1.PrometheusRule{},
 			&routev1.Route{},
 			&consolev1.ConsoleCLIDownload{},
 			&consolev1.ConsoleQuickStart{},

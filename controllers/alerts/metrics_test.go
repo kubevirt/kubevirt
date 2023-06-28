@@ -587,7 +587,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 			existRB.Labels = map[string]string{
 				"wrongKey1": "wrongValue1",
 				"wrongKey2": "wrongValue2",
@@ -608,7 +608,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the labels if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 			existRB.Labels = nil
 
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
@@ -632,7 +632,7 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
@@ -663,7 +663,7 @@ var _ = Describe("alert tests", func() {
 				BlockOwnerDeletion: pointer.Bool(true),
 				UID:                "0987654321",
 			}
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
@@ -693,7 +693,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the referenceOwner if missing", func() {
 			owner := metav1.OwnerReference{}
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 			existRB.OwnerReferences = nil
 			cl := commontestutils.InitClient([]client.Object{ns, existRB})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
@@ -716,7 +716,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the RoleRef if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 
 			existRB.RoleRef = rbacv1.RoleRef{
 				APIGroup: "wrongAPIGroup",
@@ -740,7 +740,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the RoleRef if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 
 			existRB.RoleRef = rbacv1.RoleRef{}
 
@@ -760,7 +760,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Subjects if modified", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 
 			existRB.Subjects = []rbacv1.Subject{
 				{
@@ -784,7 +784,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.Subjects).Should(HaveLen(1))
 			Expect(rb.Subjects[0].Kind).Should(Equal(rbacv1.ServiceAccountKind))
 			Expect(rb.Subjects[0].Name).Should(Equal("prometheus-k8s"))
-			Expect(rb.Subjects[0].Namespace).Should(Equal(monitoringNamespace))
+			Expect(rb.Subjects[0].Namespace).Should(Equal(getMonitoringNamespace(ci)))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
 			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))
@@ -792,7 +792,7 @@ var _ = Describe("alert tests", func() {
 
 		It("should update the Subjects if it's missing", func() {
 			owner := getDeploymentReference(ci.GetDeployment())
-			existRB := newRoleBinding(owner, commontestutils.Namespace)
+			existRB := newRoleBinding(owner, commontestutils.Namespace, ci)
 
 			existRB.Subjects = nil
 
@@ -806,7 +806,7 @@ var _ = Describe("alert tests", func() {
 			Expect(rb.Subjects).Should(HaveLen(1))
 			Expect(rb.Subjects[0].Kind).Should(Equal(rbacv1.ServiceAccountKind))
 			Expect(rb.Subjects[0].Name).Should(Equal("prometheus-k8s"))
-			Expect(rb.Subjects[0].Namespace).Should(Equal(monitoringNamespace))
+			Expect(rb.Subjects[0].Namespace).Should(Equal(getMonitoringNamespace(ci)))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
 			Expect(metrics.HcoMetrics.GetOverwrittenModificationsCount("RoleBinding", roleName)).Should(BeEquivalentTo(currentMetric))

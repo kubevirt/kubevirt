@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	operatorName        = "hyperconverged-cluster-operator"
-	roleName            = operatorName + "-metrics"
-	monitoringNamespace = "openshift-monitoring"
+	operatorName                 = "hyperconverged-cluster-operator"
+	roleName                     = operatorName + "-metrics"
+	defaultMonitoringNamespace   = "monitoring"
+	openshiftMonitoringNamespace = "openshift-monitoring"
 )
 
 // RoleReconciler maintains an RBAC Role to allow Prometheus operator to read from HCO metric
@@ -104,9 +105,9 @@ type RoleBindingReconciler struct {
 	theRoleBinding *rbacv1.RoleBinding
 }
 
-func newRoleBindingReconciler(namespace string, owner metav1.OwnerReference) *RoleBindingReconciler {
+func newRoleBindingReconciler(namespace string, owner metav1.OwnerReference, ci hcoutil.ClusterInfo) *RoleBindingReconciler {
 	return &RoleBindingReconciler{
-		theRoleBinding: newRoleBinding(owner, namespace),
+		theRoleBinding: newRoleBinding(owner, namespace, ci),
 	}
 }
 
@@ -162,7 +163,7 @@ func (r *RoleBindingReconciler) UpdateExistingResource(ctx context.Context, cl c
 	return existing, needUpdate, nil
 }
 
-func newRoleBinding(owner metav1.OwnerReference, namespace string) *rbacv1.RoleBinding {
+func newRoleBinding(owner metav1.OwnerReference, namespace string, ci hcoutil.ClusterInfo) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: rbacv1.SchemeGroupVersion.String(),
@@ -183,8 +184,16 @@ func newRoleBinding(owner metav1.OwnerReference, namespace string) *rbacv1.RoleB
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      "prometheus-k8s",
-				Namespace: monitoringNamespace,
+				Namespace: getMonitoringNamespace(ci),
 			},
 		},
 	}
+}
+
+func getMonitoringNamespace(ci hcoutil.ClusterInfo) string {
+	if ci.IsOpenshift() {
+		return openshiftMonitoringNamespace
+	}
+
+	return defaultMonitoringNamespace
 }
