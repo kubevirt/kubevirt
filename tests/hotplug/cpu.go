@@ -252,9 +252,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, mig := range migrations.Items {
+					match := 0
 					if mig.Spec.VMIName == vmi.Name {
-						migration = mig.DeepCopy()
-						return true
+						match++
+						if !migration.IsFinal() || match == 2 {
+							migration = mig.DeepCopy()
+							return true
+						}
 					}
 				}
 				return false
