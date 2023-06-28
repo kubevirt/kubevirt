@@ -15760,26 +15760,6 @@
      }
     }
    },
-   "v1.AddInterfaceOptions": {
-    "description": "AddInterfaceOptions is provided when dynamically hot plugging a network interface",
-    "type": "object",
-    "required": [
-     "networkAttachmentDefinitionName",
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name indicates the logical name of the interface.",
-      "type": "string",
-      "default": ""
-     },
-     "networkAttachmentDefinitionName": {
-      "description": "NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format: \u003cnetworkAttachmentDefinitionName\u003e, \u003cnamespace\u003e/\u003cnetworkAttachmentDefinitionName\u003e. If namespace is not specified, VMI namespace is assumed.",
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
    "v1.AddVolumeOptions": {
     "description": "AddVolumeOptions is provided when dynamically hot plugging a volume and disk",
     "type": "object",
@@ -18592,20 +18572,6 @@
      }
     }
    },
-   "v1.RemoveInterfaceOptions": {
-    "description": "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
-    "type": "object",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name indicates the logical name of the interface.",
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
    "v1.RemoveVolumeOptions": {
     "description": "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
     "type": "object",
@@ -20369,19 +20335,6 @@
      }
     }
    },
-   "v1.VirtualMachineInterfaceRequest": {
-    "type": "object",
-    "properties": {
-     "addInterfaceOptions": {
-      "description": "AddInterfaceOptions when set indicates a network interface should be added. The details within this field specify how to add the interface",
-      "$ref": "#/definitions/v1.AddInterfaceOptions"
-     },
-     "removeInterfaceOptions": {
-      "description": "RemoveInterfaceOptions when set indicates a network interface should be removed. The details within this field specify how to remove the interface",
-      "$ref": "#/definitions/v1.RemoveInterfaceOptions"
-     }
-    }
-   },
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of virtualmachines",
     "type": "object",
@@ -20563,15 +20516,6 @@
       "description": "DesiredGeneration is the generation which is desired for the VMI. This will be used in comparisons with ObservedGeneration to understand when the VMI is out of sync. This will be changed at the same time as ObservedGeneration to remove errors which could occur if Generation is updated through an Update() before ObservedGeneration in Status.",
       "type": "integer",
       "format": "int64"
-     },
-     "interfaceRequests": {
-      "description": "InterfaceRequests indicates a list of interfaces added to the VMI template and hot-plugged on an active running VMI.",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1.VirtualMachineInterfaceRequest"
-      },
-      "x-kubernetes-list-type": "atomic"
      },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",

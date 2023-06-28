@@ -1531,11 +1531,6 @@ type VirtualMachineStatus struct {
 	// updated through an Update() before ObservedGeneration in Status.
 	// +optional
 	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
-
-	// InterfaceRequests indicates a list of interfaces added to the VMI template and
-	// hot-plugged on an active running VMI.
-	// +listType=atomic
-	InterfaceRequests []VirtualMachineInterfaceRequest `json:"interfaceRequests,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1563,15 +1558,6 @@ type VirtualMachineStateChangeRequest struct {
 	Data map[string]string `json:"data,omitempty" optional:"true"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
-}
-
-type VirtualMachineInterfaceRequest struct {
-	// AddInterfaceOptions when set indicates a network interface should be added.
-	// The details within this field specify how to add the interface
-	AddInterfaceOptions *AddInterfaceOptions `json:"addInterfaceOptions,omitempty" optional:"true"`
-	// RemoveInterfaceOptions when set indicates a network interface should be removed.
-	// The details within this field specify how to remove the interface
-	RemoveInterfaceOptions *RemoveInterfaceOptions `json:"removeInterfaceOptions,omitempty" optional:"true"`
 }
 
 // VirtualMachineCondition represents the state of VirtualMachine
@@ -2257,23 +2243,6 @@ type RemoveVolumeOptions struct {
 	// +optional
 	// +listType=atomic
 	DryRun []string `json:"dryRun,omitempty"`
-}
-
-// AddInterfaceOptions is provided when dynamically hot plugging a network interface
-type AddInterfaceOptions struct {
-	// NetworkAttachmentDefinitionName references a NetworkAttachmentDefinition CRD object. Format:
-	// <networkAttachmentDefinitionName>, <namespace>/<networkAttachmentDefinitionName>. If namespace is not
-	// specified, VMI namespace is assumed.
-	NetworkAttachmentDefinitionName string `json:"networkAttachmentDefinitionName"`
-
-	// Name indicates the logical name of the interface.
-	Name string `json:"name"`
-}
-
-// RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface
-type RemoveInterfaceOptions struct {
-	// Name indicates the logical name of the interface.
-	Name string `json:"name"`
 }
 
 type TokenBucketRateLimiter struct {
