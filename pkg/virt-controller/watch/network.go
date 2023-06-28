@@ -21,7 +21,6 @@ package watch
 import (
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
@@ -42,66 +41,4 @@ func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance) ([]v1.Interface,
 		return nil, nil, false
 	}
 	return vmiSpecIfaces, vmiSpecNets, isIfaceChangeRequired
-}
-
-func trimDoneInterfaceRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
-	if len(vm.Status.InterfaceRequests) == 0 {
-		return
-	}
-
-	vmiExist := vmi != nil
-	var vmiIndexedInterfaces map[string]v1.Interface
-	if vmiExist {
-		vmiIndexedInterfaces = vmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
-	}
-
-	vmIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
-	updateIfaceRequests := make([]v1.VirtualMachineInterfaceRequest, 0)
-	for _, request := range vm.Status.InterfaceRequests {
-		removeRequest := false
-		switch {
-		case request.AddInterfaceOptions != nil:
-			ifaceName := request.AddInterfaceOptions.Name
-			_, existsInVMTemplate := vmIndexedInterfaces[ifaceName]
-
-			if vmiExist {
-				_, existsInVMISpec := vmiIndexedInterfaces[ifaceName]
-				removeRequest = existsInVMTemplate && existsInVMISpec
-			} else {
-				removeRequest = existsInVMTemplate
-			}
-		case request.RemoveInterfaceOptions != nil:
-			ifaceName := request.RemoveInterfaceOptions.Name
-			vmIface, existsInVMTemplate := vmIndexedInterfaces[ifaceName]
-			absentIfaceInVMTemplate := existsInVMTemplate && vmIface.State == v1.InterfaceStateAbsent
-
-			if vmiExist {
-				vmiIface, existsInVMISpec := vmiIndexedInterfaces[ifaceName]
-				absentIfaceInVMISpec := existsInVMISpec && vmiIface.State == v1.InterfaceStateAbsent
-				removeRequest = absentIfaceInVMTemplate && absentIfaceInVMISpec
-			} else {
-				removeRequest = absentIfaceInVMTemplate
-			}
-		}
-
-		if !removeRequest {
-			updateIfaceRequests = append(updateIfaceRequests, request)
-		}
-	}
-	vm.Status.InterfaceRequests = updateIfaceRequests
-}
-
-func handleDynamicInterfaceRequests(vm *v1.VirtualMachine) {
-	if len(vm.Status.InterfaceRequests) == 0 {
-		return
-	}
-
-	vmTemplateCopy := vm.Spec.Template.Spec.DeepCopy()
-	for i := range vm.Status.InterfaceRequests {
-		vmTemplateCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
-			vmTemplateCopy, &vm.Status.InterfaceRequests[i])
-	}
-	vm.Spec.Template.Spec = *vmTemplateCopy
-
-	return
 }
