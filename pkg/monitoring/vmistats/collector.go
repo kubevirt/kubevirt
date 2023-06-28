@@ -250,7 +250,7 @@ func (co *VMICollector) updateVMIsPhase(vmis []*k6tv1.VirtualMachineInstance, ch
 		mv, err := prometheus.NewConstMetric(
 			vmiCountDesc, prometheus.GaugeValue,
 			float64(count),
-			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType,
+			vmc.NodeName, vmc.Phase, vmc.OS, vmc.Workload, vmc.Flavor, vmc.InstanceType, vmc.Preference,
 		)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Failed to create metric for VMIs phase")
