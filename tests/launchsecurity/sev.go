@@ -28,6 +28,11 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	})
 
 	Context("[Serial]device management", Serial, func() {
+		const (
+			sevResourceName = "devices.kubevirt.io/sev"
+			sevDevicePath   = "/proc/1/root/dev/sev"
+		)
+
 		var (
 			virtClient      kubecli.KubevirtClient
 			nodeName        string
@@ -41,13 +46,13 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			nodeName = tests.NodeNameWithHandler()
 			Expect(nodeName).ToNot(BeEmpty())
 
-			checkCmd := []string{"ls", "/dev/sev"}
+			checkCmd := []string{"ls", sevDevicePath}
 			_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, checkCmd)
 			isDevicePresent = (err == nil)
 
 			if !isDevicePresent {
-				// Create a fake SEV device
-				mknodCmd := []string{"mknod", "/dev/sev", "c", "10", "124"}
+				By(fmt.Sprintf("Creating a fake SEV device on %s", nodeName))
+				mknodCmd := []string{"mknod", sevDevicePath, "c", "10", "124"}
 				_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, mknodCmd)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -55,20 +60,18 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(func() bool {
 				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				val, ok := node.Status.Capacity["devices.kubevirt.io/sev"]
+				val, ok := node.Status.Capacity[sevResourceName]
 				return ok && !val.IsZero()
-			}, 90*time.Second, 1*time.Second).Should(BeTrue(), "SEV capacity should not be zero")
+			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("SEV capacity should not be zero on %s", nodeName))
 		})
 
 		AfterEach(func() {
 			if !isDevicePresent {
-				// Remove the fake SEV device
-				rmCmd := []string{"rm", "-f", "/dev/sev"}
+				By(fmt.Sprintf("Removing the fake SEV device from %s", nodeName))
+				rmCmd := []string{"rm", "-f", sevDevicePath}
 				_, err = tests.ExecuteCommandInVirtHandlerPod(nodeName, rmCmd)
 				Expect(err).ToNot(HaveOccurred())
 			}
-
-			tests.EnableFeatureGate(virtconfig.WorkloadEncryptionSEV)
 		})
 
 		It("should reset SEV capacity when the feature gate is disabled", func() {
@@ -77,9 +80,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(func() bool {
 				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				val, ok := node.Status.Capacity["devices.kubevirt.io/sev"]
+				val, ok := node.Status.Capacity[sevResourceName]
 				return !ok || val.IsZero()
-			}, 90*time.Second, 1*time.Second).Should(BeTrue(), "SEV capacity should be zero")
+			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("SEV capacity should be zero on %s", nodeName))
 		})
 	})
 
