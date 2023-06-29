@@ -5,7 +5,7 @@
 # Overview
 - [Versioning](#versioning): KubeVirt uses [semantic versioning](http://semver.org)
 - [Content](#content): Primary artifact is the source tree in form of signed git tag. Binary artifacts are built for convenience by automation
-- [Platform Support](#platform-support): Every KubeVirt release is targeted towards one Kubernetes release
+- [Platform Support](#platform-support): Every KubeVirt release is targeted towards the most recent and validated against Kubernetes releases in the support period
 - [Schedule](#schedule): Time based releases aligned to Kubernetes
 - [Lifecycle](#release-lifecycle): stabilization and release are followed by a maintenance phase, bound to the maintenance phase of the corresponding Kubernetes release
 
@@ -26,19 +26,37 @@ of distribution.
 
 # Platform Support
 
-Every KubeVirt release is targeted towards one specific Kubernetes release.
+Every KubeVirt release is
+
+ i. targeted towards and coupled with the most recent Kubernetes release
+ii. validated against all Kubernetes release in the [support period](https://kubernetes.io/releases/patch-releases/#support-period)
+
+For example:
+* KubeVirt v1.0 is targeted towards Kubernetes v1.27.
+* KubeVirt v1.0 will be supported until Kubernetes v1.27 runs out of support.
+* KubeVirt v1.0 will be validated against all Kubernetes versions being in
+  the support period, throughout the lifetime of KubeVirt v1.0, which are:
+  At  v1.0 GA: v1.27, v1.26, v1.25
+  At v1.28 GA: v1.28, v1.27, v1.26
+  At v1.29 GA: v1.29, v1.29, v1.27
+  At v1.30 GA: EOL as v1.27 slipped out of the support period.
+
 This is reflected in three areas:
 
 1. _CI_ - A precondition of a release is the presence of CI lanes for the targeted Kubernetes release
 2. _Schedule_ - A KubeVirt release will be trailing it's corresponding Kubernetes release. It is trailing it, in order to perform the stabilization on a released Kubernetes version
-3. _Support matrix_ - A KubeVirt release's maintenance phase is tied to the maintenance phase of a Kubernetes release.
+3. _Support matrix_ - A KubeVirt release's maintenance phase is tied to the maintenance phase (called _support period_) of a Kubernetes release.
 
 The primary reasons for defining a target Kubernetes release are:
 
+- Understanding the target platform in order to perform proper integration work
+
+The primary reasons for defining compatible Kubernetes releases are:
+
 - CI resources are finite. And people to maintain it as well.
 - Limit the maintenance burden
-- Understanding the target platform in order to perform proper integration work
 - Setting the right expectations with end-users
+- Define when a KubeVirt release is ending it's regular support
 
 The Kubernetes release corresponding to a KubeVirt release is defined in the release metadata of a KubeVirt release maintained by [SIG Release](https://github.com/kubevirt/sig-release/).
 
@@ -72,18 +90,20 @@ The release schedule is build around a few guiding principles:
 
 This can then be translated into the following KubeVirt release schedule schema:
 
-| Week Number in Kubernetes Release Cycle | KubeVirt Milestone | Note                             |
-|:---------------------------------------:|--------------------|----------------------------------|
-|                 14 - 8                  | Alpha              | KubeVirt alpha.0 on main         |
-|                 14 - 4                  | Beta               | KubeVirt beta.0 on main          |
-|                 14 - 4                  |                    | Start the KubeVirt CI provider   |
-|                   14                    |                    | Kubernetes release               |
-|                 14 + 4                  |                    | CI lanes for provider are voting |
-|                 14 + 8                  | Enhancement Freeze | KubeVirt stable branch is cut    |
-|                 14 + 9                  | RC                 | KubeVirt rc.0 on release branch  |
-|                 14 + 10                 | RC                 | KubeVirt rc.1 on release branch  |
-|                 14 + 11                 | GA                 | KubeVirt GA                      |
+| Week of the K8s Rel. Cycle | KubeVirt Ms. | Note                             |
+|:--------------------------:|--------------|----------------------------------|
+|          14 - 8            | Alpha        | KubeVirt alpha.0 on main         |
+|          14 - 4            | Beta         | KubeVirt beta.0 on main          |
+|          14 - 4            |              | Start the KubeVirt CI provider   |
+|            14              |              | Kubernetes release               |
+|          14 + 4            |              | CI lanes for provider are voting |
+|          14 + 8            | EF           | KubeVirt stable branch is cut    |
+|          14 + 9            | RC           | KubeVirt rc.0 on release branch  |
+|          14 + 10           | RC           | KubeVirt rc.1 on release branch  |
+|          14 + 11           | GA           | KubeVirt GA                      |
 
+**EF** Enhancement Freeze, **RC** Release Candidate, **GA** General Availability
+ 
 
 # Versioning
 
