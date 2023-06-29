@@ -42,6 +42,7 @@ go_test(
         "migrate_test.go",
         "remove_volume_test.go",
         "restart_test.go",
+        "start_test.go",
         "vm_suite_test.go",
         "vm_test.go",
     ],

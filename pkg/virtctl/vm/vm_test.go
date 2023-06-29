@@ -28,7 +28,6 @@ var _ = Describe("VirtualMachine", func() {
 	runStrategyAlways := v1.RunStrategyAlways
 	runStrategyHalted := v1.RunStrategyHalted
 
-	startOpts := v1.StartOptions{Paused: false, DryRun: nil}
 	stopOpts := v1.StopOptions{DryRun: nil}
 
 	BeforeEach(func() {
@@ -40,10 +39,6 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("With missing input parameters", func() {
-		It("should fail a start", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand("start")
-			Expect(cmd()).NotTo(Succeed())
-		})
 		It("should fail a stop", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("stop")
 			Expect(cmd()).NotTo(Succeed())
@@ -51,17 +46,6 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("should patch VM", func() {
-		It("with spec:running:true", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = pointer.Bool(false)
-
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Start(context.Background(), vm.Name, &startOpts).Return(nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("start", vmName)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
 		It("with spec:running:false", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 			vm.Spec.Running = pointer.Bool(true)
@@ -85,17 +69,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("Using RunStrategy", func() {
-			It("with spec:runStrategy:running", func() {
-				vm := kubecli.NewMinimalVM(vmName)
-				vm.Spec.RunStrategy = &runStrategyHalted
-
-				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Start(context.Background(), vm.Name, &startOpts).Return(nil).Times(1)
-
-				cmd := clientcmd.NewVirtctlCommand("start", vmName)
-				Expect(cmd.Execute()).To(Succeed())
-			})
-
 			It("with spec:runStrategy:halted", func() {
 				vm := kubecli.NewMinimalVM(vmName)
 				vm.Spec.RunStrategy = &runStrategyAlways
@@ -118,27 +91,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cmd.Execute()).To(Succeed())
 			})
 		})
-		Context("With --paused flag", func() {
-			It("should start paused if --paused true", func() {
-				vm := kubecli.NewMinimalVM(vmName)
-
-				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{Paused: true, DryRun: nil}).Return(nil).Times(1)
-
-				cmd := clientcmd.NewVirtctlCommand("start", vmName, "--paused")
-				Expect(cmd.Execute()).To(Succeed())
-			})
-			It("should start if --paused false", func() {
-				vm := kubecli.NewMinimalVM(vmName)
-
-				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Start(context.Background(), vm.Name, &startOpts).Return(nil).Times(1)
-
-				cmd := clientcmd.NewVirtctlCommand("start", vmName, "--paused=false")
-				Expect(cmd.Execute()).To(Succeed())
-			})
-		})
-
 	})
 
 	Context("with stop VM cmd", func() {
@@ -185,18 +137,6 @@ var _ = Describe("VirtualMachine", func() {
 	})
 
 	Context("with dry-run parameter", func() {
-
-		It("should not start VM", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = pointer.Bool(false)
-
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("start", vmName, "--dry-run")
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
 		It("should not stop VM", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 			vm.Spec.Running = pointer.Bool(true)
