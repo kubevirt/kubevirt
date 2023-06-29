@@ -21,12 +21,13 @@ package main
 
 import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/metrics"
-	metricsparser "github.com/kubevirt/monitoring/test/metrics/prom-metrics-linter/metrics-parser"
+	parser "github.com/kubevirt/monitoring/pkg/metrics/parser"
 
 	dto "github.com/prometheus/client_model/go"
 )
 
-// excludedMetrics defines the metrics to ignore, open issue:https://github.com/kubevirt/kubevirt/issues/9714
+// excludedMetrics defines the metrics to ignore,
+// open pr:https://github.com/kubevirt/hyperconverged-cluster-operator/pull/2358
 // Do not add metrics to this list!
 var excludedMetrics = map[string]struct{}{
 	"kubevirt_hyperconverged_operator_health_status": struct{}{},
@@ -38,10 +39,10 @@ var excludedMetrics = map[string]struct{}{
 func ReadMetrics() []*dto.MetricFamily {
 	hcoMetrics := metrics.HcoMetrics.GetMetricDesc()
 
-	metricsList := make([]metricsparser.Metric, len(hcoMetrics))
+	metricsList := make([]parser.Metric, len(hcoMetrics))
 	var metricFamily []*dto.MetricFamily
 	for i, hcoMetric := range hcoMetrics {
-		metricsList[i] = metricsparser.Metric{
+		metricsList[i] = parser.Metric{
 			Name: hcoMetric.FqName,
 			Help: hcoMetric.Help,
 			Type: hcoMetric.Type,
@@ -50,7 +51,7 @@ func ReadMetrics() []*dto.MetricFamily {
 	for _, hcoMetric := range metricsList {
 		// Remove ignored metrics from all rules
 		if _, isExcludedMetric := excludedMetrics[hcoMetric.Name]; !isExcludedMetric {
-			mf := metricsparser.CreateMetricFamily(hcoMetric)
+			mf := parser.CreateMetricFamily(hcoMetric)
 			metricFamily = append(metricFamily, mf)
 		}
 	}

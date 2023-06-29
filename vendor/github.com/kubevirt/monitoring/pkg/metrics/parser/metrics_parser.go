@@ -16,7 +16,7 @@
  *
  */
 
-package metrics_parser
+package parser
 
 import (
 	dto "github.com/prometheus/client_model/go"

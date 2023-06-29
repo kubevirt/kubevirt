@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/imdario/mergo v0.3.15
 	github.com/kubevirt/cluster-network-addons-operator v0.86.1
-	github.com/kubevirt/monitoring/test/metrics/prom-metrics-linter/metrics-parser v0.0.0-20230620074913-666a752cedc6
+	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230627123556-81a891d4462a
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
 	github.com/openshift/api v3.9.1-0.20190517100836-d5b34b957e91+incompatible
