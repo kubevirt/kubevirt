@@ -1263,10 +1263,7 @@ var CRDsValidation map[string]string = map[string]string{
                       resourceName:
                         description: The name of the resource that is representing
                           the device. Exposed by a device plugin and requested by
-                          VMs. Typically of the form vendor.com/product_nameThe name
-                          of the resource that is representing the device. Exposed
-                          by a device plugin and requested by VMs. Typically of the
-                          form vendor.com/product_name
+                          VMs. Typically of the form vendor.com/product_name
                         type: string
                     required:
                     - pciVendorSelector
