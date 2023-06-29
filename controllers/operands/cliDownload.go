@@ -94,7 +94,7 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 				},
 				{
 					Href: baseURL + "/arm64/linux/virtctl.tar.gz",
-					Text: "Download virtctl for Linux for arm64",
+					Text: "Download virtctl for Linux for ARM 64",
 				},
 				{
 					Href: baseURL + "/amd64/mac/virtctl.zip",
@@ -102,7 +102,7 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 				},
 				{
 					Href: baseURL + "/arm64/mac/virtctl.zip",
-					Text: "Download virtctl for Mac for arm64",
+					Text: "Download virtctl for Mac for ARM 64",
 				},
 				{
 					Href: baseURL + "/amd64/windows/virtctl.zip",
@@ -110,7 +110,7 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 				},
 				{
 					Href: baseURL + "/arm64/windows/virtctl.zip",
-					Text: "Download virtctl for Windows for arm64",
+					Text: "Download virtctl for Windows for ARM 64",
 				},
 			},
 		},
