@@ -28,18 +28,22 @@ of distribution.
 
 Every KubeVirt release is
 
- i. targeted towards and coupled with the most recent Kubernetes release
-ii. validated against all Kubernetes release in the [support period](https://kubernetes.io/releases/patch-releases/#support-period)
+ i. targeted towards and life-time coupled with the most recent Kubernetes release
+ii. throughout it's life-time the release is validated against the Kubernetes release
+    in the [support period](https://kubernetes.io/releases/patch-releases/#support-period)
+    at the time of GA of the KubeVirt release
 
 For example:
 * KubeVirt v1.0 is targeted towards Kubernetes v1.27.
 * KubeVirt v1.0 will be supported until Kubernetes v1.27 runs out of support.
 * KubeVirt v1.0 will be validated against all Kubernetes versions being in
-  the support period, throughout the lifetime of KubeVirt v1.0, which are:
-  At  v1.0 GA: v1.27, v1.26, v1.25
-  At v1.28 GA: v1.28, v1.27, v1.26
-  At v1.29 GA: v1.29, v1.29, v1.27
-  At v1.30 GA: EOL as v1.27 slipped out of the support period.
+  the support period at the time of the v1.0 GA
+
+Leading to:
+* At v1.27 GA: v1.0 with v1.27, v1.26, v1.25
+* At v1.28 GA: v1.0 with v1.27, v1.26
+* At v1.29 GA: v1.0 with v1.27
+* At v1.30 GA: v1.0 EOL as v1.27 slipped out of the support period.
 
 This is reflected in three areas:
 
