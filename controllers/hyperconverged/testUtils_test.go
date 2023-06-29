@@ -125,7 +125,9 @@ type BasicExpected struct {
 	virtioWinRoleBinding *rbacv1.RoleBinding
 	hcoCRD               *apiextensionsv1.CustomResourceDefinition
 	consolePluginDeploy  *appsv1.Deployment
+	consoleProxyDeploy   *appsv1.Deployment
 	consolePluginSvc     *corev1.Service
+	consoleProxySvc      *corev1.Service
 	consolePlugin        *consolev1.ConsolePlugin
 	consoleConfig        *operatorv1.Console
 }
@@ -149,7 +151,9 @@ func (be BasicExpected) toArray() []client.Object {
 		be.virtioWinRoleBinding,
 		be.hcoCRD,
 		be.consolePluginDeploy,
+		be.consoleProxyDeploy,
 		be.consolePluginSvc,
+		be.consoleProxySvc,
 		be.consolePlugin,
 		be.consoleConfig,
 	}
@@ -267,12 +271,17 @@ func getBasicDeployment() *BasicExpected {
 	expectedVirtioWinRoleBinding := operands.NewVirtioWinCmReaderRoleBinding(hco)
 	res.virtioWinRoleBinding = expectedVirtioWinRoleBinding
 
-	expectedConsolePluginDeployment, err := operands.NewKvUIPluginDeplymnt(hco)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	expectedConsolePluginDeployment := operands.NewKvUIPluginDeployment(hco)
 	res.consolePluginDeploy = expectedConsolePluginDeployment
+
+	expectedConsoleProxyDeployment := operands.NewKvUIProxyDeployment(hco)
+	res.consoleProxyDeploy = expectedConsoleProxyDeployment
 
 	expectedConsolePluginService := operands.NewKvUIPluginSvc(hco)
 	res.consolePluginSvc = expectedConsolePluginService
+
+	expectedConsoleProxyService := operands.NewKvUIProxySvc(hco)
+	res.consoleProxySvc = expectedConsoleProxyService
 
 	expectedConsolePlugin := operands.NewKVConsolePlugin(hco)
 	res.consolePlugin = expectedConsolePlugin

@@ -78,6 +78,7 @@ function get_current_versions {
     ["HPPO"]=""
     ["HPP"]=""
     ["KUBEVIRT_CONSOLE_PLUGIN"]=""
+    ["KUBEVIRT_CONSOLE_PROXY"]=""
   )
 
   for component in "${!CURRENT_VERSIONS[@]}"; do
@@ -94,6 +95,7 @@ function get_updated_versions {
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
     ["KUBEVIRT_CONSOLE_PLUGIN"]="kubevirt-ui/kubevirt-plugin"
+    ["KUBEVIRT_CONSOLE_PROXY"]="kubevirt-ui/kubevirt-apiserver-proxy"
   )
 
   IMPORT_REPOS=(

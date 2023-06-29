@@ -84,8 +84,9 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 		return err
 	}
 
-	varValue, varExists := os.LookupEnv(KVUIPluginImageEnvV)
-	c.consolePluginImageProvided = varExists && len(varValue) > 0
+	uiPluginVarValue, uiPluginVarExists := os.LookupEnv(KVUIPluginImageEnvV)
+	uiProxyVarValue, uiProxyVarExists := os.LookupEnv(KVUIProxyImageEnvV)
+	c.consolePluginImageProvided = uiPluginVarExists && len(uiPluginVarValue) > 0 && uiProxyVarExists && len(uiProxyVarValue) > 0
 
 	c.monitoringAvailable = isPrometheusExists(ctx, cl)
 

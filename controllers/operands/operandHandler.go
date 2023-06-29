@@ -64,6 +64,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 	if ci.IsOpenshift() && ci.IsConsolePluginImageProvided() {
 		operands = append(operands, newConsoleHandler(client))
 		operands = append(operands, (*genericOperand)(newServiceHandler(client, scheme, NewKvUIPluginSvc)))
+		operands = append(operands, (*genericOperand)(newServiceHandler(client, scheme, NewKvUIProxySvc)))
 	}
 
 	return &OperandHandler{
@@ -89,6 +90,7 @@ func (h *OperandHandler) FirstUseInitiation(scheme *runtime.Scheme, ci hcoutil.C
 
 	if ci.IsOpenshift() && ci.IsConsolePluginImageProvided() {
 		h.addOperands(scheme, hc, newKvUIPluginDeploymentHandler)
+		h.addOperands(scheme, hc, newKvUIProxyDeploymentHandler)
 		h.addOperands(scheme, hc, newKvUINginxCMHandler)
 		h.addOperands(scheme, hc, newKvUIPluginCRHandler)
 	}
