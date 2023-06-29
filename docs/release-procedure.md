@@ -35,7 +35,7 @@ text file on your machine. Make sure you don't place this in shared storage.
 When you create this token the only permission you need to give it is the
 ability to access github repositories. That's it.
 
-[Instructions for creating access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
+[Instructions for creating _classic_ access tokens](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token)
 
 **Place your token in a text file such as** ```${HOME}/github-api-token```
 
