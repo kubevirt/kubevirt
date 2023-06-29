@@ -89,9 +89,9 @@ The release process is mostly automatic and consists of the following steps:
 
    ```hack/release.sh --promote-release-candidate ${TAG}.rc.0```
 
-4. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
-   check that the binary artifacts got attached to the release at
-   `https://github.com/kubevirt/kubevirt/releases/tag/${TAG}`
+4. Wait for [Prow job](https://prow.ci.kubevirt.io/?repo=kubevirt%2Fkubevirt) to
+   finish, and check that the binary artifacts got attached to the release
+   at `https://github.com/kubevirt/kubevirt/releases/tag/${TAG}`
    and that the containers were correctly tagged and pushed to
    <https://quay.io/organization/kubevirt/>
 
@@ -111,9 +111,9 @@ The release itself is only a git signed tag as it's used for minor releases as w
 
    ```hack/release.sh --new-tag ${TAG}```
 
-2. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
-   check that the binary artifacts got attached to the release at
-   `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
+2. Wait for [Prow job](https://prow.ci.kubevirt.io/?repo=kubevirt%2Fkubevirt) to
+   finish, and check that the binary artifacts got attached to the release
+   at `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
    and that the containers were correctly tagged and pushed to
    <https://quay.io/organization/kubevirt/>
 
