@@ -67,7 +67,7 @@ The Kubernetes release corresponding to a KubeVirt release is defined in the rel
 ## Platform Support Skew
 
 While there are good reasons for defining a target Kubernetes release there are usually also needs to support more than one Kubernetes version.
-While the KubeVirt Community can not procide this support, patches to support other releases will also not be rejected as long as they are provided in a reasonable manner (scope and time wise).
+While the KubeVirt Community can not provide this support, patches to support other releases will also not be rejected as long as they are provided in a reasonable manner (scope and time wise).
 
 
 # Schedule

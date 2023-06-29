@@ -57,7 +57,7 @@ Place the paths to your credential files in the following environment variables.
 > access issues.
 
 Now you can use the release tool to do whatever you'd like. Note that you can
-use the `--dry-run=true` argument to test a change before executing it.
+use the `--dry-run=true` (used by default) argument to test a change before executing it.
 
 **Example: creating a new release branch with the initial release candidate v0.31.0-rc.0**
 
