@@ -46,7 +46,7 @@ func (n *NodeLabeller) getMinCpuFeature() cpuFeatures {
 	if minCPUModel == "" {
 		minCPUModel = util.DefaultMinCPUModel
 	}
-	return n.cpuInfo.models[minCPUModel]
+	return n.cpuInfo.usableModels[minCPUModel]
 }
 
 func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []string {
@@ -68,12 +68,9 @@ func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []
 
 func (n *NodeLabeller) getSupportedCpuFeatures() cpuFeatures {
 	supportedCpuFeatures := make(cpuFeatures)
-	minCpuFeatures := n.getMinCpuFeature()
 
 	for _, feature := range n.supportedFeatures {
-		if _, exist := minCpuFeatures[feature]; !exist {
-			supportedCpuFeatures[feature] = true
-		}
+		supportedCpuFeatures[feature] = true
 	}
 
 	return supportedCpuFeatures
@@ -91,22 +88,23 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	}
 
 	usableModels := make([]string, 0)
-	minCpuFeatures := n.getMinCpuFeature()
-	log.Log.Infof("CPU features of a minimum baseline CPU model: %+v", minCpuFeatures)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Name == v1.CPUModeHostModel {
 			n.cpuModelVendor = mode.Vendor.Name
 
-			hostCpuModel := mode.Model[0]
-			if len(mode.Model) > 0 {
+			if len(mode.Model) < 1 {
+				return fmt.Errorf("host model mode is expected to contain a model")
+			}
+			if len(mode.Model) > 1 {
 				log.Log.Warning("host model mode is expected to contain only one model")
 			}
 
+			hostCpuModel := mode.Model[0]
 			n.hostCPUModel.name = hostCpuModel.Name
 			n.hostCPUModel.fallback = hostCpuModel.Fallback
 
 			for _, feature := range mode.Feature {
-				if _, isMinCpuFeature := minCpuFeatures[feature.Name]; !isMinCpuFeature && feature.Policy == isRequired {
+				if feature.Policy == isRequired {
 					n.hostCPUModel.requiredFeatures[feature.Name] = true
 				}
 			}
@@ -180,7 +178,7 @@ func (n *NodeLabeller) loadCPUInfo() error {
 		}
 	}
 
-	n.cpuInfo.models = models
+	n.cpuInfo.usableModels = models
 	return nil
 }
 
