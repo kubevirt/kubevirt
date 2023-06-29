@@ -30,6 +30,8 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	"github.com/samber/lo"
+
+	"k8s.io/utils/strings/slices"
 )
 
 const (
@@ -128,6 +130,10 @@ func (wh *WebhookHandler) ValidateCreate(_ context.Context, dryrun bool, hc *v1b
 		return err
 	}
 
+	if err := wh.validateMediatedDeviceTypes(hc); err != nil {
+		return err
+	}
+
 	if _, err := operands.NewKubeVirt(hc); err != nil {
 		return err
 	}
@@ -177,6 +183,8 @@ func (wh *WebhookHandler) getOperands(requested *v1beta1.HyperConverged) (*kubev
 // ValidateUpdate is the ValidateUpdate webhook implementation. It calls all the resources in parallel, to dry-run the
 // upgrade.
 func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
+	wh.logger.Info("Validating update", "name", requested.Name)
+
 	if err := wh.validateDataImportCronTemplates(requested); err != nil {
 		return err
 	}
@@ -185,7 +193,10 @@ func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, request
 		return err
 	}
 
-	wh.logger.Info("Validating update", "name", requested.Name)
+	if err := wh.validateMediatedDeviceTypes(requested); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), updateDryRunTimeOut)
 	defer cancel()
 
@@ -384,6 +395,21 @@ func (wh *WebhookHandler) validateTLSSecurityProfiles(hc *v1beta1.HyperConverged
 		return fmt.Errorf("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)")
 	}
 
+	return nil
+}
+
+func (wh *WebhookHandler) validateMediatedDeviceTypes(hc *v1beta1.HyperConverged) error {
+	mdc := hc.Spec.MediatedDevicesConfiguration
+	if mdc != nil {
+		if len(mdc.MediatedDevicesTypes) > 0 && len(mdc.MediatedDeviceTypes) > 0 && !slices.Equal(mdc.MediatedDevicesTypes, mdc.MediatedDeviceTypes) { //nolint SA1019
+			return fmt.Errorf("mediatedDevicesTypes is deprecated, please use mediatedDeviceTypes instead")
+		}
+		for _, nmdc := range mdc.NodeMediatedDeviceTypes {
+			if len(nmdc.MediatedDevicesTypes) > 0 && len(nmdc.MediatedDeviceTypes) > 0 && !slices.Equal(nmdc.MediatedDevicesTypes, nmdc.MediatedDeviceTypes) { //nolint SA1019
+				return fmt.Errorf("mediatedDevicesTypes is deprecated, please use mediatedDeviceTypes instead")
+			}
+		}
+	}
 	return nil
 }
 

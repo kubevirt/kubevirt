@@ -782,7 +782,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevices
 				Description: "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"mediatedDevicesTypes": {
+					"mediatedDeviceTypes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "atomic",
@@ -790,6 +790,26 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevices
 						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"mediatedDevicesTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: please use mediatedDeviceTypes instead.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -820,6 +840,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevices
 						},
 					},
 				},
+				Required: []string{"mediatedDeviceTypes"},
 			},
 		},
 		Dependencies: []string{
@@ -894,7 +915,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_NodeMediatedDev
 							},
 						},
 					},
-					"mediatedDevicesTypes": {
+					"mediatedDeviceTypes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "atomic",
@@ -913,8 +934,28 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_NodeMediatedDev
 							},
 						},
 					},
+					"mediatedDevicesTypes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: please use mediatedDeviceTypes instead.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"nodeSelector", "mediatedDevicesTypes"},
+				Required: []string{"nodeSelector", "mediatedDeviceTypes"},
 			},
 		},
 	}

@@ -42,7 +42,10 @@ replace (
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230327201221-f5883ff37f0c
 )
 
-require kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
+require (
+	k8s.io/apiserver v0.27.2
+	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
+)
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect

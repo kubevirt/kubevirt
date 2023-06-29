@@ -225,7 +225,7 @@ var _ = Describe("test HyperConverged mutator", func() {
 			),
 		)
 
-		It("should handle multiple DICTs and nonRoot -> root FG transition at the same time", func() {
+		It("should handle multiple DICTs, nonRoot -> root FG transition and mediatedDevicesTypes -> mediatedDeviceTypes at the same time", func() {
 			cr.Spec.FeatureGates.NonRoot = pointer.Bool(false) //nolint SA1019
 			cr.Spec.FeatureGates.Root = nil
 
@@ -255,12 +255,42 @@ var _ = Describe("test HyperConverged mutator", func() {
 				},
 			}
 
+			cr.Spec.MediatedDevicesConfiguration = &v1beta1.MediatedDevicesConfiguration{
+				MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"}, //nolint SA1019
+				NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+					{
+						NodeSelector: map[string]string{
+							"testLabel1": "true",
+						},
+						MediatedDeviceTypes: []string{
+							"nvidia-223",
+						},
+					},
+					{
+						NodeSelector: map[string]string{
+							"testLabel2": "true",
+						},
+						MediatedDevicesTypes: []string{
+							"nvidia-229",
+						},
+					},
+					{
+						NodeSelector: map[string]string{
+							"testLabel3": "true",
+						},
+						MediatedDeviceTypes: []string{
+							"nvidia-232",
+						},
+					},
+				},
+			}
+
 			req := admission.Request{AdmissionRequest: newCreateRequest(cr, hcoV1beta1Codec)}
 
 			res := mutator.Handle(context.TODO(), req)
 			Expect(res.Allowed).To(BeTrue())
 
-			Expect(res.Patches).To(HaveLen(3))
+			Expect(res.Patches).To(HaveLen(5))
 			Expect(res.Patches[0]).To(Equal(jsonpatch.JsonPatchOperation{
 				Operation: "add",
 				Path:      fmt.Sprintf(annotationPathTemplate, 0),
@@ -275,6 +305,16 @@ var _ = Describe("test HyperConverged mutator", func() {
 				Operation: "add",
 				Path:      "/spec/featureGates/root",
 				Value:     true,
+			}))
+			Expect(res.Patches[3]).To(Equal(jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/spec/mediatedDevicesConfiguration/mediatedDeviceTypes",
+				Value:     []string{"nvidia-222", "nvidia-230"},
+			}))
+			Expect(res.Patches[4]).To(Equal(jsonpatch.JsonPatchOperation{
+				Operation: "add",
+				Path:      "/spec/mediatedDevicesConfiguration/nodeMediatedDeviceTypes/1/mediatedDeviceTypes",
+				Value:     []string{"nvidia-229"},
 			}))
 		})
 
@@ -356,6 +396,129 @@ var _ = Describe("test HyperConverged mutator", func() {
 				),
 			)
 		})
+
+		DescribeTable("Check mediatedDevicesTypes -> mediatedDeviceTypes transition", func(initialMDConfiguration *v1beta1.MediatedDevicesConfiguration, patches []jsonpatch.JsonPatchOperation) {
+			cr.Spec.MediatedDevicesConfiguration = initialMDConfiguration
+
+			req := admission.Request{AdmissionRequest: newCreateRequest(cr, hcoV1beta1Codec)}
+
+			res := mutator.Handle(context.TODO(), req)
+			Expect(res.Allowed).To(BeTrue())
+
+			Expect(res.Patches).To(Equal(patches))
+		},
+			Entry("should do nothing if nothing is there",
+				nil,
+				nil,
+			),
+			Entry("should do nothing if already using mediatedDeviceTypes",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDeviceTypes: []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				},
+				nil,
+			),
+			Entry("should set the mediatedDeviceTypes if using only deprecated ones",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				},
+				[]jsonpatch.JsonPatchOperation{
+					jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/mediatedDevicesConfiguration/mediatedDeviceTypes",
+						Value:     []string{"nvidia-222", "nvidia-230"},
+					},
+					jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/mediatedDevicesConfiguration/nodeMediatedDeviceTypes/0/mediatedDeviceTypes",
+						Value:     []string{"nvidia-223"},
+					},
+					jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/mediatedDevicesConfiguration/nodeMediatedDeviceTypes/1/mediatedDeviceTypes",
+						Value:     []string{"nvidia-229"},
+					},
+				},
+			),
+			Entry("should set the mediatedDeviceTypes only when needed if using a mix of the two",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel3": "true",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-232",
+							},
+						},
+					},
+				},
+				[]jsonpatch.JsonPatchOperation{
+					jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/mediatedDevicesConfiguration/mediatedDeviceTypes",
+						Value:     []string{"nvidia-222", "nvidia-230"},
+					},
+					jsonpatch.JsonPatchOperation{
+						Operation: "add",
+						Path:      "/spec/mediatedDevicesConfiguration/nodeMediatedDeviceTypes/1/mediatedDeviceTypes",
+						Value:     []string{"nvidia-229"},
+					},
+				},
+			),
+		)
 
 	})
 })

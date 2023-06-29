@@ -429,7 +429,13 @@ type MediatedHostDevice struct {
 // +k8s:openapi-gen=true
 type MediatedDevicesConfiguration struct {
 	// +listType=atomic
+	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
+
+	// Deprecated: please use mediatedDeviceTypes instead.
+	// +optional
+	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes,omitempty"`
+
 	// +optional
 	// +listType=atomic
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
@@ -442,6 +448,12 @@ type NodeMediatedDeviceTypesConfig struct {
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	NodeSelector map[string]string `json:"nodeSelector"`
+
+	// +listType=atomic
+	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
+
+	// Deprecated: please use mediatedDeviceTypes instead.
+	// +optional
 	// +listType=atomic
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes"`
 }

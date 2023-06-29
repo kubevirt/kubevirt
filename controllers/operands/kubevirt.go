@@ -467,8 +467,15 @@ func toKvMediatedDevicesConfiguration(mdevsConfig *hcov1beta1.MediatedDevicesCon
 		return nil
 	}
 
+	var mediatedDeviceTypes []string
+	if len(mdevsConfig.MediatedDeviceTypes) > 0 {
+		mediatedDeviceTypes = mdevsConfig.MediatedDeviceTypes
+	} else if len(mdevsConfig.MediatedDevicesTypes) > 0 { //nolint SA1019
+		mediatedDeviceTypes = mdevsConfig.MediatedDevicesTypes //nolint SA1019
+	}
+
 	return &kubevirtcorev1.MediatedDevicesConfiguration{
-		MediatedDevicesTypes:    mdevsConfig.MediatedDevicesTypes,
+		MediatedDeviceTypes:     mediatedDeviceTypes,
 		NodeMediatedDeviceTypes: toKvNodeMediatedDevicesConfiguration(mdevsConfig.NodeMediatedDeviceTypes),
 	}
 }
@@ -477,9 +484,17 @@ func toKvNodeMediatedDevicesConfiguration(hcoNodeMdevTypesConf []hcov1beta1.Node
 	if len(hcoNodeMdevTypesConf) > 0 {
 		nodeMdevTypesConf := make([]kubevirtcorev1.NodeMediatedDeviceTypesConfig, 0, len(hcoNodeMdevTypesConf))
 		for _, hcoNodeMdevTypeConf := range hcoNodeMdevTypesConf {
+
+			var mediatedDeviceTypes []string
+			if len(hcoNodeMdevTypeConf.MediatedDeviceTypes) > 0 {
+				mediatedDeviceTypes = hcoNodeMdevTypeConf.MediatedDeviceTypes
+			} else if len(hcoNodeMdevTypeConf.MediatedDevicesTypes) > 0 { //nolint SA1019
+				mediatedDeviceTypes = hcoNodeMdevTypeConf.MediatedDevicesTypes //nolint SA1019
+			}
+
 			nodeMdevTypesConf = append(nodeMdevTypesConf, kubevirtcorev1.NodeMediatedDeviceTypesConfig{
-				NodeSelector:         hcoNodeMdevTypeConf.NodeSelector,
-				MediatedDevicesTypes: hcoNodeMdevTypeConf.MediatedDevicesTypes,
+				NodeSelector:        hcoNodeMdevTypeConf.NodeSelector,
+				MediatedDeviceTypes: mediatedDeviceTypes,
 			})
 		}
 		return nodeMdevTypesConf

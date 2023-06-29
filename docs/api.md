@@ -257,7 +257,8 @@ MediatedDevicesConfiguration holds information about MDEV types to be defined, i
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| mediatedDevicesTypes |  | []string |  | false |
+| mediatedDeviceTypes |  | []string |  | true |
+| mediatedDevicesTypes | Deprecated: please use mediatedDeviceTypes instead. | []string |  | false |
 | nodeMediatedDeviceTypes |  | [][NodeMediatedDeviceTypesConfig](#nodemediateddevicetypesconfig) |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -282,7 +283,8 @@ NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined i
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | nodeSelector | NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/ | map[string]string |  | true |
-| mediatedDevicesTypes |  | []string |  | true |
+| mediatedDeviceTypes |  | []string |  | true |
+| mediatedDevicesTypes | Deprecated: please use mediatedDeviceTypes instead. | []string |  | true |
 
 [Back to TOC](#table-of-contents)
 

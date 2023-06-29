@@ -1569,6 +1569,179 @@ var _ = Describe("webhooks validator", func() {
 
 	})
 
+	Context("MediatedDeviceTypes", func() {
+		var cr *v1beta1.HyperConverged
+		var newCr *v1beta1.HyperConverged
+		var ctx context.Context
+
+		BeforeEach(func() {
+			Expect(os.Setenv("OPERATOR_NAMESPACE", HcoValidNamespace)).To(Succeed())
+			cr = commontestutils.NewHco()
+			cr.Spec.MediatedDevicesConfiguration = nil
+			newCr = cr.DeepCopy()
+			ctx = context.TODO()
+		})
+
+		DescribeTable("Check mediatedDevicesTypes -> mediatedDeviceTypes transition", func(mDConfiguration *v1beta1.MediatedDevicesConfiguration, expected types.GomegaMatcher) {
+			// create
+			newCr.Spec.MediatedDevicesConfiguration = mDConfiguration
+			Expect(wh.ValidateCreate(ctx, false, newCr)).To(expected)
+
+			// update
+			cli := getFakeClient(cr)
+			cli.InitiateUpdateErrors(getUpdateError(noFailure))
+			whU := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
+			Expect(whU.ValidateUpdate(ctx, false, newCr, cr)).To(expected)
+		},
+			Entry("should not fail with no configuration",
+				nil,
+				Succeed(),
+			),
+			Entry("should not fail if using only mediatedDeviceTypes",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDeviceTypes: []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				},
+				Succeed(),
+			),
+			Entry("should not fail if using only deprecated APIs",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				},
+				Succeed(),
+			),
+			Entry("should not fail if correctly using both mediatedDeviceTypes and deprecated APIs",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					MediatedDeviceTypes:  []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-223",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				},
+				Succeed(),
+			),
+			Entry("should fail if mixing mediatedDeviceTypes and deprecated APIs on spec.mediatedDevicesConfiguration.mediatedDeviceTypes",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					MediatedDeviceTypes:  []string{"nvidia-222"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-223",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-229",
+							},
+						},
+					},
+				},
+				Not(Succeed()),
+			),
+			Entry("should fail if mixing mediatedDeviceTypes and deprecated APIs on spec.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[1].mediatedDeviceTypes",
+				&v1beta1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{"nvidia-222", "nvidia-230"},
+					MediatedDeviceTypes:  []string{"nvidia-222", "nvidia-230"},
+					NodeMediatedDeviceTypes: []v1beta1.NodeMediatedDeviceTypesConfig{
+						{
+							NodeSelector: map[string]string{
+								"testLabel1": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-223",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-223",
+							},
+						},
+						{
+							NodeSelector: map[string]string{
+								"testLabel2": "true",
+							},
+							MediatedDevicesTypes: []string{
+								"nvidia-229",
+							},
+							MediatedDeviceTypes: []string{
+								"nvidia-229", "nvidia-230",
+							},
+						},
+					},
+				},
+				Not(Succeed()),
+			),
+		)
+
+	})
+
 })
 
 func newHyperConvergedConfig() *sdkapi.NodePlacement {

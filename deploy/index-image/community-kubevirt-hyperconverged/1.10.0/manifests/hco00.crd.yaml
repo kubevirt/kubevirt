@@ -2204,7 +2204,13 @@ spec:
                 description: MediatedDevicesConfiguration holds information about
                   MDEV types to be defined on nodes, if available
                 properties:
+                  mediatedDeviceTypes:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
                   mediatedDevicesTypes:
+                    description: 'Deprecated: please use mediatedDeviceTypes instead.'
                     items:
                       type: string
                     type: array
@@ -2215,7 +2221,14 @@ spec:
                         about MDEV types to be defined in a specific node that matches
                         the NodeSelector field.
                       properties:
+                        mediatedDeviceTypes:
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
                         mediatedDevicesTypes:
+                          description: 'Deprecated: please use mediatedDeviceTypes
+                            instead.'
                           items:
                             type: string
                           type: array
@@ -2229,11 +2242,13 @@ spec:
                             More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                           type: object
                       required:
-                      - mediatedDevicesTypes
+                      - mediatedDeviceTypes
                       - nodeSelector
                       type: object
                     type: array
                     x-kubernetes-list-type: atomic
+                required:
+                - mediatedDeviceTypes
                 type: object
               obsoleteCPUs:
                 description: ObsoleteCPUs allows avoiding scheduling of VMs for obsolete
