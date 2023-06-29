@@ -53,6 +53,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/realtime"
 	_ "kubevirt.io/kubevirt/tests/scale"
 	_ "kubevirt.io/kubevirt/tests/storage"
+	_ "kubevirt.io/kubevirt/tests/usb"
 	_ "kubevirt.io/kubevirt/tests/virtctl"
 	_ "kubevirt.io/kubevirt/tests/virtiofs"
 )

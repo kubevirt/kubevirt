@@ -482,7 +482,7 @@ func parseSysUeventFile(path string) *USBDevice {
 			}
 			u.BCD = int(val)
 		case "DEVNAME":
-			u.DevicePath = "/dev/" + values[1]
+			u.DevicePath = filepath.Join("/dev", values[1])
 		default:
 			log.Log.V(5).Infof("Skipping unhandled line: %s", line)
 		}
