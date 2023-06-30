@@ -65,25 +65,22 @@ func (o *Command) restartRun(args []string, cmd *cobra.Command) error {
 		fmt.Printf("Dry Run execution\n")
 	}
 
-	if cmd.Flags().Changed(gracePeriodArg) && !forceRestart {
-		return fmt.Errorf("Can not set gracePeriod without --force=true")
+	gracePeriodChanged := cmd.Flags().Changed(gracePeriodArg)
+
+	if gracePeriodChanged != forceRestart {
+		return fmt.Errorf("Must both use --force=true and set --grace-period.")
 	}
 
 	if forceRestart {
-		if cmd.Flags().Changed(gracePeriodArg) {
-			err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
-			if err != nil {
-				return fmt.Errorf("Error restarting VirtualMachine, %v", err)
-			}
-		} else if !cmd.Flags().Changed(gracePeriodArg) {
-			return fmt.Errorf("Can not force restart without gracePeriod")
+		err = virtClient.VirtualMachine(namespace).ForceRestart(context.Background(), vmiName, &v1.RestartOptions{GracePeriodSeconds: &gracePeriod, DryRun: dryRunOption})
+		if err != nil {
+			return fmt.Errorf("Error force restarting VirtualMachine, %v", err)
 		}
 	} else {
 		err = virtClient.VirtualMachine(namespace).Restart(context.Background(), vmiName, &v1.RestartOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
-
 	}
 
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
