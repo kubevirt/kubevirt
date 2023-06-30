@@ -53,7 +53,7 @@ func main() {
 
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{
-			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap"},
+			FeatureGates: []string{"DataVolumes", "LiveMigration", "SRIOV", "GPU", "HostDisk", "Macvtap", "HostDevices"},
 		},
 		NetworkConfiguration: &v1.NetworkConfiguration{
 			PermitSlirpInterface:              &permit,
@@ -125,6 +125,7 @@ func main() {
 		utils.VmiMacvtap:           utils.GetVMIMacvtap(),
 		utils.VmiKernelBoot:        utils.GetVMIKernelBoot(),
 		utils.VmiARM:               utils.GetVMIARM(),
+		utils.VmiUSB:               utils.GetVMIUSB(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
