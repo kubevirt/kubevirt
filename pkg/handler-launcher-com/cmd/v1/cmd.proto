@@ -30,6 +30,9 @@ service Cmd {
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
   rpc GetQemuVersion(EmptyRequest) returns (QemuVersionResponse){}
   rpc SyncVirtualMachineCPUs(VMIRequest) returns (Response) {}
+  rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
+  rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
+  rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
 }
 
 message QemuVersionResponse {
@@ -177,4 +180,19 @@ message FreezeRequest {
 message MemoryDumpRequest {
   VMI vmi = 1;
   string dumpPath = 2;
+}
+
+message SEVInfoResponse {
+  Response response = 1;
+  bytes sevInfo = 2;
+}
+
+message LaunchMeasurementResponse {
+  Response response = 1;
+  bytes launchMeasurement = 2;
+}
+
+message InjectLaunchSecretRequest {
+    VMI vmi = 1;
+    bytes options = 2;
 }

@@ -31,5 +31,8 @@ func validateVMIForUSBRedir(vmi *v1.VirtualMachineInstance) *errors.StatusError 
 	if vmi.Spec.Domain.Devices.ClientPassthrough == nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Not configured with USB Redirection"))
 	}
+	if !vmi.IsRunning() {
+		return errors.NewBadRequest(vmiNotRunning)
+	}
 	return nil
 }

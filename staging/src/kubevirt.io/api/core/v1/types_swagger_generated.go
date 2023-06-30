@@ -935,3 +935,39 @@ func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 		"maxCpuSockets": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
 	}
 }
+
+func (SEVPlatformInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "SEVPlatformInfo contains information about the AMD SEV features for the node.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"pdh":       "Base64 encoded platform Diffie-Hellman key.",
+		"certChain": "Base64 encoded SEV certificate chain.",
+	}
+}
+
+func (SEVMeasurementInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "SEVMeasurementInfo contains information about the guest launch measurement.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"measurement": "Base64 encoded launch measurement of the SEV guest.",
+		"apiMajor":    "API major version of the SEV host.",
+		"apiMinor":    "API minor version of the SEV host.",
+		"buildID":     "Build ID of the SEV host.",
+		"policy":      "Policy of the SEV guest.",
+		"loaderSHA":   "SHA256 of the loader binary",
+	}
+}
+
+func (SEVSessionOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "SEVSessionOptions is used to provide SEV session parameters.",
+		"session": "Base64 encoded session blob.",
+		"dhCert":  "Base64 encoded guest owner's Diffie-Hellman key.",
+	}
+}
+
+func (SEVSecretOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "SEVSecretOptions is used to provide a secret for a running guest.",
+		"header": "Base64 encoded header needed to decrypt the secret.",
+		"secret": "Base64 encoded encrypted launch secret.",
+	}
+}

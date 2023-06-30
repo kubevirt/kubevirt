@@ -286,6 +286,40 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(mockedQemuVersion).To(Equal(qemuVersion.GetVersion()))
 		})
 
+		It("should return SEV platform info", func() {
+			sevPlatformInfo := &v1.SEVPlatformInfo{
+				PDH:       "AAABBBCCC",
+				CertChain: "DDDEEEFFF",
+			}
+			domainManager.EXPECT().GetSEVInfo().Return(sevPlatformInfo, nil)
+			fetchedSEVPlatformInfo, err := client.GetSEVInfo()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVPlatformInfo).To(Equal(sevPlatformInfo))
+		})
+
+		It("should return a vmi launch measurement", func() {
+			sevMeasurementInfo := &v1.SEVMeasurementInfo{
+				Measurement: "AAABBBCCC",
+				APIMajor:    1,
+				APIMinor:    2,
+				BuildID:     0xee,
+				Policy:      0xff,
+			}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().GetLaunchMeasurement(vmi).Return(sevMeasurementInfo, nil)
+			fetchedSEVMeasurementInfo, err := client.GetLaunchMeasurement(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fetchedSEVMeasurementInfo).To(Equal(sevMeasurementInfo))
+		})
+
+		It("should inject a launch secret into a vmi", func() {
+			sevSecretOptions := &v1.SEVSecretOptions{}
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().InjectLaunchSecret(vmi, sevSecretOptions).Return(nil)
+			err := client.InjectLaunchSecret(vmi, sevSecretOptions)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"

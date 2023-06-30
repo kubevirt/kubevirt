@@ -6273,6 +6273,14 @@ var CRDsValidation map[string]string = map[string]string{
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
+                            attestation:
+                              description: If specified, run the attestation process
+                                for a vmi.
+                              type: object
+                            dhCert:
+                              description: Base64 encoded guest owner's Diffie-Hellman
+                                key.
+                              type: string
                             policy:
                               description: 'Guest policy flags as defined in AMD SEV
                                 API specification. Note: due to security reasons it
@@ -6284,6 +6292,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: SEV-ES is required. Defaults to false.
                                   type: boolean
                               type: object
+                            session:
+                              description: Base64 encoded session blob.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -7992,6 +8003,12 @@ var CRDsValidation map[string]string = map[string]string{
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
                 policy:
                   description: 'Guest policy flags as defined in AMD SEV API specification.
                     Note: due to security reasons it is not allowed to enable guest
@@ -8002,6 +8019,9 @@ var CRDsValidation map[string]string = map[string]string{
                       description: SEV-ES is required. Defaults to false.
                       type: boolean
                   type: object
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
               type: object
           type: object
         memory:
@@ -10709,6 +10729,13 @@ var CRDsValidation map[string]string = map[string]string{
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
                   properties:
+                    attestation:
+                      description: If specified, run the attestation process for a
+                        vmi.
+                      type: object
+                    dhCert:
+                      description: Base64 encoded guest owner's Diffie-Hellman key.
+                      type: string
                     policy:
                       description: 'Guest policy flags as defined in AMD SEV API specification.
                         Note: due to security reasons it is not allowed to enable
@@ -10719,6 +10746,9 @@ var CRDsValidation map[string]string = map[string]string{
                           description: SEV-ES is required. Defaults to false.
                           type: boolean
                       type: object
+                    session:
+                      description: Base64 encoded session blob.
+                      type: string
                   type: object
               type: object
             machine:
@@ -13360,6 +13390,13 @@ var CRDsValidation map[string]string = map[string]string{
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
                   properties:
+                    attestation:
+                      description: If specified, run the attestation process for a
+                        vmi.
+                      type: object
+                    dhCert:
+                      description: Base64 encoded guest owner's Diffie-Hellman key.
+                      type: string
                     policy:
                       description: 'Guest policy flags as defined in AMD SEV API specification.
                         Note: due to security reasons it is not allowed to enable
@@ -13370,6 +13407,9 @@ var CRDsValidation map[string]string = map[string]string{
                           description: SEV-ES is required. Defaults to false.
                           type: boolean
                       type: object
+                    session:
+                      description: Base64 encoded session blob.
+                      type: string
                   type: object
               type: object
             machine:
@@ -15524,6 +15564,14 @@ var CRDsValidation map[string]string = map[string]string{
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
+                            attestation:
+                              description: If specified, run the attestation process
+                                for a vmi.
+                              type: object
+                            dhCert:
+                              description: Base64 encoded guest owner's Diffie-Hellman
+                                key.
+                              type: string
                             policy:
                               description: 'Guest policy flags as defined in AMD SEV
                                 API specification. Note: due to security reasons it
@@ -15535,6 +15583,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: SEV-ES is required. Defaults to false.
                                   type: boolean
                               type: object
+                            session:
+                              description: Base64 encoded session blob.
+                              type: string
                           type: object
                       type: object
                     machine:
@@ -16754,6 +16805,12 @@ var CRDsValidation map[string]string = map[string]string{
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               properties:
+                attestation:
+                  description: If specified, run the attestation process for a vmi.
+                  type: object
+                dhCert:
+                  description: Base64 encoded guest owner's Diffie-Hellman key.
+                  type: string
                 policy:
                   description: 'Guest policy flags as defined in AMD SEV API specification.
                     Note: due to security reasons it is not allowed to enable guest
@@ -16764,6 +16821,9 @@ var CRDsValidation map[string]string = map[string]string{
                       description: SEV-ES is required. Defaults to false.
                       type: boolean
                   type: object
+                session:
+                  description: Base64 encoded session blob.
+                  type: string
               type: object
           type: object
         memory:
@@ -19815,6 +19875,14 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: AMD Secure Encrypted Virtualization
                                     (SEV).
                                   properties:
+                                    attestation:
+                                      description: If specified, run the attestation
+                                        process for a vmi.
+                                      type: object
+                                    dhCert:
+                                      description: Base64 encoded guest owner's Diffie-Hellman
+                                        key.
+                                      type: string
                                     policy:
                                       description: 'Guest policy flags as defined
                                         in AMD SEV API specification. Note: due to
@@ -19827,6 +19895,9 @@ var CRDsValidation map[string]string = map[string]string{
                                             to false.
                                           type: boolean
                                       type: object
+                                    session:
+                                      description: Base64 encoded session blob.
+                                      type: string
                                   type: object
                               type: object
                             machine:
@@ -24896,6 +24967,14 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: AMD Secure Encrypted Virtualization
                                         (SEV).
                                       properties:
+                                        attestation:
+                                          description: If specified, run the attestation
+                                            process for a vmi.
+                                          type: object
+                                        dhCert:
+                                          description: Base64 encoded guest owner's
+                                            Diffie-Hellman key.
+                                          type: string
                                         policy:
                                           description: 'Guest policy flags as defined
                                             in AMD SEV API specification. Note: due
@@ -24909,6 +24988,9 @@ var CRDsValidation map[string]string = map[string]string{
                                                 to false.
                                               type: boolean
                                           type: object
+                                        session:
+                                          description: Base64 encoded session blob.
+                                          type: string
                                       type: object
                                   type: object
                                 machine:

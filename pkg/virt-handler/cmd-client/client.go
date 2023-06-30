@@ -109,6 +109,9 @@ type LauncherClient interface {
 	VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	GetQemuVersion() (string, error)
 	SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	GetSEVInfo() (*v1.SEVPlatformInfo, error)
+	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
+	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 }
 
 type VirtLauncherClient struct {
@@ -775,4 +778,78 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 
 	_, err := c.v1client.GuestPing(ctx, request)
 	return err
+}
+
+func (c *VirtLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	sevInfoResponse, err := c.v1client.GetSEVInfo(ctx, request)
+	if err = handleError(err, "GetSEVInfo", sevInfoResponse.GetResponse()); err != nil {
+		return nil, err
+	}
+
+	sevPlatformInfo := &v1.SEVPlatformInfo{}
+	if err := json.Unmarshal(sevInfoResponse.GetSevInfo(), sevPlatformInfo); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling SEV info response")
+		return nil, err
+	}
+
+	return sevPlatformInfo, nil
+}
+
+func (c *VirtLauncherClient) GetLaunchMeasurement(vmi *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	launchMeasurementRespose, err := c.v1client.GetLaunchMeasurement(ctx, request)
+	if err = handleError(err, "GetLaunchMeasurement", launchMeasurementRespose.GetResponse()); err != nil {
+		return nil, err
+	}
+
+	sevMeasurementInfo := &v1.SEVMeasurementInfo{}
+	if err := json.Unmarshal(launchMeasurementRespose.GetLaunchMeasurement(), sevMeasurementInfo); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling launch measurement response")
+		return nil, err
+	}
+
+	return sevMeasurementInfo, nil
+}
+
+func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, sevSecretOptions *v1.SEVSecretOptions) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(sevSecretOptions)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.InjectLaunchSecretRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+
+	response, err := c.v1client.InjectLaunchSecret(ctx, request)
+
+	return handleError(err, "InjectLaunchSecret", response)
 }

@@ -27,9 +27,11 @@ package virtwrap
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -133,6 +135,9 @@ type DomainManager interface {
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	GetQemuVersion() (string, error)
 	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	GetSEVInfo() (*v1.SEVPlatformInfo, error)
+	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
+	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 }
 
 type LibvirtDomainManager struct {
@@ -2001,6 +2006,102 @@ func (l *LibvirtDomainManager) GetFilesystems() []v1.VirtualMachineInstanceFileS
 	}
 
 	return fsList
+}
+
+func (l *LibvirtDomainManager) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	sevNodeParameters, err := l.virConn.GetSEVInfo()
+	if err != nil {
+		log.Log.Reason(err).Error("Getting SEV platform info failed")
+		return nil, err
+	}
+
+	return &v1.SEVPlatformInfo{
+		PDH:       sevNodeParameters.PDH,
+		CertChain: sevNodeParameters.CertChain,
+	}, nil
+}
+
+func (l *LibvirtDomainManager) GetLaunchMeasurement(vmi *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
+		return nil, err
+	}
+	defer dom.Free()
+
+	const flags = uint32(0)
+	domainLaunchSecurityParameters, err := dom.GetLaunchSecurityInfo(flags)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting launch security info failed")
+		return nil, err
+	}
+
+	sevMeasurementInfo := v1.SEVMeasurementInfo{}
+	if domainLaunchSecurityParameters.SEVMeasurementSet {
+		sevMeasurementInfo.Measurement = domainLaunchSecurityParameters.SEVMeasurement
+	}
+	if domainLaunchSecurityParameters.SEVAPIMajorSet {
+		sevMeasurementInfo.APIMajor = domainLaunchSecurityParameters.SEVAPIMajor
+	}
+	if domainLaunchSecurityParameters.SEVAPIMinorSet {
+		sevMeasurementInfo.APIMinor = domainLaunchSecurityParameters.SEVAPIMinor
+	}
+	if domainLaunchSecurityParameters.SEVBuildIDSet {
+		sevMeasurementInfo.BuildID = domainLaunchSecurityParameters.SEVBuildID
+	}
+	if domainLaunchSecurityParameters.SEVPolicySet {
+		sevMeasurementInfo.Policy = domainLaunchSecurityParameters.SEVPolicy
+	}
+
+	loader := l.efiEnvironment.EFICode(false, true) // no secureBoot, with sev
+	f, err := os.Open(loader)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Error opening loader binary %s", loader)
+		return nil, err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Error reading loader binary %s", loader)
+		return nil, err
+	}
+
+	sevMeasurementInfo.LoaderSHA = fmt.Sprintf("%x", h.Sum(nil))
+
+	return &sevMeasurementInfo, nil
+}
+
+func (l *LibvirtDomainManager) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, sevSecretOptions *v1.SEVSecretOptions) error {
+	if sevSecretOptions.Header == "" {
+		return fmt.Errorf("Header is required")
+	} else if sevSecretOptions.Secret == "" {
+		return fmt.Errorf("Secret is required")
+	}
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedGetDomain)
+		return err
+	}
+	defer dom.Free()
+
+	domainLaunchSecurityStateParameters := &libvirt.DomainLaunchSecurityStateParameters{
+		SEVSecret:          sevSecretOptions.Secret,
+		SEVSecretSet:       true,
+		SEVSecretHeader:    sevSecretOptions.Header,
+		SEVSecretHeaderSet: true,
+	}
+
+	const flags = uint32(0)
+	if err := dom.SetLaunchSecurityState(domainLaunchSecurityStateParameters, flags); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Setting launch security state failed")
+		return err
+	}
+
+	return nil
 }
 
 // check whether VMI has a certain condition

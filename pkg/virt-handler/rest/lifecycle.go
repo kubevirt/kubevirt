@@ -241,3 +241,73 @@ func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, respo
 
 	return vmi, client, nil
 }
+
+func (lh *LifecycleHandler) SEVFetchCertChainHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Retrieving SEV platform info")
+
+	sevPlatformInfo, err := client.GetSEVInfo()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to get SEV platform info")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(sevPlatformInfo)
+}
+
+func (lh *LifecycleHandler) SEVQueryLaunchMeasurementHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Retreiving SEV launch measurement")
+
+	sevMeasurementInfo, err := client.GetLaunchMeasurement(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to get VMI launch measurement")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(sevMeasurementInfo)
+}
+
+func (lh *LifecycleHandler) SEVInjectLaunchSecretHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("Request with no body: SEV secret parameters are required")
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve SEV secret parameters from request"))
+		return
+	}
+
+	opts := &v1.SEVSecretOptions{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to decode SEV secret parameters")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Injecting SEV launch secret")
+
+	if err := client.InjectLaunchSecret(vmi, opts); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to inject SEV launch secret")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}

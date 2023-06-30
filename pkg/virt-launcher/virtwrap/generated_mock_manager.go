@@ -306,3 +306,35 @@ func (_m *MockDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, options
 func (_mr *_MockDomainManagerRecorder) UpdateVCPUs(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateVCPUs", arg0, arg1)
 }
+
+func (_m *MockDomainManager) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetSEVInfo")
+	ret0, _ := ret[0].(*v1.SEVPlatformInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetSEVInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo")
+}
+
+func (_m *MockDomainManager) GetLaunchMeasurement(_param0 *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchMeasurement", _param0)
+	ret0, _ := ret[0].(*v1.SEVMeasurementInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetLaunchMeasurement(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchMeasurement", arg0)
+}
+
+func (_m *MockDomainManager) InjectLaunchSecret(_param0 *v1.VirtualMachineInstance, _param1 *v1.SEVSecretOptions) error {
+	ret := _m.ctrl.Call(_m, "InjectLaunchSecret", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) InjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", arg0, arg1)
+}

@@ -7,6 +7,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	libvirt "libvirt.org/go/libvirt"
 
+	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -197,6 +198,17 @@ func (_m *MockConnection) GetQemuVersion() (string, error) {
 
 func (_mr *_MockConnectionRecorder) GetQemuVersion() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetQemuVersion")
+}
+
+func (_m *MockConnection) GetSEVInfo() (*api.SEVNodeParameters, error) {
+	ret := _m.ctrl.Call(_m, "GetSEVInfo")
+	ret0, _ := ret[0].(*api.SEVNodeParameters)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) GetSEVInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo")
 }
 
 // Mock of Stream interface
@@ -643,4 +655,25 @@ func (_m *MockVirDomain) SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags)
 
 func (_mr *_MockVirDomainRecorder) SetVcpusFlags(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVcpusFlags", arg0, arg1)
+}
+
+func (_m *MockVirDomain) GetLaunchSecurityInfo(flags uint32) (*libvirt.DomainLaunchSecurityParameters, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchSecurityInfo", flags)
+	ret0, _ := ret[0].(*libvirt.DomainLaunchSecurityParameters)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetLaunchSecurityInfo(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchSecurityInfo", arg0)
+}
+
+func (_m *MockVirDomain) SetLaunchSecurityState(params *libvirt.DomainLaunchSecurityStateParameters, flags uint32) error {
+	ret := _m.ctrl.Call(_m, "SetLaunchSecurityState", params, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) SetLaunchSecurityState(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetLaunchSecurityState", arg0, arg1)
 }

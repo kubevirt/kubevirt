@@ -373,6 +373,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/softreboot",
+					"virtualmachineinstances/sev/setupsession",
+					"virtualmachineinstances/sev/injectlaunchsecret",
 				},
 				Verbs: []string{
 					"update",

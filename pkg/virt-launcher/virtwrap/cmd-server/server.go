@@ -641,6 +641,86 @@ func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Respon
 	return response, nil
 }
 
+func (l *Launcher) GetSEVInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.SEVInfoResponse, error) {
+	sevInfoResponse := &cmdv1.SEVInfoResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	sevPlatformInfo, err := l.domainManager.GetSEVInfo()
+	if err != nil {
+		log.Log.Reason(err).Errorf("Failed to get SEV platform info")
+		sevInfoResponse.Response.Success = false
+		sevInfoResponse.Response.Message = getErrorMessage(err)
+		return sevInfoResponse, nil
+	}
+
+	if sevPlatformInfoJson, err := json.Marshal(sevPlatformInfo); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal SEV platform info")
+		sevInfoResponse.Response.Success = false
+		sevInfoResponse.Response.Message = getErrorMessage(err)
+		return sevInfoResponse, nil
+	} else {
+		sevInfoResponse.SevInfo = sevPlatformInfoJson
+	}
+
+	return sevInfoResponse, nil
+}
+
+func (l *Launcher) GetLaunchMeasurement(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.LaunchMeasurementResponse, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	launchMeasurementResponse := &cmdv1.LaunchMeasurementResponse{
+		Response: response,
+	}
+
+	if !launchMeasurementResponse.Response.Success {
+		return launchMeasurementResponse, nil
+	}
+
+	sevMeasurementInfo, err := l.domainManager.GetLaunchMeasurement(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to get launch measuement")
+		launchMeasurementResponse.Response.Success = false
+		launchMeasurementResponse.Response.Message = getErrorMessage(err)
+		return launchMeasurementResponse, nil
+	}
+
+	if sevMeasurementInfoJson, err := json.Marshal(sevMeasurementInfo); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal launch measuement info")
+		launchMeasurementResponse.Response.Success = false
+		launchMeasurementResponse.Response.Message = getErrorMessage(err)
+		return launchMeasurementResponse, nil
+	} else {
+		launchMeasurementResponse.LaunchMeasurement = sevMeasurementInfoJson
+	}
+
+	return launchMeasurementResponse, nil
+}
+
+func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLaunchSecretRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	var sevSecretOptions v1.SEVSecretOptions
+	if err := json.Unmarshal(request.Options, &sevSecretOptions); err != nil {
+		response.Success = false
+		response.Message = "No valid secret options present in command server request"
+		return response, nil
+	}
+
+	if err := l.domainManager.InjectLaunchSecret(vmi, &sevSecretOptions); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to inject SEV launch secret")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	return response, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit

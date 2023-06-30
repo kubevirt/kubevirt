@@ -2762,3 +2762,49 @@ type LiveUpdateConfiguration struct {
 	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 }
+
+// SEVPlatformInfo contains information about the AMD SEV features for the node.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SEVPlatformInfo struct {
+	metav1.TypeMeta `json:",inline"`
+	// Base64 encoded platform Diffie-Hellman key.
+	PDH string `json:"pdh,omitempty"`
+	// Base64 encoded SEV certificate chain.
+	CertChain string `json:"certChain,omitempty"`
+}
+
+// SEVMeasurementInfo contains information about the guest launch measurement.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SEVMeasurementInfo struct {
+	metav1.TypeMeta `json:",inline"`
+	// Base64 encoded launch measurement of the SEV guest.
+	Measurement string `json:"measurement,omitempty"`
+	// API major version of the SEV host.
+	APIMajor uint `json:"apiMajor,omitempty"`
+	// API minor version of the SEV host.
+	APIMinor uint `json:"apiMinor,omitempty"`
+	// Build ID of the SEV host.
+	BuildID uint `json:"buildID,omitempty"`
+	// Policy of the SEV guest.
+	Policy uint `json:"policy,omitempty"`
+	// SHA256 of the loader binary
+	LoaderSHA string `json:"loaderSHA,omitempty"`
+}
+
+// SEVSessionOptions is used to provide SEV session parameters.
+type SEVSessionOptions struct {
+	// Base64 encoded session blob.
+	Session string `json:"session,omitempty"`
+	// Base64 encoded guest owner's Diffie-Hellman key.
+	DHCert string `json:"dhCert,omitempty"`
+}
+
+// SEVSecretOptions is used to provide a secret for a running guest.
+type SEVSecretOptions struct {
+	// Base64 encoded header needed to decrypt the secret.
+	Header string `json:"header,omitempty"`
+	// Base64 encoded encrypted launch secret.
+	Secret string `json:"secret,omitempty"`
+}

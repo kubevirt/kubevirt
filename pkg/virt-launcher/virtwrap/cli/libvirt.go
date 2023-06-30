@@ -64,6 +64,7 @@ type Connection interface {
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
 	GetQemuVersion() (string, error)
+	GetSEVInfo() (*api.SEVNodeParameters, error)
 }
 
 type Stream interface {
@@ -342,6 +343,24 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	return list, nil
 }
 
+func (l *LibvirtConnection) GetSEVInfo() (*api.SEVNodeParameters, error) {
+	const flags = uint32(0)
+	params, err := l.Connect.GetSEVInfo(flags)
+	if err != nil {
+		return nil, err
+	}
+
+	sevNodeParameters := &api.SEVNodeParameters{}
+	if params.PDHSet {
+		sevNodeParameters.PDH = params.PDH
+	}
+	if params.CertChainSet {
+		sevNodeParameters.CertChain = params.CertChain
+	}
+
+	return sevNodeParameters, nil
+}
+
 func (l *LibvirtConnection) GetDeviceAliasMap(domain *libvirt.Domain) (map[string]string, error) {
 	devAliasMap := make(map[string]string)
 
@@ -513,6 +532,8 @@ type VirDomain interface {
 	PinVcpuFlags(vcpu uint, cpuMap []bool, flags libvirt.DomainModificationImpact) error
 	PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error
 	SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error
+	GetLaunchSecurityInfo(flags uint32) (*libvirt.DomainLaunchSecurityParameters, error)
+	SetLaunchSecurityState(params *libvirt.DomainLaunchSecurityStateParameters, flags uint32) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

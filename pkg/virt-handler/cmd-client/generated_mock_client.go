@@ -310,3 +310,35 @@ func (_m *MockLauncherClient) SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInsta
 func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetSEVInfo")
+	ret0, _ := ret[0].(*v1.SEVPlatformInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLauncherClientRecorder) GetSEVInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetSEVInfo")
+}
+
+func (_m *MockLauncherClient) GetLaunchMeasurement(_param0 *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetLaunchMeasurement", _param0)
+	ret0, _ := ret[0].(*v1.SEVMeasurementInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLauncherClientRecorder) GetLaunchMeasurement(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLaunchMeasurement", arg0)
+}
+
+func (_m *MockLauncherClient) InjectLaunchSecret(_param0 *v1.VirtualMachineInstance, _param1 *v1.SEVSecretOptions) error {
+	ret := _m.ctrl.Call(_m, "InjectLaunchSecret", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) InjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", arg0, arg1)
+}
