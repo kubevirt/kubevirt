@@ -57,8 +57,9 @@ var _ = Describe("Generic HostDevice", func() {
 		pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
 		mdevPool := newAddressPoolStub()
 		mdevPool.AddResource(hostdevResource1, hostdevPCIAddress1)
+		usbPool := newAddressPoolStub()
 
-		_, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool)
+		_, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -71,6 +72,7 @@ var _ = Describe("Generic HostDevice", func() {
 		pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
 		mdevPool := newAddressPoolStub()
 		mdevPool.AddResource(hostdevResource1, hostdevMDEVAddress1)
+		usbPool := newAddressPoolStub()
 
 		hostPCIAddress := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
 		expectHostDevice0 := api.HostDevice{
@@ -89,7 +91,7 @@ var _ = Describe("Generic HostDevice", func() {
 			Model:  "vfio-pci",
 		}
 
-		Expect(generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool)).
+		Expect(generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)).
 			To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
 	})
 })
