@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 
@@ -63,7 +62,6 @@ func usageRemoveVolume() string {
 
 func (o *Command) removeVolumeRun(args []string) error {
 	var err error
-	var dryRunOption []string
 	vmiName := args[0]
 
 	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
@@ -71,10 +69,7 @@ func (o *Command) removeVolumeRun(args []string) error {
 		return err
 	}
 
-	if dryRun {
-		dryRunOption = []string{metav1.DryRunAll}
-		fmt.Printf("Dry Run execution\n")
-	}
+	dryRunOption := setDryRunOption(dryRun)
 
 	if !persist {
 		err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{

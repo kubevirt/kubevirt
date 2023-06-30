@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 
@@ -52,7 +51,6 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func (o *Command) restartRun(args []string, cmd *cobra.Command) error {
-	var dryRunOption []string
 	vmiName := args[0]
 
 	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
@@ -60,11 +58,7 @@ func (o *Command) restartRun(args []string, cmd *cobra.Command) error {
 		return err
 	}
 
-	if dryRun {
-		dryRunOption = []string{metav1.DryRunAll}
-		fmt.Printf("Dry Run execution\n")
-	}
-
+	dryRunOption := setDryRunOption(dryRun)
 	gracePeriodChanged := cmd.Flags().Changed(gracePeriodArg)
 
 	if gracePeriodChanged != forceRestart {

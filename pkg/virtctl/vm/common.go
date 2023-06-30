@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
@@ -75,4 +76,13 @@ func GetNamespaceAndClient(clientConfig clientcmd.ClientConfig) (kubecli.Kubevir
 	}
 
 	return virtClient, namespace, nil
+}
+
+func setDryRunOption(dryRun bool) []string {
+	if dryRun {
+		fmt.Printf("Dry Run execution\n")
+		return []string{metav1.DryRunAll}
+	}
+
+	return nil
 }
