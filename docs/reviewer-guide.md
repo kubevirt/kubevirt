@@ -23,6 +23,12 @@ Make a few passes over the code you want to review.
   index in a hash map on one of the lists and iterate over the other list. This
   trades `O(n^2)` with `O(n)`, which keeps kubevirt robust and scalable.
 
+## Release notes labels
+
+PRs have a ```release-notes``` section of their description and we use GitHub labels to filter release notes when we generate them at release time. For some PRs, kubevirt-bot is able to apply one of more of these labels but in general they need to be manually added.
+
+If a release note is included in the PR, ensure that it has a `kind/` label and, if relevant, a 'sig/' label as well. For more information on these labels, see the [release.md](https://github.com/kubevirt/kubevirt/blob/main/docs/release.md) doc in this repo.
+
 ## Pull Request structure
 
 * It's preferred that authors rebase on main instead of merging the main branch into their PRs.

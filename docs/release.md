@@ -91,26 +91,26 @@ cause delays.  So releases that overlap with holidays may be delayed.
 
 # Versioning
 **Branches are created for every minor release and take the form of** `release-<major>.<minor>`
-For example, the release branch for an upcoming v0.30.0 release will be
-`release-0.30`
+For example, the release branch for an upcoming v0.56.0 release will be
+`release-0.56`
 
 **Releases are cut from release branches must adhere to** [semantic versioning conventions](http://semver.org).
-For example, the initial release candidate for branch `release-0.30` is called
-`v0.30.1-rc.0`
+For example, the initial release candidate for branch `release-0.56` is called
+`v0.56.1-rc.0`
 
 The determined version is then prefixed with a `v` (mostly for consistency,
 because we started this way) and used as the tag name (`$TAG` below).
 
 **RC Version Examples:**
 ```
-v0.31.1-rc.0
-v0.31.1-rc.1
+v0.57.1-rc.0
+v0.57.1-rc.1
 ```
 
 **Official Release Version Examples**
 ```
-v0.31.1
-v0.31.2
+v0.57.1
+v0.57.2
 ```
 
 # Announcement
@@ -119,10 +119,10 @@ Every official release must be announced on the `kubevirt-dev` mailinglist
 
 You can retrieve the auto generated release notes from the git tag's commit message.
 
-Below is an example of getting the release notes for v0.31.0-rc.0
+Below is an example of getting the release notes for v0.57.0-rc.0
 
 ```
-git show v0.31.0-rc.0
+git show v0.57.0-rc.0
 ```
 
 # Handling Release Blockers
@@ -158,13 +158,13 @@ stable branch** This will prevent any existing RCs from being promoted
 to an official release. A new RC will only able to be created once this
 Issue/PR is closed.
 
-```/release-blocker release-0.31```
+```/release-blocker release-0.57```
 
 **Example: Canceling a release-blocker.** This will remove the signal that
 an Issue/PR is a blocker. This should only be done if the issue truly
 isn't a blocker.
 
-```/release-blocker cancel release-0.31```
+```/release-blocker cancel release-0.57```
 
 and canceling a blocker on main would look like.
 
@@ -223,24 +223,24 @@ export GITHUB_API_TOKEN_FILE="${HOME}/github-api-token"
 Now you can use the release tool to do whatever you'd like. Note that you can
 use the ```--dry-run=true``` argument to test a change before executing it.
 
-**Example: creating a new release branch with the initial release candidate v0.31.0-rc.0**
+**Example: creating a new release branch with the initial release candidate v0.57.0-rc.0**
 ```
-hack/release.sh --new-branch release-0.31 --new-release v0.31.0-rc.0 --dry-run=false
-```
-
-**Example: Creating a new rc v0.31.0-rc.0**
-```
-hack/release.sh --new-release v0.31.0-rc.0 --dry-run=false
+hack/release.sh --new-branch release-0.57 --new-release v0.57.0-rc.0 --dry-run=false
 ```
 
-**Example: Promoting a release candidate v0.31.0-rc-1 to official v0.30.0 release.**
+**Example: Creating a new rc v0.57.0-rc.0**
 ```
-hack/release.sh --promote-release-candidate v0.31.0-rc-1 --dry-run=false
+hack/release.sh --new-release v0.57.0-rc.0 --dry-run=false
 ```
 
-**Example: Creating a patch release v0.31.1. The branch will automatically be detected.**
+**Example: Promoting a release candidate v0.57.0-rc-1 to official v0.57.0 release.**
 ```
-hack/release.sh --new-release v0.31.1 --dry-run=false
+hack/release.sh --promote-release-candidate v0.57.0-rc-1 --dry-run=false
+```
+
+**Example: Creating a patch release v0.57.1. The branch will automatically be detected.**
+```
+hack/release.sh --new-release v0.57.1 --dry-run=false
 ```
 
 ## Creating New Minor Releases
@@ -324,9 +324,44 @@ sourced from the delta of PRs merged since the last official release. The text
 from those PRs are sourced directly from the ```release-notes``` section in
 each PRs description.
 
-Below is an example of getting the release notes for v0.31.0-rc.0
+## Using GitHub labels for Release Notes
+
+We use GitHub labels to filter release notes, first using a 'kind/' label and
+second using a 'sig/' label where applicable.
+In some cases, 'kubevirt-bot' applies one or more of these labels automatically,
+however they might need to be manually applied by either the author or a reviewer of the PR.
+
+Add a label by including the ```/kind``` and ```/sig``` commands in the ```release-note-labels``` part of the PR description template. For example:
+```
+/kind enhancement /sig security /sig compute
+```
+
+If a PR matches more than one 'kind/' or 'sig/' label, add all that apply. The release note will be included in whichever takes the greater priority.
+
+As per the PR template, if the PR requires additional action from users switching to the new release, include the string "action required" in the release note. The PR will be flagged accordingly.
+
+## The 'kind/' Labels Used for Release Notes
+
+* ```kind/enhancement```: The PR adds (or mostly adds if it is one of several related PRs) a new feature or enhancement to KubeVirt.
+* ```kind/api-change```: The PR adds, removes, or otherwise changes an API.
+* ```kind/bug```: The PR fixes a bug.
+* ```kind/deprecation```: The PR deprecates a feature that will be removed in a subsequent release.
+
+## The 'sig/' Labels Used for Release Notes
+
+* ```sig/security```: The PR is relevant to SIG Security.
+* ```sig/compute```: The PR is relevant to SIG Compute.
+* ```sig/network```:  The PR is relevant to SIG Networking.
+* ```sig/storage```: The PR is relevant to SIG Storage.
+* ```sig/code-quality```: The PR is relevant to SIG Code Quality.
+
+## Viewing Release Notes
+
+Release notes are included in the git tag comment for the release, and copied to the [changelog of the KubeVirt website](https://kubevirt.io/tag/changelog).
+
+Below is an example of getting the release notes for v0.57.0-rc.0:
 
 ```
-git show v0.31.0-rc.0
+git show v0.57.0-rc.0
 ```
 
