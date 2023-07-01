@@ -16,6 +16,10 @@ digraph component {
 		"deployment/hco-webhook" [label="deployment/hco-webhook"]
 		"deployment/hyperconverged-cluster-cli-download" [label="deployment/hyperconverged-cluster-cli-download"]
 	}
+	subgraph "cluster_kubevirt-apiserver-proxy" {
+		fontname="Courier-Bold" fontsize=42 group="kubevirt-apiserver-proxy" label="kubevirt-apiserver-proxy" rank=same style=dashed
+		"deployment/kubevirt-apiserver-proxy" [label="deployment/kubevirt-apiserver-proxy"]
+	}
 	subgraph "cluster_kubevirt-console-plugin" {
 		fontname="Courier-Bold" fontsize=42 group="kubevirt-console-plugin" label="kubevirt-console-plugin" rank=same style=dashed
 		"deployment/kubevirt-console-plugin" [label="deployment/kubevirt-console-plugin"]
@@ -54,7 +58,8 @@ digraph component {
 	}
 	edge [style=invis]
 	"KubeVirt/kubevirt-kubevirt-hyperconverged" -> "deployment/hco-operator"
-	"deployment/hco-operator" -> "deployment/kubevirt-console-plugin"
+	"deployment/hco-operator" -> "deployment/kubevirt-apiserver-proxy"
+	"deployment/kubevirt-apiserver-proxy" -> "deployment/kubevirt-console-plugin"
 	"deployment/kubevirt-console-plugin" -> "NetworkAddonsConfig/cluster"
 	"NetworkAddonsConfig/cluster" -> "SSP/ssp-kubevirt-hyperconverged"
 	"SSP/ssp-kubevirt-hyperconverged" -> "CDI/cdi-kubevirt-hyperconverged"
