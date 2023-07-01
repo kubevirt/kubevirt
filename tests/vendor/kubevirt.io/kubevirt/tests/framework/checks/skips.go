@@ -16,6 +16,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 
+	kubev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -118,11 +119,24 @@ func SkipTestIfNotSEVCapable() {
 	nodes := libnode.GetAllSchedulableNodes(virtClient)
 
 	for _, node := range nodes.Items {
-		if IsSEVCapable(&node) {
+		if IsSEVCapable(&node, kubev1.SEVLabel) {
 			return
 		}
 	}
 	ginkgo.Skip("no node capable of running SEV workloads detected", 1)
+}
+
+func SkipTestIfNotSEVESCapable() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	util.PanicOnError(err)
+	nodes := libnode.GetAllSchedulableNodes(virtClient)
+
+	for _, node := range nodes.Items {
+		if IsSEVCapable(&node, kubev1.SEVESLabel) {
+			return
+		}
+	}
+	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
 func SkipIfNonRoot(feature string) {

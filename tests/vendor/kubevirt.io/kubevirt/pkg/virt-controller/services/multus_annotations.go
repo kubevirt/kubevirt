@@ -23,7 +23,12 @@ import (
 	"encoding/json"
 	"fmt"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -56,15 +61,18 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error) {
+func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
+}
+
+func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
-	networkNameScheme := namescheme.CreateNetworkNameScheme(vmi.Spec.Networks)
-	for _, network := range vmi.Spec.Networks {
+	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.add(
-				newMultusAnnotationData(vmi, network, podInterfaceName))
+				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 	}
 
@@ -74,9 +82,9 @@ func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance) (string, error)
 	return "", nil
 }
 
-func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network, podInterfaceName string) multusNetworkAnnotation {
-	multusIface := getIfaceByName(vmi, network.Name)
-	namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) multusNetworkAnnotation {
+	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
+	namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
@@ -89,11 +97,26 @@ func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, network v1.Network,
 	}
 }
 
-func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
-	for i, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Name == name {
-			return &vmi.Spec.Domain.Devices.Interfaces[i]
-		}
+func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
+	indexedNetworkStatus := map[string]networkv1.NetworkStatus{}
+	podNetworkStatus, found := pod.Annotations[networkv1.NetworkStatusAnnot]
+
+	if !found {
+		return indexedNetworkStatus
 	}
-	return nil
+
+	var networkStatus []networkv1.NetworkStatus
+	if err := json.Unmarshal([]byte(podNetworkStatus), &networkStatus); err != nil {
+		log.Log.Errorf("failed to unmarshall pod network status: %v", err)
+		return indexedNetworkStatus
+	}
+
+	for _, ns := range networkStatus {
+		if ns.Default {
+			continue
+		}
+		indexedNetworkStatus[ns.Interface] = ns
+	}
+
+	return indexedNetworkStatus
 }

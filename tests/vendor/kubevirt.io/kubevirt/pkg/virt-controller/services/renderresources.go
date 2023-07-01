@@ -111,7 +111,7 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 	}
 }
 
-func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOption {
+func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		vcpus := calcVCPUs(cpu)
 		if vcpus != 0 && cpuAllocationRatio > 0 {
@@ -122,6 +122,10 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int) ResourceRendererOp
 				vcpusStr = fmt.Sprintf("%gm", val)
 			}
 			renderer.calculatedRequests[k8sv1.ResourceCPU] = resource.MustParse(vcpusStr)
+
+			if withCPULimits {
+				renderer.calculatedLimits[k8sv1.ResourceCPU] = resource.MustParse(strconv.FormatInt(vcpus, 10))
+			}
 		}
 	}
 }
@@ -471,7 +475,7 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	networkToResourceMap = make(map[string]string)
 	for _, network := range vmi.Spec.Networks {
 		if network.Multus != nil {
-			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+			namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, network.Multus.NetworkName)
 			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(context.Background(), networkName, metav1.GetOptions{})
 			if err != nil {
 				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)

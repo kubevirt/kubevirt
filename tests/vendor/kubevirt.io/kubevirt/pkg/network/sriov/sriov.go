@@ -61,7 +61,7 @@ func mapNetworkNameToPCIAddress(networks []v1.Network, interfaces []v1.Interface
 	if err != nil {
 		return nil, err
 	}
-	networkNameScheme := namescheme.CreateNetworkNameScheme(networks)
+	networkNameScheme := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, multusInterfaceNameToNetworkStatusMap)
 
 	networkPCIMap := map[string]string{}
 	for _, sriovIface := range vmispec.FilterSRIOVInterfaces(interfaces) {

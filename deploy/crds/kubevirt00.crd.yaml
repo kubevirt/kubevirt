@@ -172,6 +172,54 @@ spec:
                             type: string
                         type: object
                     type: object
+                  autoCPULimitNamespaceLabelSelector:
+                    description: When set, AutoCPULimitNamespaceLabelSelector will
+                      set a CPU limit on virt-launcher for VMIs running inside namespaces
+                      that match the label selector. The CPU limit will equal the
+                      number of requested vCPUs. This setting does not apply to VMIs
+                      with dedicated CPUs.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: A label selector requirement is a selector
+                            that contains values, a key, and an operator that relates
+                            the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: operator represents a key's relationship
+                                to a set of values. Valid operators are In, NotIn,
+                                Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: values is an array of string values. If
+                                the operator is In or NotIn, the values array must
+                                be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced
+                                during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: matchLabels is a map of {key,value} pairs. A
+                          single {key,value} in the matchLabels map is equivalent
+                          to an element of matchExpressions, whose key field is "key",
+                          the operator is "In", and the values array contains only
+                          "value". The requirements are ANDed.
+                        type: object
+                    type: object
                   controllerConfiguration:
                     description: ReloadableComponentConfiguration holds all generic
                       k8s configuration options which can be reloaded by components
@@ -350,6 +398,68 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
+                  ksmConfiguration:
+                    description: KSMConfiguration holds the information regarding
+                      the enabling the KSM in the nodes (if available).
+                    properties:
+                      nodeLabelSelector:
+                        description: NodeLabelSelector is a selector that filters
+                          in which nodes the KSM will be enabled. Empty NodeLabelSelector
+                          will enable ksm for every node.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                    type: object
+                  liveUpdateConfiguration:
+                    description: LiveUpdateConfiguration holds defaults for live update
+                      features
+                    properties:
+                      maxCpuSockets:
+                        description: MaxCpuSockets holds the maximum amount of sockets
+                          that can be hotplugged
+                        format: int32
+                        type: integer
+                    type: object
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
@@ -370,7 +480,7 @@ spec:
                       nodeMediatedDeviceTypes:
                         items:
                           description: NodeMediatedDeviceTypesConfig holds information
-                            about MDEV types to be defined in a specifc node that
+                            about MDEV types to be defined in a specific node that
                             matches the NodeSelector field.
                           properties:
                             mediatedDeviceTypes:
@@ -425,8 +535,8 @@ spec:
                         - type: integer
                         - type: string
                         description: BandwidthPerMigration limits the amount of network
-                          bandwith live migrations are allowed to use. The value is
-                          in quantity per second. Defaults to 0 (no limit)
+                          bandwidth live migrations are allowed to use. The value
+                          is in quantity per second. Defaults to 0 (no limit)
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       completionTimeoutPerGiB:
@@ -441,6 +551,16 @@ spec:
                         description: When set to true, DisableTLS will disable the
                           additional layer of live migration encryption provided by
                           KubeVirt. This is usually a bad idea. Defaults to false
+                        type: boolean
+                      matchSELinuxLevelOnMigration:
+                        description: By default, the SELinux level of target virt-launcher
+                          pods is forced to the level of the source virt-launcher.
+                          When set to true, MatchSELinuxLevelOnMigration lets the
+                          CRI auto-assign a random level to the target. That will
+                          ensure the target virt-launcher doesn't share categories
+                          with another pod on the node. However, migrations will fail
+                          when using RWX volumes that don't automatically deal with
+                          SELinux levels.
                         type: boolean
                       network:
                         description: Network is the name of the CNI network to use
@@ -594,6 +714,29 @@ spec:
                           description: ResourceRequirements describes the compute
                             resource requirements.
                           properties:
+                            claims:
+                              description: "Claims lists the names of resources, defined
+                                in spec.resourceClaims, that are used by this container.
+                                \n This is an alpha field and requires enabling the
+                                DynamicResourceAllocation feature gate. \n This field
+                                is immutable. It can only be set for containers."
+                              items:
+                                description: ResourceClaim references one entry in
+                                  PodSpec.ResourceClaims.
+                                properties:
+                                  name:
+                                    description: Name must match the name of one entry
+                                      in pod.spec.resourceClaims of the Pod where
+                                      this field is used. It makes that resource available
+                                      inside a container.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             limits:
                               additionalProperties:
                                 anyOf:
@@ -657,6 +800,19 @@ spec:
                     type: object
                   virtualMachineInstancesPerNode:
                     type: integer
+                  virtualMachineOptions:
+                    description: VirtualMachineOptions holds the cluster level information
+                      regarding the virtual machine.
+                    properties:
+                      disableFreePageReporting:
+                        description: DisableFreePageReporting disable the free page
+                          reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                          This will have effect only if AutoattachMemBalloon is not
+                          false and the vmi is not requesting any high performance
+                          feature (dedicatedCPU/realtime/hugePages), in which free
+                          page reporting is always disabled.
+                        type: object
+                    type: object
                   vmStateStorageClass:
                     description: VMStateStorageClass is the name of the storage class
                       to use for the PVCs created to preserve VM state, like TPM.
@@ -1083,9 +1239,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -1145,7 +1298,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -1254,9 +1407,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -1313,7 +1464,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -1424,9 +1575,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -1486,7 +1634,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -1595,9 +1743,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -1654,7 +1800,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -2119,9 +2265,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -2181,7 +2324,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -2290,9 +2433,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -2349,7 +2490,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -2460,9 +2601,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -2522,7 +2660,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -2631,9 +2769,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -2690,7 +2826,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -3034,6 +3170,54 @@ spec:
                             type: string
                         type: object
                     type: object
+                  autoCPULimitNamespaceLabelSelector:
+                    description: When set, AutoCPULimitNamespaceLabelSelector will
+                      set a CPU limit on virt-launcher for VMIs running inside namespaces
+                      that match the label selector. The CPU limit will equal the
+                      number of requested vCPUs. This setting does not apply to VMIs
+                      with dedicated CPUs.
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: A label selector requirement is a selector
+                            that contains values, a key, and an operator that relates
+                            the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: operator represents a key's relationship
+                                to a set of values. Valid operators are In, NotIn,
+                                Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: values is an array of string values. If
+                                the operator is In or NotIn, the values array must
+                                be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced
+                                during a strategic merge patch.
+                              items:
+                                type: string
+                              type: array
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: matchLabels is a map of {key,value} pairs. A
+                          single {key,value} in the matchLabels map is equivalent
+                          to an element of matchExpressions, whose key field is "key",
+                          the operator is "In", and the values array contains only
+                          "value". The requirements are ANDed.
+                        type: object
+                    type: object
                   controllerConfiguration:
                     description: ReloadableComponentConfiguration holds all generic
                       k8s configuration options which can be reloaded by components
@@ -3212,6 +3396,68 @@ spec:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
                     type: string
+                  ksmConfiguration:
+                    description: KSMConfiguration holds the information regarding
+                      the enabling the KSM in the nodes (if available).
+                    properties:
+                      nodeLabelSelector:
+                        description: NodeLabelSelector is a selector that filters
+                          in which nodes the KSM will be enabled. Empty NodeLabelSelector
+                          will enable ksm for every node.
+                        properties:
+                          matchExpressions:
+                            description: matchExpressions is a list of label selector
+                              requirements. The requirements are ANDed.
+                            items:
+                              description: A label selector requirement is a selector
+                                that contains values, a key, and an operator that
+                                relates the key and values.
+                              properties:
+                                key:
+                                  description: key is the label key that the selector
+                                    applies to.
+                                  type: string
+                                operator:
+                                  description: operator represents a key's relationship
+                                    to a set of values. Valid operators are In, NotIn,
+                                    Exists and DoesNotExist.
+                                  type: string
+                                values:
+                                  description: values is an array of string values.
+                                    If the operator is In or NotIn, the values array
+                                    must be non-empty. If the operator is Exists or
+                                    DoesNotExist, the values array must be empty.
+                                    This array is replaced during a strategic merge
+                                    patch.
+                                  items:
+                                    type: string
+                                  type: array
+                              required:
+                              - key
+                              - operator
+                              type: object
+                            type: array
+                          matchLabels:
+                            additionalProperties:
+                              type: string
+                            description: matchLabels is a map of {key,value} pairs.
+                              A single {key,value} in the matchLabels map is equivalent
+                              to an element of matchExpressions, whose key field is
+                              "key", the operator is "In", and the values array contains
+                              only "value". The requirements are ANDed.
+                            type: object
+                        type: object
+                    type: object
+                  liveUpdateConfiguration:
+                    description: LiveUpdateConfiguration holds defaults for live update
+                      features
+                    properties:
+                      maxCpuSockets:
+                        description: MaxCpuSockets holds the maximum amount of sockets
+                          that can be hotplugged
+                        format: int32
+                        type: integer
+                    type: object
                   machineType:
                     type: string
                   mediatedDevicesConfiguration:
@@ -3232,7 +3478,7 @@ spec:
                       nodeMediatedDeviceTypes:
                         items:
                           description: NodeMediatedDeviceTypesConfig holds information
-                            about MDEV types to be defined in a specifc node that
+                            about MDEV types to be defined in a specific node that
                             matches the NodeSelector field.
                           properties:
                             mediatedDeviceTypes:
@@ -3287,8 +3533,8 @@ spec:
                         - type: integer
                         - type: string
                         description: BandwidthPerMigration limits the amount of network
-                          bandwith live migrations are allowed to use. The value is
-                          in quantity per second. Defaults to 0 (no limit)
+                          bandwidth live migrations are allowed to use. The value
+                          is in quantity per second. Defaults to 0 (no limit)
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       completionTimeoutPerGiB:
@@ -3303,6 +3549,16 @@ spec:
                         description: When set to true, DisableTLS will disable the
                           additional layer of live migration encryption provided by
                           KubeVirt. This is usually a bad idea. Defaults to false
+                        type: boolean
+                      matchSELinuxLevelOnMigration:
+                        description: By default, the SELinux level of target virt-launcher
+                          pods is forced to the level of the source virt-launcher.
+                          When set to true, MatchSELinuxLevelOnMigration lets the
+                          CRI auto-assign a random level to the target. That will
+                          ensure the target virt-launcher doesn't share categories
+                          with another pod on the node. However, migrations will fail
+                          when using RWX volumes that don't automatically deal with
+                          SELinux levels.
                         type: boolean
                       network:
                         description: Network is the name of the CNI network to use
@@ -3456,6 +3712,29 @@ spec:
                           description: ResourceRequirements describes the compute
                             resource requirements.
                           properties:
+                            claims:
+                              description: "Claims lists the names of resources, defined
+                                in spec.resourceClaims, that are used by this container.
+                                \n This is an alpha field and requires enabling the
+                                DynamicResourceAllocation feature gate. \n This field
+                                is immutable. It can only be set for containers."
+                              items:
+                                description: ResourceClaim references one entry in
+                                  PodSpec.ResourceClaims.
+                                properties:
+                                  name:
+                                    description: Name must match the name of one entry
+                                      in pod.spec.resourceClaims of the Pod where
+                                      this field is used. It makes that resource available
+                                      inside a container.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             limits:
                               additionalProperties:
                                 anyOf:
@@ -3519,6 +3798,19 @@ spec:
                     type: object
                   virtualMachineInstancesPerNode:
                     type: integer
+                  virtualMachineOptions:
+                    description: VirtualMachineOptions holds the cluster level information
+                      regarding the virtual machine.
+                    properties:
+                      disableFreePageReporting:
+                        description: DisableFreePageReporting disable the free page
+                          reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                          This will have effect only if AutoattachMemBalloon is not
+                          false and the vmi is not requesting any high performance
+                          feature (dedicatedCPU/realtime/hugePages), in which free
+                          page reporting is always disabled.
+                        type: object
+                    type: object
                   vmStateStorageClass:
                     description: VMStateStorageClass is the name of the storage class
                       to use for the PVCs created to preserve VM state, like TPM.
@@ -3945,9 +4237,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -4007,7 +4296,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -4116,9 +4405,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -4175,7 +4462,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -4286,9 +4573,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -4348,7 +4632,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -4457,9 +4741,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -4516,7 +4798,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -4981,9 +5263,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -5043,7 +5322,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -5152,9 +5431,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -5211,7 +5488,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -5322,9 +5599,6 @@ spec:
                                             null selector and null or empty namespaces
                                             list means "this pod's namespace". An
                                             empty selector ({}) matches all namespaces.
-                                            This field is beta-level and is only honored
-                                            when PodAffinityNamespaceSelector feature
-                                            is enabled.
                                           properties:
                                             matchExpressions:
                                               description: matchExpressions is a list
@@ -5384,7 +5658,7 @@ spec:
                                             union of the namespaces listed in this
                                             field and the ones selected by namespaceSelector.
                                             null or empty namespaces list and null
-                                            namespaceSelector means "this pod's namespace"
+                                            namespaceSelector means "this pod's namespace".
                                           items:
                                             type: string
                                           type: array
@@ -5493,9 +5767,7 @@ spec:
                                         this field and the ones listed in the namespaces
                                         field. null selector and null or empty namespaces
                                         list means "this pod's namespace". An empty
-                                        selector ({}) matches all namespaces. This
-                                        field is beta-level and is only honored when
-                                        PodAffinityNamespaceSelector feature is enabled.
+                                        selector ({}) matches all namespaces.
                                       properties:
                                         matchExpressions:
                                           description: matchExpressions is a list
@@ -5552,7 +5824,7 @@ spec:
                                         listed in this field and the ones selected
                                         by namespaceSelector. null or empty namespaces
                                         list and null namespaceSelector means "this
-                                        pod's namespace"
+                                        pod's namespace".
                                       items:
                                         type: string
                                       type: array

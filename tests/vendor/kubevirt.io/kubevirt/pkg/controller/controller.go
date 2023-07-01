@@ -365,6 +365,11 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func VMIHasHotplugCPU(vmi *v1.VirtualMachineInstance) bool {
+	vmiConditionManager := NewVirtualMachineInstanceConditionManager()
+	return vmiConditionManager.HasCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+}
+
 func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) ([]*k8sv1.Pod, error) {
 	objs, err := podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ownerPod.Namespace)
 	if err != nil {
@@ -383,28 +388,34 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) 
 }
 
 func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
-	existingIface := vmispec.FilterInterfacesSpec(vmiSpec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.Name == request.AddInterfaceOptions.Name
-	})
-
-	if len(existingIface) == 0 {
-		newNetwork := v1.Network{
-			Name: request.AddInterfaceOptions.Name,
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{
-					NetworkName: request.AddInterfaceOptions.NetworkAttachmentDefinitionName,
-				},
-			},
+	switch {
+	case request.AddInterfaceOptions != nil:
+		if iface := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, request.AddInterfaceOptions.Name); iface == nil {
+			newNetwork, newIface := newNetworkInterface(request.AddInterfaceOptions.Name, request.AddInterfaceOptions.NetworkAttachmentDefinitionName)
+			vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
+			vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newIface)
 		}
-
-		newIface := v1.Interface{
-			Name:                   request.AddInterfaceOptions.Name,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+	case request.RemoveInterfaceOptions != nil:
+		if iface := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, request.RemoveInterfaceOptions.Name); iface != nil {
+			iface.State = v1.InterfaceStateAbsent
 		}
-
-		vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
-		vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newIface)
 	}
 
 	return vmiSpec
+}
+
+func newNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
+	network := v1.Network{
+		Name: name,
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.MultusNetwork{
+				NetworkName: netAttachDefName,
+			},
+		},
+	}
+	iface := v1.Interface{
+		Name:                   name,
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+	}
+	return network, iface
 }

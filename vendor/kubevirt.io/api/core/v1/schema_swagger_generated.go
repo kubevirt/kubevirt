@@ -158,6 +158,7 @@ func (CPU) SwaggerDoc() map[string]string {
 		"":                      "CPU allows specifying the CPU topology.",
 		"cores":                 "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
 		"sockets":               "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
+		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can\nbe hotplugged",
 		"threads":               "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
 		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
 		"features":              "Features specifies the CPU features list inside the VMI.\n+optional",
@@ -365,7 +366,15 @@ func (LaunchSecurity) SwaggerDoc() map[string]string {
 }
 
 func (SEV) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"policy": "Guest policy flags as defined in AMD SEV API specification.\nNote: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
+	}
+}
+
+func (SEVPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"encryptedState": "SEV-ES is required.\nDefaults to false.\n+optional",
+	}
 }
 
 func (LunTarget) SwaggerDoc() map[string]string {
@@ -629,6 +638,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 		"acpiIndex":   "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes\nin PCI addresses assigned to the device.\nThis value is required to be unique across all devices and be between 1 and (16*1024-1).\n+optional",
+		"state":       "State represents the requested operational state of the interface.\nThe (only) value supported is `absent`, expressing a request to remove the interface.\n+optional",
 	}
 }
 
@@ -813,5 +823,14 @@ func (MultusNetwork) SwaggerDoc() map[string]string {
 		"":            "Represents the multus cni network.",
 		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
 		"default":     "Select the default network and add it to the\nmultus-cni.io/default-network annotation.",
+	}
+}
+
+func (CPUTopology) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "CPUTopology allows specifying the amount of cores, sockets\nand threads.",
+		"cores":   "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
+		"sockets": "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
+		"threads": "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
 	}
 }

@@ -23,6 +23,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+func WithCPUCount(cores, threads, sockets uint32) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+		vmi.Spec.Domain.CPU.Cores = cores
+		vmi.Spec.Domain.CPU.Threads = threads
+		vmi.Spec.Domain.CPU.Sockets = sockets
+	}
+}
+
 func WithCPUModel(model string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.CPU == nil {

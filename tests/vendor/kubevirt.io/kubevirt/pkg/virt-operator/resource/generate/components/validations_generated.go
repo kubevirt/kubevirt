@@ -254,6 +254,20 @@ var CRDsValidation map[string]string = map[string]string{
               description: DataVolumeBlankImage provides the parameters to create
                 a new raw blank image for the PVC
               type: object
+            gcs:
+              description: DataVolumeSourceGCS provides the parameters to create a
+                Data Volume from an GCS source
+              properties:
+                secretRef:
+                  description: SecretRef provides the secret reference needed to access
+                    the GCS source
+                  type: string
+                url:
+                  description: URL is the url of the GCS source
+                  type: string
+              required:
+              - url
+              type: object
             http:
               description: DataVolumeSourceHTTP can be either an http or https endpoint,
                 with an optional basic auth user name and password, and an optional
@@ -366,6 +380,20 @@ var CRDsValidation map[string]string = map[string]string{
               required:
               - url
               type: object
+            snapshot:
+              description: DataVolumeSourceSnapshot provides the parameters to create
+                a Data Volume from an existing VolumeSnapshot
+              properties:
+                name:
+                  description: The name of the source VolumeSnapshot
+                  type: string
+                namespace:
+                  description: The namespace of the source VolumeSnapshot
+                  type: string
+              required:
+              - name
+              - namespace
+              type: object
             upload:
               description: DataVolumeSourceUpload provides the parameters to create
                 a Data Volume by uploading the source
@@ -437,7 +465,9 @@ var CRDsValidation map[string]string = map[string]string{
                 types that implement data population, the AnyVolumeDataSource feature
                 gate must be enabled. If the provisioner or an external controller
                 can support the specified data source, it will create a new volume
-                based on the contents of the specified data source.'
+                based on the contents of the specified data source. If the AnyVolumeDataSource
+                feature gate is enabled, this field will always have the same contents
+                as the DataSourceRef field.'
               properties:
                 apiGroup:
                   description: APIGroup is the group for the resource being referenced.
@@ -449,6 +479,48 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 name:
                   description: Name is the name of resource being referenced
+                  type: string
+              required:
+              - kind
+              - name
+              type: object
+            dataSourceRef:
+              description: 'Specifies the object from which to populate the volume
+                with data, if a non-empty volume is desired. This may be any local
+                object from a non-empty API group (non core object) or a PersistentVolumeClaim
+                object. When this field is specified, volume binding will only succeed
+                if the type of the specified object matches some installed volume
+                populator or dynamic provisioner. This field will replace the functionality
+                of the DataSource field and as such if both fields are non-empty,
+                they must have the same value. For backwards compatibility, both fields
+                (DataSource and DataSourceRef) will be set to the same value automatically
+                if one of them is empty and the other is non-empty. There are two
+                important differences between DataSource and DataSourceRef: * While
+                DataSource only allows two specific types of objects, DataSourceRef
+                allows any non-core object, as well as PersistentVolumeClaim objects.
+                * While DataSource ignores disallowed values (dropping them), DataSourceRef
+                preserves all values, and generates an error if a disallowed value
+                is specified. (Beta) Using this field requires the AnyVolumeDataSource
+                feature gate to be enabled.'
+              properties:
+                apiGroup:
+                  description: APIGroup is the group for the resource being referenced.
+                    If APIGroup is not specified, the specified Kind must be in the
+                    core API group. For any other third-party types, APIGroup is required.
+                  type: string
+                kind:
+                  description: Kind is the type of resource being referenced
+                  type: string
+                name:
+                  description: Name is the name of resource being referenced
+                  type: string
+                namespace:
+                  description: Namespace is the namespace of resource being referenced
+                    Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant
+                    object is required in the referent namespace to allow that namespace's
+                    owner to accept the reference. See the ReferenceGrant documentation
+                    for details. (Alpha) This field requires the CrossNamespaceVolumeDataSource
+                    feature gate to be enabled.
                   type: string
               required:
               - kind
@@ -711,6 +783,52 @@ var CRDsValidation map[string]string = map[string]string{
                       type: string
                   type: object
               type: object
+            autoCPULimitNamespaceLabelSelector:
+              description: When set, AutoCPULimitNamespaceLabelSelector will set a
+                CPU limit on virt-launcher for VMIs running inside namespaces that
+                match the label selector. The CPU limit will equal the number of requested
+                vCPUs. This setting does not apply to VMIs with dedicated CPUs.
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
             controllerConfiguration:
               description: ReloadableComponentConfiguration holds all generic k8s
                 configuration options which can be reloaded by components without
@@ -884,6 +1002,67 @@ var CRDsValidation map[string]string = map[string]string{
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
+            ksmConfiguration:
+              description: KSMConfiguration holds the information regarding the enabling
+                the KSM in the nodes (if available).
+              properties:
+                nodeLabelSelector:
+                  description: NodeLabelSelector is a selector that filters in which
+                    nodes the KSM will be enabled. Empty NodeLabelSelector will enable
+                    ksm for every node.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: A label selector requirement is a selector that
+                          contains values, a key, and an operator that relates the
+                          key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: operator represents a key's relationship
+                              to a set of values. Valid operators are In, NotIn, Exists
+                              and DoesNotExist.
+                            type: string
+                          values:
+                            description: values is an array of string values. If the
+                              operator is In or NotIn, the values array must be non-empty.
+                              If the operator is Exists or DoesNotExist, the values
+                              array must be empty. This array is replaced during a
+                              strategic merge patch.
+                            items:
+                              type: string
+                            type: array
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: matchLabels is a map of {key,value} pairs. A single
+                        {key,value} in the matchLabels map is equivalent to an element
+                        of matchExpressions, whose key field is "key", the operator
+                        is "In", and the values array contains only "value". The requirements
+                        are ANDed.
+                      type: object
+                  type: object
+              type: object
+            liveUpdateConfiguration:
+              description: LiveUpdateConfiguration holds defaults for live update
+                features
+              properties:
+                maxCpuSockets:
+                  description: MaxCpuSockets holds the maximum amount of sockets that
+                    can be hotplugged
+                  format: int32
+                  type: integer
+              type: object
             machineType:
               type: string
             mediatedDevicesConfiguration:
@@ -904,7 +1083,7 @@ var CRDsValidation map[string]string = map[string]string{
                 nodeMediatedDeviceTypes:
                   items:
                     description: NodeMediatedDeviceTypesConfig holds information about
-                      MDEV types to be defined in a specifc node that matches the
+                      MDEV types to be defined in a specific node that matches the
                       NodeSelector field.
                     properties:
                       mediatedDeviceTypes:
@@ -959,8 +1138,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - type: integer
                   - type: string
                   description: BandwidthPerMigration limits the amount of network
-                    bandwith live migrations are allowed to use. The value is in quantity
-                    per second. Defaults to 0 (no limit)
+                    bandwidth live migrations are allowed to use. The value is in
+                    quantity per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
@@ -975,6 +1154,15 @@ var CRDsValidation map[string]string = map[string]string{
                   description: When set to true, DisableTLS will disable the additional
                     layer of live migration encryption provided by KubeVirt. This
                     is usually a bad idea. Defaults to false
+                  type: boolean
+                matchSELinuxLevelOnMigration:
+                  description: By default, the SELinux level of target virt-launcher
+                    pods is forced to the level of the source virt-launcher. When
+                    set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign
+                    a random level to the target. That will ensure the target virt-launcher
+                    doesn't share categories with another pod on the node. However,
+                    migrations will fail when using RWX volumes that don't automatically
+                    deal with SELinux levels.
                   type: boolean
                 network:
                   description: Network is the name of the CNI network to use for live
@@ -1209,6 +1397,18 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
             virtualMachineInstancesPerNode:
               type: integer
+            virtualMachineOptions:
+              description: VirtualMachineOptions holds the cluster level information
+                regarding the virtual machine.
+              properties:
+                disableFreePageReporting:
+                  description: DisableFreePageReporting disable the free page reporting
+                    of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                    This will have effect only if AutoattachMemBalloon is not false
+                    and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages),
+                    in which free page reporting is always disabled.
+                  type: object
+              type: object
             vmStateStorageClass:
               description: VMStateStorageClass is the name of the storage class to
                 use for the PVCs created to preserve VM state, like TPM. The storage
@@ -3618,6 +3818,20 @@ var CRDsValidation map[string]string = map[string]string{
                         description: DataVolumeBlankImage provides the parameters
                           to create a new raw blank image for the PVC
                         type: object
+                      gcs:
+                        description: DataVolumeSourceGCS provides the parameters to
+                          create a Data Volume from an GCS source
+                        properties:
+                          secretRef:
+                            description: SecretRef provides the secret reference needed
+                              to access the GCS source
+                            type: string
+                          url:
+                            description: URL is the url of the GCS source
+                            type: string
+                        required:
+                        - url
+                        type: object
                       http:
                         description: DataVolumeSourceHTTP can be either an http or
                           https endpoint, with an optional basic auth user name and
@@ -3733,6 +3947,20 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - url
                         type: object
+                      snapshot:
+                        description: DataVolumeSourceSnapshot provides the parameters
+                          to create a Data Volume from an existing VolumeSnapshot
+                        properties:
+                          name:
+                            description: The name of the source VolumeSnapshot
+                            type: string
+                          namespace:
+                            description: The namespace of the source VolumeSnapshot
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
                       upload:
                         description: DataVolumeSourceUpload provides the parameters
                           to create a Data Volume by uploading the source
@@ -3806,7 +4034,10 @@ var CRDsValidation map[string]string = map[string]string{
                           population, the AnyVolumeDataSource feature gate must be
                           enabled. If the provisioner or an external controller can
                           support the specified data source, it will create a new
-                          volume based on the contents of the specified data source.'
+                          volume based on the contents of the specified data source.
+                          If the AnyVolumeDataSource feature gate is enabled, this
+                          field will always have the same contents as the DataSourceRef
+                          field.'
                         properties:
                           apiGroup:
                             description: APIGroup is the group for the resource being
@@ -3819,6 +4050,54 @@ var CRDsValidation map[string]string = map[string]string{
                             type: string
                           name:
                             description: Name is the name of resource being referenced
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        type: object
+                      dataSourceRef:
+                        description: 'Specifies the object from which to populate
+                          the volume with data, if a non-empty volume is desired.
+                          This may be any local object from a non-empty API group
+                          (non core object) or a PersistentVolumeClaim object. When
+                          this field is specified, volume binding will only succeed
+                          if the type of the specified object matches some installed
+                          volume populator or dynamic provisioner. This field will
+                          replace the functionality of the DataSource field and as
+                          such if both fields are non-empty, they must have the same
+                          value. For backwards compatibility, both fields (DataSource
+                          and DataSourceRef) will be set to the same value automatically
+                          if one of them is empty and the other is non-empty. There
+                          are two important differences between DataSource and DataSourceRef:
+                          * While DataSource only allows two specific types of objects,
+                          DataSourceRef allows any non-core object, as well as PersistentVolumeClaim
+                          objects. * While DataSource ignores disallowed values (dropping
+                          them), DataSourceRef preserves all values, and generates
+                          an error if a disallowed value is specified. (Beta) Using
+                          this field requires the AnyVolumeDataSource feature gate
+                          to be enabled.'
+                        properties:
+                          apiGroup:
+                            description: APIGroup is the group for the resource being
+                              referenced. If APIGroup is not specified, the specified
+                              Kind must be in the core API group. For any other third-party
+                              types, APIGroup is required.
+                            type: string
+                          kind:
+                            description: Kind is the type of resource being referenced
+                            type: string
+                          name:
+                            description: Name is the name of resource being referenced
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of resource being
+                              referenced Note that when a namespace is specified,
+                              a gateway.networking.k8s.io/ReferenceGrant object is
+                              required in the referent namespace to allow that namespace's
+                              owner to accept the reference. See the ReferenceGrant
+                              documentation for details. (Alpha) This field requires
+                              the CrossNamespaceVolumeDataSource feature gate to be
+                              enabled.
                             type: string
                         required:
                         - kind
@@ -3967,6 +4246,23 @@ var CRDsValidation map[string]string = map[string]string{
                 to be used. This is initially captured the first time the instancetype
                 is applied to the VirtualMachineInstance.
               type: string
+          type: object
+        liveUpdateFeatures:
+          description: LiveUpdateFeatures references a configuration of hotpluggable
+            resources
+          properties:
+            cpu:
+              description: LiveUpdateCPU holds hotplug configuration for the CPU resource.
+                Empty struct indicates that default will be used for maxSockets. Default
+                is specified on cluster level. Absence of the struct means opt-out
+                from CPU hotplug functionality.
+              properties:
+                maxSockets:
+                  description: The maximum amount of sockets that can be hot-plugged
+                    to the Virtual Machine
+                  format: int32
+                  type: integer
+              type: object
           type: object
         preference:
           description: PreferenceMatcher references a set of preference that is used
@@ -5152,6 +5448,11 @@ var CRDsValidation map[string]string = map[string]string{
                             pCPU to be allocated for the VMI to place the emulator
                             thread on it.
                           type: boolean
+                        maxSockets:
+                          description: MaxSockets specifies the maximum amount of
+                            sockets that can be hotplugged
+                          format: int32
+                          type: integer
                         model:
                           description: Model specifies the CPU model inside the VMI.
                             List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -5592,6 +5893,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: InterfaceSRIOV connects to a given network
                                   by passing-through an SR-IOV PCI device via vfio.
                                 type: object
+                              state:
+                                description: State represents the requested operational
+                                  state of the interface. The (only) value supported
+                                  is 'absent', expressing a request to remove the
+                                  interface.
+                                type: string
                               tag:
                                 description: If specified, the virtual network interface
                                   address and its tag will be provided to the guest
@@ -5965,6 +6272,18 @@ var CRDsValidation map[string]string = map[string]string{
                       properties:
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
+                          properties:
+                            policy:
+                              description: 'Guest policy flags as defined in AMD SEV
+                                API specification. Note: due to security reasons it
+                                is not allowed to enable guest debugging. Therefore
+                                NoDebug flag is not exposed to users and is always
+                                true.'
+                              properties:
+                                encryptedState:
+                                  description: SEV-ES is required. Defaults to false.
+                                  type: boolean
+                              type: object
                           type: object
                       type: object
                     machine:
@@ -7064,6 +7383,17 @@ var CRDsValidation map[string]string = map[string]string{
                 - name
                 - networkAttachmentDefinitionName
                 type: object
+              removeInterfaceOptions:
+                description: RemoveInterfaceOptions when set indicates a network interface
+                  should be removed. The details within this field specify how to
+                  remove the interface
+                properties:
+                  name:
+                    description: Name indicates the logical name of the interface.
+                    type: string
+                required:
+                - name
+                type: object
             type: object
           type: array
           x-kubernetes-list-type: atomic
@@ -7661,6 +7991,17 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
+              properties:
+                policy:
+                  description: 'Guest policy flags as defined in AMD SEV API specification.
+                    Note: due to security reasons it is not allowed to enable guest
+                    debugging. Therefore NoDebug flag is not exposed to users and
+                    is always true.'
+                  properties:
+                    encryptedState:
+                      description: SEV-ES is required. Defaults to false.
+                      type: boolean
+                  type: object
               type: object
           type: object
         memory:
@@ -7683,6 +8024,15 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+            overcommitPercent:
+              description: OvercommitPercent is the percentage of the guest memory
+                which will be overcommitted. This means that the VMIs parent pod (virt-launcher)
+                will request less physical memory by a factor specified by the OvercommitPercent.
+                Overcommits can lead to memory exhaustion, which in turn can lead
+                to crashes. Use carefully. Defaults to 0
+              maximum: 100
+              minimum: 0
+              type: integer
           required:
           - guest
           type: object
@@ -7809,6 +8159,31 @@ var CRDsValidation map[string]string = map[string]string{
           description: CPU optionally defines preferences associated with the CPU
             attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredCPUFeatures:
+              description: PreferredCPUFeatures optionally defines a slice of preferred
+                CPU features.
+              items:
+                description: CPUFeature allows specifying a CPU feature.
+                properties:
+                  name:
+                    description: Name of the CPU feature
+                    type: string
+                  policy:
+                    description: 'Policy is the CPU feature attribute which can have
+                      the following attributes: force    - The virtual CPU will claim
+                      the feature is supported regardless of it being supported by
+                      host CPU. require  - Guest creation will fail unless the feature
+                      is supported by the host CPU or the hypervisor is able to emulate
+                      it. optional - The feature will be supported by virtual CPU
+                      if and only if it is supported by host CPU. disable  - The feature
+                      will not be supported by virtual CPU. forbid   - Guest creation
+                      will fail if the feature is supported by host CPU. Defaults
+                      to require'
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
@@ -7899,6 +8274,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredInputType optionally defines the preferred type
                 for Input devices.
               type: string
+            preferredInterfaceMasquerade:
+              description: PreferredInterfaceMasquerade optionally defines the preferred
+                masquerade configuration to use with each network interface.
+              type: object
             preferredInterfaceModel:
               description: PreferredInterfaceModel optionally defines the preferred
                 model to be used by Interface devices.
@@ -8179,6 +8558,42 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredMachineType optionally defines the preferred machine
                 type to use.
               type: string
+          type: object
+        preferredSubdomain:
+          description: Subdomain of the VirtualMachineInstance
+          type: string
+        preferredTerminationGracePeriodSeconds:
+          description: Grace period observed after signalling a VirtualMachineInstance
+            to stop after which the VirtualMachineInstance is force terminated.
+          format: int64
+          type: integer
+        requirements:
+          description: Requirements defines the minium amount of instance type defined
+            resources required by a set of preferences
+          properties:
+            cpu:
+              description: Required CPU related attributes of the instancetype.
+              properties:
+                guest:
+                  description: Minimal number of vCPUs required by the preference.
+                  format: int32
+                  type: integer
+              required:
+              - guest
+              type: object
+            memory:
+              description: Required Memory related attributes of the instancetype.
+              properties:
+                guest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: Minimal amount of memory required by the preference.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              required:
+              - guest
+              type: object
           type: object
         volumes:
           description: Volumes optionally defines preferences associated with the
@@ -9524,6 +9939,11 @@ var CRDsValidation map[string]string = map[string]string{
                   description: IsolateEmulatorThread requests one more dedicated pCPU
                     to be allocated for the VMI to place the emulator thread on it.
                   type: boolean
+                maxSockets:
+                  description: MaxSockets specifies the maximum amount of sockets
+                    that can be hotplugged
+                  format: int32
+                  type: integer
                 model:
                   description: Model specifies the CPU model inside the VMI. List
                     of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -9942,6 +10362,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: InterfaceSRIOV connects to a given network by
                           passing-through an SR-IOV PCI device via vfio.
                         type: object
+                      state:
+                        description: State represents the requested operational state
+                          of the interface. The (only) value supported is 'absent',
+                          expressing a request to remove the interface.
+                        type: string
                       tag:
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
@@ -10283,6 +10708,17 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
+                  properties:
+                    policy:
+                      description: 'Guest policy flags as defined in AMD SEV API specification.
+                        Note: due to security reasons it is not allowed to enable
+                        guest debugging. Therefore NoDebug flag is not exposed to
+                        users and is always true.'
+                      properties:
+                        encryptedState:
+                          description: SEV-ES is required. Defaults to false.
+                          type: boolean
+                      type: object
                   type: object
               type: object
             machine:
@@ -11301,6 +11737,27 @@ var CRDsValidation map[string]string = map[string]string{
             - type
             type: object
           type: array
+        currentCPUTopology:
+          description: CurrentCPUTopology specifies the current CPU topology used
+            by the VM workload. Current topology may differ from the desired topology
+            in the spec while CPU hotplug takes place.
+          properties:
+            cores:
+              description: Cores specifies the number of cores inside the vmi. Must
+                be a value greater or equal 1.
+              format: int32
+              type: integer
+            sockets:
+              description: Sockets specifies the number of sockets inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+            threads:
+              description: Threads specifies the number of threads inside the vmi.
+                Must be a value greater or equal 1.
+              format: int32
+              type: integer
+          type: object
         evacuationNodeName:
           description: EvacuationNodeName is used to track the eviction process of
             a VMI. It stores the name of the node that we want to evacuate. It is
@@ -11430,8 +11887,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - type: integer
                   - type: string
                   description: BandwidthPerMigration limits the amount of network
-                    bandwith live migrations are allowed to use. The value is in quantity
-                    per second. Defaults to 0 (no limit)
+                    bandwidth live migrations are allowed to use. The value is in
+                    quantity per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
@@ -11446,6 +11903,15 @@ var CRDsValidation map[string]string = map[string]string{
                   description: When set to true, DisableTLS will disable the additional
                     layer of live migration encryption provided by KubeVirt. This
                     is usually a bad idea. Defaults to false
+                  type: boolean
+                matchSELinuxLevelOnMigration:
+                  description: By default, the SELinux level of target virt-launcher
+                    pods is forced to the level of the source virt-launcher. When
+                    set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign
+                    a random level to the target. That will ensure the target virt-launcher
+                    doesn't share categories with another pod on the node. However,
+                    migrations will fail when using RWX volumes that don't automatically
+                    deal with SELinux levels.
                   type: boolean
                 network:
                   description: Network is the name of the CNI network to use for live
@@ -11809,8 +12275,8 @@ var CRDsValidation map[string]string = map[string]string{
                   - type: integer
                   - type: string
                   description: BandwidthPerMigration limits the amount of network
-                    bandwith live migrations are allowed to use. The value is in quantity
-                    per second. Defaults to 0 (no limit)
+                    bandwidth live migrations are allowed to use. The value is in
+                    quantity per second. Defaults to 0 (no limit)
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
                 completionTimeoutPerGiB:
@@ -11825,6 +12291,15 @@ var CRDsValidation map[string]string = map[string]string{
                   description: When set to true, DisableTLS will disable the additional
                     layer of live migration encryption provided by KubeVirt. This
                     is usually a bad idea. Defaults to false
+                  type: boolean
+                matchSELinuxLevelOnMigration:
+                  description: By default, the SELinux level of target virt-launcher
+                    pods is forced to the level of the source virt-launcher. When
+                    set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign
+                    a random level to the target. That will ensure the target virt-launcher
+                    doesn't share categories with another pod on the node. However,
+                    migrations will fail when using RWX volumes that don't automatically
+                    deal with SELinux levels.
                   type: boolean
                 network:
                   description: Network is the name of the CNI network to use for live
@@ -12115,6 +12590,11 @@ var CRDsValidation map[string]string = map[string]string{
                   description: IsolateEmulatorThread requests one more dedicated pCPU
                     to be allocated for the VMI to place the emulator thread on it.
                   type: boolean
+                maxSockets:
+                  description: MaxSockets specifies the maximum amount of sockets
+                    that can be hotplugged
+                  format: int32
+                  type: integer
                 model:
                   description: Model specifies the CPU model inside the VMI. List
                     of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -12533,6 +13013,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: InterfaceSRIOV connects to a given network by
                           passing-through an SR-IOV PCI device via vfio.
                         type: object
+                      state:
+                        description: State represents the requested operational state
+                          of the interface. The (only) value supported is 'absent',
+                          expressing a request to remove the interface.
+                        type: string
                       tag:
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
@@ -12874,6 +13359,17 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
+                  properties:
+                    policy:
+                      description: 'Guest policy flags as defined in AMD SEV API specification.
+                        Note: due to security reasons it is not allowed to enable
+                        guest debugging. Therefore NoDebug flag is not exposed to
+                        users and is always true.'
+                      properties:
+                        encryptedState:
+                          description: SEV-ES is required. Defaults to false.
+                          type: boolean
+                      type: object
                   type: object
               type: object
             machine:
@@ -14203,6 +14699,11 @@ var CRDsValidation map[string]string = map[string]string{
                             pCPU to be allocated for the VMI to place the emulator
                             thread on it.
                           type: boolean
+                        maxSockets:
+                          description: MaxSockets specifies the maximum amount of
+                            sockets that can be hotplugged
+                          format: int32
+                          type: integer
                         model:
                           description: Model specifies the CPU model inside the VMI.
                             List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -14643,6 +15144,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: InterfaceSRIOV connects to a given network
                                   by passing-through an SR-IOV PCI device via vfio.
                                 type: object
+                              state:
+                                description: State represents the requested operational
+                                  state of the interface. The (only) value supported
+                                  is 'absent', expressing a request to remove the
+                                  interface.
+                                type: string
                               tag:
                                 description: If specified, the virtual network interface
                                   address and its tag will be provided to the guest
@@ -15016,6 +15523,18 @@ var CRDsValidation map[string]string = map[string]string{
                       properties:
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
+                          properties:
+                            policy:
+                              description: 'Guest policy flags as defined in AMD SEV
+                                API specification. Note: due to security reasons it
+                                is not allowed to enable guest debugging. Therefore
+                                NoDebug flag is not exposed to users and is always
+                                true.'
+                              properties:
+                                encryptedState:
+                                  description: SEV-ES is required. Defaults to false.
+                                  type: boolean
+                              type: object
                           type: object
                       type: object
                     machine:
@@ -16234,6 +16753,17 @@ var CRDsValidation map[string]string = map[string]string{
           properties:
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
+              properties:
+                policy:
+                  description: 'Guest policy flags as defined in AMD SEV API specification.
+                    Note: due to security reasons it is not allowed to enable guest
+                    debugging. Therefore NoDebug flag is not exposed to users and
+                    is always true.'
+                  properties:
+                    encryptedState:
+                      description: SEV-ES is required. Defaults to false.
+                      type: boolean
+                  type: object
               type: object
           type: object
         memory:
@@ -16256,6 +16786,15 @@ var CRDsValidation map[string]string = map[string]string{
                     valid values are 1Gi and 2Mi.
                   type: string
               type: object
+            overcommitPercent:
+              description: OvercommitPercent is the percentage of the guest memory
+                which will be overcommitted. This means that the VMIs parent pod (virt-launcher)
+                will request less physical memory by a factor specified by the OvercommitPercent.
+                Overcommits can lead to memory exhaustion, which in turn can lead
+                to crashes. Use carefully. Defaults to 0
+              maximum: 100
+              minimum: 0
+              type: integer
           required:
           - guest
           type: object
@@ -16639,6 +17178,20 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: DataVolumeBlankImage provides the parameters
                                   to create a new raw blank image for the PVC
                                 type: object
+                              gcs:
+                                description: DataVolumeSourceGCS provides the parameters
+                                  to create a Data Volume from an GCS source
+                                properties:
+                                  secretRef:
+                                    description: SecretRef provides the secret reference
+                                      needed to access the GCS source
+                                    type: string
+                                  url:
+                                    description: URL is the url of the GCS source
+                                    type: string
+                                required:
+                                - url
+                                type: object
                               http:
                                 description: DataVolumeSourceHTTP can be either an
                                   http or https endpoint, with an optional basic auth
@@ -16760,6 +17313,21 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - url
                                 type: object
+                              snapshot:
+                                description: DataVolumeSourceSnapshot provides the
+                                  parameters to create a Data Volume from an existing
+                                  VolumeSnapshot
+                                properties:
+                                  name:
+                                    description: The name of the source VolumeSnapshot
+                                    type: string
+                                  namespace:
+                                    description: The namespace of the source VolumeSnapshot
+                                    type: string
+                                required:
+                                - name
+                                - namespace
+                                type: object
                               upload:
                                 description: DataVolumeSourceUpload provides the parameters
                                   to create a Data Volume by uploading the source
@@ -16834,7 +17402,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   feature gate must be enabled. If the provisioner
                                   or an external controller can support the specified
                                   data source, it will create a new volume based on
-                                  the contents of the specified data source.'
+                                  the contents of the specified data source. If the
+                                  AnyVolumeDataSource feature gate is enabled, this
+                                  field will always have the same contents as the
+                                  DataSourceRef field.'
                                 properties:
                                   apiGroup:
                                     description: APIGroup is the group for the resource
@@ -16850,6 +17421,60 @@ var CRDsValidation map[string]string = map[string]string{
                                   name:
                                     description: Name is the name of resource being
                                       referenced
+                                    type: string
+                                required:
+                                - kind
+                                - name
+                                type: object
+                              dataSourceRef:
+                                description: 'Specifies the object from which to populate
+                                  the volume with data, if a non-empty volume is desired.
+                                  This may be any local object from a non-empty API
+                                  group (non core object) or a PersistentVolumeClaim
+                                  object. When this field is specified, volume binding
+                                  will only succeed if the type of the specified object
+                                  matches some installed volume populator or dynamic
+                                  provisioner. This field will replace the functionality
+                                  of the DataSource field and as such if both fields
+                                  are non-empty, they must have the same value. For
+                                  backwards compatibility, both fields (DataSource
+                                  and DataSourceRef) will be set to the same value
+                                  automatically if one of them is empty and the other
+                                  is non-empty. There are two important differences
+                                  between DataSource and DataSourceRef: * While DataSource
+                                  only allows two specific types of objects, DataSourceRef
+                                  allows any non-core object, as well as PersistentVolumeClaim
+                                  objects. * While DataSource ignores disallowed values
+                                  (dropping them), DataSourceRef preserves all values,
+                                  and generates an error if a disallowed value is
+                                  specified. (Beta) Using this field requires the
+                                  AnyVolumeDataSource feature gate to be enabled.'
+                                properties:
+                                  apiGroup:
+                                    description: APIGroup is the group for the resource
+                                      being referenced. If APIGroup is not specified,
+                                      the specified Kind must be in the core API group.
+                                      For any other third-party types, APIGroup is
+                                      required.
+                                    type: string
+                                  kind:
+                                    description: Kind is the type of resource being
+                                      referenced
+                                    type: string
+                                  name:
+                                    description: Name is the name of resource being
+                                      referenced
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace of resource
+                                      being referenced Note that when a namespace
+                                      is specified, a gateway.networking.k8s.io/ReferenceGrant
+                                      object is required in the referent namespace
+                                      to allow that namespace's owner to accept the
+                                      reference. See the ReferenceGrant documentation
+                                      for details. (Alpha) This field requires the
+                                      CrossNamespaceVolumeDataSource feature gate
+                                      to be enabled.
                                     type: string
                                 required:
                                 - kind
@@ -17006,6 +17631,23 @@ var CRDsValidation map[string]string = map[string]string{
                         to be used. This is initially captured the first time the
                         instancetype is applied to the VirtualMachineInstance.
                       type: string
+                  type: object
+                liveUpdateFeatures:
+                  description: LiveUpdateFeatures references a configuration of hotpluggable
+                    resources
+                  properties:
+                    cpu:
+                      description: LiveUpdateCPU holds hotplug configuration for the
+                        CPU resource. Empty struct indicates that default will be
+                        used for maxSockets. Default is specified on cluster level.
+                        Absence of the struct means opt-out from CPU hotplug functionality.
+                      properties:
+                        maxSockets:
+                          description: The maximum amount of sockets that can be hot-plugged
+                            to the Virtual Machine
+                          format: int32
+                          type: integer
+                      type: object
                   type: object
                 preference:
                   description: PreferenceMatcher references a set of preference that
@@ -18295,6 +18937,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     more dedicated pCPU to be allocated for the VMI
                                     to place the emulator thread on it.
                                   type: boolean
+                                maxSockets:
+                                  description: MaxSockets specifies the maximum amount
+                                    of sockets that can be hotplugged
+                                  format: int32
+                                  type: integer
                                 model:
                                   description: Model specifies the CPU model inside
                                     the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -18770,6 +19417,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           given network by passing-through an SR-IOV
                                           PCI device via vfio.
                                         type: object
+                                      state:
+                                        description: State represents the requested
+                                          operational state of the interface. The
+                                          (only) value supported is 'absent', expressing
+                                          a request to remove the interface.
+                                        type: string
                                       tag:
                                         description: If specified, the virtual network
                                           interface address and its tag will be provided
@@ -19161,6 +19814,19 @@ var CRDsValidation map[string]string = map[string]string{
                                 sev:
                                   description: AMD Secure Encrypted Virtualization
                                     (SEV).
+                                  properties:
+                                    policy:
+                                      description: 'Guest policy flags as defined
+                                        in AMD SEV API specification. Note: due to
+                                        security reasons it is not allowed to enable
+                                        guest debugging. Therefore NoDebug flag is
+                                        not exposed to users and is always true.'
+                                      properties:
+                                        encryptedState:
+                                          description: SEV-ES is required. Defaults
+                                            to false.
+                                          type: boolean
+                                      type: object
                                   type: object
                               type: object
                             machine:
@@ -20427,6 +21093,31 @@ var CRDsValidation map[string]string = map[string]string{
           description: CPU optionally defines preferences associated with the CPU
             attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredCPUFeatures:
+              description: PreferredCPUFeatures optionally defines a slice of preferred
+                CPU features.
+              items:
+                description: CPUFeature allows specifying a CPU feature.
+                properties:
+                  name:
+                    description: Name of the CPU feature
+                    type: string
+                  policy:
+                    description: 'Policy is the CPU feature attribute which can have
+                      the following attributes: force    - The virtual CPU will claim
+                      the feature is supported regardless of it being supported by
+                      host CPU. require  - Guest creation will fail unless the feature
+                      is supported by the host CPU or the hypervisor is able to emulate
+                      it. optional - The feature will be supported by virtual CPU
+                      if and only if it is supported by host CPU. disable  - The feature
+                      will not be supported by virtual CPU. forbid   - Guest creation
+                      will fail if the feature is supported by host CPU. Defaults
+                      to require'
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
@@ -20517,6 +21208,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredInputType optionally defines the preferred type
                 for Input devices.
               type: string
+            preferredInterfaceMasquerade:
+              description: PreferredInterfaceMasquerade optionally defines the preferred
+                masquerade configuration to use with each network interface.
+              type: object
             preferredInterfaceModel:
               description: PreferredInterfaceModel optionally defines the preferred
                 model to be used by Interface devices.
@@ -20797,6 +21492,42 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredMachineType optionally defines the preferred machine
                 type to use.
               type: string
+          type: object
+        preferredSubdomain:
+          description: Subdomain of the VirtualMachineInstance
+          type: string
+        preferredTerminationGracePeriodSeconds:
+          description: Grace period observed after signalling a VirtualMachineInstance
+            to stop after which the VirtualMachineInstance is force terminated.
+          format: int64
+          type: integer
+        requirements:
+          description: Requirements defines the minium amount of instance type defined
+            resources required by a set of preferences
+          properties:
+            cpu:
+              description: Required CPU related attributes of the instancetype.
+              properties:
+                guest:
+                  description: Minimal number of vCPUs required by the preference.
+                  format: int32
+                  type: integer
+              required:
+              - guest
+              type: object
+            memory:
+              description: Required Memory related attributes of the instancetype.
+              properties:
+                guest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: Minimal amount of memory required by the preference.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              required:
+              - guest
+              type: object
           type: object
         volumes:
           description: Volumes optionally defines preferences associated with the
@@ -21398,6 +22129,21 @@ var CRDsValidation map[string]string = map[string]string{
                                       parameters to create a new raw blank image for
                                       the PVC
                                     type: object
+                                  gcs:
+                                    description: DataVolumeSourceGCS provides the
+                                      parameters to create a Data Volume from an GCS
+                                      source
+                                    properties:
+                                      secretRef:
+                                        description: SecretRef provides the secret
+                                          reference needed to access the GCS source
+                                        type: string
+                                      url:
+                                        description: URL is the url of the GCS source
+                                        type: string
+                                    required:
+                                    - url
+                                    type: object
                                   http:
                                     description: DataVolumeSourceHTTP can be either
                                       an http or https endpoint, with an optional
@@ -21524,6 +22270,21 @@ var CRDsValidation map[string]string = map[string]string{
                                     required:
                                     - url
                                     type: object
+                                  snapshot:
+                                    description: DataVolumeSourceSnapshot provides
+                                      the parameters to create a Data Volume from
+                                      an existing VolumeSnapshot
+                                    properties:
+                                      name:
+                                        description: The name of the source VolumeSnapshot
+                                        type: string
+                                      namespace:
+                                        description: The namespace of the source VolumeSnapshot
+                                        type: string
+                                    required:
+                                    - name
+                                    - namespace
+                                    type: object
                                   upload:
                                     description: DataVolumeSourceUpload provides the
                                       parameters to create a Data Volume by uploading
@@ -21604,7 +22365,10 @@ var CRDsValidation map[string]string = map[string]string{
                                       feature gate must be enabled. If the provisioner
                                       or an external controller can support the specified
                                       data source, it will create a new volume based
-                                      on the contents of the specified data source.'
+                                      on the contents of the specified data source.
+                                      If the AnyVolumeDataSource feature gate is enabled,
+                                      this field will always have the same contents
+                                      as the DataSourceRef field.'
                                     properties:
                                       apiGroup:
                                         description: APIGroup is the group for the
@@ -21620,6 +22384,63 @@ var CRDsValidation map[string]string = map[string]string{
                                       name:
                                         description: Name is the name of resource
                                           being referenced
+                                        type: string
+                                    required:
+                                    - kind
+                                    - name
+                                    type: object
+                                  dataSourceRef:
+                                    description: 'Specifies the object from which
+                                      to populate the volume with data, if a non-empty
+                                      volume is desired. This may be any local object
+                                      from a non-empty API group (non core object)
+                                      or a PersistentVolumeClaim object. When this
+                                      field is specified, volume binding will only
+                                      succeed if the type of the specified object
+                                      matches some installed volume populator or dynamic
+                                      provisioner. This field will replace the functionality
+                                      of the DataSource field and as such if both
+                                      fields are non-empty, they must have the same
+                                      value. For backwards compatibility, both fields
+                                      (DataSource and DataSourceRef) will be set to
+                                      the same value automatically if one of them
+                                      is empty and the other is non-empty. There are
+                                      two important differences between DataSource
+                                      and DataSourceRef: * While DataSource only allows
+                                      two specific types of objects, DataSourceRef
+                                      allows any non-core object, as well as PersistentVolumeClaim
+                                      objects. * While DataSource ignores disallowed
+                                      values (dropping them), DataSourceRef preserves
+                                      all values, and generates an error if a disallowed
+                                      value is specified. (Beta) Using this field
+                                      requires the AnyVolumeDataSource feature gate
+                                      to be enabled.'
+                                    properties:
+                                      apiGroup:
+                                        description: APIGroup is the group for the
+                                          resource being referenced. If APIGroup is
+                                          not specified, the specified Kind must be
+                                          in the core API group. For any other third-party
+                                          types, APIGroup is required.
+                                        type: string
+                                      kind:
+                                        description: Kind is the type of resource
+                                          being referenced
+                                        type: string
+                                      name:
+                                        description: Name is the name of resource
+                                          being referenced
+                                        type: string
+                                      namespace:
+                                        description: Namespace is the namespace of
+                                          resource being referenced Note that when
+                                          a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant
+                                          object is required in the referent namespace
+                                          to allow that namespace's owner to accept
+                                          the reference. See the ReferenceGrant documentation
+                                          for details. (Alpha) This field requires
+                                          the CrossNamespaceVolumeDataSource feature
+                                          gate to be enabled.
                                         type: string
                                     required:
                                     - kind
@@ -21784,6 +22605,24 @@ var CRDsValidation map[string]string = map[string]string{
                             is initially captured the first time the instancetype
                             is applied to the VirtualMachineInstance.
                           type: string
+                      type: object
+                    liveUpdateFeatures:
+                      description: LiveUpdateFeatures references a configuration of
+                        hotpluggable resources
+                      properties:
+                        cpu:
+                          description: LiveUpdateCPU holds hotplug configuration for
+                            the CPU resource. Empty struct indicates that default
+                            will be used for maxSockets. Default is specified on cluster
+                            level. Absence of the struct means opt-out from CPU hotplug
+                            functionality.
+                          properties:
+                            maxSockets:
+                              description: The maximum amount of sockets that can
+                                be hot-plugged to the Virtual Machine
+                              format: int32
+                              type: integer
+                          type: object
                       type: object
                     preference:
                       description: PreferenceMatcher references a set of preference
@@ -23149,6 +23988,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         one more dedicated pCPU to be allocated for
                                         the VMI to place the emulator thread on it.
                                       type: boolean
+                                    maxSockets:
+                                      description: MaxSockets specifies the maximum
+                                        amount of sockets that can be hotplugged
+                                      format: int32
+                                      type: integer
                                     model:
                                       description: Model specifies the CPU model inside
                                         the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
@@ -23642,6 +24486,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               a given network by passing-through an
                                               SR-IOV PCI device via vfio.
                                             type: object
+                                          state:
+                                            description: State represents the requested
+                                              operational state of the interface.
+                                              The (only) value supported is 'absent',
+                                              expressing a request to remove the interface.
+                                            type: string
                                           tag:
                                             description: If specified, the virtual
                                               network interface address and its tag
@@ -24045,6 +24895,20 @@ var CRDsValidation map[string]string = map[string]string{
                                     sev:
                                       description: AMD Secure Encrypted Virtualization
                                         (SEV).
+                                      properties:
+                                        policy:
+                                          description: 'Guest policy flags as defined
+                                            in AMD SEV API specification. Note: due
+                                            to security reasons it is not allowed
+                                            to enable guest debugging. Therefore NoDebug
+                                            flag is not exposed to users and is always
+                                            true.'
+                                          properties:
+                                            encryptedState:
+                                              description: SEV-ES is required. Defaults
+                                                to false.
+                                              type: boolean
+                                          type: object
                                       type: object
                                   type: object
                                 machine:
@@ -25263,6 +26127,18 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             - networkAttachmentDefinitionName
+                            type: object
+                          removeInterfaceOptions:
+                            description: RemoveInterfaceOptions when set indicates
+                              a network interface should be removed. The details within
+                              this field specify how to remove the interface
+                            properties:
+                              name:
+                                description: Name indicates the logical name of the
+                                  interface.
+                                type: string
+                            required:
+                            - name
                             type: object
                         type: object
                       type: array

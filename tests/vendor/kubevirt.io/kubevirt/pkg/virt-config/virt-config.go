@@ -37,7 +37,7 @@ import (
 const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
-	BandwithPerMigrationDefault                     = "0Mi"
+	BandwidthPerMigrationDefault                    = "0Mi"
 	MigrationAllowAutoConverge               bool   = false
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
@@ -422,4 +422,21 @@ func (c *ClusterConfig) GetDeveloperConfigurationUseEmulation() bool {
 
 func (c *ClusterConfig) GetVMStateStorageClass() string {
 	return c.GetConfig().VMStateStorageClass
+}
+
+func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
+	return c.GetConfig().VirtualMachineOptions != nil && c.GetConfig().VirtualMachineOptions.DisableFreePageReporting != nil
+}
+
+func (c *ClusterConfig) GetKSMConfiguration() *v1.KSMConfiguration {
+	return c.GetConfig().KSMConfiguration
+}
+
+func (c *ClusterConfig) GetMaximumCpuSockets() (numOfSockets uint32) {
+	liveConfig := c.GetConfig().LiveUpdateConfiguration
+	if liveConfig != nil && liveConfig.MaxCpuSockets != nil {
+		numOfSockets = *liveConfig.MaxCpuSockets
+	}
+
+	return
 }

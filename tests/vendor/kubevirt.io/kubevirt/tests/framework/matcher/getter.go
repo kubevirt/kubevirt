@@ -3,6 +3,8 @@ package matcher
 import (
 	"context"
 
+	policyv1 "k8s.io/api/policy/v1"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/apps/v1"
@@ -72,6 +74,14 @@ func AllVMIs(namespace string) func() ([]virtv1.VirtualMachineInstance, error) {
 	return func() (p []virtv1.VirtualMachineInstance, err error) {
 		virtClient := kubevirt.Client()
 		list, err := virtClient.VirtualMachineInstance(namespace).List(context.Background(), &k8smetav1.ListOptions{})
+		return list.Items, err
+	}
+}
+
+func AllPDBs(namespace string) func() ([]policyv1.PodDisruptionBudget, error) {
+	return func() (p []policyv1.PodDisruptionBudget, err error) {
+		virtClient := kubevirt.Client()
+		list, err := virtClient.PolicyV1().PodDisruptionBudgets(namespace).List(context.Background(), k8smetav1.ListOptions{})
 		return list.Items, err
 	}
 }

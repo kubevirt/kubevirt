@@ -249,17 +249,14 @@ func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVo
 			log.Log.Errorf("Error fetching DataVolume %s while determining virtual machine status: %v", volume.DataVolume.Name, err)
 			continue
 		}
-		if dv == nil {
+		if dv == nil || dv.Status.Phase == cdiv1.Succeeded || dv.Status.Phase == cdiv1.PendingPopulation {
 			continue
 		}
 
-		// Skip DataVolumes with unbound PVCs since these cannot possibly be provisioning
 		dvConditions := NewDataVolumeConditionManager()
-		if !dvConditions.HasConditionWithStatus(dv, cdiv1.DataVolumeBound, v1.ConditionTrue) {
-			continue
-		}
-
-		if dv.Status.Phase != cdiv1.Succeeded {
+		isBound := dvConditions.HasConditionWithStatus(dv, cdiv1.DataVolumeBound, v1.ConditionTrue)
+		// WFFC + plus unbound is not provisioning
+		if isBound || dv.Status.Phase != cdiv1.WaitForFirstConsumer {
 			return true
 		}
 	}

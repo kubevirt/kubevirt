@@ -79,6 +79,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"VSOCKCID":                      "VSOCKCID is used to track the allocated VSOCK CID in the VM.\n+optional",
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
+		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
 	}
 }
 
@@ -331,6 +332,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 		"preference":          "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+		"liveUpdateFeatures":  "LiveUpdateFeatures references a configuration of hotpluggable resources",
 	}
 }
 
@@ -385,7 +387,8 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInterfaceRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"addInterfaceOptions": "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
+		"addInterfaceOptions":    "AddInterfaceOptions when set indicates a network interface should be added.\nThe details within this field specify how to add the interface",
+		"removeInterfaceOptions": "RemoveInterfaceOptions when set indicates a network interface should be removed.\nThe details within this field specify how to remove the interface",
 	}
 }
 
@@ -676,6 +679,13 @@ func (AddInterfaceOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (RemoveInterfaceOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "RemoveInterfaceOptions is provided when dynamically hot unplugging a network interface",
+		"name": "Name indicates the logical name of the interface.",
+	}
+}
+
 func (TokenBucketRateLimiter) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"qps":   "QPS indicates the maximum QPS to the apiserver from this client.\nIf it's zero, the component default will be used",
@@ -709,6 +719,9 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
 		"supportedGuestAgentVersions":        "deprecated",
 		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.\nThe storage class must support RWX in filesystem mode.",
+		"ksmConfiguration":                   "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
+		"autoCPULimitNamespaceLabelSelector": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside\nnamespaces that match the label selector.\nThe CPU limit will equal the number of requested vCPUs.\nThis setting does not apply to VMIs with dedicated CPUs.",
+		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 	}
 }
 
@@ -749,6 +762,17 @@ func (SeccompConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                         "VirtualMachineOptions holds the cluster level information regarding the virtual machine.",
+		"disableFreePageReporting": "DisableFreePageReporting disable the free page reporting of\nmemory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.\nThis will have effect only if AutoattachMemBalloon is not false and the vmi is not\nrequesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.",
+	}
+}
+
+func (DisableFreePageReporting) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (TLSConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "TLSConfiguration holds TLS options",
@@ -764,13 +788,14 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"parallelOutboundMigrationsPerNode": "ParallelOutboundMigrationsPerNode is the maximum number of concurrent outgoing live migrations\nallowed per node. Defaults to 2",
 		"parallelMigrationsPerCluster":      "ParallelMigrationsPerCluster is the total number of concurrent live migrations\nallowed cluster-wide. Defaults to 5",
 		"allowAutoConverge":                 "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to\nguarantee successful VMI live migrations. Defaults to false",
-		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwith live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
+		"bandwidthPerMigration":             "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use.\nThe value is in quantity per second. Defaults to 0 (no limit)",
 		"completionTimeoutPerGiB":           "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.\nIf a live-migration takes longer to migrate than this value multiplied by the size of the VMI,\nthe migration will be cancelled, unless AllowPostCopy is true. Defaults to 800",
 		"progressTimeout":                   "ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.\nHitting this timeout means a migration transferred 0 data for that many seconds. The migration is\nthen considered stuck and therefore cancelled. Defaults to 150",
 		"unsafeMigrationOverride":           "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check\nindicates the migration will be unsafe to the guest. Defaults to false",
 		"allowPostCopy":                     "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs\nto successfully live-migrate. However, events like a network failure can cause a VMI crash.\nIf set to true, migrations will still start in pre-copy, but switch to post-copy when\nCompletionTimeoutPerGiB triggers. Defaults to false",
 		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
+		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
 	}
 }
 
@@ -835,10 +860,17 @@ func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
 
 func (NodeMediatedDeviceTypesConfig) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                     "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specifc node that matches the NodeSelector field.\n+k8s:openapi-gen=true",
+		"":                     "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.\n+k8s:openapi-gen=true",
 		"nodeSelector":         "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
 		"mediatedDevicesTypes": "Deprecated. Use mediatedDeviceTypes instead.\n+optional\n+listType=atomic",
 		"mediatedDeviceTypes":  "+optional\n+listType=atomic",
+	}
+}
+
+func (KSMConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "KSMConfiguration holds information about KSM.\n+k8s:openapi-gen=true",
+		"nodeLabelSelector": "NodeLabelSelector is a selector that filters in which nodes the KSM will be enabled.\nEmpty NodeLabelSelector will enable ksm for every node.\n+optional",
 	}
 }
 
@@ -883,5 +915,23 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 		"kind":            "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
 		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
 		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
+	}
+}
+
+func (LiveUpdateFeatures) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"cpu": "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
+	}
+}
+
+func (LiveUpdateCPU) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"maxSockets": "The maximum amount of sockets that can be hot-plugged to the Virtual Machine",
+	}
+}
+
+func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"maxCpuSockets": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
 	}
 }

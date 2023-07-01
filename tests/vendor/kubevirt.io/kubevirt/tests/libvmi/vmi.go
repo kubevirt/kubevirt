@@ -169,12 +169,15 @@ func WithUefi(secureBoot bool) Option {
 }
 
 // WithSEV adds `launchSecurity` with `sev`.
-func WithSEV() Option {
+func WithSEV(isESEnabled bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.LaunchSecurity == nil {
-			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			SEV: &v1.SEV{
+				Policy: &v1.SEVPolicy{
+					EncryptedState: &isESEnabled,
+				},
+			},
 		}
-		vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
 	}
 }
 

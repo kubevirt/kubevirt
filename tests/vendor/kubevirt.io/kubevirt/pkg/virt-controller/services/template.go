@@ -20,10 +20,13 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/labels"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -42,6 +45,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
@@ -259,6 +263,17 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 	if err != nil {
 		return nil, err
 	}
+
+	if namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
+		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
+		multusNetworksAnnotation, err := GenerateMultusCNIAnnotationFromNameScheme(
+			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme)
+		if err != nil {
+			return nil, err
+		}
+		podManifest.Annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
+	}
+
 	return podManifest, err
 }
 
@@ -1093,15 +1108,12 @@ func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) s
 	return "" // meaning the network is not served by resources
 }
 
-func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName string) (namespace string, networkName string) {
+func getNamespaceAndNetworkName(namespace string, fullNetworkName string) (string, string) {
 	if strings.Contains(fullNetworkName, "/") {
 		res := strings.SplitN(fullNetworkName, "/", 2)
-		namespace, networkName = res[0], res[1]
-	} else {
-		namespace = precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-		networkName = fullNetworkName
+		return res[0], res[1]
 	}
-	return
+	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
 
 func NewTemplateService(launcherImage string,
@@ -1241,7 +1253,11 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi)
+	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
+	multusAnnotation, err := GenerateMultusCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets)
 	if err != nil {
 		return nil, err
 	}
@@ -1308,13 +1324,37 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 	return keepLauncherAfterFailure
 }
 
+func requiresCPULimits(virtClient kubecli.KubevirtClient, labelSelector *metav1.LabelSelector, vmi *v1.VirtualMachineInstance) bool {
+	_, limitSet := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
+	if labelSelector == nil || limitSet {
+		return false
+	}
+	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Warning("invalid CPULimitNamespaceLabelSelector set, assuming none")
+		return false
+	}
+	namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Warningf("failed to get namespace %s", vmi.Namespace)
+		return false
+	}
+
+	if selector.Matches(labels.Set(namespace.Labels)) {
+		return true
+	}
+
+	return false
+}
+
 func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	withCPULimits := requiresCPULimits(t.virtClient, t.clusterConfig.GetConfig().AutoCPULimitNamespaceLabelSelector, vmi)
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
 			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU)),
-			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio())),
+			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
