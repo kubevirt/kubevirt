@@ -28,7 +28,6 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authorization/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +40,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -52,34 +50,62 @@ import (
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
 
-type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
+type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error)
 
 type VMsAdmitter struct {
 	VirtClient          kubecli.KubevirtClient
 	DataSourceInformer  cache.SharedIndexInformer
+	NamespaceInformer   cache.SharedIndexInformer
 	InstancetypeMethods instancetype.Methods
 	ClusterConfig       *virtconfig.ClusterConfig
 	cloneAuthFunc       CloneAuthFunc
 }
 
-type sarProxy struct {
-	client kubecli.KubevirtClient
+type authProxy struct {
+	client             kubecli.KubevirtClient
+	dataSourceInformer cache.SharedIndexInformer
+	namespaceInformer  cache.SharedIndexInformer
 }
 
-func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
 	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
-	proxy := &sarProxy{client: client}
+func (p *authProxy) GetNamespace(name string) (*corev1.Namespace, error) {
+	obj, exists, err := p.namespaceInformer.GetStore().GetByKey(name)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("namespace %s does not exist", name)
+	}
 
+	ns := obj.(*corev1.Namespace).DeepCopy()
+	return ns, nil
+}
+
+func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, error) {
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	obj, exists, err := p.dataSourceInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("dataSource %s does not exist", key)
+	}
+
+	ds := obj.(*cdiv1.DataSource).DeepCopy()
+	return ds, nil
+}
+
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
 	return &VMsAdmitter{
 		VirtClient:          client,
 		DataSourceInformer:  informers.DataSourceInformer,
+		NamespaceInformer:   informers.NamespaceInformer,
 		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
 		ClusterConfig:       clusterConfig,
-		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
-			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
+		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
+			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
+			return response.Allowed, response.Reason, err
 		},
 	}
 }
@@ -257,49 +283,34 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.Admissi
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
-		cloneSource, err := typesutil.GetCloneSourceWithInformers(vm, &dataVolume.Spec, admitter.DataSourceInformer)
-		if err != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeUnexpectedServerResponse,
-				Message: err.Error(),
-				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
-			})
-
-			continue
-		}
-
-		if cloneSource == nil {
-			continue
-		}
-
-		if cloneSource.Namespace == "" {
-			cloneSource.Namespace = ar.Namespace
-		}
-
-		if cloneSource.Namespace == "" || cloneSource.Name == "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("Clone source %s/%s invalid", cloneSource.Namespace, cloneSource.Name),
-				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
-			})
-
-			continue
-		}
-
 		targetNamespace := vm.Namespace
 		if targetNamespace == "" {
 			targetNamespace = ar.Namespace
 		}
+		if dataVolume.Namespace != "" && dataVolume.Namespace != targetNamespace {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Embedded DataVolume namespace %s differs from VM namespace %s", dataVolume.Namespace, targetNamespace),
+				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
+			})
 
-		serviceAccount := "default"
+			continue
+		}
+		serviceAccountName := "default"
 		for _, vol := range vm.Spec.Template.Spec.Volumes {
 			if vol.ServiceAccount != nil {
-				serviceAccount = vol.ServiceAccount.ServiceAccountName
+				serviceAccountName = vol.ServiceAccount.ServiceAccountName
 			}
 		}
 
-		allowed, message, err := admitter.cloneAuthFunc(cloneSource.Namespace, cloneSource.Name, targetNamespace, serviceAccount)
-		if err != nil {
+		proxy := &authProxy{client: admitter.VirtClient, dataSourceInformer: admitter.DataSourceInformer, namespaceInformer: admitter.NamespaceInformer}
+		dv := &cdiv1.DataVolume{
+			ObjectMeta: dataVolume.ObjectMeta,
+			Spec:       dataVolume.Spec,
+		}
+		dv.Namespace = targetNamespace
+		allowed, message, err := admitter.cloneAuthFunc(dv, ar.Namespace, ar.Name, proxy, targetNamespace, serviceAccountName)
+		if err != nil && err != cdiv1.ErrNoTokenOkay {
 			return nil, err
 		}
 
@@ -711,7 +722,7 @@ func (admitter *VMsAdmitter) shouldAllowCPUHotPlug(vm *v1.VirtualMachine) error 
 
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == v1.VirtualMachineInstanceVCPUChange &&
-			c.Status == k8sv1.ConditionTrue {
+			c.Status == corev1.ConditionTrue {
 			return fmt.Errorf("cannot update CPU sockets while another CPU change is in progress")
 		}
 	}

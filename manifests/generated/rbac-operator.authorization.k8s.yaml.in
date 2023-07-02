@@ -386,6 +386,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - instancetype.kubevirt.io
   resources:
   - virtualmachineinstancetypes

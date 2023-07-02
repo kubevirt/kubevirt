@@ -34,6 +34,7 @@ import (
 	restful "github.com/emicklei/go-restful/v3"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -94,8 +95,10 @@ var _ = Describe("Application", func() {
 		podInformer, _ := testutils.NewFakeInformerFor(&kubev1.Pod{})
 		resourceQuotaInformer, _ := testutils.NewFakeInformerFor(&kubev1.ResourceQuota{})
 		pvcInformer, _ := testutils.NewFakeInformerFor(&kubev1.PersistentVolumeClaim{})
+		namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		crInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
@@ -141,6 +144,8 @@ var _ = Describe("Application", func() {
 		app.vmController, _ = NewVMController(vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
+			dataSourceInformer,
+			namespaceInformer.GetStore(),
 			pvcInformer,
 			crInformer,
 			podInformer,
