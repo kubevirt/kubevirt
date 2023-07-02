@@ -14,38 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2021 Red Hat, Inc.
+# Copyright 2023 Red Hat, Inc.
 #
 # Usage:
-# make upgrade-test-index-image
+# make upgrade-test-operator-sdk
 #
 # Use Openshift-CI "optional-operators-ci-*" workflow to:
-# - Build an internal index image based off of the index image at:
-#   quay.io/kubevirt/hyperconverged-cluster-index
-#   with the appropriate tag of the version
-# - Add to that index a new bundle, named 100.0.0 with the contents
-#   of the open PR (this can include new dependent images, new CRDs...).
-# - Subscribe to the initial channel, using the "optional-operators-ci-subscribe"
-#   step.
-# This script is then upgrading HCO to 100.0.0 version, by patching the subscripiton,
-# and performs various validations against the upgraded version.
-
+# - Use the operator-sdk to upgrade a pre deployed bundle; use a new bundle,
+#   named 100.0.0 with the contents of the open PR (this can include new
+#   dependent images, new CRDs...).
+# - the script then performs various validations against the upgraded version.
 
 MAX_STEPS=$(( $(grep -c "Msg " "$0") - 2)) # subtract self line and the function name
 CUR_STEP=1
-RELEASE_DELTA="${RELEASE_DELTA:-1}"
 HCO_DEPLOYMENT_NAME=hco-operator
 HCO_WH_DEPLOYMENT_NAME=hco-webhook
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
-PACKAGE_DIR="./deploy/olm-catalog/community-kubevirt-hyperconverged"
-INITIAL_CHANNEL=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==${RELEASE_DELTA}" | cut -d '/' -f 5)
 TARGET_VERSION=100.0.0
-TARGET_CHANNEL=${TARGET_VERSION}
 VMS_NAMESPACE=vmsns
 
-echo "INITIAL_CHANNEL: $INITIAL_CHANNEL"
+OUTPUT_DIR=${OUTPUT_DIR:-_out}
+
+echo "INITIAL_VERSION: $INITIAL_VERSION"
 
 function Msg {
     { set +x; } 2>/dev/null
@@ -58,7 +50,10 @@ function Msg {
     set -x
 }
 
-source ./hack/upgrade-openshiftci-config
+export CMD="oc"
+
+echo "oc version"
+${CMD} version || true
 
 function cleanup() {
     rv=$?
@@ -72,26 +67,10 @@ function cleanup() {
 
 trap "cleanup" INT TERM EXIT
 
-echo "----- Set KVM_EMULATION if needed"
-if [[ -n "${KVM_EMULATION}" ]]; then
-  ${CMD} patch $(${CMD} get subscription -n "${HCO_NAMESPACE}" -o name -l operators.coreos.com/community-kubevirt-hyperconverged.${HCO_NAMESPACE}=) \
-  -n "${HCO_NAMESPACE}" -p '{"spec":{"config":{"selector":{"matchLabels":{"name":"hyperconverged-cluster-operator"}},"env":[{"name":"KVM_EMULATION","value":"true"}]}}}' --type=merge
-  sleep 10
-  ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
-  ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
-fi
-
-export OUTPUT_DIR=${ARTIFACT_DIR}
 source hack/compare_scc.sh
-dump_sccs_before
+OUTPUT_DIR=${OUTPUT_DIR} dump_sccs_before
 
 CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep "kubevirt-hyperconverged-operator")
-HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
-sed -e "s|hco.kubevirt.io/v1beta1|hco.kubevirt.io/${HCO_API_VERSION}|g" deploy/hco.cr.yaml | ${CMD} apply -n kubevirt-hyperconverged -f -
-
-${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout="30m"
-${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
-${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 
 Msg "Check that cluster is operational before upgrade"
 timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
@@ -99,11 +78,10 @@ timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 ${CMD} get subscription -n ${HCO_NAMESPACE} -o yaml
 ${CMD} get pods -n ${HCO_NAMESPACE}
 
-echo "----- Images before upgrade"
+Msg "Images before upgrade"
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
-${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
-echo "----- Get virtctl"
+Msg "Get virtctl"
 KV_VERSION=$( ${CMD} get kubevirt.kubevirt.io/kubevirt-kubevirt-hyperconverged -n ${HCO_NAMESPACE} -o=jsonpath="{.status.observedKubeVirtVersion}")
 ARCH=$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/') || windows-amd64.exe
 echo ${ARCH}
@@ -113,7 +91,7 @@ chmod +x ~/virtctl
 
 Msg "operator conditions before upgrade"
 source ./hack/check_operator_condition.sh
-KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_CHANNEL}"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_VERSION}"
 
 ### Create a VM ###
 Msg "Create a simple VM on the previous version cluster, before the upgrade"
@@ -139,7 +117,7 @@ source ./hack/check-uptime.sh
 sleep 5
 INITIAL_BOOTTIME=$(check_uptime 10 60)
 
-echo "----- HCO deployOVS annotation and OVS state in CNAO CR before the upgrade"
+Msg "HCO deployOVS annotation and OVS state in CNAO CR before the upgrade"
 PREVIOUS_OVS_ANNOTATION=$(${CMD} get ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.metadata.annotations.deployOVS}')
 PREVIOUS_OVS_STATE=$(${CMD} get networkaddonsconfigs cluster -o jsonpath='{.spec.ovs}')
 
@@ -148,18 +126,13 @@ Msg "Read the CSV to make sure the deployment is done"
 # Make sure the CSV is in Succeeded phase
 ./hack/retry.sh 30 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .status.phase }' | grep 'Succeeded'"
 # Make sure the CSV is in the correct version
-./hack/retry.sh 30 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .spec.version }' | grep ${INITIAL_CHANNEL}"
+./hack/retry.sh 30 10 "${CMD} get ${CSV} -n ${HCO_NAMESPACE} -o jsonpath='{ .spec.version }' | grep ${INITIAL_VERSION}"
 
-# Create a new version based off of latest. The new version appends ".1" to the latest version.
-# The new version replaces the hco-operator image from quay.io with the image pushed to the local registry.
-# We create a new CSV based off of the latest version and update the replaces attribute so that the new
-# version updates the latest version.
-# The currentCSV in the package manifest is also updated to point to the new version.
-
-Msg "Patch the subscription to move to the new channel"
 HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name -l operators.coreos.com/community-kubevirt-hyperconverged.${HCO_NAMESPACE}=)
-OLD_INSTALL_PLAN=$(oc -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}')
-${CMD} patch ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
+OLD_INSTALL_PLAN=$(${CMD} -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}')
+
+Msg "Perform the upgrade, using operator-sdk"
+operator-sdk run bundle-upgrade -n "${HCO_NAMESPACE}" --verbose --timeout=15m "${OO_NEXT_BUNDLE}"
 
 Msg "Wait up to 5 minutes for the new installPlan to appear, and approve it to begin upgrade"
 INSTALL_PLAN_APPROVED=false
@@ -175,20 +148,7 @@ done
 
 [[ "${INSTALL_PLAN_APPROVED}" = true ]]
 
-# Patch the OperatorGroup to match the required InstallMode of the new version
-sleep 60
-HCO_OPERATORGROUP_NAME=$(${CMD} get og -n ${HCO_NAMESPACE} -o jsonpath='{.items[].metadata.name}')
-source hack/patch_og.sh
-patch_og ${TARGET_CHANNEL}
-sleep 30
-CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep ${INITIAL_CHANNEL}) || true
-if [ -n "${CSV}" ] && [ ${OG_PATCHED} -eq 1 ]
-then
-  ${CMD} delete "${CSV}" -n ${HCO_NAMESPACE}
-  sleep 30
-fi
-
-# Verify the subscription has changed to the new version
+## Verify the subscription has changed to the new version
 #  currentCSV: kubevirt-hyperconverged-operator.v100.0.0
 #  installedCSV: kubevirt-hyperconverged-operator.v100.0.0
 Msg "Verify the subscription's currentCSV and installedCSV have moved to the new version"
@@ -200,7 +160,7 @@ ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO
 ${CMD} wait deployment ${HCO_WH_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 
 Msg "operator conditions during upgrade"
-KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_CHANNEL}"
+KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_VERSION}"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${TARGET_VERSION}"
 
 ./hack/retry.sh 30 60 "${CMD} get ${HCO_SUBSCRIPTION} -n ${HCO_NAMESPACE} -o yaml | grep currentCSV   | grep v${TARGET_VERSION}"
@@ -250,9 +210,8 @@ Msg "Ensure that old SSP operator resources are removed from the cluster"
 echo "----- Images after upgrade"
 # TODO: compare all of them with the list of images in RelatedImages in the new CSV
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
-${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
-dump_sccs_after
+OUTPUT_DIR=${OUTPUT_DIR} dump_sccs_after
 
 Msg "make sure that the VM is still running, after the upgrade"
 ${CMD} get vm -n ${VMS_NAMESPACE} -o yaml testvm
@@ -345,11 +304,12 @@ VIRTIOWIN_IMAGE_CM=$(${CMD} get cm virtio-win -n ${HCO_NAMESPACE} -o jsonpath='{
 [[ "${VIRTIOWIN_IMAGE_CSV}" == "${VIRTIOWIN_IMAGE_CM}" ]]
 
 Msg "Read the HCO operator log before it been deleted"
+mkdir -f "${OUTPUT_DIR}/logs"
 HCO_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-operator" -o name)
-${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}"
+${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}" > "${OUTPUT_DIR}/logs/hyperconverged-cluster-operator.log"
 
 Msg "Read the HCO webhook log before it been deleted"
 WH_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-webhook" -o name)
-${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}"
+${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}" > "${OUTPUT_DIR}/logs/hyperconverged-cluster-webhook.log"
 
 echo "upgrade-test completed successfully."

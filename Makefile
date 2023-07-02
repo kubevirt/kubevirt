@@ -172,6 +172,9 @@ upgrade-test:
 upgrade-test-index-image:
 	./hack/upgrade-test-index-image.sh
 
+upgrade-test-operator-sdk:
+	./hack/upgrade-test-operator-sdk.sh
+
 kubevirt-nightly-test:
 	./hack/kubevirt-nightly-test.sh
 
