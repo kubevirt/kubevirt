@@ -59,7 +59,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
@@ -78,7 +77,7 @@ const (
 	startingVMIFailureFmt     = "Failure while starting VMI: %v"
 )
 
-type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
+type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error)
 
 // Repeating info / error messages
 const (
@@ -119,6 +118,8 @@ const defaultMaxCrashLoopBackoffDelaySeconds = 300
 func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
+	dataSourceInformer cache.SharedIndexInformer,
+	namespaceStore cache.Store,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -127,13 +128,13 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig) (*VMController, error) {
 
-	proxy := &sarProxy{client: clientset}
-
 	c := &VMController{
 		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
 		vmiInformer:            vmiInformer,
 		vmInformer:             vmInformer,
 		dataVolumeInformer:     dataVolumeInformer,
+		dataSourceInformer:     dataSourceInformer,
+		namespaceStore:         namespaceStore,
 		pvcInformer:            pvcInformer,
 		crInformer:             crInformer,
 		podInformer:            podInformer,
@@ -142,8 +143,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
-			return cdiclone.CanServiceAccountClonePVC(proxy, pvcNamespace, pvcName, saNamespace, saName)
+		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
+			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
+			return response.Allowed, response.Reason, err
 		},
 		statusUpdater: status.NewVMStatusUpdater(clientset),
 		clusterConfig: clusterConfig,
@@ -179,12 +181,39 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 	return c, nil
 }
 
-type sarProxy struct {
-	client kubecli.KubevirtClient
+type authProxy struct {
+	client             kubecli.KubevirtClient
+	dataSourceInformer cache.SharedIndexInformer
+	namespaceStore     cache.Store
 }
 
-func (p *sarProxy) Create(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+func (p *authProxy) CreateSar(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
 	return p.client.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), sar, v1.CreateOptions{})
+}
+
+func (p *authProxy) GetNamespace(name string) (*k8score.Namespace, error) {
+	obj, exists, err := p.namespaceStore.GetByKey(name)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("namespace %s does not exist", name)
+	}
+
+	ns := obj.(*k8score.Namespace).DeepCopy()
+	return ns, nil
+}
+
+func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, error) {
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	obj, exists, err := p.dataSourceInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, err
+	} else if !exists {
+		return nil, fmt.Errorf("dataSource %s does not exist", key)
+	}
+
+	ds := obj.(*cdiv1.DataSource).DeepCopy()
+	return ds, nil
 }
 
 type VMController struct {
@@ -193,6 +222,8 @@ type VMController struct {
 	vmiInformer            cache.SharedIndexInformer
 	vmInformer             cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
+	dataSourceInformer     cache.SharedIndexInformer
+	namespaceStore         cache.Store
 	pvcInformer            cache.SharedIndexInformer
 	crInformer             cache.SharedIndexInformer
 	podInformer            cache.SharedIndexInformer
@@ -362,39 +393,43 @@ func (c *VMController) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv
 		return fmt.Errorf("DataVolume sourceRef not supported")
 	}
 
-	if dv.Spec.Source == nil || dv.Spec.Source.PVC == nil {
+	if dv.Spec.Source == nil {
 		return nil
 	}
 
 	// For consistency with other k8s objects, we allow creating clone DataVolumes even when the source PVC doesn't exist.
 	// This means that a VirtualMachine can be successfully created with volumes that may remain unpopulated until the source PVC is created.
 	// For this reason, we check if the source PVC exists and, if not, we trigger an event to let users know of this behavior.
-	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcInformer)
-	if err != nil {
-		return err
-	}
-	if pvc == nil {
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, SourcePVCNotAvailabe, "Source PVC %s not available: Target PVC %s will remain unpopulated until source is created", dv.Spec.Source.PVC.Name, dv.Name)
+	if dv.Spec.Source.PVC != nil {
+		// TODO: a lot of CDI knowledge, maybe an API to check if source exists?
+		pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(dv.Spec.Source.PVC.Namespace, dv.Spec.Source.PVC.Name, c.pvcInformer)
+		if err != nil {
+			return err
+		}
+		if pvc == nil {
+			c.recorder.Eventf(vm, k8score.EventTypeWarning, SourcePVCNotAvailabe, "Source PVC %s not available: Target PVC %s will remain unpopulated until source is created", dv.Spec.Source.PVC.Name, dv.Name)
+		}
 	}
 
 	if err := c.authorizeDataVolume(vm, dv); err != nil {
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, UnauthorizedDataVolumeCreateReason, "Not authorized to create DataVolume %s: %v", dv.Name, err)
-		return fmt.Errorf("Not authorized to create DataVolume: %v", err)
+		return fmt.Errorf("not authorized to create DataVolume: %v", err)
 	}
 
 	return nil
 }
 
 func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
-	serviceAccount := "default"
+	serviceAccountName := "default"
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
 		if vol.ServiceAccount != nil {
-			serviceAccount = vol.ServiceAccount.ServiceAccountName
+			serviceAccountName = vol.ServiceAccount.ServiceAccountName
 		}
 	}
 
-	allowed, reason, err := c.cloneAuthFunc(dataVolume.Spec.Source.PVC.Namespace, dataVolume.Spec.Source.PVC.Name, vm.Namespace, serviceAccount)
-	if err != nil {
+	proxy := &authProxy{client: c.clientset, dataSourceInformer: c.dataSourceInformer, namespaceStore: c.namespaceStore}
+	allowed, reason, err := c.cloneAuthFunc(dataVolume, vm.Namespace, dataVolume.Name, proxy, vm.Namespace, serviceAccountName)
+	if err != nil && err != cdiv1.ErrNoTokenOkay {
 		return err
 	}
 
@@ -447,7 +482,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			if err != nil {
 				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeCreateReason, "Error creating DataVolume %s: %v", newDataVolume.Name, err)
 				c.dataVolumeExpectations.CreationObserved(vmKey)
-				return ready, fmt.Errorf("Failed to create DataVolume: %v", err)
+				return ready, fmt.Errorf("failed to create DataVolume: %v", err)
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
 		} else if curDataVolume.Status.Phase != cdiv1.Succeeded &&

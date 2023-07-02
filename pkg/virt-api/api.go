@@ -1039,6 +1039,7 @@ func (app *virtAPIApp) Run() {
 	crdInformer := kubeInformerFactory.CRD()
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
+	namespaceInformer := kubeInformerFactory.Namespace()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1076,6 +1077,7 @@ func (app *virtAPIApp) Run() {
 		VMIPresetInformer:  vmiPresetInformer,
 		VMRestoreInformer:  vmRestoreInformer,
 		DataSourceInformer: dataSourceInformer,
+		NamespaceInformer:  namespaceInformer,
 	}
 
 	// Build webhook subresources

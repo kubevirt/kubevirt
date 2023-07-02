@@ -66,61 +66,13 @@ func HasFailedDataVolumes(dvs []*cdiv1.DataVolume) bool {
 	return false
 }
 
-func GetCloneSourceWithInformers(vm *virtv1.VirtualMachine, dvSpec *cdiv1.DataVolumeSpec, dataSourceInformer cache.SharedInformer) (*CloneSource, error) {
-	var cloneSource *CloneSource
-	if dvSpec.Source != nil && dvSpec.Source.PVC != nil {
-		cloneSource = &CloneSource{
-			Namespace: dvSpec.Source.PVC.Namespace,
-			Name:      dvSpec.Source.PVC.Name,
-		}
+// GetResolvedCloneSource resolves the clone source of a datavolume with sourceRef
+// This will be moved to the CDI API package
+func GetResolvedCloneSource(ctx context.Context, client kubecli.KubevirtClient, namespace string, dvSpec *cdiv1.DataVolumeSpec) (*cdiv1.DataVolumeSource, error) {
+	ns := namespace
+	source := dvSpec.Source
 
-		if cloneSource.Namespace == "" {
-			cloneSource.Namespace = vm.Namespace
-		}
-	} else if dvSpec.SourceRef != nil && dvSpec.SourceRef.Kind == "DataSource" {
-		ns := vm.Namespace
-		if dvSpec.SourceRef.Namespace != nil {
-			ns = *dvSpec.SourceRef.Namespace
-		}
-
-		key := fmt.Sprintf("%v/%v", ns, dvSpec.SourceRef.Name)
-		obj, exists, err := dataSourceInformer.GetStore().GetByKey(key)
-		if err != nil {
-			return nil, err
-		} else if !exists {
-			return nil, fmt.Errorf("DataSource %s/%s does not exist", ns, dvSpec.SourceRef.Name)
-		}
-
-		ds := obj.(*cdiv1.DataSource)
-
-		if ds.Spec.Source.PVC != nil {
-			cloneSource = &CloneSource{
-				Namespace: ds.Spec.Source.PVC.Namespace,
-				Name:      ds.Spec.Source.PVC.Name,
-			}
-
-			if cloneSource.Namespace == "" {
-				cloneSource.Namespace = ns
-			}
-		}
-	}
-
-	return cloneSource, nil
-}
-
-func GetCloneSource(ctx context.Context, client kubecli.KubevirtClient, namespace string, dvSpec *cdiv1.DataVolumeSpec) (*CloneSource, error) {
-	var cloneSource *CloneSource
-	if dvSpec.Source != nil && dvSpec.Source.PVC != nil {
-		cloneSource = &CloneSource{
-			Namespace: dvSpec.Source.PVC.Namespace,
-			Name:      dvSpec.Source.PVC.Name,
-		}
-
-		if cloneSource.Namespace == "" {
-			cloneSource.Namespace = namespace
-		}
-	} else if dvSpec.SourceRef != nil && dvSpec.SourceRef.Kind == "DataSource" {
-		ns := namespace
+	if dvSpec.SourceRef != nil && dvSpec.SourceRef.Kind == "DataSource" {
 		if dvSpec.SourceRef.Namespace != nil {
 			ns = *dvSpec.SourceRef.Namespace
 		}
@@ -130,19 +82,29 @@ func GetCloneSource(ctx context.Context, client kubecli.KubevirtClient, namespac
 			return nil, err
 		}
 
-		if ds.Spec.Source.PVC != nil {
-			cloneSource = &CloneSource{
-				Namespace: ds.Spec.Source.PVC.Namespace,
-				Name:      ds.Spec.Source.PVC.Name,
-			}
-
-			if cloneSource.Namespace == "" {
-				cloneSource.Namespace = ns
-			}
+		source = &cdiv1.DataVolumeSource{
+			PVC:      ds.Spec.Source.PVC,
+			Snapshot: ds.Spec.Source.Snapshot,
 		}
 	}
 
-	return cloneSource, nil
+	if source == nil {
+		return source, nil
+	}
+	switch {
+	case source.PVC != nil:
+		if source.PVC.Namespace == "" {
+			source.PVC.Namespace = ns
+		}
+	case source.Snapshot != nil:
+		if source.Snapshot.Namespace == "" {
+			source.Snapshot.Namespace = ns
+		}
+	default:
+		source = nil
+	}
+
+	return source, nil
 }
 
 func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolumeTemplate virtv1.DataVolumeTemplateSpec, namespace, priorityClassName string) (*cdiv1.DataVolume, error) {
@@ -166,23 +128,18 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 		newDataVolume.Spec.PriorityClassName = priorityClassName
 	}
 
-	cloneSource, err := GetCloneSource(context.TODO(), clientset, namespace, &newDataVolume.Spec)
+	dvSource, err := GetResolvedCloneSource(context.TODO(), clientset, namespace, &newDataVolume.Spec)
 	if err != nil {
 		return nil, err
 	}
 
-	if cloneSource != nil {
+	if dvSource != nil {
 		// If SourceRef is set, populate spec.Source with data from the DataSource
 		// If not, update the field anyway to account for possible namespace changes
 		if newDataVolume.Spec.SourceRef != nil {
 			newDataVolume.Spec.SourceRef = nil
 		}
-		newDataVolume.Spec.Source = &cdiv1.DataVolumeSource{
-			PVC: &cdiv1.DataVolumeSourcePVC{
-				Namespace: cloneSource.Namespace,
-				Name:      cloneSource.Name,
-			},
-		}
+		newDataVolume.Spec.Source = dvSource
 	}
 
 	return newDataVolume, nil

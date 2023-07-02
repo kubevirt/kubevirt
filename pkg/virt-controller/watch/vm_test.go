@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	appsv1 "k8s.io/api/apps/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -106,9 +107,23 @@ var _ = Describe("VirtualMachine", func() {
 			generatedInterface := fake.NewSimpleClientset()
 
 			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+			ns1 := &k8sv1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "ns1",
+				},
+			}
+			ns2 := &k8sv1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "default",
+				},
+			}
+			Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
+			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
 			crInformer, _ = testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
@@ -132,6 +147,8 @@ var _ = Describe("VirtualMachine", func() {
 			controller, _ = NewVMController(vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
+				dataSourceInformer,
+				namespaceInformer.GetStore(),
 				pvcInformer,
 				crInformer,
 				podInformer,
@@ -162,6 +179,7 @@ var _ = Describe("VirtualMachine", func() {
 			k8sClient = k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 		})
 
 		shouldExpectVMIFinalizerRemoval := func(vmi *virtv1.VirtualMachineInstance) {
@@ -1210,18 +1228,27 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(pvcInformer.GetStore().Add(&pvc)).To(Succeed())
 				}
 
-				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+				controller.cloneAuthFunc = func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
+					k8sClient.Fake.PrependReactor("create", "subjectaccessreviews", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+						return true, &authorizationv1.SubjectAccessReview{
+							Status: authorizationv1.SubjectAccessReviewStatus{
+								Allowed: true,
+							},
+						}, nil
+					})
+					response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
+					Expect(err).ToNot(HaveOccurred())
 					if dv.Spec.Source != nil {
 						if dv.Spec.Source.PVC.Namespace != "" {
-							Expect(pvcNamespace).Should(Equal(dv.Spec.Source.PVC.Namespace))
+							Expect(response.Handler.SourceNamespace).Should(Equal(dv.Spec.Source.PVC.Namespace))
 						} else {
-							Expect(pvcNamespace).Should(Equal(vm.Namespace))
+							Expect(response.Handler.SourceNamespace).Should(Equal(vm.Namespace))
 						}
 
-						Expect(pvcName).Should(Equal(dv.Spec.Source.PVC.Name))
+						Expect(response.Handler.SourceName).Should(Equal(dv.Spec.Source.PVC.Name))
 					} else {
-						Expect(pvcNamespace).Should(Equal(ds.Spec.Source.PVC.Namespace))
-						Expect(pvcName).Should(Equal(ds.Spec.Source.PVC.Name))
+						Expect(response.Handler.SourceNamespace).Should(Equal(ds.Spec.Source.PVC.Namespace))
+						Expect(response.Handler.SourceName).Should(Equal(ds.Spec.Source.PVC.Name))
 					}
 
 					Expect(saNamespace).Should(Equal(vm.Namespace))
