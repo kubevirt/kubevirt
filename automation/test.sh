@@ -28,6 +28,16 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 
 
 if [ ${CI} == "true" ]; then
+  git remote add upstream https://github.com/kubevirt/kubevirt.git
+  git fetch upstream
+
+  total_lines=$(git diff --name-status upstream/main | wc -l)
+  lines=$(git diff --name-status upstream/main | grep '\.md$' | wc -l)
+  if [ $lines == $total_lines ]; then
+    echo "only md files were detected, skipping testing"
+    exit 0
+  fi
+
   if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
     _delay="$(( ( RANDOM % 180 )))"
     echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
