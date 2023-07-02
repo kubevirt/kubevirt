@@ -32,7 +32,7 @@ tests:
   # Pod is using more memory than expected
   - interval: 1m
     input_series:
-      - series: 'container_memory_working_set_bytes{namespace="ci",container="",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
+      - series: 'container_memory_working_set_bytes{namespace="ci",container="virt-controller",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
         values: "157286400+0x5"
       - series: 'kube_pod_container_resource_requests{namespace="ci",container="virt-controller",resource="memory",pod="virt-controller-8546c99968-x9jgg",node="node1"}'
         values: "118325248+0x5"
