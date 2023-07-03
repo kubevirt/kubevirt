@@ -2612,7 +2612,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		}
 	}
 
-	var ifaceHotplugError syncError
 	// Must check needsSync again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
 	// hotplugged volumes and interfaces
@@ -2655,9 +2654,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	}
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
-	if syncErr == nil && ifaceHotplugError != nil {
-		syncErr = ifaceHotplugError
-	}
 	return vm, syncErr, nil
 }
 
