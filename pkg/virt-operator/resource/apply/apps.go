@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/utils/pointer"
-
-	"kubevirt.io/client-go/kubecli"
-
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,8 +13,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
+	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -62,7 +60,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
 				"auto-scaling for core kubevirt components. Please use with caution!")
 		}
-	} else if deployment.Name == components.VirtAPIName {
+	} else if deployment.Name == components.VirtAPIName && !replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
 		replicas, err := getDesiredApiReplicas(r.clientset)
 		if err != nil {
 			log.Log.Object(deployment).Warningf(err.Error())
@@ -426,4 +424,29 @@ func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 	}
 
 	return replicas, nil
+}
+
+func replicasAlreadyPatched(patches []v1.CustomizeComponentsPatch, deploymentName string) bool {
+	for _, patch := range patches {
+		if patch.ResourceName != deploymentName {
+			continue
+		}
+		decodedPatch, err := jsonpatch.DecodePatch([]byte(patch.Patch))
+		if err != nil {
+			log.Log.Warningf(err.Error())
+			continue
+		}
+		for _, operation := range decodedPatch {
+			path, err := operation.Path()
+			if err != nil {
+				log.Log.Warningf(err.Error())
+				continue
+			}
+			op := operation.Kind()
+			if path == "/spec/replicas" && op == "replace" {
+				return true
+			}
+		}
+	}
+	return false
 }
