@@ -68,7 +68,6 @@ function cleanup() {
 trap "cleanup" INT TERM EXIT
 
 source hack/compare_scc.sh
-OUTPUT_DIR=${OUTPUT_DIR} dump_sccs_before
 
 CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep "kubevirt-hyperconverged-operator")
 
@@ -304,12 +303,13 @@ VIRTIOWIN_IMAGE_CM=$(${CMD} get cm virtio-win -n ${HCO_NAMESPACE} -o jsonpath='{
 [[ "${VIRTIOWIN_IMAGE_CSV}" == "${VIRTIOWIN_IMAGE_CM}" ]]
 
 Msg "Read the HCO operator log before it been deleted"
-mkdir -f "${OUTPUT_DIR}/logs"
+LOG_DIR="${ARTIFACT_DIR}/logs"
+mkdir -p "${LOG_DIR}"
 HCO_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-operator" -o name)
-${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}" > "${OUTPUT_DIR}/logs/hyperconverged-cluster-operator.log"
+${CMD} logs -n ${HCO_NAMESPACE} "${HCO_POD}" > "${LOG_DIR}/hyperconverged-cluster-operator.log"
 
 Msg "Read the HCO webhook log before it been deleted"
 WH_POD=$( ${CMD} get -n ${HCO_NAMESPACE} pods -l "name=hyperconverged-cluster-webhook" -o name)
-${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}" > "${OUTPUT_DIR}/logs/hyperconverged-cluster-webhook.log"
+${CMD} logs -n ${HCO_NAMESPACE} "${WH_POD}" > "${LOG_DIR}/hyperconverged-cluster-webhook.log"
 
 echo "upgrade-test completed successfully."

@@ -22,40 +22,29 @@ set -ex
 OUTPUT_DIR=${OUTPUT_DIR:-_out}
 SCC_OUTPUT_DIR="${OUTPUT_DIR}/scc"
 
-BEFORE_DIR="${SCC_OUTPUT_DIR}/before"
-AFTER_DIR="${SCC_OUTPUT_DIR}/after"
+SCC_BEFORE_SUFFIX=.yaml.before
+SCC_AFTER_SUFFIX=.yaml.after
 
-SUFFIX=.json
-
-function dump_sccs() {
-  TARGET_DIR=$1
-  if [ "${CMD}" == "oc" ] && [ "${KUBEVIRT_PROVIDER}" != "external" ]; then
-    mkdir -p "${TARGET_DIR}"
-    for SCCNAME in $( ${CMD} get scc -o custom-columns=:metadata.name); do
+function dump_sccs_before(){
+    if [ "${CMD}" == "oc" ]; then
+        mkdir -pv "${SCC_OUTPUT_DIR}"
+        for SCCNAME in $( ${CMD} get scc -o custom-columns=:metadata.name )
+        do
       echo -e "\n--- SCC ${SCCNAME} ---"
-      ${CMD} get scc "${SCCNAME}" -o json | jq 'del(.metadata.resourceVersion,.metadata.generation,.metadata.labels,.metadata.annotations)' > "${TARGET_DIR}/${SCCNAME}${SUFFIX}" || true
+          ${CMD} get scc ${SCCNAME} -o yaml > "${SCC_OUTPUT_DIR}/${SCCNAME}${SCC_BEFORE_SUFFIX}" || true
     done
   else
     echo "Ignoring SCCs on k8s"
   fi
 }
 
-function dump_sccs_before() {
-  dump_sccs "${BEFORE_DIR}"
-}
-
-function dump_sccs_after() {
-  dump_sccs "${AFTER_DIR}"
-
-  compare_sccs
-}
-
-function compare_sccs() {
+function dump_sccs_after(){
   if [ "${CMD}" == "oc" ] && [ "${KUBEVIRT_PROVIDER}" != "external" ]; then
-    for f in "${BEFORE_DIR}"/*"${SUFFIX}"; do
-      SCCNAME=$(basename --suffix="${SUFFIX}" "$f")
-      echo -e "\n--- comparing SCC ${SCCNAME} ---"
-      diff "${BEFORE_DIR}/${SCCNAME}${SUFFIX}" "${AFTER_DIR}/${SCCNAME}${SUFFIX}"
+        for f in "${SCC_OUTPUT_DIR}"/*"${SCC_BEFORE_SUFFIX}"; do
+           SCCNAME=$(basename --suffix=${SCC_BEFORE_SUFFIX} "$f")
+           echo -e "\n--- SCC ${SCCNAME} ---"
+           ${CMD} get scc ${SCCNAME} -o yaml > "${SCC_OUTPUT_DIR}/${SCCNAME}${SCC_AFTER_SUFFIX}" || true
+           diff -I '^\s*generation:.*$' -I '^\s*resourceVersion:.*$' -I '^\s*time:.*$' "${SCC_OUTPUT_DIR}/${SCCNAME}${SCC_BEFORE_SUFFIX}" "${SCC_OUTPUT_DIR}/${SCCNAME}${SCC_AFTER_SUFFIX}"
     done
   else
     echo "Ignoring SCCs on k8s"
