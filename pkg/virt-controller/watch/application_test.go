@@ -143,6 +143,7 @@ var _ = Describe("Application", func() {
 			dataVolumeInformer,
 			pvcInformer,
 			crInformer,
+			podInformer,
 			instancetypeMethods,
 			recorder,
 			virtClient,

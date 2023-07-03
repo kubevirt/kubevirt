@@ -690,6 +690,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
+		vca.kvPodInformer,
 		instancetypeMethods,
 		recorder,
 		vca.clientSet,

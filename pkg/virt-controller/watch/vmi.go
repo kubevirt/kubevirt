@@ -1267,7 +1267,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			}
 		}
 
-		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi, pod); dynamicIfacesExist {
+		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi); dynamicIfacesExist {
 			if err := c.handleDynamicInterfaceRequests(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
 				return &syncErrorImpl{
 					err:    fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),

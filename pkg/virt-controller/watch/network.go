@@ -19,28 +19,17 @@
 package watch
 
 import (
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
-func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) ([]v1.Interface, []v1.Network, bool) {
+func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
 	vmiSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiSpecIfaces)
 
-	if ifacesToHotUnplugExist && namescheme.PodHasOrdinalInterfaceName(services.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
-		vmiSpecIfaces = vmi.Spec.Domain.Devices.Interfaces
-		ifacesToHotUnplugExist = false
-		log.Log.Object(vmi).Error("hot-unplug is not supported on old VMIs with ordered pod interface names")
-	}
 	vmiSpecNets := vmi.Spec.Networks
 	if ifacesToHotUnplugExist {
 		vmiSpecNets = vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, vmiSpecIfaces)
