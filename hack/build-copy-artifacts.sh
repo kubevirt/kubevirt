@@ -30,5 +30,5 @@ fi
 
 for arg in $args; do
     BIN_NAME=$(basename $arg)
-    rsync -avzq --exclude "**/*.md" --exclude "**/*.go" --exclude "**/.*" $arg/ ${CMD_OUT_DIR}/${BIN_NAME}/
+    rsync -avzq --password-file=~/rsyncd/rsyncd.pass --exclude "**/*.md" --exclude "**/*.go" --exclude "**/.*" $arg/ ${CMD_OUT_DIR}/${BIN_NAME}/
 done
