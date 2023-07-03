@@ -31,9 +31,10 @@ jobs:
         
       - name: Configure rsync passwd
         run: |
-          sudo echo "root:${{ secrets.RSYNC_PASSWD }}" > /etc/rsync.passwd
-          sudo echo "${{ secrets.RSYNC_PASSWD }}" > /etc/rsync.pass
-          chmod 600 /etc/rsync.pass
+          mkdir -p ~/rsyncd/
+          sudo echo "root:${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.passwd
+          sudo echo "${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.pass
+          chmod 600 ~/rsyncd/rsync.pass
 
       - name: Build
         env:
@@ -66,9 +67,10 @@ jobs:
       
       - name: Configure rsync passwd
         run: |
-          sudo echo "root:${{ secrets.RSYNC_PASSWD }}" > /etc/rsync.passwd
-          sudo echo "${{ secrets.RSYNC_PASSWD }}" > /etc/rsync.pass
-          chmod 600 /etc/rsync.pass
+          mkdir -p ~/rsyncd/
+          sudo echo "root:${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.passwd
+          sudo echo "${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.pass
+          chmod 600 ~/rsyncd/rsync.pass
 
       - name: Build
         env:
