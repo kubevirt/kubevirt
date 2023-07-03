@@ -118,6 +118,9 @@ RUN set -x && \
 
 COPY rsyncd.conf /etc/rsyncd.conf
 
+COPY ~/rsyncd/rsync.passwd /etc/rsync.passwd
+RUN chmod 600 /etc/rsyncd.passwd
+
 COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
