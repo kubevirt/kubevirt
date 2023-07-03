@@ -5,7 +5,7 @@ WORKDIR /opt/app-root/src
 COPY hack/config /tmp/config
 
 USER 0
-RUN dnf -y install zip && \
+RUN dnf -y install zip file && \
     sed '/^\s*listen\s*\[::\]:8080/d' /etc/nginx/nginx.conf > /etc/nginx/nginx.conf.ipv4 && \
     sed '/^\s*listen\s*8080/d' /etc/nginx/nginx.conf > /etc/nginx/nginx.conf.ipv6
 USER 1001
@@ -14,16 +14,33 @@ ARG download_url=https://github.com/kubevirt/kubevirt/releases/download
 
 RUN eval $(cat /tmp/config  |grep KUBEVIRT_VERSION=) && \
     echo "KUBEVIRT_VERSION: $KUBEVIRT_VERSION" && \
-    curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-linux-amd64" && \
-    mkdir -p ./amd64/linux && tar -zhcf ./amd64/linux/virtctl.tar.gz virtctl && rm virtctl && \
-    ( curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-linux-arm64" && mkdir -p ./arm64/linux && tar -zhcf ./amd64/linux/virtctl.tar.gz virtctl && rm virtctl ) || true && \
-    curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-darwin-amd64" && \
-    mkdir -p ./amd64/mac && zip -r -q ./amd64/mac/virtctl.zip virtctl && rm virtctl && \
-    ( curl -v --fail -L -o virtctl "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-darwin-arm64" && mkdir -p ./arm64/mac && zip -r -q ./amd64/mac/virtctl.zip virtctl && rm virtctl ) || true && \
-    curl -v --fail -L -o virtctl.exe "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe" && \
-    mkdir -p ./amd64/windows && zip -r -q ./amd64/windows/virtctl.zip virtctl.exe && rm virtctl.exe && \
-    ( curl -v --fail -L -o virtctl.exe "${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-windows-arm64.exe" && mkdir -p ./arm64/windows && zip -r -q ./arm64/windows/virtctl.zip virtctl.exe && rm virtctl.exe ) || true
-
+    for arch in amd64 arm64; do \
+        for os in linux darwin windows; do \
+            if [[ ${os} == "windows" && ${arch} == "arm64" ]]; then \
+                printf "\n\n### Skipping virctl for Windows on ARM64\n"; \
+            else \
+                extension=""; \
+                archive_extension=".zip"; \
+                archive_command="zip -r -q"; \
+                if [ "${os}" = "windows" ]; then \
+                    extension=".exe"; \
+                fi; \
+                l_os="${os}"; \
+                if [ "${os}" = "darwin" ]; then \
+                    l_os="mac"; \
+                fi; \
+                if [ "${os}" = "linux" ]; then \
+                    archive_extension=".tar.gz"; \
+                    archive_command="tar -zhcf"; \
+                fi; \
+                url="${download_url}/${KUBEVIRT_VERSION}/virtctl-${KUBEVIRT_VERSION}-${os}-${arch}${extension}"; \
+                printf "\n\n### Downloading ${url}\n"; \
+                curl --fail -L -o virtctl${extension} "${url}" && \
+                file virtctl${extension} && \
+                mkdir -p ./${arch}/${l_os} && ${archive_command} ./${arch}/${l_os}/virtctl${archive_extension} virtctl${extension} && rm virtctl${extension}; \
+            fi; \
+        done; \
+    done
 
 ARG git_url=https://github.com/kubevirt/hyperconverged-cluster-operator.git
 ARG git_sha=NONE

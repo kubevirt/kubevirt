@@ -67,21 +67,19 @@ func checkConsoleCliDownloadSpec(client kubecli.KubevirtClient) {
 	ExpectWithOffset(1, ccd.Spec.Links).Should(HaveLen(6))
 
 	for _, link := range ccd.Spec.Links {
-		By("Checking links. Link:" + link.Href)
-		client := &http.Client{Transport: &http.Transport{
-			// ssl of the route is irrelevant
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}}
-		// TODO: virtctl binaries for arm64 are still not available,
-		// checking the amd64 ones twice.
-		// Remove this once arm64 binaries get properly released in the next Kubevirt release.
-		// resp, err := client.Get(link.Href)
-		resp, err := client.Get(strings.Replace(link.Href, "arm64", "amd64", -1))
-		///////
-		_ = resp.Body.Close()
+		// virtctl for Windows for ARM 64 is still not shipped, avoid checking it
+		// TODO: remove this once ready
+		if !(strings.Contains(link.Href, "windows") && strings.Contains(link.Href, "arm64")) {
+			By("Checking links. Link:" + link.Href)
+			client := &http.Client{Transport: &http.Transport{
+				// ssl of the route is irrelevant
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}}
+			resp, err := client.Get(link.Href)
+			_ = resp.Body.Close()
 
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		ExpectWithOffset(1, resp).Should(HaveHTTPStatus(http.StatusOK))
-
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			ExpectWithOffset(1, resp).Should(HaveHTTPStatus(http.StatusOK))
+		}
 	}
 }
