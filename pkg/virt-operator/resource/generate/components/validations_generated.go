@@ -8056,6 +8056,19 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        nodeSelector:
+          additionalProperties:
+            type: string
+          description: "NodeSelector is a selector which must be true for the vmi
+            to fit on a node. Selector which must match a node's labels for the vmi
+            to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+            \n NodeSelector is the name of the custom node selector for the instancetype."
+          type: object
+        schedulerName:
+          description: "If specified, the VMI will be dispatched by specified scheduler.
+            If not specified, the VMI will be dispatched by default scheduler. \n
+            SchedulerName is the name of the custom K8s scheduler for the instancetype."
+          type: string
       required:
       - cpu
       - memory
@@ -16858,6 +16871,19 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - guest
           type: object
+        nodeSelector:
+          additionalProperties:
+            type: string
+          description: "NodeSelector is a selector which must be true for the vmi
+            to fit on a node. Selector which must match a node's labels for the vmi
+            to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+            \n NodeSelector is the name of the custom node selector for the instancetype."
+          type: object
+        schedulerName:
+          description: "If specified, the VMI will be dispatched by specified scheduler.
+            If not specified, the VMI will be dispatched by default scheduler. \n
+            SchedulerName is the name of the custom K8s scheduler for the instancetype."
+          type: string
       required:
       - cpu
       - memory

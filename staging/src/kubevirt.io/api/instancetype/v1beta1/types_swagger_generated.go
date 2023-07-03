@@ -31,6 +31,8 @@ func (VirtualMachineClusterInstancetypeList) SwaggerDoc() map[string]string {
 func (VirtualMachineInstancetypeSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineInstancetypeSpec is a description of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype.\n\nCPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.",
+		"nodeSelector":    "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n\nNodeSelector is the name of the custom node selector for the instancetype.\n+optional",
+		"schedulerName":   "If specified, the VMI will be dispatched by specified scheduler.\nIf not specified, the VMI will be dispatched by default scheduler.\n\nSchedulerName is the name of the custom K8s scheduler for the instancetype.\n+optional",
 		"cpu":             "Required CPU related attributes of the instancetype.",
 		"memory":          "Required Memory related attributes of the instancetype.",
 		"gpus":            "Optionally defines any GPU devices associated with the instancetype.\n\n+optional\n+listType=atomic",

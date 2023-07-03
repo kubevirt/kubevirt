@@ -418,6 +418,8 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 	var conflicts Conflicts
 
 	if instancetypeSpec != nil {
+		conflicts = append(conflicts, applyNodeSelector(field, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applySchedulerName(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyCPU(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyMemory(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyIOThreadPolicy(field, instancetypeSpec, vmiSpec)...)
@@ -930,6 +932,38 @@ func validateCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Vir
 	}
 
 	return conflicts
+}
+
+func applyNodeSelector(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+	if instancetypeSpec.NodeSelector == nil {
+		return nil
+	}
+
+	if vmiSpec.NodeSelector != nil {
+		return Conflicts{field.Child("nodeSelector")}
+	}
+
+	// TODO: This should be eventually moved to `maps` package (https://pkg.go.dev/maps@master).
+	vmiSpec.NodeSelector = make(map[string]string, len(instancetypeSpec.NodeSelector))
+	for k, v := range instancetypeSpec.NodeSelector {
+		vmiSpec.NodeSelector[k] = v
+	}
+
+	return nil
+}
+
+func applySchedulerName(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+	if instancetypeSpec.SchedulerName == "" {
+		return nil
+	}
+
+	if vmiSpec.SchedulerName != "" {
+		return Conflicts{field.Child("schedulerName")}
+	}
+
+	vmiSpec.SchedulerName = instancetypeSpec.SchedulerName
+
+	return nil
 }
 
 func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {

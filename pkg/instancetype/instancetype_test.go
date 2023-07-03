@@ -915,6 +915,70 @@ var _ = Describe("Instancetype and Preferences", func() {
 			field = k8sfield.NewPath("spec", "template", "spec")
 		})
 
+		Context("instancetype.spec.NodeSelector", func() {
+			It("should apply to VMI", func() {
+				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					NodeSelector: map[string]string{"key": "value"},
+				}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.NodeSelector).To(Equal(instancetypeSpec.NodeSelector))
+			})
+
+			It("should be no-op if vmi.Spec.NodeSelector is already set but instancetype.NodeSelector is empty", func() {
+				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{}
+				vmi.Spec.NodeSelector = map[string]string{"key": "value"}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.NodeSelector).To(Equal(map[string]string{"key": "value"}))
+			})
+
+			It("should return a conflict if vmi.Spec.NodeSelector is already set and instancetype.NodeSelector is defined", func() {
+				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					NodeSelector: map[string]string{"key": "value"},
+				}
+				vmi.Spec.NodeSelector = map[string]string{"key": "value"}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.nodeSelector"))
+			})
+		})
+
+		Context("instancetype.spec.SchedulerName", func() {
+			It("should apply to VMI", func() {
+				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					SchedulerName: "ultra-scheduler",
+				}
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.SchedulerName).To(Equal(instancetypeSpec.SchedulerName))
+			})
+
+			It("should be no-op if vmi.Spec.SchedulerName is already set but instancetype.SchedulerName is empty", func() {
+				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{}
+				vmi.Spec.SchedulerName = "super-fast-scheduler"
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.SchedulerName).To(Equal("super-fast-scheduler"))
+			})
+
+			It("should return a conflict if vmi.Spec.SchedulerName is already set and instancetype.SchedulerName is defined", func() {
+				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					SchedulerName: "ultra-fast-scheduler",
+				}
+				vmi.Spec.SchedulerName = "slow-scheduler"
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(HaveLen(1))
+				Expect(conflicts[0].String()).To(Equal("spec.template.spec.schedulerName"))
+			})
+		})
+
 		Context("instancetype.spec.CPU and preference.spec.CPU", func() {
 
 			BeforeEach(func() {

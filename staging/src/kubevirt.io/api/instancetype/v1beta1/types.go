@@ -74,6 +74,20 @@ type VirtualMachineClusterInstancetypeList struct {
 //
 // CPU and Memory are required attributes with both requiring that their Guest attribute is defined, ensuring a number of vCPUs and amount of RAM is always provided by each instancetype.
 type VirtualMachineInstancetypeSpec struct {
+	// NodeSelector is a selector which must be true for the vmi to fit on a node.
+	// Selector which must match a node's labels for the vmi to be scheduled on that node.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	//
+	// NodeSelector is the name of the custom node selector for the instancetype.
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// If specified, the VMI will be dispatched by specified scheduler.
+	// If not specified, the VMI will be dispatched by default scheduler.
+	//
+	// SchedulerName is the name of the custom K8s scheduler for the instancetype.
+	// +optional
+	SchedulerName string `json:"schedulerName,omitempty"`
 
 	// Required CPU related attributes of the instancetype.
 	CPU CPUInstancetype `json:"cpu"`
