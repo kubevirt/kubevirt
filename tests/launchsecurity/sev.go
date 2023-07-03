@@ -284,9 +284,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(func() bool {
 				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				val, ok := node.Status.Capacity[sevResourceName]
+				val, ok := node.Status.Allocatable[sevResourceName]
 				return ok && !val.IsZero()
-			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("SEV capacity should not be zero on %s", nodeName))
+			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Allocatable SEV should not be zero on %s", nodeName))
 		})
 
 		AfterEach(func() {
@@ -298,15 +298,15 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			}
 		})
 
-		It("[QUARANTINE] should reset SEV capacity when the feature gate is disabled", func() {
+		It("[QUARANTINE] should reset SEV allocatable devices when the feature gate is disabled", func() {
 			By(fmt.Sprintf("Disabling %s feature gate", virtconfig.WorkloadEncryptionSEV))
 			tests.DisableFeatureGate(virtconfig.WorkloadEncryptionSEV)
 			Eventually(func() bool {
 				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				val, ok := node.Status.Capacity[sevResourceName]
+				val, ok := node.Status.Allocatable[sevResourceName]
 				return !ok || val.IsZero()
-			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("SEV capacity should be zero on %s", nodeName))
+			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Allocatable SEV should be zero on %s", nodeName))
 		})
 	})
 
