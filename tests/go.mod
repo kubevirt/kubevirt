@@ -3,7 +3,7 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tests
 go 1.19
 
 require (
-	github.com/kubevirt/cluster-network-addons-operator v0.86.1
+	github.com/kubevirt/cluster-network-addons-operator v0.87.0
 	github.com/kubevirt/hyperconverged-cluster-operator v1.8.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
@@ -113,7 +113,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/crypto v0.5.0 // indirect
+	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
@@ -214,8 +214,8 @@ replace (
 	github.com/appscode/jsonpatch => github.com/appscode/jsonpatch v1.0.1
 	github.com/coreos/prometheus-operator/pkg/apis/monitoring => github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.1
 	github.com/go-kit/kit => github.com/go-kit/kit v0.9.0
-	github.com/kubevirt/cluster-network-addons-operator => github.com/kubevirt/cluster-network-addons-operator v0.85.2
-	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.85.2
+	github.com/kubevirt/cluster-network-addons-operator => github.com/kubevirt/cluster-network-addons-operator v0.87.0
+	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.87.0
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.57.0-alpha1

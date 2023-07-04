@@ -81,7 +81,11 @@ type KubeMacPool struct {
 }
 
 // MacvtapCni plugin allows users to define Kubernetes networks on top of existing host interfaces
-type MacvtapCni struct{}
+type MacvtapCni struct {
+	// DevicePluginConfig allows the user to override the name of the
+	// `ConfigMap` where the device plugin configuration is held.
+	DevicePluginConfig string `json:"devicePluginConfig,omitempty"`
+}
 
 // NetworkAddonsConfigStatus defines the observed state of NetworkAddonsConfig
 type NetworkAddonsConfigStatus struct {
