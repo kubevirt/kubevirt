@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright 2023 The KubeVirt Authors.
  *
  */
 
-package info
+package v1alpha3
 
-const OnDefineDomainHookPointName = "OnDefineDomain"
-const PreCloudInitIsoHookPointName = "PreCloudInitIso"
-const ShutdownHookPointName = "Shutdown"
+const Version = "v1alpha3"
