@@ -57,17 +57,17 @@ var _ = Describe("process", func() {
 		)
 	})
 
-	Context("lookup process by executable", func() {
+	Context("lookup process by executable prefix", func() {
 		procStub5 := ProcessStub{ppid: 100, pid: 220, binary: processTestExecPath}
 
 		DescribeTable("should find no process",
-			func(processes []ps.Process, executable string) {
-				Expect(lookupProcessByExecutable(processes, executable)).To(BeNil())
+			func(processes []ps.Process, executablePrefix string) {
+				Expect(lookupProcessByExecutablePrefix(processes, executablePrefix)).To(BeNil())
 			},
-			Entry("given no input processes and empty string as executable",
+			Entry("given no input processes and empty string as executable prefix",
 				emptyProcessList, "",
 			),
-			Entry("given no input processes and executable",
+			Entry("given no input processes and executable prefix",
 				emptyProcessList, "processA",
 			),
 			Entry("given processes list and empty string",
@@ -75,15 +75,15 @@ var _ = Describe("process", func() {
 			),
 		)
 
-		DescribeTable("should return the first occurrence of a process that runs the given executable",
-			func(processes []ps.Process, executable string, expectedProcess ps.Process) {
-				Expect(lookupProcessByExecutable(processes, executable)).
+		DescribeTable("should return the first occurrence of a process with the given executable prefix",
+			func(processes []ps.Process, executablePrefix string, expectedProcess ps.Process) {
+				Expect(lookupProcessByExecutablePrefix(processes, executablePrefix)).
 					To(Equal(expectedProcess))
 			},
-			Entry("given processes list that includes exactly one process that runs the executable",
+			Entry("given processes list that includes exactly one process with the executable prefix",
 				testProcesses, processTestExecPath, procStub1,
 			),
-			Entry("given processes list that includes more than one process that runs the executable",
+			Entry("given processes list that includes more than one process with the executable prefix",
 				append(testProcesses, procStub5), processTestExecPath, procStub1,
 			),
 		)
