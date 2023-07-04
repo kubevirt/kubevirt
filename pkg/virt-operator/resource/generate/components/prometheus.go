@@ -69,7 +69,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 }
 
 // NewPrometheusRuleCR returns a PrometheusRule with a group of alerts for the KubeVirt deployment.
-func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.PrometheusRule {
+func NewPrometheusRuleCR(namespace string) *v1.PrometheusRule {
 	return &v1.PrometheusRule{
 		TypeMeta: v12.TypeMeta{
 			APIVersion: v12.SchemeGroupVersion.String(),
@@ -83,12 +83,12 @@ func NewPrometheusRuleCR(namespace string, workloadUpdatesEnabled bool) *v1.Prom
 				"k8s-app":          "kubevirt",
 			},
 		},
-		Spec: *NewPrometheusRuleSpec(namespace, workloadUpdatesEnabled),
+		Spec: *NewPrometheusRuleSpec(namespace),
 	}
 }
 
 // NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
-func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.PrometheusRuleSpec {
+func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 	getRestCallsFailedWarning := func(failingCallsPercentage int, component, duration string) string {
 		const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 		return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
@@ -494,20 +494,7 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
-	}...)
-
-	ruleSpec := &v1.PrometheusRuleSpec{
-		Groups: []v1.RuleGroup{
-			{
-				Name:  "kubevirt.rules",
-				Rules: kubevirtRules,
-			},
-		},
-	}
-
-	if workloadUpdatesEnabled {
-		ruleSpec.Groups[0].Rules = append(ruleSpec.Groups[0].Rules, v1.Rule{
-
+		{
 			Alert: "OutdatedVirtualMachineInstanceWorkloads",
 			Expr:  intstr.FromString("kubevirt_vmi_outdated_count != 0"),
 			For:   "1440m",
@@ -519,7 +506,16 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 				severityAlertLabelKey:        "warning",
 				operatorHealthImpactLabelKey: "none",
 			},
-		})
+		},
+	}...)
+
+	ruleSpec := &v1.PrometheusRuleSpec{
+		Groups: []v1.RuleGroup{
+			{
+				Name:  "kubevirt.rules",
+				Rules: kubevirtRules,
+			},
+		},
 	}
 
 	for _, group := range ruleSpec.Groups {

@@ -18,7 +18,7 @@ var _ = Describe("Prometheus", func() {
 	})
 
 	It("should use the default runbook URL template when no ENV Variable is set", func() {
-		promRule := NewPrometheusRuleCR("mynamespace", true)
+		promRule := NewPrometheusRuleCR("mynamespace")
 
 		for _, group := range promRule.Spec.Groups {
 			for _, rule := range group.Rules {
@@ -35,7 +35,7 @@ var _ = Describe("Prometheus", func() {
 		desiredRunbookURLTemplate := "desired/runbookURL/template/%s"
 		os.Setenv(runbookURLTemplateEnv, desiredRunbookURLTemplate)
 
-		promRule := NewPrometheusRuleCR("mynamespace", true)
+		promRule := NewPrometheusRuleCR("mynamespace")
 
 		for _, group := range promRule.Spec.Groups {
 			for _, rule := range group.Rules {
