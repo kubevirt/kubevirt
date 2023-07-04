@@ -43,6 +43,7 @@ replace (
 )
 
 require (
+	github.com/gertd/go-pluralize v0.2.1
 	k8s.io/apiserver v0.27.2
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 )

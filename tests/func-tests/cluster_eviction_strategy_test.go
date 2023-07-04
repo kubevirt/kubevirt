@@ -18,15 +18,20 @@ var _ = Describe("Cluster level evictionStrategy default value", func() {
 	var cli kubecli.KubevirtClient
 	ctx := context.TODO()
 
-	cli, err := kubecli.GetKubevirtClient()
-	Expect(cli).ToNot(BeNil())
-	Expect(err).ToNot(HaveOccurred())
-	var initialEvictionStrategy *v1.EvictionStrategy
-
-	singleworkerCluster, err := isSingleWorkerCluster(cli)
-	Expect(err).ToNot(HaveOccurred())
+	var (
+		initialEvictionStrategy *v1.EvictionStrategy
+		singleworkerCluster     bool
+	)
 
 	BeforeEach(func() {
+		var err error
+		cli, err = kubecli.GetKubevirtClient()
+		Expect(cli).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+
+		singleworkerCluster, err = isSingleWorkerCluster(cli)
+		Expect(err).ToNot(HaveOccurred())
+
 		tests.BeforeEach()
 		hc := tests.GetHCO(ctx, cli)
 		initialEvictionStrategy = hc.Spec.EvictionStrategy

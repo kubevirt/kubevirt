@@ -27,9 +27,6 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", func() {
 	var cli kubecli.KubevirtClient
 	ctx := context.TODO()
 
-	cli, err := kubecli.GetKubevirtClient()
-	Expect(cli).ToNot(BeNil())
-	Expect(err).ToNot(HaveOccurred())
 	var initialMDC *v1beta1.MediatedDevicesConfiguration
 
 	apiServerError := apiservererrors.ToStatusErr(
@@ -43,6 +40,10 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", func() {
 	apiServerError.ErrStatus.Kind = "Status"
 
 	BeforeEach(func() {
+		var err error
+		cli, err = kubecli.GetKubevirtClient()
+		Expect(cli).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		tests.BeforeEach()
 		hc := tests.GetHCO(ctx, cli)
 		initialMDC = nil
@@ -73,7 +74,7 @@ var _ = Describe("MediatedDevicesTypes -> MediatedDeviceTypes", func() {
 				Eventually(func() error {
 					hc := tests.GetHCO(ctx, cli)
 					hc.Spec.MediatedDevicesConfiguration = mediatedDevicesConfiguration
-					_, err = tests.UpdateHCO(ctx, cli, hc)
+					_, err := tests.UpdateHCO(ctx, cli, hc)
 					return err
 				}, 10*time.Second, time.Second).Should(MatchError(expectedErr))
 			}

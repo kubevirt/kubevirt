@@ -304,9 +304,6 @@ Msg "Check that OVS is deployed or not deployed according to deployOVS annotatio
 Msg "Ensure that console plugin deployment and service has been renamed successfully"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_upgrade_console_plugin.sh
 
-Msg "Check that managed objects has correct labels"
-./hack/retry.sh 10 30 "KUBECTL_BINARY=${CMD} ./hack/check_labels.sh"
-
 Msg "Check the defaulting mechanism"
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_defaults.sh
 

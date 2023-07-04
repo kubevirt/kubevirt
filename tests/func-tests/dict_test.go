@@ -28,11 +28,11 @@ var _ = Describe("test dataImportCron", func() {
 	var cli kubecli.KubevirtClient
 	ctx := context.TODO()
 
-	cli, err := kubecli.GetKubevirtClient()
-	Expect(cli).ToNot(BeNil())
-	Expect(err).ToNot(HaveOccurred())
-
 	BeforeEach(func() {
+		var err error
+		cli, err = kubecli.GetKubevirtClient()
+		Expect(cli).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred())
 		tests.SkipIfNotOpenShift(cli, "DataImportCronTemplate")
 	})
 

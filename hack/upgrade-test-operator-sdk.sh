@@ -230,9 +230,6 @@ Msg "make sure that we don't have outdated VMs"
 INFRASTRUCTURETOPOLOGY=$(${CMD} get infrastructure.config.openshift.io cluster -o json | jq -j '.status.infrastructureTopology')
 UPDATE_METHODS=$(${CMD} get hco ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.spec .workloadUpdateStrategy .workloadUpdateMethods}')
 
-Msg "Check that managed objects has correct labels"
-./hack/retry.sh 10 30 "KUBECTL_BINARY=${CMD} ./hack/check_labels.sh"
-
 if [[ "${INFRASTRUCTURETOPOLOGY}" == "SingleReplica" ]]; then
   echo "Skipping the check on SNO clusters"
 elif [[ "${UPDATE_METHODS}" == "" || "${UPDATE_METHODS}" == "[]" ]]; then

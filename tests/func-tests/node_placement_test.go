@@ -32,16 +32,20 @@ const (
 )
 
 var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, func() {
-	var workloadsNode *v1.Node
 	ctx := context.TODO()
 	tests.FlagParse()
-	client, err := kubecli.GetKubevirtClient()
-	kvtutil.PanicOnError(err)
 	hco := &hcov1beta1.HyperConverged{}
-	var originalInfraSpec hcov1beta1.HyperConvergedConfig
-	var originalWorkloadSpec hcov1beta1.HyperConvergedConfig
+	var (
+		workloadsNode        *v1.Node
+		originalInfraSpec    hcov1beta1.HyperConvergedConfig
+		originalWorkloadSpec hcov1beta1.HyperConvergedConfig
+		client               kubecli.KubevirtClient
+	)
 
 	BeforeAll(func() {
+		var err error
+		client, err = kubecli.GetKubevirtClient()
+		kvtutil.PanicOnError(err)
 		nodes, err := client.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{LabelSelector: "node-role.kubernetes.io/control-plane!="})
 		kvtutil.PanicOnError(err)
 		if len(nodes.Items) < 2 {

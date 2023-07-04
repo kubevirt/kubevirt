@@ -42,8 +42,6 @@ ${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o
 # wait a bit to make sure the VMs are deleted
 sleep 60
 
-./hack/retry.sh 10 30 "KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_labels.sh"
-
 # Check golden images
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
 

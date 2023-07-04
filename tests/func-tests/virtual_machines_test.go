@@ -25,10 +25,13 @@ const (
 
 var _ = Describe("[rfe_id:273][crit:critical][vendor:cnv-qe@redhat.com][level:system]Virtual Machine", func() {
 	tests.FlagParse()
-	client, err := kubecli.GetKubevirtClient()
-	kvtutil.PanicOnError(err)
+
+	var client kubecli.KubevirtClient
 
 	BeforeEach(func() {
+		var err error
+		client, err = kubecli.GetKubevirtClient()
+		kvtutil.PanicOnError(err)
 		tests.BeforeEach()
 	})
 
