@@ -129,9 +129,9 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				emulator, err := tests.GetRunningVMIEmulator(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
+				emulator = "[/]" + strings.TrimPrefix(emulator, "/")
 
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				qemuProcessSelinuxContext, err := exec.ExecuteCommandOnPod(
@@ -142,10 +142,10 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking that qemu-kvm process is of the SELinux type container_t")
+				By("Checking that qemu process is of the SELinux type container_t")
 				Expect(strings.Split(qemuProcessSelinuxContext, ":")[2]).To(Equal("container_t"))
 
-				By("Checking that qemu-kvm process has SELinux category_set")
+				By("Checking that qemu process has SELinux category_set")
 				Expect(strings.Split(qemuProcessSelinuxContext, ":")).To(HaveLen(5))
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
@@ -205,9 +205,9 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Fetching virt-launcher Pod")
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				emulator, err := tests.GetRunningVMIEmulator(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")
+				emulator = "[/]" + strings.TrimPrefix(emulator, "/")
 
 				pod, err := libvmi.GetPodByVirtualMachineInstance(vmi, testsuite.NamespacePrivileged)
 				Expect(err).ToNot(HaveOccurred())
@@ -219,7 +219,7 @@ var _ = Describe("[Serial][sig-compute]SecurityFeatures", Serial, decorators.Sig
 				)
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Checking that qemu-kvm process is of the SELinux type virt_launcher.process")
+				By("Checking that qemu process is of the SELinux type virt_launcher.process")
 				Expect(strings.Split(qemuProcessSelinuxContext, ":")[2]).To(Equal(launcherType))
 
 				By("Verifying SELinux context contains custom type in pod")

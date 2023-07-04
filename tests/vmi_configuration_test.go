@@ -2574,18 +2574,22 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
 
+				emulator, err := tests.GetRunningVMIEmulator(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				emulator = filepath.Base(emulator)
+
 				virtClient := kubevirt.Client()
-				pscmd := []string{"ps", "-C", "qemu-kvm", "-o", "pid", "--noheader"}
+				pscmd := []string{"ps", "-C", emulator, "-o", "pid", "--noheader"}
 				_, err = exec.ExecuteCommandOnPod(
 					virtClient, readyPod, "compute", pscmd)
-				// do not check for kvm-pit thread if qemu-kvm is not in use
+				// do not check for kvm-pit thread if qemu is not in use
 				if err != nil {
 					return
 				}
-				kvmpitmask, err := tests.GetKvmPitMask(readyPod, node)
+				kvmpitmask, err := tests.GetKvmPitMask(readyPod, emulator, node)
 				Expect(err).ToNot(HaveOccurred())
 
-				vcpuzeromask, err := tests.GetVcpuMask(readyPod, "0")
+				vcpuzeromask, err := tests.GetVcpuMask(readyPod, emulator, "0")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))

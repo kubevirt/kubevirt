@@ -374,10 +374,10 @@ func GetProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
 	return
 }
 
-func GetVcpuMask(pod *k8sv1.Pod, cpu string) (output string, err error) {
+func GetVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
 	virtClient := kubevirt.Client()
 
-	pscmd := "ps -LC qemu-kvm -o lwp,comm| grep \"CPU " + cpu + "\"  | cut -f 1 -d \"C\""
+	pscmd := "ps -LC " + emulator + " -o lwp,comm| grep \"CPU " + cpu + "\"  | cut -f 1 -d \"C\""
 	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
@@ -394,14 +394,14 @@ func GetVcpuMask(pod *k8sv1.Pod, cpu string) (output string, err error) {
 	return output, err
 }
 
-func GetKvmPitMask(pod *k8sv1.Pod, nodeName string) (output string, err error) {
+func GetKvmPitMask(pod *k8sv1.Pod, emulator, nodeName string) (output string, err error) {
 	virtClient := kubevirt.Client()
 
 	output, err = exec.ExecuteCommandOnPod(
 		virtClient,
 		pod,
 		"compute",
-		[]string{"ps", "-C", "qemu-kvm", "-o", "pid", "--noheader"},
+		[]string{"ps", "-C", emulator, "-o", "pid", "--noheader"},
 	)
 	Expect(err).ToNot(HaveOccurred())
 	qemupid := strings.TrimSpace(strings.Trim(output, "\n"))
@@ -1770,6 +1770,14 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
+}
+
+func GetRunningVMIEmulator(vmi *v1.VirtualMachineInstance) (string, error) {
+	domSpec, err := GetRunningVMIDomainSpec(vmi)
+	if err != nil {
+		return "", err
+	}
+	return domSpec.Devices.Emulator, nil
 }
 
 func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) error {

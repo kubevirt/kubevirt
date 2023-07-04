@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"context"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -25,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -56,12 +58,12 @@ func newFedoraRealtime(realtimeMask string) *v1.VirtualMachineInstance {
 	)
 }
 
-func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) {
+func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.KubevirtClient) *v1.VirtualMachineInstance {
 	By("Starting a VirtualMachineInstance")
 	var err error
-	vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
+	vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 	Expect(err).ToNot(HaveOccurred())
-	libwait.WaitForSuccessfulVMIStart(vmi)
+	return libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
 var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.SigComputeRealtime, func() {
@@ -81,15 +83,17 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 		It("when no mask is specified", func() {
 			const noMask = ""
-			vmi := newFedoraRealtime(noMask)
-			byStartingTheVMI(vmi, virtClient)
+			vmi := byStartingTheVMI(newFedoraRealtime(noMask), virtClient)
 			By("Validating VCPU scheduler placement information")
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
+			emulator, err := tests.GetRunningVMIEmulator(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			emulator = filepath.Base(emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -LC qemu-kvm -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -102,7 +106,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 				virtClient,
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -C qemu-kvm -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
+				[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -C " + emulator + " -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			limits := strings.Split(strings.TrimSpace(psOutput), " ")
@@ -123,15 +127,17 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 		})
 
 		It("when realtime mask is specified", func() {
-			vmi := newFedoraRealtime("0-1,^1")
-			byStartingTheVMI(vmi, virtClient)
+			vmi := byStartingTheVMI(newFedoraRealtime("0-1,^1"), virtClient)
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, util.NamespaceTestDefault)
 			By("Validating VCPU scheduler placement information")
+			emulator, err := tests.GetRunningVMIEmulator(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			emulator = filepath.Base(emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
 				virtClient,
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -LC qemu-kvm -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -143,7 +149,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 				virtClient,
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -TcC qemu-kvm  |grep CPU |awk '{print $3\" \" $8}'"},
+				[]string{tests.BinBash, "-c", "ps -TcC " + emulator + " |grep CPU |awk '{print $3\" \" $8}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice = strings.Split(strings.TrimSpace(psOutput), "\n")
