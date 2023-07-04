@@ -345,7 +345,7 @@ func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitD
 			}
 			return preCloudInitIsoValidateResult(cloudInitData.DataSource, result.GetCloudInitData(), result.GetCloudInitNoCloudSource())
 		default:
-			panic("Should never happen, version compatibility check is done during Info call")
+			log.Log.Errorf("Unsupported callback version: %s", callback.Version)
 		}
 	}
 	return cloudInitData, nil
