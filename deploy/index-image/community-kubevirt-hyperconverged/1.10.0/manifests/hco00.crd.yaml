@@ -55,6 +55,7 @@ spec:
                 deployKubeSecondaryDNS: false
                 deployTektonTaskResources: false
                 enableCommonBootImageImport: true
+                nonRoot: true
                 withHostPassthroughCPU: false
               liveMigrationConfig:
                 allowAutoConverge: false
@@ -1052,6 +1053,7 @@ spec:
                   deployKubeSecondaryDNS: false
                   deployTektonTaskResources: false
                   enableCommonBootImageImport: true
+                  nonRoot: true
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
@@ -1081,6 +1083,7 @@ spec:
                       dataImportCronTemplates field.'
                     type: boolean
                   nonRoot:
+                    default: true
                     description: "Enables rootless virt-launcher. \n Deprecated: please
                       use the root FG."
                     type: boolean
@@ -1094,9 +1097,6 @@ spec:
                       the virt-handler pod. Enabling (or removing) the feature gate
                       causes the redeployment of the virt-handler pod.
                     type: boolean
-                  root:
-                    description: 'Enable root virt-launcher (default: false).'
-                    type: boolean
                   withHostPassthroughCPU:
                     default: false
                     description: Allow migrating a virtual machine with CPU host-passthrough
@@ -1104,10 +1104,6 @@ spec:
                       from CPU HW perspective doc here
                     type: boolean
                 type: object
-                x-kubernetes-validations:
-                - message: nonRoot FG is deprecated, please use root FG with opposite
-                    logic
-                  rule: '!has(self.nonRoot) || !has(self.root) || self.root == !self.nonRoot'
               filesystemOverhead:
                 description: FilesystemOverhead describes the space reserved for overhead
                   when using Filesystem volumes. A value is between 0 and 1, if not

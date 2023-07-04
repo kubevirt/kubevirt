@@ -83,7 +83,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			DisableMDevConfiguration:    pointer.Bool(false),
 			EnableCommonBootImageImport: pointer.Bool(true),
 			PersistentReservation:       pointer.Bool(false),
-			Root:                        pointer.Bool(false),
+			NonRoot:                     pointer.Bool(true), //nolint SA1019
 			WithHostPassthroughCPU:      pointer.Bool(false),
 		}
 
@@ -105,7 +105,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			Entry("when removing /spec/featureGates/disableMDevConfiguration", "/spec/featureGates/disableMDevConfiguration"),
 			Entry("when removing /spec/featureGates/enableCommonBootImageImport", "/spec/featureGates/enableCommonBootImageImport"),
 			Entry("when removing /spec/featureGates/persistentReservation", "/spec/featureGates/persistentReservation"),
-			Entry("when removing /spec/featureGates/root", "/spec/featureGates/root"),
+			Entry("when removing /spec/featureGates/nonRoot", "/spec/featureGates/nonRoot"),
 			Entry("when removing /spec/featureGates/withHostPassthroughCPU", "/spec/featureGates/withHostPassthroughCPU"),
 			Entry("when removing /spec/featureGates", "/spec/featureGates"),
 			Entry("when removing /spec", "/spec"),

@@ -7,8 +7,6 @@ import (
 
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
-	"k8s.io/utils/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gomodules.xyz/jsonpatch/v2"
@@ -50,7 +48,6 @@ var _ = Describe("test HyperConverged mutator", func() {
 				},
 				Spec: v1beta1.HyperConvergedSpec{},
 			}
-			cr.Spec.FeatureGates.Root = pointer.Bool(false)
 			evictionStrategy := kubevirtcorev1.EvictionStrategyLiveMigrate
 			cr.Spec.EvictionStrategy = &evictionStrategy
 			cli = commontestutils.InitClient(nil)
@@ -175,60 +172,7 @@ var _ = Describe("test HyperConverged mutator", func() {
 			}))
 		})
 
-		DescribeTable("Check nonRoot -> root FG transition", func(initialNonRoot *bool, initialRoot *bool, patches []jsonpatch.JsonPatchOperation) {
-			cr.Spec.FeatureGates.NonRoot = initialNonRoot //nolint SA1019
-			cr.Spec.FeatureGates.Root = initialRoot
-
-			req := admission.Request{AdmissionRequest: newCreateRequest(cr, hcoV1beta1Codec)}
-
-			res := mutator.Handle(context.TODO(), req)
-			Expect(res.Allowed).To(BeTrue())
-
-			Expect(res.Patches).To(Equal(patches))
-		},
-			Entry("should set only the default value for root if nothing is there",
-				nil,
-				nil,
-				[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
-					Operation: "add",
-					Path:      "/spec/featureGates/root",
-					Value:     false,
-				}},
-			),
-			Entry("should set root=false if nonRoot was true",
-				pointer.Bool(true),
-				nil,
-				[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
-					Operation: "add",
-					Path:      "/spec/featureGates/root",
-					Value:     false,
-				}},
-			),
-			Entry("should set root=true if nonRoot was false",
-				pointer.Bool(false),
-				nil,
-				[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
-					Operation: "add",
-					Path:      "/spec/featureGates/root",
-					Value:     true,
-				}},
-			),
-			Entry("should do nothing if both the values are already there (the CEL expression enforces the consistency) - 1",
-				pointer.Bool(false),
-				pointer.Bool(true),
-				nil,
-			),
-			Entry("should do nothing if both the values are already there (the CEL expression enforces the consistency) - 2",
-				pointer.Bool(true),
-				pointer.Bool(false),
-				nil,
-			),
-		)
-
-		It("should handle multiple DICTs, nonRoot -> root FG transition and mediatedDevicesTypes -> mediatedDeviceTypes at the same time", func() {
-			cr.Spec.FeatureGates.NonRoot = pointer.Bool(false) //nolint SA1019
-			cr.Spec.FeatureGates.Root = nil
-
+		It("should handle multiple DICTs and mediatedDevicesTypes -> mediatedDeviceTypes at the same time", func() {
 			cr.Spec.DataImportCronTemplates = []v1beta1.DataImportCronTemplate{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -290,7 +234,7 @@ var _ = Describe("test HyperConverged mutator", func() {
 			res := mutator.Handle(context.TODO(), req)
 			Expect(res.Allowed).To(BeTrue())
 
-			Expect(res.Patches).To(HaveLen(5))
+			Expect(res.Patches).To(HaveLen(4))
 			Expect(res.Patches[0]).To(Equal(jsonpatch.JsonPatchOperation{
 				Operation: "add",
 				Path:      fmt.Sprintf(annotationPathTemplate, 0),
@@ -303,15 +247,10 @@ var _ = Describe("test HyperConverged mutator", func() {
 			}))
 			Expect(res.Patches[2]).To(Equal(jsonpatch.JsonPatchOperation{
 				Operation: "add",
-				Path:      "/spec/featureGates/root",
-				Value:     true,
-			}))
-			Expect(res.Patches[3]).To(Equal(jsonpatch.JsonPatchOperation{
-				Operation: "add",
 				Path:      "/spec/mediatedDevicesConfiguration/mediatedDeviceTypes",
 				Value:     []string{"nvidia-222", "nvidia-230"},
 			}))
-			Expect(res.Patches[4]).To(Equal(jsonpatch.JsonPatchOperation{
+			Expect(res.Patches[3]).To(Equal(jsonpatch.JsonPatchOperation{
 				Operation: "add",
 				Path:      "/spec/mediatedDevicesConfiguration/nodeMediatedDeviceTypes/1/mediatedDeviceTypes",
 				Value:     []string{"nvidia-229"},

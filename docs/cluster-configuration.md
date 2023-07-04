@@ -166,15 +166,14 @@ For additional information, see here: [KubeSecondaryDNS](https://github.com/kube
 
 **Default**: `false`
 
-### root Feature Gate
-Set the `root` feature gate to true in order to not run your virtual machines in rootless virt-launcher.
+### nonRoot Feature Gate
+Disable the `nonRoot` feature gate in order to not run your virtual machines in rootless virt-launcher.
 
 **Note**: You can migrate rootless virt-launcher-es to root implementation by triggering migration or restarting the VM.
 
-**Note**: In the past the same feature gate was named `nonRoot` with the opposite semantic, the `nonRoot` feature gate is now deprecated but still available:
-a mutating webhook is handling the conversion.
+**Note**: the `nonRoot` feature gate is now deprecated but still available; in the future only the nonRoot mode will be available.
 
-**Default**: `false`
+**Default**: `true`
 
 ### persistentReservation Feature Gate
 Set the `persistentReservation` feature gate to true in order to enable the reservation of a LUN through the SCSI Persistent Reserve commands.

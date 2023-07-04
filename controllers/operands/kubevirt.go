@@ -698,11 +698,7 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 		fgs = append(fgs, kvWithHostPassthroughCPU)
 	}
 
-	if featureGates.Root != nil {
-		if *featureGates.Root {
-			fgs = append(fgs, kvRoot)
-		}
-	} else if featureGates.NonRoot != nil && !*featureGates.NonRoot { //nolint SA1019
+	if featureGates.NonRoot != nil && !*featureGates.NonRoot { //nolint SA1019
 		fgs = append(fgs, kvRoot)
 	}
 	if featureGates.DisableMDevConfiguration != nil && *featureGates.DisableMDevConfiguration {

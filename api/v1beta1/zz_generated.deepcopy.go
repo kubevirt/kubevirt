@@ -235,11 +235,6 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
-	if in.Root != nil {
-		in, out := &in.Root, &out.Root
-		*out = new(bool)
-		**out = **in
-	}
 	if in.DisableMDevConfiguration != nil {
 		in, out := &in.DisableMDevConfiguration, &out.DisableMDevConfiguration
 		*out = new(bool)

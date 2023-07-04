@@ -230,13 +230,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					"nonRoot": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enables rootless virt-launcher.\n\nDeprecated: please use the root FG.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"root": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Enable root virt-launcher (default: false).",
+							Default:     true,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
