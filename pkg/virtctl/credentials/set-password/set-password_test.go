@@ -2,7 +2,6 @@ package set_password_test
 
 import (
 	"context"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +16,6 @@ import (
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/testutils"
 
 	"github.com/golang/mock/gomock"
 	"kubevirt.io/client-go/kubecli"
@@ -224,8 +222,4 @@ func expectSecretToContainUserWithPassword(cli kubernetes.Interface, secretName 
 
 func runSetPasswordCommand(args ...string) error {
 	return clientcmd.NewRepeatableVirtctlCommand(append([]string{"credentials", "set-password"}, args...)...)()
-}
-
-func TestSetPassword(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
 }
