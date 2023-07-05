@@ -1861,15 +1861,18 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)); err == nil && (virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD) && isAMD64(c.Architecture) {
-		// isa-debugcon device is only for x86_64
-		initializeQEMUCmdAndQEMUArg(domain)
+	if isAMD64(c.Architecture) {
+		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
+		if err == nil && virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD {
+			// isa-debugcon device is only for x86_64
+			initializeQEMUCmdAndQEMUArg(domain)
 
-		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg,
-			api.Arg{Value: "-chardev"},
-			api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
-			api.Arg{Value: "-device"},
-			api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
+			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg,
+				api.Arg{Value: "-chardev"},
+				api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
+				api.Arg{Value: "-device"},
+				api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
+		}
 	}
 
 	if vmi.Spec.Domain.Devices.TPM != nil {
