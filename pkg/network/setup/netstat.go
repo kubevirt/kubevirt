@@ -138,6 +138,14 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		}
 	}
 
+	for ifaceIndex, ifaceStatus := range interfacesStatus {
+		specIface, existInSpec := vmiInterfacesSpecByName[ifaceStatus.Name]
+		if existInSpec && specIface.SRIOV == nil && specIface.Slirp == nil &&
+			ifaceStatus.InfoSource != netvmispec.InfoSourceGuestAgent {
+			interfacesStatus[ifaceIndex].InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePod)
+		}
+	}
+
 	vmi.Status.Interfaces = interfacesStatus
 
 	c.removeAbsentIfacesFromVolatileCache(vmi)
