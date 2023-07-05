@@ -131,6 +131,15 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
 	}
 
+	interfaceByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
+	for ifaceIndex, ifaceStatus := range interfacesStatus {
+		_, existInVolatileCache := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceStatus.Name))
+		specIface, existInSpec := interfaceByName[ifaceStatus.Name]
+		if existInVolatileCache && existInSpec && specIface.SRIOV == nil {
+			interfacesStatus[ifaceIndex].InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePod)
+		}
+	}
+
 	for ifaceIndex, ifaceStatus := range interfacesStatus {
 		if _, exists := multusStatusNetworksByName[ifaceStatus.Name]; exists {
 			interfacesStatus[ifaceIndex].InfoSource = netvmispec.AddInfoSource(

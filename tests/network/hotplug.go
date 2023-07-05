@@ -522,7 +522,7 @@ func interfaceStatusFromInterfaceNames(ifaceNames ...string) []v1.VirtualMachine
 			Name:          ifaceName,
 			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
 			InfoSource: vmispec.NewInfoSource(
-				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
+				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePod),
 			QueueCount: 1,
 		})
 	}
