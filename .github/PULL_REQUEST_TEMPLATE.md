@@ -1,5 +1,6 @@
 <!--  Thanks for sending a pull request!  Here are some tips for you:
-1. Follow the instructions for writing a release note from k8s: https://git.k8s.io/community/contributors/guide/release-notes.md
+1. Consider creating this PR as draft: https://github.com/kubevirt/kubevirt/blob/main/CONTRIBUTING.md#consider-opening-your-pull-request-as-draft
+2. Follow the instructions for writing a release note from k8s: https://git.k8s.io/community/contributors/guide/release-notes.md
 -->
 
 **What this PR does / why we need it**:
