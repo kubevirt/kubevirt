@@ -334,6 +334,65 @@ var _ = Describe("netstat", func() {
 
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
 		})
+
+		It("run status and expect interface who isn't handled by the CNI be reported based on pod", func() {
+			Expect(
+				setup.addNetworkInterface(
+					newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+					newVMISpecPodNetwork(primaryNetworkName),
+					newDomainSpecIface(primaryNetworkName, primaryMAC),
+					primaryPodIPv4, primaryPodIPv6,
+				),
+			).To(Succeed())
+
+			setup.addDetachedInterface(
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+				newVMISpecMultusNetwork(secondaryNetworkName),
+			)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, "", infoSourceDomainAndPod, netsetup.DefaultInterfaceQueueCount),
+				newVMIStatusIface(secondaryNetworkName, nil, "", "", netvmispec.InfoSourcePod, 0),
+			}))
+
+			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
+		})
+
+		It("run status and expect interface who isn't attached to the guest be reported based on multus-status data & pod", func() {
+			Expect(
+				setup.addNetworkInterface(
+					newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+					newVMISpecPodNetwork(primaryNetworkName),
+					newDomainSpecIface(primaryNetworkName, primaryMAC),
+					primaryPodIPv4, primaryPodIPv6,
+				),
+			).To(Succeed())
+
+			setup.addDetachedInterface(
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+				newVMISpecMultusNetwork(secondaryNetworkName),
+			)
+			//setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces, newDomainSpecIface(secondaryNetworkName, ""))
+
+			setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: primaryNetworkName, InfoSource: netvmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, InfoSource: netvmispec.InfoSourceMultusStatus},
+			}
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			primaryExpectedInfoSource := netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourcePod, netvmispec.InfoSourceMultusStatus)
+			secondaryExpectedInfoSource := netvmispec.NewInfoSource(netvmispec.InfoSourcePod, netvmispec.InfoSourceMultusStatus)
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				newVMIStatusIface(primaryNetworkName, []string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, "", primaryExpectedInfoSource, netsetup.DefaultInterfaceQueueCount),
+				newVMIStatusIface(secondaryNetworkName, nil, "", "", secondaryExpectedInfoSource, 0),
+			}))
+
+			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, primaryNetworkName)).To(BeTrue())
+		})
 	})
 
 	It("should update existing interface status with IP from the guest-agent", func() {
@@ -802,6 +861,24 @@ func (t *testSetup) addSRIOVNetworkInterface(vmiIface v1.Interface, vmiNetwork v
 // During status update, this data is overriding the one from the domain spec and cache.
 func (t *testSetup) addGuestAgentInterfaces(interfaces ...api.InterfaceStatus) {
 	t.Domain.Status.Interfaces = append(t.Domain.Status.Interfaces, interfaces...)
+}
+
+// addDetachedInterface adds an interface who is not attached to domain, but has the wiring set in virt-launcher pod.
+// (e.g.: in case of bridge binding, tap device and linux bridge)
+// This consist of 2 entities and pod volatile cache:
+// - vmi spec interface
+// - vmi spec network
+// - virt-launcher/pod filesystem cache
+func (t *testSetup) addDetachedInterface(vmiIface v1.Interface, vmiNetwork v1.Network) {
+	if vmiIface.Name != vmiNetwork.Name {
+		panic("network name must be the same")
+	}
+	t.Vmi.Spec.Domain.Devices.Interfaces = append(t.Vmi.Spec.Domain.Devices.Interfaces, vmiIface)
+	t.Vmi.Spec.Networks = append(t.Vmi.Spec.Networks, vmiNetwork)
+
+	if t.volatileCache {
+		t.NetStat.CachePodInterfaceVolatileData(t.Vmi, vmiNetwork.Name, &cache.PodIfaceCacheData{Iface: &v1.Interface{Name: vmiNetwork.Name}})
+	}
 }
 
 func (t *testSetup) addFSCacheInterface(name string, podIPs ...string) error {

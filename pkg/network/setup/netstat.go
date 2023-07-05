@@ -131,6 +131,8 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
 	}
 
+	interfacesStatus = c.ifacesStatusFromVolatileCache(interfacesStatus, vmi.UID)
+
 	interfaceByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 	for ifaceIndex, ifaceStatus := range interfacesStatus {
 		_, existInVolatileCache := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceStatus.Name))
@@ -190,6 +192,29 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
 
 	return podInterface, nil
+}
+
+func (c *NetStat) ifacesStatusFromVolatileCache(interfacesStatus []v1.VirtualMachineInstanceNetworkInterface, vmiUID types.UID) []v1.VirtualMachineInstanceNetworkInterface {
+	c.podInterfaceVolatileCache.Range(func(key, value interface{}) bool {
+		if strings.HasPrefix(key.(string), string(vmiUID)) {
+			cachedIfaceData := value.(*cache.PodIfaceCacheData)
+			if cachedIfaceData == nil || cachedIfaceData.Iface == nil {
+				return true
+			}
+
+			if ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, cachedIfaceData.Iface.Name); ifaceStatus == nil {
+				interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
+					Name:       cachedIfaceData.Iface.Name,
+					InfoSource: netvmispec.InfoSourcePod,
+				})
+			} else {
+				ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePod)
+			}
+		}
+		return true
+	})
+
+	return interfacesStatus
 }
 
 func (c *NetStat) removeAbsentIfacesFromVolatileCache(vmi *v1.VirtualMachineInstance) {
