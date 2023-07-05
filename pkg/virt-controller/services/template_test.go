@@ -3448,6 +3448,77 @@ var _ = Describe("Template", func() {
 
 		})
 
+		Context("virtiofs container qos", func() {
+
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				vmi = &v1.VirtualMachineInstance{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "fakeVol1",
+							},
+						},
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores:   1,
+								Sockets: 1,
+								Threads: 1,
+							},
+							Devices: v1.Devices{
+								DisableHotplug: true,
+								Filesystems: []v1.Filesystem{
+									{
+										Name: "fakeVol1",
+									},
+								},
+							},
+						},
+					},
+				}
+			})
+
+			DescribeTable("should container in QOSGuaranteed group ", func(req, lim kubev1.ResourceList, dedicatedCpu bool) {
+				kvConfig := &v1.KubeVirtConfiguration{
+					SupportContainerResources: []v1.SupportContainerResources{
+						{
+							Type: v1.VirtioFS,
+							Resources: kubev1.ResourceRequirements{
+								Requests: req,
+								Limits:   lim,
+							},
+						},
+					},
+				}
+				kvConfig.SupportContainerResources[0].Resources.Requests = req
+				kvConfig.SupportContainerResources[0].Resources.Limits = lim
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+
+				res := generateVirtioFSContainers(vmi, "fakeimage", clusterConfig)
+				if dedicatedCpu {
+					Expect(res[0].Resources.Requests).To(BeEquivalentTo(res[0].Resources.Limits))
+				} else {
+					Expect(res[0].Resources.Requests).NotTo(BeEquivalentTo(res[0].Resources.Limits))
+				}
+
+			},
+				Entry("defaults dedicated cpu, quaranteed QoS, should limit and request to be equal", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("1000m"),
+					kubev1.ResourceMemory: resource.MustParse("1024Mi"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("1000m"),
+					kubev1.ResourceMemory: resource.MustParse("1024Mi"),
+				}, true),
+				Entry("defaults dedicated cpu, quaranteed QoS, should limit and request not to be equal", kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("500m"),
+					kubev1.ResourceMemory: resource.MustParse("512Mi"),
+				}, kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("1000m"),
+					kubev1.ResourceMemory: resource.MustParse("1024Mi"),
+				}, false),
+			)
+		})
+
 		Context("virtiofs resources", func() {
 			DescribeTable("should add defined cpu/memory resources for virtiofs if specified in config", func(req, lim, expectedReq, expectedLim kubev1.ResourceList, dedicatedCpu, quaranteedQos bool) {
 				kvConfig := &v1.KubeVirtConfiguration{
