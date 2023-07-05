@@ -2729,7 +2729,11 @@ type LiveUpdateFeatures struct {
 	// Default is specified on cluster level.
 	// Absence of the struct means opt-out from CPU hotplug functionality.
 	CPU *LiveUpdateCPU `json:"cpu,omitempty" optional:"true"`
+	// Affinity allows live updating the virtual machines node affinity
+	Affinity *LiveUpdateAffinity `json:"affinity,omitempty" optional:"true"`
 }
+
+type LiveUpdateAffinity struct{}
 
 type LiveUpdateCPU struct {
 	// The maximum amount of sockets that can be hot-plugged to the Virtual Machine

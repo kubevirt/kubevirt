@@ -4259,6 +4259,10 @@ var CRDsValidation map[string]string = map[string]string{
           description: LiveUpdateFeatures references a configuration of hotpluggable
             resources
           properties:
+            affinity:
+              description: Affinity allows live updating the virtual machines node
+                affinity
+              type: object
             cpu:
               description: LiveUpdateCPU holds hotplug configuration for the CPU resource.
                 Empty struct indicates that default will be used for maxSockets. Default
@@ -17780,6 +17784,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: LiveUpdateFeatures references a configuration of hotpluggable
                     resources
                   properties:
+                    affinity:
+                      description: Affinity allows live updating the virtual machines
+                        node affinity
+                      type: object
                     cpu:
                       description: LiveUpdateCPU holds hotplug configuration for the
                         CPU resource. Empty struct indicates that default will be
@@ -22788,6 +22796,10 @@ var CRDsValidation map[string]string = map[string]string{
                       description: LiveUpdateFeatures references a configuration of
                         hotpluggable resources
                       properties:
+                        affinity:
+                          description: Affinity allows live updating the virtual machines
+                            node affinity
+                          type: object
                         cpu:
                           description: LiveUpdateCPU holds hotplug configuration for
                             the CPU resource. Empty struct indicates that default
