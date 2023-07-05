@@ -16422,6 +16422,10 @@
       "description": "Attach a volume as a disk to the vmi.",
       "$ref": "#/definitions/v1.DiskTarget"
      },
+     "errorPolicy": {
+      "description": "If specified, it can change the default error policy (stop) for the disk",
+      "type": "string"
+     },
      "io": {
       "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
       "type": "string"

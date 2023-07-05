@@ -5622,6 +5622,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
+                              errorPolicy:
+                                description: If specified, it can change the default
+                                  error policy (stop) for the disk
+                                type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
                                   should be used. Supported values are: native, default,
@@ -7579,6 +7583,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
+                      errorPolicy:
+                        description: If specified, it can change the default error
+                          policy (stop) for the disk
+                        type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -10102,6 +10110,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
+                      errorPolicy:
+                        description: If specified, it can change the default error
+                          policy (stop) for the disk
+                        type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -12753,6 +12765,10 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ReadOnly. Defaults to false.
                             type: boolean
                         type: object
+                      errorPolicy:
+                        description: If specified, it can change the default error
+                          policy (stop) for the disk
+                        type: string
                       io:
                         description: 'IO specifies which QEMU disk IO mode should
                           be used. Supported values are: native, default, threads.'
@@ -14873,6 +14889,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ReadOnly. Defaults to false.
                                     type: boolean
                                 type: object
+                              errorPolicy:
+                                description: If specified, it can change the default
+                                  error policy (stop) for the disk
+                                type: string
                               io:
                                 description: 'IO specifies which QEMU disk IO mode
                                   should be used. Supported values are: native, default,
@@ -19125,6 +19145,10 @@ var CRDsValidation map[string]string = map[string]string{
                                             description: ReadOnly. Defaults to false.
                                             type: boolean
                                         type: object
+                                      errorPolicy:
+                                        description: If specified, it can change the
+                                          default error policy (stop) for the disk
+                                        type: string
                                       io:
                                         description: 'IO specifies which QEMU disk
                                           IO mode should be used. Supported values
@@ -24181,6 +24205,11 @@ var CRDsValidation map[string]string = map[string]string{
                                                   false.
                                                 type: boolean
                                             type: object
+                                          errorPolicy:
+                                            description: If specified, it can change
+                                              the default error policy (stop) for
+                                              the disk
+                                            type: string
                                           io:
                                             description: 'IO specifies which QEMU
                                               disk IO mode should be used. Supported
@@ -26344,6 +26373,10 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: ReadOnly. Defaults to false.
                                         type: boolean
                                     type: object
+                                  errorPolicy:
+                                    description: If specified, it can change the default
+                                      error policy (stop) for the disk
+                                    type: string
                                   io:
                                     description: 'IO specifies which QEMU disk IO
                                       mode should be used. Supported values are: native,

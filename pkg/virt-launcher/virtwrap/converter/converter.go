@@ -213,10 +213,9 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		}
 	}
 	disk.Driver = &api.DiskDriver{
-		Name:        "qemu",
-		Cache:       string(diskDevice.Cache),
-		IO:          diskDevice.IO,
-		ErrorPolicy: "stop",
+		Name:  "qemu",
+		Cache: string(diskDevice.Cache),
+		IO:    diskDevice.IO,
 	}
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
 		if !contains(c.VolumesDiscardIgnore, diskDevice.Name) {
@@ -285,6 +284,20 @@ func setReservation(disk *api.Disk) {
 			Mode: "client",
 		},
 	}
+}
+
+func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
+	if diskDevice.ErrorPolicy == nil {
+		disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+		return nil
+	}
+	switch *diskDevice.ErrorPolicy {
+	case v1.DiskErrorPolicyStop, v1.DiskErrorPolicyIgnore, v1.DiskErrorPolicyReport, v1.DiskErrorPolicyEnospace:
+		disk.Driver.ErrorPolicy = *diskDevice.ErrorPolicy
+	default:
+		return fmt.Errorf("error policy %s not recognized", *diskDevice.ErrorPolicy)
+	}
+	return nil
 }
 
 type DirectIOChecker interface {
@@ -665,7 +678,7 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType config.Type) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	switch configType {
 	case config.ConfigMap:
 		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
@@ -738,7 +751,7 @@ func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *C
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
@@ -750,7 +763,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
@@ -761,7 +774,7 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
@@ -774,7 +787,7 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	if !contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
@@ -785,7 +798,7 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }
@@ -818,7 +831,7 @@ func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *api.Di
 	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	return nil
 }
 
@@ -846,7 +859,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	disk.Driver.Type = "qcow2"
 	disk.Driver.Discard = "unmap"
 	disk.Source.File = emptydisk.NewEmptyDiskCreator().FilePathForVolumeName(volumeName)
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 
 	return nil
 }
@@ -857,7 +870,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	}
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Driver.Discard = "unmap"
 	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
@@ -880,7 +893,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
-	disk.Driver.ErrorPolicy = "stop"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Driver.Discard = "unmap"
 	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
 	disk.BackingStore = &api.BackingStore{
@@ -1577,6 +1590,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		// if len(c.PermanentVolumes) == 0, it means the vmi is not ready yet, add all disks
 		if _, ok := c.PermanentVolumes[disk.Name]; ok || len(c.PermanentVolumes) == 0 || (hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)) {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
+		}
+		if err := setErrorPolicy(&disk, &newDisk); err != nil {
+			return err
 		}
 	}
 	// Handle virtioFS

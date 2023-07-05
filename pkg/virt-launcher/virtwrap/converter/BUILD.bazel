@@ -50,6 +50,7 @@ go_test(
     deps = [
         "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-controller/services:go_default_library",

@@ -1025,6 +1025,11 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.ErrorPolicy != nil {
+		in, out := &in.ErrorPolicy, &out.ErrorPolicy
+		*out = new(DiskErrorPolicy)
+		**out = **in
+	}
 	return
 }
 

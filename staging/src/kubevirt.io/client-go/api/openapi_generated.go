@@ -17109,6 +17109,13 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Format:      "",
 						},
 					},
+					"errorPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, it can change the default error policy (stop) for the disk",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
