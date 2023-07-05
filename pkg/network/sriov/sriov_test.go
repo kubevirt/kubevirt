@@ -245,19 +245,19 @@ var _ = Describe("SRIOV", func() {
 			Expect(sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)).To(Equal(expectedPciMapString))
 		},
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV}; Networks{1X masquarade(primary),1X Multus} 1xNAD",
-			[]virtv1.Network{newMasqueradeDefaultNetwork("testmasquerade"), newMultusNetwork("foo", "default/nad1")},
-			[]virtv1.Interface{newMasqueradePrimaryInterface("testmasquerade"), newSRIOVInterface("foo")},
+			[]virtv1.Network{newMasqueradeDefaultNetwork(), newMultusNetwork("foo", "default/nad1")},
+			[]virtv1.Interface{newMasqueradePrimaryInterface(), newSRIOVInterface("foo")},
 			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooHashedIfaceName),
 			`{"foo":"0000:04:02.5"}`,
 		),
 		Entry("when given Interfaces{1X masquarade(primary),2X SRIOV}, Networks{1X masquarade(primary),2X Multus}, 2xNAD",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork("testmasquerade"),
+				newMasqueradeDefaultNetwork(),
 				newMultusNetwork("foo", "default/nad1"),
 				newMultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface("testmasquerade"),
+				newMasqueradePrimaryInterface(),
 				newSRIOVInterface("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksFmt, fooHashedIfaceName, booHashedIfaceName),
@@ -265,31 +265,31 @@ var _ = Describe("SRIOV", func() {
 		),
 		Entry("when given Interfaces{1X masquarade(primary),1X SRIOV, 1X Bridge}  Networks{1X masquarade(primary),2X Multus}, 2xNAD",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork("testmasquerade"),
+				newMasqueradeDefaultNetwork(),
 				newMultusNetwork("boo", "default/nad1"),
 				newMultusNetwork("foo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface("testmasquerade"),
+				newMasqueradePrimaryInterface(),
 				newBridgeInterface("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, booHashedIfaceName, fooHashedIfaceName),
 			`{"foo":"0000:65:00.2"}`,
 		),
 		Entry("given 1 primary masquerade, 1 SR-IOV interfaces and pod network status with ordinal names",
-			[]virtv1.Network{newMasqueradeDefaultNetwork("testmasquerade"), newMultusNetwork("foo", "default/nad1")},
-			[]virtv1.Interface{newMasqueradePrimaryInterface("testmasquerade"), newSRIOVInterface("foo")},
+			[]virtv1.Network{newMasqueradeDefaultNetwork(), newMultusNetwork("foo", "default/nad1")},
+			[]virtv1.Interface{newMasqueradePrimaryInterface(), newSRIOVInterface("foo")},
 			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooOrdinalIfaceName),
 			`{"foo":"0000:04:02.5"}`,
 		),
 		Entry("given 1 primary masquerade, 2 SR-IOV interfaces and pod network status with ordinal names",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork("testmasquerade"),
+				newMasqueradeDefaultNetwork(),
 				newMultusNetwork("foo", "default/nad1"),
 				newMultusNetwork("boo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface("testmasquerade"),
+				newMasqueradePrimaryInterface(),
 				newSRIOVInterface("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithTwoSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
@@ -297,12 +297,12 @@ var _ = Describe("SRIOV", func() {
 		),
 		Entry("given 1 primary masquerade, 1 SR-IOV, 1 bridge interfaces and pod network status with ordinal names",
 			[]virtv1.Network{
-				newMasqueradeDefaultNetwork("testmasquerade"),
+				newMasqueradeDefaultNetwork(),
 				newMultusNetwork("boo", "default/nad1"),
 				newMultusNetwork("foo", "default/nad2"),
 			},
 			[]virtv1.Interface{
-				newMasqueradePrimaryInterface("testmasquerade"),
+				newMasqueradePrimaryInterface(),
 				newBridgeInterface("boo"), newSRIOVInterface("foo"),
 			},
 			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
@@ -325,16 +325,16 @@ func newBridgeInterface(name string) virtv1.Interface {
 	}
 }
 
-func newMasqueradePrimaryInterface(name string) virtv1.Interface {
+func newMasqueradePrimaryInterface() virtv1.Interface {
 	return virtv1.Interface{
-		Name:                   name,
+		Name:                   "testmasquerade",
 		InterfaceBindingMethod: virtv1.InterfaceBindingMethod{Masquerade: &virtv1.InterfaceMasquerade{}},
 	}
 }
 
-func newMasqueradeDefaultNetwork(name string) virtv1.Network {
+func newMasqueradeDefaultNetwork() virtv1.Network {
 	return virtv1.Network{
-		Name: name,
+		Name: "testmasquerade",
 		NetworkSource: virtv1.NetworkSource{
 			Pod: &virtv1.PodNetwork{},
 		},
