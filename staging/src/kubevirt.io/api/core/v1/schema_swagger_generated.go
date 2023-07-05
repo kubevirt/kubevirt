@@ -327,6 +327,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
 		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
+		"errorPolicy":       "If specified, it can change the default error policy (stop) for the disk\n+optional",
 	}
 }
 
