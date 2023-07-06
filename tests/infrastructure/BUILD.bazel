@@ -2,16 +2,21 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["k8s-client-changes.go"],
+    srcs = [
+        "downward-metrics.go",
+        "k8s-client-changes.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/infrastructure",
     visibility = ["//visibility:public"],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
+        "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libinfra:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libreplicaset:go_default_library",
         "//tests/libvmi:go_default_library",

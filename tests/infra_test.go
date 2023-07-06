@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"net/http"
@@ -58,8 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
-	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
-
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 
@@ -112,51 +109,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		}
-	})
-
-	Describe("downwardMetrics", func() {
-		It("[test_id:6535]should be published to a vmi and periodically updated", func() {
-			vmi := libvmi.NewFedora()
-			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			metrics, err := getDownwardMetrics(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			timestamp := getTimeFromMetrics(metrics)
-
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() int {
-				metrics, err = getDownwardMetrics(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				return getTimeFromMetrics(metrics)
-			}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
-			Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
-		})
-
-		It("metric ResourceProcessorLimit should be present", func() {
-			vmi := libvmi.NewFedora(libvmi.WithCPUCount(1, 1, 1))
-			tests.AddDownwardMetricsVolume(vmi, "vhostmd")
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			metrics, err := getDownwardMetrics(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			//let's try to find the ResourceProcessorLimit metric
-			found := false
-			j := 0
-			for i, metric := range metrics.Metrics {
-				if metric.Name == "ResourceProcessorLimit" {
-					j = i
-					found = true
-					break
-				}
-			}
-			Expect(found).To(BeTrue())
-			Expect(metrics.Metrics[j].Value).To(Equal("1"))
-		})
 	})
 
 	Describe("CRDs", func() {
@@ -1831,43 +1783,6 @@ func getMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) stri
 			return key
 		}
 	}
-	return ""
-}
-
-func getDownwardMetrics(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
-	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-		&expect.BSnd{S: `sudo vm-dump-metrics 2> /dev/null` + "\n"},
-		&expect.BExp{R: `(?s)(<metrics>.+</metrics>)`},
-	}, 5)
-	if err != nil {
-		return nil, err
-	}
-	metricsStr := res[0].Match[2]
-	metrics := &api.Metrics{}
-	Expect(xml.Unmarshal([]byte(metricsStr), metrics)).To(Succeed())
-	return metrics, nil
-}
-
-func getTimeFromMetrics(metrics *api.Metrics) int {
-
-	for _, m := range metrics.Metrics {
-		if m.Name == "Time" {
-			val, err := strconv.Atoi(m.Value)
-			Expect(err).ToNot(HaveOccurred())
-			return val
-		}
-	}
-	Fail("no Time in metrics XML")
-	return -1
-}
-
-func getHostnameFromMetrics(metrics *api.Metrics) string {
-	for _, m := range metrics.Metrics {
-		if m.Name == "HostName" {
-			return m.Value
-		}
-	}
-	Fail("no hostname in metrics XML")
 	return ""
 }
 
