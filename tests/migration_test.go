@@ -4714,7 +4714,7 @@ func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 		}
 	}
 
-	wakeNodeLabellerUp(virtClient)
+	libinfra.WakeNodeLabellerUp(virtClient)
 
 	By(fmt.Sprintf("Expecting node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
 	Eventually(func() error {
@@ -4741,20 +4741,6 @@ func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 	}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 	return node
-}
-
-func wakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
-	const fakeModel = "fake-model-1423"
-
-	By("Updating Kubevirt CR to wake node-labeller up")
-	kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-	if kvConfig.ObsoleteCPUModels == nil {
-		kvConfig.ObsoleteCPUModels = make(map[string]bool)
-	}
-	kvConfig.ObsoleteCPUModels[fakeModel] = true
-	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-	delete(kvConfig.ObsoleteCPUModels, fakeModel)
-	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
 
 func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
