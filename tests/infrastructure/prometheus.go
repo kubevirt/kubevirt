@@ -223,7 +223,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			}, 30*time.Second, 2*time.Second).ShouldNot(BeEmpty())
 
 			// troubleshooting helper
-			_, err := fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricSubstring, lines, metrics)
+			_, err = fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricSubstring, lines, metrics)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
 			Expect(metrics).To(HaveLen(len(lines)))
@@ -441,8 +441,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 					req, _ := http.NewRequest("GET", metricsURL, nil)
 					resp, err := client.Do(req)
 					if err != nil {
-						_, err = fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
-						Expect(err).ToNot(HaveOccurred())
+						_, fprintfErr := fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
+						Expect(fprintfErr).ToNot(HaveOccurred())
 					} else {
 						Expect(resp.Body.Close()).To(Succeed())
 					}

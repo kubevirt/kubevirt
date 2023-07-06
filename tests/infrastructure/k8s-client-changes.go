@@ -29,7 +29,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -48,21 +47,11 @@ import (
 
 var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
 	var (
-		virtClient       kubecli.KubevirtClient
-		aggregatorClient *aggregatorclient.Clientset
-		err              error
+		virtClient kubecli.KubevirtClient
+		err        error
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		if aggregatorClient == nil {
-			config, err := kubecli.GetKubevirtClientConfig()
-			if err != nil {
-				panic(err)
-			}
-
-			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
-		}
 	})
 
 	Describe("changes to the kubernetes client", func() {

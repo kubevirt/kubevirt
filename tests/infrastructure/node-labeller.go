@@ -37,7 +37,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
@@ -56,21 +55,11 @@ import (
 
 var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
 	var (
-		virtClient       kubecli.KubevirtClient
-		aggregatorClient *aggregatorclient.Clientset
-		err              error
+		virtClient kubecli.KubevirtClient
+		err        error
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		if aggregatorClient == nil {
-			config, err := kubecli.GetKubevirtClientConfig()
-			if err != nil {
-				panic(err)
-			}
-
-			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
-		}
 	})
 
 	Describe("Node-labeller", func() {
@@ -347,7 +336,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 					}
 
 					obsoleteModelLabelFound := false
-					for labelKey, _ := range node.Labels {
+					for labelKey := range node.Labels {
 						if strings.Contains(labelKey, v1.NodeHostModelIsObsoleteLabel) {
 							obsoleteModelLabelFound = true
 							break
@@ -370,7 +359,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 					Expect(err).ShouldNot(HaveOccurred())
 
 					obsoleteHostModelLabel := false
-					for labelKey, _ := range node.Labels {
+					for labelKey := range node.Labels {
 						if strings.HasPrefix(labelKey, v1.NodeHostModelIsObsoleteLabel) {
 							obsoleteHostModelLabel = true
 							break
