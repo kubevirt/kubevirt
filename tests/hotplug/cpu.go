@@ -36,10 +36,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-const (
-	kubevirtReadyTimeoutSeconds = 360 * time.Second
-)
-
 var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
 	var (
 		virtClient  kubecli.KubevirtClient
@@ -52,7 +48,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
 		patchWorkloadUpdateMethod(originalKv.Name, virtClient, updateStrategy)
-		testsuite.EnsureKubevirtReadyWithTimeout(kubevirtReadyTimeoutSeconds)
+
+		currentKv := util2.GetCurrentKv(virtClient)
+		tests.WaitForConfigToBePropagatedToComponent(
+			"kubevirt.io=virt-controller",
+			currentKv.ResourceVersion,
+			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			time.Minute)
 
 	})
 
