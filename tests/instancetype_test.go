@@ -2267,6 +2267,38 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient Memory resources",
 			),
+			Entry("VirtualMachine meets 1 vCPU requirement through defaults but fails - bug #10047",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(1),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{},
+							},
+						},
+					},
+				},
+				"no CPU resources provided by VirtualMachine, preference requires 1 vCPU",
+			),
 			Entry("VirtualMachine does not meet CPU (preferSockets default) requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
