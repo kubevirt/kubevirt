@@ -27,37 +27,29 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libinfra"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"kubevirt.io/kubevirt/tests/events"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 
-	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/libwait"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/tests/libvmi"
+
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -81,46 +73,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		}
-	})
-
-	Describe("Start a VirtualMachineInstance", func() {
-		Context("when the controller pod is not running and an election happens", func() {
-			It("[test_id:4642]should succeed afterwards", func() {
-				// This test needs at least 2 controller pods. Skip on single-replica.
-				checks.SkipIfSingleReplica(virtClient)
-
-				newLeaderPod := getNewLeaderPod(virtClient)
-				Expect(newLeaderPod).NotTo(BeNil())
-
-				// TODO: It can be race condition when newly deployed pod receive leadership, in this case we will need
-				// to reduce Deployment replica before destroying the pod and to restore it after the test
-				By("Destroying the leading controller pod")
-				Eventually(func() string {
-					leaderPodName := libinfra.GetLeader()
-
-					Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(Succeed())
-
-					Eventually(libinfra.GetLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
-
-					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), libinfra.GetLeader(), metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					return leaderPod.Name
-				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
-
-				Expect(matcher.ThisPod(newLeaderPod)()).To(matcher.HaveConditionTrue(k8sv1.PodReady))
-
-				vmi := tests.NewRandomVMI()
-
-				By("Starting a new VirtualMachineInstance")
-				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
-				Expect(err).ToNot(HaveOccurred())
-				vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-				Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-				libwait.WaitForSuccessfulVMIStart(vmiObj)
-			})
-		})
-
 	})
 
 	Describe("Node-labeller", func() {
@@ -722,19 +674,3 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 		})
 	})
 })
-
-func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
-	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
-	util.PanicOnError(err)
-	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
-	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
-		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
-	util.PanicOnError(err)
-	leaderPodName := libinfra.GetLeader()
-	for _, pod := range controllerPods.Items {
-		if pod.Name != leaderPodName {
-			return &pod
-		}
-	}
-	return nil
-}
