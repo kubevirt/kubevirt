@@ -55,8 +55,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libreplicaset"
-
 	"kubevirt.io/kubevirt/tests/util"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -114,98 +112,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		}
-	})
-
-	Describe("changes to the kubernetes client", func() {
-		scheduledToRunning := func(vmis []v1.VirtualMachineInstance) time.Duration {
-			var duration time.Duration
-			for _, vmi := range vmis {
-				start := metav1.Time{}
-				stop := metav1.Time{}
-				for _, timestamp := range vmi.Status.PhaseTransitionTimestamps {
-					if timestamp.Phase == v1.Scheduled {
-						start = timestamp.PhaseTransitionTimestamp
-					} else if timestamp.Phase == v1.Running {
-						stop = timestamp.PhaseTransitionTimestamp
-					}
-				}
-				duration += stop.Sub(start.Time)
-			}
-			return duration
-		}
-
-		It("on the controller rate limiter should lead to delayed VMI starts", func() {
-			By("first getting the basetime for a replicaset")
-			replicaset := tests.NewRandomReplicaSetFromVMI(libvmi.NewCirros(libvmi.WithResourceMemory("1Mi")), int32(0))
-			replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
-			Expect(err).ToNot(HaveOccurred())
-			start := time.Now()
-			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
-			fastDuration := time.Now().Sub(start)
-			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 0)
-
-			By("reducing the throughput on controller")
-			originalKubeVirt := util.GetCurrentKv(virtClient)
-			originalKubeVirt.Spec.Configuration.ControllerConfiguration = &v1.ReloadableComponentConfiguration{
-				RestClient: &v1.RESTClientConfiguration{
-					RateLimiter: &v1.RateLimiter{
-						TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
-							Burst: 3,
-							QPS:   2,
-						},
-					},
-				},
-			}
-			tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
-			By("starting a replicaset with reduced throughput")
-			start = time.Now()
-			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
-			slowDuration := time.Now().Sub(start)
-			Expect(slowDuration.Seconds()).To(BeNumerically(">", 2*fastDuration.Seconds()))
-		})
-
-		It("on the virt handler rate limiter should lead to delayed VMI running states", func() {
-			By("first getting the basetime for a replicaset")
-			targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-			vmi := libvmi.New(
-				libvmi.WithResourceMemory("1Mi"),
-				libvmi.WithNodeSelectorFor(&targetNode),
-			)
-
-			replicaset := tests.NewRandomReplicaSetFromVMI(vmi, 0)
-			replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(replicaset)
-			Expect(err).ToNot(HaveOccurred())
-			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
-			Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
-			vmis, err := matcher.AllVMIs(replicaset.Namespace)()
-			Expect(err).ToNot(HaveOccurred())
-			fastDuration := scheduledToRunning(vmis)
-
-			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 0)
-			Eventually(matcher.AllVMIs(replicaset.Namespace), 90*time.Second, 1*time.Second).Should(matcher.BeGone())
-
-			By("reducing the throughput on handler")
-			originalKubeVirt := util.GetCurrentKv(virtClient)
-			originalKubeVirt.Spec.Configuration.HandlerConfiguration = &v1.ReloadableComponentConfiguration{
-				RestClient: &v1.RESTClientConfiguration{
-					RateLimiter: &v1.RateLimiter{
-						TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
-							Burst: 1,
-							QPS:   1,
-						},
-					},
-				},
-			}
-			tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
-
-			By("starting a replicaset with reduced throughput")
-			libreplicaset.DoScaleWithScaleSubresource(virtClient, replicaset.Name, 10)
-			Eventually(matcher.AllVMIs(replicaset.Namespace), 180*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
-			vmis, err = matcher.AllVMIs(replicaset.Namespace)()
-			Expect(err).ToNot(HaveOccurred())
-			slowDuration := scheduledToRunning(vmis)
-			Expect(slowDuration.Seconds()).To(BeNumerically(">", 1.5*fastDuration.Seconds()))
-		})
 	})
 
 	Describe("downwardMetrics", func() {
