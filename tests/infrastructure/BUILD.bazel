@@ -11,6 +11,7 @@ go_library(
         "prometheus.go",
         "taints-and-tolerations.go",
         "tls-configuration.go",
+        "virt-handler.go",
         "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/infrastructure",
