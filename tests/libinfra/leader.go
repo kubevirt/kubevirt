@@ -22,6 +22,13 @@ package libinfra
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+
+	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
+	v13 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -44,4 +51,20 @@ func GetLeader() string {
 		util.PanicOnError(err)
 	}
 	return record.HolderIdentity
+}
+
+func GetNewLeaderPod(virtClient kubecli.KubevirtClient) *v12.Pod {
+	labelSelector, err := labels.Parse(fmt.Sprint(v13.AppLabel + "=virt-controller"))
+	util.PanicOnError(err)
+	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(v12.PodRunning))
+	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
+		v1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
+	util.PanicOnError(err)
+	leaderPodName := GetLeader()
+	for _, pod := range controllerPods.Items {
+		if pod.Name != leaderPodName {
+			return &pod
+		}
+	}
+	return nil
 }

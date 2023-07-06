@@ -10,6 +10,7 @@ go_library(
         "prometheus.go",
         "taints-and-tolerations.go",
         "tls-configuration.go",
+        "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/infrastructure",
     visibility = ["//visibility:public"],
