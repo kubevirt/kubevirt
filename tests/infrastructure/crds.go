@@ -38,7 +38,7 @@ import (
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
+var _ = DescribeInfra("CRDs", Serial, decorators.SigCompute, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -46,22 +46,20 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("CRDs", func() {
-		It("[test_id:5177]Should have structural schema", func() {
-			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
-				crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
-				crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
-			}
+	It("[test_id:5177]Should have structural schema", func() {
+		ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
+			crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
+			crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
+		}
 
-			for _, name := range ourCRDs {
-				ext, err := extclient.NewForConfig(virtClient.Config())
-				Expect(err).ToNot(HaveOccurred())
+		for _, name := range ourCRDs {
+			ext, err := extclient.NewForConfig(virtClient.Config())
+			Expect(err).ToNot(HaveOccurred())
 
-				crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+			crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))
-			}
-		})
+			Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))
+		}
 	})
 })
