@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "certificates.go",
+        "cluster-profiler.go",
         "crds.go",
         "downward-metrics.go",
         "k8s-client-changes.go",

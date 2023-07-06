@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017-2023 Red Hat, Inc.
  *
  */
 
-package tests_test
+package infrastructure
 
 import (
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -25,8 +25,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -35,20 +33,10 @@ import (
 
 var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
 	var (
-		virtClient       kubecli.KubevirtClient
-		aggregatorClient *aggregatorclient.Clientset
+		virtClient kubecli.KubevirtClient
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		if aggregatorClient == nil {
-			config, err := kubecli.GetKubevirtClientConfig()
-			if err != nil {
-				panic(err)
-			}
-
-			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
-		}
 	})
 
 	Describe("cluster profiler for pprof data aggregation", func() {
