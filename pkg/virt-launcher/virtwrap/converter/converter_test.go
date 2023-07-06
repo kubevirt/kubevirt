@@ -52,6 +52,7 @@ import (
 	kvapi "kubevirt.io/client-go/api"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -152,7 +153,7 @@ var _ = Describe("Converter", func() {
 			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
-  <driver error_policy="stop" name="qemu" type="" discard="unmap"></driver>
+  <driver name="qemu" type="" discard="unmap"></driver>
   <alias name="ua-mydisk"></alias>
   <boot order="1"></boot>
 </Disk>`
@@ -168,7 +169,7 @@ var _ = Describe("Converter", func() {
 			expectedXML := `<Disk device="" type="">
   <source></source>
   <target></target>
-  <driver error_policy="stop" io="native" name="qemu" type=""></driver>
+  <driver io="native" name="qemu" type=""></driver>
   <alias name="ua-"></alias>
 </Disk>`
 			Expect(xml).To(Equal(expectedXML))
@@ -180,7 +181,7 @@ var _ = Describe("Converter", func() {
 			expectedXML := `<Disk device="" type="">
   <source></source>
   <target></target>
-  <driver error_policy="stop" name="qemu" type=""></driver>
+  <driver name="qemu" type=""></driver>
   <alias name="ua-"></alias>
 </Disk>`
 			Expect(xml).To(Equal(expectedXML))
@@ -198,7 +199,7 @@ var _ = Describe("Converter", func() {
 			var convertedDisk = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
-  <driver error_policy="stop" name="qemu" type="" discard="unmap"></driver>
+  <driver name="qemu" type="" discard="unmap"></driver>
   <alias name="ua-mydisk"></alias>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
@@ -239,7 +240,7 @@ var _ = Describe("Converter", func() {
 			var expectedXML = `<Disk device="disk" type="" model="virtio-non-transitional">
   <source></source>
   <target bus="virtio" dev="vda"></target>
-  <driver cache="none" error_policy="stop" name="qemu" type="" discard="unmap"></driver>
+  <driver cache="none" name="qemu" type="" discard="unmap"></driver>
   <alias name="ua-mydisk"></alias>
   <shareable></shareable>
 </Disk>`
@@ -1360,6 +1361,7 @@ var _ = Describe("Converter", func() {
 		isBlockPVCMap["pvc_block_test"] = true
 		isBlockDVMap := make(map[string]bool)
 		isBlockDVMap["dv_block_test"] = true
+
 		BeforeEach(func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
@@ -2032,6 +2034,35 @@ var _ = Describe("Converter", func() {
 			},
 			Entry("use virtio transitional", true),
 			Entry("use virtio non-transitional", false),
+		)
+		DescribeTable("Should set the error policy", func(epolicy *v1.DiskErrorPolicy, expected string) {
+			vmi.Spec.Domain.Devices.Disks[0] = v1.Disk{
+				Name: "mydisk",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
+					},
+				},
+				ErrorPolicy: epolicy,
+			}
+			vmi.Spec.Volumes[0] = v1.Volume{
+				Name: "mydisk",
+				VolumeSource: v1.VolumeSource{
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
+						},
+					},
+				},
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(string(domainSpec.Devices.Disks[0].Driver.ErrorPolicy)).To(Equal(expected))
+		},
+			Entry("ErrorPolicy not specified", nil, "stop"),
+			Entry("ErrorPolicy equal to stop", kubevirtpointer.P(v1.DiskErrorPolicyStop), "stop"),
+			Entry("ErrorPolicy equal to ignore", kubevirtpointer.P(v1.DiskErrorPolicyIgnore), "ignore"),
+			Entry("ErrorPolicy equal to report", kubevirtpointer.P(v1.DiskErrorPolicyReport), "report"),
+			Entry("ErrorPolicy equal to enospace", kubevirtpointer.P(v1.DiskErrorPolicyEnospace), "enospace"),
 		)
 
 	})
