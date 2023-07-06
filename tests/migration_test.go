@@ -519,14 +519,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}
 
 		By("Waiting until the Migration Completes")
-		ip := getSupportedIP(metricsIPs, family)
+		ip := libinfra.GetSupportedIP(metricsIPs, family)
 
 		_ = tests.RunMigration(virtClient, migration)
 
 		By("Scraping the Prometheus endpoint")
 		validateNoZeroMetrics := func(metrics map[string]float64) error {
 			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
+			keys := libinfra.GetKeysFromMetrics(metrics)
 			for _, key := range keys {
 				value := metrics[key]
 				if value == 0 {
@@ -539,8 +539,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 		Eventually(func() error {
 			out := getKubevirtVMMetricsFunc(ip)
-			lines := takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
-			metrics, err := parseMetricsToMap(lines)
+			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
+			metrics, err := libinfra.ParseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
 
 			if len(metrics) == 0 {

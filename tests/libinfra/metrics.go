@@ -21,7 +21,10 @@ package libinfra
 
 import (
 	"encoding/xml"
+	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	expect "github.com/google/goexpect"
 	"github.com/onsi/ginkgo/v2"
@@ -67,5 +70,52 @@ func GetHostnameFromMetrics(metrics *api.Metrics) string {
 		}
 	}
 	ginkgo.Fail("no hostname in metrics XML")
+	return ""
+}
+
+func TakeMetricsWithPrefix(output, prefix string) []string {
+	lines := strings.Split(output, "\n")
+	var ret []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, prefix) {
+			ret = append(ret, line)
+		}
+	}
+	return ret
+}
+
+func ParseMetricsToMap(lines []string) (map[string]float64, error) {
+	metrics := make(map[string]float64)
+	for _, line := range lines {
+		items := strings.Split(line, " ")
+		if len(items) != 2 {
+			return nil, fmt.Errorf("can't split properly line '%s'", line)
+		}
+		v, err := strconv.ParseFloat(items[1], 64)
+		if err != nil {
+			return nil, err
+		}
+		metrics[items[0]] = v
+	}
+	return metrics, nil
+}
+
+func GetKeysFromMetrics(metrics map[string]float64) []string {
+	var keys []string
+	for metric := range metrics {
+		keys = append(keys, metric)
+	}
+	// we sort keys only to make debug of test failures easier
+	sort.Strings(keys)
+	return keys
+}
+
+func GetMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) string {
+	for _, key := range keys {
+		if strings.Contains(key, "name=\""+vmiName+"\"") &&
+			strings.Contains(key, "drive=\""+diskName+"\"") {
+			return key
+		}
+	}
 	return ""
 }
