@@ -201,6 +201,9 @@ func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, 
 			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {
 				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
 			}
+			if dv.Spec.Storage != nil && dv.Spec.Storage.StorageClassName == nil {
+				dv.Spec.Storage.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
+			}
 		}
 	}
 }
