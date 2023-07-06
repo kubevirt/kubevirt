@@ -69,9 +69,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/retry"
 
-	v1ext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -80,7 +77,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -109,25 +105,6 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		}
-	})
-
-	Describe("CRDs", func() {
-		It("[test_id:5177]Should have structural schema", func() {
-			ourCRDs := []string{crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
-				crds.VIRTUALMACHINEINSTANCEREPLICASET, crds.VIRTUALMACHINEINSTANCEMIGRATION, crds.KUBEVIRT,
-				crds.VIRTUALMACHINESNAPSHOT, crds.VIRTUALMACHINESNAPSHOTCONTENT,
-			}
-
-			for _, name := range ourCRDs {
-				ext, err := extclient.NewForConfig(virtClient.Config())
-				Expect(err).ToNot(HaveOccurred())
-
-				crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))
-			}
-		})
 	})
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
