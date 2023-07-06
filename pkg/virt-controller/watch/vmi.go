@@ -2285,7 +2285,7 @@ func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfa
 		multusAnnotations,
 	)
 
-	if multusAnnotations != "" {
+	if multusAnnotations != "" || len(indexedMultusStatusIfaces) != 0 {
 		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
 		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
 		if err != nil {
