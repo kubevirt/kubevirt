@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -48,83 +47,79 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
+var _ = DescribeInfra("tls configuration", func() {
+
 	var (
 		virtClient kubecli.KubevirtClient
+		cipher     *tls.CipherSuite
 	)
+
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
+
+		if !checks.HasFeature(virtconfig.VMExportGate) {
+			Skip(fmt.Sprintf("Cluster has the %s featuregate disabled, skipping  the tests", virtconfig.VMExportGate))
+		}
+
+		// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
+		cipher = &tls.CipherSuite{
+			ID:   tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+			Name: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+		}
+		kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+		kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+			MinTLSVersion: v1.VersionTLS12,
+			Ciphers:       []string{cipher.Name},
+		}
+		tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		newKv := util.GetCurrentKv(virtClient)
+		Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
+		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
+
 	})
 
-	Describe("tls configuration", func() {
+	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
+		labelSelectorList := []string{"kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy"}
 
-		var cipher *tls.CipherSuite
+		var podsToTest []k8sv1.Pod
+		for _, labelSelector := range labelSelectorList {
+			podList, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelector,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			podsToTest = append(podsToTest, podList.Items...)
+		}
 
-		BeforeEach(func() {
-			if !checks.HasFeature(virtconfig.VMExportGate) {
-				Skip(fmt.Sprintf("Cluster has the %s featuregate disabled, skipping  the tests", virtconfig.VMExportGate))
-			}
+		for i, pod := range podsToTest {
+			func(i int, pod k8sv1.Pod) {
+				stopChan := make(chan struct{})
+				defer close(stopChan)
+				Expect(tests.ForwardPorts(&pod, []string{fmt.Sprintf("844%d:%d", i, 8443)}, stopChan, 10*time.Second)).To(Succeed())
 
-			// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
-			cipher = &tls.CipherSuite{
-				ID:   tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-				Name: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
-			}
-			kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
-				MinTLSVersion: v1.VersionTLS12,
-				Ciphers:       []string{cipher.Name},
-			}
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-			newKv := util.GetCurrentKv(virtClient)
-			Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
-			Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
-
-		})
-
-		It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
-			labelSelectorList := []string{"kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy"}
-
-			var podsToTest []k8sv1.Pod
-			for _, labelSelector := range labelSelectorList {
-				podList, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{
-					LabelSelector: labelSelector,
-				})
+				acceptedTLSConfig := &tls.Config{
+					InsecureSkipVerify: true,
+					MaxVersion:         tls.VersionTLS12,
+					CipherSuites:       kvtls.CipherSuiteIds([]string{cipher.Name}),
+				}
+				conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:844%d", i), acceptedTLSConfig)
 				Expect(err).ToNot(HaveOccurred())
-				podsToTest = append(podsToTest, podList.Items...)
-			}
+				Expect(conn).ToNot(BeNil())
+				Expect(conn.ConnectionState().Version).To(BeEquivalentTo(tls.VersionTLS12))
+				Expect(conn.ConnectionState().CipherSuite).To(BeEquivalentTo(cipher.ID))
 
-			for i, pod := range podsToTest {
-				func(i int, pod k8sv1.Pod) {
-					stopChan := make(chan struct{})
-					defer close(stopChan)
-					Expect(tests.ForwardPorts(&pod, []string{fmt.Sprintf("844%d:%d", i, 8443)}, stopChan, 10*time.Second)).To(Succeed())
-
-					acceptedTLSConfig := &tls.Config{
-						InsecureSkipVerify: true,
-						MaxVersion:         tls.VersionTLS12,
-						CipherSuites:       kvtls.CipherSuiteIds([]string{cipher.Name}),
-					}
-					conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:844%d", i), acceptedTLSConfig)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(conn).ToNot(BeNil())
-					Expect(conn.ConnectionState().Version).To(BeEquivalentTo(tls.VersionTLS12))
-					Expect(conn.ConnectionState().CipherSuite).To(BeEquivalentTo(cipher.ID))
-
-					rejectedTLSConfig := &tls.Config{
-						InsecureSkipVerify: true,
-						MaxVersion:         tls.VersionTLS11,
-					}
-					conn, err = tls.Dial("tcp", fmt.Sprintf("localhost:844%d", i), rejectedTLSConfig)
-					Expect(err).To(HaveOccurred())
-					Expect(conn).To(BeNil())
-					Expect(err.Error()).To(SatisfyAny(
-						BeEquivalentTo("remote error: tls: protocol version not supported"),
-						// The error message changed with the golang 1.19 update
-						BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
-					))
-				}(i, pod)
-			}
-		})
+				rejectedTLSConfig := &tls.Config{
+					InsecureSkipVerify: true,
+					MaxVersion:         tls.VersionTLS11,
+				}
+				conn, err = tls.Dial("tcp", fmt.Sprintf("localhost:844%d", i), rejectedTLSConfig)
+				Expect(err).To(HaveOccurred())
+				Expect(conn).To(BeNil())
+				Expect(err.Error()).To(SatisfyAny(
+					BeEquivalentTo("remote error: tls: protocol version not supported"),
+					// The error message changed with the golang 1.19 update
+					BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
+				))
+			}(i, pod)
+		}
 	})
 })

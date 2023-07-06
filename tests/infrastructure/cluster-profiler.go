@@ -20,7 +20,6 @@
 package infrastructure
 
 import (
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCompute, func() {
+var _ = DescribeInfra("cluster profiler for pprof data aggregation", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -39,32 +38,30 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("cluster profiler for pprof data aggregation", func() {
-		Context("when ClusterProfiler feature gate", func() {
-			It("is disabled it should prevent subresource access", func() {
-				tests.DisableFeatureGate("ClusterProfiler")
+	Context("when ClusterProfiler feature gate", func() {
+		It("is disabled it should prevent subresource access", func() {
+			tests.DisableFeatureGate("ClusterProfiler")
 
-				err := virtClient.ClusterProfiler().Start()
-				Expect(err).To(HaveOccurred())
+			err := virtClient.ClusterProfiler().Start()
+			Expect(err).To(HaveOccurred())
 
-				err = virtClient.ClusterProfiler().Stop()
-				Expect(err).To(HaveOccurred())
+			err = virtClient.ClusterProfiler().Stop()
+			Expect(err).To(HaveOccurred())
 
-				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
-				Expect(err).To(HaveOccurred())
-			})
-			It("is enabled it should allow subresource access", func() {
-				tests.EnableFeatureGate("ClusterProfiler")
+			_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
+			Expect(err).To(HaveOccurred())
+		})
+		It("is enabled it should allow subresource access", func() {
+			tests.EnableFeatureGate("ClusterProfiler")
 
-				err := virtClient.ClusterProfiler().Start()
-				Expect(err).ToNot(HaveOccurred())
+			err := virtClient.ClusterProfiler().Start()
+			Expect(err).ToNot(HaveOccurred())
 
-				err = virtClient.ClusterProfiler().Stop()
-				Expect(err).ToNot(HaveOccurred())
+			err = virtClient.ClusterProfiler().Stop()
+			Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
-				Expect(err).ToNot(HaveOccurred())
-			})
+			_, err = virtClient.ClusterProfiler().Dump(&v1.ClusterProfilerRequest{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

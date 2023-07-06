@@ -7,6 +7,7 @@ go_library(
         "cluster-profiler.go",
         "crds.go",
         "downward-metrics.go",
+        "infrastructure.go",
         "k8s-client-changes.go",
         "node-labeller.go",
         "prometheus.go",
