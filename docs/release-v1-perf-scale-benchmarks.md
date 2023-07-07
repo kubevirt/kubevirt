@@ -13,12 +13,12 @@ taking specific assumptions into account. This section aims to provide clarity o
 1. The data presented in the document is collected by `periodic-kubevirt-e2e-k8s-1.25-sig-performance`.
 1. The test suite includes three tests:
    1. It creates 100 minimal VMIs, with a small pause of 100 ms between creation of 2 VMIs. The definition
-      of minimal VMIs can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L273)
+      of minimal VMIs can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L273).
       This is represented in the graphs as <Metric> for VMI, for example `vmiCreationToRunningSecondsP50` for VMI
    2. It creates 100 minimal VMs, with a small pause of 100 ms between creation of 2 VMIs. The definition
-      of minimal VMs created can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L219C1-L219C1)
+      of minimal VMs created can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L219C1-L219C1).
       This is represented in the graphs as <Metric> for VM, for example `vmiCreationToRunningSecondsP50` for VM
-   3. It creates VMs with instancetype and preference, the definition can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L203)
+   3. It creates VMs with instancetype and preference, the definition can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L203).
       The benchmarks for this will be added in future releases.
 1. The test waits for the VMIs to go into running state and collects a bunch of metrics
 1. The collected metrics are categorized into two buckets, performance and scale
