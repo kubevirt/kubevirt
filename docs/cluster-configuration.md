@@ -862,6 +862,33 @@ spec:
   vmStateStorageClass: "rook-cephfs"
 ```
 
+## Virtual machine options
+
+`VirtualMachineOptions` holds the cluster level information regarding the virtual machine.
+This defines the default behavior of some features related to the virtual machines.
+- `DisableFreePageReporting`
+  With freePageReporting the guest OS informs the hypervisor about pages which are not
+in use by the guest anymore. The hypervisor can use this information for freeing these pages.
+
+  freePageReporting is an attribute that can be defined at [Memory balloon device](https://libvirt.org/formatdomain.html#memory-balloon-device) 
+in libvirt. freePageReporting will NOT be enabled for the vmis which does not have the Memballoon driver,
+OR which are requesting any high performance components. A vmi is considered as high performance if one of the following is true:
+  - the vmi requests a dedicated cpu.
+  - the realtime flag is enabled.
+  - the vmi requests hugepages.
+  
+  With `DisableFreePageReporting` freePageReporting will never be enabled in any vmi.
+`DisableFreePageReporting` is a boolean and freePageReporting is disabled by default.  
+
+Example
+```yaml
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  virtualMachineOptions:
+    disableFreePageReporting: true
+```
 ## Hyperconverged Kubevirt cluster-wide Crypto Policy API
 
 Starting from OCP/OKD 4.6, a [cluster-wide API](https://github.com/openshift/enhancements/blob/master/enhancements/kube-apiserver/tls-config.md) is available for cluster administrators to set TLS profiles for OCP/OKD core components.

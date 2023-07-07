@@ -65,6 +65,8 @@ spec:
                 parallelOutboundMigrationsPerNode: 2
                 progressTimeout: 150
               uninstallStrategy: BlockUninstallIfWorkloadsExist
+              virtualMachineOptions:
+                disableFreePageReporting: true
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               certConfig:
@@ -2540,6 +2542,21 @@ spec:
                 description: VDDK Init Image eventually used to import VMs from external
                   providers
                 type: string
+              virtualMachineOptions:
+                default:
+                  disableFreePageReporting: true
+                description: VirtualMachineOptions holds the cluster level information
+                  regarding the virtual machine.
+                properties:
+                  disableFreePageReporting:
+                    default: true
+                    description: DisableFreePageReporting disable the free page reporting
+                      of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
+                      This will have effect only if AutoattachMemBalloon is not false
+                      and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages),
+                      in which free page reporting is always disabled.
+                    type: boolean
+                type: object
               vmStateStorageClass:
                 description: VMStateStorageClass is the name of the storage class
                   to use for the PVCs created to preserve VM state, like TPM. The
