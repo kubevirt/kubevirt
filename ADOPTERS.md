@@ -18,6 +18,7 @@
 | Vendor | EQUINIX | | [link](https://metal.equinix.com/) | |
 | Vendor | H3C | 2019 | [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites. |
 | Vendor | KUBERMATIC | 2019 | [link](https://www.kubermatic.com/products/kubevirt/) | As a distributor we are running KubeVirt to enable VM workload on Kubermatic Virtualization. |
+| Vendor | Oracle | 2023 | [link](https://www.oracle.com) | As a distributor we are leveraging KubeVirt to enable VM workload on [Oracle Cloud Native Environment](https://www.oracle.com/linux/cloud-native-environment/), the Oracle multicloud and on-premises Kubernetes distribution. |
 | Vendor | PLATFORM9 | | [link](https://platform9.com/managed-kubevirt/) | Run Legacy and Cloud-Native Applications on Platform9 |
 | Vendor | Red Hat, Inc. | 2016 | [link](https://www.redhat.com) | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
