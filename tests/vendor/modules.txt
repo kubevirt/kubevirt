@@ -870,7 +870,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# kubevirt.io/api v1.0.0-rc.1
+# kubevirt.io/api v1.0.0
 ## explicit; go 1.17
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
@@ -888,7 +888,7 @@ kubevirt.io/api/pool
 kubevirt.io/api/pool/v1alpha1
 kubevirt.io/api/snapshot
 kubevirt.io/api/snapshot/v1alpha1
-# kubevirt.io/client-go v1.0.0-rc.1 => kubevirt.io/client-go v1.0.0-rc.1
+# kubevirt.io/client-go v1.0.0 => kubevirt.io/client-go v1.0.0
 ## explicit; go 1.17
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -928,7 +928,7 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/kubevirt v1.0.0-rc.1 => kubevirt.io/kubevirt v1.0.0-rc.1
+# kubevirt.io/kubevirt v1.0.0 => kubevirt.io/kubevirt v1.0.0
 ## explicit; go 1.19
 kubevirt.io/kubevirt/pkg/apimachinery/patch
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
@@ -1024,8 +1024,8 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# kubevirt.io/kubevirt => kubevirt.io/kubevirt v1.0.0-rc.1
-# kubevirt.io/client-go => kubevirt.io/client-go v1.0.0-rc.1
+# kubevirt.io/kubevirt => kubevirt.io/kubevirt v1.0.0
+# kubevirt.io/client-go => kubevirt.io/client-go v1.0.0
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
 # cloud.google.com/go => cloud.google.com/go v0.100.2
 # github.com/googleapis/gnostic => github.com/google/gnostic v0.6.8

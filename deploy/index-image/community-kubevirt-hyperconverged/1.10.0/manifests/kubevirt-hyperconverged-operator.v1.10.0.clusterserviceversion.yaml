@@ -2823,7 +2823,7 @@ spec:
                 - name: HCO_KV_IO_VERSION
                   value: 1.10.0
                 - name: KUBEVIRT_VERSION
-                  value: v1.0.0-rc.1
+                  value: v1.0.0
                 - name: CDI_VERSION
                   value: v1.57.0-alpha1
                 - name: NETWORK_ADDONS_VERSION
@@ -3150,28 +3150,28 @@ spec:
                 - virt-operator
                 env:
                 - name: VIRT_OPERATOR_IMAGE
-                  value: quay.io/kubevirt/virt-operator@sha256:1299ea8ba990c5be66adac102ccbb8ab71e7d91443c2a10bc15a880815f95581
+                  value: quay.io/kubevirt/virt-operator@sha256:ddcd86fdaa29fc451f6b9c06d18642bdd12b344e49a82330445a0ed084e4e231
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: VIRT_API_IMAGE
-                  value: quay.io/kubevirt/virt-api@sha256:b067c63aafeaedf257cfff9732aa3e949bc4c9e9b0573837aa483a776b90b9bc
+                  value: quay.io/kubevirt/virt-api@sha256:5c375d9919853f9eec63bd68a0910fbd4d216235ec8e2835e6261d5778a7ae0b
                 - name: VIRT_CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/virt-controller@sha256:609ec1e2768bb00b8df842428ae25f753b7450a6f586f8778e5dc1cece3f1f69
+                  value: quay.io/kubevirt/virt-controller@sha256:248c61bb6662bda1e2b3f2da3e4ef7aca2802d96b38a848bfa631dad5295ef92
                 - name: VIRT_HANDLER_IMAGE
-                  value: quay.io/kubevirt/virt-handler@sha256:16462d2774709380cfc88381662b9f03daa10cf0145ee0f4abfb1694d5d68584
+                  value: quay.io/kubevirt/virt-handler@sha256:b33b761bfc9e78121825b1c243e126fa6378ba973bbd1c38fe967f763388522f
                 - name: VIRT_LAUNCHER_IMAGE
-                  value: quay.io/kubevirt/virt-launcher@sha256:4749d27af17f7173a528366e4a78310be804e10ca9f81612e184f6869427fd01
+                  value: quay.io/kubevirt/virt-launcher@sha256:b9b04d9d06ada4486e6acaa08e99aaa6a050e1843624ba4f291f8d167ebec36b
                 - name: VIRT_EXPORTPROXY_IMAGE
-                  value: quay.io/kubevirt/virt-exportproxy@sha256:d6992ab13805f73004906da49f3304a09c2a9770057871206aa024a7ba6389bd
+                  value: quay.io/kubevirt/virt-exportproxy@sha256:3e8fe55dc7ebeb86ff0be428f3d29d7768ee442471b5f1f0590faaef2c5682af
                 - name: VIRT_EXPORTSERVER_IMAGE
-                  value: quay.io/kubevirt/virt-exportserver@sha256:280aeb8dcfe8c72b03afc7f0a2b73126d4b4735786fa7dc482e95d556ac865cc
+                  value: quay.io/kubevirt/virt-exportserver@sha256:e93ae0eb0af085c0a4eb9d059e71cfd18d04e8f8932255704982f16eddaa0103
                 - name: GS_IMAGE
-                  value: quay.io/kubevirt/libguestfs-tools@sha256:6ad27aa67a52606b03c8c4ed5e2454d1f44d6d922efb6fe977b787d34ac80a32
+                  value: quay.io/kubevirt/libguestfs-tools@sha256:12cf13c034ef0e87c6d6a9e1e26fa0779348e26b1e20fa4cf5fe8074e1b5581b
                 - name: KUBEVIRT_VERSION
-                  value: v1.0.0-rc.1
-                image: quay.io/kubevirt/virt-operator@sha256:1299ea8ba990c5be66adac102ccbb8ab71e7d91443c2a10bc15a880815f95581
+                  value: v1.0.0
+                image: quay.io/kubevirt/virt-operator@sha256:ddcd86fdaa29fc451f6b9c06d18642bdd12b344e49a82330445a0ed084e4e231
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
@@ -3946,7 +3946,7 @@ spec:
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:5a783ac8af2ad5d6c7dd731ad29dfb013321c06f919dce2242eef1b3d0a9f194
     name: kubevirt-plugin
-  - image: quay.io/kubevirt/libguestfs-tools@sha256:6ad27aa67a52606b03c8c4ed5e2454d1f44d6d922efb6fe977b787d34ac80a32
+  - image: quay.io/kubevirt/libguestfs-tools@sha256:12cf13c034ef0e87c6d6a9e1e26fa0779348e26b1e20fa4cf5fe8074e1b5581b
     name: libguestfs-tools
   - image: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
     name: livenessprobe
@@ -3962,19 +3962,19 @@ spec:
     name: ovs-cni-plugin
   - image: quay.io/kubevirt/ssp-operator@sha256:697ed1da5d29497a5cc2f22ab4ee54b16b06baff6fd6f4c9c36a85466a50da56
     name: ssp-operator
-  - image: quay.io/kubevirt/virt-api@sha256:b067c63aafeaedf257cfff9732aa3e949bc4c9e9b0573837aa483a776b90b9bc
+  - image: quay.io/kubevirt/virt-api@sha256:5c375d9919853f9eec63bd68a0910fbd4d216235ec8e2835e6261d5778a7ae0b
     name: virt-api
-  - image: quay.io/kubevirt/virt-controller@sha256:609ec1e2768bb00b8df842428ae25f753b7450a6f586f8778e5dc1cece3f1f69
+  - image: quay.io/kubevirt/virt-controller@sha256:248c61bb6662bda1e2b3f2da3e4ef7aca2802d96b38a848bfa631dad5295ef92
     name: virt-controller
-  - image: quay.io/kubevirt/virt-exportproxy@sha256:d6992ab13805f73004906da49f3304a09c2a9770057871206aa024a7ba6389bd
+  - image: quay.io/kubevirt/virt-exportproxy@sha256:3e8fe55dc7ebeb86ff0be428f3d29d7768ee442471b5f1f0590faaef2c5682af
     name: virt-exportproxy
-  - image: quay.io/kubevirt/virt-exportserver@sha256:280aeb8dcfe8c72b03afc7f0a2b73126d4b4735786fa7dc482e95d556ac865cc
+  - image: quay.io/kubevirt/virt-exportserver@sha256:e93ae0eb0af085c0a4eb9d059e71cfd18d04e8f8932255704982f16eddaa0103
     name: virt-exportserver
-  - image: quay.io/kubevirt/virt-handler@sha256:16462d2774709380cfc88381662b9f03daa10cf0145ee0f4abfb1694d5d68584
+  - image: quay.io/kubevirt/virt-handler@sha256:b33b761bfc9e78121825b1c243e126fa6378ba973bbd1c38fe967f763388522f
     name: virt-handler
-  - image: quay.io/kubevirt/virt-launcher@sha256:4749d27af17f7173a528366e4a78310be804e10ca9f81612e184f6869427fd01
+  - image: quay.io/kubevirt/virt-launcher@sha256:b9b04d9d06ada4486e6acaa08e99aaa6a050e1843624ba4f291f8d167ebec36b
     name: virt-launcher
-  - image: quay.io/kubevirt/virt-operator@sha256:1299ea8ba990c5be66adac102ccbb8ab71e7d91443c2a10bc15a880815f95581
+  - image: quay.io/kubevirt/virt-operator@sha256:ddcd86fdaa29fc451f6b9c06d18642bdd12b344e49a82330445a0ed084e4e231
     name: virt-operator
   - image: quay.io/kubevirt/virtio-container-disk@sha256:f8e71a3a930ce95d646d80862d5ff6f9d3ed7ef2541dd2e2acec0bce26274734
     name: virtio-container-disk
