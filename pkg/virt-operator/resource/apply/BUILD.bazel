@@ -104,7 +104,6 @@ go_test(
         "//tools/util:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
-        "//vendor/github.com/ghodss/yaml:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
@@ -128,5 +127,6 @@ go_test(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+        "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )

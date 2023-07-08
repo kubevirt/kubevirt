@@ -25,8 +25,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 )
 
 func MarshallObject(obj interface{}, writer io.Writer) error {
