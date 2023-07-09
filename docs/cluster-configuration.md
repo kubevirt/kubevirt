@@ -842,8 +842,9 @@ field is set it overrides the cluster level one.
 Possible values:
 
 - `None` no eviction strategy at cluster level.
-- `LiveMigrate` migrate the VM on eviction.
-- `External` block eviction and notify an external controller.
+- `LiveMigrate` migrate the VM on eviction; a not live migratable VM with no specific strategy will block the drain of the node util manually evicted.
+- `LiveMigrateIfPossible` migrate the VM on eviction if live migration is possible, otherwise directly evict.
+- `External` block the drain, track the eviction and notify an external controller.
 
 `LiveMigrate` is the default behaviour with multiple worker nodes, `None` on single worker clusters.
 

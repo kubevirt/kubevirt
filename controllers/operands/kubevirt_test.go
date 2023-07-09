@@ -2738,7 +2738,7 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Modify HCO's eviction strategy configuration")
-				evictionStrategyExternal := kubevirtcorev1.EvictionStrategyExternal
+				evictionStrategyExternal := kubevirtcorev1.EvictionStrategyLiveMigrateIfPossible
 				hco.Spec.EvictionStrategy = &evictionStrategyExternal
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -2761,7 +2761,7 @@ Version: 1.2.3`)
 
 				Expect(foundResource.Spec.Configuration.EvictionStrategy).ToNot(BeNil())
 				foundEvictionStrategy := *foundResource.Spec.Configuration.EvictionStrategy
-				Expect(foundEvictionStrategy).To(Equal(kubevirtcorev1.EvictionStrategyExternal))
+				Expect(foundEvictionStrategy).To(Equal(kubevirtcorev1.EvictionStrategyLiveMigrateIfPossible))
 
 				Expect(req.Conditions).To(BeEmpty())
 			})
