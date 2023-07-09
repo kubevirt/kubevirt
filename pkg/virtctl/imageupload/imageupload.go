@@ -506,8 +506,8 @@ func waitDvUploadScheduled(client kubecli.KubevirtClient, namespace, name string
 			return false, err
 		}
 
-		if dv.Status.Phase == cdiv1.WaitForFirstConsumer && !forceBind {
-			return false, fmt.Errorf("cannot upload to DataVolume in WaitForFirstConsumer state, make sure the PVC is Bound")
+		if (dv.Status.Phase == cdiv1.WaitForFirstConsumer || dv.Status.Phase == cdiv1.PendingPopulation) && !forceBind {
+			return false, fmt.Errorf("cannot upload to DataVolume in %s phase, make sure the PVC is Bound, or use force-bind flag", string(dv.Status.Phase))
 		}
 
 		done := dv.Status.Phase == cdiv1.UploadReady
