@@ -19,6 +19,7 @@
 package watch
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -104,4 +105,18 @@ func handleDynamicInterfaceRequests(vm *v1.VirtualMachine) {
 	vm.Spec.Template.Spec = *vmTemplateCopy
 
 	return
+}
+
+func syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) ([]byte, error) {
+	var patchOps []string
+	for key, newValue := range newAnnotations {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
+			patchOp, err := prepareAnnotationsPatchAddOp(key, newValue)
+			if err != nil {
+				return nil, err
+			}
+			patchOps = append(patchOps, patchOp)
+		}
+	}
+	return controller.GeneratePatchBytes(patchOps), nil
 }

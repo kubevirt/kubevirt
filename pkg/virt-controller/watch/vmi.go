@@ -461,20 +461,6 @@ func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstanc
 	return nil
 }
 
-func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) ([]byte, error) {
-	var patchOps []string
-	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
-			patchOp, err := prepareAnnotationsPatchAddOp(key, newValue)
-			if err != nil {
-				return nil, err
-			}
-			patchOps = append(patchOps, patchOp)
-		}
-	}
-	return controller.GeneratePatchBytes(patchOps), nil
-}
-
 func (c *VMIController) patchPodWithJSONPatchType(pod *k8sv1.Pod, data []byte) (*k8sv1.Pod, error) {
 	var patchedPod *k8sv1.Pod
 	if len(data) > 0 {
@@ -1242,7 +1228,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],
 			)
 			newAnnotations := map[string]string{sriov.NetworkPCIMapAnnot: networkPCIMapAnnotationValue}
-			patchedData, err := c.syncPodAnnotations(pod, newAnnotations)
+			patchedData, err := syncPodAnnotations(pod, newAnnotations)
 			if err != nil {
 				return &syncErrorImpl{err, FailedPodPatchReason}
 			}
@@ -2294,7 +2280,7 @@ func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfa
 
 	if multusAnnotations != "" {
 		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
-		patchedData, err := c.syncPodAnnotations(pod, newAnnotations)
+		patchedData, err := syncPodAnnotations(pod, newAnnotations)
 		if err != nil {
 			return &syncErrorImpl{err, FailedPodPatchReason}
 		}
