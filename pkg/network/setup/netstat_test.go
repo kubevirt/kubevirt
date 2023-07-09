@@ -624,6 +624,89 @@ var _ = Describe("netstat", func() {
 		)
 	})
 
+	It("run status and expect 1 attached iface & 1 detached iface to be reported based on multus status and guest-agent data", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryPodIPv6     = "fd10:244::8c4c"
+			primaryGaIPv4      = "2.2.2.1"
+			primaryGaIPv6      = "fd20:244::8c4c"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+
+			secondaryNetworkName = "secondary"
+		)
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4, primaryPodIPv6,
+			),
+		).To(Succeed())
+
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecMultusNetwork(secondaryNetworkName))
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
+		)
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryNetworkName, InfoSource: netvmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, InfoSource: netvmispec.InfoSourceMultusStatus},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		infoSourceDomainGAMultus := netvmispec.NewInfoSource(
+			netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName, infoSourceDomainGAMultus, netsetup.DefaultInterfaceQueueCount),
+			newVMIStatusIface(secondaryNetworkName, nil, "", "", netvmispec.InfoSourceMultusStatus, 0),
+		}), "primary and secondary ifaces should exist in status, where secondary iface have multus-status only")
+	})
+
+	It("run status and expect iface that doesn't exist in VMI spec to NOT be reported", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryPodIPv6     = "fd10:244::8c4c"
+			primaryGaIPv4      = "2.2.2.1"
+			primaryGaIPv6      = "fd20:244::8c4c"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+
+			secondaryNetworkName = "secondary"
+		)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4, primaryPodIPv6,
+			),
+		).To(Succeed())
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
+		)
+
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryNetworkName, InfoSource: netvmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, InfoSource: netvmispec.InfoSourceMultusStatus},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		infoSourceDomainGAMultus := netvmispec.NewInfoSource(
+			netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			newVMIStatusIface(primaryNetworkName, []string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName, infoSourceDomainGAMultus, netsetup.DefaultInterfaceQueueCount),
+		}), "only primary should exist in status since secondary iface not exist in spec")
+	})
+
 	Context("misc scenario", func() {
 		const (
 			networkName = "primary"
