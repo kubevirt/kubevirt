@@ -26,85 +26,6 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
-
-if [ ${CI} == "true" ]; then
-  if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
-    _delay="$(( ( RANDOM % 180 )))"
-    echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
-    sleep ${_delay}
-  fi
-fi
-
-if [ -z $TARGET ]; then
-  echo "FATAL: TARGET must be non empty"
-  exit 1
-fi
-
-export KUBEVIRT_DEPLOY_CDI=true
-if [[ $TARGET =~ windows.* ]]; then
-  echo "picking the default provider for windows tests"
-elif [[ $TARGET =~ cnao ]]; then
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
-  export KUBEVIRT_DEPLOY_CDI=false
-elif [[ $TARGET =~ sig-network ]]; then
-  export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_DEPLOY_CDI=false
-  # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
-  if [[ $TARGET =~ no-istio ]]; then
-    export KUBEVIRT_DEPLOY_ISTIO=false
-  else
-    export KUBEVIRT_DEPLOY_ISTIO=true
-  fi
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
-elif [[ $TARGET =~ sig-storage ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
-  export KUBEVIRT_STORAGE="rook-ceph-default"
-  export KUBEVIRT_DEPLOY_NFS_CSI=true
-elif [[ $TARGET =~ sig-compute-realtime ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
-  export KUBEVIRT_HUGEPAGES_2M=512
-  export KUBEVIRT_REALTIME_SCHEDULER=true
-elif [[ $TARGET =~ sig-compute-migrations ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_NUM_SECONDARY_NICS=1
-  export KUBEVIRT_DEPLOY_NFS_CSI=true
-elif [[ $TARGET =~ sig-compute ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
-elif [[ $TARGET =~ sig-operator ]]; then
-  export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_NUM_SECONDARY_NICS=1
-elif [[ $TARGET =~ sig-monitoring ]]; then
-    export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
-    export KUBEVIRT_DEPLOY_PROMETHEUS=true
-else
-  export KUBEVIRT_PROVIDER=${TARGET}
-fi
-
-# Single-node single-replica test lanes need nfs csi to run sig-storage tests
-if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  export KUBEVIRT_DEPLOY_NFS_CSI=true
-fi
-
-if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
-  echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
-  exit 1
-fi
-
-if [[ $TARGET =~ sriov.* ]]; then
-  if [[ $TARGET =~ kind.* ]]; then
-    export KUBEVIRT_NUM_NODES=3
-  fi
-  export KUBEVIRT_DEPLOY_CDI="false"
-elif [[ $TARGET =~ vgpu.* ]]; then
-  export KUBEVIRT_NUM_NODES=1
-else
-  export KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-2}
-fi
-
 # Give the nodes enough memory to run tests in parallel, including tests which involve fedora
 export KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-9216M}
 
@@ -114,6 +35,97 @@ export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
 export WINDOWS_SYSPREP_NFS_DIR=${WINDOWS_SYSPREP_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2012_syspreped}
 export WINDOWS_SYSPREP_LOCK_PATH=${WINDOWS_SYSPREP_LOCK_PATH:-/var/lib/stdci/shared/download_windows_syspreped_image.lock}
+
+export NAMESPACE="${NAMESPACE:-kubevirt}"
+
+# Build and test images with a custom image name prefix
+export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
+
+if [ -z $TARGET ]; then
+  echo "FATAL: TARGET must be non empty"
+  exit 1
+fi
+
+randomize_startup() {
+  if [ ${CI} == "true" ]; then
+    if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
+      _delay="$(( ( RANDOM % 180 )))"
+      echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
+      sleep ${_delay}
+    fi
+  fi
+}
+
+set_kubevirt_params () {
+  export KUBEVIRT_DEPLOY_CDI=true
+  if [[ $TARGET =~ windows.* ]]; then
+    echo "picking the default provider for windows tests"
+  elif [[ $TARGET =~ cnao ]]; then
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
+    export KUBEVIRT_DEPLOY_CDI=false
+  elif [[ $TARGET =~ sig-network ]]; then
+    export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_DEPLOY_CDI=false
+    # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
+    if [[ $TARGET =~ no-istio ]]; then
+      export KUBEVIRT_DEPLOY_ISTIO=false
+    else
+      export KUBEVIRT_DEPLOY_ISTIO=true
+    fi
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
+  elif [[ $TARGET =~ sig-storage ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+  elif [[ $TARGET =~ sig-compute-realtime ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
+    export KUBEVIRT_HUGEPAGES_2M=512
+    export KUBEVIRT_REALTIME_SCHEDULER=true
+  elif [[ $TARGET =~ sig-compute-migrations ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+  elif [[ $TARGET =~ sig-compute ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
+  elif [[ $TARGET =~ sig-operator ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-operator*/}
+    export KUBEVIRT_WITH_CNAO=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+  elif [[ $TARGET =~ sig-monitoring ]]; then
+      export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
+      export KUBEVIRT_DEPLOY_PROMETHEUS=true
+  else
+    export KUBEVIRT_PROVIDER=${TARGET}
+  fi
+
+  if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
+    echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
+    exit 1
+  fi
+}
+
+set_num_nodes() {
+  if [[ $TARGET =~ sriov.* ]]; then
+    if [[ $TARGET =~ kind.* ]]; then
+      export KUBEVIRT_NUM_NODES=3
+    fi
+    export KUBEVIRT_DEPLOY_CDI="false"
+  elif [[ $TARGET =~ vgpu.* ]]; then
+    export KUBEVIRT_NUM_NODES=1
+  else
+    export KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-2}
+  fi
+}
+
+set_nfs_csi () {
+  # Single-node single-replica test lanes need nfs csi to run sig-storage tests
+  if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
+  fi
+}
 
 wait_for_download_lock() {
   local max_lock_attempts=60
@@ -172,31 +184,37 @@ safe_download() (
     fi
 )
 
+set_windows_params() {
+  if [[ $TARGET =~ windows_sysprep.* ]]; then
+    # Create images directory
+    if [[ ! -d $WINDOWS_SYSPREP_NFS_DIR ]]; then
+      mkdir -p $WINDOWS_SYSPREP_NFS_DIR
+    fi
 
-if [[ $TARGET =~ windows_sysprep.* ]]; then
-  # Create images directory
-  if [[ ! -d $WINDOWS_SYSPREP_NFS_DIR ]]; then
-    mkdir -p $WINDOWS_SYSPREP_NFS_DIR
+    # Download Windows image
+    win_image_url="${TEMPLATES_SERVER}/windows2012_syspreped.img"
+    win_image="$WINDOWS_SYSPREP_NFS_DIR/disk.img"
+    safe_download "$WINDOWS_SYSPREP_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
+  elif [[ $TARGET =~ windows.* ]]; then
+    # Create images directory
+    if [[ ! -d $WINDOWS_NFS_DIR ]]; then
+      mkdir -p $WINDOWS_NFS_DIR
+    fi
+
+    # Download Windows image
+    win_image_url="${TEMPLATES_SERVER}/win01.img"
+    win_image="$WINDOWS_NFS_DIR/disk.img"
+    safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
   fi
+}
 
-  # Download Windows image
-  win_image_url="${TEMPLATES_SERVER}/windows2012_syspreped.img"
-  win_image="$WINDOWS_SYSPREP_NFS_DIR/disk.img"
-  safe_download "$WINDOWS_SYSPREP_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
-elif [[ $TARGET =~ windows.* ]]; then
-  # Create images directory
-  if [[ ! -d $WINDOWS_NFS_DIR ]]; then
-    mkdir -p $WINDOWS_NFS_DIR
-  fi
+kubectl() {
+  KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@";
+}
 
-  # Download Windows image
-  win_image_url="${TEMPLATES_SERVER}/win01.img"
-  win_image="$WINDOWS_NFS_DIR/disk.img"
-  safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
-fi
-
-kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
-cli() { cluster-up/cli.sh "$@"; }
+cli() {
+  cluster-up/cli.sh "$@";
+}
 
 determine_cri_bin() {
     if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
@@ -241,127 +259,73 @@ build_images() {
     return $rc
 }
 
-export NAMESPACE="${NAMESPACE:-kubevirt}"
-
-# Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
-
-if [ "$CI" != "true" ]; then
-  make cluster-down
-fi
-
-# Create .bazelrc to use remote cache
-cat >ci.bazelrc <<EOF
+create_bazelrc() {
+  # Create .bazelrc to use remote cache
+  cat >ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
 EOF
+}
 
-# Build and test images with a custom image name prefix
-export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
-
-build_images
-
-trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
-make cluster-up
-trap - ERR
-
-# Wait for nodes to become ready
-set +e
-kubectl get nodes --no-headers
-kubectl_rc=$?
-while [ $kubectl_rc -ne 0 ] || [ -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
-    echo "Waiting for all nodes to become ready ..."
-    kubectl get nodes --no-headers
-    kubectl_rc=$?
-    sleep 10
-done
-set -e
-
-echo "Nodes are ready:"
-kubectl get nodes
-
-make cluster-sync
-
-# OpenShift is running important containers under default namespace
-namespaces=(kubevirt default)
-if [[ $NAMESPACE != "kubevirt" ]]; then
-  namespaces+=($NAMESPACE)
-fi
-
-timeout=300
-sample=30
-
-for i in ${namespaces[@]}; do
-  # Wait until kubevirt pods are running or completed
-  current_time=0
-  while [ -n "$(kubectl get pods -n $i --no-headers | grep -v -E 'Running|Completed')" ]; do
-    echo "Waiting for kubevirt pods to enter the Running/Completed state ..."
-    kubectl get pods -n $i --no-headers | >&2 grep -v -E 'Running|Completed' || true
-    sleep $sample
-
-    current_time=$((current_time + sample))
-    if [ $current_time -gt $timeout ]; then
-      echo "Dump kubevirt state:"
-      make dump
-      exit 1
-    fi
+wait_until_nodes_are_ready() {
+  # Wait for nodes to become ready
+  set +e
+  kubectl get nodes --no-headers
+  kubectl_rc=$?
+  while [ $kubectl_rc -ne 0 ] || [ -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
+      echo "Waiting for all nodes to become ready ..."
+      kubectl get nodes --no-headers
+      kubectl_rc=$?
+      sleep 10
   done
+  set -e
 
-  # Make sure all containers are ready
-  current_time=0
-  while [ -n "$(kubectl get pods -n $i --field-selector=status.phase==Running -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
-    echo "Waiting for KubeVirt containers to become ready ..."
-    kubectl get pods -n $i --field-selector=status.phase==Running -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false || true
-    sleep $sample
+  echo "Nodes are ready:"
+  kubectl get nodes
+}
 
-    current_time=$((current_time + sample))
-    if [ $current_time -gt $timeout ]; then
-      echo "Dump kubevirt state:"
-      make dump
-      exit 1
-    fi
-  done
-  kubectl get pods -n $i
-done
-
-kubectl version
-
-mkdir -p "$ARTIFACTS_PATH"
-export KUBEVIRT_E2E_PARALLEL=true
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
-  export KUBEVIRT_E2E_PARALLEL=false
-fi
-
-ginko_params="--no-color --seed=42"
-
-# Prepare PV for Windows testing
-if [[ $TARGET =~ windows.* ]]; then
-  if [[ $TARGET =~ windows_sysprep.* ]]; then
-    disk_name=disk-windows-sysprep
-    os_label=windows-sysprep
-  else
-    disk_name=disk-windows
-    os_label=windows
+wait_until_pods_are_ready () {
+  # OpenShift is running important containers under default namespace
+  namespaces=(kubevirt default)
+  if [[ $NAMESPACE != "kubevirt" ]]; then
+    namespaces+=($NAMESPACE)
   fi
-  kubectl create -f - <<EOF
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: $disk_name
-  labels:
-    kubevirt.io/test: $os_label
-spec:
-  capacity:
-    storage: 35Gi
-  accessModes:
-    - ReadWriteOnce
-  nfs:
-    server: "nfs"
-    path: /
-  storageClassName: windows
-EOF
-fi
+
+  timeout=300
+  sample=30
+  for i in ${namespaces[@]}; do
+    # Wait until kubevirt pods are running or completed
+    current_time=0
+    while [ -n "$(kubectl get pods -n $i --no-headers | grep -v -E 'Running|Completed')" ]; do
+      echo "Waiting for kubevirt pods to enter the Running/Completed state ..."
+      kubectl get pods -n $i --no-headers | >&2 grep -v -E 'Running|Completed' || true
+      sleep $sample
+
+      current_time=$((current_time + sample))
+      if [ $current_time -gt $timeout ]; then
+        echo "Dump kubevirt state:"
+        make dump
+        exit 1
+      fi
+    done
+
+    # Make sure all containers are ready
+    current_time=0
+    while [ -n "$(kubectl get pods -n $i --field-selector=status.phase==Running -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
+      echo "Waiting for KubeVirt containers to become ready ..."
+      kubectl get pods -n $i --field-selector=status.phase==Running -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false || true
+      sleep $sample
+
+      current_time=$((current_time + sample))
+      if [ $current_time -gt $timeout ]; then
+        echo "Dump kubevirt state:"
+        make dump
+        exit 1
+      fi
+    done
+    kubectl get pods -n $i
+  done
+}
 
 # add_to_label_filter appends the given label and separator to
 # $label_filter which is passed to Ginkgo --filter-label flag.
@@ -380,88 +344,131 @@ add_to_label_filter() {
   fi
 }
 
-# Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
-if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
-  echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
-  if [[ $TARGET =~ windows_sysprep.* ]]; then
-    label_filter='(Sysprep)'
-  elif [[ $TARGET =~ windows.* ]]; then
-    # Run only Windows tests
-    label_filter='(Windows)'
-  elif [[ $TARGET =~ (cnao|multus) ]]; then
-    label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
-  elif [[ $TARGET =~ sig-network ]]; then
-    label_filter='(sig-network)'
-    # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
-    if [[ $TARGET =~ no-istio ]]; then
-      add_to_label_filter "(!Istio)" "&&"
-    fi
-    if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
-      add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
+set_filter_label() {
+  # Set label_filter only if KUBEVIRT_E2E_FOCUS and KUBEVIRT_E2E_SKIP are not set.
+  if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
+    echo "WARN: Ongoing deprecation of the keyword matchers and updating them with ginkgo Label decorators"
+    if [[ $TARGET =~ windows_sysprep.* ]]; then
+      label_filter='(Sysprep)'
+    elif [[ $TARGET =~ windows.* ]]; then
+      # Run only Windows tests
+      label_filter='(Windows)'
+    elif [[ $TARGET =~ (cnao|multus) ]]; then
+      label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
+    elif [[ $TARGET =~ sig-network ]]; then
+      label_filter='(sig-network)'
+      # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
+      if [[ $TARGET =~ no-istio ]]; then
+        add_to_label_filter "(!Istio)" "&&"
+      fi
+      if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
+        add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
+      else
+        add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
+      fi
+    elif [[ $TARGET =~ sig-storage ]]; then
+      label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
+    elif [[ $TARGET =~ vgpu.* ]]; then
+      label_filter='(VGPU)'
+    elif [[ $TARGET =~ sig-compute-realtime ]]; then
+      label_filter='(sig-compute-realtime)'
+    elif [[ $TARGET =~ sig-compute-migrations ]]; then
+      label_filter='(sig-compute-migrations && !(GPU,VGPU))'
+    elif [[ $TARGET =~ sig-compute ]]; then
+      label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,exclude-native-ssh))'
+    elif [[ $TARGET =~ sig-monitoring ]]; then
+      label_filter='(sig-monitoring)'
+    elif [[ $TARGET =~ sig-operator ]]; then
+      if [[ $TARGET =~ sig-operator-upgrade ]]; then
+        label_filter='(Upgrade)'
+      elif [[ $TARGET =~ sig-operator-configuration ]]; then
+        label_filter='(sig-operator && !(Upgrade))'
+      else
+        label_filter='(sig-operator)'
+      fi
+    elif [[ $TARGET =~ sriov.* ]]; then
+      label_filter='(SRIOV)'
+    elif [[ $TARGET =~ gpu.* ]]; then
+      label_filter='(GPU)'
+    elif [[ $TARGET =~ (okd|ocp).* ]]; then
+      label_filter='(!(SRIOV,GPU,VGPU))'
     else
-      add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
+      label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU))'
     fi
-  elif [[ $TARGET =~ sig-storage ]]; then
-    label_filter='((sig-storage,storage-req) && !sig-compute-migrations)'
-  elif [[ $TARGET =~ vgpu.* ]]; then
-    label_filter='(VGPU)'
-  elif [[ $TARGET =~ sig-compute-realtime ]]; then
-    label_filter='(sig-compute-realtime)'
-  elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU))'
-  elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,exclude-native-ssh))'
-  elif [[ $TARGET =~ sig-monitoring ]]; then
-    label_filter='(sig-monitoring)'
-  elif [[ $TARGET =~ sig-operator ]]; then
-    if [[ $TARGET =~ sig-operator-upgrade ]]; then
-      label_filter='(Upgrade)'
-    elif [[ $TARGET =~ sig-operator-configuration ]]; then
-      label_filter='(sig-operator && !(Upgrade))'
-    else
-      label_filter='(sig-operator)'
-    fi
-  elif [[ $TARGET =~ sriov.* ]]; then
-    label_filter='(SRIOV)'
-  elif [[ $TARGET =~ gpu.* ]]; then
-    label_filter='(GPU)'
-  elif [[ $TARGET =~ (okd|ocp).* ]]; then
-    label_filter='(!(SRIOV,GPU,VGPU))'
-  else
-    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU))'
   fi
-fi
 
-if [[ $KUBEVIRT_NONROOT =~ true ]]; then
-  add_to_label_filter '(verify-non-root)' ','
-else
-  add_to_label_filter '(!verify-non-root)' '&&'
-fi
+  if [[ $KUBEVIRT_NONROOT =~ true ]]; then
+    add_to_label_filter '(verify-non-root)' ','
+  else
+    add_to_label_filter '(!verify-non-root)' '&&'
+  fi
 
-# No lane currently supports loading a custom policy
-add_to_label_filter '(!CustomSELinux)' '&&'
+  # No lane currently supports loading a custom policy
+  add_to_label_filter '(!CustomSELinux)' '&&'
 
-# Single-node single-replica test lanes obviously can't run live migrations,
-# but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
-if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
-  add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
-fi
+  # Single-node single-replica test lanes obviously can't run live migrations,
+  # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
+  if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
+    add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  fi
+}
 
-# If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
-# set the whole suite (quarantined and stable) will be run.
-if [ -z "$KUBEVIRT_QUARANTINE" ]; then
-    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
+set_parallel() {
+  export KUBEVIRT_E2E_PARALLEL=true
+  if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+  fi
+}
+
+set_windows_pv() {
+  # Prepare PV for Windows testing
+  if [[ $TARGET =~ windows.* ]]; then
+    if [[ $TARGET =~ windows_sysprep.* ]]; then
+      disk_name=disk-windows-sysprep
+      os_label=windows-sysprep
     else
-        export KUBEVIRT_E2E_SKIP="QUARANTINE"
+      disk_name=disk-windows
+      os_label=windows
     fi
-fi
+    kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: $disk_name
+  labels:
+    kubevirt.io/test: $os_label
+spec:
+  capacity:
+    storage: 35Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+  storageClassName: windows
+EOF
+  fi
+}
 
-# Prepare RHEL PV for Template testing
-if [[ $TARGET =~ os-.* ]]; then
-  ginko_params="$ginko_params|Networkpolicy"
+set_quarantine() {
+  # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
+  # set the whole suite (quarantined and stable) will be run.
+  if [ -z "$KUBEVIRT_QUARANTINE" ]; then
+      if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
+          export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
+      else
+          export KUBEVIRT_E2E_SKIP="QUARANTINE"
+      fi
+  fi
+}
 
-  kubectl create -f - <<EOF
+prepare_rhel_pv() {
+  # Prepare RHEL PV for Template testing
+  if [[ $TARGET =~ os-.* ]]; then
+    ginko_params="$ginko_params|Networkpolicy"
+
+    kubectl create -f - <<EOF
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -479,12 +486,10 @@ spec:
     path: /
   storageClassName: rhel
 EOF
-fi
+  fi
+}
 
-
-# Run functional tests
-FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
-
+run_coverage() {
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then
   echo "Generating REST API coverage report"
@@ -500,6 +505,49 @@ if [ -n "$RUN_REST_COVERAGE" ]; then
     --ignore-resource-version
   echo "REST API coverage report generated"
 fi
+}
+
+randomize_startup
+set_kubevirt_params
+set_num_nodes
+set_nfs_csi
+set_windows_params
+create_bazelrc
+
+# Make sure that the VM is properly shut down on exit
+trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+
+if [ "$CI" != "true" ]; then
+  make cluster-down
+fi
+
+build_images
+
+trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
+make cluster-up
+trap - ERR
+wait_until_nodes_are_ready
+
+make cluster-sync
+wait_until_pods_are_ready
+
+kubectl version
+
+set_parallel
+
+mkdir -p "$ARTIFACTS_PATH"
+ginko_params="--no-color --seed=42"
+
+set_windows_pv
+
+set_filter_label
+set_quarantine
+prepare_rhel_pv
+
+# Run functional tests
+FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
+
+run_coverage
 
 # Sanity check test execution by looking at results file
 ./automation/assert-not-all-tests-skipped.sh "${ARTIFACTS}/junit.functest.xml"
