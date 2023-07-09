@@ -461,7 +461,7 @@ func (c *VMIController) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstanc
 	return nil
 }
 
-func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
+func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) ([]byte, error) {
 	var patchOps []string
 	for key, newValue := range newAnnotations {
 		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
@@ -472,13 +472,16 @@ func (c *VMIController) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[st
 			patchOps = append(patchOps, patchOp)
 		}
 	}
+	return controller.GeneratePatchBytes(patchOps), nil
+}
+
+func (c *VMIController) patchPodWithJSONPatchType(pod *k8sv1.Pod, data []byte) (*k8sv1.Pod, error) {
 	var patchedPod *k8sv1.Pod
-	patchBytes := controller.GeneratePatchBytes(patchOps)
-	if len(patchBytes) > 0 {
+	if len(data) > 0 {
 		var err error
-		patchedPod, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		patchedPod, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, data, v1.PatchOptions{})
 		if err != nil {
-			log.Log.Object(pod).Errorf("failed to sync pod annotations during sync: %v", err)
+			log.Log.Object(pod).Errorf("failed to patch pod annotations: %v", err)
 			return nil, err
 		}
 	}
@@ -1239,9 +1242,13 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 				vmi.Spec.Networks, vmi.Spec.Domain.Devices.Interfaces, pod.Annotations[networkv1.NetworkStatusAnnot],
 			)
 			newAnnotations := map[string]string{sriov.NetworkPCIMapAnnot: networkPCIMapAnnotationValue}
-			patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+			patchedData, err := c.syncPodAnnotations(pod, newAnnotations)
 			if err != nil {
 				return &syncErrorImpl{err, FailedPodPatchReason}
+			}
+			patchedPod, perr := c.patchPodWithJSONPatchType(pod, patchedData)
+			if perr != nil {
+				return &syncErrorImpl{perr, FailedPodPatchReason}
 			}
 			*pod = *patchedPod
 		}
@@ -2287,9 +2294,13 @@ func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfa
 
 	if multusAnnotations != "" {
 		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
-		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+		patchedData, err := c.syncPodAnnotations(pod, newAnnotations)
 		if err != nil {
-			return err
+			return &syncErrorImpl{err, FailedPodPatchReason}
+		}
+		patchedPod, perr := c.patchPodWithJSONPatchType(pod, patchedData)
+		if perr != nil {
+			return &syncErrorImpl{perr, FailedPodPatchReason}
 		}
 		*pod = *patchedPod
 	}
