@@ -2264,22 +2264,12 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 }
 
 func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
-	podAnnotations := pod.GetAnnotations()
-
-	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
-	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := services.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap)
+	newAnnotations, err := calculateMultusAnnotation(namespace, interfaces, networks, pod)
 	if err != nil {
 		return err
 	}
-	log.Log.Object(pod).V(4).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		podAnnotations[networkv1.NetworkAttachmentAnnot],
-		multusAnnotations,
-	)
 
-	if multusAnnotations != "" {
-		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
+	if newAnnotations != nil {
 		patchedData, err := syncPodAnnotations(pod, newAnnotations)
 		if err != nil {
 			return &syncErrorImpl{err, FailedPodPatchReason}

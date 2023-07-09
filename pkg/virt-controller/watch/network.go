@@ -20,10 +20,17 @@ package watch
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
@@ -119,4 +126,26 @@ func syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) ([]byt
 		}
 	}
 	return controller.GeneratePatchBytes(patchOps), nil
+}
+
+func calculateMultusAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, pod *k8sv1.Pod) (map[string]string, error) {
+	podAnnotations := pod.GetAnnotations()
+
+	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)
+	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
+	multusAnnotations, err := services.GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap)
+	if err != nil {
+		return nil, err
+	}
+	log.Log.Object(pod).V(4).Infof(
+		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+		podAnnotations[networkv1.NetworkAttachmentAnnot],
+		multusAnnotations,
+	)
+
+	if multusAnnotations != "" {
+		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
+		return newAnnotations, nil
+	}
+	return nil, nil
 }
