@@ -32,9 +32,9 @@ import (
 	"sort"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/blang/semver/v4"
 	"github.com/ghodss/yaml"
-	"github.com/imdario/mergo"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"

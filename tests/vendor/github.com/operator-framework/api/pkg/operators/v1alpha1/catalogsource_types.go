@@ -114,6 +114,10 @@ type GrpcPodConfig struct {
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
+	// Affinity is the catalog source's pod's affinity.
+	// +optional
+	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+
 	// If specified, indicates the pod's priority.
 	// If not specified, the pod priority will be default or zero if there is no
 	// default.

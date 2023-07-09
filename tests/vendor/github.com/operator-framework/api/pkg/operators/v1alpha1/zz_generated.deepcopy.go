@@ -723,6 +723,11 @@ func (in *GrpcPodConfig) DeepCopyInto(out *GrpcPodConfig) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Affinity != nil {
+		in, out := &in.Affinity, &out.Affinity
+		*out = new(v1.Affinity)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.PriorityClassName != nil {
 		in, out := &in.PriorityClassName, &out.PriorityClassName
 		*out = new(string)
