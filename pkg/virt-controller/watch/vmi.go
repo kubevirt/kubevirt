@@ -1236,7 +1236,9 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			if perr != nil {
 				return &syncErrorImpl{perr, FailedPodPatchReason}
 			}
-			*pod = *patchedPod
+			if patchedPod != nil {
+				*pod = *patchedPod
+			}
 		}
 
 		hotplugVolumes := getHotplugVolumes(vmi, pod)
@@ -1261,11 +1263,19 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi); dynamicIfacesExist {
-			if err := c.handleDynamicInterfaceRequests(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
+			patchedData, err := calculatePatchDataForMultusAnnotation(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod)
+			if err != nil {
 				return &syncErrorImpl{
 					err:    fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
 					reason: FailedHotplugSyncReason,
 				}
+			}
+			patchedPod, perr := c.patchPodWithJSONPatchType(pod, patchedData)
+			if perr != nil {
+				return &syncErrorImpl{perr, FailedPodPatchReason}
+			}
+			if patchedPod != nil {
+				*pod = *patchedPod
 			}
 		}
 	}
@@ -2261,27 +2271,6 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 		return virtv1.VolumeBound, PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
-}
-
-func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
-	newAnnotations, err := calculateMultusAnnotation(namespace, interfaces, networks, pod)
-	if err != nil {
-		return err
-	}
-
-	if newAnnotations != nil {
-		patchedData, err := syncPodAnnotations(pod, newAnnotations)
-		if err != nil {
-			return &syncErrorImpl{err, FailedPodPatchReason}
-		}
-		patchedPod, perr := c.patchPodWithJSONPatchType(pod, patchedData)
-		if perr != nil {
-			return &syncErrorImpl{perr, FailedPodPatchReason}
-		}
-		*pod = *patchedPod
-	}
-
-	return nil
 }
 
 func (c *VMIController) updateInterfaceStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {

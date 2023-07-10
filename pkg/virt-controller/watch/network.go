@@ -114,6 +114,23 @@ func handleDynamicInterfaceRequests(vm *v1.VirtualMachine) {
 	return
 }
 
+func calculatePatchDataForMultusAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, pod *k8sv1.Pod) ([]byte, error) {
+	newAnnotations, err := calculateMultusAnnotation(namespace, interfaces, networks, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	var patchedData []byte
+	if newAnnotations != nil {
+		patchedData, err = syncPodAnnotations(pod, newAnnotations)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return patchedData, nil
+}
+
 func syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) ([]byte, error) {
 	var patchOps []string
 	for key, newValue := range newAnnotations {
