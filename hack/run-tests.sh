@@ -42,9 +42,6 @@ ${KUBECTL_BINARY} get hco -n "${INSTALLED_NAMESPACE}" kubevirt-hyperconverged -o
 # wait a bit to make sure the VMs are deleted
 sleep 60
 
-# Check golden images
-KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_golden_images.sh
-
 # Check TLS profile on the webhook
 KUBECTL_BINARY=${KUBECTL_BINARY} ./hack/check_tlsprofile.sh
 

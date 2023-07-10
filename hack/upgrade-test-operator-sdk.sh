@@ -289,9 +289,6 @@ else
     echo "TTO reference removed from .status.relatedObjects"
 fi
 
-Msg "check golden images"
-KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} ./hack/check_golden_images.sh
-
 Msg "check virtio-win image is in configmap"
 VIRTIOWIN_IMAGE_CSV=$(${CMD} get ${CSV} -n ${HCO_NAMESPACE} \
   -o jsonpath='{.spec.install.spec.deployments[?(@.name=="hco-operator")].spec.template.spec.containers[0].env[?(@.name=="VIRTIOWIN_CONTAINER")].value}')

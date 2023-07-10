@@ -5,7 +5,7 @@ import (
 	"os"
 	"sync"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -37,9 +37,15 @@ type DashboardTestConfig struct {
 	TestItems []DashboardTestItem `yaml:"testItems,omitempty"`
 }
 
+type DataImportCronConfig struct {
+	ExpectedDataImportCrons []string `yaml:"expectedDataImportCrons,omitempty"`
+	Namespace               string   `yaml:"namespace,omitempty"`
+}
+
 type TestConfig struct {
-	QuickStart QuickStartTestConfig `yaml:"quickStart,omitempty"`
-	Dashboard  DashboardTestConfig  `yaml:"dashboard,omitempty"`
+	QuickStart     QuickStartTestConfig `yaml:"quickStart,omitempty"`
+	Dashboard      DashboardTestConfig  `yaml:"dashboard,omitempty"`
+	DataImportCron DataImportCronConfig `yaml:"dataImportCron,omitempty"`
 }
 
 func init() {
@@ -56,7 +62,7 @@ func GetConfig() *TestConfig {
 }
 
 func loadConfig(fileName string) *TestConfig {
-	config := TestConfig{}
+	cfg := TestConfig{}
 
 	if fileName != "" {
 		file, err := os.Open(fileName)
@@ -64,11 +70,11 @@ func loadConfig(fileName string) *TestConfig {
 			panic(err)
 		}
 		dec := yaml.NewDecoder(file)
-		err = dec.Decode(&config)
+		err = dec.Decode(&cfg)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	return &config
+	return &cfg
 }
