@@ -132,7 +132,7 @@ var _ = Describe("findIsolatedQemuProcess", func() {
 		fakeProcess3}
 
 	qemuKvmProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-kvm"}
-	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system"}
+	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system-x86_64"}
 
 	DescribeTable("should return QEMU process",
 		func(processes []ps.Process, pid int, expectedProcess ps.Process) {
