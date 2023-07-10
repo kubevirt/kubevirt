@@ -33,8 +33,6 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libinfra"
-
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -51,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
