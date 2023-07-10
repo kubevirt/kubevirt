@@ -20,8 +20,6 @@
 package prometheus
 
 import (
-	"fmt"
-
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1169,14 +1167,8 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_cpu_affinity"))
-			s := ""
-			for _, lp := range dto.GetLabel() {
-				s += fmt.Sprintf("%v=%v ", lp.GetName(), lp.GetValue())
-			}
-			Expect(s).To(ContainSubstring("vcpu_0_cpu_0=true"))
-			Expect(s).To(ContainSubstring("vcpu_0_cpu_1=false"))
-			Expect(s).To(ContainSubstring("vcpu_0_cpu_2=true"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_node_cpu_affinity"))
+			Expect(dto.GetGauge().GetValue()).To(Equal(float64(2)))
 		})
 
 		It("should expose filesystem metrics", func() {

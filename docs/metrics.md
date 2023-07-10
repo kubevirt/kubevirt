@@ -105,9 +105,6 @@ Virtual Machine last transition timestamp to running status. Type: Counter.
 ### kubevirt_vm_starting_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to starting status. Type: Counter.
 
-### kubevirt_vmi_cpu_affinity
-Details the cpu pinning map via boolean labels in the form of vcpu_X_cpu_Y. Type: Counter.
-
 ### kubevirt_vmi_cpu_system_usage_seconds
 Total CPU time spent in system mode. Type: Gauge.
 
@@ -185,6 +182,9 @@ The total number of tx packets dropped on vNIC interfaces. Type: Counter.
 
 ### kubevirt_vmi_network_transmit_packets_total
 Total network traffic transmitted packets. Type: Counter.
+
+### kubevirt_vmi_node_cpu_affinity
+Number of VMI CPU affinities to node physical cores. Type: Gauge.
 
 ### kubevirt_vmi_non_evictable
 Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable. Type: Gauge.
