@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -179,7 +179,10 @@ func (c *createClone) newClone() (*clonev1alpha1.VirtualMachineClone, error) {
 		Target:            target,
 		AnnotationFilters: c.annotationFilters,
 		LabelFilters:      c.labelFilters,
-		NewSMBiosSerial:   pointer.P(c.newSmbiosSerial),
+	}
+
+	if c.newSmbiosSerial != "" {
+		clone.Spec.NewSMBiosSerial = pointer.P(c.newSmbiosSerial)
 	}
 
 	return clone, nil
