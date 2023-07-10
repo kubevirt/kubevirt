@@ -224,22 +224,21 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 }
 
 func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
-	affinityLabels := []string{}
-	affinityValues := []string{}
+	affinityCount := 0.0
 
 	for vidx := 0; vidx < len(cpuMap); vidx++ {
 		for cidx := 0; cidx < len(cpuMap[vidx]); cidx++ {
-			affinityLabels = append(affinityLabels, fmt.Sprintf("vcpu_%v_cpu_%v", vidx, cidx))
-			affinityValues = append(affinityValues, fmt.Sprintf("%t", cpuMap[vidx][cidx]))
+			if cpuMap[vidx][cidx] {
+				affinityCount++
+			}
 		}
 	}
 
 	metrics.pushCustomMetric(
-		"kubevirt_vmi_cpu_affinity",
-		"Details the cpu pinning map via boolean labels in the form of vcpu_X_cpu_Y.",
-		prometheus.CounterValue, 1,
-		affinityLabels,
-		affinityValues,
+		"kubevirt_vmi_node_cpu_affinity",
+		"Number of VMI CPU affinities to node physical cores.",
+		prometheus.GaugeValue, affinityCount,
+		nil, nil,
 	)
 }
 
