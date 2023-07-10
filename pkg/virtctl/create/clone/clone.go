@@ -24,11 +24,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
+	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
