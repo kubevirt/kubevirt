@@ -242,12 +242,24 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := co.makeVMICountMetricMap(vmis)
-			Expect(countMap).To(HaveLen(1))
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+			co.updateVMIsPhase(vmis, ch)
 
-			for metric, count := range countMap {
-				Expect(metric.InstanceType).To(Equal(expected))
-				Expect(count).To(Equal(uint64(1)))
+			Expect(ch).To(HaveLen(1), "Expected 1 metric")
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_phase_count"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(1))
+			Expect(dto.Label).To(HaveLen(7))
+			for _, pair := range dto.Label {
+				if pair.GetName() == "instance_type" {
+					Expect(pair.GetValue()).To(Equal(expected))
+					return
+				}
 			}
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
@@ -273,12 +285,24 @@ var _ = Describe("Utility functions", func() {
 				},
 			}
 
-			countMap := co.makeVMICountMetricMap(vmis)
-			Expect(countMap).To(HaveLen(1))
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+			co.updateVMIsPhase(vmis, ch)
 
-			for metric, count := range countMap {
-				Expect(metric.Preference).To(Equal(expected))
-				Expect(count).To(Equal(uint64(1)))
+			Expect(ch).To(HaveLen(1), "Expected 1 metric")
+			result := <-ch
+			dto := &io_prometheus_client.Metric{}
+			result.Write(dto)
+
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_phase_count"))
+			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(1))
+			Expect(dto.Label).To(HaveLen(7))
+			for _, pair := range dto.Label {
+				if pair.GetName() == "preference" {
+					Expect(pair.GetValue()).To(Equal(expected))
+					return
+				}
 			}
 		},
 			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
