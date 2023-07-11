@@ -169,7 +169,7 @@ var _ = Describe("ImageUpload", func() {
 		return spec
 	}
 
-	dvSpecWithWaitForFirstConsumer := func() *cdiv1.DataVolume {
+	dvSpecWithPhase := func(phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
 		dv := &cdiv1.DataVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      targetName,
@@ -179,11 +179,11 @@ var _ = Describe("ImageUpload", func() {
 				APIVersion: cdiv1.SchemeGroupVersion.String(),
 				Kind:       "DataVolume",
 			},
-			Status: cdiv1.DataVolumeStatus{Phase: cdiv1.WaitForFirstConsumer},
 			Spec: cdiv1.DataVolumeSpec{
 				Source: &cdiv1.DataVolumeSource{Upload: &cdiv1.DataVolumeSourceUpload{}},
 				PVC:    &v1.PersistentVolumeClaimSpec{},
 			},
+			Status: cdiv1.DataVolumeStatus{Phase: phase},
 		}
 		return dv
 	}
@@ -718,19 +718,33 @@ var _ = Describe("ImageUpload", func() {
 			Expect(err.Error()).Should(ContainSubstring("doesn't have archive contentType annotation"))
 		})
 
-		It("DV in phase WaitForFirstConsumer", func() {
+		DescribeTable("when DV in phase", func(phase cdiv1.DataVolumePhase, forcebind bool) {
 			testInitAsyncWithCdiObjects(
 				http.StatusOK,
 				true,
 				[]runtime.Object{pvcSpecWithUploadAnnotation()},
-				[]runtime.Object{dvSpecWithWaitForFirstConsumer()},
+				[]runtime.Object{dvSpecWithPhase(phase)},
 			)
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
-			err := cmd()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("cannot upload to DataVolume in WaitForFirstConsumer state"))
-		})
+			if forcebind {
+				cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+					"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--force-bind")
+				go addDvPhase()
+				Expect(cmd()).To(Succeed())
+				Expect(pvcCreateCalled.IsTrue()).To(BeFalse())
+				Expect(dvCreateCalled.IsTrue()).To(BeFalse())
+			} else {
+				cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+					"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+				err := cmd()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("cannot upload to DataVolume in %s phase", phase)))
+			}
+		},
+			Entry("WaitForFirstConsumer should fail without force-bind flag", cdiv1.WaitForFirstConsumer, false),
+			Entry("WaitForFirstConsumer should succeed with force-bind flag", cdiv1.WaitForFirstConsumer, true),
+			Entry("PendingPopulation should fail without force-bind flag", cdiv1.PendingPopulation, false),
+			Entry("PendingPopulation should succeed with force-bind flag", cdiv1.WaitForFirstConsumer, true),
+		)
 
 		It("uploadProxyURL not configured", func() {
 			testInit(http.StatusOK)
