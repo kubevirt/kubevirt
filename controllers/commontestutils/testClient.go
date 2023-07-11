@@ -2,13 +2,11 @@ package commontestutils
 
 import (
 	"context"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -54,11 +52,10 @@ func (c *HcoTestClient) Create(ctx context.Context, obj client.Object, opts ...c
 		}
 	}
 
-	for _, opt := range opts {
-		if do, ok := opt.(*client.CreateOptions); ok && len(do.DryRun) == 1 && do.DryRun[0] == metav1.DryRunAll {
-			return nil
-		}
+	if err := checkDeadline(ctx); err != nil {
+		return err
 	}
+
 	return c.client.Create(ctx, obj, opts...)
 }
 
@@ -69,10 +66,8 @@ func (c *HcoTestClient) Delete(ctx context.Context, obj client.Object, opts ...c
 		}
 	}
 
-	for _, opt := range opts {
-		if do, ok := opt.(*client.DeleteOptions); ok && len(do.DryRun) == 1 && do.DryRun[0] == metav1.DryRunAll {
-			return nil
-		}
+	if err := checkDeadline(ctx); err != nil {
+		return err
 	}
 
 	return c.client.Delete(ctx, obj, opts...)
@@ -85,13 +80,19 @@ func (c *HcoTestClient) Update(ctx context.Context, obj client.Object, opts ...c
 		}
 	}
 
-	for _, opt := range opts {
-		if do, ok := opt.(*client.UpdateOptions); ok && len(do.DryRun) == 1 && do.DryRun[0] == metav1.DryRunAll {
-			return nil
-		}
+	if err := checkDeadline(ctx); err != nil {
+		return err
 	}
 
 	return c.client.Update(ctx, obj, opts...)
+}
+
+func checkDeadline(ctx context.Context) error {
+	if timeout, ok := ctx.Deadline(); ok && timeout.Before(time.Now()) {
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	return nil
 }
 
 func (c *HcoTestClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {

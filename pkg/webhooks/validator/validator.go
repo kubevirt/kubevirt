@@ -7,18 +7,18 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
 	"github.com/go-logr/logr"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	"github.com/samber/lo"
+	xsync "golang.org/x/sync/errgroup"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
@@ -28,10 +28,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
-	"github.com/samber/lo"
-
-	"k8s.io/utils/strings/slices"
 )
 
 const (
@@ -182,7 +178,7 @@ func (wh *WebhookHandler) getOperands(requested *v1beta1.HyperConverged) (*kubev
 
 // ValidateUpdate is the ValidateUpdate webhook implementation. It calls all the resources in parallel, to dry-run the
 // upgrade.
-func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) ValidateUpdate(ctx context.Context, dryrun bool, requested *v1beta1.HyperConverged, exists *v1beta1.HyperConverged) error {
 	wh.logger.Info("Validating update", "name", requested.Name)
 
 	if err := wh.validateDataImportCronTemplates(requested); err != nil {
@@ -197,9 +193,6 @@ func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, request
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), updateDryRunTimeOut)
-	defer cancel()
-
 	// If no change is detected in the spec nor the annotations - nothing to validate
 	if reflect.DeepEqual(exists.Spec, requested.Spec) &&
 		reflect.DeepEqual(exists.Annotations, requested.Annotations) {
@@ -211,10 +204,10 @@ func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, request
 		return err
 	}
 
-	wg := sync.WaitGroup{}
-	errorCh := make(chan error)
-	done := make(chan bool)
+	toCtx, cancel := context.WithTimeout(ctx, updateDryRunTimeOut)
+	defer cancel()
 
+	eg, egCtx := xsync.WithContext(toCtx)
 	opts := &client.UpdateOptions{DryRun: []string{metav1.DryRunAll}}
 
 	resources := []client.Object{
@@ -231,40 +224,24 @@ func (wh *WebhookHandler) ValidateUpdate(_ context.Context, dryrun bool, request
 		resources = append(resources, ssp)
 	}
 
-	wg.Add(len(resources))
-
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
 	for _, obj := range resources {
-		go func(o client.Object, wgr *sync.WaitGroup) {
-			defer wgr.Done()
-			if err := wh.updateOperatorCr(ctx, requested, o, opts); err != nil {
-				errorCh <- err
-			}
-		}(obj, &wg)
+		func(o client.Object) {
+			eg.Go(func() error {
+				return wh.updateOperatorCr(egCtx, requested, o, opts)
+			})
+		}(obj)
 	}
 
-	select {
-	case err := <-errorCh:
+	err = eg.Wait()
+	if err != nil {
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-done:
-		// just in case close(done) was selected while there is an error,
-		// check the error channel again.
-		if len(errorCh) != 0 {
-			err := <-errorCh
-			return err
-		}
-
-		if !dryrun {
-			hcoTLSConfigCache = requested.Spec.TLSSecurityProfile
-		}
-		return nil
 	}
+
+	if !dryrun {
+		hcoTLSConfigCache = requested.Spec.TLSSecurityProfile
+	}
+
+	return nil
 }
 
 func (wh *WebhookHandler) updateOperatorCr(ctx context.Context, hc *v1beta1.HyperConverged, exists client.Object, opts *client.UpdateOptions) error {

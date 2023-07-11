@@ -24,6 +24,7 @@ require (
 	github.com/prometheus/client_model v0.4.0
 	github.com/samber/lo v1.38.1
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/sync v0.3.0
 	golang.org/x/tools v0.11.0
 	gomodules.xyz/jsonpatch/v2 v2.3.0
 	k8s.io/api v0.27.3

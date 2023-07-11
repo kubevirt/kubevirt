@@ -3,10 +3,10 @@ package operands
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	log "github.com/go-logr/logr"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -182,10 +182,6 @@ func (h *OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 	tCtx, cancel := context.WithTimeout(req.Ctx, deleteTimeOut)
 	defer cancel()
 
-	wg := sync.WaitGroup{}
-	errorCh := make(chan error)
-	done := make(chan bool)
-
 	resources := []client.Object{
 		NewKubeVirtWithNameOnly(req.Instance),
 		NewCDIWithNameOnly(req.Instance),
@@ -196,54 +192,37 @@ func (h *OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 
 	resources = append(resources, h.objects...)
 
-	wg.Add(len(resources))
-
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	eg, egCtx := errgroup.WithContext(tCtx)
 
 	for _, res := range resources {
-		go func(o client.Object, wgr *sync.WaitGroup) {
-			defer wgr.Done()
-			deleted, err := hcoutil.EnsureDeleted(tCtx, h.client, o, req.Instance.Name, req.Logger, false, true, true)
-			if err != nil {
-				req.Logger.Error(err, "Failed to manually delete objects")
-				errT := ErrHCOUninstall
-				errMsg := uninstallHCOErrorMsg
-				switch o.(type) {
-				case *kubevirtcorev1.KubeVirt:
-					errT = ErrVirtUninstall
-					errMsg = uninstallVirtErrorMsg + err.Error()
-				case *cdiv1beta1.CDI:
-					errT = ErrCDIUninstall
-					errMsg = uninstallCDIErrorMsg + err.Error()
+		func(o client.Object) {
+			eg.Go(func() error {
+				deleted, err := hcoutil.EnsureDeleted(egCtx, h.client, o, req.Instance.Name, req.Logger, false, true, true)
+				if err != nil {
+					req.Logger.Error(err, "Failed to manually delete objects")
+					errT := ErrHCOUninstall
+					errMsg := uninstallHCOErrorMsg
+					switch o.(type) {
+					case *kubevirtcorev1.KubeVirt:
+						errT = ErrVirtUninstall
+						errMsg = uninstallVirtErrorMsg + err.Error()
+					case *cdiv1beta1.CDI:
+						errT = ErrCDIUninstall
+						errMsg = uninstallCDIErrorMsg + err.Error()
+					}
+
+					h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, errT, errMsg)
+					return err
+				} else if deleted {
+					key := client.ObjectKeyFromObject(o)
+					h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", o.GetObjectKind().GroupVersionKind().Kind, key.Name))
 				}
-
-				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeWarning, errT, errMsg)
-				errorCh <- err
-			} else if deleted {
-				key := client.ObjectKeyFromObject(o)
-				h.eventEmitter.EmitEvent(req.Instance, corev1.EventTypeNormal, "Killing", fmt.Sprintf("Removed %s %s", o.GetObjectKind().GroupVersionKind().Kind, key.Name))
-			}
-		}(res, &wg)
+				return nil
+			})
+		}(res)
 	}
 
-	select {
-	case err := <-errorCh:
-		return err
-	case <-tCtx.Done():
-		return tCtx.Err()
-	case <-done:
-		// just in case close(done) was selected while there is an error,
-		// check the error channel again.
-		if len(errorCh) != 0 {
-			err := <-errorCh
-			return err
-		}
-
-		return nil
-	}
+	return eg.Wait()
 }
 
 func (h *OperandHandler) Reset() {
