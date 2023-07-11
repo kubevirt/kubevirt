@@ -674,6 +674,11 @@ func (in *OperandResourceRequirements) DeepCopyInto(out *OperandResourceRequirem
 		*out = new(apicorev1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.VmiCPUAllocationRatio != nil {
+		in, out := &in.VmiCPUAllocationRatio, &out.VmiCPUAllocationRatio
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 

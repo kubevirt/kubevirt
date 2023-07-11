@@ -462,7 +462,42 @@ spec:
   scratchSpaceStorageClass: aStorageClassName
 ```
 
-## Storage Resource Configurations
+## Resource Requests
+
+### VMI PODs CPU Allocation Ratio
+
+KubeVirt runs Virtual Machines in a Kubernetes Pod.
+This pod requests a certain amount of CPU time from the host.
+On the other hand, the Virtual Machine is being created with a certain amount of vCPUs.
+The number of vCPUs may not necessarily correlate to the number of requested CPUs by the POD.
+Depending on the QOS of the POD, vCPUs can be scheduled on a variable amount of physical CPUs; this depends on the available CPU resources on a node.
+When there are fewer available CPUs on the node as the requested vCPU, vCPU will be over committed.
+By default, each pod requests 100mil of CPU time. The CPU requested on the pod sets the cgroups cpu.shares which serves as a priority for the scheduler to provide CPU time for vCPUs in this POD.
+As the number of vCPUs increases, this will reduce the amount of CPU time each vCPU may get when competing with other processes on the node or other Virtual Machine Instances with a lower amount of vCPUs.
+The vmiCPUAllocationRatio comes to normalize the amount of CPU time the POD will request based on the number of vCPUs.
+POD CPU request = number of vCPUs * 1/cpuAllocationRatio
+For example, a value of 1 means 1 physical CPU thread per VMI CPU thread.
+A value of 100 would be 1% of a physical thread allocated for each requested VMI thread.
+The default value is 10.
+This option has no effect on VMIs that request dedicated CPUs.
+
+**Note**: In Kubernetes, one full core is 1000 of CPU time More Information
+
+Administrators can change this ratio by updating the HCO CR.
+
+#### VMI PODs CPU request example
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  resourceRequirements:
+    vmiCPUAllocationRatio: 16
+```
+
+### Storage Resource Configurations
 
 The administrator can limit storage workloads resources and to require minimal resources. Use the `resourceRequirements`
 field under the HyperConverged `spec` filed. Add the `storageWorkloads` field under the `resourceRequirements`. The
@@ -470,7 +505,7 @@ content of the `storageWorkloads` field is
 the [standard kubernetes resource configuration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#resourcerequirements-v1-core)
 .
 
-### Storage Resource Configurations Example
+#### Storage Resource Configurations Example
 
 ```yaml
 apiVersion: hco.kubevirt.io/v1beta1

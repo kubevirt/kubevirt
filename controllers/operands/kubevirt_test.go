@@ -2839,6 +2839,109 @@ Version: 1.2.3`)
 			)
 		})
 
+		Context("VmiCPUAllocationRatio", func() {
+			It("should add CPUAllocationRatio if missing in KV CR", func() {
+				expectedCPUAllocationRatio := 16
+
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					VmiCPUAllocationRatio: &expectedCPUAllocationRatio,
+				}
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio).To(Equal(expectedCPUAllocationRatio))
+			})
+
+			It("should remove CPUAllocationRatio if missing in HCO CR", func() {
+				initialCPUAllocationRatio := 16
+
+				hcoResourceRequirements := commontestutils.NewHco()
+				hcoResourceRequirements.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					VmiCPUAllocationRatio: &initialCPUAllocationRatio,
+				}
+
+				existingResource, err := NewKubeVirt(hcoResourceRequirements)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(existingResource.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio).To(Equal(initialCPUAllocationRatio))
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio).To(Equal(0))
+			})
+
+			It("should modify CPUAllocationRatio according to HCO CR", func() {
+				initialCPUAllocationRatio := 16
+				expectedCPUAllocationRatio := 25
+				hcoResourceRequirements := commontestutils.NewHco()
+
+				hcoResourceRequirements.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					VmiCPUAllocationRatio: &initialCPUAllocationRatio,
+				}
+
+				existingResource, err := NewKubeVirt(hcoResourceRequirements)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					VmiCPUAllocationRatio: &expectedCPUAllocationRatio,
+				}
+
+				Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(existingResource.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio).To(Equal(initialCPUAllocationRatio))
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Overwritten).To(BeFalse())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
+				Expect(foundResource.Spec.Configuration.DeveloperConfiguration.CPUAllocationRatio).To(Equal(expectedCPUAllocationRatio))
+			})
+
+		})
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())

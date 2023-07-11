@@ -634,6 +634,9 @@ func getKVDevConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.DeveloperCon
 	if lv := hc.Spec.LogVerbosityConfig; lv != nil && lv.Kubevirt != nil {
 		devConf.LogVerbosity = lv.Kubevirt.DeepCopy()
 	}
+	if hc.Spec.ResourceRequirements != nil && hc.Spec.ResourceRequirements.VmiCPUAllocationRatio != nil {
+		devConf.CPUAllocationRatio = *hc.Spec.ResourceRequirements.VmiCPUAllocationRatio
+	}
 
 	return devConf, nil
 }

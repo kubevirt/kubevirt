@@ -112,6 +112,12 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 			panic(err)
 		}
 	}
+	if in.Spec.ResourceRequirements != nil {
+		if in.Spec.ResourceRequirements.VmiCPUAllocationRatio == nil {
+			var ptrVar1 int = 10
+			in.Spec.ResourceRequirements.VmiCPUAllocationRatio = &ptrVar1
+		}
+	}
 	if in.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods == nil {
 		if err := json.Unmarshal([]byte(`["LiveMigrate"]`), &in.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods); err != nil {
 			panic(err)

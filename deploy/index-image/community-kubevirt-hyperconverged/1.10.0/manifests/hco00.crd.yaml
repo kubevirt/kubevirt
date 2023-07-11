@@ -64,6 +64,8 @@ spec:
                 parallelMigrationsPerCluster: 5
                 parallelOutboundMigrationsPerNode: 2
                 progressTimeout: 150
+              resourceRequirements:
+                vmiCPUAllocationRatio: 10
               uninstallStrategy: BlockUninstallIfWorkloadsExist
               virtualMachineOptions:
                 disableFreePageReporting: true
@@ -2344,6 +2346,8 @@ spec:
                     x-kubernetes-list-type: map
                 type: object
               resourceRequirements:
+                default:
+                  vmiCPUAllocationRatio: 10
                 description: ResourceRequirements describes the resource requirements
                   for the operand workloads.
                 properties:
@@ -2397,6 +2401,19 @@ spec:
                           Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
+                  vmiCPUAllocationRatio:
+                    default: 10
+                    description: VmiCPUAllocationRatio defines, for each requested
+                      virtual CPU, how much physical CPU to request per VMI from the
+                      hosting node. The value is in fraction of a CPU thread (or core
+                      on non-hyperthreaded nodes). VMI POD CPU request = number of
+                      vCPUs * 1/vmiCPUAllocationRatio For example, a value of 1 means
+                      1 physical CPU thread per VMI CPU thread. A value of 100 would
+                      be 1% of a physical thread allocated for each requested VMI
+                      thread. This option has no effect on VMIs that request dedicated
+                      CPUs. Defaults to 10
+                    minimum: 1
+                    type: integer
                 type: object
               scratchSpaceStorageClass:
                 description: 'Override the storage class used for scratch space during

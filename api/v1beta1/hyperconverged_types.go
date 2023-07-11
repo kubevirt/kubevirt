@@ -90,6 +90,7 @@ type HyperConvergedSpec struct {
 	CertConfig HyperConvergedCertConfig `json:"certConfig,omitempty"`
 
 	// ResourceRequirements describes the resource requirements for the operand workloads.
+	// +kubebuilder:default={"vmiCPUAllocationRatio": 10}
 	// +optional
 	ResourceRequirements *OperandResourceRequirements `json:"resourceRequirements,omitempty"`
 
@@ -480,6 +481,22 @@ type OperandResourceRequirements struct {
 	// resource
 	// +optional
 	StorageWorkloads *corev1.ResourceRequirements `json:"storageWorkloads,omitempty"`
+
+	// VmiCPUAllocationRatio defines, for each requested virtual CPU,
+	// how much physical CPU to request per VMI from the
+	// hosting node. The value is in fraction of a CPU thread (or
+	// core on non-hyperthreaded nodes).
+	// VMI POD CPU request = number of vCPUs * 1/vmiCPUAllocationRatio
+	// For example, a value of 1 means 1 physical CPU thread per VMI CPU thread.
+	// A value of 100 would be 1% of a physical thread allocated for each
+	// requested VMI thread.
+	// This option has no effect on VMIs that request dedicated CPUs.
+	// Defaults to 10
+	// +kubebuilder:default=10
+	// +kubebuilder:validation:Minimum=1
+	// +default=10
+	// +optional
+	VmiCPUAllocationRatio *int `json:"vmiCPUAllocationRatio,omitempty"`
 }
 
 // HyperConvergedObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models
@@ -661,7 +678,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "virtualMachineOptions": {"disableFreePageReporting": true}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "virtualMachineOptions": {"disableFreePageReporting": true}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

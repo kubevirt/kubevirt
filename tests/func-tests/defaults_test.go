@@ -151,6 +151,30 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		)
 	})
 
+	Context("resourceRequirements defaults", func() {
+		defaultResourceRequirements := v1beta1.OperandResourceRequirements{
+			VmiCPUAllocationRatio: pointer.Int(10),
+		}
+
+		DescribeTable("Check that resourceRequirements defaults are behaving as expected", func(path string) {
+			restoreDefaults(cli)
+
+			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
+			Eventually(func() error {
+				return tests.PatchHCO(ctx, cli, patch)
+			}).WithTimeout(20 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				hc := tests.GetHCO(ctx, cli)
+				g.Expect(reflect.DeepEqual(hc.Spec.ResourceRequirements, &defaultResourceRequirements)).Should(BeTrue(), "resourceRequirements should be equal to default")
+			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
+		},
+			Entry("when removing /spec/resourceRequirements/vmiCPUAllocationRatio", "/spec/resourceRequirements/vmiCPUAllocationRatio"),
+			Entry("when removing /spec/resourceRequirements", "/spec/resourceRequirements"),
+			Entry("when removing /spec", "/spec"),
+		)
+	})
+
 	Context("workloadUpdateStrategy defaults", func() {
 		defaultWorkloadUpdateStrategy := v1beta1.HyperConvergedWorkloadUpdateStrategy{
 			BatchEvictionInterval: &metav1.Duration{Duration: time.Minute},
