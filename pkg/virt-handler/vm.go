@@ -111,6 +111,12 @@ type netstat interface {
 	CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData)
 }
 
+type downwardMetricsManager interface {
+	Run(stopCh chan struct{})
+	StartServer(vmi *v1.VirtualMachineInstance, pid int) error
+	StopServer(vmi *v1.VirtualMachineInstance)
+}
+
 const (
 	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
@@ -190,6 +196,7 @@ func NewController(
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
+	downwardMetricsManager downwardMetricsManager,
 	capabilities *nodelabellerapi.Capabilities,
 	hostCpuModel string,
 ) (*VirtualMachineController, error) {
@@ -263,6 +270,8 @@ func NewController(
 	c.netConf = netsetup.NewNetConf()
 	c.netStat = netsetup.NewNetStat()
 
+	c.downwardMetricsManager = downwardMetricsManager
+
 	c.domainNotifyPipes = make(map[string]string)
 
 	permissions := "rw"
@@ -311,6 +320,7 @@ type VirtualMachineController struct {
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
+	downwardMetricsManager   downwardMetricsManager
 
 	netConf netconf
 	netStat netstat
@@ -1515,6 +1525,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	go c.deviceManagerController.Run(stopCh)
 
+	go c.downwardMetricsManager.Run(stopCh)
+
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
 	// Queue keys for previous Domains on the host that no longer exist
@@ -2048,6 +2060,8 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.migrationProxy.StopTargetListener(vmiId)
 	d.migrationProxy.StopSourceListener(vmiId)
+
+	d.downwardMetricsManager.StopServer(vmi)
 
 	// Unmount container disks and clean up remaining files
 	if err := d.containerDiskMounter.Unmount(vmi); err != nil {
@@ -2978,6 +2992,15 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		if err := d.getMemoryDump(vmi); err != nil {
+			return err
+		}
+
+		isolationRes, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return fmt.Errorf(failedDetectIsolationFmt, err)
+		}
+
+		if err := d.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
 			return err
 		}
 

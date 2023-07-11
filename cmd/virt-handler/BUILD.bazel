@@ -26,6 +26,7 @@ go_library(
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/dmetrics-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
         "//pkg/virt-handler/node-labeller:go_default_library",
