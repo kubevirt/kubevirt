@@ -131,7 +131,7 @@ HCO_SUBSCRIPTION=$(${CMD} get subscription -n ${HCO_NAMESPACE} -o name -l operat
 OLD_INSTALL_PLAN=$(${CMD} -n "${HCO_NAMESPACE}" get "${HCO_SUBSCRIPTION}" -o jsonpath='{.status.installplan.name}')
 
 Msg "Perform the upgrade, using operator-sdk"
-operator-sdk run bundle-upgrade -n "${HCO_NAMESPACE}" --verbose --timeout=15m "${OO_NEXT_BUNDLE}"
+operator-sdk run bundle-upgrade -n "${HCO_NAMESPACE}" --verbose --timeout=15m "${OO_NEXT_BUNDLE}" --security-context-config=restricted
 
 Msg "Wait up to 5 minutes for the new installPlan to appear, and approve it to begin upgrade"
 INSTALL_PLAN_APPROVED=false
