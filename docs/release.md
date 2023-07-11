@@ -60,14 +60,14 @@ The primary reasons for defining compatible Kubernetes releases are:
 - CI resources are finite. And people to maintain it as well.
 - Limit the maintenance burden
 - Setting the right expectations with end-users
-- Define when a KubeVirt release is ending it's regular support
+- Define when a KubeVirt release is ending its regular support
 
 The Kubernetes release corresponding to a KubeVirt release is defined in the release metadata of a KubeVirt release maintained by [SIG Release](https://github.com/kubevirt/sig-release/).
 
 ## Platform Support Skew
 
-While there are good reasons for defining a target Kubernetes release there are usually also needs to support more than one Kubernetes version.
-While the KubeVirt Community can not provide this support, patches to support other releases will also not be rejected as long as they are provided in a reasonable manner (scope and time wise).
+Although we target a specific Kubernetes release, we recognize that there are reasons to support more than one Kubernetes version.
+While the KubeVirt Community can not provide this support, patches to support other releases will be considered as long as they are provided in a reasonable manner (scope and time wise).
 
 
 # Schedule
@@ -186,7 +186,7 @@ gitGraph
 Today a KubeVirt release consists of two phases:
 
 1. _Stabilization phase_ - The timeframe from the stable branch cut all the way towards - and ending with - a new KubeVirt release
-2. _Maintenance phase_ - The timeframe start with a new KubeVirt release and ending with the release#s End-Of-Life
+2. _Maintenance phase_ - The timeframe starts with a new KubeVirt release and ends with the release's [End-Of-Life](#end-of-life-eol)
 
 ## Stabilization phase
 
@@ -220,7 +220,7 @@ The introduction of a new provider has the following phases:
 4. Periodic and presubmit lanes get introduced for the sigs `compute`, `network`, `storage` and `operator`, where
    1. while the periodics deliver a signal for how KubeVirt and the provider are interacting, the presubmits initially are to be triggered manually, so that teams can work on fixing bugs in either the provider or the KubeVirt code
    2. at the point when the periodics look stable enough, the presubmits are turned on to run on every PR
-   3. if the signal is looking stable enough, they are made voting
+   3. if the signal is looking stable enough, they are made voting (will gate a PR)
 
 ### Holidays
 
@@ -254,10 +254,10 @@ During the maintenance phase contributors can backport fixes to a stable branch 
 
 ### Patch releases
 
-During the maintenance phase KubeVirt will provide patch releases on a irregular basis. 
+During the maintenance phase, KubeVirt will provide patch releases on an irregular basis. 
 
 ### End-Of-Life (EOL)
 
-A KubeVirt release will reach it's end of life (EOL) once the Kubernetes support period ends.
+A KubeVirt release will reach its end of life (EOL) once the Kubernetes support period ends.
 
 The EOL of a KubeVirt release is currently not enforced. Fixes can be backported as long as maintainers are willing to approve them.

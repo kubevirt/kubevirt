@@ -5,10 +5,10 @@ Refer to [release.md](release.md) in order to learn about the high-level release
 
 # Creating Releases
 
-The actual releases are all cut using the kubevirt release-tool. This tool
+The actual releases are all cut using the kubevirt release tool. This tool
 automates the entire process of creating branches, signing tags, generating
-prow configs, and more. All you need to do is gather a few credentials
-in order to use the tool.
+prow configs, and more. To use the release tool, you need to prepare your
+credentials.
 
 ## Release Tool Credentials
 
@@ -18,9 +18,11 @@ You must have 2 items before you can create a release.
 
 [Instructions for adding GPG key to your github account](https://docs.github.com/en/authentication/managing-commit-signature-verification/adding-a-gpg-key-to-your-github-account)
 
-After adding the GPG key to github, export both the key and passphrase to files.
-Be aware that this results in the key and passphrase being placed into a plain
-text file on your machine. Make sure you don't place this in shared storage.
+After adding the GPG key to Gitub, export both the key and the passphrase to 
+separate files.
+Be aware that this results in both the key and passphrase being placed into
+plain text files on your machine. Make sure you don't place this in shared
+storage.
 
 **Example of exporting key to file**
 
@@ -98,7 +100,7 @@ The release process is mostly automatic and consists of the following steps:
    and uncheck the "This is a pre-release" box. This will make the release
    official
 
-6. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com> using
+6. Send a friendly announcement email to <kubevirt-dev@googlegroups.com> using
    the release notes already present on the release's description in github.
 
 ## Creating New Patch Releases
@@ -120,12 +122,12 @@ The release itself is only a git signed tag as it's used for minor releases as w
    and uncheck the "This is a pre-release" box. This will make the release
    official
 
-4. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com> using
+4. Send a friendly announcement email to <kubevirt-dev@googlegroups.com> using
    the release notes already present on the release's description in github.
 
 # Merging to Release Branches
 
-For every release a branch will be created following the pattern `release-x.y`.
+For every release, a branch will be created following the pattern `release-x.y`.
 For now, community members can propose pull requests to be included into a
 stable branch.
 Those pull requests should be limited to bug fixes and must not be
