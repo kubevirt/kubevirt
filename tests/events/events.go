@@ -84,7 +84,7 @@ func expectEvent(object k8sObject, eventType, reason string, matcher types.Gomeg
 		)
 		ExpectWithOffset(3, err).ToNot(HaveOccurred())
 		return events.Items
-	}, 30*time.Second).Should(matcher, fmt.Sprintf("Used fieldselector %s", fieldSelector))
+	}, 30*time.Second, time.Second).Should(matcher, fmt.Sprintf("Used fieldselector %s", fieldSelector))
 }
 
 // constructFieldSelectorAndNamespace does best effort to overcome https://github.com/kubernetes/client-go/issues/861

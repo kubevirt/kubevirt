@@ -2952,6 +2952,8 @@ spec:
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically("==", 0))
 
+			// Wait for at least one operator to be ready in order to observe an event
+			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically(">", 0))
 			events.ExpectEvent(config, k8sv1.EventTypeWarning, "ObsoleteConfigMapExists")
 		})
 	})
