@@ -19,6 +19,8 @@
 package watch
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -213,6 +215,97 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			[]v1.VirtualMachineInterfaceRequest{},
 		),
 	)
+
+	Context("hotplug operation", func() {
+		const vmName = "vm1"
+
+		var (
+			pod *k8sv1.Pod
+			vmi *v1.VirtualMachineInstance
+		)
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI(vmName)
+			pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			Expect(pod.Annotations).NotTo(HaveKey(networkv1.NetworkAttachmentAnnot))
+		})
+
+		DescribeTable("the pods network annotation must be updated", func(networks []v1.Network, patchData string) {
+			actualPatchData, err := calculatePatchDataForMultusAnnotation(
+				vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, networks, pod,
+			)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(actualPatchData)).To(MatchJSON(patchData))
+		},
+			Entry("hotplug a single interface",
+				[]v1.Network{newNetwork("iface1", "net1")},
+				`[
+						{ "op": "add", "path": "/metadata/annotations/k8s.v1.cni.cncf.io~1networks", "value":
+							"[{\"interface\":\"pod7e0055a6880\",\"name\":\"net1\",\"namespace\":\"default\"}]"
+						}
+					]`,
+			),
+			Entry("hotplug multiple interfaces",
+				[]v1.Network{
+					newNetwork("iface1", "net1"),
+					newNetwork("iface2", "net1"),
+				},
+				`[
+						{ "op": "add", "path": "/metadata/annotations/k8s.v1.cni.cncf.io~1networks", "value":
+							"[{\"interface\":\"pod7e0055a6880\",\"name\":\"net1\",\"namespace\":\"default\"},{\"interface\":\"pod48802102d24\",\"name\":\"net1\",\"namespace\":\"default\"}]"
+						}
+					]`,
+			),
+		)
+		DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
+			func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
+
+				podCurrentNetworks, err := json.Marshal(testPodNetworkStatus)
+				Expect(err).NotTo(HaveOccurred())
+
+				pod.Annotations[networkv1.NetworkStatusAnnot] = string(podCurrentNetworks)
+
+				networks := []v1.Network{
+					newNetwork("red", "red-net"),
+					newNetwork("blue", "blue-net"),
+				}
+				actualPatchData, err := calculatePatchDataForMultusAnnotation(
+					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, networks, pod,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				pod, err = patchPod(pod, actualPatchData)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(pod.Annotations).To(HaveKey(networkv1.NetworkAttachmentAnnot))
+				Expect(pod.Annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
+			},
+			Entry("when Multus network-status annotation interfaces has ordinal names",
+				[]networkv1.NetworkStatus{
+					{
+						Interface: "net1", Name: "red-net",
+					},
+				},
+				// expected Multus network annotation
+				`[
+							{"interface":"net1", "name":"red-net", "namespace": "default"},
+							{"interface":"net2", "name":"blue-net", "namespace": "default"}
+					]`,
+			),
+			Entry("when Multus network-status annotation interfaces has hashed names",
+				[]networkv1.NetworkStatus{
+					{
+						Interface: "podb1f51a511f1", Name: "red-net",
+					},
+				},
+				// expected Multus network annotation
+				`[
+							{"interface":"podb1f51a511f1", "name":"red-net", "namespace": "default"},
+							{"interface":"pod16477688c0e", "name":"blue-net", "namespace": "default"}
+					]`,
+			),
+		)
+	})
 })
 
 func withInterfaceStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) libvmi.Option {
