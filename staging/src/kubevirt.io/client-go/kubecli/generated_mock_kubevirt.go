@@ -255,6 +255,16 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineClusterPreference() *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineClusterPreference")
 }
 
+func (_m *MockKubevirtClient) ControllerRevisionUpgrade(namespace string) v1beta116.ControllerRevisionUpgradeInterface {
+	ret := _m.ctrl.Call(_m, "ControllerRevisionUpgrade", namespace)
+	ret0, _ := ret[0].(v1beta116.ControllerRevisionUpgradeInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) ControllerRevisionUpgrade(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ControllerRevisionUpgrade", arg0)
+}
+
 func (_m *MockKubevirtClient) MigrationPolicy() v1alpha111.MigrationPolicyInterface {
 	ret := _m.ctrl.Call(_m, "MigrationPolicy")
 	ret0, _ := ret[0].(v1alpha111.MigrationPolicyInterface)

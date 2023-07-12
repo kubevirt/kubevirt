@@ -475,9 +475,21 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					instancetype.ClusterPluralResourceName,
 					instancetype.PluralPreferenceResourceName,
 					instancetype.ClusterPluralPreferenceResourceName,
+					instancetype.PluralControllerRevisionUpgradeResourceName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"instancetype.kubevirt.io",
+				},
+				Resources: []string{
+					instancetype.PluralControllerRevisionUpgradeResourceName + "/status",
+				},
+				Verbs: []string{
+					"update",
 				},
 			},
 			{

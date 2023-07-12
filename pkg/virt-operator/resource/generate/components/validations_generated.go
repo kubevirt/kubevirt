@@ -1,6 +1,67 @@
 package components
 
 var CRDsValidation map[string]string = map[string]string{
+	"controllerrevisionupgrade": `openAPIV3Schema:
+  description: ControllerRevisionUpgrade encapsulates a specific upgrade of a stashed
+    ControllerRevision instance type object to the latest available version
+  properties:
+    apiVersion:
+      description: 'APIVersion defines the versioned schema of this representation
+        of an object. Servers should convert recognized schemas to the latest internal
+        value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+      type: string
+    kind:
+      description: 'Kind is a string value representing the REST resource this object
+        represents. Servers may infer this from the endpoint the client submits requests
+        to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+      type: string
+    metadata:
+      type: object
+    spec:
+      properties:
+        targetName:
+          description: Name of the ControllerRevision to migrate
+          type: string
+      required:
+      - targetName
+      type: object
+    status:
+      properties:
+        conditions:
+          description: Conditions of the upgrade
+          items:
+            properties:
+              message:
+                type: string
+              reason:
+                type: string
+              status:
+                type: string
+              type:
+                type: string
+            required:
+            - status
+            - type
+            type: object
+          type: array
+        phase:
+          description: Phase of the upgrade
+          type: string
+        result:
+          description: Result of the upgrade
+          properties:
+            name:
+              description: Name of the newly upgraded ControllerRevision
+              type: string
+            version:
+              description: Version of the newly upgraded stashed object
+              type: string
+          type: object
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"datavolumetemplatespec": `openAPIV3Schema:
   nullable: true
   properties:

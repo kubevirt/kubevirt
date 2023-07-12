@@ -20,6 +20,7 @@
 package v1beta1
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -563,4 +564,70 @@ type MemoryPreferenceRequirement struct {
 
 	// Minimal amount of memory required by the preference.
 	Guest resource.Quantity `json:"guest"`
+}
+
+type ControllerRevisionUpgradePhase string
+
+const (
+	UpgradeRunning   ControllerRevisionUpgradePhase = "Running"
+	UpgradeSucceeded ControllerRevisionUpgradePhase = "Succeeded"
+	UpgradeFailed    ControllerRevisionUpgradePhase = "Failed"
+)
+
+// ControllerRevisionUpgrade encapsulates a specific upgrade of a stashed ControllerRevision instance type object to the latest available version
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +genclient
+type ControllerRevisionUpgrade struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   ControllerRevisionUpgradeSpec   `json:"spec"`
+	Status ControllerRevisionUpgradeStatus `json:"status,omitempty"`
+}
+
+type ControllerRevisionUpgradeSpec struct {
+	// Name of the ControllerRevision to migrate
+	TargetName string `json:"targetName"`
+}
+
+type ControllerRevisionUpgradeResult struct {
+	// Name of the newly upgraded ControllerRevision
+	Name string `json:"name,omitempty"`
+
+	// Version of the newly upgraded stashed object
+	Version string `json:"version,omitempty"`
+}
+
+type ControllerRevisionUpgradeStatus struct {
+	// Phase of the upgrade
+	Phase ControllerRevisionUpgradePhase `json:"phase,omitempty"`
+
+	// Conditions of the upgrade
+	Conditions []ControllerRevisionUpgradeCondition `json:"conditions,omitempty"`
+
+	// Result of the upgrade
+	Result *ControllerRevisionUpgradeResult `json:"result,omitempty"`
+}
+
+type ControllerRevisionUpgradeCondition struct {
+	Type    ControllerRevisionUpgradeConditionType `json:"type"`
+	Status  k8sv1.ConditionStatus                  `json:"status"`
+	Reason  string                                 `json:"reason,omitempty"`
+	Message string                                 `json:"message,omitempty"`
+}
+
+type ControllerRevisionUpgradeConditionType string
+
+const (
+	ControllerRevisionUpgradeFailure ControllerRevisionUpgradeConditionType = "UpgradeFailure"
+)
+
+// ControllerRevisionUpgradeList is a list of ControllerRevisionUpgrade resources.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ControllerRevisionUpgradeList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ControllerRevisionUpgrade `json:"items"`
 }

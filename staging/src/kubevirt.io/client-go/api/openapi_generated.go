@@ -591,6 +591,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1beta1.CPUPreferenceRequirement":                              schema_kubevirtio_api_instancetype_v1beta1_CPUPreferenceRequirement(ref),
 		"kubevirt.io/api/instancetype/v1beta1.CPUPreferences":                                        schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ClockPreferences":                                      schema_kubevirtio_api_instancetype_v1beta1_ClockPreferences(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgrade":                             schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgrade(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeCondition":                    schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeCondition(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeList":                         schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeList(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeResult":                       schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeResult(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeSpec":                         schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeSpec(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeStatus":                       schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeStatus(ref),
 		"kubevirt.io/api/instancetype/v1beta1.DevicePreferences":                                     schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.FeaturePreferences":                                    schema_kubevirtio_api_instancetype_v1beta1_FeaturePreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.FirmwarePreferences":                                   schema_kubevirtio_api_instancetype_v1beta1_FirmwarePreferences(ref),
@@ -27769,6 +27775,230 @@ func schema_kubevirtio_api_instancetype_v1beta1_ClockPreferences(ref common.Refe
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.ClockOffset", "kubevirt.io/api/core/v1.Timer"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgrade(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ControllerRevisionUpgrade encapsulates a specific upgrade of a stashed ControllerRevision instance type object to the latest available version",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeSpec", "kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeStatus"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ControllerRevisionUpgradeList is a list of ControllerRevisionUpgrade resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgrade"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgrade"},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the newly upgraded ControllerRevision",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version of the newly upgraded stashed object",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"targetName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the ControllerRevision to migrate",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"targetName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the upgrade",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions of the upgrade",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeCondition"),
+									},
+								},
+							},
+						},
+					},
+					"result": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Result of the upgrade",
+							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeResult"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeCondition", "kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeResult"},
 	}
 }
 

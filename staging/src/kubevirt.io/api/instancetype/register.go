@@ -37,6 +37,9 @@ const (
 
 	ClusterSingularPreferenceResourceName = "virtualmachineclusterpreference"
 	ClusterPluralPreferenceResourceName   = ClusterSingularPreferenceResourceName + "s"
+
+	SingularControllerRevisionUpgradeResourceName = "controllerrevisionupgrade"
+	PluralControllerRevisionUpgradeResourceName   = SingularControllerRevisionUpgradeResourceName + "s"
 )
 
 const (

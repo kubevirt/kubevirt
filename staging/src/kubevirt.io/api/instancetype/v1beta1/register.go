@@ -58,6 +58,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachinePreferenceList{},
 		&VirtualMachineClusterPreference{},
 		&VirtualMachineClusterPreferenceList{},
+		&ControllerRevisionUpgrade{},
+		&ControllerRevisionUpgradeList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
