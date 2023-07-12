@@ -59,7 +59,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 		ifaceType := GetInterfaceType(&nonAbsentIfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType),
+				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
@@ -87,7 +87,8 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else {
+			} else if !isS390X(vmi.Spec.Architecture) {
+				// s390x does not support setting ROM tuning, as it is for PCI Devices only
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		}
@@ -174,9 +175,9 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	return nameservers, searchDomains, err
 }
 
-func translateModel(useVirtioTransitional *bool, bus string) string {
+func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
 	if bus == v1.VirtIO {
-		return InterpretTransitionalModelType(useVirtioTransitional)
+		return InterpretTransitionalModelType(useVirtioTransitional, archString)
 	}
 	return bus
 }

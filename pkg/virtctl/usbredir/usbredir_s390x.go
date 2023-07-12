@@ -1,3 +1,5 @@
+//go:build s390x
+
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,24 +16,14 @@
  *
  */
 
-package converter
+package usbredir
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"fmt"
+
+	"github.com/spf13/cobra"
 )
 
-var _ = Describe("Arch Converter", func() {
-
-	DescribeTable("Should create a new archConverter for the correct architecture", func(arch string, result archConverter) {
-		ac := newArchConverter(arch)
-
-		Expect(ac).To(Equal(result))
-	},
-		Entry("amd64", "amd64", archConverterAMD64{}),
-		Entry("arm64", "arm64", archConverterARM64{}),
-		Entry("ppc64le", "ppc64le", archConverterPPC64{}),
-		Entry("s390x", "s390x", archConverterS390X{}),
-		Entry("unkown", "unknown", archConverterAMD64{}),
-	)
-})
+func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) error {
+	return fmt.Errorf("there is no usb support on s390x, this command is disabled")
+}

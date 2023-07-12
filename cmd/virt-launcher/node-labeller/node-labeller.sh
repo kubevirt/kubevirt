@@ -6,6 +6,8 @@ ARCH=$(uname -m)
 MACHINE=q35
 if [ "$ARCH" == "aarch64" ]; then
   MACHINE=virt
+elif [ "$ARCH" == "s390x" ]; then
+  MACHINE=s390-ccw-virtio
 elif [ "$ARCH" != "x86_64" ]; then
   exit 0
 fi

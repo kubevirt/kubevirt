@@ -24,13 +24,11 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterARM64{})
+var _ = archConverter(&archConverterS390X{})
 
-type archConverterARM64 struct{}
+type archConverterS390X struct{}
 
-func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
-	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
-	// tablet and keyboard devices are necessary for control the VM via vnc connection
+func (archConverterS390X) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -39,28 +37,17 @@ func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 			},
 		},
 	}
+}
 
-	if !hasTabletDevice(vmi) {
-		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-			api.Input{
-				Bus:  "usb",
-				Type: "tablet",
-			},
-		)
+func (archConverterS390X) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+	return api.Controller{
+		Type:   "scsi",
+		Index:  "0",
+		Model:  "virtio-scsi",
+		Driver: driver,
 	}
-
-	domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-		api.Input{
-			Bus:  "usb",
-			Type: "keyboard",
-		},
-	)
 }
 
-func (archConverterARM64) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(c, driver)
-}
-
-func (archConverterARM64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
-	return true
+func (archConverterS390X) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
+	return false
 }
