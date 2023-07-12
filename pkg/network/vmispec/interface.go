@@ -128,30 +128,3 @@ func LookupInterfaceByName(ifaces []v1.Interface, name string) *v1.Interface {
 	}
 	return nil
 }
-
-// InterfacesNames returns slice with the names of the given interfaces.
-func InterfacesNames(interfaces []v1.Interface) []string {
-	var ifaceNames []string
-	for _, iface := range interfaces {
-		ifaceNames = append(ifaceNames, iface.Name)
-	}
-	return ifaceNames
-}
-
-// FilterStatusInterfacesByNames returns filtered slice of interfaces by the given slice of names.
-// Matching by the interface 'Name' attribute.
-func FilterStatusInterfacesByNames(interfaces []v1.VirtualMachineInstanceNetworkInterface, names []string) []v1.VirtualMachineInstanceNetworkInterface {
-	lookupNameSet := map[string]struct{}{}
-	for _, name := range names {
-		lookupNameSet[name] = struct{}{}
-	}
-
-	var filtered []v1.VirtualMachineInstanceNetworkInterface
-	for _, iface := range interfaces {
-		if _, exists := lookupNameSet[iface.Name]; exists {
-			filtered = append(filtered, iface)
-		}
-	}
-
-	return filtered
-}
