@@ -76,6 +76,7 @@ type KubevirtClient interface {
 	VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface
 	VirtualMachinePreference(namespace string) instancetypev1beta1.VirtualMachinePreferenceInterface
 	VirtualMachineClusterPreference() instancetypev1beta1.VirtualMachineClusterPreferenceInterface
+	ControllerRevisionUpgrade(namespace string) instancetypev1beta1.ControllerRevisionUpgradeInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ExpandSpec(namespace string) ExpandSpecInterface
 	ServerVersion() ServerVersionInterface
@@ -192,6 +193,10 @@ func (k kubevirt) VirtualMachinePreference(namespace string) instancetypev1beta1
 
 func (k kubevirt) VirtualMachineClusterPreference() instancetypev1beta1.VirtualMachineClusterPreferenceInterface {
 	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()
+}
+
+func (k kubevirt) ControllerRevisionUpgrade(namespace string) instancetypev1beta1.ControllerRevisionUpgradeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1beta1().ControllerRevisionUpgrades(namespace)
 }
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {

@@ -28,6 +28,10 @@ type FakeInstancetypeV1beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakeInstancetypeV1beta1) ControllerRevisionUpgrades(namespace string) v1beta1.ControllerRevisionUpgradeInterface {
+	return &FakeControllerRevisionUpgrades{c, namespace}
+}
+
 func (c *FakeInstancetypeV1beta1) VirtualMachineClusterInstancetypes() v1beta1.VirtualMachineClusterInstancetypeInterface {
 	return &FakeVirtualMachineClusterInstancetypes{c}
 }

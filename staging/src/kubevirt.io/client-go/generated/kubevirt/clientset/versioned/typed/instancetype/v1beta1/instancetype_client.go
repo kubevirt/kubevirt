@@ -26,6 +26,7 @@ import (
 
 type InstancetypeV1beta1Interface interface {
 	RESTClient() rest.Interface
+	ControllerRevisionUpgradesGetter
 	VirtualMachineClusterInstancetypesGetter
 	VirtualMachineClusterPreferencesGetter
 	VirtualMachineInstancetypesGetter
@@ -35,6 +36,10 @@ type InstancetypeV1beta1Interface interface {
 // InstancetypeV1beta1Client is used to interact with features provided by the instancetype.kubevirt.io group.
 type InstancetypeV1beta1Client struct {
 	restClient rest.Interface
+}
+
+func (c *InstancetypeV1beta1Client) ControllerRevisionUpgrades(namespace string) ControllerRevisionUpgradeInterface {
+	return newControllerRevisionUpgrades(c, namespace)
 }
 
 func (c *InstancetypeV1beta1Client) VirtualMachineClusterInstancetypes() VirtualMachineClusterInstancetypeInterface {

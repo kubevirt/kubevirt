@@ -206,3 +206,37 @@ func (MemoryPreferenceRequirement) SwaggerDoc() map[string]string {
 		"guest": "Minimal amount of memory required by the preference.",
 	}
 }
+
+func (ControllerRevisionUpgrade) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "ControllerRevisionUpgrade encapsulates a specific upgrade of a stashed ControllerRevision instance type object to the latest available version\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient",
+		"status": "+nullable",
+	}
+}
+
+func (ControllerRevisionUpgradeSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"targetName": "Name of the ControllerRevision to migrate",
+	}
+}
+
+func (ControllerRevisionUpgradeResult) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":    "Name of the newly upgraded ControllerRevision",
+		"version": "Version of the newly upgraded stashed object",
+	}
+}
+
+func (ControllerRevisionUpgradeStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"phase":  "Phase of the upgrade",
+		"result": "Result of the upgrade",
+	}
+}
+
+func (ControllerRevisionUpgradeList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "ControllerRevisionUpgradeList is a list of ControllerRevisionUpgrade resources.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "+listType=set",
+	}
+}
