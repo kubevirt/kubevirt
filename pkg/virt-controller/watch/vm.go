@@ -111,6 +111,7 @@ const (
 	FailedCreateReason                 = "FailedCreate"
 	VMIFailedDeleteReason              = "FailedDelete"
 	HotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
+	AffinityChangeErrorReason          = "AffinityChangeError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -661,6 +662,114 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return err
 	}
 
+	return nil
+}
+
+func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	var ops []string
+
+	if vm.Spec.Template.Spec.NodeSelector != nil {
+		vmNodeSelector := make(map[string]string)
+		// copy the node selector map
+		for k, v := range vm.Spec.Template.Spec.NodeSelector {
+			vmNodeSelector[k] = v
+		}
+		vmNodeSelectorJson, err := json.Marshal(vmNodeSelector)
+		if err != nil {
+			return err
+		}
+		if vmi.Spec.NodeSelector == nil {
+			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/spec/nodeSelector", "value": %s }`, string(vmNodeSelectorJson)))
+		} else {
+			currentVMINodeSelector, err := json.Marshal(vmi.Spec.NodeSelector)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/spec/nodeSelector", "value": %s }`, string(currentVMINodeSelector)))
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec/nodeSelector", "value": %s }`, string(vmNodeSelectorJson)))
+		}
+
+	} else {
+		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/nodeSelector" }`))
+	}
+	generatedPatch := controller.GeneratePatchBytes(ops)
+
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, &v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	var ops []string
+
+	if vm.Spec.Template.Spec.Affinity != nil {
+		vmAffinity := vm.Spec.Template.Spec.Affinity.DeepCopy()
+		vmAffinityJson, err := json.Marshal(vmAffinity)
+		if err != nil {
+			return err
+		}
+		if vmi.Spec.Affinity == nil {
+			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/spec/affinity", "value": %s }`, string(vmAffinityJson)))
+		} else {
+			currentVMIAffinity, err := json.Marshal(vmi.Spec.Affinity)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "test", "path": "/spec/affinity", "value": %s }`, string(currentVMIAffinity)))
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec/affinity", "value": %s }`, string(vmAffinityJson)))
+		}
+
+	} else {
+		ops = append(ops, fmt.Sprintf(`{ "op": "remove", "path": "/spec/affinity" }`))
+	}
+
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (c *VMController) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		return nil
+	}
+
+	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.Affinity == nil {
+		return nil
+	}
+
+	hasNodeSelectorChanged := false
+	if !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector) {
+		hasNodeSelectorChanged = true
+	}
+
+	hasNodeAffinityChanged := false
+	if !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.Affinity, vmi.Spec.Affinity) {
+		hasNodeAffinityChanged = true
+	}
+
+	if migrations.IsMigrating(vmi) && (hasNodeSelectorChanged || hasNodeAffinityChanged) {
+		return fmt.Errorf("Node affinity should not be changed during VMI migration")
+	}
+
+	if hasNodeAffinityChanged {
+		if err := c.VMIAffinityPatch(vm, vmi); err != nil {
+			log.Log.Object(vmi).Errorf("unable to patch vmi to update node affinity: %v", err)
+			return err
+		}
+	}
+
+	if hasNodeSelectorChanged {
+		if err := c.VMNodeSelectorPatch(vm, vmi); err != nil {
+			log.Log.Object(vmi).Errorf("unable to patch vmi to update node selector: %v", err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -2689,6 +2798,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
 		}
 
+		err = c.handleAffinityChangeRequest(vmCopy, vmi)
+		if err != nil {
+			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
+		}
+
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
 				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
@@ -2825,7 +2939,7 @@ func (c *VMController) setupLiveFeatures(
 		vmi.Spec.Domain.CPU = &virtv1.CPU{}
 	}
 
-	if vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
+	if vm.Spec.LiveUpdateFeatures.CPU != nil && vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
 		vmi.Spec.Domain.CPU.MaxSockets = *vm.Spec.LiveUpdateFeatures.CPU.MaxSockets
 	}
 
