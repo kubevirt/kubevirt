@@ -678,6 +678,7 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 		if err != nil {
 			return err
 		}
+
 		if vmi.Spec.NodeSelector == nil {
 			ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/spec/nodeSelector", "value": %s }`, string(vmNodeSelectorJson)))
 		} else {
@@ -695,10 +696,6 @@ func (c *VMController) VMNodeSelectorPatch(vm *virtv1.VirtualMachine, vmi *virtv
 	generatedPatch := controller.GeneratePatchBytes(ops)
 
 	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, &v1.PatchOptions{})
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 
@@ -727,10 +724,6 @@ func (c *VMController) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(ops), &v1.PatchOptions{})
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 
@@ -743,15 +736,8 @@ func (c *VMController) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vm
 		return nil
 	}
 
-	hasNodeSelectorChanged := false
-	if !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector) {
-		hasNodeSelectorChanged = true
-	}
-
-	hasNodeAffinityChanged := false
-	if !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.Affinity, vmi.Spec.Affinity) {
-		hasNodeAffinityChanged = true
-	}
+	hasNodeSelectorChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.NodeSelector, vmi.Spec.NodeSelector)
+	hasNodeAffinityChanged := !equality.Semantic.DeepEqual(vm.Spec.Template.Spec.Affinity, vmi.Spec.Affinity)
 
 	if migrations.IsMigrating(vmi) && (hasNodeSelectorChanged || hasNodeAffinityChanged) {
 		return fmt.Errorf("Node affinity should not be changed during VMI migration")
@@ -2798,8 +2784,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling CPU change request: %v", err), HotPlugCPUErrorReason}
 		}
 
-		err = c.handleAffinityChangeRequest(vmCopy, vmi)
-		if err != nil {
+		if err := c.handleAffinityChangeRequest(vmCopy, vmi); err != nil {
 			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
 		}
 
