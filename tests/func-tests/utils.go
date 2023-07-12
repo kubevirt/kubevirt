@@ -165,6 +165,7 @@ func UpdateHCO(ctx context.Context, client kubecli.KubevirtClient, input *v1beta
 	hco.ObjectMeta.Annotations = input.ObjectMeta.Annotations
 	hco.ObjectMeta.Finalizers = input.ObjectMeta.Finalizers
 	hco.ObjectMeta.Labels = input.ObjectMeta.Labels
+	hco.Status = v1beta1.HyperConvergedStatus{} // to silence warning about unknown fields.
 
 	object, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&hco)
 	if err != nil {
