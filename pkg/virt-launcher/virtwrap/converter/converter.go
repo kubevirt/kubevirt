@@ -153,6 +153,10 @@ func isARM64(arch string) bool {
 	return arch == "arm64"
 }
 
+func isS390X(arch string) bool {
+	return arch == "s390x"
+}
+
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
 	// Ensure we assign this disk to the correct scsi controller
 	if disk.Address == nil {
@@ -185,7 +189,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
+			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -854,7 +858,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
+	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -942,7 +946,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
+	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
 
 	// default backend model, random
 	rng.Backend = &api.RngBackend{
@@ -1178,7 +1182,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional)
+		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1205,6 +1209,10 @@ func isUSBNeeded(c *ConverterContext, vmi *v1.VirtualMachineInstance) bool {
 	//In ppc64le usb devices like mouse / keyboard are set by default,
 	//so we can't disable the controller otherwise we run into the following error:
 	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
+	if isS390X(c.Architecture) {
+		return false
+	}
+
 	if !isAMD64(c.Architecture) {
 		return true
 	}
@@ -1380,6 +1388,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
+	var scsiController api.Controller
 
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
@@ -1771,11 +1780,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if needsSCSIController(vmi) {
-		scsiController := api.Controller{
-			Type:   "scsi",
-			Index:  "0",
-			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional),
-			Driver: controllerDriver,
+		if isS390X(c.Architecture) {
+			scsiController = api.Controller{
+				Type:   "scsi",
+				Index:  "0",
+				Model:  "virtio-scsi",
+				Driver: controllerDriver,
+			}
+		} else {
+			scsiController = api.Controller{
+				Type:   "scsi",
+				Index:  "0",
+				Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
+				Driver: controllerDriver,
+			}
 		}
 		if useIOThreads {
 			if scsiController.Driver == nil {
@@ -1862,7 +1880,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional),
+			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
 			Driver: controllerDriver,
 		})
 
@@ -1931,6 +1949,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 					Type: "keyboard",
 				},
 			)
+		} else if isS390X(c.Architecture) {
+			domain.Spec.Devices.Video = []api.Video{
+				{
+					Model: api.VideoModel{
+						Type:  v1.VirtIO,
+						Heads: &heads,
+					},
+				},
+			}
 		} else {
 			// For AMD64 + EFI, use bochs. For BIOS, use VGA
 			if c.BochsForEFIGuests && util.IsEFIVMI(vmi) {
@@ -2168,7 +2195,11 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 	return gracePeriodSeconds
 }
 
-func InterpretTransitionalModelType(useVirtioTransitional *bool) string {
+func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
+	// s390x uses ccw instead of pci
+	if isS390X(archString) {
+		return "virtio"
+	}
 	if useVirtioTransitional != nil && *useVirtioTransitional {
 		return "virtio-transitional"
 	}

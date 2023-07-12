@@ -16,17 +16,15 @@ type Defaulter struct {
 }
 
 func (d *Defaulter) IsPPC64() bool {
-	if d.Architecture == "ppc64le" {
-		return true
-	}
-	return false
+	return d.Architecture == "ppc64le"
 }
 
 func (d *Defaulter) IsARM64() bool {
-	if d.Architecture == "arm64" {
-		return true
-	}
-	return false
+	return d.Architecture == "arm64"
+}
+
+func (d *Defaulter) IsS390X() bool {
+	return d.Architecture == "s390x"
 }
 
 func (d *Defaulter) SetDefaults_Devices(devices *Devices) {
@@ -41,6 +39,8 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 			ostype.Arch = "ppc64le"
 		} else if d.IsARM64() {
 			ostype.Arch = "aarch64"
+		} else if d.IsS390X() {
+			ostype.Arch = "s390x"
 		} else {
 			ostype.Arch = "x86_64"
 		}
@@ -53,6 +53,8 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 			ostype.Machine = "pseries"
 		} else if d.IsARM64() {
 			ostype.Machine = "virt"
+		} else if d.IsS390X() {
+			ostype.Machine = "s390-ccw-virtio"
 		} else {
 			ostype.Machine = "q35"
 		}

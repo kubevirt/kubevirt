@@ -1294,6 +1294,10 @@ var _ = Describe("Manager", func() {
 		})
 
 		It("should return a VirtualMachineInstance launch measurement", func() {
+			if runtime.GOARCH == "s390x" {
+				Skip("Test is specific to amd64 architecture")
+			}
+
 			domainLaunchSecurityParameters := &libvirt.DomainLaunchSecurityParameters{
 				SEVMeasurementSet: true,
 				SEVMeasurement:    "AAABBBCCC",
