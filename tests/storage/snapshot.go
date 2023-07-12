@@ -246,7 +246,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			Expect(*snapshot.Status.SourceUID).To(Equal(vm.UID))
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-			if *vm.Spec.Running {
+			if vm.Spec.Running != nil && *vm.Spec.Running {
 				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, false)
@@ -271,6 +271,16 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*vm.Spec.Running).Should(BeTrue())
+
+			createAndVerifyVMSnapshot(vm)
+		})
+
+		It("should create a snapshot when VM runStrategy is Manual", func() {
+			patch := []byte("[{ \"op\": \"remove\", \"path\": \"/spec/running\"}, { \"op\": \"add\", \"path\": \"/spec/runStrategy\", \"value\": \"Manual\"}]")
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, &metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
+			Expect(*vm.Spec.RunStrategy).Should(Equal(v1.RunStrategyManual))
 
 			createAndVerifyVMSnapshot(vm)
 		})

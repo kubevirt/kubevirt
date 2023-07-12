@@ -1026,7 +1026,7 @@ func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
 		return false, err
 	}
 
-	return rs != kubevirtv1.RunStrategyHalted, nil
+	return rs == kubevirtv1.RunStrategyAlways || rs == kubevirtv1.RunStrategyRerunOnFailure, nil
 }
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
