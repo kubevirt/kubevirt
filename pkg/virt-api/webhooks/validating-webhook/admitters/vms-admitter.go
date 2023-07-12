@@ -39,6 +39,7 @@ import (
 	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 
@@ -113,7 +114,7 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
 	vmCopy := vm.DeepCopy()
-	causes := admitter.applyInstancetypeToVm(vmCopy)
+	instancetypeSpec, preferenceSpec, causes := admitter.applyInstancetypeToVm(vmCopy)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -121,6 +122,17 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	// Set VirtualMachine defaults on the copy before validating
 	if err = webhooks.SetDefaultVirtualMachine(admitter.ClusterConfig, vmCopy); err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	// With the defaults now set we can check that the VM meets the requirements of any provided preference
+	if preferenceSpec != nil {
+		if path, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("failure checking preference requirements: %v", err),
+				Field:   path.String(),
+			}})
+		}
 	}
 
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)
@@ -201,10 +213,10 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []metav1.StatusCause {
+func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
 	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
-		return []metav1.StatusCause{{
+		return nil, nil, []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
 			Message: fmt.Sprintf("Failure to find instancetype: %v", err),
 			Field:   k8sfield.NewPath("spec", "instancetype").String(),
@@ -213,7 +225,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []meta
 
 	preferenceSpec, err := admitter.InstancetypeMethods.FindPreferenceSpec(vm)
 	if err != nil {
-		return []metav1.StatusCause{{
+		return nil, nil, []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotFound,
 			Message: fmt.Sprintf("Failure to find preference: %v", err),
 			Field:   k8sfield.NewPath("spec", "preference").String(),
@@ -221,21 +233,13 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []meta
 	}
 
 	if instancetypeSpec == nil && preferenceSpec == nil {
-		return nil
-	}
-
-	if path, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec); err != nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("failure checking preference requirements: %v", err),
-			Field:   path.String(),
-		}}
+		return nil, nil, nil
 	}
 
 	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
 
 	if len(conflicts) == 0 {
-		return nil
+		return instancetypeSpec, preferenceSpec, nil
 	}
 
 	causes := make([]metav1.StatusCause, 0, len(conflicts))
@@ -246,7 +250,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) []meta
 			Field:   conflict.String(),
 		})
 	}
-	return causes
+	return nil, nil, causes
 }
 
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
