@@ -772,6 +772,33 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 	return crd, nil
 }
 
+func NewControllerRevisionUpgradeCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+	crd.Name = instancetype.PluralControllerRevisionUpgradeResourceName + "." + instancetypev1beta1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: instancetypev1beta1.SchemeGroupVersion.Group,
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:   instancetype.PluralControllerRevisionUpgradeResourceName,
+			Singular: instancetype.SingularControllerRevisionUpgradeResourceName,
+			Kind:     "ControllerRevisionUpgrade",
+		},
+		Scope: extv1.NamespaceScoped,
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
+		Versions: []extv1.CustomResourceDefinitionVersion{{
+			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
+			Served:  true,
+			Storage: true,
+		}},
+	}
+
+	if err := patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
 func NewMigrationPolicyCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 

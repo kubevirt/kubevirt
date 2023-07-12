@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
+        "fake_controllerrevisionupgrade.go",
         "fake_instancetype_client.go",
         "fake_virtualmachineclusterinstancetype.go",
         "fake_virtualmachineclusterpreference.go",

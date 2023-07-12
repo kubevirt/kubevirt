@@ -685,10 +685,19 @@ spec:
           - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
+          - controllerrevisionupgrade
+          - controllerrevisionupgrades
           verbs:
           - get
           - list
           - watch
+        - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - controllerrevisionupgrades
+          - controllerrevisionupgrades/status
+          verbs:
+          - update
         - apiGroups:
           - migrations.kubevirt.io
           resources:
@@ -974,6 +983,8 @@ spec:
           - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
+          - controllerrevisionupgrade
+          - controllerrevisionupgrades
           verbs:
           - get
           - delete
@@ -1118,6 +1129,8 @@ spec:
           - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
+          - controllerrevisionupgrade
+          - controllerrevisionupgrades
           verbs:
           - get
           - delete
@@ -1215,6 +1228,8 @@ spec:
           - virtualmachineclusterinstancetypes
           - virtualmachinepreferences
           - virtualmachineclusterpreferences
+          - controllerrevisionupgrade
+          - controllerrevisionupgrades
           verbs:
           - get
           - list

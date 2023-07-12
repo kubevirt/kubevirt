@@ -18,6 +18,8 @@ limitations under the License.
 
 package v1beta1
 
+type ControllerRevisionUpgradeExpansion interface{}
+
 type VirtualMachineClusterInstancetypeExpansion interface{}
 
 type VirtualMachineClusterPreferenceExpansion interface{}

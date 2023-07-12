@@ -277,6 +277,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					instancetype.ClusterPluralResourceName,
 					instancetype.PluralPreferenceResourceName,
 					instancetype.ClusterPluralPreferenceResourceName,
+					instancetype.SingularControllerRevisionUpgradeResourceName,
+					instancetype.PluralControllerRevisionUpgradeResourceName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
@@ -459,6 +461,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					instancetype.ClusterPluralResourceName,
 					instancetype.PluralPreferenceResourceName,
 					instancetype.ClusterPluralPreferenceResourceName,
+					instancetype.SingularControllerRevisionUpgradeResourceName,
+					instancetype.PluralControllerRevisionUpgradeResourceName,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -601,6 +605,8 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					instancetype.ClusterPluralResourceName,
 					instancetype.PluralPreferenceResourceName,
 					instancetype.ClusterPluralPreferenceResourceName,
+					instancetype.SingularControllerRevisionUpgradeResourceName,
+					instancetype.PluralControllerRevisionUpgradeResourceName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",
