@@ -427,9 +427,6 @@ func (app *VirtOperatorApp) Run() {
 					leaderGauge.Set(1)
 					log.Log.Infof("Started leading")
 
-					log.Log.V(5).Info("start monitoring the kubevirt-config configMap")
-					app.kubeVirtController.checkIfConfigMapStillExists(log.Log, stop)
-
 					// run app
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},

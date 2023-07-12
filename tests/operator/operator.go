@@ -80,7 +80,6 @@ import (
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -2917,42 +2916,6 @@ spec:
 			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
 			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
 			patchKvCertConfigExpectError(kv.Name, certConfig)
-		})
-	})
-
-	Context("Obsolete ConfigMap", func() {
-		ctx := context.Background()
-		virtOpLabelSelector := metav1.ListOptions{
-			LabelSelector: "kubevirt.io=virt-operator",
-		}
-
-		AfterEach(func() {
-			// cleanup the obsolete configMap
-			_ = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Delete(ctx, "kubevirt-config", metav1.DeleteOptions{})
-
-			// make sure virt-operators are up before leaving
-			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically(">", 0))
-		})
-
-		It("[QUARANTINE] should emit event if the obsolete kubevirt-config configMap still exists", func() {
-			cm := &k8sv1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt-config",
-					Namespace: flags.KubeVirtInstallNamespace,
-				},
-				Data: map[string]string{
-					"test": "data",
-				},
-			}
-
-			config, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(ctx, cm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, virtOpLabelSelector)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisDeploymentWith(flags.KubeVirtInstallNamespace, components.VirtOperatorName), 180*time.Second, 1*time.Second).Should(HaveReadyReplicasNumerically("==", 0))
-
-			events.ExpectEvent(config, k8sv1.EventTypeWarning, "ObsoleteConfigMapExists")
 		})
 	})
 

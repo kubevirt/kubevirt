@@ -65,7 +65,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -2962,68 +2961,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			Entry("with export", true, 3),
 		)
 
-		Context("test checkIfConfigMapStillExists", func() {
-			It("should emit an event if the kubevirt-config configMap still exists", func() {
-				kvTestData := KubeVirtTestData{}
-				kvTestData.BeforeTest()
-				defer kvTestData.AfterTest()
-
-				cm := &k8sv1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      obsoleteCmName,
-						Namespace: NAMESPACE,
-					},
-				}
-
-				kvTestData.kubeClient.Fake.PrependReactor("get", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-					return true, cm, nil
-				})
-
-				Expect(kvTestData.recorder.Events).To(BeEmpty())
-				stopChan := make(chan struct{})
-				defer close(stopChan)
-				kvTestData.controller.checkIfConfigMapStillExists(log.Log, stopChan)
-
-				event := <-kvTestData.recorder.Events
-				Expect(event).Should(ContainSubstring(obsoleteCMReason))
-				Expect(event).Should(ContainSubstring("the kubevirt-config configMap is still deployed. KubeVirt does not support this configMap and it can be safely removed"))
-			})
-
-			It("should not emit an event if the kubevirt-config configMap does not exist", func() {
-
-				kvTestData := KubeVirtTestData{}
-				kvTestData.BeforeTest()
-				defer kvTestData.AfterTest()
-
-				kvTestData.kubeClient.Fake.PrependReactor("get", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-					return true, nil, errors.NewNotFound(schema.GroupResource{}, NAMESPACE+"/"+obsoleteCmName)
-				})
-
-				stopChan := make(chan struct{})
-				defer close(stopChan)
-				kvTestData.controller.checkIfConfigMapStillExists(log.Log, stopChan)
-
-				time.Sleep(time.Millisecond * 10)
-				Expect(kvTestData.recorder.Events).To(BeEmpty())
-			})
-
-			It("should do nothing if failed to read the CM (not NotFound)", func() {
-				kvTestData := KubeVirtTestData{}
-				kvTestData.BeforeTest()
-				defer kvTestData.AfterTest()
-
-				kvTestData.kubeClient.Fake.PrependReactor("get", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-					return true, nil, fmt.Errorf("fake error")
-				})
-
-				stopChan := make(chan struct{})
-				defer close(stopChan)
-				kvTestData.controller.checkIfConfigMapStillExists(log.Log, stopChan)
-
-				time.Sleep(time.Millisecond * 10)
-				Expect(kvTestData.recorder.Events).To(BeEmpty())
-			})
-		})
 	})
 
 	Context("when the monitor namespace does not exist", func() {
