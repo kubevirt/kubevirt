@@ -158,6 +158,38 @@ sourced from the delta of PRs merged since the last official release. The text
 from those PRs are sourced directly from the `release-notes` section in
 each PRs description.
 
+# Using GitHub labels for Release Notes
+
+We use GitHub labels to filter release notes, first using a 'kind/' label and
+second using a 'sig/' label where applicable.
+In some cases, 'kubevirt-bot' applies one or more of these labels automatically,
+however they might need to be manually applied by either the author or a reviewer of the PR.
+
+Add a label by including the ```/kind``` and ```/sig``` commands in the ```release-note-labels``` part of the PR description template. For example: ```/kind enhancement /sig security /sig compute```
+
+If a PR matches more than one 'kind/' or 'sig/' label, add all that apply. The release note will be included in whichever takes the greater priority.
+
+As per the PR template, if the PR requires additional action from users switching to the new release, include the string "action required" in the release note. The PR will be flagged accordingly.
+
+## The 'kind/' Labels Used for Release Notes
+
+* ```kind/enhancement```: The PR adds (or mostly adds if it is one of several related PRs) a new feature or enhancement to KubeVirt.
+* ```kind/api-change```: The PR adds, removes, or otherwise changes an API.
+* ```kind/bug```: The PR fixes a bug.
+* ```kind/deprecation```: The PR deprecates a feature that will be removed in a subsequent release.
+
+## The 'sig/' Labels Used for Release Notes
+
+* ```sig/security```: The PR is relevant to SIG Security.
+* ```sig/compute```: The PR is relevant to SIG Compute.
+* ```sig/network```:  The PR is relevant to SIG Networking.
+* ```sig/storage```: The PR is relevant to SIG Storage.
+* ```sig/code-quality```: The PR is relevant to SIG Code Quality.
+
+## Viewing Release Notes
+
+Release notes are included in the git tag comment for the release, and copied to the [changelog of the KubeVirt website](https://kubevirt.io/tag/changelog).
+
 Below is an example of getting the release notes for v0.31.0-rc.0
 
     git show v0.31.0-rc.0
