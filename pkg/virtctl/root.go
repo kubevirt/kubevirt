@@ -52,8 +52,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 	cobra.AddTemplateFunc(
 		"prepare", func(s string) string {
 			// order matters!
-			result := strings.Replace(s, "kubectl", "kubectl virt", -1)
-			result = strings.Replace(result, "{{ProgramName}}", programName, -1)
+			result := strings.Replace(s, "{{ProgramName}}", programName, -1)
 			return result
 		},
 	)
