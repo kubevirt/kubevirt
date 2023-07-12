@@ -102,3 +102,6 @@ func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 func IsPPC64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Architecture == "ppc64le"
 }
+func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	return vmiSpec.Architecture == "s390x"
+}

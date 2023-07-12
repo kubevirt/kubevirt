@@ -23,6 +23,10 @@ func (d *Defaulter) IsARM64() bool {
 	return d.Architecture == "arm64"
 }
 
+func (d *Defaulter) IsS390X() bool {
+	return d.Architecture == "s390x"
+}
+
 func (d *Defaulter) SetDefaults_Devices(devices *Devices) {
 
 }
@@ -36,6 +40,8 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 			ostype.Arch = "ppc64le"
 		case d.IsARM64():
 			ostype.Arch = "aarch64"
+		case d.IsS390X():
+			ostype.Arch = "s390x"
 		default:
 			ostype.Arch = "x86_64"
 		}
@@ -49,6 +55,8 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 			ostype.Machine = "pseries"
 		case d.IsARM64():
 			ostype.Machine = "virt"
+		case d.IsS390X():
+			ostype.Machine = "s390-ccw-virtio"
 		default:
 			ostype.Machine = "q35"
 		}

@@ -209,6 +209,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
 		} else if webhooks.IsARM64(vmiSpec) {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
+		} else if webhooks.IsS390X(vmiSpec) {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
 		} else {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
 		}
@@ -220,6 +222,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("when architecture is amd64", "amd64", v1.DefaultCPUModel),
 		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough),
 		Entry("when architecture is ppc64le", "ppc64le", v1.DefaultCPUModel),
+		Entry("when architecture is s390x", "s390x", v1.DefaultCPUModel),
 		Entry("when architecture is not specified", "", v1.DefaultCPUModel))
 
 	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {

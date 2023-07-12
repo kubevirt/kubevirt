@@ -25,6 +25,7 @@ package virtconfig
 
 import (
 	"fmt"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
@@ -45,11 +46,13 @@ const (
 	DefaultAMD64MachineType                         = "q35"
 	DefaultPPC64LEMachineType                       = "pseries"
 	DefaultAARCH64MachineType                       = "virt"
+	DefaultS390XMachineType                         = "s390-ccw-virtio"
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryOvercommit                         = 100
 	DefaultAMD64EmulatedMachines                    = "q35*,pc-q35*"
 	DefaultPPC64LEEmulatedMachines                  = "pseries*"
 	DefaultAARCH64EmulatedMachines                  = "virt*"
+	DefaultS390XEmulatedMachines                    = "s390-ccw-virtio*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultMinimumReservePVCBytes                   = 131072
 	DefaultNodeSelectors                            = ""
@@ -101,6 +104,10 @@ func IsPPC64(arch string) bool {
 	return arch == "ppc64le"
 }
 
+func IsS390X(arch string) bool {
+	return arch == "s390x"
+}
+
 func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 	return *c.GetConfig().MemBalloonStatsPeriod
 }
@@ -133,6 +140,8 @@ func (c *ClusterConfig) GetMachineType(arch string) string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.MachineType
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.MachineType
+	case "s390x":
+		return DefaultS390XMachineType
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.MachineType
 	}
@@ -165,6 +174,8 @@ func (c *ClusterConfig) GetEmulatedMachines(arch string) []string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.EmulatedMachines
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.EmulatedMachines
+	case "s390x":
+		return strings.Split(DefaultS390XEmulatedMachines, ",")
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.EmulatedMachines
 	}
@@ -255,6 +266,8 @@ func (c *ClusterConfig) GetOVMFPath(arch string) string {
 		return c.GetConfig().ArchitectureConfiguration.Arm64.OVMFPath
 	case "ppc64le":
 		return c.GetConfig().ArchitectureConfiguration.Ppc64le.OVMFPath
+	case "s390x":
+		return ""
 	default:
 		return c.GetConfig().ArchitectureConfiguration.Amd64.OVMFPath
 	}

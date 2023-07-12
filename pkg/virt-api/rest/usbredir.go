@@ -30,6 +30,9 @@ func (app *SubresourceAPIApp) USBRedirRequestHandler(request *restful.Request, r
 }
 
 func validateVMIForUSBRedir(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+	if vmi.Spec.Architecture == "s390x" {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("No USB support on s390x"))
+	}
 	if vmi.Spec.Domain.Devices.ClientPassthrough == nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Not configured with USB Redirection"))
 	}

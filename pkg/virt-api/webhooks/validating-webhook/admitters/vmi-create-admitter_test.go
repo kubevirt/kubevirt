@@ -488,6 +488,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
 			} else if webhooks.IsARM64(&vmi.Spec) {
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
+			} else if webhooks.IsS390X(&vmi.Spec) {
+				vmi.Spec.Domain.Machine = &v1.Machine{Type: "s390-ccw-virtio"}
 			} else {
 				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
 			}
