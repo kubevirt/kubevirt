@@ -212,7 +212,7 @@ func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, doma
 	for i := 0; i < interfacePlaceholderCount; i++ {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(
 			domainSpecWithIfacesResource.Devices.Interfaces,
-			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional)),
+			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional, vmi.Spec.Architecture)),
 		)
 	}
 	return domainSpecWithIfacesResource

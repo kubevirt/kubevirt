@@ -16,17 +16,15 @@ type Defaulter struct {
 }
 
 func (d *Defaulter) IsPPC64() bool {
-	if d.Architecture == "ppc64le" {
-		return true
-	}
-	return false
+	return d.Architecture == "ppc64le"
 }
 
 func (d *Defaulter) IsARM64() bool {
-	if d.Architecture == "arm64" {
-		return true
-	}
-	return false
+	return d.Architecture == "arm64"
+}
+
+func (d *Defaulter) IsS390X() bool {
+	return d.Architecture == "s390x"
 }
 
 func (d *Defaulter) SetDefaults_Devices(devices *Devices) {
@@ -37,11 +35,14 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
 	if ostype.Arch == "" {
-		if d.IsPPC64() {
+		switch {
+		case d.IsPPC64():
 			ostype.Arch = "ppc64le"
-		} else if d.IsARM64() {
+		case d.IsARM64():
 			ostype.Arch = "aarch64"
-		} else {
+		case d.IsS390X():
+			ostype.Arch = "s390x"
+		default:
 			ostype.Arch = "x86_64"
 		}
 	}
@@ -49,11 +50,14 @@ func (d *Defaulter) SetDefaults_OSType(ostype *OSType) {
 	// q35 is an alias of the newest q35 machine type.
 	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
 	if ostype.Machine == "" {
-		if d.IsPPC64() {
+		switch {
+		case d.IsPPC64():
 			ostype.Machine = "pseries"
-		} else if d.IsARM64() {
+		case d.IsARM64():
 			ostype.Machine = "virt"
-		} else {
+		case d.IsS390X():
+			ostype.Machine = "s390-ccw-virtio"
+		default:
 			ostype.Machine = "q35"
 		}
 	}

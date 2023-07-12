@@ -6,6 +6,7 @@ go_library(
         "cpu_plugin.go",
         "kvm-caps-info-plugin_amd64.go",
         "kvm-caps-info-plugin_arm64.go",
+        "kvm-caps-info-plugin_s390x.go",
         "model.go",
         "node_labeller.go",
     ],
