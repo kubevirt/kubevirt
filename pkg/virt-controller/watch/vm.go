@@ -63,7 +63,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -2617,7 +2616,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if c.needsSync(key) && syncErr == nil {
 		vmCopy := vm.DeepCopy()
 		if c.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			if err = c.applyDynamicIfaceRequestOnVMI(vmCopy, vmi); err != nil {
+			if err = c.handleDynamicIfaceRequestOnVMI(vmCopy, vmi); err != nil {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply interface request on vmi: %v", err), HotPlugNetworkInterfaceErrorReason}
 			}
 		}
@@ -2651,7 +2650,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	return vm, syncErr, nil
 }
 
-func (c *VMController) applyDynamicIfaceRequestOnVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+func (c *VMController) handleDynamicIfaceRequestOnVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
@@ -2661,24 +2660,9 @@ func (c *VMController) applyDynamicIfaceRequestOnVMI(vm *virtv1.VirtualMachine, 
 		return err
 	}
 
-	vmiSpecCopy := vmi.Spec.DeepCopy()
-	vmiIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmiSpecCopy.Domain.Devices.Interfaces)
-	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
-	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
-		_, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
-		shouldBeHotPlug := !existsInVMISpec && vmIface.State != virtv1.InterfaceStateAbsent && vmIface.InterfaceBindingMethod.Bridge != nil
-		shouldBeHotUnplug := !hasOrdinalIfaces && existsInVMISpec && vmIface.State == virtv1.InterfaceStateAbsent
-		if shouldBeHotPlug {
-			vmiSpecCopy.Networks = append(vmiSpecCopy.Networks, vmIndexedNetworks[vmIface.Name])
-			vmiSpecCopy.Domain.Devices.Interfaces = append(vmiSpecCopy.Domain.Devices.Interfaces, vmIface)
-		}
-		if shouldBeHotUnplug {
-			vmiIface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, vmIface.Name)
-			vmiIface.State = virtv1.InterfaceStateAbsent
-		}
-	}
+	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmi, hasOrdinalIfaces)
 
-	return c.vmiInterfacesPatch(vmiSpecCopy, vmi)
+	return c.vmiInterfacesPatch(updatedVmiSpec, vmi)
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,

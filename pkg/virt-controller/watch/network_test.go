@@ -39,6 +39,8 @@ var _ = Describe("Network interface hot{un}plug", func() {
 
 		testNetworkName1 = "testnet1"
 		testNetworkName2 = "testnet2"
+
+		ordinal = true
 	)
 	DescribeTable("calculate if changes are required",
 
@@ -123,7 +125,112 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			expectToChange,
 		),
 	)
+	DescribeTable("apply dynamic interface request on VMI",
+		func(vmiForVM, currentVMI, expectedVMI *v1.VirtualMachineInstance, hasOrdinalIfaces bool) {
+			vm := VirtualMachineFromVMI(currentVMI.Name, vmiForVM, true)
+			updatedVMI := applyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
+			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
+			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
+		},
+		Entry("when the are no interfaces to hotplug/unplug",
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			false),
+		Entry("when an interface has to be hotplugged",
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			!ordinal),
+		Entry("when an interface has to be hotplugged but it has no bridge binding",
+			libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(),
+			libvmi.New(),
+			!ordinal),
+		Entry("when an interface has to be hotplugged but it is absent",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(),
+			libvmi.New(),
+			!ordinal),
+		Entry("when an interface has to be hotunplugged",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			!ordinal),
+		Entry("when an interface has to be hotunplugged but it has ordinal name",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			ordinal),
+		Entry("when one interface has to be plugged and other hotunplugged",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithInterface(bridgeInterface(testNetworkName2)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithInterface(bridgeInterface(testNetworkName2)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+			),
+			!ordinal),
+	)
 })
+
+func bridgeInterface(name string) v1.Interface {
+	return v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}
+}
+
+func bridgeAbsentInterface(name string) v1.Interface {
+	iface := bridgeInterface(name)
+	iface.State = v1.InterfaceStateAbsent
+	return iface
+}
 
 func withInterfaceStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
