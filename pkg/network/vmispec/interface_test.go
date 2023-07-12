@@ -94,15 +94,6 @@ var _ = Describe("VMI network spec", func() {
 
 	const iface1, iface2, iface3, iface4, iface5 = "iface1", "iface2", "iface3", "iface4", "iface5"
 
-	DescribeTable("return VMI spec interface names, given",
-		func(interfaces []v1.Interface, expectedNames []string) {
-			Expect(netvmispec.InterfacesNames(interfaces)).To(Equal(expectedNames))
-		},
-		Entry("no interfaces", nil, nil),
-		Entry("single interface", vmiSpecInterfaces(iface1), []string{iface1}),
-		Entry("more then one interface", vmiSpecInterfaces(iface1, iface2, iface3), []string{iface1, iface2, iface3}),
-	)
-
 	Context("pop interface by network", func() {
 		const netName = "net1"
 		network := podNetwork(netName)
@@ -134,24 +125,6 @@ var _ = Describe("VMI network spec", func() {
 			Entry("last", vmiStatusInterfaces(iface1, iface2, netName)),
 			Entry("mid", vmiStatusInterfaces(iface1, netName, iface2)),
 		)
-	})
-
-	It("filter status interfaces, given 0 interfaces and 0 names", func() {
-		Expect(netvmispec.FilterStatusInterfacesByNames(nil, nil)).To(BeEmpty())
-	})
-	It("filter status interfaces, given 0 interfaces and 3 names", func() {
-		names := []string{iface1, iface2, iface3}
-		Expect(netvmispec.FilterStatusInterfacesByNames(nil, names)).To(BeEmpty())
-	})
-	It("filter status interfaces, given 3 interfaces and 0 names", func() {
-		statusInterfaces := vmiStatusInterfaces(iface1, iface2, iface3)
-		Expect(netvmispec.FilterStatusInterfacesByNames(statusInterfaces, nil)).To(BeEmpty())
-	})
-	It("filter status interfaces, given 5 interfaces and 2 names", func() {
-		statusInterfaces := vmiStatusInterfaces(iface1, iface4, iface3, iface5, iface2)
-		names := []string{iface4, iface5}
-		expectedInterfaces := vmiStatusInterfaces(names...)
-		Expect(netvmispec.FilterStatusInterfacesByNames(statusInterfaces, names)).To(Equal(expectedInterfaces))
 	})
 })
 
