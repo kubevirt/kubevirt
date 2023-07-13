@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnet/job"
 
 	"kubevirt.io/kubevirt/tests/libnode"
 
@@ -236,8 +237,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Skip("Skip network test that requires multiple nodes when only one node is present.")
 				}
 
-				job := tests.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				job.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
+				tcpJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+				tcpJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
 					NodeAffinity: &k8sv1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -250,11 +251,11 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 						},
 					},
 				}
-				job.Spec.Template.Spec.HostNetwork = hostNetwork
+				tcpJob.Spec.Template.Spec.HostNetwork = hostNetwork
 
-				job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
+				tcpJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
+				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed())
 			},
 				Entry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
 				Entry("[test_id:1544]on a different node from Pod", k8sv1.NodeSelectorOpNotIn, false),
