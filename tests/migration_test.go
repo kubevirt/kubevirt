@@ -2780,25 +2780,50 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				sourcePod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				migration = runAndImmediatelyCancelMigration(migration, vmi, with_virtctl, 180)
+				migration = runAndImmediatelyCancelMigration(migration, vmi, with_virtctl, 60)
 
 				// check VMI, confirm migration state
-				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
+				confirmVMIPostMigrationAborted(vmi, string(migration.UID), 60)
+
+				By("Waiting for the target virt-launcher pod to disappear")
+				labelSelector, err := labels.Parse(fmt.Sprintf("%s=virt-launcher,%s=%s", v1.AppLabel, v1.CreatedByLabel, string(vmi.GetUID())))
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() error {
+					vmiPods, err := virtClient.CoreV1().Pods(vmi.GetNamespace()).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(vmiPods.Items)).To(BeNumerically("<=", 2), "vmi has 3 active pods")
+
+					if len(vmiPods.Items) == 1 {
+						return nil
+					}
+
+					var targetPodPhase k8sv1.PodPhase
+					for _, pod := range vmiPods.Items {
+						if pod.Name == sourcePod.Name {
+							continue
+						}
+
+						targetPodPhase = pod.Status.Phase
+					}
+
+					Expect(targetPodPhase).ToNot(BeEmpty())
+
+					if targetPodPhase != k8sv1.PodSucceeded && targetPodPhase != k8sv1.PodFailed {
+						return fmt.Errorf("pod phase is not expected to be %v", targetPodPhase)
+					}
+
+					return nil
+				}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred(), "target migration pod is expected to disappear after migration cancellation")
 
 				By("Waiting for the migration object to disappear")
-				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 20)
 			},
 				Entry("[sig-compute][test_id:3241]cancel a migration by deleting vmim object", false),
 				Entry("[sig-compute][test_id:8583]cancel a migration with virtctl", true),
