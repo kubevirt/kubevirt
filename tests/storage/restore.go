@@ -1778,13 +1778,18 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					}
 					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
+					if pvc.Spec.DataSourceRef != nil {
+						// These annotations only exist pre-k8s-populators flows
+						return
+					}
 					for _, a := range []string{"k8s.io/CloneRequest", "k8s.io/CloneOf"} {
 						_, ok := pvc.Annotations[a]
 						Expect(ok).Should(Equal(shouldExist))
 					}
 				}
 
-				createVMFromSource := func() *v1.VirtualMachine {
+				createNetworkCloneVMFromSource := func() *v1.VirtualMachine {
+					// TODO: consider ensuring network clone gets done here using StorageProfile CloneStrategy
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
 						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
@@ -1798,7 +1803,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC bool) {
-					vm, vmi = createAndStartVM(createVMFromSource())
+					vm, vmi = createAndStartVM(createNetworkCloneVMFromSource())
 
 					checkCloneAnnotations(vm, true)
 					if deleteSourcePVC {
@@ -1815,7 +1820,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				)
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM, deleteSourcePVC bool) {
-					vm = createVMFromSource()
+					vm = createNetworkCloneVMFromSource()
 					dv := orphanDataVolumeTemplate(vm, 0)
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
