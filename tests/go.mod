@@ -18,7 +18,7 @@ require (
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	kubevirt.io/api v1.0.0
 	kubevirt.io/client-go v1.0.0
-	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
+	kubevirt.io/containerized-data-importer-api v1.57.0-rc1
 	kubevirt.io/kubevirt v1.0.0
 	kubevirt.io/qe-tools v0.1.8
 )
@@ -220,7 +220,7 @@ replace (
 	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.87.0
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
 	go.mongodb.org/mongo-driver => go.mongodb.org/mongo-driver v1.5.1
-	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
+	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.57.0-rc1
 )
 
 // Aligning with https://github.com/kubevirt/containerized-data-importer-api/blob/release-v1.41.1
