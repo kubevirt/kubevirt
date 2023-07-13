@@ -144,7 +144,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	withKernelBoot := func() libvmi.Option {
 		return func(vmi *v1.VirtualMachineInstance) {
-			kernelBootFirmware := utils.GetVMIKernelBoot().Spec.Domain.Firmware
+			kernelBootFirmware := utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
 			if vmiFirmware := vmi.Spec.Domain.Firmware; vmiFirmware == nil {
 				vmiFirmware = kernelBootFirmware
 			} else {
@@ -3978,7 +3978,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	It("should replace containerdisk and kernel boot images with their reproducible digest during migration", func() {
 
 		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.Spec.Domain.Firmware = utils.GetVMIKernelBoot().Spec.Domain.Firmware
+		vmi.Spec.Domain.Firmware = utils.GetVMIKernelBootWithRandName().Spec.Domain.Firmware
 
 		By("Starting a VirtualMachineInstance")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi)
