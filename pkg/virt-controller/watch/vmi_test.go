@@ -3144,7 +3144,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 		}
 
-		fakeHotPlugRequest := func(vmi *virtv1.VirtualMachineInstance, addOpts []virtv1.AddInterfaceOptions) {
+		fakeHotPlugRequest := func(vmi *virtv1.VirtualMachineInstance, addOpts []AddInterfaceOptions) {
 			for _, req := range addOpts {
 				vmi.Spec.Networks = append(
 					vmi.Spec.Networks,
@@ -3176,7 +3176,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			It("cannot handle dynamic network attachment when adding an interface", func() {
-				fakeHotPlugRequest(vmi, []virtv1.AddInterfaceOptions{{
+				fakeHotPlugRequest(vmi, []AddInterfaceOptions{{
 					NetworkAttachmentDefinitionName: "net1",
 					Name:                            "iface1",
 				}})
@@ -3193,7 +3193,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				prependInjectPodPatch(pod)
 			})
 
-			DescribeTable("the pods network annotation must be updated", func(addOpts []virtv1.AddInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
+			DescribeTable("the pods network annotation must be updated", func(addOpts []AddInterfaceOptions, matchers ...gomegaTypes.GomegaMatcher) {
 				fakeHotPlugRequest(vmi, addOpts)
 				Expect(controller.handleDynamicInterfaceRequests(
 					vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, pod)).To(Succeed())
@@ -3202,7 +3202,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				}
 			},
 				Entry("hotplug a single interface",
-					[]virtv1.AddInterfaceOptions{{
+					[]AddInterfaceOptions{{
 						NetworkAttachmentDefinitionName: "net1",
 						Name:                            "iface1",
 					}},
@@ -3210,7 +3210,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						networkv1.NetworkAttachmentAnnot,
 						`[{"interface":"pod7e0055a6880","name":"net1","namespace":"default"}]`)),
 				Entry("hotplug multiple interfaces",
-					[]virtv1.AddInterfaceOptions{{
+					[]AddInterfaceOptions{{
 						NetworkAttachmentDefinitionName: "net1",
 						Name:                            "iface1",
 					}, {
@@ -3236,7 +3236,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					pod = NewPodForVirtualMachine(vmi, k8sv1.PodRunning, testPodNetworkStatus...)
 					prependInjectPodPatch(pod)
 
-					addOpts := []virtv1.AddInterfaceOptions{
+					addOpts := []AddInterfaceOptions{
 						{
 							NetworkAttachmentDefinitionName: "blue-net",
 							Name:                            "blue",
@@ -3659,4 +3659,9 @@ func newVMIWithGuestAgentInterface(vmi *virtv1.VirtualMachineInstance, ifaceName
 		InfoSource:    vmispec.InfoSourceGuestAgent,
 	})
 	return vmi
+}
+
+type AddInterfaceOptions struct {
+	Name                            string
+	NetworkAttachmentDefinitionName string
 }

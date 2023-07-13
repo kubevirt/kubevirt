@@ -14,7 +14,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/controller",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/network/vmispec:go_default_library",
         "//pkg/testutils:go_default_library",
         "//staging/src/github.com/golang/glog:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",

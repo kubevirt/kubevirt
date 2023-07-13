@@ -28,12 +28,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Network interface hot{un}plug", func() {
@@ -43,6 +39,8 @@ var _ = Describe("Network interface hot{un}plug", func() {
 
 		testNetworkName1 = "testnet1"
 		testNetworkName2 = "testnet2"
+
+		ordinal = true
 	)
 	DescribeTable("calculate if changes are required",
 
@@ -127,93 +125,112 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			expectToChange,
 		),
 	)
-
-	DescribeTable("VM status interfaces requests",
-		func(vmIfaces, vmiIfaces []v1.Interface, ifaceRequests, expectedIfaceRequests []v1.VirtualMachineInterfaceRequest) {
-			vmi := api.NewMinimalVMI("test")
-			vmi.Spec.Domain.Devices.Interfaces = vmiIfaces
-			vm := VirtualMachineFromVMI("test", vmi, true)
-			vm.Spec.Template.Spec.Domain.Devices.Interfaces = vmIfaces
-			vm.Status.InterfaceRequests = ifaceRequests
-
-			trimDoneInterfaceRequests(vm, vmi)
-
-			Expect(vm.Status.InterfaceRequests).To(Equal(expectedIfaceRequests))
+	DescribeTable("apply dynamic interface request on VMI",
+		func(vmiForVM, currentVMI, expectedVMI *v1.VirtualMachineInstance, hasOrdinalIfaces bool) {
+			vm := VirtualMachineFromVMI(currentVMI.Name, vmiForVM, true)
+			updatedVMI := applyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
+			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
+			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
-		Entry("have request removed on successful hotplug",
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{},
-		),
-		Entry("keep interface request for pending hotplug",
-			[]v1.Interface{},
-			[]v1.Interface{},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-		),
-		Entry("keep interface request for pending hotplug, when VMI spec has not been updated yet",
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.Interface{},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-		),
-		Entry("when VMI has been updated but the VM isn't, hotplug request is ignored and kept in the queue",
-			[]v1.Interface{},
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-		),
-		Entry("have request removed on successful unplug",
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{},
-		),
-		Entry("keep interface request for pending unplug",
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-		),
-		Entry("keep interface request for pending unplug, when VMI spec has not been updated yet",
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-		),
-		Entry("when VMI has been updated but the VM isn't, unplug request is ignored and kept in the queue",
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-		),
-	)
-
-	DescribeTable("Stopped VM status interfaces requests",
-		func(ifaces []v1.Interface, ifaceRequests, expectedIfaceRequests []v1.VirtualMachineInterfaceRequest) {
-			vm := kubecli.NewMinimalVM("test")
-			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
-			vm.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
-			vm.Status.InterfaceRequests = ifaceRequests
-			vm.Spec.Running = pointer.P(false)
-
-			trimDoneInterfaceRequests(vm, nil)
-
-			Expect(vm.Status.InterfaceRequests).To(Equal(expectedIfaceRequests))
-		},
-		Entry("request removed on successful unplug",
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
-			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{},
-		),
-		Entry("request removed on successful hotplug",
-			[]v1.Interface{{Name: "blue"}},
-			[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
-			[]v1.VirtualMachineInterfaceRequest{},
-		),
+		Entry("when the are no interfaces to hotplug/unplug",
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			false),
+		Entry("when an interface has to be hotplugged",
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			!ordinal),
+		Entry("when an interface has to be hotplugged but it has no bridge binding",
+			libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(),
+			libvmi.New(),
+			!ordinal),
+		Entry("when an interface has to be hotplugged but it is absent",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(),
+			libvmi.New(),
+			!ordinal),
+		Entry("when an interface has to be hotunplugged",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			!ordinal),
+		Entry("when an interface has to be hotunplugged but it has ordinal name",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			ordinal),
+		Entry("when one interface has to be plugged and other hotunplugged",
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithInterface(bridgeInterface(testNetworkName2)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+			),
+			libvmi.New(
+				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithInterface(bridgeInterface(testNetworkName2)),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+			),
+			!ordinal),
 	)
 })
+
+func bridgeInterface(name string) v1.Interface {
+	return v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}
+}
+
+func bridgeAbsentInterface(name string) v1.Interface {
+	iface := bridgeInterface(name)
+	iface.State = v1.InterfaceStateAbsent
+	return iface
+}
 
 func withInterfaceStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {

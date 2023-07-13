@@ -849,7 +849,6 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
-  - virtualmachines/addinterface
   verbs:
   - update
 - apiGroups:
@@ -998,7 +997,6 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/migrate
   - virtualmachines/memorydump
-  - virtualmachines/addinterface
   verbs:
   - update
 - apiGroups:

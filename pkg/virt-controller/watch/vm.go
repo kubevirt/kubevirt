@@ -63,7 +63,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -2065,7 +2064,6 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	vm.Status.Ready = ready
 
 	c.trimDoneVolumeRequests(vm)
-	trimDoneInterfaceRequests(vm, vmi)
 	c.updateMemoryDumpRequest(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
@@ -2618,7 +2616,9 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if c.needsSync(key) && syncErr == nil {
 		vmCopy := vm.DeepCopy()
 		if c.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			handleDynamicInterfaceRequests(vmCopy)
+			if err = c.handleDynamicIfaceRequestOnVMI(vmCopy, vmi); err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply interface request on vmi: %v", err), HotPlugNetworkInterfaceErrorReason}
+			}
 		}
 
 		err = c.handleVolumeRequests(vmCopy, vmi)
@@ -2643,13 +2643,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), FailedUpdateErrorReason}
 				}
 			}
-
-			if syncErr == nil && c.clusterConfig.HotplugNetworkInterfacesEnabled() {
-				updatedVMIfaces := vmispec.IndexInterfaceSpecByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
-				if patchVMIErr := c.applyDynamicIfaceRequestOnVMI(vmi, vmCopy.Status.InterfaceRequests, updatedVMIfaces); err != nil {
-					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply interface request on vmi: %v", patchVMIErr), HotPlugNetworkInterfaceErrorReason}
-				}
-			}
 		}
 	}
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
@@ -2657,8 +2650,8 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	return vm, syncErr, nil
 }
 
-func (c *VMController) applyDynamicIfaceRequestOnVMI(vmi *virtv1.VirtualMachineInstance, requests []virtv1.VirtualMachineInterfaceRequest, vmIfaces map[string]virtv1.Interface) error {
-	if vmi == nil || vmi.DeletionTimestamp != nil || len(requests) == 0 {
+func (c *VMController) handleDynamicIfaceRequestOnVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
 
@@ -2667,22 +2660,9 @@ func (c *VMController) applyDynamicIfaceRequestOnVMI(vmi *virtv1.VirtualMachineI
 		return err
 	}
 
-	vmiSpecCopy := vmi.Spec.DeepCopy()
-	for i := range requests {
-		request := &requests[i]
-		switch {
-		case request.AddInterfaceOptions != nil:
-			vmiSpecCopy = controller.ApplyNetworkInterfaceAddRequest(vmiSpecCopy, request.AddInterfaceOptions)
+	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmi, hasOrdinalIfaces)
 
-			if iface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, request.AddInterfaceOptions.Name); iface != nil {
-				iface.MacAddress = vmIfaces[request.AddInterfaceOptions.Name].MacAddress
-			}
-		case !hasOrdinalIfaces && request.RemoveInterfaceOptions != nil:
-			vmiSpecCopy = controller.ApplyNetworkInterfaceRemoveRequest(vmiSpecCopy, request.RemoveInterfaceOptions)
-		}
-	}
-
-	return c.vmiInterfacesPatch(vmiSpecCopy, vmi)
+	return c.vmiInterfacesPatch(updatedVmiSpec, vmi)
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
