@@ -1272,6 +1272,7 @@ type InterfaceBindingMethod struct {
 	Slirp      *InterfaceSlirp      `json:"slirp,omitempty"`
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
+	VDPA       *InterfaceVDPA       `json:"vdpa,omitempty"`
 	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
 	Passt      *InterfacePasst      `json:"passt,omitempty"`
 }
@@ -1287,6 +1288,9 @@ type InterfaceMasquerade struct{}
 
 // InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.
 type InterfaceSRIOV struct{}
+
+// InterfaceVDPA connects to a given network by passing-through an SR-IOV PCI device via vdpa.
+type InterfaceVDPA struct{}
 
 // InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
 type InterfaceMacvtap struct{}

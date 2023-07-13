@@ -566,6 +566,13 @@ func (d *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
 			}
 		}
+		vdpaDevs, _ := filepath.Glob(fmt.Sprintf("/proc/%d/root/dev/vhost-vdpa-*", isolationRes.Pid()))
+		for _, vdpaDev := range vdpaDevs {
+			if err := d.claimDeviceOwnership(rootMount, filepath.Base(vdpaDev)); err != nil {
+				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vdpa device, %s", err))
+			}
+		}
+
 		return nil
 	})
 }

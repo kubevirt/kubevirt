@@ -697,6 +697,12 @@ func (InterfaceSRIOV) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InterfaceVDPA) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "InterfaceVDPA connects to a given network by passing-through an SR-IOV PCI device via vdpa.",
+	}
+}
+
 func (InterfaceMacvtap) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "InterfaceMacvtap connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.",

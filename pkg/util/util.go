@@ -53,6 +53,15 @@ func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func IsVDPAVmi(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.VDPA != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // Check if a VMI spec requests GPU
 func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {

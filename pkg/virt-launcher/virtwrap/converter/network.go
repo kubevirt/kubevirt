@@ -21,6 +21,7 @@ package converter
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -29,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
@@ -44,6 +46,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 	}
 
 	var domainInterfaces []api.Interface
+	vdpaDevicePool := newVDPADevicePool(vmi)
 
 	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
@@ -130,6 +133,16 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			}
 		} else if iface.Passt != nil {
 			domain.Spec.Devices.Emulator = "/usr/bin/qrap"
+		} else if iface.VDPA != nil {
+			if len(vdpaDevicePool) == 0 {
+				return nil, fmt.Errorf("failed to get vdpa device path for interface %s", iface.Name)
+			}
+			domainIface.Type = "vdpa"
+			domainIface.Model = &api.Model{Type: v1.VirtIO}
+			domainIface.Source = api.InterfaceSource{
+				Device: vdpaDevicePool[0],
+			}
+			vdpaDevicePool = vdpaDevicePool[1:]
 		}
 
 		if c.UseLaunchSecurity {
@@ -147,6 +160,53 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 	}
 
 	return domainInterfaces, nil
+}
+
+func newVDPADevicePool(vmi *v1.VirtualMachineInstance) []string {
+	var resources []string
+	var devicePool []string
+
+	ifaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.VDPA != nil
+	})
+	for _, iface := range ifaces {
+		resourceEnvVarName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
+		resource, isSet := os.LookupEnv(resourceEnvVarName)
+		if !isSet {
+			log.Log.Warningf("%s not set for VDPA interface %s", resourceEnvVarName, iface.Name)
+			continue
+		}
+		resources = append(resources, resource)
+	}
+	for _, resource := range resources {
+		addressEnvVarName := util.ResourceNameToEnvVar("PCIDEVICE", resource)
+		addressString, isSet := os.LookupEnv(addressEnvVarName)
+		if !isSet {
+			log.Log.Warningf("%s not set for resource %s", addressEnvVarName, resource)
+			continue
+		}
+		addresses := strings.Split(strings.TrimSuffix(addressString, ","), ",")
+		infoEnvVarName := addressEnvVarName + "_INFO"
+		infoString, isSet := os.LookupEnv(infoEnvVarName)
+		if !isSet {
+			log.Log.Warningf("%s not set for resource %s", infoEnvVarName, resource)
+			continue
+		}
+		// {"0000:cc:00.1":{"generic":{"deviceID":"0000:cc:00.1"},"vdpa":{"mount":"/dev/vhost-vdpa-0"}}}
+		devInfos := make(map[string]map[string]map[string]string, 0)
+		err := json.Unmarshal([]byte(infoString), &devInfos)
+		if err != nil {
+			log.Log.Warningf("failed to unmarshal json %s", infoString)
+			continue
+		}
+		for _, address := range addresses {
+			if devInfos[address] != nil && devInfos[address]["vdpa"] != nil && devInfos[address]["vdpa"]["mount"] != "" {
+				devicePool = append(devicePool, devInfos[address]["vdpa"]["mount"])
+			}
+		}
+	}
+
+	return devicePool
 }
 
 func GetInterfaceType(iface *v1.Interface) string {
