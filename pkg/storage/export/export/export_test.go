@@ -1310,12 +1310,16 @@ var _ = Describe("Export controller", func() {
 
 	It("Should generate DataVolumes from VM", func() {
 		pvc := createPVC("pvc", string(cdiv1.DataVolumeKubeVirt))
+		pvc.Spec.DataSource = &k8sv1.TypedLocalObjectReference{}
+		pvc.Spec.DataSourceRef = &k8sv1.TypedObjectReference{}
 		pvcInformer.GetStore().Add(pvc)
 		vm := createVMWithDVTemplateAndPVC()
 		dvs := controller.generateDataVolumesFromVm(vm)
 		Expect(dvs).To(HaveLen(1))
 		Expect(dvs[0]).ToNot(BeNil())
 		Expect(dvs[0].Name).To((Equal("pvc")))
+		Expect(dvs[0].Spec.PVC.DataSource).To(BeNil())
+		Expect(dvs[0].Spec.PVC.DataSourceRef).To(BeNil())
 	})
 })
 
