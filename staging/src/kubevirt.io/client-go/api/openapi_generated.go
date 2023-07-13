@@ -16867,6 +16867,13 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
+					"logSerialConsole": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to log the auto-attached default serial console or not. Serial console logs will be collect to a file and then streamed from a named `guest-console-log`. Not relevant if autoattachSerialConsole is disabled. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"autoattachMemBalloon": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to attach the Memory balloon device with default period. Period can be adjusted in virt-config. Defaults to true.",
