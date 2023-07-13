@@ -9,6 +9,7 @@ go_library(
         "rendercontainer.go",
         "renderresources.go",
         "rendervolumes.go",
+        "serialconsolelog.go",
         "template.go",
         "virtiofs.go",
     ],

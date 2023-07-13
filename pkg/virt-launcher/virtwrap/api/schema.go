@@ -733,6 +733,7 @@ type Serial struct {
 	Target *SerialTarget `xml:"target,omitempty"`
 	Source *SerialSource `xml:"source,omitempty"`
 	Alias  *Alias        `xml:"alias,omitempty"`
+	Log    *SerialLog    `xml:"log,omitempty"`
 }
 
 type SerialTarget struct {
@@ -742,6 +743,11 @@ type SerialTarget struct {
 type SerialSource struct {
 	Mode string `xml:"mode,attr,omitempty"`
 	Path string `xml:"path,attr,omitempty"`
+}
+
+type SerialLog struct {
+	File   string `xml:"file,attr,omitempty"`
+	Append string `xml:"append,attr,omitempty"`
 }
 
 // END Serial -----------------------------

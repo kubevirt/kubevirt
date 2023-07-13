@@ -16510,6 +16510,10 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
+     "logSerialConsole": {
+      "description": "Whether to log the auto-attached default serial console or not. Serial console logs will be collect to a file and then streamed from a named `guest-console-log`. Not relevant if autoattachSerialConsole is disabled. Defaults to false.",
+      "type": "boolean"
+     },
      "networkInterfaceMultiqueue": {
       "description": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
       "type": "boolean"

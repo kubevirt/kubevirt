@@ -1860,6 +1860,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		}
+		// TODO: eventually add a cluster-wide default for all the VMs if not explicitly set
+		if vmi.Spec.Domain.Devices.LogSerialConsole != nil && *vmi.Spec.Domain.Devices.LogSerialConsole == true {
+			domain.Spec.Devices.Serials[0].Log = &api.SerialLog{
+				File:   fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort),
+				Append: "on",
+			}
+		}
+
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {

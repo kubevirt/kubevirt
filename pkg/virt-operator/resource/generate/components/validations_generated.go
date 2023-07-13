@@ -6001,6 +6001,13 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                        logSerialConsole:
+                          description: Whether to log the auto-attached default serial
+                            console or not. Serial console logs will be collect to
+                            a file and then streamed from a named 'guest-console-log'.
+                            Not relevant if autoattachSerialConsole is disabled. Defaults
+                            to false.
+                          type: boolean
                         networkInterfaceMultiqueue:
                           description: If specified, virtual network interfaces configured
                             with a virtio bus will also enable the vhost multiqueue
@@ -10525,6 +10532,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                logSerialConsole:
+                  description: Whether to log the auto-attached default serial console
+                    or not. Serial console logs will be collect to a file and then
+                    streamed from a named 'guest-console-log'. Not relevant if autoattachSerialConsole
+                    is disabled. Defaults to false.
+                  type: boolean
                 networkInterfaceMultiqueue:
                   description: If specified, virtual network interfaces configured
                     with a virtio bus will also enable the vhost multiqueue feature
@@ -13248,6 +13261,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                logSerialConsole:
+                  description: Whether to log the auto-attached default serial console
+                    or not. Serial console logs will be collect to a file and then
+                    streamed from a named 'guest-console-log'. Not relevant if autoattachSerialConsole
+                    is disabled. Defaults to false.
+                  type: boolean
                 networkInterfaceMultiqueue:
                   description: If specified, virtual network interfaces configured
                     with a virtio bus will also enable the vhost multiqueue feature
@@ -15430,6 +15449,13 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                        logSerialConsole:
+                          description: Whether to log the auto-attached default serial
+                            console or not. Serial console logs will be collect to
+                            a file and then streamed from a named 'guest-console-log'.
+                            Not relevant if autoattachSerialConsole is disabled. Defaults
+                            to false.
+                          type: boolean
                         networkInterfaceMultiqueue:
                           description: If specified, virtual network interfaces configured
                             with a virtio bus will also enable the vhost multiqueue
@@ -19801,6 +19827,13 @@ var CRDsValidation map[string]string = map[string]string{
                                     - name
                                     type: object
                                   type: array
+                                logSerialConsole:
+                                  description: Whether to log the auto-attached default
+                                    serial console or not. Serial console logs will
+                                    be collect to a file and then streamed from a
+                                    named 'guest-console-log'. Not relevant if autoattachSerialConsole
+                                    is disabled. Defaults to false.
+                                  type: boolean
                                 networkInterfaceMultiqueue:
                                   description: If specified, virtual network interfaces
                                     configured with a virtio bus will also enable
@@ -24956,6 +24989,14 @@ var CRDsValidation map[string]string = map[string]string{
                                         - name
                                         type: object
                                       type: array
+                                    logSerialConsole:
+                                      description: Whether to log the auto-attached
+                                        default serial console or not. Serial console
+                                        logs will be collect to a file and then streamed
+                                        from a named 'guest-console-log'. Not relevant
+                                        if autoattachSerialConsole is disabled. Defaults
+                                        to false.
+                                      type: boolean
                                     networkInterfaceMultiqueue:
                                       description: If specified, virtual network interfaces
                                         configured with a virtio bus will also enable

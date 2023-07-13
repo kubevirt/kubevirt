@@ -476,6 +476,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, virtiofsContainers...)
 	}
 
+	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig)
+	if sconsolelogContainer != nil {
+		containers = append(containers, *sconsolelogContainer)
+	}
+
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		containers = append(
 			containers,
