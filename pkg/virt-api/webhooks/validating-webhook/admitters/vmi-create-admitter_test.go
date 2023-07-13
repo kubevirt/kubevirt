@@ -45,6 +45,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	kubevirtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -3113,6 +3114,37 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("none", v1.CacheNone),
 			Entry("writethrough", v1.CacheWriteThrough),
 			Entry("writeback", v1.CacheWriteBack),
+		)
+
+		DescribeTable("should reject disk with invalid errorPolicy", func(policy string) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk", ErrorPolicy: kubevirtpointer.P(v1.DiskErrorPolicy(policy)), DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{}}})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(HaveLen(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake[0].errorPolicy"))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake[0].errorPolicy has invalid value \"%s\"", policy)))
+		},
+			Entry("with arbitrary string", "unsupported"),
+			Entry("with empty string", ""),
+		)
+
+		DescribeTable("It should accept a disk with a valid errorPolicy", func(mode v1.DiskErrorPolicy) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk", ErrorPolicy: kubevirtpointer.P(mode), DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{}}})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(BeEmpty())
+		},
+			Entry("stop", v1.DiskErrorPolicyStop),
+			Entry("report", v1.DiskErrorPolicyReport),
+			Entry("ignore", v1.DiskErrorPolicyIgnore),
+			Entry("enospace", v1.DiskErrorPolicyEnospace),
 		)
 
 		It("should reject invalid SN characters", func() {
