@@ -175,7 +175,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		Product:      SmbiosConfigDefaultProduct,
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
-	DefaultOVMFPath, DefaultMachineType, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
+	DefaultOVMFPath, _, emulatedMachinesDefault := getCPUArchSpecificDefault(cpuArch)
 	defaultDiskVerification := &v1.DiskVerification{
 		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
 	}
@@ -209,7 +209,6 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			AllowAutoConverge:                 &allowAutoConverge,
 			AllowPostCopy:                     &allowPostCopy,
 		},
-		MachineType:      DefaultMachineType,
 		CPURequest:       &cpuRequestDefault,
 		EmulatedMachines: emulatedMachinesDefault,
 		NetworkConfiguration: &v1.NetworkConfiguration{

@@ -18866,8 +18866,9 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"machineType": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated. Use architectureConfiguration instead.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"network": {
