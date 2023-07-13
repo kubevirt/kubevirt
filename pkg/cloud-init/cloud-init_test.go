@@ -266,15 +266,6 @@ var _ = Describe("CloudInit", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
 			})
-
-			Context("when local data does not exist", func() {
-				It("should fail to remove local data", func() {
-					namespace := "fake-namespace"
-					domain := "fake-domain"
-					err := removeLocalData(domain, namespace)
-					Expect(err).ToNot(HaveOccurred())
-				})
-			})
 		})
 
 		Describe("A new VirtualMachineInstance definition", func() {
@@ -614,3 +605,12 @@ var _ = Describe("CloudInit", func() {
 		})
 	})
 })
+
+func removeLocalData(domain string, namespace string) error {
+	domainBasePath := getDomainBasePath(domain, namespace)
+	err := os.RemoveAll(domainBasePath)
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
