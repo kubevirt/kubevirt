@@ -1429,6 +1429,9 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 	if pvc != nil {
 		pvc.Spec.VolumeName = ""
 		pvc.Spec.StorageClassName = nil
+		// Don't copy datasources, will be populated by CDI with the datavolume
+		pvc.Spec.DataSource = nil
+		pvc.Spec.DataSourceRef = nil
 		return &cdiv1.DataVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
