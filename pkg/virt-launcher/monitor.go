@@ -28,6 +28,8 @@ import (
 	"syscall"
 	"time"
 
+	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
+
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -109,6 +111,10 @@ func (mon *monitor) isGracePeriodExpired() bool {
 func (mon *monitor) refresh() {
 	if mon.isDone {
 		log.Log.Error("Called refresh after done!")
+		return
+	} else if cmdserver.ReceivedEarlyExitSignal() {
+		log.Log.Infof("received early exit signal - stop waiting for %s", mon.domainName)
+		mon.isDone = true
 		return
 	}
 
