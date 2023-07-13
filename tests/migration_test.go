@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -517,14 +518,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		}
 
 		By("Waiting until the Migration Completes")
-		ip := getSupportedIP(metricsIPs, family)
+		ip := libinfra.GetSupportedIP(metricsIPs, family)
 
 		_ = tests.RunMigration(virtClient, migration)
 
 		By("Scraping the Prometheus endpoint")
 		validateNoZeroMetrics := func(metrics map[string]float64) error {
 			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
+			keys := libinfra.GetKeysFromMetrics(metrics)
 			for _, key := range keys {
 				value := metrics[key]
 				if value == 0 {
@@ -537,8 +538,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 		Eventually(func() error {
 			out := getKubevirtVMMetricsFunc(ip)
-			lines := takeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
-			metrics, err := parseMetricsToMap(lines)
+			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
+			metrics, err := libinfra.ParseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
 
 			if len(metrics) == 0 {
@@ -940,22 +941,22 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("checking if the metrics are still updated after the migration")
 				Eventually(func() error {
-					_, err := getDownwardMetrics(vmi)
+					_, err := libinfra.GetDownwardMetrics(vmi)
 					return err
 				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				metrics, err := getDownwardMetrics(vmi)
+				metrics, err := libinfra.GetDownwardMetrics(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				timestamp := getTimeFromMetrics(metrics)
+				timestamp := libinfra.GetTimeFromMetrics(metrics)
 				Eventually(func() int {
-					metrics, err := getDownwardMetrics(vmi)
+					metrics, err := libinfra.GetDownwardMetrics(vmi)
 					Expect(err).ToNot(HaveOccurred())
-					return getTimeFromMetrics(metrics)
+					return libinfra.GetTimeFromMetrics(metrics)
 				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 
 				By("checking that the new nodename is reflected in the downward metrics")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(getHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
+				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 			})
 
 			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, decorators.TscFrequencies, func() {
@@ -4712,7 +4713,7 @@ func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 		}
 	}
 
-	wakeNodeLabellerUp(virtClient)
+	libinfra.WakeNodeLabellerUp(virtClient)
 
 	By(fmt.Sprintf("Expecting node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
 	Eventually(func() error {
@@ -4739,20 +4740,6 @@ func resumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 	}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
 
 	return node
-}
-
-func wakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
-	const fakeModel = "fake-model-1423"
-
-	By("Updating Kubevirt CR to wake node-labeller up")
-	kvConfig := util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-	if kvConfig.ObsoleteCPUModels == nil {
-		kvConfig.ObsoleteCPUModels = make(map[string]bool)
-	}
-	kvConfig.ObsoleteCPUModels[fakeModel] = true
-	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-	delete(kvConfig.ObsoleteCPUModels, fakeModel)
-	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
 
 func libvirtDomainIsPersistent(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (bool, error) {
