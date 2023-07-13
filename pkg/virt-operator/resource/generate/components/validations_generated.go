@@ -1064,6 +1064,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
               type: object
             machineType:
+              description: Deprecated. Use architectureConfiguration instead.
               type: string
             mediatedDevicesConfiguration:
               description: MediatedDevicesConfiguration holds information about MDEV

@@ -162,6 +162,33 @@ var _ = Describe("test configuration", func() {
 		Entry("when ppc64le unset, GetMachineType should return the default with ppc64le", "ppc64le", "", "", "", virtconfig.DefaultPPC64LEMachineType),
 	)
 
+	Context("when deprecated machineType is set", func() {
+		It("it should have higher priority than the architectureConfiguration", func() {
+			const machineType = "quantum-qc35"
+			const cpuArch = "amd64"
+
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MachineType: machineType,
+						ArchitectureConfiguration: &v1.ArchConfiguration{
+							Amd64: &v1.ArchSpecificConfiguration{MachineType: virtconfig.DefaultAMD64MachineType},
+						},
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: "Deployed",
+				},
+			}, cpuArch)
+
+			Expect(clusterConfig.GetMachineType(cpuArch)).To(Equal(machineType))
+		})
+	})
+
 	DescribeTable(" when cpuModel", func(value string, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			CPUModel: value,

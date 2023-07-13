@@ -17766,6 +17766,7 @@
       "$ref": "#/definitions/v1.LiveUpdateConfiguration"
      },
      "machineType": {
+      "description": "Deprecated. Use architectureConfiguration instead.",
       "type": "string"
      },
      "mediatedDevicesConfiguration": {

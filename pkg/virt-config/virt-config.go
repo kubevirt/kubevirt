@@ -130,6 +130,10 @@ func (c *ClusterConfig) GetResourceVersion() string {
 }
 
 func (c *ClusterConfig) GetMachineType(arch string) string {
+	if c.GetConfig().MachineType != "" {
+		return c.GetConfig().MachineType
+	}
+
 	switch arch {
 	case "arm64":
 		return c.GetConfig().ArchitectureConfiguration.Arm64.MachineType
