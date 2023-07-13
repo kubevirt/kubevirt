@@ -60,9 +60,9 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 	Context("with external alpine-based kernel & initrd images", func() {
 		It("[test_id:7748]ensure successful boot", func() {
 			vmi := utils.GetVMIKernelBootWithRandName()
-			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(obj)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
@@ -140,9 +140,9 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 		It("ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
-			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(obj)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
