@@ -296,7 +296,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 				"kubevirt_vmi_vcpu_wait_seconds",
 				"Amount of time spent by each vcpu while waiting on I/O.",
 				prometheus.CounterValue,
-				float64(vcpu.Wait/1000000),
+				float64(vcpu.Wait)/float64(1000000),
 				[]string{"id"},
 				[]string{stringVcpuIdx},
 			)
