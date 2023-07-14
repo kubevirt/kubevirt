@@ -610,11 +610,12 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 				return fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(secretDir, file.Name()), err)
 			}
 
-			pubKey := string(pubKeyBytes)
-			if pubKey == "" {
-				continue
+			for _, pubKey := range strings.Split(string(pubKeyBytes), "\n") {
+				trimmedKey := strings.TrimSpace(pubKey)
+				if trimmedKey != "" {
+					authorizedKeys = append(authorizedKeys, trimmedKey)
+				}
 			}
-			authorizedKeys = append(authorizedKeys, pubKey)
 		}
 
 		if len(authorizedKeys) > 0 {
