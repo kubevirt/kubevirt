@@ -153,6 +153,9 @@ type KubeInformerFactory interface {
 	// Watches VirtualMachineClusterPreference objects
 	VirtualMachineClusterPreference() cache.SharedIndexInformer
 
+	// Watches ControllerRevisionUpgrade objects
+	ControllerRevisionUpgrade() cache.SharedIndexInformer
+
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
 
@@ -749,6 +752,13 @@ func (f *kubeInformerFactory) VirtualMachineClusterPreference() cache.SharedInde
 	return f.getInformer("vmClusterPreferenceInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1beta1().RESTClient(), instancetypeapi.ClusterPluralPreferenceResourceName, k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &instancetypev1beta1.VirtualMachineClusterPreference{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) ControllerRevisionUpgrade() cache.SharedIndexInformer {
+	return f.getInformer("crUpgradeInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().InstancetypeV1beta1().RESTClient(), instancetypeapi.PluralControllerRevisionUpgradeResourceName, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &instancetypev1beta1.ControllerRevisionUpgrade{}, f.defaultResync, cache.Indexers{})
 	})
 }
 
