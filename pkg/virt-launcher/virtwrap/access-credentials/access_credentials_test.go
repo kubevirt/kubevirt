@@ -150,6 +150,7 @@ var _ = Describe("AccessCredentials", func() {
 		}
 		domName := util.VMINamespaceKeyFunc(vmi)
 
+		manager.stopCh = make(chan struct{})
 		manager.watcher, err = fsnotify.NewWatcher()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -206,6 +207,7 @@ var _ = Describe("AccessCredentials", func() {
 			close(manager.stopCh)
 		}()
 
+		// TODO: Rewrite test to not call private functions.
 		manager.watchSecrets(vmi)
 		Expect(matched).To(BeTrue())
 
