@@ -35,6 +35,7 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	instancetypeControllers "kubevirt.io/kubevirt/pkg/virt-controller/watch/instancetype"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
@@ -214,6 +215,9 @@ type VirtControllerApp struct {
 	preferenceInformer          cache.SharedIndexInformer
 	clusterPreferenceInformer   cache.SharedIndexInformer
 
+	ControllerRevisionUpgradeInformer   cache.SharedIndexInformer
+	ControllerRevisionUpgradeController *instancetypeControllers.UpgradeController
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
@@ -253,6 +257,7 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	crUpgradeControllerThreads        int
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -427,6 +432,8 @@ func Execute() {
 	app.preferenceInformer = app.informerFactory.VirtualMachinePreference()
 	app.clusterPreferenceInformer = app.informerFactory.VirtualMachineClusterPreference()
 
+	app.ControllerRevisionUpgradeInformer = app.informerFactory.ControllerRevisionUpgrade()
+
 	app.onOpenshift = onOpenShift
 
 	app.initCommon()
@@ -440,6 +447,7 @@ func Execute() {
 	app.initExportController()
 	app.initWorkloadUpdaterController()
 	app.initCloneController()
+	app.initInstancetypeControllers()
 	go app.Run()
 
 	<-app.reInitChan
@@ -566,6 +574,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the clone controller: %v", err)
 			}
 		}()
+		go vca.ControllerRevisionUpgradeController.Run(vca.crUpgradeControllerThreads, stop)
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 		close(vca.readyChan)
@@ -834,6 +843,20 @@ func (vca *VirtControllerApp) initExportController() {
 	}
 }
 
+func (vca *VirtControllerApp) initInstancetypeControllers() {
+	var err error
+	vca.ControllerRevisionUpgradeController, err = instancetypeControllers.NewUpgradeController(
+		vca.clientSet,
+		vca.newRecorder(k8sv1.NamespaceAll, "instancetype-cr-upgrade-controller"),
+		vca.vmInformer,
+		vca.controllerRevisionInformer,
+		vca.ControllerRevisionUpgradeInformer,
+	)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (vca *VirtControllerApp) initCloneController() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
@@ -953,6 +976,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for clone controller")
+
+	flag.IntVar(&vca.crUpgradeControllerThreads, "controllerrevision-upgrade-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for controllerrevision upgrade controller")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {
