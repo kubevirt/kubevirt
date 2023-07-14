@@ -16,7 +16,9 @@ var Testdata = `[
             "State" : 1,
             "Time" : 23810000000,
             "WaitSet": false,
-            "Wait": 0
+            "Wait": 0,
+            "DelaySet": false,
+            "Delay": 0
             
          },
          {
@@ -25,7 +27,9 @@ var Testdata = `[
             "TimeSet" : true,
             "Time" : 17800000000,
             "WaitSet": false,
-            "Wait": 0
+            "Wait": 0,
+            "DelaySet": false,
+            "Delay": 0
          },
          {
             "State" : 1,
@@ -33,7 +37,9 @@ var Testdata = `[
             "TimeSet" : true,
             "Time" : 23310000000,
             "WaitSet": false,
-            "Wait": 0
+            "Wait": 0,
+            "DelaySet": false,
+            "Delay": 0
          },
          {
             "State" : 1,
@@ -41,7 +47,9 @@ var Testdata = `[
             "TimeSet" : true,
             "Time" : 17360000000,
             "WaitSet": true,
-            "Wait": 1500
+            "Wait": 1500,
+            "DelaySet": true,
+            "Delay": 100
          }
       ],
       "Perf" : null,
@@ -228,7 +236,9 @@ var Testdataexpected = `{
        "Time": 23810000000, 
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "DelaySet": false,
+       "Delay": 0
      }, 
      {
        "State": 1, 
@@ -236,7 +246,9 @@ var Testdataexpected = `{
        "Time": 17800000000, 
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "DelaySet": false,
+       "Delay": 0
        
      }, 
      {
@@ -245,7 +257,9 @@ var Testdataexpected = `{
        "Time": 23310000000, 
        "TimeSet": true,
        "WaitSet": false,
-       "Wait": 0
+       "Wait": 0,
+       "DelaySet": false,
+       "Delay": 0
      }, 
      {
        "State": 1, 
@@ -253,7 +267,9 @@ var Testdataexpected = `{
        "Time": 17360000000, 
        "TimeSet": true,
        "WaitSet": true,
-       "Wait": 1500
+       "Wait": 1500,
+       "DelaySet": true,
+       "Delay": 100
      }
    ],
    "CPUMapSet": false,

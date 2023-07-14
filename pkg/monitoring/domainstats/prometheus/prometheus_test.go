@@ -1146,6 +1146,32 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_wait_seconds"))
 		})
 
+		It("should expose vcpu delay metric", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			domainStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Net:    []stats.DomainStatsNet{},
+				Vcpu: []stats.DomainStatsVcpu{
+					{
+						DelaySet: true,
+						Delay:    800000000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, newVmStats(domainStats, nil))
+
+			result := <-ch
+			Expect(result).ToNot(BeNil())
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_delay_seconds_total"))
+		})
+
 		It("should expose vcpu to cpu pinning metric", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
