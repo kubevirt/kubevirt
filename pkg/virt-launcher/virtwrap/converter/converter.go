@@ -84,6 +84,10 @@ const (
 	vhostNetPath = "/dev/vhost-net"
 )
 
+var (
+	BootMenuTimeoutMS = uint(10000)
+)
+
 type deviceNamer struct {
 	existingNameMap map[string]string
 	usedDeviceMap   map[string]string
@@ -1868,6 +1872,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				Auto:    "no",
 				Address: *vmi.Status.VSOCKCID,
 			},
+		}
+	}
+
+	// set bootmenu to give time to access bios
+	if vmi.ShouldStartPaused() {
+		domain.Spec.OS.BootMenu = &api.BootMenu{
+			Enable:  "yes",
+			Timeout: &BootMenuTimeoutMS,
 		}
 	}
 
