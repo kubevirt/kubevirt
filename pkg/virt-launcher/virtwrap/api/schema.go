@@ -912,8 +912,8 @@ type Boot struct {
 }
 
 type BootMenu struct {
-	Enabled bool  `xml:"enabled,attr"`
-	Timeout *uint `xml:"timeout,attr,omitempty"`
+	Enable  string `xml:"enable,attr"`
+	Timeout *uint  `xml:"timeout,attr,omitempty"`
 }
 
 type Loader struct {
