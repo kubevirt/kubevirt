@@ -46,33 +46,36 @@ var _ = DescribeInfra("downwardMetrics", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:6535]should be published to a vmi and periodically updated", func() {
-		vmi := libvmi.NewFedora()
-		tests.AddDownwardMetricsVolume(vmi, "vhostmd")
+	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
+
+		vmi := libvmi.NewFedora(via)
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-		metrics, err := libinfra.GetDownwardMetrics(vmi)
+		metrics, err := metricsGetter(vmi)
 		Expect(err).ToNot(HaveOccurred())
 		timestamp := libinfra.GetTimeFromMetrics(metrics)
 
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() int {
-			metrics, err = libinfra.GetDownwardMetrics(vmi)
+			metrics, err = metricsGetter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			return libinfra.GetTimeFromMetrics(metrics)
 		}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
 		Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
-	})
+
+	},
+		Entry("[test_id:6535]using a disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
+		Entry("using a virtio serial device", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
+	)
 
 	It("metric ResourceProcessorLimit should be present", func() {
-		vmi := libvmi.NewFedora(libvmi.WithCPUCount(1, 1, 1))
-		tests.AddDownwardMetricsVolume(vmi, "vhostmd")
+		vmi := libvmi.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 		Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-		metrics, err := libinfra.GetDownwardMetrics(vmi)
+		metrics, err := libinfra.GetDownwardMetricsDisk(vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		//let's try to find the ResourceProcessorLimit metric

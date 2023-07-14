@@ -146,6 +146,25 @@ func WithLimitCPU(value string) Option {
 	}
 }
 
+func WithDownwardMetricsVolume(volumeName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
+			}})
+
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: volumeName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+		})
+	}
+}
+
 func WithDownwardMetricsChannel() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}

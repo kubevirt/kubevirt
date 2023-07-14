@@ -157,7 +157,6 @@ go_test(
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/downwardmetrics:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hooks/v1alpha1:go_default_library",
         "//pkg/hooks/v1alpha2:go_default_library",

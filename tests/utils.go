@@ -1045,23 +1045,6 @@ func AddLabelDownwardAPIVolume(vmi *v1.VirtualMachineInstance, volumeName string
 	})
 }
 
-func AddDownwardMetricsVolume(vmi *v1.VirtualMachineInstance, volumeName string) {
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
-		}})
-
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: volumeName,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-}
-
 func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {
 	volumeName := serviceAccountName + "-disk"
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
