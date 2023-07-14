@@ -1,15 +1,15 @@
-# K8S 1.23.3 with mdev support in a Kind cluster
+# K8S with mdev support in a Kind cluster
 
-Provides a pre-deployed k8s cluster with version 1.23.3 that runs using [kind](https://github.com/kubernetes-sigs/kind) The cluster is completely ephemeral and is recreated on every cluster restart. 
+Provides a pre-deployed k8s cluster that runs using [kind](https://github.com/kubernetes-sigs/kind) The cluster is completely ephemeral and is recreated on every cluster restart.
 The KubeVirt containers are built on the local machine and are then pushed to a registry which is exposed at
 `localhost:5000`.
 
 ## Bringing the cluster up
 
-The following needs to be executed as root.
+The following needs to be executed as root. Please refer to the name of the directory to get the kind version.
 
 ```bash
-export KUBEVIRT_PROVIDER=kind-1.23-vgpu
+export KUBEVIRT_PROVIDER=kind-x.yz
 make cluster-up
 ```
 
@@ -17,8 +17,8 @@ The cluster can be accessed as usual:
 
 ```bash
 $ cluster-up/kubectl.sh get nodes
-NAME                  STATUS   ROLES    AGE     VERSION
-vgpu-control-plane   Ready    master   6m14s   v1.23.3
+NAME                  STATUS   ROLES    AGE
+kind-x.yz-control-plane   Ready    master   6m14s
 ```
 
 ## Bringing the cluster down
@@ -27,7 +27,7 @@ vgpu-control-plane   Ready    master   6m14s   v1.23.3
 make cluster-down
 ```
 
-This destroys the whole cluster. 
+This destroys the whole cluster.
 
 ## Setting a custom kind version
 

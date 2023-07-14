@@ -48,7 +48,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -230,68 +229,6 @@ var _ = SIGDescribe("Export", func() {
 		return tests.RunPod(pod)
 	}
 
-	createTriggerPodForPvc := func(pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-		volumeName := pvc.GetName()
-		podName := fmt.Sprintf("bind-%s", volumeName)
-		pod := tests.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 1"}, []string{})
-		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvc.GetName(),
-				},
-			},
-		})
-
-		volumeMode := pvc.Spec.VolumeMode
-		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
-			addBlockVolume(pod, volumeName)
-		} else {
-			addFilesystemVolume(pod, volumeName)
-		}
-		return tests.RunPodAndExpectCompletion(pod)
-	}
-
-	isWaitForFirstConsumer := func(storageClassName string) bool {
-		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
-	}
-
-	ensurePVCBound := func(pvc *k8sv1.PersistentVolumeClaim) {
-		namespace := pvc.Namespace
-		if !isWaitForFirstConsumer(*pvc.Spec.StorageClassName) {
-			By("Checking for bound claim on non-WFFC storage")
-			// Not WFFC, pvc will be bound
-			Eventually(func() k8sv1.PersistentVolumeClaimPhase {
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return pvc.Status.Phase
-			}, 30*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
-			return
-		}
-		By("Checking the PVC is pending for WFFC storage")
-		Eventually(func() k8sv1.PersistentVolumeClaimPhase {
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return pvc.Status.Phase
-		}, 15*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimPending))
-
-		By("Creating trigger pod to bind WFFC storage")
-		triggerPod := createTriggerPodForPvc(pvc)
-		By("Checking the PVC was bound")
-		Eventually(func() k8sv1.PersistentVolumeClaimPhase {
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return pvc.Status.Phase
-		}, 30*time.Second, 1*time.Second).Should(Equal(k8sv1.ClaimBound))
-		By("Deleting the trigger pod")
-		immediate := int64(0)
-		Expect(virtClient.CoreV1().Pods(triggerPod.Namespace).Delete(context.Background(), triggerPod.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: &immediate,
-		})).To(Succeed())
-	}
-
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
 		var err error
 		secret := &k8sv1.Secret{
@@ -352,6 +289,7 @@ var _ = SIGDescribe("Export", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeMode(volumeMode)),
+			libdv.WithForceBindAnnotation(),
 		)
 
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -362,7 +300,6 @@ var _ = SIGDescribe("Export", func() {
 			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
-		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
 		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
@@ -847,6 +784,7 @@ var _ = SIGDescribe("Export", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
 			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			libdv.WithForceBindAnnotation(),
 		)
 
 		name := dv.Name
@@ -869,12 +807,10 @@ var _ = SIGDescribe("Export", func() {
 		}, 60*time.Second, 1*time.Second).Should(ContainElement(expectedCond), "export should report missing pvc")
 
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
-		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(BeNil(), "persistent volume associated with DV should be created")
-		ensurePVCBound(pvc)
 
 		By("Making sure the DV is successful")
 		libstorage.EventuallyDV(dv, 90, HaveSucceeded())
