@@ -31,10 +31,10 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "nonroot-user",
-    gid = 1001,
+    gid = 107,
     home = "/home/nonroot-user",
     shell = "/bin/bash",
-    uid = 1001,
+    uid = 107,
     username = "nonroot-user",
 )
 
