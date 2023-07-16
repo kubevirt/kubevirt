@@ -60,3 +60,10 @@ func CidrToIP(cidr string) (string, error) {
 	}
 	return ip.String(), nil
 }
+
+func FormatIPForURL(ip string) string {
+	if netutils.IsIPv6String(ip) {
+		return "[" + ip + "]"
+	}
+	return ip
+}

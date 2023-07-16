@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnet"
 )
 
 const (
@@ -91,7 +92,7 @@ func NewHelloWorldJobTCP(host string, port string) *batchv1.Job {
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
 func NewHelloWorldJobHTTP(host string, port string) *batchv1.Job {
-	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl --silent %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, tests.FormatIPForURL(host), port)
+	check := fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl --silent %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, libnet.FormatIPForURL(host), port)
 	return NewHelloWorldJob(check)
 }
 
