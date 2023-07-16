@@ -86,8 +86,9 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Networks: []v1.Network{generateNetwork(networkName, nadName)},
 					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
-						Name:  networkName,
-						State: v1.InterfaceStateAbsent,
+						Name:                   networkName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+						State:                  v1.InterfaceStateAbsent,
 					}}}},
 				},
 				Status: v1.VirtualMachineInstanceStatus{
@@ -104,7 +105,10 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 			&v1.VirtualMachineInstance{
 				Spec: v1.VirtualMachineInstanceSpec{
 					Networks: []v1.Network{generateNetwork(networkName, nadName)},
-					Domain:   v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{Name: networkName}}}},
+					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
+						Name:                   networkName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+					}}}},
 				},
 				Status: v1.VirtualMachineInstanceStatus{
 					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
@@ -115,6 +119,25 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 			},
 			map[string]api.Interface{},
 			[]v1.Network{generateNetwork(networkName, nadName)},
+		),
+		Entry("vmi with 1 SR-IOV network (when the pod interface is ready) and no interfaces in the domain",
+			&v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Networks: []v1.Network{generateNetwork(networkName, nadName)},
+					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
+						Name:                   networkName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+					}}}},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
+						Name:       networkName,
+						InfoSource: vmispec.InfoSourceMultusStatus,
+					}},
+				},
+			},
+			map[string]api.Interface{},
+			[]v1.Network{},
 		),
 	)
 
@@ -172,6 +195,8 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 	const (
 		networkName   = "n1"
 		ordinalDevice = "tap2"
+
+		sriovNetworkName = "n2-sriov"
 	)
 
 	hashedDevice := "tap" + namescheme.GenerateHashedInterfaceName(networkName)[3:]
@@ -192,14 +217,14 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 			nil,
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using ordinal device",
-			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent}},
+			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
 			[]api.Interface{
 				{Target: &api.InterfaceTarget{Device: ordinalDevice}, Alias: api.NewUserDefinedAlias(networkName)},
 			},
 			nil,
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using hashed device",
-			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent}},
+			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
 			[]api.Interface{{
 				Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
 			},
