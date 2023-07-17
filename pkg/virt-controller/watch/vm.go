@@ -63,6 +63,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -2618,6 +2619,17 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
 			vmi != nil && vmi.DeletionTimestamp == nil {
 			vmiCopy := vmi.DeepCopy()
+
+			indexedStatusIfaces := vmispec.IndexInterfacesFromStatus(vmi.Status.Interfaces,
+				func(ifaceStatus virtv1.VirtualMachineInstanceNetworkInterface) bool { return true })
+
+			ifaces, networks := clearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)
+			vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
+			vmCopy.Spec.Template.Spec.Networks = networks
+
+			ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+			vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
+			vmiCopy.Spec.Networks = networks
 
 			if err = c.handleDynamicIfaceRequestOnVMI(vmCopy, vmiCopy); err != nil {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply interface request on vmi: %v", err), HotPlugNetworkInterfaceErrorReason}
