@@ -903,13 +903,8 @@ type SMBios struct {
 }
 
 type NVRam struct {
-	Type     string      `xml:"type,attr,omitempty"`
-	Template string      `xml:"template,attr,omitempty"`
-	Source   NVRamSource `xml:"source"`
-}
-
-type NVRamSource struct {
-	File string `xml:"file,attr"`
+	Template string `xml:"template,attr,omitempty"`
+	NVRam    string `xml:",chardata"`
 }
 
 type Boot struct {

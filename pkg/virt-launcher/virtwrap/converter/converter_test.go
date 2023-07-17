@@ -958,9 +958,7 @@ var _ = Describe("Converter", func() {
   <os>
     <type arch="aarch64" machine="virt">hvm</type>
     <loader readonly="yes" secure="no" type="pflash"></loader>
-    <nvram type="file">
-      <source file="/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"></source>
-    </nvram>
+    <nvram>/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd</nvram>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -3075,7 +3073,7 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.BootLoader.Secure).To(Equal(secureLoader))
 			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(efiCode))
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(efiVars))
-			Expect(domainSpec.OS.NVRam.Source.File).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
+			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		},
 			Entry("should use SecureBoot", True(), "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
 			Entry("should use SecureBoot when SB not defined", nil, "OVMF_CODE.secboot.fd", "OVMF_VARS.secboot.fd"),
@@ -3103,7 +3101,7 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
 			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(c.EFIConfiguration.EFICode))
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(c.EFIConfiguration.EFIVars))
-			Expect(domainSpec.OS.NVRam.Source.File).To(Equal("/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"))
+			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		})
 	})
 
