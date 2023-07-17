@@ -21,7 +21,7 @@ set -ex pipefail
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
-CDI_DV_GC_DEFAULT=-1
+CDI_DV_GC_DEFAULT=0
 CDI_DV_GC=${CDI_DV_GC:--1}
 
 source hack/common.sh
