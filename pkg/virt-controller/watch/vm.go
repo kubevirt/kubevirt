@@ -2615,9 +2615,18 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	// hotplugged volumes and interfaces
 	if c.needsSync(key) && syncErr == nil {
 		vmCopy := vm.DeepCopy()
-		if c.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			if err = c.handleDynamicIfaceRequestOnVMI(vmCopy, vmi); err != nil {
+		if c.clusterConfig.HotplugNetworkInterfacesEnabled() &&
+			vmi != nil && vmi.DeletionTimestamp == nil {
+			vmiCopy := vmi.DeepCopy()
+
+			if err = c.handleDynamicIfaceRequestOnVMI(vmCopy, vmiCopy); err != nil {
 				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply interface request on vmi: %v", err), HotPlugNetworkInterfaceErrorReason}
+			}
+
+			if syncErr == nil {
+				if err = c.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
+					syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to patch vmi: %v", err), FailedUpdateErrorReason}
+				}
 			}
 		}
 
@@ -2651,18 +2660,15 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 }
 
 func (c *VMController) handleDynamicIfaceRequestOnVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if vmi == nil || vmi.DeletionTimestamp != nil {
-		return nil
-	}
-
 	hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi)
 	if err != nil {
 		return err
 	}
 
 	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmi, hasOrdinalIfaces)
+	vmi.Spec = *updatedVmiSpec
 
-	return c.vmiInterfacesPatch(updatedVmiSpec, vmi)
+	return nil
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
