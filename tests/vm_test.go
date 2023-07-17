@@ -1238,7 +1238,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				DescribeTable("with a failing VMI and the kubevirt.io/keep-launcher-alive-after-failure annotation", func(keepLauncher string) {
 					// The estimated execution time of one test is 400 seconds.
 					By("Creating a Kernel Boot VMI with a mismatched disk")
-					vmi := utils.GetVMIKernelBoot()
+					vmi := utils.GetVMIKernelBootWithRandName()
 					vmi.Spec.Domain.Firmware.KernelBoot.Container.Image = cd.ContainerDiskFor(cd.ContainerDiskCirros)
 
 					By("Creating a VM with RunStrategyManual")

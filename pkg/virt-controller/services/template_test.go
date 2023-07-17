@@ -3603,7 +3603,7 @@ var _ = Describe("Template", func() {
 
 			It("should define containers and volumes properly", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				vmi := utils.GetVMIKernelBoot()
+				vmi := utils.GetVMIKernelBootWithRandName()
 				vmi.ObjectMeta = metav1.ObjectMeta{
 					Name: "testvmi-kernel-boot", Namespace: "default", UID: "1234",
 				}

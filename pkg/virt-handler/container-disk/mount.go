@@ -431,7 +431,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	socketFilePath, err := m.kernelBootSocketPathGetter(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to find socker path for kernel artifacts: %v", err)
+		return fmt.Errorf("failed to find socket path for kernel artifacts: %v", err)
 	}
 
 	record := vmiMountTargetRecord{

@@ -59,10 +59,10 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 	Context("with external alpine-based kernel & initrd images", func() {
 		It("[test_id:7748]ensure successful boot", func() {
-			vmi := utils.GetVMIKernelBoot()
-			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi := utils.GetVMIKernelBootWithRandName()
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(obj)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {
@@ -109,7 +109,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 	Context("with illegal definition ensure rejection of", func() {
 
 		It("[test_id:7750]VMI defined without an image", func() {
-			vmi := utils.GetVMIKernelBoot()
+			vmi := utils.GetVMIKernelBootWithRandName()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.Image = ""
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
@@ -118,7 +118,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 		})
 
 		It("[test_id:7751]VMI defined with image but without initrd & kernel paths", func() {
-			vmi := utils.GetVMIKernelBoot()
+			vmi := utils.GetVMIKernelBootWithRandName()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.KernelPath = ""
 			kernelBoot.Container.InitrdPath = ""
@@ -130,7 +130,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 
 	Context("with external alpine-based kernel only (without initrd)", func() {
 		getVMIKernelBoot := func() *kubevirtv1.VirtualMachineInstance {
-			vmi := utils.GetVMIKernelBoot()
+			vmi := utils.GetVMIKernelBootWithRandName()
 			// Remove initrd path from vmi spec
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot
 			kernelBoot.Container.InitrdPath = ""
@@ -140,9 +140,9 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 		It("ensure successful boot", func() {
 			vmi := getVMIKernelBoot()
 
-			obj, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(obj)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 
 		It("ensure successful boot and deletion when VMI has a disk defined", func() {

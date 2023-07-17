@@ -25,6 +25,8 @@ import (
 	"os"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -683,6 +685,13 @@ func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
 	AddKernelBootToVMI(vmi)
+	return vmi
+}
+
+func GetVMIKernelBootWithRandName() *v1.VirtualMachineInstance {
+	vmi := GetVMIKernelBoot()
+	vmi.Name += "-" + rand.String(5)
+
 	return vmi
 }
 
