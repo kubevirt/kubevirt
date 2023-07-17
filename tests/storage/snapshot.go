@@ -1050,7 +1050,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(cn).ToNot(BeNil())
 				vmSnapshotContent, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *cn, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
+				Expect(vmSnapshotContent.Spec.VolumeBackups).To(HaveLen(1))
 				vb := vmSnapshotContent.Spec.VolumeBackups[0]
 				Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 
@@ -1083,7 +1083,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(cn).ToNot(BeNil())
 				vmSnapshotContent, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *cn, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
+				Expect(vmSnapshotContent.Spec.VolumeBackups).To(HaveLen(1))
 				vb := vmSnapshotContent.Spec.VolumeBackups[0]
 				Expect(vb.VolumeSnapshotName).ToNot(BeNil())
 
