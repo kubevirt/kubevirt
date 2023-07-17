@@ -131,18 +131,33 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
 	}
 
-	for ifaceIndex, ifaceStatus := range interfacesStatus {
-		if _, exists := multusStatusNetworksByName[ifaceStatus.Name]; exists {
-			interfacesStatus[ifaceIndex].InfoSource = netvmispec.AddInfoSource(
-				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
-		}
-	}
+	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
 
 	vmi.Status.Interfaces = interfacesStatus
 
 	c.removeAbsentIfacesFromVolatileCache(vmi)
 
 	return nil
+}
+
+func ifacesStatusFromMultus(
+	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+	vmIfacesSpecByName map[string]v1.Interface,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	for multusIfaceName := range multusStatusNetworksByName {
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, multusIfaceName)
+		_, existInSpec := vmIfacesSpecByName[multusIfaceName]
+		if existInSpec && ifaceStatus == nil {
+			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
+				Name:       multusIfaceName,
+				InfoSource: netvmispec.InfoSourceMultusStatus,
+			})
+		} else if ifaceStatus != nil {
+			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+		}
+	}
+	return interfacesStatus
 }
 
 // updateIfacesStatusFromPodCache updates the provided interfaces statuses with data (IP/s) from the pod-cache.

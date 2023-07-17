@@ -113,8 +113,8 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 }
 
 func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, domainSpecInterfaces []api.Interface) []api.Interface {
-	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(i v1.Interface) bool {
-		return i.State == v1.InterfaceStateAbsent
+	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
 	})
 	var domainIfacesToRemove []api.Interface
 	for _, vmiIface := range ifaces2remove {
@@ -151,7 +151,7 @@ func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineIns
 
 			return netvmispec.ContainsInfoSource(
 				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus,
-			) && !exists && vmiSpecIface.State != v1.InterfaceStateAbsent
+			) && !exists && vmiSpecIface.State != v1.InterfaceStateAbsent && vmiSpecIface.SRIOV == nil
 		},
 	)
 
