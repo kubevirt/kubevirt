@@ -2631,8 +2631,11 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 			vmiCopy.Spec.Networks = networks
 
-			if err = c.handleDynamicIfaceRequestOnVMI(vmCopy, vmiCopy); err != nil {
-				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to apply interface request on vmi: %v", err), HotPlugNetworkInterfaceErrorReason}
+			if hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi); err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err), HotPlugNetworkInterfaceErrorReason}
+			} else {
+				updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+				vmiCopy.Spec = *updatedVmiSpec
 			}
 
 			if syncErr == nil {
@@ -2669,18 +2672,6 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	return vm, syncErr, nil
-}
-
-func (c *VMController) handleDynamicIfaceRequestOnVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	hasOrdinalIfaces, err := c.hasOrdinalNetworkInterfaces(vmi)
-	if err != nil {
-		return err
-	}
-
-	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmi, hasOrdinalIfaces)
-	vmi.Spec = *updatedVmiSpec
-
-	return nil
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
