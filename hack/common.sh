@@ -61,7 +61,7 @@ function build_func_tests_image() {
     cp ${KUBEVIRT_DIR}/tests/{Dockerfile,entrypoint.sh} \
         ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         ${TESTS_OUT_DIR}/
-    rsync -ar ${KUBEVIRT_DIR}/manifests/ ${TESTS_OUT_DIR}/manifests
+    rsync -ar --password-file=$HOME/rsyncd/rsyncd.pass ${KUBEVIRT_DIR}/manifests/ "root@127.0.0.1:${TESTS_OUT_DIR}/manifests"
     cd ${TESTS_OUT_DIR}
     ${KUBEVIRT_CRI} build \
         -t ${docker_prefix}/${bin_name}:${docker_tag} \

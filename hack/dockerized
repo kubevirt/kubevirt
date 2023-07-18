@@ -12,7 +12,7 @@ fi
 
 fail_if_cri_bin_missing
 
-KUBEVIRT_BUILDER_IMAGE="quay.io/kubevirt/builder:2202010936-905b3aae5"
+KUBEVIRT_BUILDER_IMAGE="harbor.ctyuncdn.cn/ecf-edge/kubevirt/kubevirt-builder:2307181414-cdb08b9"
 
 SYNC_OUT=${SYNC_OUT:-true}
 
@@ -56,7 +56,7 @@ RSYNCD_PORT=$($KUBEVIRT_CRI port $RSYNC_CID 873 | cut -d':' -f2)
 
 rsynch_fail_count=0
 
-while ! rsync ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}" &>/dev/null; do
+while ! rsync --password-file=$HOME/rsyncd/rsyncd.pass ${KUBEVIRT_DIR}/${RSYNCTEMP} "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/${RSYNCTEMP}" &>/dev/null; do
     if [[ "$rsynch_fail_count" -eq 0 ]]; then
         printf "Waiting for rsyncd to be ready"
         sleep .1
@@ -75,7 +75,7 @@ printf "\n"
 rsynch_fail_count=0
 
 _rsync() {
-    rsync -al "$@"
+    rsync -al --password-file=$HOME/rsyncd/rsyncd.pass "$@"
 }
 
 # Copy kubevirt into the persistent container volume
