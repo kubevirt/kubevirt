@@ -113,6 +113,14 @@ http_file(
 )
 
 http_file(
+    name = "alpine_image_s390x",
+    sha256 = "6844e37c5f5bdbf34bc80cac6d504e1c450e799539a218fb4f1d625ad4afff54",
+    urls = [
+        "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/s390x/alpine-standard-3.16.3-s390x.iso",
+    ],
+)
+
+http_file(
     name = "cirros_image",
     sha256 = "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
     urls = [
@@ -289,6 +297,13 @@ container_pull(
 container_pull(
     name = "go_image_base_aarch64",
     digest = "sha256:02e08b836ad99a1de187da19278c5058dc6bf2c62b857d313b6076e0c68c5099",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
+)
+
+container_pull(
+    name = "go_image_base_s390x",
+    digest = "sha256:13781eade2f5909da37a16dcada58918a5139f0bfaa1441bacf81f3b39302c9d",
     registry = "gcr.io",
     repository = "distroless/base-debian12",
 )
