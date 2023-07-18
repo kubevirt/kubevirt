@@ -3,91 +3,108 @@ name: Build x86 and arm Image
 on:
   pull_request:
     branches:
-      - exc-*
+      - ecx-*
+      - develop
   push:
     branches:
       - ecx-*
+      - develop
 env:
-  VERSION: v0.51.0.10
-
+  VERSION: v0.51.0.11
+  
 jobs:
-  build_x86:
-    name: Build x86
-    runs-on: ubuntu-22.04
-    needs: [ build_arm ]
+  docker-image-production:
+    if: startsWith(github.ref_name, vars.PRO_BRANCH)
+    env:
+      REGISTRY: ${{ vars.PRO_REGISTRY }}
+    name: Build x86 and arm Image production
+    runs-on: 
+      group: Default
     steps:
-      - name: clean
-        run: |
-          sudo rm -rf /usr/share/dotnet 
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Set up Go
+        uses: actions/setup-go@v3
         with:
-          go-version: 1.16.7
-        id: go
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-        
+          go-version: 1.19     
       - name: Configure rsync passwd
         run: |
-          mkdir -p ~/rsyncd/
-          sudo echo "root:${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.passwd
-          sudo echo "${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.pass
-          chmod 600 ~/rsyncd/rsync.pass
-
-      - name: Build
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          mkdir -p $HOME/rsyncd/
+          echo "${{ secrets.RSYNC_PASSWD }}" > $HOME/rsyncd/rsyncd.pass
+          chmod 600 $HOME/rsyncd/rsyncd.pass
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.PRO_HARBOR_USERNAME }}
+          password: ${{ secrets.PRO_HARBOR_TOKEN }}
+      - name: Build x86_64 image & Push
         run: |
-          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
           export DOCKER_TAG=$VERSION-amd64
-          export DOCKER_PREFIX=$DOCKER_USERNAME
+          export DOCKER_PREFIX=${{ vars.DEV_REGISTRY }}/ecf-edge/kubevirt
           export BUILD_ARCH=x86_64
           make bazel-build
           make bazel-build-images
           make bazel-push-images
-  build_arm:
-    name: Build arm
-    runs-on: ubuntu-22.04
-    steps:
-      - name: clean
+      - name: Build arm image & Push
         run: |
-          sudo rm -rf /usr/share/dotnet 
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16.7
-        id: go
-
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v2
-      
-      - name: Configure rsync passwd
-        run: |
-          mkdir -p ~/rsyncd/
-          sudo echo "root:${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.passwd
-          sudo echo "${{ secrets.RSYNC_PASSWD }}" > ~/rsyncd/rsync.pass
-          chmod 600 ~/rsyncd/rsync.pass
-
-      - name: Build
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: |
-          echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
           export DOCKER_TAG=$VERSION-arm64
-          export DOCKER_PREFIX=$DOCKER_USERNAME
+          export DOCKER_PREFIX=${{ vars.DEV_REGISTRY }}/ecf-edge/kubevirt
           export BUILD_ARCH=crossbuild-aarch64
           make bazel-build
           make bazel-build-images
           make bazel-push-images
-  push_manifest_list:
-    runs-on: ubuntu-22.04
-    name: push manifest list
-    needs: [ build_x86, build_arm]
+  docker-image-develop:
+    if: startsWith(github.ref_name, vars.DEV_BRANCH)
+    env:
+      REGISTRY: ${{ vars.DEV_REGISTRY }}
+    name: Build x86 and arm Image develop
+    runs-on: 
+      group: Default
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.19
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Configure rsync passwd
+        run: |
+          mkdir -p $HOME/rsyncd/
+          echo "${{ secrets.RSYNC_PASSWD }}" > $HOME/rsyncd/rsyncd.pass
+          chmod 600 $HOME/rsyncd/rsyncd.pass
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DEV_HARBOR_USERNAME }}
+          password: ${{ secrets.DEV_HARBOR_TOKEN }}
+      - name: Build x86_64 image
+        run:  |
+          export DOCKER_TAG=$VERSION-amd64
+          export DOCKER_PREFIX=${{ vars.DEV_REGISTRY }}/ecf-edge/kubevirt
+          export BUILD_ARCH=x86_64
+          make bazel-build
+          make bazel-build-images
+          make bazel-push-images
+      - name: Build arm image
+        run: |
+          export DOCKER_TAG=$VERSION-arm64
+          export DOCKER_PREFIX=${{ vars.DEV_REGISTRY }}/ecf-edge/kubevirt
+          export BUILD_ARCH=crossbuild-aarch64
+          make bazel-build
+          make bazel-build-images
+          make bazel-push-images
+  push_manifest_list_develop:
+    if: startsWith(github.ref_name, vars.DEV_BRANCH)
+    runs-on: 
+      group: Default
+    env:
+      REGISTRY: ${{ vars.DEV_REGISTRY }}
+    name: push develop manifest list
+    needs: [ docker-image-develop]
     strategy: # 矩阵策略
       matrix:
         docekr_image: [ecx-hook-sidecar, example-hook-sidecar, example-cloudinit-hook-sidecar, subresource-access-test,alpine-container-disk-demo,cirros-container-disk-demo,cirros-custom-container-disk-demo,microlivecd-container-disk-demo,virtio-container-disk,alpine-ext-kernel-boot-demo,fedora-with-test-tooling-container-disk,fedora-realtime-container-disk,disks-images-provider,nfs-server,vm-killer,winrmcli,virt-api,virt-controller,virt-handler,virt-launcher,virt-operator]
@@ -95,13 +112,40 @@ jobs:
       - name: Login to DockerHub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.DEV_HARBOR_USERNAME }}
+          password: ${{ secrets.DEV_HARBOR_TOKEN }}
       - name: Create docker manifest and Push the new manifest file
         env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          HARBOR: ${{ vars.DEV_REGISTRY }}
         run: |
           export DOCKER_PREFIX_TAG=$VERSION
-          export DOCKER_PREFIX=$DOCKER_USERNAME
-          docker manifest create $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
-          docker manifest push $DOCKER_USERNAME/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
+          export DOCKER_PREFIX=$HARBOR
+          docker manifest create $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
+          docker manifest push $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
+  push_manifest_production:
+    if: startsWith(github.ref_name, vars.PRO_BRANCH)
+    runs-on: 
+      group: Default
+    env:
+      REGISTRY: ${{ vars.PRO_REGISTRY }}
+    name: push production manifest list
+    needs: [ docker-image-production]
+    strategy: # 矩阵策略
+      matrix:
+        docekr_image: [ecx-hook-sidecar, example-hook-sidecar, example-cloudinit-hook-sidecar, subresource-access-test,alpine-container-disk-demo,cirros-container-disk-demo,cirros-custom-container-disk-demo,microlivecd-container-disk-demo,virtio-container-disk,alpine-ext-kernel-boot-demo,fedora-with-test-tooling-container-disk,fedora-realtime-container-disk,disks-images-provider,nfs-server,vm-killer,winrmcli,virt-api,virt-controller,virt-handler,virt-launcher,virt-operator]
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.PRO_HARBOR_USERNAME }}
+          password: ${{ secrets.PRO_HARBOR_TOKEN }}
+      - name: Create docker manifest and Push the new manifest file
+        env:
+          HARBOR: ${{ vars.PRO_REGISTRY }}
+        run: |
+          export DOCKER_PREFIX_TAG=$VERSION
+          export DOCKER_PREFIX=$HARBOR
+          docker manifest create $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
+          docker manifest push $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
