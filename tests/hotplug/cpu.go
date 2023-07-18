@@ -36,10 +36,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-const (
-	kubevirtReadyTimeoutSeconds = 360 * time.Second
-)
-
 var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
 	var (
 		virtClient  kubecli.KubevirtClient
@@ -52,7 +48,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
 		patchWorkloadUpdateMethod(originalKv.Name, virtClient, updateStrategy)
-		testsuite.EnsureKubevirtReadyWithTimeout(kubevirtReadyTimeoutSeconds)
+
+		currentKv := util2.GetCurrentKv(virtClient)
+		tests.WaitForConfigToBePropagatedToComponent(
+			"kubevirt.io=virt-controller",
+			currentKv.ResourceVersion,
+			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			time.Minute)
 
 	})
 
@@ -63,8 +65,8 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		}
 		countDomCPUs := func(vmi *v1.VirtualMachineInstance) (count cpuCount) {
 			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(domSpec.VCPUs).NotTo(BeNil())
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
+			ExpectWithOffset(1, domSpec.VCPUs).NotTo(BeNil())
 			for _, cpu := range domSpec.VCPUs.VCPU {
 				if cpu.Enabled == "yes" {
 					count.enabled++
@@ -252,9 +254,13 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, mig := range migrations.Items {
+					match := 0
 					if mig.Spec.VMIName == vmi.Name {
-						migration = mig.DeepCopy()
-						return true
+						match++
+						if !migration.IsFinal() || match == 2 {
+							migration = mig.DeepCopy()
+							return true
+						}
 					}
 				}
 				return false
