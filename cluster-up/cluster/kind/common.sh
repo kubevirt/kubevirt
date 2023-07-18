@@ -309,6 +309,15 @@ function down() {
     if [ -z "$($KIND get clusters | grep ${CLUSTER_NAME})" ]; then
         return
     fi
+
+    worker_nodes=$(_get_nodes | grep -i $WORKER_NODES_PATTERN | awk '{print $1}')
+    for worker_node in $worker_nodes; do
+        if ip netns exec $worker_node ip -details address | grep "vf 0" -B 2 > /dev/null; then
+            iface=$(ip netns exec $worker_node ip -details address | grep "vf 0" -B 2 | grep -E 'UP|DOWN' | awk -F": " '{print $2}')
+            ip netns exec $worker_node ip link set $iface netns 1 && echo "gracefully detached $iface from $worker_node"
+        fi
+    done
+
     # On CI, avoid failing an entire test run just because of a deletion error
     $KIND delete cluster --name=${CLUSTER_NAME} || [ "$CI" = "true" ]
     ${CRI_BIN} rm -f $REGISTRY_NAME >> /dev/null
