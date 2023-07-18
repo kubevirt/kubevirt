@@ -113,6 +113,14 @@ http_file(
 )
 
 http_file(
+    name = "alpine_image_s390x",
+    sha256 = "6844e37c5f5bdbf34bc80cac6d504e1c450e799539a218fb4f1d625ad4afff54",
+    urls = [
+        "https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/s390x/alpine-standard-3.16.3-s390x.iso",
+    ],
+)
+
+http_file(
     name = "cirros_image",
     sha256 = "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
     urls = [
@@ -292,6 +300,13 @@ container_pull(
     repository = "distroless/base-debian12",
 )
 
+container_pull(
+    name = "go_image_base_s390x",
+    digest = "sha256:bb12d31880371ae076ed8372057e7bcba9cb9da327d1f03a9ab416352134583b",
+    registry = "gcr.io",
+    repository = "distroless/base",
+)
+
 # Pull nfs-server image
 # WARNING: please update any automated process to push this image to quay.io
 # instead of index.docker.io
@@ -305,6 +320,13 @@ container_pull(
 
 container_pull(
     name = "nfs-server_aarch64",
+    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
+    registry = "quay.io",
+    repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
+)
+
+container_pull(
+    name = "nfs-server_s390x",
     digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
     registry = "quay.io",
     repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
