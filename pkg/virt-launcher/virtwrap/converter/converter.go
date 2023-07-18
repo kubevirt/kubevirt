@@ -123,6 +123,7 @@ type ConverterContext struct {
 	ExpandDisksEnabled    bool
 	UseLaunchSecurity     bool
 	FreePageReporting     bool
+	BochsForEFIGuests     bool
 }
 
 func contains(volumes []string, name string) bool {
@@ -1806,7 +1807,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			)
 		} else {
 			// For AMD64 + EFI, use bochs. For BIOS, use VGA
-			if util.IsEFIVMI(vmi) {
+			if c.BochsForEFIGuests && util.IsEFIVMI(vmi) {
 				domain.Spec.Devices.Video = []api.Video{
 					{
 						Model: api.VideoModel{

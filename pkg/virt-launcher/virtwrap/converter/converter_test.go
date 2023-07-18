@@ -3103,6 +3103,28 @@ var _ = Describe("Converter", func() {
 			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(c.EFIConfiguration.EFIVars))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		})
+
+		DescribeTable("display device should be set to", func(bootloader v1.Bootloader, enableFG bool, expectedDevice string) {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{Bootloader: &bootloader}
+			c = &ConverterContext{
+				BochsForEFIGuests: enableFG,
+				VirtualMachine:    vmi,
+				AllowEmulation:    true,
+				EFIConfiguration:  &EFIConfiguration{},
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.Devices.Video).To(HaveLen(1))
+			Expect(domainSpec.Devices.Video[0].Model.Type).To(Equal(expectedDevice))
+			if expectedDevice == "bochs" {
+				// Bochs doesn't support the vram option
+				Expect(domainSpec.Devices.Video[0].Model.VRam).To(BeNil())
+			}
+		},
+			Entry("VGA with BIOS and BochsDisplayForEFIGuests unset", v1.Bootloader{BIOS: &v1.BIOS{}}, false, "vga"),
+			Entry("VGA with BIOS and BochsDisplayForEFIGuests set", v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
+			Entry("VGA with EFI and BochsDisplayForEFIGuests unset", v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
+			Entry("Bochs with EFI and BochsDisplayForEFIGuests set", v1.Bootloader{EFI: &v1.EFI{}}, true, "bochs"),
+		)
 	})
 
 	Context("Kernel Boot", func() {

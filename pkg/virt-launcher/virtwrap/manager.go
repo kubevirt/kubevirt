@@ -918,6 +918,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		if options.GetClusterConfig() != nil {
 			c.ExpandDisksEnabled = options.GetClusterConfig().GetExpandDisksEnabled()
 			c.FreePageReporting = isFreePageReportingEnabled(options.GetClusterConfig().GetFreePageReportingDisabled(), vmi)
+			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
 		}
 	}
 	c.DisksInfo = l.disksInfo
