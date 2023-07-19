@@ -329,21 +329,19 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, accountName)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
-	validateDataVolumeTemplate(field, spec, &causes)
-
-	validateRunStrategy(field, spec, &causes)
-
-	validateLiveUpdateFeatures(field, spec, config, &causes)
+	causes = append(causes, validateDataVolumeTemplate(field, spec)...)
+	causes = append(causes, validateRunStrategy(field, spec)...)
+	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
 
 	return causes
 }
 
-func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpec, causes *[]metav1.StatusCause) {
+func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
 	if len(spec.DataVolumeTemplates) > 0 {
 
 		for idx, dataVolume := range spec.DataVolumeTemplates {
 			if dataVolume.Name == "" {
-				*causes = append(*causes, metav1.StatusCause{
+				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entry %s.", field.Child("dataVolumeTemplate").Index(idx).String()),
 					Field:   field.Child("dataVolumeTemplate").Index(idx).Child("name").String(),
@@ -363,7 +361,7 @@ func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			}
 
 			if !dataVolumeRefFound {
-				*causes = append(*causes, metav1.StatusCause{
+				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("DataVolumeTemplate entry %s must be referenced in the VMI template's 'volumes' list", field.Child("dataVolumeTemplate").Index(idx).String()),
 					Field:   field.Child("dataVolumeTemplate").Index(idx).String(),
@@ -371,11 +369,12 @@ func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			}
 		}
 	}
+	return causes
 }
 
-func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, causes *[]metav1.StatusCause) {
+func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
 	if spec.Running != nil && spec.RunStrategy != nil {
-		*causes = append(*causes, metav1.StatusCause{
+		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Running and RunStrategy are mutually exclusive"),
 			Field:   field.Child("running").String(),
@@ -383,7 +382,7 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, caus
 	}
 
 	if spec.Running == nil && spec.RunStrategy == nil {
-		*causes = append(*causes, metav1.StatusCause{
+		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("One of Running or RunStrategy must be specified"),
 			Field:   field.Child("running").String(),
@@ -399,18 +398,19 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, caus
 			}
 		}
 		if !validRunStrategy {
-			*causes = append(*causes, metav1.StatusCause{
+			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
 				Field:   field.Child("runStrategy").String(),
 			})
 		}
 	}
+	return causes
 }
 
-func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, causes *[]metav1.StatusCause) {
+func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.LiveUpdateFeatures != nil && !config.VMLiveUpdateFeaturesEnabled() {
-		*causes = append(*causes, metav1.StatusCause{
+		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMLiveUpdateFeaturesGate),
 			Field:   field.Child("liveUpdateFeatures").String(),
@@ -418,7 +418,7 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	if spec.Template.Spec.Domain.CPU != nil && spec.Template.Spec.Domain.CPU.MaxSockets != 0 {
-		*causes = append(*causes, metav1.StatusCause{
+		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("CPU topology maxSockets cannot be set directy in VM template"),
 			Field:   field.Child("template.spec.domain.cpu.maxSockets").String(),
@@ -427,7 +427,7 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 	if spec.LiveUpdateFeatures != nil && spec.LiveUpdateFeatures.CPU != nil {
 		if spec.Instancetype != nil {
-			*causes = append(*causes, metav1.StatusCause{
+			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fmt.Sprintf("Live update features cannot be used when instance type is configured"),
 				Field:   field.Child("liveUpdateFeatures").String(),
@@ -437,7 +437,7 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		if spec.Template.Spec.Domain.CPU.Sockets != 0 {
 			if spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
 				if spec.Template.Spec.Domain.CPU.Sockets > *spec.LiveUpdateFeatures.CPU.MaxSockets {
-					*causes = append(*causes, metav1.StatusCause{
+					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
 						Field:   field.Child("liveUpdateFeatures").String(),
@@ -447,13 +447,14 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		}
 
 		if hasCPURequestsOrLimits(&spec.Template.Spec.Domain.Resources) {
-			*causes = append(*causes, metav1.StatusCause{
+			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Configuration of CPU resource requirements is not allowed when CPU live update is enabled"),
 				Field:   field.Child("liveUpdateFeatures").String(),
 			})
 		}
 	}
+	return causes
 }
 
 func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
@@ -516,8 +517,8 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 			}
 
 			// Validate the disk is configured properly
-			invalidDiskStatusCause, ok := validateDiskConfiguration(volumeRequest.AddVolumeOptions.Disk, name)
-			if !ok {
+			invalidDiskStatusCause := validateDiskConfiguration(volumeRequest.AddVolumeOptions.Disk, name)
+			if invalidDiskStatusCause != nil {
 				return invalidDiskStatusCause, nil
 			}
 
@@ -602,29 +603,29 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 
 }
 
-func validateDiskConfiguration(disk *v1.Disk, name string) ([]metav1.StatusCause, bool) {
+func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause {
 	// Validate the disk is configured properly
 	if disk == nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("AddVolume request for [%s] requires the disk field to be set.", name),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}, false
+		}}
 	} else if disk.DiskDevice.Disk == nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' to be used.", name),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}, false
+		}}
 	} else if disk.DiskDevice.Disk.Bus != "scsi" {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, disk.DiskDevice.Disk.Bus),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
-		}}, false
+		}}
 	}
 
-	return nil, true
+	return nil
 }
 
 func validateRestoreStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
