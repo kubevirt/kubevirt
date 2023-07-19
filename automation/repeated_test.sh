@@ -74,7 +74,7 @@ function new_tests {
     git diff --diff-filter=ACMR --name-status "${target_commit}".. -- tests/ \
         | awk '{print $NF}' \
         | grep '\.go' \
-        | grep -v '_suite\.go' \
+        | grep -vE '_suite(_test)\.go' \
         | tr '\n' '|' \
         | sed -E 's/\|$//'
 }
@@ -101,11 +101,16 @@ function should_skip_test_run_due_to_too_many_tests() {
     [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
 }
 
-
+ginko_params=''
 if (( $# > 0 )); then
     if [[ "$1" =~ -h ]]; then
         usage
         exit 0
+    fi
+
+    if [[ "$1" =~ --dry-run ]]; then
+        ginko_params='-dry-run'
+        shift
     fi
 fi
 
@@ -157,22 +162,28 @@ trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
 
 for lane in "${TEST_LANES[@]}"; do
 
-    echo "test lane: $lane, preparing cluster up"
-
     export KUBEVIRT_PROVIDER="$lane"
     export KUBEVIRT_NUM_NODES=2
     export KUBEVIRT_WITH_CNAO="true"
     export KUBEVIRT_DEPLOY_CDI="true"
     export KUBEVIRT_NUM_SECONDARY_NICS=1
-    make cluster-up
+
+    ginko_params="$ginko_params -no-color -succinct -skip=QUARANTINE -randomize-all"
+    for test_file in $(echo ${NEW_TESTS} | tr '|' '\n'); do
+        ginko_params+=" -focus-file=${test_file}"
+    done
+
+    echo "test lane: $lane, preparing cluster up"
+
+    if [[ ! "$ginko_params" =~ -dry-run ]]; then
+        make cluster-up
+        make cluster-sync
+    else
+        NUM_TESTS=1
+    fi
 
     for i in $(seq 1 "$NUM_TESTS"); do
         echo "test lane: $lane, run: $i"
-        make cluster-sync
-        ginko_params="-no-color -succinct -skip=QUARANTINE -randomize-all"
-        for test_file in $(echo ${NEW_TESTS} | tr '|' '\n'); do
-            ginko_params+=" -focus-file=${test_file}"
-        done
         FUNC_TEST_ARGS="$ginko_params" make functest
         if [[ $? -ne 0 ]]; then
             echo "test lane: $lane, run: $i, tests failed!"
