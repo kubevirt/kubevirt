@@ -27,7 +27,7 @@ Make a few passes over the code you want to review.
 
 PRs have a ```release-notes``` section of their description and we use GitHub labels to filter release notes when we generate them at release time. For some PRs, kubevirt-bot is able to apply one of more of these labels but in general they need to be manually added.
 
-If a release note is included in the PR, ensure that it has a `kind/` label and, if relevant, a 'sig/' label as well. For more information on these labels, see the [release.md](https://github.com/kubevirt/kubevirt/blob/main/docs/release.md) doc in this repo.
+If a release note is included in the PR, ensure that it has a `kind/` label and, if relevant, a 'sig/' label as well. For more information on these labels, see the [release-procedure.md](release-procedure.md#using-github-labels-for-release-notes) doc in this repo.
 
 ## Pull Request structure
 
