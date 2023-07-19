@@ -348,10 +348,12 @@ var _ = ginkgo.Describe("Schema", func() {
 		exampleDomain.Spec.Devices.Consoles = []Console{
 			{Type: "pty"},
 		}
-		exampleDomain.Spec.Devices.Watchdog = &Watchdog{
-			Model:  "i6300esb",
-			Action: "poweroff",
-			Alias:  NewUserDefinedAlias("mywatchdog"),
+		exampleDomain.Spec.Devices.Watchdogs = []Watchdog{
+			{
+				Model:  "i6300esb",
+				Action: "poweroff",
+				Alias:  NewUserDefinedAlias("mywatchdog"),
+			},
 		}
 		exampleDomain.Spec.Devices.Rng = &Rng{
 			Model:   v1.VirtIO,

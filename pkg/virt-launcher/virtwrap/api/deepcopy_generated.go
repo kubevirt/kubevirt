@@ -736,10 +736,12 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Watchdog != nil {
-		in, out := &in.Watchdog, &out.Watchdog
-		*out = new(Watchdog)
-		(*in).DeepCopyInto(*out)
+	if in.Watchdogs != nil {
+		in, out := &in.Watchdogs, &out.Watchdogs
+		*out = make([]Watchdog, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
