@@ -3425,7 +3425,7 @@ spec:
                 - name: OPERATOR_IMAGE
                   value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:e6c1a6f9d3bf1678e7802bbdd238e8f3a4311682e517ae4c543aea49faf1b126
                 - name: PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner@sha256:9e102da286b3a262d413c3784c20e028ade7a2cda6cb1884aeeb43bfb6a06d7b
+                  value: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
                 - name: CSI_PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-csi-driver@sha256:c4c57725f677e0413e5b2c1b1e8e2dd473dd7f1d88cdaf76106708056ef3a78d
                 - name: NODE_DRIVER_REG_IMAGE
@@ -3931,7 +3931,7 @@ spec:
     name: csi-snapshotter
   - image: quay.io/kubevirt/hostpath-csi-driver@sha256:c4c57725f677e0413e5b2c1b1e8e2dd473dd7f1d88cdaf76106708056ef3a78d
     name: hostpath-csi-driver
-  - image: quay.io/kubevirt/hostpath-provisioner@sha256:9e102da286b3a262d413c3784c20e028ade7a2cda6cb1884aeeb43bfb6a06d7b
+  - image: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
     name: hostpath-provisioner
   - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:e6c1a6f9d3bf1678e7802bbdd238e8f3a4311682e517ae4c543aea49faf1b126
     name: hostpath-provisioner-operator
