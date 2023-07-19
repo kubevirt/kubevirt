@@ -242,6 +242,10 @@ func (metrics *vmiMetrics) updateCPUAffinity(cpuMap [][]bool) {
 	)
 }
 
+func nanosecondsToSeconds(ns uint64) float64 {
+	return float64(ns) / 1000000000
+}
+
 func (metrics *vmiMetrics) updateCPU(vmi *k6tv1.VirtualMachineInstance, domainCPUStats *stats.DomainStatsCPU) {
 	if !domainCPUStats.TimeSet && !domainCPUStats.UserSet && !domainCPUStats.SystemSet {
 		log.Log.Warningf("No domain CPU stats is set for %s VMI.", vmi.Name)
@@ -249,28 +253,28 @@ func (metrics *vmiMetrics) updateCPU(vmi *k6tv1.VirtualMachineInstance, domainCP
 
 	if domainCPUStats.TimeSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_cpu_usage_seconds",
+			"kubevirt_vmi_cpu_usage_seconds_total",
 			"Total CPU time spent in all modes (sum of both vcpu and hypervisor usage).",
-			prometheus.GaugeValue,
-			float64(domainCPUStats.Time/1000000000),
+			prometheus.CounterValue,
+			nanosecondsToSeconds(domainCPUStats.Time),
 		)
 	}
 
 	if domainCPUStats.UserSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_cpu_user_usage_seconds",
+			"kubevirt_vmi_cpu_user_usage_seconds_total",
 			"Total CPU time spent in user mode.",
-			prometheus.GaugeValue,
-			float64(domainCPUStats.User/1000000000),
+			prometheus.CounterValue,
+			nanosecondsToSeconds(domainCPUStats.User),
 		)
 	}
 
 	if domainCPUStats.SystemSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_cpu_system_usage_seconds",
+			"kubevirt_vmi_cpu_system_usage_seconds_total",
 			"Total CPU time spent in system mode.",
-			prometheus.GaugeValue,
-			float64(domainCPUStats.System/1000000000),
+			prometheus.CounterValue,
+			nanosecondsToSeconds(domainCPUStats.System),
 		)
 	}
 }
