@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -187,6 +188,53 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}},
 			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
 			[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
+		),
+	)
+
+	DescribeTable("spec interfaces",
+		func(specIfaces []v1.Interface, statusIfaces []v1.VirtualMachineInstanceNetworkInterface,
+			expectedInterfaces []v1.Interface, expectedNetworks []v1.Network) {
+			var testNetworks []v1.Network
+			for _, iface := range specIfaces {
+				testNetworks = append(testNetworks, v1.Network{Name: iface.Name})
+			}
+			testStatusIfaces := vmispec.IndexInterfacesFromStatus(statusIfaces,
+				func(i v1.VirtualMachineInstanceNetworkInterface) bool { return true })
+
+			ifaces, networks := clearDetachedInterfaces(specIfaces, testNetworks, testStatusIfaces)
+
+			Expect(ifaces).To(Equal(expectedInterfaces))
+			Expect(networks).To(Equal(expectedNetworks))
+		},
+		Entry("should remain, given non-absent interfaces, and no associated status ifaces (i.e.: plug pending)",
+			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
+			[]v1.VirtualMachineInstanceNetworkInterface{},
+			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
+			[]v1.Network{{Name: "blue"}, {Name: "red"}},
+		),
+		Entry("should remain, given non-absent interfaces, and associated status ifaces (i.e.: plugged iface)",
+			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "blue"}, {Name: "red"}},
+			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
+			[]v1.Network{{Name: "blue"}, {Name: "red"}},
+		),
+		Entry("should remain, given absent iface and associated status ifaces (i.e.: unplug pending)",
+			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}, {Name: "red"}},
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "blue"}, {Name: "red"}},
+			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}, {Name: "red"}},
+			[]v1.Network{{Name: "blue"}, {Name: "red"}},
+		),
+		Entry("should be cleared, given absent iface and no associated status iface (i.e.: unplugged iface)",
+			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}, {Name: "red"}},
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "red"}},
+			[]v1.Interface{{Name: "red"}},
+			[]v1.Network{{Name: "red"}},
+		),
+		Entry("should remain, given status iface and no associated iface in spec",
+			[]v1.Interface{{Name: "blue"}},
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "RED"}},
+			[]v1.Interface{{Name: "blue"}},
+			[]v1.Network{{Name: "blue"}},
 		),
 	)
 

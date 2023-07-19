@@ -370,6 +370,23 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 			By("verify unplugged interface is not reported in the VMI status")
 			vmi = verifyDynamicInterfaceChange(vmi, plugMethod)
 
+			By("verify unplugged iface cleared from VM & VMI spec")
+			Eventually(func(g Gomega) {
+				updatedVM, err := kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				updatedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(vmispec.LookupInterfaceByName(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)).To(BeNil(),
+					"unplugged iface should be cleared from VM spec")
+				g.Expect(libnet.LookupNetworkByName(updatedVM.Spec.Template.Spec.Networks, linuxBridgeNetworkName2)).To(BeNil(),
+					"unplugged iface corresponding network should be cleared from VM spec")
+				g.Expect(vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)).To(BeNil(),
+					"unplugged iface should be cleared from VMI spec")
+				g.Expect(libnet.LookupNetworkByName(updatedVMI.Spec.Networks, linuxBridgeNetworkName2)).To(BeNil(),
+					"unplugged iface corresponding network should be cleared from VMI spec")
+			}, 30*time.Second, 3*time.Second).Should(Succeed())
+
 			By("restarting the VM")
 			Expect(kubevirt.Client().VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})).To(Succeed())
 
