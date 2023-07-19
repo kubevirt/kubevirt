@@ -52,11 +52,12 @@ func (h dotHandler) GetActualFuncName(expr *ast.CallExpr) (string, bool) {
 	case *ast.SelectorExpr:
 		if isGomegaVar(actualFunc.X, h) {
 			return actualFunc.Sel.Name, true
-		} else {
-			if x, ok := actualFunc.X.(*ast.CallExpr); ok {
-				return h.GetActualFuncName(x)
-			}
 		}
+
+		if x, ok := actualFunc.X.(*ast.CallExpr); ok {
+			return h.GetActualFuncName(x)
+		}
+
 	case *ast.CallExpr:
 		return h.GetActualFuncName(actualFunc)
 	}

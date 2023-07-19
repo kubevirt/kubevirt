@@ -42,6 +42,7 @@ go_library(
         "ioctl_linux.go",
         "ioctl_signed.go",
         "ioctl_unsigned.go",
+        "mremap.go",
         "pagesize_unix.go",
         "pledge_openbsd.go",
         "ptrace_darwin.go",

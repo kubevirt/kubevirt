@@ -13,6 +13,7 @@ const (
 	suppressErrAssertionWarning     = suppressPrefix + "ignore-err-assert-warning"
 	suppressCompareAssertionWarning = suppressPrefix + "ignore-compare-assert-warning"
 	suppressAsyncAsertWarning       = suppressPrefix + "ignore-async-assert-warning"
+	suppressFocusContainerWarning   = suppressPrefix + "ignore-focus-container-warning"
 )
 
 type Config struct {
@@ -21,11 +22,12 @@ type Config struct {
 	SuppressErr     Boolean
 	SuppressCompare Boolean
 	SuppressAsync   Boolean
+	ForbidFocus     Boolean
 	AllowHaveLen0   Boolean
 }
 
 func (s *Config) AllTrue() bool {
-	return bool(s.SuppressLen && s.SuppressNil && s.SuppressErr && s.SuppressCompare && s.SuppressAsync)
+	return bool(s.SuppressLen && s.SuppressNil && s.SuppressErr && s.SuppressCompare && s.SuppressAsync && !s.ForbidFocus)
 }
 
 func (s *Config) Clone() Config {
@@ -35,6 +37,7 @@ func (s *Config) Clone() Config {
 		SuppressErr:     s.SuppressErr,
 		SuppressCompare: s.SuppressCompare,
 		SuppressAsync:   s.SuppressAsync,
+		ForbidFocus:     s.ForbidFocus,
 		AllowHaveLen0:   s.AllowHaveLen0,
 	}
 }
@@ -53,11 +56,20 @@ func (s *Config) UpdateFromComment(commentGroup []*ast.CommentGroup) {
 				comment = strings.TrimSuffix(comment, "*/")
 				comment = strings.TrimSpace(comment)
 
-				s.SuppressLen = s.SuppressLen || (comment == suppressLengthAssertionWarning)
-				s.SuppressNil = s.SuppressNil || (comment == suppressNilAssertionWarning)
-				s.SuppressErr = s.SuppressErr || (comment == suppressErrAssertionWarning)
-				s.SuppressCompare = s.SuppressCompare || (comment == suppressCompareAssertionWarning)
-				s.SuppressAsync = s.SuppressAsync || (comment == suppressAsyncAsertWarning)
+				switch comment {
+				case suppressLengthAssertionWarning:
+					s.SuppressLen = true
+				case suppressNilAssertionWarning:
+					s.SuppressNil = true
+				case suppressErrAssertionWarning:
+					s.SuppressErr = true
+				case suppressCompareAssertionWarning:
+					s.SuppressCompare = true
+				case suppressAsyncAsertWarning:
+					s.SuppressAsync = true
+				case suppressFocusContainerWarning:
+					s.ForbidFocus = false
+				}
 			}
 		}
 	}
