@@ -283,12 +283,6 @@ func (c *VMController) execute(key string) error {
 		return err
 	}
 
-	//TODO default vm if necessary, the aggregated apiserver will do that in the future
-	if vm.Spec.Template == nil {
-		logger.Error("Invalid controller spec, will not re-enqueue.")
-		return nil
-	}
-
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		return err
