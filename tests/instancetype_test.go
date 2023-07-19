@@ -316,6 +316,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			preference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
 				PreferredUseBios: pointer.Bool(true),
 			}
+			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.Int64(15)
+			preference.Spec.PreferredSubdomain = pointer.String("non-existent-subdomain")
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -360,6 +362,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Assert that the correct firmware preferences are enabled
 			Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
+
+			// Assert that the correct termination grace period are used
+			Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(*preference.Spec.PreferredTerminationGracePeriodSeconds))
+
+			// Assert that the correct subdomain grace period are used
+			Expect(vmi.Spec.Subdomain).To(Equal(*preference.Spec.PreferredSubdomain))
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.InstancetypeAnnotation]).To(Equal(instancetype.Name))
@@ -2523,6 +2531,7 @@ func newVirtualMachineClusterPreference() *instancetypev1beta1.VirtualMachineClu
 func removeResourcesAndPreferencesFromVMI(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Domain.CPU = nil
 	vmi.Spec.Domain.Memory = nil
+	vmi.Spec.TerminationGracePeriodSeconds = nil
 	vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 	vmi.Spec.Domain.Features = &v1.Features{}
 	vmi.Spec.Domain.Machine = &v1.Machine{}
