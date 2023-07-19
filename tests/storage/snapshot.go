@@ -141,6 +141,16 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		pvc = nil
 	}
 
+	waitDataVolumePopulated := func(namespace, name string) {
+		libstorage.EventuallyDVWith(namespace, name, 180, matcher.HaveSucceeded())
+		// THIS SHOULD NOT BE NECESSARY - but in DV/Populator integration
+		Eventually(func() string {
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pvc.Spec.VolumeName
+		}, 180*time.Second, time.Second).ShouldNot(BeEmpty())
+	}
+
 	createDenyVolumeSnapshotCreateWebhook := func() {
 		fp := admissionregistrationv1.Fail
 		sideEffectNone := admissionregistrationv1.SideEffectClassNone
@@ -963,7 +973,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
-					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, matcher.HaveSucceeded())
+					waitDataVolumePopulated(vm.Namespace, dvt.Name)
 				}
 			})
 
@@ -1263,7 +1273,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
-					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, matcher.HaveSucceeded())
+					waitDataVolumePopulated(vm.Namespace, dvt.Name)
 				}
 
 				snapshot = newSnapshot()
@@ -1369,7 +1379,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				)
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDVWith(dv.Namespace, dv.Name, 180, matcher.HaveSucceeded())
+				waitDataVolumePopulated(dv.Namespace, dv.Name)
 
 				By("Creating DV with no snapshot supported storage class")
 				excludedDataVolume := libdv.NewDataVolume(
@@ -1448,7 +1458,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
-					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, matcher.HaveSucceeded())
+					waitDataVolumePopulated(vm.Namespace, dvt.Name)
 				}
 			})
 
