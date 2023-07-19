@@ -48,6 +48,21 @@ aliases:
     - lyarwood
 
   #
+  # SIG Compute
+  # Owns anything related to compute within KubeVirt.
+  #
+  # This currently includes the following areas:
+  #
+  # - Instance Types
+  #
+  sig-compute-approvers:
+    - lyarwood
+    - 0xFelix
+  sig-compute-reviewers:
+    - lyarwood
+    - 0xFelix
+
+  #
   # SIG Test
   #
   sig-test-reviewers:
