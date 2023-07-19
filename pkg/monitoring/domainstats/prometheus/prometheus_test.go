@@ -1228,18 +1228,18 @@ var _ = Describe("Prometheus", func() {
 			dto := &io_prometheus_client.Metric{}
 			result.Write(dto)
 
-			Expect(dto.GetGauge().GetValue()).To(Equal(float64(MetricValue)))
+			Expect(dto.GetCounter().GetValue()).To(Equal(float64(MetricValue)))
 
 		},
-			Entry("Total CPU time spent in all modes (sum of both vcpu and hypervisor usage)", "kubevirt_vmi_cpu_usage_seconds", 123, &stats.DomainStatsCPU{
+			Entry("Total CPU time spent in all modes (sum of both vcpu and hypervisor usage)", "kubevirt_vmi_cpu_usage_seconds_total", 123, &stats.DomainStatsCPU{
 				TimeSet: true,
 				Time:    123000000000},
 			),
-			Entry("Total CPU time spent in user mode", "kubevirt_vmi_cpu_user_usage_seconds", 456, &stats.DomainStatsCPU{
+			Entry("Total CPU time spent in user mode", "kubevirt_vmi_cpu_user_usage_seconds_total", 456, &stats.DomainStatsCPU{
 				UserSet: true,
 				User:    456000000000},
 			),
-			Entry("Total CPU time spent in system mode", "kubevirt_vmi_cpu_system_usage_seconds", 789, &stats.DomainStatsCPU{
+			Entry("Total CPU time spent in system mode", "kubevirt_vmi_cpu_system_usage_seconds_total", 789, &stats.DomainStatsCPU{
 				SystemSet: true,
 				System:    789000000000},
 			))

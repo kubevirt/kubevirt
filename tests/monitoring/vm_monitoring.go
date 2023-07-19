@@ -76,9 +76,9 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	Context("VM status metrics", func() {
 		var vm *v1.VirtualMachine
 		var cpuMetrics = []string{
-			"kubevirt_vmi_cpu_system_usage_seconds",
-			"kubevirt_vmi_cpu_usage_seconds",
-			"kubevirt_vmi_cpu_user_usage_seconds",
+			"kubevirt_vmi_cpu_system_usage_seconds_total",
+			"kubevirt_vmi_cpu_usage_seconds_total",
+			"kubevirt_vmi_cpu_user_usage_seconds_total",
 		}
 
 		BeforeEach(func() {
