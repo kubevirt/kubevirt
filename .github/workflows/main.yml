@@ -42,7 +42,7 @@ jobs:
       - name: Build x86_64 image & Push
         run: |
           export DOCKER_TAG=$VERSION-amd64
-          export DOCKER_PREFIX=${{ vars.DEV_REGISTRY }}/ecf-edge/kubevirt
+          export DOCKER_PREFIX=${{ vars.PRO_REGISTRY }}/ecf-edge/kubevirt
           export BUILD_ARCH=x86_64
           make bazel-build
           make bazel-build-images
@@ -50,7 +50,7 @@ jobs:
       - name: Build arm image & Push
         run: |
           export DOCKER_TAG=$VERSION-arm64
-          export DOCKER_PREFIX=${{ vars.DEV_REGISTRY }}/ecf-edge/kubevirt
+          export DOCKER_PREFIX=${{ vars.PRO_REGISTRY }}/ecf-edge/kubevirt
           export BUILD_ARCH=crossbuild-aarch64
           make bazel-build
           make bazel-build-images
