@@ -50,7 +50,7 @@ var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func()
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
 		It("[test_id:4641]should be shut down when the watchdog expires", func() {
 			vmi := tests.RunVMIAndExpectLaunch(
-				libvmi.NewAlpine(withWatchdog()), 360)
+				libvmi.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -77,16 +77,3 @@ var _ = Describe("[sig-compute]Health Monitoring", decorators.SigCompute, func()
 		})
 	})
 })
-
-func withWatchdog() libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
-			Name: "mywatchdog",
-			WatchdogDevice: v1.WatchdogDevice{
-				I6300ESB: &v1.I6300ESBWatchdog{
-					Action: v1.WatchdogActionPoweroff,
-				},
-			},
-		}
-	}
-}
