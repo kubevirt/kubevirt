@@ -26,9 +26,7 @@ import (
 	"encoding/pem"
 	goerrors "errors"
 	"fmt"
-	"io"
 	"os"
-	osexec "os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,7 +34,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/monitoring"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -1342,9 +1339,11 @@ var _ = SIGDescribe("Export", func() {
 
 	It("should create export from VMSnapshot", func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-		if err != nil {
-			Skip("Skip test when Filesystem storage is not present")
+		Expect(err).ToNot(HaveOccurred())
+		if sc == "" {
+			Skip("Skip test when storage with snapshot is not present")
 		}
+
 		vm := createVM(tests.NewRandomVMWithDataVolumeAndUserDataInStorageClass(
 			cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros),
 			testsuite.GetTestNamespace(nil),
@@ -1407,7 +1406,8 @@ var _ = SIGDescribe("Export", func() {
 
 	It("should create export from VMSnapshot with multiple volumes", func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-		if err != nil {
+		Expect(err).ToNot(HaveOccurred())
+		if sc == "" {
 			Skip("Skip test when storage with snapshot is not present")
 		}
 
@@ -1746,9 +1746,11 @@ var _ = SIGDescribe("Export", func() {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-		if err != nil {
-			Skip("Skip test when snapshot storage is not present")
+		Expect(err).ToNot(HaveOccurred())
+		if sc == "" {
+			Skip("Skip test when storage with snapshot is not present")
 		}
+
 		vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), util.NamespaceTestDefault, sc, k8sv1.ReadWriteOnce)
 		vm.Spec.Running = pointer.BoolPtr(true)
 		vm = createVM(vm)
@@ -2081,7 +2083,8 @@ var _ = SIGDescribe("Export", func() {
 
 		It("Create succeeds using Snapshot source", func() {
 			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-			if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+			if sc == "" {
 				Skip("Skip test when storage with snapshot is not present")
 			}
 			// Create a populated Snapshot
@@ -2191,40 +2194,38 @@ var _ = SIGDescribe("Export", func() {
 		})
 
 		Context("Download a volume with vmexport", func() {
-			var (
-				forwardCmd *osexec.Cmd
-			)
-
 			BeforeEach(func() {
 				outputFile = fmt.Sprintf(defaultOutput, rand.String(12))
 			})
 
 			AfterEach(func() {
-				err = monitoring.KillPortForwardCommand(forwardCmd)
-				Expect(err).ToNot(HaveOccurred())
 				if err := os.Remove(outputFile); err != nil && !goerrors.Is(err, os.ErrNotExist) {
 					Fail(err.Error())
 				}
 			})
 
 			It("Download succeeds creating and downloading a vmexport using PVC source", func() {
-				// Remove this once we can pass an argument to have virtctl start a port-forward
-				if !checks.IsOpenShift() {
-					Skip("Not on openshift")
-				}
 				// Create populated PVC
 				pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
 				// Run vmexport
 				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+				cmdArgs := []string{
+					commandName,
 					"download",
 					vmeName,
 					"--pvc", pvc.Name,
 					"--output", outputFile,
 					"--volume", pvc.Name,
 					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(pvc))
+					"--namespace", testsuite.GetTestNamespace(pvc),
+				}
 
+				if !checks.IsOpenShift() {
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--port-forward", targetPort)
+				}
+
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
 				_, err := os.Stat(outputFile)
@@ -2232,12 +2233,9 @@ var _ = SIGDescribe("Export", func() {
 			})
 
 			It("Download succeeds creating and downloading a vmexport using Snapshot source", func() {
-				// Remove this once we can pass an argument to have virtctl start a port-forward
-				if !checks.IsOpenShift() {
-					Skip("Not on openshift")
-				}
 				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-				if err != nil {
+				Expect(err).ToNot(HaveOccurred())
+				if sc == "" {
 					Skip("Skip test when storage with snapshot is not present")
 				}
 
@@ -2266,15 +2264,23 @@ var _ = SIGDescribe("Export", func() {
 
 				// Run vmexport
 				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+				cmdArgs := []string{
+					commandName,
 					"download",
 					vmeName,
 					"--snapshot", snapshot.Name,
 					"--output", outputFile,
-					"--volume", export.Status.Links.External.Volumes[0].Name,
+					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
 					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(export))
+					"--namespace", testsuite.GetTestNamespace(export),
+				}
 
+				if !checks.IsOpenShift() {
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--port-forward", targetPort)
+				}
+
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
 				_, err = os.Stat(outputFile)
@@ -2282,10 +2288,6 @@ var _ = SIGDescribe("Export", func() {
 			})
 
 			It("Download succeeds creating and downloading a vmexport using VM source", func() {
-				// Remove this once we can pass an argument to have virtctl start a port-forward
-				if !checks.IsOpenShift() {
-					Skip("Not on openshift")
-				}
 				// Create a populated VM
 				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
@@ -2308,15 +2310,23 @@ var _ = SIGDescribe("Export", func() {
 
 				// Run vmexport
 				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
+				cmdArgs := []string{
+					commandName,
 					"download",
 					vmeName,
 					"--vm", vm.Name,
 					"--output", outputFile,
 					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
 					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(vm))
+					"--namespace", testsuite.GetTestNamespace(vm),
+				}
 
+				if !checks.IsOpenShift() {
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--port-forward", targetPort)
+				}
+
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
 				err = virtctlCmd()
 				Expect(err).ToNot(HaveOccurred())
 				_, err := os.Stat(outputFile)
@@ -2338,10 +2348,8 @@ var _ = SIGDescribe("Export", func() {
 				export, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if export.Status.Links.External == nil {
-					targetPort := 37548 + rand.Intn(6000)
-					forwardCmd = startPortForward(vmeName, vmExport.Namespace, targetPort)
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--service-url", fmt.Sprintf("127.0.0.1:%d", targetPort),
-						"--insecure", "--keep-vme")
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", targetPort, "--keep-vme")
 				} else {
 					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
 				}
@@ -2377,9 +2385,8 @@ var _ = SIGDescribe("Export", func() {
 					"--namespace", testsuite.GetTestNamespace(export),
 				}
 				if export.Status.Links.External == nil {
-					targetPort := 37548 + rand.Intn(6000)
-					forwardCmd = startPortForward(vmeName, pvc.Namespace, targetPort)
-					cmdArgs = append(cmdArgs, "--service-url", fmt.Sprintf("127.0.0.1:%d", targetPort),
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--port-forward", targetPort,
 						"--insecure", "--keep-vme")
 				}
 				By("Running vmexport command")
@@ -2391,7 +2398,7 @@ var _ = SIGDescribe("Export", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("Download succeeds and keeps the vmexport after finishing the download", func() {
+			FIt("Download succeeds and keeps the vmexport after finishing the download", func() {
 				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 				vmeName = vmExport.Name
 				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
@@ -2407,10 +2414,8 @@ var _ = SIGDescribe("Export", func() {
 				}
 				Expect(err).ToNot(HaveOccurred())
 				if vme.Status.Links.External == nil {
-					targetPort := 37548 + rand.Intn(6000)
-					forwardCmd = startPortForward(vmeName, vmExport.Namespace, targetPort)
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--service-url", fmt.Sprintf("127.0.0.1:%d", targetPort),
-						"--insecure")
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", targetPort)
 				} else {
 					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
 				}
@@ -2428,15 +2433,6 @@ var _ = SIGDescribe("Export", func() {
 		})
 
 		Context("Get export manifest from vmexport", func() {
-			var (
-				forwardCmd *osexec.Cmd
-			)
-
-			AfterEach(func() {
-				err = monitoring.KillPortForwardCommand(forwardCmd)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
 			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
 				// Create a populated VM
 				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
@@ -2491,10 +2487,8 @@ var _ = SIGDescribe("Export", func() {
 					testsuite.GetTestNamespace(vm),
 				}
 				if vme.Status.Links.External == nil {
-					targetPort := 37548 + rand.Intn(6000)
-					forwardCmd = startPortForward(vmeName, vm.Namespace, targetPort)
-					cmdArgs = append(cmdArgs, "--service-url", fmt.Sprintf("127.0.0.1:%d", targetPort),
-						"--insecure")
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--service-url", fmt.Sprintf("127.0.0.1:%s", targetPort), "--port-forward", targetPort)
 				}
 				cmdArgs = append(cmdArgs, extraArgs...)
 				virtctlCmdOut := clientcmd.NewRepeatableVirtctlCommandWithOut(cmdArgs...)
@@ -2519,22 +2513,6 @@ var _ = SIGDescribe("Export", func() {
 		})
 	})
 })
-
-func startPortForward(vmeName, namespace string, targetPort int) *osexec.Cmd {
-	_, forwardCmd, err := clientcmd.CreateCommandWithNS(namespace, clientcmd.GetK8sCmdClient(),
-		"port-forward", fmt.Sprintf("service/virt-export-%s", vmeName), fmt.Sprintf("%d:443", targetPort))
-	Expect(err).ToNot(HaveOccurred())
-	go func() {
-		defer GinkgoRecover()
-		Expect(err).ToNot(HaveOccurred())
-		stdout, err := forwardCmd.StdoutPipe()
-		Expect(err).ToNot(HaveOccurred())
-		err = forwardCmd.Start()
-		Expect(err).ToNot(HaveOccurred())
-		waitForPortForwardCmd(stdout, 443, targetPort)
-	}()
-	return forwardCmd
-}
 
 func logToGinkgoWritter(format string, parameters ...interface{}) {
 	_, _ = fmt.Fprintf(GinkgoWriter, format, parameters...)
@@ -2568,14 +2546,4 @@ func (matcher *ConditionNoTimeMatcher) FailureMessage(actual interface{}) (messa
 
 func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return format.Message(actual, "not to match without time", matcher.Cond)
-}
-
-func waitForPortForwardCmd(stdout io.ReadCloser, src, dst int) {
-	Eventually(func() string {
-		tmp := make([]byte, 1024)
-		_, err := stdout.Read(tmp)
-		Expect(err).NotTo(HaveOccurred())
-
-		return string(tmp)
-	}, 30*time.Second, 1*time.Second).Should(ContainSubstring(fmt.Sprintf("Handling connection for %d", dst)))
 }
