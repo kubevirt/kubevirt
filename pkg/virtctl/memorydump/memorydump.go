@@ -22,6 +22,8 @@ package memorydump
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -29,6 +31,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -45,6 +48,7 @@ const (
 	createClaimArg  = "create-claim"
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
+	portForwardArg  = "port-forward"
 
 	configName         = "config"
 	filesystemOverhead = cdiv1.Percent("0.055")
@@ -54,6 +58,7 @@ const (
 var (
 	claimName    string
 	createClaim  bool
+	portForward  string
 	storageClass string
 	accessMode   string
 )
@@ -93,6 +98,7 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
 	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().StringVar(&portForward, portForwardArg, "", "Configure and set port-forward in the specified port to download the memory dump")
 	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
 
@@ -262,7 +268,85 @@ func getMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) 
 		}
 	}
 
-	return createMemoryDump(namespace, vmName, claimName, virtClient)
+	if err := createMemoryDump(namespace, vmName, claimName, virtClient); err != nil {
+		return err
+	}
+
+	if outputFile != "" {
+		return downloadMemoryDump(namespace, vmName, virtClient)
+	}
+
+	return nil
+}
+
+func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
+	if outputFile == "" {
+		return fmt.Errorf("missing outputFile to download the memory dump")
+	}
+
+	// Wait for the memorydump to complete
+	claimName, err := WaitMemoryDumpComplete(virtClient, namespace, vmName, processingWaitInterval, processingWaitTotal)
+	if err != nil {
+		return err
+	}
+	if claimName == "" {
+		return fmt.Errorf("claim name not on vm memory dump request")
+	}
+	exportSource := k8sv1.TypedLocalObjectReference{
+		APIGroup: &k8sv1.SchemeGroupVersion.Group,
+		Kind:     "PersistentVolumeClaim",
+		Name:     claimName,
+	}
+	vmexportName := getVMExportName(vmName, claimName)
+	vmExportInfo := &vmexport.VMExportInfo{
+
+		ShouldCreate: true,
+		Insecure:     true,
+		KeepVme:      false,
+		OutputFile:   outputFile,
+		Namespace:    namespace,
+		Name:         vmexportName,
+		ExportSource: exportSource,
+	}
+	// Complete port-forward arguments
+	if portForward != "" {
+		vmExportInfo.PortForward = portForward
+		if vmExportInfo.ServiceURL == "" {
+			vmExportInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", portForward)
+		}
+	}
+	// User wants the output in a file, create
+	output, err := os.Create(vmExportInfo.OutputFile)
+	if err != nil {
+		return err
+	}
+	vmExportInfo.OutputWriter = output
+	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
+}
+
+func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
+	var claimName string
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		if vm.Status.MemoryDumpRequest == nil {
+			return false, nil
+		}
+
+		if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
+			fmt.Printf("Waiting for memorydump %s to complete, current phase: %s...\n", claimName, vm.Status.MemoryDumpRequest.Phase)
+			return false, nil
+		}
+
+		claimName = vm.Status.MemoryDumpRequest.ClaimName
+		fmt.Println("Memory dump completed successfully")
+		return true, nil
+	})
+
+	return claimName, err
 }
 
 func removeMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {

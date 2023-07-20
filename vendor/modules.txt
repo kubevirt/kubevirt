@@ -1124,8 +1124,9 @@ k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubectl v0.0.0-00010101000000-000000000000 => k8s.io/kubectl v0.23.5
 ## explicit; go 1.16
 k8s.io/kubectl/pkg/cmd/util/podcmd
-# k8s.io/utils v0.0.0-20211116205334-6203023598ed
-## explicit; go 1.12
+k8s.io/kubectl/pkg/util
+# k8s.io/utils v0.0.0-20230505201702-9f6742963106
+## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
 k8s.io/utils/clock/testing
