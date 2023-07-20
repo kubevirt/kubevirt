@@ -24,17 +24,13 @@ import (
 	"regexp"
 	"strings"
 
+	parser "github.com/kubevirt/monitoring/pkg/metrics/parser"
+
 	dto "github.com/prometheus/client_model/go"
 )
 
-// Metric represents a Prometheus metric
-type Metric struct {
-	Name string `json:"name,omitempty"`
-	Help string `json:"help,omitempty"`
-	Type string `json:"type,omitempty"`
-}
-
 // excludedMetrics defines the metrics to ignore, open issue:https://github.com/kubevirt/kubevirt/issues/9714
+// Follow the Metrics Naming Guidelines: https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
 // Do not add metrics to this list!
 var excludedMetrics = map[string]struct{}{
 	"kubevirt_allocatable_nodes_count":                     struct{}{},
@@ -67,8 +63,8 @@ var excludedMetrics = map[string]struct{}{
 }
 
 // Extract the name, help, and type from the metrics doc file
-func ExtractMetrics(metricsContent string) ([]Metric, error) {
-	var metrics []Metric
+func ExtractMetrics(metricsContent string) ([]parser.Metric, error) {
+	var metrics []parser.Metric
 	re := regexp.MustCompile(`### (.*)\n(.*Type: (Counter|Gauge|Histogram|Summary)\.\n)?`)
 	matches := re.FindAllStringSubmatch(metricsContent, -1)
 	for _, match := range matches {
@@ -81,34 +77,12 @@ func ExtractMetrics(metricsContent string) ([]Metric, error) {
 		if len(match) > 3 {
 			typ = match[3]
 		}
-		metrics = append(metrics, Metric{Name: name, Help: help, Type: typ})
+		metrics = append(metrics, parser.Metric{Name: name, Help: help, Type: typ})
 	}
 	if len(metrics) == 0 {
 		return nil, fmt.Errorf("no metrics found")
 	}
 	return metrics, nil
-}
-
-// Set the correct metric type for creating MetricFamily
-func CreateMetricFamily(m Metric) *dto.MetricFamily {
-	metricType := dto.MetricType_UNTYPED
-
-	switch m.Type {
-	case "Counter":
-		metricType = dto.MetricType_COUNTER
-	case "Gauge":
-		metricType = dto.MetricType_GAUGE
-	case "Histogram":
-		metricType = dto.MetricType_HISTOGRAM
-	case "Summary":
-		metricType = dto.MetricType_SUMMARY
-	}
-
-	return &dto.MetricFamily{
-		Name: &m.Name,
-		Help: &m.Help,
-		Type: &metricType,
-	}
 }
 
 // Read the metrics and parse them to a MetricFamily
@@ -127,7 +101,7 @@ func ReadMetrics(metricsPath string) ([]*dto.MetricFamily, error) {
 	for _, metric := range metrics {
 		// Remove ignored metrics from all rules
 		if _, isExcludedMetric := excludedMetrics[metric.Name]; !isExcludedMetric {
-			mf := CreateMetricFamily(metric)
+			mf := parser.CreateMetricFamily(metric)
 			metricFamily = append(metricFamily, mf)
 		}
 	}

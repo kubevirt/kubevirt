@@ -22,6 +22,8 @@ package prometheus
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -787,7 +789,11 @@ var _ = Describe("Prometheus", func() {
 			dto := &io_prometheus_client.Metric{}
 			err := result.Write(dto)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(dto.String()).To(ContainSubstring("name:\"drive\" value:\"disk0\""))
+			expectedLabelPair := &io_prometheus_client.LabelPair{
+				Name:  pointer.P("drive"),
+				Value: pointer.P("disk0"),
+			}
+			Expect(dto.GetLabel()).To(ContainElement(expectedLabelPair))
 		})
 
 		It("should use the name when alias is empty", func() {
@@ -819,7 +825,11 @@ var _ = Describe("Prometheus", func() {
 			dto := &io_prometheus_client.Metric{}
 			err := result.Write(dto)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(dto.String()).To(ContainSubstring("name:\"drive\" value:\"vda\""))
+			expectedLabelPair := &io_prometheus_client.LabelPair{
+				Name:  pointer.P("drive"),
+				Value: pointer.P("vda"),
+			}
+			Expect(dto.GetLabel()).To(ContainElement(expectedLabelPair))
 		})
 
 		It("should not expose nameless block metrics", func() {

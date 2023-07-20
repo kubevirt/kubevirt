@@ -31,6 +31,7 @@ require (
 	github.com/kisielk/errcheck v1.6.2
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
+	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230627123556-81a891d4462a
 	github.com/mdlayher/vsock v1.1.1
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
@@ -48,7 +49,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/povsister/scp v0.0.0-20210427074412-33febfd9f13e
 	github.com/prometheus/client_golang v1.14.0
-	github.com/prometheus/client_model v0.3.0
+	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.37.0
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
@@ -144,7 +145,7 @@ require (
 	golang.org/x/text v0.9.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
+	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157 // indirect
