@@ -36,3 +36,13 @@ func InterfaceExists(vmi *v1.VirtualMachineInstance, interfaceName string) error
 	}
 	return nil
 }
+
+func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
+	for i, net := range networks {
+		if net.Name == name {
+			return &networks[i]
+		}
+	}
+
+	return nil
+}
