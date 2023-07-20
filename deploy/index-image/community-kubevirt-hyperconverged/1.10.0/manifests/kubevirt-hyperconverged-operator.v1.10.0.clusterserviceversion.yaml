@@ -2836,7 +2836,7 @@ spec:
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:5a783ac8af2ad5d6c7dd731ad29dfb013321c06f919dce2242eef1b3d0a9f194
                 - name: KV_CONSOLE_PROXY_IMAGE
-                  value: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:662e0bfcfefd36955abf62e145357eebee1b74d31eb71644149e6128828bdc64
+                  value: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:bb06c6be1f545995f96ce8c427309a3f067e7ed8a2ef13e2eaaa50d5977fed0f
                 image: +IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
@@ -3943,7 +3943,7 @@ spec:
     name: kubemacpool
   - image: ghcr.io/kubevirt/kubesecondarydns@sha256:77132adb5f840ceb0aadd408731a5c8b01a4b427a78084ab5e4e9b961195cb02
     name: kubesecondarydns
-  - image: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:662e0bfcfefd36955abf62e145357eebee1b74d31eb71644149e6128828bdc64
+  - image: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:bb06c6be1f545995f96ce8c427309a3f067e7ed8a2ef13e2eaaa50d5977fed0f
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:5a783ac8af2ad5d6c7dd731ad29dfb013321c06f919dce2242eef1b3d0a9f194
     name: kubevirt-plugin
