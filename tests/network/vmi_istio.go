@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -130,7 +131,7 @@ var istioTests = func(vmType VmType) {
 			By("Running job to send a request to the server")
 			return virtClient.BatchV1().Jobs(namespace).Create(
 				context.Background(),
-				tests.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
+				job.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
 				metav1.CreateOptions{},
 			)
 		}
@@ -272,12 +273,12 @@ var istioTests = func(vmType VmType) {
 		})
 		Describe("Inbound traffic", func() {
 			checkVMIReachability := func(vmi *v1.VirtualMachineInstance, targetPort int) error {
-				job, err := createJobCheckingVMIReachability(vmi, targetPort)
+				httpJob, err := createJobCheckingVMIReachability(vmi, targetPort)
 				if err != nil {
 					return err
 				}
 				By("Waiting for the job to succeed")
-				return tests.WaitForJobToSucceed(job, 480*time.Second)
+				return job.WaitForJobToSucceed(httpJob, 480*time.Second)
 			}
 
 			Context("With VMI having explicit ports specified", func() {

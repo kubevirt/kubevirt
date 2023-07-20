@@ -64,7 +64,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -2159,13 +2158,6 @@ func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) 
 		return []byte(rawBundle), crts
 	}
 	return nil, nil
-}
-
-func FormatIPForURL(ip string) string {
-	if netutils.IsIPv6String(ip) {
-		return "[" + ip + "]"
-	}
-	return ip
 }
 
 func IsRunningOnKindInfra() bool {

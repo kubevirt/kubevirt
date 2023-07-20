@@ -339,7 +339,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 				continue
 			}
 
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
+			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 
@@ -374,7 +374,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 				continue
 			}
 
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
+			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 
@@ -426,7 +426,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, ep := range endpoint.Subsets[0].Addresses {
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", tests.FormatIPForURL(ep.IP))
+			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
 			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, pod, "virt-handler", strings.Fields(cmd))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
 			Expect(stdout).To(ContainSubstring("go_goroutines"))

@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/job"
 	netservice "kubevirt.io/kubevirt/tests/libnet/service"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -59,7 +60,7 @@ var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string, retries int32) *batchv1.Job {
-		job := tests.NewHelloWorldJobTCP(host, port)
+		job := job.NewHelloWorldJobTCP(host, port)
 		job.Spec.BackoffLimit = &retries
 		var err error
 		job, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
@@ -101,12 +102,12 @@ var _ = SIGDescribe("Services", func() {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
-		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, 3)
+		tcpJob := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, 3)
 
 		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
-		err := tests.WaitForJobToSucceed(job, 90*time.Second)
+		err := job.WaitForJobToSucceed(tcpJob, 90*time.Second)
 		return func() error {
-			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
+			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
 		}, err
 	}
 
@@ -114,12 +115,12 @@ var _ = SIGDescribe("Services", func() {
 		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
 
 		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
-		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, 0)
+		tcpJob := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace, 0)
 
 		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
-		err := tests.WaitForJobToFail(job, 90*time.Second)
+		err := job.WaitForJobToFail(tcpJob, 90*time.Second)
 		return func() error {
-			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), job.Name, k8smetav1.DeleteOptions{})
+			return virtClient.BatchV1().Jobs(util.NamespaceTestDefault).Delete(context.Background(), tcpJob.Name, k8smetav1.DeleteOptions{})
 		}, err
 	}
 

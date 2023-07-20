@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libnet/service"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -625,12 +626,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			assertConnectivityToService := func(msg string) {
 				By(msg)
-				job := tests.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
-				job.Spec.BackoffLimit = pointer.Int32(3)
-				job, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), job, k8smetav1.CreateOptions{})
+				tcpJob := job.NewHelloWorldJobTCP(fmt.Sprintf("%s.%s", hostname, subdomain), strconv.FormatInt(int64(port), 10))
+				tcpJob.Spec.BackoffLimit = pointer.Int32(3)
+				tcpJob, err := virtClient.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				err = tests.WaitForJobToSucceed(job, 90*time.Second)
+				err = job.WaitForJobToSucceed(tcpJob, 90*time.Second)
 				Expect(err).ToNot(HaveOccurred(), msg)
 			}
 
