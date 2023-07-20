@@ -49,6 +49,7 @@ const (
 	createClaimArg  = "create-claim"
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
+	portForwardArg  = "port-forward"
 
 	configName         = "config"
 	filesystemOverhead = cdiv1.Percent("0.055")
@@ -61,6 +62,7 @@ const (
 var (
 	claimName    string
 	createClaim  bool
+	portForward  string
 	storageClass string
 	accessMode   string
 	outputFile   string
@@ -113,6 +115,7 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
 	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
+	cmd.Flags().StringVar(&portForward, portForwardArg, "", "Configure and set port-forward in the specified port to download the memory dump")
 	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the memory dump to be downloaded.")
@@ -327,6 +330,13 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		Namespace:    namespace,
 		Name:         vmexportName,
 		ExportSource: exportSource,
+	}
+	// Complete port-forward arguments
+	if portForward != "" {
+		vmExportInfo.PortForward = portForward
+		if vmExportInfo.ServiceURL == "" {
+			vmExportInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", portForward)
+		}
 	}
 	// User wants the output in a file, create
 	output, err := os.Create(vmExportInfo.OutputFile)
