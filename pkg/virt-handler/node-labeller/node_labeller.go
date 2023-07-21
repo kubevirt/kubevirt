@@ -50,7 +50,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
-const ksmPath = "/sys/kernel/mm/ksm/run"
+// In some environments, sysfs is mounted read-only even for privileged
+// containers: https://github.com/containerd/containerd/issues/8445.
+// Use the path from the host filesystem.
+const ksmPath = "/proc/1/root/sys/kernel/mm/ksm/run"
 
 var nodeLabellerLabels = []string{
 	util.DeprecatedLabelNamespace + util.DeprecatedcpuModelPrefix,
