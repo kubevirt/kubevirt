@@ -383,18 +383,30 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}
 
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
-				Spec: v1beta1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-				},
+				Spec: v1beta1.DataVolumeSpec{},
 			}}
 		})
 
-		It("should apply PreferredStorageClassName", func() {
+		assertPVCStorageClassName := func(dataVolumeTemapltes []v1.DataVolumeTemplateSpec, expectedStorageClassName string) {
+			Expect(dataVolumeTemapltes).To(HaveLen(1))
+			Expect(*dataVolumeTemapltes[0].Spec.PVC.StorageClassName).To(Equal(expectedStorageClassName))
+		}
+
+		assertStorageStorageClassName := func(dataVolumeTemapltes []v1.DataVolumeTemplateSpec, expectedStorageClassName string) {
+			Expect(dataVolumeTemapltes).To(HaveLen(1))
+			Expect(*dataVolumeTemapltes[0].Spec.Storage.StorageClassName).To(Equal(expectedStorageClassName))
+		}
+
+		It("should apply PreferredStorageClassName to PVC", func() {
+			vm.Spec.DataVolumeTemplates[0].Spec.PVC = &k8sv1.PersistentVolumeClaimSpec{}
 			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
-			Expect(vmSpec.DataVolumeTemplates).To(HaveLen(1))
-			for _, dv := range vmSpec.DataVolumeTemplates {
-				Expect(*dv.Spec.PVC.StorageClassName).To(Equal(preference.Spec.Volumes.PreferredStorageClassName))
-			}
+			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
+		})
+
+		It("should apply PreferredStorageClassName to Storage", func() {
+			vm.Spec.DataVolumeTemplates[0].Spec.Storage = &v1beta1.StorageSpec{}
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
 		It("should not fail if DataVolumeSpec PersistentVolumeClaimSpec is nil - bug #9868", func() {
@@ -405,7 +417,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
-		It("should not overwrite storageclass already defined in VirtualMachine", func() {
+		It("should not overwrite storageclass already defined in PVC of DataVolumeTemplate", func() {
 			storageClass := "local"
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				Spec: v1beta1.DataVolumeSpec{
@@ -415,10 +427,20 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				},
 			}}
 			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
-			Expect(vmSpec.DataVolumeTemplates).To(HaveLen(1))
-			for _, dv := range vmSpec.DataVolumeTemplates {
-				Expect(*dv.Spec.PVC.StorageClassName).To(Equal(storageClass))
-			}
+			assertPVCStorageClassName(vmSpec.DataVolumeTemplates, storageClass)
+		})
+
+		It("should not overwrite storageclass already defined in Storage of DataVolumeTemplate", func() {
+			storageClass := "local"
+			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
+				Spec: v1beta1.DataVolumeSpec{
+					Storage: &v1beta1.StorageSpec{
+						StorageClassName: &storageClass,
+					},
+				},
+			}}
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, storageClass)
 		})
 	})
 
