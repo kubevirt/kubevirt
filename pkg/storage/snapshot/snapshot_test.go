@@ -2528,6 +2528,16 @@ func createInstancetypeVirtualMachineSnapshotCR(vm *v1.VirtualMachine, vmSnapsho
 	return cr
 }
 
+func expectControllerRevisionToEqualExpected(controllerRevision, expectedControllerRevision *appsv1.ControllerRevision) {
+	// This is already covered by the below assertion but be explicit here to ensure coverage
+	Expect(controllerRevision.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectGenerationLabel))
+	Expect(controllerRevision.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectKindLabel))
+	Expect(controllerRevision.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectNameLabel))
+	Expect(controllerRevision.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectUIDLabel))
+	Expect(controllerRevision.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+	Expect(*controllerRevision).To(Equal(*expectedControllerRevision))
+}
+
 func expectControllerRevisionCreate(client *k8sfake.Clientset, expectedCR *appsv1.ControllerRevision) {
 	client.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
@@ -2538,7 +2548,7 @@ func expectControllerRevisionCreate(client *k8sfake.Clientset, expectedCR *appsv
 		expectedCR.ResourceVersion = ""
 
 		createObj := create.GetObject().(*appsv1.ControllerRevision)
-		Expect(*createObj).To(Equal(*expectedCR))
+		expectControllerRevisionToEqualExpected(createObj, expectedCR)
 
 		return true, createObj, nil
 	})
@@ -2554,7 +2564,7 @@ func expectCreateControllerRevisionAlreadyExists(client *k8sfake.Clientset, expe
 		expectedCR.ResourceVersion = ""
 
 		createObj := create.GetObject().(*appsv1.ControllerRevision)
-		Expect(*createObj).To(Equal(*expectedCR))
+		expectControllerRevisionToEqualExpected(createObj, expectedCR)
 
 		return true, create.GetObject(), errors.NewAlreadyExists(schema.GroupResource{}, expectedCR.Name)
 	})
@@ -2566,7 +2576,7 @@ func expectControllerRevisionUpdate(client *k8sfake.Clientset, expectedCR *appsv
 		Expect(ok).To(BeTrue())
 
 		updateObj := update.GetObject().(*appsv1.ControllerRevision)
-		Expect(*updateObj).To(Equal(*expectedCR))
+		expectControllerRevisionToEqualExpected(updateObj, expectedCR)
 
 		return true, update.GetObject(), nil
 	})
