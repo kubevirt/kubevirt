@@ -26348,7 +26348,7 @@ func schema_kubevirtio_api_instancetype_v1alpha2_CPUInstancetype(ref common.Refe
 				Properties: map[string]spec.Schema{
 					"guest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.",
+							Description: "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int64",
@@ -27300,7 +27300,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_CPUInstancetype(ref common.Refer
 				Properties: map[string]spec.Schema{
 					"guest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferCores.",
+							Description: "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int64",
