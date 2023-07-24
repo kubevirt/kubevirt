@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -503,7 +502,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dvBlock, 240, HaveSucceeded())
+		libstorage.EventuallyDV(dvBlock, 240, matcher.HaveSucceeded())
 		return dvBlock
 	}
 
@@ -1120,7 +1119,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				var err error
 				url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 
-				storageClass, foundSC := libstorage.GetRWXFileSystemStorageClass()
+				storageClass, foundSC := libstorage.GetRWOFileSystemStorageClass()
 				if !foundSC {
 					Skip("Skip test when Filesystem storage is not present")
 				}
@@ -1131,7 +1130,6 @@ var _ = SIGDescribe("Hotplug", func() {
 					libdv.WithPVC(
 						libdv.PVCWithStorageClass(storageClass),
 						libdv.PVCWithVolumeSize("256Mi"),
-						libdv.PVCWithReadWriteManyAccessMode(),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -1140,7 +1138,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("waiting for the dv import to pvc to finish")
-				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
+				libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
 
 				By("rename disk image on PVC")
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
@@ -1171,6 +1169,118 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
+	Context("delete attachment pod several times", func() {
+		var (
+			vm       *v1.VirtualMachine
+			hpvolume *cdiv1.DataVolume
+		)
+
+		BeforeEach(func() {
+			if !libstorage.HasCDI() {
+				Skip("Skip tests when CDI is not present")
+			}
+			_, foundSC := libstorage.GetRWXBlockStorageClass()
+			if !foundSC {
+				Skip("Skip test when block RWX storage is not present")
+			}
+		})
+
+		AfterEach(func() {
+			if vm != nil {
+				err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm = nil
+			}
+		})
+
+		deleteAttachmentPod := func(vmi *v1.VirtualMachineInstance) {
+			podName := ""
+			for _, volume := range vmi.Status.VolumeStatus {
+				if volume.HotplugVolume != nil {
+					podName = volume.HotplugVolume.AttachPodName
+					break
+				}
+			}
+			Expect(podName).ToNot(BeEmpty())
+			foreGround := metav1.DeletePropagationForeground
+			err := virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
+				GracePeriodSeconds: pointer.Int64(0),
+				PropagationPolicy:  &foreGround,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
+				return errors.IsNotFound(err)
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+		}
+
+		It("should remain active", func() {
+			checkVolumeName := "checkvolume"
+			volumeMode := corev1.PersistentVolumeBlock
+			addVolumeFunc := addDVVolumeVMI
+			var err error
+			storageClass, _ := libstorage.GetRWXBlockStorageClass()
+
+			blankDv := func() *cdiv1.DataVolume {
+				return libdv.NewDataVolume(
+					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libdv.WithBlankImageSource(),
+					libdv.WithPVC(
+						libdv.PVCWithStorageClass(storageClass),
+						libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
+						libdv.PVCWithReadWriteManyAccessMode(),
+						libdv.PVCWithVolumeMode(volumeMode),
+					),
+					libdv.WithForceBindAnnotation(),
+				)
+			}
+			vmi := libvmi.NewCirros()
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+			By("creating blank hotplug volumes")
+			hpvolume = blankDv()
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(hpvolume.Namespace).Create(context.Background(), hpvolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("waiting for the dv import to pvc to finish")
+			libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("hotplugging the volume check volume")
+			addVolumeFunc(vmi.Name, vmi.Namespace, checkVolumeName, hpvolume.Name, v1.DiskBusSCSI, false, "")
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, checkVolumeName)
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", checkVolumeName)
+			getVmiConsoleAndLogin(vmi)
+
+			By("verifying the volume is useable and creating some data on it")
+			verifyHotplugAttachedAndUseable(vmi, []string{checkVolumeName})
+			targets := getTargetsFromVolumeStatus(vmi, checkVolumeName)
+			Expect(targets).ToNot(BeEmpty())
+			verifyWriteReadData(vmi, targets[0])
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("deleting the attachment pod a few times, try to make the currently attach volume break")
+			for i := 0; i < 10; i++ {
+				deleteAttachmentPod(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+			By("verifying the volume has not been disturbed in the VM")
+			targets = getTargetsFromVolumeStatus(vmi, checkVolumeName)
+			Expect(targets).ToNot(BeEmpty())
+			verifyWriteReadData(vmi, targets[0])
+		})
+	})
+
 	Context("with limit range in namespace", func() {
 		var (
 			sc                         string
@@ -1195,7 +1305,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm.Spec.Template.Spec.Domain.Resources.Limits = corev1.ResourceList{}
 			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceMemory] = *memLimitQuantity
 			vm.Spec.Template.Spec.Domain.Resources.Limits[corev1.ResourceCPU] = *cpuLimitQuantity
-			vm.Spec.Running = pointer.BoolPtr(true)
+			vm.Spec.Running = pointer.Bool(true)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
