@@ -1545,7 +1545,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		volume := volumes[disk.Name]
 		if volume == nil {
-			return fmt.Errorf("No matching volume with name %s found", disk.Name)
+			return fmt.Errorf("no matching volume with name %s found", disk.Name)
 		}
 
 		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
