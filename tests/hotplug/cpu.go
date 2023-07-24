@@ -40,7 +40,7 @@ const (
 	kubevirtReadyTimeoutSeconds = 360 * time.Second
 )
 
-var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
+var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
 	var (
 		virtClient  kubecli.KubevirtClient
 		workerLabel = "node-role.kubernetes.io/worker"

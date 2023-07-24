@@ -42,4 +42,5 @@ var (
 	InPlaceHotplugNICs          = []interface{}{Label("in-place-hotplug-NICs")}
 	MigrationBasedHotplugNICs   = []interface{}{Label("migration-based-hotplug-NICs")}
 	RequiresTwoSchedulableNodes = []interface{}{Label("requires-two-schedulable-nodes")}
+	VMLiveUpdateFeaturesGate    = []interface{}{Label("VMLiveUpdateFeaturesGate")}
 )
