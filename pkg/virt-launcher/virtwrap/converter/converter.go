@@ -1297,8 +1297,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			}
 
 			domain.Spec.OS.NVRam = &api.NVRam{
-				NVRam:    filepath.Join("/tmp", domain.Spec.Name),
 				Template: c.EFIConfiguration.EFIVars,
+				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
 			}
 		}
 

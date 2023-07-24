@@ -181,7 +181,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
 		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
-		if retryRes, retryErr := expecter.ExpectBatch(b, 1*time.Minute); retryErr != nil {
+		if retryRes, retryErr := expecter.ExpectBatch(b, loginTimeout); retryErr != nil {
 			log.DefaultLogger().Object(vmi).Reason(retryErr).Errorf("Retried login attempt after two minutes failed: %+v", retryRes)
 			return retryErr
 		}

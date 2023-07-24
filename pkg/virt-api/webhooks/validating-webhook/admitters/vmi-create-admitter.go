@@ -2685,16 +2685,25 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 }
 
 func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
-	if !backendstorage.HasPersistentTPMDevice(spec) {
+	if !backendstorage.IsBackendStorageNeededForVMI(spec) {
 		return
 	}
 
 	if !config.VMPersistentStateEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
-			Field:   field.Child("domain", "devices", "tpm", "persistent").String(),
-		})
+		if backendstorage.HasPersistentTPMDevice(spec) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
+				Field:   field.Child("domain", "devices", "tpm", "persistent").String(),
+			})
+		}
+		if backendstorage.HasPersistentEFI(spec) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
+				Field:   field.Child("domain", "firmware", "bootloader", "efi", "persistent").String(),
+			})
+		}
 	}
 
 	return

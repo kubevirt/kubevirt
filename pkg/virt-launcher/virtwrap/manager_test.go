@@ -1892,7 +1892,7 @@ var _ = Describe("Manager", func() {
 		DescribeTable("should try to undefine a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-				mockDomain.EXPECT().UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM).Return(nil)
+				mockDomain.EXPECT().UndefineFlags(libvirt.DOMAIN_UNDEFINE_KEEP_NVRAM).Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, "fake", "fake", nil, "/usr/share/", ephemeralDiskCreatorMock, metadataCache)
 				Expect(manager.DeleteVMI(newVMI(testNamespace, testVmName))).To(Succeed())
 			},

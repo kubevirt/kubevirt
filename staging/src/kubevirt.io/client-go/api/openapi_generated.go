@@ -17370,6 +17370,13 @@ func schema_kubevirtio_api_core_v1_EFI(ref common.ReferenceCallback) common.Open
 							Format:      "",
 						},
 					},
+					"persistent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If set to true, Persistent will persist the EFI NVRAM across reboots. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

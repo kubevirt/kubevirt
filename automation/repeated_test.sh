@@ -167,6 +167,8 @@ for lane in "${TEST_LANES[@]}"; do
     export KUBEVIRT_WITH_CNAO="true"
     export KUBEVIRT_DEPLOY_CDI="true"
     export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_STORAGE="rook-ceph-default"
+    export KUBEVIRT_DEPLOY_NFS_CSI=true
 
     ginko_params="$ginko_params -no-color -succinct -skip=QUARANTINE -randomize-all"
     for test_file in $(echo ${NEW_TESTS} | tr '|' '\n'); do

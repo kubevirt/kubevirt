@@ -4743,33 +4743,47 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with VM persistent state defined", func() {
 		var vmi *v1.VirtualMachineInstance
-		addPersistentTPM := func(vmi *v1.VirtualMachineInstance) {
+		addPersistentTPM := func() {
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.BoolPtr(true)}
+		}
+		addPersistentEFI := func() {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						Persistent: pointer.BoolPtr(true),
+						SecureBoot: pointer.BoolPtr(false),
+					},
+				},
+			}
 		}
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
 			enableFeatureGate(virtconfig.VMPersistentState)
 		})
 		Context("feature gate enabled", func() {
-			It("should accept vmi with no persistent TPM defined", func() {
+			It("should accept vmi with no persistent TPM/EFI defined", func() {
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
-			It("should accept vmi with persistent TPM defined", func() {
-				addPersistentTPM(vmi)
+			It("should accept vmi with persistent TPM+EFI defined", func() {
+				addPersistentTPM()
+				addPersistentEFI()
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
 		})
 		Context("feature gate disabled", func() {
-			It("should reject when the feature gate is disabled", func() {
+			DescribeTable("should reject when the feature gate is disabled", func(persist func()) {
 				disableFeatureGates()
-				addPersistentTPM(vmi)
+				persist()
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Field).To(ContainSubstring("domain.devices.tpm.persistent"))
+				Expect(causes[0].Field).To(ContainSubstring(".persistent"))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VMPersistentState)))
-			})
+			},
+				Entry("with persistent TPM", addPersistentTPM),
+				Entry("with persistent EFI", addPersistentEFI),
+			)
 		})
 	})
 
