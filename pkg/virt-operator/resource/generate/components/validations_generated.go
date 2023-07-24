@@ -1433,6 +1433,13 @@ var CRDsValidation map[string]string = map[string]string{
                     and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages),
                     in which free page reporting is always disabled.
                   type: object
+                disableSerialConsoleLog:
+                  description: DisableSerialConsoleLog disables logging the auto-attached
+                    default serial console. If not set, serial console logs will be
+                    written to a file and then streamed from a container named 'guest-console-log'.
+                    The value can be individually overridden for each VM, not relevant
+                    if AutoattachSerialConsole is disabled.
+                  type: object
               type: object
             vmStateStorageClass:
               description: VMStateStorageClass is the name of the storage class to
@@ -5981,7 +5988,7 @@ var CRDsValidation map[string]string = map[string]string{
                             console or not. Serial console logs will be collect to
                             a file and then streamed from a named 'guest-console-log'.
                             Not relevant if autoattachSerialConsole is disabled. Defaults
-                            to false.
+                            to cluster wide setting on VirtualMachineOptions.
                           type: boolean
                         networkInterfaceMultiqueue:
                           description: If specified, virtual network interfaces configured
@@ -10511,7 +10518,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to log the auto-attached default serial console
                     or not. Serial console logs will be collect to a file and then
                     streamed from a named 'guest-console-log'. Not relevant if autoattachSerialConsole
-                    is disabled. Defaults to false.
+                    is disabled. Defaults to cluster wide setting on VirtualMachineOptions.
                   type: boolean
                 networkInterfaceMultiqueue:
                   description: If specified, virtual network interfaces configured
@@ -13240,7 +13247,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Whether to log the auto-attached default serial console
                     or not. Serial console logs will be collect to a file and then
                     streamed from a named 'guest-console-log'. Not relevant if autoattachSerialConsole
-                    is disabled. Defaults to false.
+                    is disabled. Defaults to cluster wide setting on VirtualMachineOptions.
                   type: boolean
                 networkInterfaceMultiqueue:
                   description: If specified, virtual network interfaces configured
@@ -15429,7 +15436,7 @@ var CRDsValidation map[string]string = map[string]string{
                             console or not. Serial console logs will be collect to
                             a file and then streamed from a named 'guest-console-log'.
                             Not relevant if autoattachSerialConsole is disabled. Defaults
-                            to false.
+                            to cluster wide setting on VirtualMachineOptions.
                           type: boolean
                         networkInterfaceMultiqueue:
                           description: If specified, virtual network interfaces configured
@@ -19807,7 +19814,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     serial console or not. Serial console logs will
                                     be collect to a file and then streamed from a
                                     named 'guest-console-log'. Not relevant if autoattachSerialConsole
-                                    is disabled. Defaults to false.
+                                    is disabled. Defaults to cluster wide setting
+                                    on VirtualMachineOptions.
                                   type: boolean
                                 networkInterfaceMultiqueue:
                                   description: If specified, virtual network interfaces
@@ -24970,7 +24978,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         logs will be collect to a file and then streamed
                                         from a named 'guest-console-log'. Not relevant
                                         if autoattachSerialConsole is disabled. Defaults
-                                        to false.
+                                        to cluster wide setting on VirtualMachineOptions.
                                       type: boolean
                                     networkInterfaceMultiqueue:
                                       description: If specified, virtual network interfaces

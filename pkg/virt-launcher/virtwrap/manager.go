@@ -940,6 +940,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
 		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
+		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
 	}
 
 	if options != nil {
@@ -962,6 +963,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			c.ExpandDisksEnabled = options.GetClusterConfig().GetExpandDisksEnabled()
 			c.FreePageReporting = isFreePageReportingEnabled(options.GetClusterConfig().GetFreePageReportingDisabled(), vmi)
 			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
+			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
 		}
 	}
 	c.DisksInfo = l.disksInfo
@@ -1000,6 +1002,10 @@ func isFreePageReportingEnabled(clusterFreePageReportingDisabled bool, vmi *v1.V
 	}
 
 	return true
+}
+
+func isSerialConsoleLogEnabled(clusterSerialConsoleLogDisabled bool, vmi *v1.VirtualMachineInstance) bool {
+	return (vmi.Spec.Domain.Devices.LogSerialConsole != nil && *vmi.Spec.Domain.Devices.LogSerialConsole) || (vmi.Spec.Domain.Devices.LogSerialConsole == nil && !clusterSerialConsoleLogDisabled)
 }
 
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {

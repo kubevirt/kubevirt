@@ -405,6 +405,7 @@ var _ = Describe("Manager", func() {
 		}
 
 		freePageReportingDisabled := clusterConfig.IsFreePageReportingDisabled()
+		serialConsoleLogDisabled := clusterConfig.IsSerialConsoleLogDisabled()
 
 		c := &converter.ConverterContext{
 			Architecture:      runtime.GOARCH,
@@ -414,6 +415,7 @@ var _ = Describe("Manager", func() {
 			HotplugVolumes:    hotplugVolumes,
 			PermanentVolumes:  permanentVolumes,
 			FreePageReporting: isFreePageReportingEnabled(freePageReportingDisabled, vmi),
+			SerialConsoleLog:  isSerialConsoleLogEnabled(serialConsoleLogDisabled, vmi),
 			CPUSet:            []int{0, 1, 2, 3, 4, 5},
 			Topology:          topology,
 		}

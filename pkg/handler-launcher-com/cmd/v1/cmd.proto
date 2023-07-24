@@ -97,6 +97,7 @@ message ClusterConfig{
   bool ExpandDisksEnabled = 1;
   bool FreePageReportingDisabled = 2;
   bool BochsDisplayForEFIGuests = 3;
+  bool SerialConsoleLogDisabled = 4;
 }
 
 message VirtualMachineOptions {

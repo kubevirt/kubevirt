@@ -345,6 +345,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DeveloperConfiguration":                                             schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/api/core/v1.Devices":                                                            schema_kubevirtio_api_core_v1_Devices(ref),
 		"kubevirt.io/api/core/v1.DisableFreePageReporting":                                           schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref),
+		"kubevirt.io/api/core/v1.DisableSerialConsoleLog":                                            schema_kubevirtio_api_core_v1_DisableSerialConsoleLog(ref),
 		"kubevirt.io/api/core/v1.Disk":                                                               schema_kubevirtio_api_core_v1_Disk(ref),
 		"kubevirt.io/api/core/v1.DiskDevice":                                                         schema_kubevirtio_api_core_v1_DiskDevice(ref),
 		"kubevirt.io/api/core/v1.DiskTarget":                                                         schema_kubevirtio_api_core_v1_DiskTarget(ref),
@@ -16869,7 +16870,7 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 					},
 					"logSerialConsole": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether to log the auto-attached default serial console or not. Serial console logs will be collect to a file and then streamed from a named `guest-console-log`. Not relevant if autoattachSerialConsole is disabled. Defaults to false.",
+							Description: "Whether to log the auto-attached default serial console or not. Serial console logs will be collect to a file and then streamed from a named `guest-console-log`. Not relevant if autoattachSerialConsole is disabled. Defaults to cluster wide setting on VirtualMachineOptions.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -17005,6 +17006,16 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 }
 
 func schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_DisableSerialConsoleLog(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -24404,11 +24415,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.DisableFreePageReporting"),
 						},
 					},
+					"disableSerialConsoleLog": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
+							Ref:         ref("kubevirt.io/api/core/v1.DisableSerialConsoleLog"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DisableFreePageReporting"},
+			"kubevirt.io/api/core/v1.DisableFreePageReporting", "kubevirt.io/api/core/v1.DisableSerialConsoleLog"},
 	}
 }
 

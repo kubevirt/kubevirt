@@ -3,6 +3,8 @@ package services
 import (
 	"fmt"
 
+	"k8s.io/utils/pointer"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
@@ -12,20 +14,16 @@ import (
 )
 
 func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) *k8sv1.Container {
-	// TODO: eventually add a cluster-wide default
-	if (vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole == true) && vmi.Spec.Domain.Devices.LogSerialConsole != nil && *vmi.Spec.Domain.Devices.LogSerialConsole == true {
+	if isSerialConsoleLogEnabled(vmi, config) {
 		var serialPort uint = 0
 
-		followretry := "-F"
-		quiet := "--quiet"
-		nodup := "-n+1"
+		const followretry = "-F"
+		const quiet = "--quiet"
+		const nodup = "-n+1"
 		logFile := fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
 		args := []string{quiet, nodup, followretry, logFile}
 
 		resources := resourcesForSerialConsoleLogContainer(false, false, config)
-		noPrivilegeEscalation := false
-		nonRoot := true
-		var userId int64 = util.NonRootUID
 
 		return &k8sv1.Container{
 			Name:            "guest-console-log",
@@ -42,9 +40,9 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			},
 			Resources: resources,
 			SecurityContext: &k8sv1.SecurityContext{
-				RunAsUser:                &userId,
-				RunAsNonRoot:             &nonRoot,
-				AllowPrivilegeEscalation: &noPrivilegeEscalation,
+				RunAsUser:                pointer.Int64(util.NonRootUID),
+				RunAsNonRoot:             pointer.Bool(true),
+				AllowPrivilegeEscalation: pointer.Bool(false),
 				Capabilities: &k8sv1.Capabilities{
 					Drop: []k8sv1.Capability{"ALL"},
 				},
@@ -53,6 +51,16 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 	}
 
 	return nil
+}
+
+func isSerialConsoleLogEnabled(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) bool {
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole != nil && *vmi.Spec.Domain.Devices.AutoattachSerialConsole == false {
+		return false
+	}
+	if vmi.Spec.Domain.Devices.LogSerialConsole != nil {
+		return *vmi.Spec.Domain.Devices.LogSerialConsole
+	}
+	return !config.IsSerialConsoleLogDisabled()
 }
 
 func resourcesForSerialConsoleLogContainer(dedicatedCPUs bool, guaranteedQOS bool, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
