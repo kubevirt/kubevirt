@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
 
@@ -55,6 +57,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			currentKv.ResourceVersion,
 			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
+		tests.EnableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
 
 	})
 
