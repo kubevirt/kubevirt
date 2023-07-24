@@ -40,6 +40,7 @@ func virtualMachineOptions(
 			ExpandDisksEnabled:        clusterConfig.ExpandDisksEnabled(),
 			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
 			BochsDisplayForEFIGuests:  clusterConfig.BochsDisplayForEFIGuestsEnabled(),
+			SerialConsoleLogDisabled:  clusterConfig.IsSerialConsoleLogDisabled(),
 		}
 	}
 
