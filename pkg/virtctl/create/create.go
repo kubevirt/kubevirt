@@ -46,7 +46,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 	cmd.AddCommand(vm.NewCommand(clientConfig))
 	cmd.AddCommand(preference.NewCommand(clientConfig))
-	cmd.AddCommand(instancetype.NewCommand())
+	cmd.AddCommand(instancetype.NewCommand(clientConfig))
 	cmd.AddCommand(clone.NewCommand())
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 

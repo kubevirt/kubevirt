@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"sigs.k8s.io/yaml"
@@ -51,6 +52,7 @@ const (
 )
 
 type createInstancetype struct {
+	namespace       string
 	name            string
 	cpu             uint32
 	memory          string
@@ -58,6 +60,8 @@ type createInstancetype struct {
 	hostDevices     []string
 	ioThreadsPolicy string
 	namespaced      bool
+
+	clientConfig clientcmd.ClientConfig
 }
 
 type GPU struct {
@@ -78,8 +82,10 @@ var optFns = map[string]optionFn{
 	IOThreadsPolicyFlag: withIOThreadsPolicy,
 }
 
-func NewCommand() *cobra.Command {
-	c := createInstancetype{}
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := createInstancetype{
+		clientConfig: clientConfig,
+	}
 	cmd := &cobra.Command{
 		Use:     Instancetype,
 		Short:   "Create VirtualMachineInstancetype or VirtualMachineClusterInstancetype manifest.",
@@ -107,9 +113,18 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *createInstancetype) setDefaults(cmd *cobra.Command) {
+func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
+	namespace, overridden, err := c.clientConfig.Namespace()
+	if err != nil {
+		return err
+	}
+	if overridden {
+		c.namespace = namespace
+		c.namespaced = true
+	}
+
 	if cmd.Flags().Changed(NameFlag) {
-		return
+		return nil
 	}
 
 	if c.namespaced {
@@ -117,6 +132,8 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) {
 	} else {
 		c.name = "clusterinstancetype-" + rand.String(5)
 	}
+
+	return nil
 }
 
 func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
@@ -197,7 +214,7 @@ func (c *createInstancetype) usage() string {
 }
 
 func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1beta1.VirtualMachineInstancetype {
-	return &instancetypev1beta1.VirtualMachineInstancetype{
+	instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineInstancetype",
 			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -214,6 +231,12 @@ func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1be
 			},
 		},
 	}
+
+	if c.namespace != "" {
+		instancetype.Namespace = c.namespace
+	}
+
+	return instancetype
 }
 
 func (c *createInstancetype) newClusterInstancetype(_ *cobra.Command) *instancetypev1beta1.VirtualMachineClusterInstancetype {
@@ -264,7 +287,9 @@ func (c *createInstancetype) run(cmd *cobra.Command) error {
 	var out []byte
 	var err error
 
-	c.setDefaults(cmd)
+	if err := c.setDefaults(cmd); err != nil {
+		return err
+	}
 
 	if err := c.validateFlags(); err != nil {
 		return err
