@@ -2144,9 +2144,9 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 			}
 			attachmentPod := c.findAttachmentPodByVolumeName(volume.Name, attachmentPods)
 			if attachmentPod == nil {
-				if status.Phase != virtv1.VolumeReady {
+				if !c.volumeReady(status.Phase) {
 					status.HotplugVolume.AttachPodUID = ""
-					// Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
+					// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
 					phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
 					status.Phase = phase
 					status.Message = message
@@ -2216,6 +2216,10 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	return nil
 }
 
+func (c *VMIController) volumeReady(phase virtv1.VolumePhase) bool {
+	return phase == virtv1.VolumeReady
+}
+
 func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (cdiv1.Percent, error) {
 	// To avoid conflicts, we only allow having one CDI instance
 	if cdiInstances := len(c.cdiInformer.GetStore().List()); cdiInstances != 1 {
@@ -2241,7 +2245,7 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
 	return (currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending ||
-		currentPhase == virtv1.HotplugVolumeAttachedToNode) && currentPhase != virtv1.VolumeReady
+		currentPhase == virtv1.HotplugVolumeAttachedToNode)
 }
 
 func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
