@@ -2391,6 +2391,8 @@ const (
 	SideCar SupportContainerType = "sidecar"
 	// VMExport is the container resources for a vm exporter pod
 	VMExport SupportContainerType = "vmexport"
+	// GuestConsoleLog is the container resources for a guest console log streaming container
+	GuestConsoleLog SupportContainerType = "guest-console-log"
 )
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.

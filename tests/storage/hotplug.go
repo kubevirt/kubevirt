@@ -1421,6 +1421,10 @@ var _ = SIGDescribe("Hotplug", func() {
 					Type:      v1.ContainerDisk,
 					Resources: resources,
 				},
+				{
+					Type:      v1.GuestConsoleLog,
+					Resources: resources,
+				},
 			}
 			tests.UpdateKubeVirtConfigValueAndWait(*config)
 		}

@@ -2889,7 +2889,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		By("Verifying that all relevant images are without the digest on the source")
 		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
-			if container.Name == "container-disk-binary" || container.Name == "compute" {
+			if container.Name == "container-disk-binary" || container.Name == "compute" || container.Name == "guest-console-log" {
 				continue
 			}
 			Expect(container.Image).ToNot(ContainSubstring("@sha256:"), "image:%s should not contain the container digest for container %s", container.Image, container.Name)
@@ -2900,7 +2900,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		By("Collecting digest information from the container statuses")
 		imageIDs := map[string]string{}
 		for _, status := range append(pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses...) {
-			if status.Name == "container-disk-binary" || status.Name == "compute" {
+			if status.Name == "container-disk-binary" || status.Name == "compute" || status.Name == "guest-console-log" {
 				continue
 			}
 			digest := digestRegex.FindString(status.ImageID)
@@ -2916,7 +2916,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		pod = tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
-			if container.Name == "container-disk-binary" || container.Name == "compute" {
+			if container.Name == "container-disk-binary" || container.Name == "compute" || container.Name == "guest-console-log" {
 				continue
 			}
 			digest := digestRegex.FindString(container.Image)

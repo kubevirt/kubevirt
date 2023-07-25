@@ -374,6 +374,9 @@ func main() {
 		}
 	}
 
+	// Initialize local and shared directories
+	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
+
 	if *simulateCrash {
 		panic(fmt.Errorf("Simulated virt-launcher crash"))
 	}
@@ -387,8 +390,6 @@ func main() {
 
 	vmi := v1.NewVMIReferenceWithUUID(*namespace, *name, types.UID(*uid))
 
-	// Initialize local and shared directories
-	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
 	ephemeralDiskCreator := ephemeraldisk.NewEphemeralDiskCreator(filepath.Join(*ephemeralDiskDir, "disk-data"))
 	if err := ephemeralDiskCreator.Init(); err != nil {
 		panic(err)
