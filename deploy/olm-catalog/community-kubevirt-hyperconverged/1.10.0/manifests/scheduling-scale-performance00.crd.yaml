@@ -3916,6 +3916,8 @@ spec:
                 properties:
                   deployTektonTaskResources:
                     type: boolean
+                  deployVmConsoleProxy:
+                    type: boolean
                 type: object
               tektonPipelines:
                 description: TektonPipelines is the configuration of the tekton-pipelines

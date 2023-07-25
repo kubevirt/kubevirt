@@ -1004,7 +1004,7 @@ kubevirt.io/kubevirt/tests/watcher
 ## explicit; go 1.16
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# kubevirt.io/ssp-operator/api v0.18.1
+# kubevirt.io/ssp-operator/api v0.18.2
 ## explicit; go 1.19
 kubevirt.io/ssp-operator/api/v1beta2
 # sigs.k8s.io/controller-runtime v0.15.0 => sigs.k8s.io/controller-runtime v0.13.1

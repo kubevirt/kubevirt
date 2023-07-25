@@ -47,7 +47,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apiserver v0.27.3
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
-	kubevirt.io/ssp-operator/api v0.18.1
+	kubevirt.io/ssp-operator/api v0.18.2
 )
 
 require (

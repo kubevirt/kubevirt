@@ -107,6 +107,8 @@ type TektonTasks struct {
 // FeatureGates defines feature gate for tto operator
 type FeatureGates struct {
 	DeployTektonTaskResources bool `json:"deployTektonTaskResources,omitempty"`
+
+	DeployVmConsoleProxy bool `json:"deployVmConsoleProxy,omitempty"`
 }
 
 // DataImportCronTemplate defines the template type for DataImportCrons.
