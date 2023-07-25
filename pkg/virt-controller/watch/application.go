@@ -163,6 +163,7 @@ type VirtControllerApp struct {
 
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
+	persistentVolumeInformer      cache.SharedIndexInformer
 
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
@@ -367,6 +368,7 @@ func Execute() {
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
+	app.persistentVolumeInformer = app.informerFactory.PersistentVolume()
 
 	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1().PodDisruptionBudgets().Informer()
 
@@ -524,7 +526,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.clusterPreferenceInformer, vca.preferenceInformer,
 			vca.clusterConfig,
 		)
-		vmprom.SetupVMCollector(vca.vmInformer)
+		vmprom.SetupVMCollector(vca.vmInformer, vca.persistentVolumeClaimInformer, vca.persistentVolumeInformer)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 		if vca.migrationInformer == nil {
 			vca.migrationInformer = vca.informerFactory.VirtualMachineInstanceMigration()

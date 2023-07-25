@@ -105,6 +105,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"serviceaccounts",
 					"services",
 					"endpoints",
+					"persistentvolumes",
 					// pods/exec is required for testing upgrades - that can be removed when we stop
 					// supporting upgrades from versions in which virt-api required pods/exec privileges
 					"pods/exec",

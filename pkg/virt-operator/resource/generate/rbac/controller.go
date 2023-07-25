@@ -303,7 +303,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
-					"persistentvolumeclaims",
+					"persistentvolumeclaims", "persistentvolumes",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "update", "delete", "patch",

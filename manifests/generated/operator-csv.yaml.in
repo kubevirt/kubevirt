@@ -176,6 +176,7 @@ spec:
           - serviceaccounts
           - services
           - endpoints
+          - persistentvolumes
           - pods/exec
           verbs:
           - get
@@ -602,6 +603,7 @@ spec:
           - ""
           resources:
           - persistentvolumeclaims
+          - persistentvolumes
           verbs:
           - get
           - list

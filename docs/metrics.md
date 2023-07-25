@@ -99,6 +99,9 @@ Virtual Machine last transition timestamp to migrating status. Type: Counter.
 ### kubevirt_vm_non_running_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to paused/stopped status. Type: Counter.
 
+### kubevirt_vm_persistentvolume_info
+Virtual Machine PV info. Type: Gauge.
+
 ### kubevirt_vm_running_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to running status. Type: Counter.
 

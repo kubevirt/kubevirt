@@ -104,6 +104,7 @@ rules:
   - serviceaccounts
   - services
   - endpoints
+  - persistentvolumes
   - pods/exec
   verbs:
   - get
@@ -530,6 +531,7 @@ rules:
   - ""
   resources:
   - persistentvolumeclaims
+  - persistentvolumes
   verbs:
   - get
   - list
