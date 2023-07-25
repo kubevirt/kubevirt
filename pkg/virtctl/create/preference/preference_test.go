@@ -93,6 +93,21 @@ var _ = Describe("create", func() {
 			Entry("VirtualMachineClusterPreference", "", "preferThreads", false),
 		)
 
+		It("should create namespaced object and apply namespace when namespace is specified", func() {
+			const namespace = "my-namespace"
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference,
+				setFlag("namespace", namespace),
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
+			Expect(err).ToNot(HaveOccurred())
+
+			preference, ok := decodedObj.(*instancetypev1beta1.VirtualMachinePreference)
+			Expect(ok).To(BeTrue())
+			Expect(preference.Namespace).To(Equal(namespace))
+		})
+
 		DescribeTable("should fail with invalid CPU topology values", func(namespacedFlag, CPUTopology string, namespaced bool) {
 			err := clientcmd.NewRepeatableVirtctlCommand(create, Preference, namespacedFlag,
 				setFlag(CPUTopologyFlag, CPUTopology),
