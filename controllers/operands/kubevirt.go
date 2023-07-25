@@ -35,6 +35,11 @@ const (
 	machineTypeEnvName  = "MACHINETYPE"
 )
 
+const (
+	DefaultAMD64OVMFPath         = "/usr/share/OVMF"
+	DefaultAMD64EmulatedMachines = "q35*,pc-q35*"
+)
+
 var (
 	useKVMEmulation = false
 )
@@ -426,6 +431,14 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 	if val, ok := os.LookupEnv(machineTypeEnvName); ok {
 		if val = strings.TrimSpace(val); val != "" {
 			config.MachineType = val
+
+			config.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{
+				Amd64: &kubevirtcorev1.ArchSpecificConfiguration{
+					MachineType:      val,
+					OVMFPath:         DefaultAMD64OVMFPath,
+					EmulatedMachines: strings.Split(DefaultAMD64EmulatedMachines, ","),
+				},
+			}
 		}
 	}
 

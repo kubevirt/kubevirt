@@ -229,6 +229,7 @@ Version: 1.2.3`)
 			Expect(*foundResource.Spec.Configuration.DeveloperConfiguration.DiskVerification.MemoryLimit).Should(Equal(kvDiskVerificationMemoryLimit))
 
 			Expect(foundResource.Spec.Configuration.MachineType).Should(Equal("machine-type"))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).Should(Equal("machine-type"))
 
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig).ToNot(BeNil())
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig.Family).Should(Equal("smbios family"))
@@ -309,6 +310,11 @@ Version: 1.2.3`)
 				FeatureGates: []string{"wrongFG1", "wrongFG2", "wrongFG3"},
 			}
 			existKv.Spec.Configuration.MachineType = "wrong machine type"
+			existKv.Spec.Configuration.ArchitectureConfiguration = &kubevirtcorev1.ArchConfiguration{
+				Amd64: &kubevirtcorev1.ArchSpecificConfiguration{
+					MachineType: "wrong machine type",
+				},
+			}
 			existKv.Spec.Configuration.SMBIOSConfig = &kubevirtcorev1.SMBiosConfiguration{
 				Family:       "wrong family",
 				Product:      "wrong product",
@@ -365,6 +371,7 @@ Version: 1.2.3`)
 			))
 
 			Expect(foundResource.Spec.Configuration.MachineType).Should(Equal("machine-type"))
+			Expect(foundResource.Spec.Configuration.ArchitectureConfiguration.Amd64.MachineType).Should(Equal("machine-type"))
 
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig).ToNot(BeNil())
 			Expect(foundResource.Spec.Configuration.SMBIOSConfig.Family).Should(Equal("smbios family"))
