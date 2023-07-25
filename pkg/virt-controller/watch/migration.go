@@ -1259,33 +1259,8 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return nil
 			}
 
-			var patches []string
-			if !c.clusterConfig.RootEnabled() {
-				// The cluster is configured for non-root VMs, ensure the VMI is non-root.
-				// If the VMI is root, the migration will be a root -> non-root migration.
-				if vmi.Status.RuntimeUser != util.NonRootUID {
-					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
-				}
-
-				// This is required in order to be able to update from v0.43-v0.51 to v0.52+
-				if vmi.Annotations == nil {
-					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
-				} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
-					patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
-				}
-			} else {
-				// The cluster is configured for root VMs, ensure the VMI is root.
-				// If the VMI is non-root, the migration will be a non-root -> root migration.
-				if vmi.Status.RuntimeUser != util.RootUser {
-					patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
-				}
-
-				if vmi.Annotations != nil {
-					if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
-						patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
-					}
-				}
-			}
+			// patch VMI annotations and set RuntimeUser in preparation for target pod creation
+			patches := c.setupVMIRuntimeUser(vmi)
 			if len(patches) != 0 {
 				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
 				if err != nil {
@@ -1347,6 +1322,37 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 	}
 
 	return nil
+}
+
+func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) []string {
+	var patches []string
+	if !c.clusterConfig.RootEnabled() {
+		// The cluster is configured for non-root VMs, ensure the VMI is non-root.
+		// If the VMI is root, the migration will be a root -> non-root migration.
+		if vmi.Status.RuntimeUser != util.NonRootUID {
+			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.NonRootUID))
+		}
+
+		// This is required in order to be able to update from v0.43-v0.51 to v0.52+
+		if vmi.Annotations == nil {
+			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value":  { "%s": "true"} }`, virtv1.DeprecatedNonRootVMIAnnotation))
+		} else if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; !ok {
+			patches = append(patches, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations/%s", "value": "true"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+		}
+	} else {
+		// The cluster is configured for root VMs, ensure the VMI is root.
+		// If the VMI is non-root, the migration will be a non-root -> root migration.
+		if vmi.Status.RuntimeUser != util.RootUser {
+			patches = append(patches, fmt.Sprintf(`{ "op": "replace", "path": "/status/runtimeUser", "value": %d }`, util.RootUser))
+		}
+
+		if vmi.Annotations != nil {
+			if _, ok := vmi.Annotations[virtv1.DeprecatedNonRootVMIAnnotation]; ok {
+				patches = append(patches, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/annotations/%s"}`, patch.EscapeJSONPointer(virtv1.DeprecatedNonRootVMIAnnotation)))
+			}
+		}
+	}
+	return patches
 }
 
 func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
