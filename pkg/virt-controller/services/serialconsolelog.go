@@ -13,24 +13,19 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig) *k8sv1.Container {
+func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig, virtLauncherLogVerbosity uint) *k8sv1.Container {
+	const serialPort = 0
 	if isSerialConsoleLogEnabled(vmi, config) {
-		var serialPort uint = 0
-
-		const followretry = "-F"
-		const quiet = "--quiet"
-		const nodup = "-n+1"
 		logFile := fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
-		args := []string{quiet, nodup, followretry, logFile}
 
-		resources := resourcesForSerialConsoleLogContainer(false, false, config)
+		resources := resourcesForSerialConsoleLogContainer(vmi.IsCPUDedicated(), vmi.WantsToHaveQOSGuaranteed(), config)
 
-		return &k8sv1.Container{
+		guestConsoleLog := &k8sv1.Container{
 			Name:            "guest-console-log",
 			Image:           image,
 			ImagePullPolicy: k8sv1.PullIfNotPresent,
-			Command:         []string{"/usr/bin/tail"},
-			Args:            args,
+			Command:         []string{"/usr/bin/virt-tail"},
+			Args:            []string{"--logfile", logFile},
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
 					Name:      "private",
@@ -48,6 +43,10 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 				},
 			},
 		}
+
+		guestConsoleLog.Env = append(guestConsoleLog.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: fmt.Sprint(virtLauncherLogVerbosity)})
+
+		return guestConsoleLog
 	}
 
 	return nil
@@ -64,36 +63,30 @@ func isSerialConsoleLogEnabled(vmi *v1.VirtualMachineInstance, config *virtconfi
 }
 
 func resourcesForSerialConsoleLogContainer(dedicatedCPUs bool, guaranteedQOS bool, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
-	// TODO: tune this
-
 	resources := k8sv1.ResourceRequirements{Requests: k8sv1.ResourceList{}, Limits: k8sv1.ResourceList{}}
 
-	resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-	if reqCpu := config.GetSupportContainerRequest(v1.VirtioFS, k8sv1.ResourceCPU); reqCpu != nil {
+	resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("35M")
+	if reqMem := config.GetSupportContainerRequest(v1.GuestConsoleLog, k8sv1.ResourceMemory); reqMem != nil {
+		resources.Requests[k8sv1.ResourceMemory] = *reqMem
+	}
+	resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("5m")
+	if reqCpu := config.GetSupportContainerRequest(v1.GuestConsoleLog, k8sv1.ResourceCPU); reqCpu != nil {
 		resources.Requests[k8sv1.ResourceCPU] = *reqCpu
 	}
-	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("80M")
-	if limMem := config.GetSupportContainerLimit(v1.VirtioFS, k8sv1.ResourceMemory); limMem != nil {
+
+	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("60M")
+	if limMem := config.GetSupportContainerLimit(v1.GuestConsoleLog, k8sv1.ResourceMemory); limMem != nil {
 		resources.Limits[k8sv1.ResourceMemory] = *limMem
 	}
-
-	resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
-	if limCpu := config.GetSupportContainerLimit(v1.VirtioFS, k8sv1.ResourceCPU); limCpu != nil {
+	resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("15m")
+	if limCpu := config.GetSupportContainerLimit(v1.GuestConsoleLog, k8sv1.ResourceCPU); limCpu != nil {
 		resources.Limits[k8sv1.ResourceCPU] = *limCpu
 	}
+
 	if dedicatedCPUs || guaranteedQOS {
 		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
-	}
-
-	if guaranteedQOS {
 		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
-	} else {
-		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-		if reqMem := config.GetSupportContainerRequest(v1.VirtioFS, k8sv1.ResourceMemory); reqMem != nil {
-			resources.Requests[k8sv1.ResourceMemory] = *reqMem
-		}
 	}
 
 	return resources
-
 }

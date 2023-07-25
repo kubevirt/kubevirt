@@ -1845,6 +1845,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			},
 		}
 
+		socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
 		domain.Spec.Devices.Serials = []api.Serial{
 			{
 				Type: "unix",
@@ -1853,14 +1854,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 				Source: &api.SerialSource{
 					Mode: "bind",
-					Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
+					Path: socketPath,
 				},
 			},
 		}
 
 		if c.SerialConsoleLog {
 			domain.Spec.Devices.Serials[0].Log = &api.SerialLog{
-				File:   fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort),
+				File:   fmt.Sprintf("%s-log", socketPath),
 				Append: "on",
 			}
 		}
