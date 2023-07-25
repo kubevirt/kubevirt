@@ -24,7 +24,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/clone"
-
 	"kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
@@ -47,7 +46,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.AddCommand(vm.NewCommand(clientConfig))
 	cmd.AddCommand(preference.NewCommand(clientConfig))
 	cmd.AddCommand(instancetype.NewCommand(clientConfig))
-	cmd.AddCommand(clone.NewCommand())
+	cmd.AddCommand(clone.NewCommand(clientConfig))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd

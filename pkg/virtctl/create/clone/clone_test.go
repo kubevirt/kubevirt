@@ -206,6 +206,18 @@ var _ = Describe("create clone", func() {
 		Expect(*cloneObj.Spec.NewSMBiosSerial).To(Equal(newSerial))
 	})
 
+	It("sets the provided namespace", func() {
+		flags := getSourceNameFlags()
+
+		const namespace = "my-namespace"
+		flags = addFlag(flags, "namespace", namespace)
+
+		cloneObj, err := newCommand(flags...)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(cloneObj.Namespace).To(Equal(namespace))
+	})
+
 })
 
 func addFlag(s []string, flag, value string) []string {

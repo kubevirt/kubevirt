@@ -23,14 +23,15 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/clientcmd"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -51,6 +52,7 @@ const (
 )
 
 type createClone struct {
+	namespace         string
 	name              string
 	sourceName        string
 	targetName        string
@@ -60,6 +62,8 @@ type createClone struct {
 	annotationFilters []string
 	newMacAddresses   []string
 	newSmbiosSerial   string
+
+	clientConfig clientcmd.ClientConfig
 }
 
 type cloneSpec clonev1alpha1.VirtualMachineCloneSpec
@@ -69,8 +73,10 @@ var optFns = map[string]optionFn{
 	NewMacAddressesFlag: withNewMacAddresses,
 }
 
-func NewCommand() *cobra.Command {
-	c := createClone{}
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := createClone{
+		clientConfig: clientConfig,
+	}
 
 	cmd := &cobra.Command{
 		Use:     Clone,
@@ -163,6 +169,9 @@ func (c *createClone) usage() string {
 
 func (c *createClone) newClone() (*clonev1alpha1.VirtualMachineClone, error) {
 	clone := kubecli.NewMinimalClone(c.name)
+	if c.namespace != "" {
+		clone.Namespace = c.namespace
+	}
 
 	source, err := c.typeToTypedLocalObjectReference(c.sourceType, c.sourceName, true)
 	if err != nil {
@@ -201,7 +210,10 @@ func (c *createClone) applyFlags(cmd *cobra.Command, spec *clonev1alpha1.Virtual
 }
 
 func (c *createClone) run(cmd *cobra.Command) error {
-	c.setDefaults()
+	if err := c.setDefaults(); err != nil {
+		return err
+	}
+
 	err := c.validateFlags()
 	if err != nil {
 		return err
@@ -270,7 +282,15 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
 	}, nil
 }
 
-func (c *createClone) setDefaults() {
+func (c *createClone) setDefaults() error {
+	namespace, overridden, err := c.clientConfig.Namespace()
+	if err != nil {
+		return err
+	}
+	if overridden {
+		c.namespace = namespace
+	}
+
 	if c.name == "" {
 		c.name = "clone-" + rand.String(5)
 	}
@@ -283,6 +303,8 @@ func (c *createClone) setDefaults() {
 	if c.targetType == "" {
 		c.targetType = defaultType
 	}
+
+	return nil
 }
 
 func (c *createClone) validateFlags() error {
