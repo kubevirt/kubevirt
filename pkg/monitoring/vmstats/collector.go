@@ -148,32 +148,28 @@ type prometheusScraper struct {
 
 func (ps *prometheusScraper) Report(vms []*k6tv1.VirtualMachine) {
 	for _, vm := range vms {
-		ps.updateVMMetrics(vm)
+		ps.updateVMStatusMetrics(vm)
 	}
 }
 
-func (ps *prometheusScraper) updateVMMetrics(vm *k6tv1.VirtualMachine) {
+func (ps *prometheusScraper) updateVMStatusMetrics(vm *k6tv1.VirtualMachine) {
 	status := vm.Status.PrintableStatus
 	currentStateMetric := getMetricDesc(status)
 
 	lastTransitionTime := getLastConditionDetails(vm)
 
-	for _, metric := range metrics {
-		if metric == currentStateMetric {
-			ps.pushMetric(currentStateMetric, float64(lastTransitionTime), vm.Name, vm.Namespace)
+	statusMetricsNames := []string{startingMetric, runningMetric, migratingMetric, nonRunningMetric, errorMetric}
+	for _, statusMetricsName := range statusMetricsNames {
+		if metrics[statusMetricsName] == currentStateMetric {
+			ps.pushMetric(currentStateMetric, prometheus.CounterValue, float64(lastTransitionTime), vm.Name, vm.Namespace)
 		} else {
-			ps.pushMetric(metric, 0, vm.Name, vm.Namespace)
+			ps.pushMetric(metrics[statusMetricsName], prometheus.CounterValue, 0, vm.Name, vm.Namespace)
 		}
 	}
 }
 
-func (ps *prometheusScraper) pushMetric(desc *prometheus.Desc, value float64, labelValues ...string) {
-	mv, err := prometheus.NewConstMetric(
-		desc,
-		prometheus.CounterValue,
-		value,
-		labelValues...,
-	)
+func (ps *prometheusScraper) pushMetric(desc *prometheus.Desc, metricType prometheus.ValueType, value float64, labelValues ...string) {
+	mv, err := prometheus.NewConstMetric(desc, metricType, value, labelValues...)
 	if err != nil {
 		log.Log.Warningf("Error creating the new const metric for %s: %s", desc, err)
 		return
