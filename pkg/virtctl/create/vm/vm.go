@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -71,6 +72,7 @@ const (
 )
 
 type createVM struct {
+	namespace              string
 	name                   string
 	terminationGracePeriod int64
 	runStrategy            string
@@ -88,7 +90,8 @@ type createVM struct {
 	inferPreference        string
 	volumeImport           []string
 
-	bootOrders map[uint]string
+	clientConfig clientcmd.ClientConfig
+	bootOrders   map[uint]string
 }
 
 type cloneVolume struct {
@@ -247,8 +250,8 @@ var runStrategies = []string{
 	string(v1.RunStrategyRerunOnFailure),
 }
 
-func NewCommand() *cobra.Command {
-	c := defaultCreateVM()
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := defaultCreateVM(clientConfig)
 	cmd := &cobra.Command{
 		Use:     VM,
 		Short:   "Create a VirtualMachine manifest.",
@@ -301,11 +304,12 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func defaultCreateVM() createVM {
+func defaultCreateVM(clientConfig clientcmd.ClientConfig) createVM {
 	return createVM{
 		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
 		memory:                 "512Mi",
+		clientConfig:           clientConfig,
 		bootOrders:             map[uint]string{},
 	}
 }
@@ -338,7 +342,10 @@ func volumeShouldNotExist(flag string, vm *v1.VirtualMachine, name string) error
 }
 
 func (c *createVM) run(cmd *cobra.Command) error {
-	c.setDefaults()
+	if err := c.setDefaults(); err != nil {
+		return err
+	}
+
 	vm, err := c.newVM()
 	if err != nil {
 		return err
@@ -361,10 +368,20 @@ func (c *createVM) run(cmd *cobra.Command) error {
 	return nil
 }
 
-func (c *createVM) setDefaults() {
+func (c *createVM) setDefaults() error {
+	namespace, overridden, err := c.clientConfig.Namespace()
+	if err != nil {
+		return err
+	}
+	if overridden {
+		c.namespace = namespace
+	}
+
 	if c.name == "" {
 		c.name = "vm-" + rand.String(5)
 	}
+
+	return nil
 }
 
 func (c *createVM) usage() string {
@@ -431,7 +448,7 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 
 	}
 
-	return &v1.VirtualMachine{
+	vm := &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 			APIVersion: v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
@@ -452,7 +469,13 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 				},
 			},
 		},
-	}, nil
+	}
+
+	if c.namespace != "" {
+		vm.Namespace = c.namespace
+	}
+
+	return vm, nil
 }
 
 func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name string, bootOrder *uint) error {

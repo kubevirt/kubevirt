@@ -21,6 +21,7 @@ package create
 
 import (
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/clone"
 
@@ -34,7 +35,7 @@ const (
 	CREATE = "create"
 )
 
-func NewCommand() *cobra.Command {
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   CREATE,
 		Short: "Create a manifest for the specified Kind.",
@@ -43,7 +44,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(vm.NewCommand())
+	cmd.AddCommand(vm.NewCommand(clientConfig))
 	cmd.AddCommand(preference.NewCommand())
 	cmd.AddCommand(instancetype.NewCommand())
 	cmd.AddCommand(clone.NewCommand())

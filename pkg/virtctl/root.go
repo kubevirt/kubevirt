@@ -107,7 +107,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		imageupload.NewImageUploadCommand(clientConfig),
 		guestfs.NewGuestfsShellCommand(clientConfig),
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
-		create.NewCommand(),
+		create.NewCommand(clientConfig),
 		credentials.NewCommand(clientConfig),
 		optionsCmd,
 	)
