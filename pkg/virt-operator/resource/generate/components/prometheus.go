@@ -507,6 +507,19 @@ func NewPrometheusRuleSpec(ns string) *v1.PrometheusRuleSpec {
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "VirtualMachineCRCErrors",
+			Expr:  intstr.FromString("(kubevirt_vm_persistentvolume_info{volumeAttributes=~'.*mounter=rbd.*'} or ( kubevirt_vm_persistentvolume_info{volumeAttributes=~'.*rbd.csi.ceph.com.*'} and kubevirt_vm_persistentvolume_info{volumeAttributes!~'.*mounter=.*'} )) and kubevirt_vm_persistentvolume_info{volumeMode='Block', volumeAttributes!~'.*krbd:rxbounce.*'}"),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.name }} may report OSD errors",
+				"summary":     "When running VMs using ODF storage with 'rbd' mounter or 'rbd.csi.ceph.com provisioner', it will report bad crc/signature errors and cluster performance will be severely degraded if krbd:rxbounce is not set.",
+				"runbook_url": fmt.Sprintf(runbookURLTemplate, "VirtualMachineCRCErrors"),
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}...)
 
 	ruleSpec := &v1.PrometheusRuleSpec{

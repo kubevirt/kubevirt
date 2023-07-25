@@ -24,14 +24,16 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -298,6 +300,92 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 			By("waiting for VMCannotBeEvicted alert")
 			verifyAlertExist(virtClient, "VMCannotBeEvicted")
+		})
+
+		createPV := func() corev1.PersistentVolume {
+			pv := corev1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pv-" + rand.String(6),
+				},
+				Spec: corev1.PersistentVolumeSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Capacity: corev1.ResourceList{
+						"storage": resource.MustParse("1Gi"),
+					},
+					PersistentVolumeSource: corev1.PersistentVolumeSource{
+						CSI: &corev1.CSIPersistentVolumeSource{
+							Driver:       "rbd.csi.ceph.com",
+							VolumeHandle: "test-volume-handle",
+							VolumeAttributes: map[string]string{
+								"imageFeatures": "layering",
+								"mounter":       "rbd",
+							},
+						},
+					},
+				},
+			}
+			_, err := virtClient.CoreV1().PersistentVolumes().Create(context.Background(), &pv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pv
+		}
+
+		recreatePV := func(pv corev1.PersistentVolume) {
+			err = virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				_, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), pv.Name, metav1.GetOptions{})
+				return errors.IsNotFound(err)
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+			_, err = virtClient.CoreV1().PersistentVolumes().Create(context.Background(), &pv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		createPVC := func(pv corev1.PersistentVolume) corev1.PersistentVolumeClaim {
+			blockMode := corev1.PersistentVolumeBlock
+			pvc := corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pvc-" + rand.String(6),
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					VolumeName:  pv.Name,
+					VolumeMode:  &blockMode,
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							"storage": resource.MustParse("1Gi"),
+						},
+					},
+				},
+			}
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(util.NamespaceTestDefault).Create(context.Background(), &pvc, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pvc
+		}
+
+		It("should throw VirtualMachineCRCErrors when a VMs is using a PV with rbd mounter and krbd:rxbounce not set", func() {
+			pv := createPV()
+			pvc := createPVC(pv)
+
+			vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: "test-pvc",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvc.Name,
+						},
+					},
+				},
+			}}
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			verifyAlertExist(virtClient, "VirtualMachineCRCErrors")
+
+			pv.Spec.CSI.VolumeAttributes["mapOptions"] = "krbd:rxbounce"
+			recreatePV(pv)
+
+			waitUntilAlertDoesNotExist(virtClient, "VirtualMachineCRCErrors")
 		})
 	})
 })

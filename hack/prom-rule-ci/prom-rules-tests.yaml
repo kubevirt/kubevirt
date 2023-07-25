@@ -894,3 +894,53 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm1", namespace="ns", volumename="pvc-a1", volumeMode="Block", volumeAttributes="clusterID=cluster0;imageFeatures=layering"}' # no rbd usage, no alert
+        values: '1'
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm2", namespace="ns", volumename="pvc-b2", volumeMode="Block", volumeAttributes="clusterID=cluster0;mounter=rbd;imageFeatures=layering;"}' # rbd mounter, without rxbounce, alert
+        values: '1'
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm3", namespace="ns", volumename="pvc-c3", volumeMode="Block", volumeAttributes="clusterID=cluster0;mounter=rbd;imageFeatures=layering;mapOptions=krbd:rxbounce"}' # rbd mounter, with rxbounce, no alert
+        values: '1'
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm4", namespace="ns", volumename="pvc-d4", volumeMode="Block", volumeAttributes="storage.kubernetes.io/csiProvisionerIdentity=123-openshift-storage.rbd.csi.ceph.com;clusterID=cluster0;imageFeatures=layering;"}' # rbd.csi.ceph.com provisioner, without rxbounce, alert
+        values: '1'
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm5", namespace="ns", volumename="pvc-e5", volumeMode="Block", volumeAttributes="storage.kubernetes.io/csiProvisionerIdentity=123-openshift-storage.rbd.csi.ceph.com;clusterID=cluster0;mapOptions=krbd:rxbounce;imageFeatures=layering;"}' # rbd.csi.ceph.com provisioner, with rxbounce, no alert
+        values: '1'
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm5", namespace="ns", volumename="pvc-e5", volumeMode="Block", volumeAttributes="storage.kubernetes.io/csiProvisionerIdentity=123-openshift-storage.rbd.csi.ceph.com;clusterID=cluster0;mounter=random;imageFeatures=layering;"}' # rbd.csi.ceph.com provisioner, with different mounter, no alert
+        values: '1'
+      - series: 'kubevirt_vm_persistentvolume_info{name="vm6", namespace="ns", volumename="pvc-d6", volumeMode="Filesystem", volumeAttributes="clusterID=cluster0;mounter=rbd;imageFeatures=layering;"}' # Filesystem volume with rbd mounter, without rxbounce, no alert
+        values: '1'
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: VirtualMachineCRCErrors
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine vm2 may report OSD errors"
+              summary: "When running VMs using ODF storage with 'rbd' mounter or 'rbd.csi.ceph.com provisioner', it will report bad crc/signature errors and cluster performance will be severely degraded if krbd:rxbounce is not set."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineCRCErrors"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm2"
+              namespace: "ns"
+              volumename: "pvc-b2"
+              volumeMode: "Block"
+              volumeAttributes: "clusterID=cluster0;mounter=rbd;imageFeatures=layering;"
+          - exp_annotations:
+              description: "VirtualMachine vm4 may report OSD errors"
+              summary: "When running VMs using ODF storage with 'rbd' mounter or 'rbd.csi.ceph.com provisioner', it will report bad crc/signature errors and cluster performance will be severely degraded if krbd:rxbounce is not set."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineCRCErrors"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vm4"
+              namespace: "ns"
+              volumename: "pvc-d4"
+              volumeMode: "Block"
+              volumeAttributes: "storage.kubernetes.io/csiProvisionerIdentity=123-openshift-storage.rbd.csi.ceph.com;clusterID=cluster0;imageFeatures=layering;"
