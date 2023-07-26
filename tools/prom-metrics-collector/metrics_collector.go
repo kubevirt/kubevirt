@@ -45,7 +45,6 @@ var excludedMetrics = map[string]struct{}{
 	"kubevirt_virt_operator_leading_total":                 struct{}{},
 	"kubevirt_virt_operator_ready_total":                   struct{}{},
 	"kubevirt_virt_operator_up_total":                      struct{}{},
-	"kubevirt_vmi_cpu_affinity":                            struct{}{},
 	"kubevirt_vmi_filesystem_capacity_bytes_total":         struct{}{},
 	"kubevirt_vmi_memory_domain_bytes_total":               struct{}{},
 	"kubevirt_vmi_memory_pgmajfault":                       struct{}{},
