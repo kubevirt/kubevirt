@@ -158,7 +158,7 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 func createOutOfBandUpdateAlertRule() monitoringv1.Rule {
 	return monitoringv1.Rule{
 		Alert: outOfBandUpdateAlert,
-		Expr:  intstr.FromString("sum by(component_name) ((round(increase(kubevirt_hco_out_of_band_modifications_count[10m]))>0 and kubevirt_hco_out_of_band_modifications_count offset 10m) or (kubevirt_hco_out_of_band_modifications_count != 0 unless kubevirt_hco_out_of_band_modifications_count offset 10m))"),
+		Expr:  intstr.FromString("sum by(component_name) ((round(increase(kubevirt_hco_out_of_band_modifications_total[10m]))>0 and kubevirt_hco_out_of_band_modifications_total offset 10m) or (kubevirt_hco_out_of_band_modifications_total != 0 unless kubevirt_hco_out_of_band_modifications_total offset 10m))"),
 		Annotations: map[string]string{
 			"description": "Out-of-band modification for {{ $labels.component_name }}.",
 			"summary":     "{{ $value }} out-of-band CR modifications were detected in the last 10 minutes.",
@@ -173,7 +173,7 @@ func createOutOfBandUpdateAlertRule() monitoringv1.Rule {
 func createUnsafeModificationAlertRule() monitoringv1.Rule {
 	return monitoringv1.Rule{
 		Alert: unsafeModificationAlert,
-		Expr:  intstr.FromString("sum by(annotation_name) ((kubevirt_hco_unsafe_modification_count)>0)"),
+		Expr:  intstr.FromString("sum by(annotation_name) ((kubevirt_hco_unsafe_modifications)>0)"),
 		Annotations: map[string]string{
 			"description": "unsafe modification for the {{ $labels.annotation_name }} annotation in the HyperConverged resource.",
 			"summary":     "{{ $value }} unsafe modifications were detected in the HyperConverged resource.",

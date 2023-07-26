@@ -9,7 +9,7 @@ tests:
 # Test out-of-bound modification counter
 - interval: 1m
   input_series:
-  - series: 'kubevirt_hco_out_of_band_modifications_count{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}'
+  - series: 'kubevirt_hco_out_of_band_modifications_total{component_name="kubevirt/kubevirt-kubevirt-hyperconverged"}'
     # time:  0     1     2 3 4 5 6 7 8 9 10  11 12 13 14 15 16    17    18    19 20 21 22 23 24 25 26 27 28 29 30
     values: "stale stale 1 2 3 3 3 3 3 3 3   3  3  3  3  3  stale stale stale 1  1  1  1  1  1  2  2  2  2  3  3"
 
@@ -106,16 +106,16 @@ tests:
 # Test unsafe modification counter
 - interval: 1m
   input_series:
-  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="kubevirt.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 1 2 3 3 3 0 1 stale stale  2"
-  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="containerizeddataimporter.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 1 2 3 1 3 0 2 stale stale  3"
-  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="networkaddonsconfigs.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 5 1 1 1 0 0 3 stale stale  1"
-  - series: 'kubevirt_hco_unsafe_modification_count{annotation_name="ssp.kubevirt.io/jsonpatch"}'
+  - series: 'kubevirt_hco_unsafe_modifications{annotation_name="ssp.kubevirt.io/jsonpatch"}'
     # time:      0     1 2 3 4 5 6 7 8     9    10 11
     values: "stale stale 5 4 3 2 0 0 3 stale stale  1"
 
