@@ -434,20 +434,21 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 			removeIfaceOpts := &v1.RemoveInterfaceOptions{
 				Name: linuxBridgeNetworkName2,
 			}
-			previousVMTemplateSpec := vm.Spec.Template.Spec.DeepCopy()
 
 			Expect(kubevirt.Client().VirtualMachine(vm.Namespace).RemoveInterface(context.Background(), vm.Name, removeIfaceOpts)).To(Succeed())
 
-			By("wait for requested interface VM spec have 'absent' state")
-			Eventually(func() v1.InterfaceState {
+			By("wait for requested interface be cleared from VM spec")
+			Eventually(func(g Gomega) {
 				var err error
 				vm, err = kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				iface := vmispec.LookupInterfaceByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
-				return iface.State
-			}, 30*time.Second).Should(Equal(v1.InterfaceStateAbsent))
 
-			Expect(previousVMTemplateSpec.Networks).To(Equal(vm.Spec.Template.Spec.Networks), "network spec should not change")
+				iface := vmispec.LookupInterfaceByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
+				g.Expect(iface).To(BeNil(), "absent iface should be removed from stopped VM spec")
+			}, 30*time.Second).Should(Succeed())
+
+			iface := libnet.LookupNetworkByName(vm.Spec.Template.Spec.Networks, linuxBridgeNetworkName2)
+			Expect(iface).To(BeNil(), "associated network of an absent interface should be removed from a stopped VM spec")
 		})
 	})
 })
