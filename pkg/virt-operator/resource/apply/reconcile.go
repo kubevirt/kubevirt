@@ -748,13 +748,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					break
 				}
 			}
-			// This is for backward compatibility where virt-api managed the entity itself.
-			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
-			// which was not explicitly created by an operator, but is still visible to it.
-			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
-			if _, ok := webhook.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
-				found = true
-			}
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.ValidationWebhook.AddExpectedDeletion(r.kvKey, key)
@@ -779,13 +772,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					found = true
 					break
 				}
-			}
-			// This is for backward compatibility where virt-api managed the entity itself.
-			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
-			// which was not explicitly created by an operator, but is still visible to it.
-			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
-			if _, ok := webhook.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
-				found = true
 			}
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
@@ -812,13 +798,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					break
 				}
 			}
-			// This is for backward compatibility where virt-api managed the entity itself.
-			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
-			// which was not explicitly created by an operator, but is still visible to it.
-			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
-			if _, ok := apiService.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
-				found = true
-			}
 			if !found {
 				if key, err := controller.KeyFunc(apiService); err == nil {
 					r.expectations.APIService.AddExpectedDeletion(r.kvKey, key)
@@ -843,13 +822,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					found = true
 					break
 				}
-			}
-			// This is for backward compatibility where virt-api managed the entity itself.
-			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
-			// which was not explicitly created by an operator, but is still visible to it.
-			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
-			if _, ok := secret.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
-				found = true
 			}
 			if !found {
 				if key, err := controller.KeyFunc(secret); err == nil {
