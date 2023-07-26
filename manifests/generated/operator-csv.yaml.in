@@ -186,18 +186,6 @@ spec:
           - delete
           - patch
         - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - delete
-          - update
-          - create
-          - patch
-        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -528,18 +516,6 @@ spec:
           - create
           - patch
         - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - delete
-          - update
-          - create
-          - patch
-        - apiGroups:
           - ""
           resources:
           - events
@@ -779,6 +755,18 @@ spec:
           - list
           - get
           - watch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
         - apiGroups:
           - kubevirt.io
           resources:
@@ -1432,6 +1420,18 @@ spec:
           - routes/custom-host
           verbs:
           - create
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+          - update
+          - create
+          - patch
         serviceAccountName: kubevirt-operator
     strategy: deployment
   installModes:
