@@ -11,6 +11,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,6 +52,7 @@ var _ = Describe("vmexport", func() {
 
 		kubeClient = fakek8sclient.NewSimpleClientset()
 		vmExportClient = kubevirtfake.NewSimpleClientset()
+
 	})
 
 	setflag := func(flag, parameter string) string {
@@ -91,10 +93,15 @@ var _ = Describe("vmexport", func() {
 		virtctlvmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
 			return server.Client()
 		})
+		virtctlvmexport.SetPortForwarder(func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}) error {
+			readyChan <- struct{}{}
+			return nil
+		})
 	}
 
 	testDone := func() {
 		virtctlvmexport.SetDefaultHTTPClientCreator()
+		virtctlvmexport.SetDefaultPortForwarder()
 		server.Close()
 	}
 
@@ -281,6 +288,7 @@ var _ = Describe("vmexport", func() {
 			Entry("Using 'manifest' with pvc flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.PVC_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.PVC_FLAG, "test")),
 			Entry("Using 'manifest' with volume type", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.VOLUME_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.VOLUME_FLAG, "volume")),
 			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),
+			Entry("Using 'port-forward' with invalid port", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.PORT_FORWARD_FLAG, "valid port numbers"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.PORT_FORWARD_FLAG, "test")),
 		)
 
 		AfterEach(func() {
@@ -303,7 +311,7 @@ var _ = Describe("vmexport", func() {
 
 		// Delete tests
 		It("VirtualMachineExport is deleted succesfully", func() {
-			handleVMExportDelete(vmExportClient, vmexportName)
+			utils.HandleVMExportDelete(vmExportClient, vmexportName)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DELETE, vmexportName)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
@@ -642,13 +650,65 @@ var _ = Describe("vmexport", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
-})
 
-func handleVMExportDelete(client *kubevirtfake.Clientset, name string) {
-	client.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		delete, ok := action.(testing.DeleteAction)
-		Expect(ok).To(BeTrue())
-		Expect(delete.GetName()).To(Equal(name))
-		return true, nil, nil
+	Context("Port-forward", func() {
+		var (
+			orgHttpFunc virtctlvmexport.HandleHTTPRequestFunc
+			vme         *exportv1.VirtualMachineExport
+		)
+
+		BeforeEach(func() {
+			orgHttpFunc = virtctlvmexport.HandleHTTPRequest
+			testInit(http.StatusOK)
+			vme = utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    "no-test-volume",
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+				},
+			}, secretName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
+		})
+
+		AfterEach(func() {
+			virtctlvmexport.HandleHTTPRequest = orgHttpFunc
+			vme = nil
+			testDone()
+		})
+
+		It("VirtualMachineExport download fails when using port-forward with an invalid port", func() {
+			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 321)
+			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PORT_FORWARD_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(Equal("Service virt-export-test-vme does not have a service port 443"))
+		})
+
+		It("VirtualMachineExport download with port-forward fails when the service doesn't have a valid pod ", func() {
+			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PORT_FORWARD_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(Equal("No pods found for the service virt-export-test-vme"))
+		})
+
+		It("VirtualMachineExport download with port-forward succeeds", func() {
+			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("data")),
+				}
+				return &resp, nil
+			}
+			vme.Status.Links.Internal = vme.Status.Links.External
+			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
+			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.PORT_FORWARD_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
-}
+})

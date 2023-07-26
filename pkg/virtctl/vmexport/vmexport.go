@@ -137,6 +137,8 @@ type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
 
 type HTTPClientCreator func(*http.Transport, bool) *http.Client
 
+type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}) error
+
 type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duration, time.Duration) error
 
 // ExportProcessingComplete is used to store the function to wait for the export object to be ready.
@@ -170,6 +172,8 @@ var exportFunction exportFunc
 
 var httpClientCreatorFunc HTTPClientCreator
 
+var startPortForward PortForwardFunc
+
 // SetHTTPClientCreator allows overriding the default http client (useful for unit testing)
 func SetHTTPClientCreator(f HTTPClientCreator) {
 	httpClientCreatorFunc = f
@@ -180,8 +184,19 @@ func SetDefaultHTTPClientCreator() {
 	httpClientCreatorFunc = getHTTPClient
 }
 
+// SetPortForwarder allows overriding the default port-forwarder (useful for unit testing)
+func SetPortForwarder(f PortForwardFunc) {
+	startPortForward = f
+}
+
+// SetDefaultPortForwarder sets the port forwarder back to default
+func SetDefaultPortForwarder() {
+	startPortForward = runPortForward
+}
+
 func init() {
 	SetDefaultHTTPClientCreator()
+	SetDefaultPortForwarder()
 }
 
 // usage provides several valid usage examples of vmexport
@@ -868,6 +883,13 @@ func handleDownloadFlags() error {
 		shouldCreate = true
 	}
 
+	if portForward != "" {
+		port, err := strconv.Atoi(portForward)
+		if err != nil || port < 0 || port > 65535 {
+			return fmt.Errorf(ErrInvalidValue, PORT_FORWARD_FLAG, "valid port numbers")
+		}
+	}
+
 	if exportManifest {
 		if volumeName != "" {
 			return fmt.Errorf(ErrIncompatibleFlag, VOLUME_FLAG, MANIFEST_FLAG)
@@ -1003,7 +1025,7 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 
 	stopChan := make(chan struct{}, 1)
 	readyChan := make(chan struct{})
-	go runPortForward(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan)
+	go startPortForward(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan)
 
 	// Wait for the port forwarding to be ready
 	select {

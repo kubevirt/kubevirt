@@ -143,6 +143,62 @@ func HandleSecretGet(k8sClient *fakek8sclient.Clientset, secretName string) {
 	})
 }
 
+func HandleServiceGet(k8sClient *fakek8sclient.Clientset, serviceName string, port int) {
+	k8sClient.Fake.PrependReactor("get", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		get, ok := action.(testing.GetAction)
+		Expect(ok).To(BeTrue())
+		Expect(get.GetNamespace()).To(Equal(k8smetav1.NamespaceDefault))
+		Expect(get.GetName()).To(Equal(serviceName))
+		return true, &v1.Service{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      serviceName,
+				Namespace: k8smetav1.NamespaceDefault,
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name: "export",
+						Port: int32(port),
+					},
+				},
+			},
+		}, nil
+	})
+}
+
+func HandlePodList(k8sClient *fakek8sclient.Clientset, podName string) {
+	podList := &v1.PodList{
+		ListMeta: k8smetav1.ListMeta{
+			ResourceVersion: "1",
+		},
+		Items: []v1.Pod{
+			{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      podName,
+					Namespace: k8smetav1.NamespaceDefault,
+				},
+				Spec: v1.PodSpec{},
+			},
+		},
+	}
+
+	k8sClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		list, ok := action.(testing.ListAction)
+		Expect(ok).To(BeTrue())
+		Expect(list.GetNamespace()).To(Equal(k8smetav1.NamespaceDefault))
+		return true, podList, nil
+	})
+}
+
+func HandleVMExportDelete(client *kubevirtfake.Clientset, name string) {
+	client.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		delete, ok := action.(testing.DeleteAction)
+		Expect(ok).To(BeTrue())
+		Expect(delete.GetName()).To(Equal(name))
+		return true, nil, nil
+	})
+}
+
 func GetExportVolumeFormat(url string, format exportv1.ExportVolumeFormat) []exportv1.VirtualMachineExportVolumeFormat {
 	return []exportv1.VirtualMachineExportVolumeFormat{
 		{
