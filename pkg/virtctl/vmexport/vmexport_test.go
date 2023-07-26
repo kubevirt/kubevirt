@@ -2,8 +2,10 @@ package vmexport_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -11,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
@@ -21,6 +22,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/utils"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 	. "kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 	"kubevirt.io/kubevirt/tests/clientcmd"
@@ -49,6 +51,7 @@ var _ = Describe("vmexport", func() {
 
 		kubeClient = fakek8sclient.NewSimpleClientset()
 		vmExportClient = kubevirtfake.NewSimpleClientset()
+
 	})
 
 	setflag := func(flag, parameter string) string {
@@ -140,10 +143,15 @@ var _ = Describe("vmexport", func() {
 		vmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
 			return server.Client()
 		})
+		virtctlvmexport.SetPortForwarder(func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}) error {
+			readyChan <- struct{}{}
+			return nil
+		})
 	}
 
 	testDone := func() {
-		vmexport.SetDefaultHTTPClientCreator()
+		virtctlvmexport.SetDefaultHTTPClientCreator()
+		virtctlvmexport.SetDefaultPortForwarder()
 		server.Close()
 	}
 
@@ -319,14 +327,18 @@ var _ = Describe("vmexport", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(errString))
 		},
-			Entry("No arguments", "argument validation failed", []string{}),
-			Entry("Missing arg", "argument validation failed", []string{CREATE, setflag(PVC_FLAG, vmexportName)}),
-			Entry("More arguments than expected", "argument validation failed", []string{CREATE, DELETE, vmexportName}),
-			Entry("Using 'create' without export type", ErrRequiredExportType, []string{CREATE, vmexportName}),
-			Entry("Using 'create' with invalid flag", fmt.Sprintf(ErrIncompatibleFlag, INSECURE_FLAG, CREATE), []string{CREATE, vmexportName, setflag(PVC_FLAG, "test"), INSECURE_FLAG}),
-			Entry("Using 'delete' with export type", ErrIncompatibleExportType, []string{DELETE, vmexportName, setflag(PVC_FLAG, "test")}),
-			Entry("Using 'delete' with invalid flag", fmt.Sprintf(ErrIncompatibleFlag, INSECURE_FLAG, DELETE), []string{DELETE, vmexportName, INSECURE_FLAG}),
-			Entry("Using 'download' without required flags", fmt.Sprintf(ErrRequiredFlag, OUTPUT_FLAG, DOWNLOAD), []string{DOWNLOAD, vmexportName}),
+			Entry("No arguments", "argument validation failed"),
+			Entry("Missing arg", "argument validation failed", virtctlvmexport.CREATE, setflag(virtctlvmexport.PVC_FLAG, vmexportName)),
+			Entry("More arguments than expected create", "argument validation failed", virtctlvmexport.CREATE, virtctlvmexport.DELETE, vmexportName),
+			Entry("Using 'create' without export type", virtctlvmexport.ErrRequiredExportType, virtctlvmexport.CREATE, vmexportName),
+			Entry("Using 'create' with invalid flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.INSECURE_FLAG, virtctlvmexport.CREATE), virtctlvmexport.CREATE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test"), virtctlvmexport.INSECURE_FLAG),
+			Entry("Using 'delete' with export type", virtctlvmexport.ErrIncompatibleExportType, virtctlvmexport.DELETE, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test")),
+			Entry("Using 'delete' with invalid flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.INSECURE_FLAG, virtctlvmexport.DELETE), virtctlvmexport.DELETE, vmexportName, virtctlvmexport.INSECURE_FLAG),
+			Entry("More arguments than expected download and 'manifest'", "argument validation failed", virtctlvmexport.DOWNLOAD, virtctlvmexport.DELETE, virtctlvmexport.MANIFEST_FLAG, vmexportName),
+			Entry("Using 'manifest' with pvc flag", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.PVC_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.PVC_FLAG, "test")),
+			Entry("Using 'manifest' with volume type", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.VOLUME_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.VOLUME_FLAG, "volume")),
+			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),
+			Entry("Using 'port-forward' with invalid port", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.PORT_FORWARD_FLAG, "valid port numbers"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.PORT_FORWARD_FLAG, "test")),
 		)
 
 		AfterEach(func() {
@@ -349,8 +361,8 @@ var _ = Describe("vmexport", func() {
 
 		// Delete tests
 		It("VirtualMachineExport is deleted succesfully", func() {
-			expectVMExportDelete(vmExportClient, vmexportName)
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, DELETE, vmexportName)
+			utils.HandleVMExportDelete(vmExportClient, vmexportName)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DELETE, vmexportName)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -541,67 +553,212 @@ var _ = Describe("vmexport", func() {
 			testDone()
 		})
 	})
+
+	Context("Manifest", func() {
+		var (
+			orgHttpFunc virtctlvmexport.HandleHTTPRequestFunc
+		)
+
+		BeforeEach(func() {
+			orgHttpFunc = virtctlvmexport.HandleHTTPRequest
+			testInit(http.StatusOK)
+		})
+
+		AfterEach(func() {
+			virtctlvmexport.HandleHTTPRequest = orgHttpFunc
+			testDone()
+		})
+
+		DescribeTable("should successfully create VirtualMachineExport if proper arg supplied", func(arg, headerValue string) {
+			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				Expect(downloadUrl).To(Equal(manifestUrl))
+				Expect(headers).To(ContainElements(headerValue))
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("data")),
+				}
+				return &resp, nil
+			}
+			vmexport := utils.VMExportSpecVM(vmexportName, metav1.NamespaceDefault, "test", secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			vmexport.Status.Links.External.Manifests = append(vmexport.Status.Links.External.Manifests, exportv1.VirtualMachineExportManifest{
+				Type: exportv1.AllManifests,
+				Url:  manifestUrl,
+			})
+			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			vmExportClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
+				Expect(ok).To(BeTrue())
+
+				return true, vme, nil
+			})
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test")}
+			if arg != "" {
+				args = append(args, arg)
+			}
+			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		},
+			Entry("no output format arguments", "", virtctlvmexport.APPLICATION_YAML),
+			Entry("output format json", setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, virtctlvmexport.OUTPUT_FORMAT_JSON), virtctlvmexport.APPLICATION_JSON),
+			Entry("output format yaml", setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, virtctlvmexport.OUTPUT_FORMAT_YAML), virtctlvmexport.APPLICATION_YAML),
+		)
+
+		DescribeTable("should call both manifest and secret url if argument supplied", func(arg string, callCount int) {
+			calls := 0
+			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
+				calls++
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("data")),
+				}
+				return &resp, nil
+			}
+			vmexport := utils.VMExportSpecVM(vmexportName, metav1.NamespaceDefault, "test", secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			vmexport.Status.Links.External.Manifests = append(vmexport.Status.Links.External.Manifests, exportv1.VirtualMachineExportManifest{
+				Type: exportv1.AllManifests,
+				Url:  manifestUrl,
+			}, exportv1.VirtualMachineExportManifest{
+				Type: exportv1.AuthHeader,
+				Url:  secretUrl,
+			})
+			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			vmExportClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
+				Expect(ok).To(BeTrue())
+
+				return true, vme, nil
+			})
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test")}
+			if arg != "" {
+				args = append(args, arg)
+			}
+			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(calls).To(Equal(callCount))
+		},
+			Entry("without --include-secret", "", 1),
+			Entry("with --include-secret", virtctlvmexport.INCLUDE_SECRET_FLAG, 2),
+		)
+
+		It("should error if http status is error", func() {
+			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				Expect(downloadUrl).To(BeElementOf(manifestUrl, secretUrl))
+				resp := http.Response{
+					StatusCode: http.StatusBadRequest,
+					Body:       io.NopCloser(strings.NewReader("")),
+				}
+				return &resp, nil
+			}
+			vmexport := utils.VMExportSpecVM(vmexportName, metav1.NamespaceDefault, "test", secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			vmexport.Status.Links.External.Manifests = append(vmexport.Status.Links.External.Manifests, exportv1.VirtualMachineExportManifest{
+				Type: exportv1.AllManifests,
+				Url:  manifestUrl,
+			}, exportv1.VirtualMachineExportManifest{
+				Type: exportv1.AuthHeader,
+				Url:  secretUrl,
+			})
+			utils.HandleVMExportGet(vmExportClient, vmexport, vmexportName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			vmExportClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
+				Expect(ok).To(BeTrue())
+
+				return true, vme, nil
+			})
+			args := []string{commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test")}
+			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("Port-forward", func() {
+		var (
+			orgHttpFunc virtctlvmexport.HandleHTTPRequestFunc
+			vme         *exportv1.VirtualMachineExport
+		)
+
+		BeforeEach(func() {
+			orgHttpFunc = virtctlvmexport.HandleHTTPRequest
+			testInit(http.StatusOK)
+			vme = utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    "no-test-volume",
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+				},
+			}, secretName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
+		})
+
+		AfterEach(func() {
+			virtctlvmexport.HandleHTTPRequest = orgHttpFunc
+			vme = nil
+			testDone()
+		})
+
+		It("VirtualMachineExport download fails when using port-forward with an invalid port", func() {
+			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 321)
+			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PORT_FORWARD_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(Equal("Service virt-export-test-vme does not have a service port 443"))
+		})
+
+		It("VirtualMachineExport download with port-forward fails when the service doesn't have a valid pod ", func() {
+			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PORT_FORWARD_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(Equal("No pods found for the service virt-export-test-vme"))
+		})
+
+		It("VirtualMachineExport download with port-forward succeeds", func() {
+			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("data")),
+				}
+				return &resp, nil
+			}
+			vme.Status.Links.Internal = vme.Status.Links.External
+			utils.HandleServiceGet(kubeClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
+			utils.HandlePodList(kubeClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.PORT_FORWARD_FLAG, "5432"), setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"))
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
-
-func expectVMExportDelete(client *kubevirtfake.Clientset, name string) {
-	client.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		delete, ok := action.(testing.DeleteAction)
-		Expect(ok).To(BeTrue())
-		Expect(delete.GetName()).To(Equal(name))
-		return true, nil, nil
-	})
-}
-
-func expectVMExportGet(client *kubevirtfake.Clientset, vme *exportv1.VirtualMachineExport) {
-	client.Fake.PrependReactor("get", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-		get, ok := action.(testing.GetAction)
-		Expect(ok).To(BeTrue())
-		Expect(get.GetNamespace()).To(Equal(defaultNamespace))
-		Expect(get.GetName()).To(Equal(vmexportName))
-		if vme == nil {
-			return true, nil, errors.NewNotFound(v1.Resource("virtualmachineexport"), vmexportName)
-		}
-		return true, vme, nil
-	})
-}
-
-func expectVMExportCreate(client *kubevirtfake.Clientset, vme *exportv1.VirtualMachineExport) {
-	client.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		create, ok := action.(testing.CreateAction)
-		Expect(ok).To(BeTrue())
-
-		if vme == nil {
-			vme, ok = create.GetObject().(*exportv1.VirtualMachineExport)
-		} else {
-			_, ok = create.GetObject().(*exportv1.VirtualMachineExport)
-		}
-
-		Expect(ok).To(BeTrue())
-		expectVMExportGet(client, vme)
-		return true, vme, nil
-	})
-}
-
-func expectSecretGet(k8sClient *fakek8sclient.Clientset) {
-	secret := &k8sv1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: defaultNamespace,
-		},
-		Type: k8sv1.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"token": []byte("test"),
-		},
-	}
-
-	k8sClient.Fake.PrependReactor("get", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		get, ok := action.(testing.GetAction)
-		Expect(ok).To(BeTrue())
-		Expect(get.GetNamespace()).To(Equal(defaultNamespace))
-		Expect(get.GetName()).To(Equal(secretName))
-		if secret == nil {
-			return true, nil, errors.NewNotFound(v1.Resource("Secret"), secretName)
-		}
-		return true, secret, nil
-	})
-}

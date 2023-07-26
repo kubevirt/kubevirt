@@ -1947,6 +1947,72 @@ var _ = SIGDescribe("Export", func() {
 				vmeName = export.Name
 				// Run vmexport
 				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
+				Eventually(func() error {
+					return virtctlCmd()
+				}, 30*time.Second, time.Second).Should(BeNil())
+				_, err := os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Download succeeds and keeps the vmexport after finishing the download", func() {
+				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
+				vmeName = vmExport.Name
+				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
+				// Run vmexport
+				cmdArgs := []string{
+					commandName,
+					"download",
+					vmeName,
+					"--output", outputFile,
+					"--insecure",
+					"--keep-vme",
+					"--namespace", testsuite.GetTestNamespace(vmExport),
+				}
+				Expect(err).ToNot(HaveOccurred())
+				if vme.Status.Links.External == nil {
+					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", targetPort)
+				} else {
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
+				}
+				By("Running vmexport command")
+				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
+				Eventually(func() error {
+					return virtctlCmd()
+				}, 30*time.Second, time.Second).Should(BeNil())
+
+				Expect(err).ToNot(HaveOccurred())
+				checkForReadyExport(vmeName)
+				_, err = os.Stat(outputFile)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("Get export manifest from vmexport", func() {
+			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
+				// Create a populated VM
+				vm := tests.NewRandomVMWithDataVolumeWithRegistryImport(
+					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+					testsuite.GetTestNamespace(nil),
+					sc,
+					k8sv1.ReadWriteOnce)
+				vm.Spec.Running = pointer.BoolPtr(true)
+				vm = createVM(vm)
+				Eventually(func() virtv1.VirtualMachineInstancePhase {
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return ""
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase
+				}, 180*time.Second, time.Second).Should(Equal(virtv1.Running))
+
+				By("Stopping VM, we should get the export ready eventually")
+				vm = stopVM(vm)
+
+				// Run vmexport
+				By("Running vmexport create command")
 				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
 					"download",
 					vmeName,
