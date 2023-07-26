@@ -57,9 +57,9 @@ fi
 
 if ! which nmap ; then
     echo "Try to install nmap"
-    rpm -vhU --nodeps https://nmap.org/dist/nmap-7.92-1.x86_64.rpm
-    rpm -vhU https://nmap.org/dist/ncat-7.92-1.x86_64.rpm
-    rpm -vhU https://nmap.org/dist/nping-0.7.92-1.x86_64.rpm
+    rpm -vhU --nodeps https://nmap.org/dist/nmap-7.94-1.x86_64.rpm
+    rpm -vhU https://nmap.org/dist/ncat-7.94-1.x86_64.rpm
+    rpm -vhU https://nmap.org/dist/nping-0.7.94-1.x86_64.rpm
 fi
 
 if [ -n "${OPENSHIFT_BUILD_NAMESPACE:-}" ]; then
