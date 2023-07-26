@@ -1444,9 +1444,12 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
+						Name:  "primary",
 						Model: "e1000",
 					},
-					{},
+					{
+						Name: "secondary",
+					},
 				}
 				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{}
 
@@ -1484,6 +1487,33 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 			})
 
+			Context("PreferredInterfaceMasquerade", func() {
+				It("should be applied to interface on Pod network", func() {
+					vmi.Spec.Networks = []v1.Network{{
+						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
+						NetworkSource: v1.NetworkSource{
+							Pod: &v1.PodNetwork{},
+						},
+					}}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(BeNil())
+				})
+				It("should not be applied on interface that has another binding set", func() {
+					vmi.Spec.Domain.Devices.Interfaces[0].SRIOV = &v1.InterfaceSRIOV{}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).ToNot(BeNil())
+				})
+				It("should not be applied on interface that is not on Pod network", func() {
+					vmi.Spec.Networks = []v1.Network{{
+						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
+					}}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
+				})
+			})
+
 			It("should apply to VMI", func() {
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
 				Expect(conflicts).To(BeEmpty())
@@ -1517,7 +1547,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(vmi.Spec.Domain.Devices.Inputs[1].Bus).To(Equal(preferenceSpec.Devices.PreferredInputBus))
 				Expect(vmi.Spec.Domain.Devices.Inputs[1].Type).To(Equal(preferenceSpec.Devices.PreferredInputType))
 				Expect(vmi.Spec.Domain.Devices.Interfaces[1].Model).To(Equal(preferenceSpec.Devices.PreferredInterfaceModel))
-				Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(Equal(preferenceSpec.Devices.PreferredInterfaceMasquerade))
 				Expect(vmi.Spec.Domain.Devices.Sound.Model).To(Equal(preferenceSpec.Devices.PreferredSoundModel))
 				Expect(*vmi.Spec.Domain.Devices.Rng).To(Equal(*preferenceSpec.Devices.PreferredRng))
 				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))
