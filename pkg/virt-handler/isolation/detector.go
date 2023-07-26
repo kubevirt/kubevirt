@@ -231,6 +231,8 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+	defer ufile.Close()
+
 	// This is the tricky part, which will give us the PID of the owning socket
 	ucreds, err := syscall.GetsockoptUcred(int(ufile.Fd()), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
 	if err != nil {
