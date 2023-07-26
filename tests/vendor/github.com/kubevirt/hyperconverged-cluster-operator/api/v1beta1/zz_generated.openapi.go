@@ -219,6 +219,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"deployVmConsoleProxy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "deploy VM console proxy resources in SSP operator",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"deployKubeSecondaryDNS": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Deploy KubeSecondaryDNS by CNAO",

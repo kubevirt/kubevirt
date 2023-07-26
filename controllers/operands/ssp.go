@@ -164,6 +164,10 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 		spec.FeatureGates.DeployTektonTaskResources = *hc.Spec.FeatureGates.DeployTektonTaskResources
 	}
 
+	if hc.Spec.FeatureGates.DeployVMConsoleProxy != nil {
+		spec.FeatureGates.DeployVmConsoleProxy = *hc.Spec.FeatureGates.DeployVMConsoleProxy
+	}
+
 	// Default value is the operator namespace
 	pipelinesNamespace := getNamespace(hc.Namespace, opts)
 	if hc.Spec.TektonPipelinesNamespace != nil {

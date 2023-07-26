@@ -126,6 +126,16 @@ var _ = Describe("SSP Operands", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRefFound))
 		})
 
+		It("should create ssp with deployVmConsoleProxy feature gate enabled", func() {
+			hco := commontestutils.NewHco()
+			hco.Spec.FeatureGates.DeployVMConsoleProxy = pointer.Bool(true)
+
+			expectedResource, _, err := NewSSP(hco)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(expectedResource.Spec.FeatureGates.DeployVmConsoleProxy).To(BeTrue())
+		})
+
 		Context("Node placement", func() {
 
 			It("should add node placement if missing", func() {

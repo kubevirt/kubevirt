@@ -366,6 +366,12 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	DeployTektonTaskResources *bool `json:"deployTektonTaskResources,omitempty"`
 
+	// deploy VM console proxy resources in SSP operator
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	DeployVMConsoleProxy *bool `json:"deployVmConsoleProxy,omitempty"`
+
 	// Deploy KubeSecondaryDNS by CNAO
 	// +optional
 	// +kubebuilder:default=false

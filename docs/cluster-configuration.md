@@ -160,6 +160,15 @@ reverted back to false.
 
 **Default**: `false`
 
+### deployVmConsoleProxy Feature Gate
+Set the `deployVmConsoleProxy` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
+deploy a proxy that provides an access to the VNC console of a KubeVirt Virtual Machine (VM).
+
+**Note**: Once `deployVmConsoleProxy` is set to true, SSP operator will not delete deployed resources if `deployVmConsoleProxy` is 
+reverted back to false.
+
+**Default**: `false`
+
 ### deployKubeSecondaryDNS Feature Gate
 Set the `deployKubeSecondaryDNS` feature gate to true to allow deploying KubeSecondaryDNS by CNAO.
 For additional information, see here: [KubeSecondaryDNS](https://github.com/kubevirt/kubesecondarydns)

@@ -1079,6 +1079,10 @@ spec:
                     description: deploy resources (kubevirt tekton tasks and example
                       pipelines) in SSP operator
                     type: boolean
+                  deployVmConsoleProxy:
+                    default: false
+                    description: deploy VM console proxy resources in SSP operator
+                    type: boolean
                   disableMDevConfiguration:
                     default: false
                     description: Disable mediated devices handling on KubeVirt

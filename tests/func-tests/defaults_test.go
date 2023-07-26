@@ -85,6 +85,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
 			DeployKubeSecondaryDNS:      pointer.Bool(false),
 			DeployTektonTaskResources:   pointer.Bool(false),
+			DeployVMConsoleProxy:        pointer.Bool(false),
 			DisableMDevConfiguration:    pointer.Bool(false),
 			EnableCommonBootImageImport: pointer.Bool(true),
 			PersistentReservation:       pointer.Bool(false),
@@ -107,6 +108,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		},
 			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
 			Entry("when removing /spec/featureGates/deployTektonTaskResources", "/spec/featureGates/deployTektonTaskResources"),
+			Entry("when removing /spec/featureGates/deployVmConsoleProxy", "/spec/featureGates/deployVmConsoleProxy"),
 			Entry("when removing /spec/featureGates/disableMDevConfiguration", "/spec/featureGates/disableMDevConfiguration"),
 			Entry("when removing /spec/featureGates/enableCommonBootImageImport", "/spec/featureGates/enableCommonBootImageImport"),
 			Entry("when removing /spec/featureGates/persistentReservation", "/spec/featureGates/persistentReservation"),
