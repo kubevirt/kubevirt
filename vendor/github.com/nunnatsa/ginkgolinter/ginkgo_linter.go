@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/nunnatsa/ginkgolinter/version"
 	"go/ast"
 	"go/constant"
 	"go/printer"
@@ -14,9 +13,11 @@ import (
 	"github.com/go-toolsmith/astcopy"
 	"golang.org/x/tools/go/analysis"
 
+	"github.com/nunnatsa/ginkgolinter/ginkgohandler"
 	"github.com/nunnatsa/ginkgolinter/gomegahandler"
 	"github.com/nunnatsa/ginkgolinter/reverseassertion"
 	"github.com/nunnatsa/ginkgolinter/types"
+	"github.com/nunnatsa/ginkgolinter/version"
 )
 
 // The ginkgolinter enforces standards of using ginkgo and gomega.
@@ -35,6 +36,7 @@ const (
 	comparePointerToValue         = linterName + ": comparing a pointer to a value will always fail. consider using `%s` instead"
 	missingAssertionMessage       = linterName + `: %q: missing assertion method. Expected "Should()", "To()", "ShouldNot()", "ToNot()" or "NotTo()"`
 	missingAsyncAssertionMessage  = linterName + `: %q: missing assertion method. Expected "Should()" or "ShouldNot()"`
+	focusContainerFound           = linterName + ": Focus container found. This is used only for local debug and should not be part of the actual source code, consider to replace with %q"
 )
 const ( // gomega matchers
 	beEmpty        = "BeEmpty"
@@ -78,6 +80,7 @@ func NewAnalyzer() *analysis.Analyzer {
 			SuppressNil:     false,
 			SuppressErr:     false,
 			SuppressCompare: false,
+			ForbidFocus:     false,
 			AllowHaveLen0:   false,
 		},
 	}
@@ -88,6 +91,7 @@ func NewAnalyzer() *analysis.Analyzer {
 		Run:  linter.run,
 	}
 
+	var ignored bool
 	a.Flags.Init("ginkgolinter", flag.ExitOnError)
 	a.Flags.Var(&linter.config.SuppressLen, "suppress-len-assertion", "Suppress warning for wrong length assertions")
 	a.Flags.Var(&linter.config.SuppressNil, "suppress-nil-assertion", "Suppress warning for wrong nil assertions")
@@ -95,6 +99,9 @@ func NewAnalyzer() *analysis.Analyzer {
 	a.Flags.Var(&linter.config.SuppressCompare, "suppress-compare-assertion", "Suppress warning for wrong comparison assertions")
 	a.Flags.Var(&linter.config.SuppressAsync, "suppress-async-assertion", "Suppress warning for function call in async assertion, like Eventually")
 	a.Flags.Var(&linter.config.AllowHaveLen0, "allow-havelen-0", "Do not warn for HaveLen(0); default = false")
+
+	a.Flags.BoolVar(&ignored, "suppress-focus-container", true, "Suppress warning for ginkgo focus containers like FDescribe, FContext, FWhen or FIt. Deprecated and ignored: use --forbid-focus-container instead")
+	a.Flags.Var(&linter.config.ForbidFocus, "forbid-focus-container", "trigger a warning for ginkgo focus containers like FDescribe, FContext, FWhen or FIt; default = false.")
 
 	return a
 }
@@ -115,6 +122,8 @@ currently, the linter searches for following:
 
 * trigger a warning for missing assertion method: [Bug]
 	Eventually(checkSomething)
+
+* trigger a warning when a ginkgo focus container (FDescribe, FContext, FWhen or FIt) is found. [Bug]
 
 * wrong length assertions. We want to assert the item rather than its length. [Style]
 For example:
@@ -152,12 +161,27 @@ func (l *ginkgoLinter) run(pass *analysis.Pass) (interface{}, error) {
 
 		fileConfig.UpdateFromFile(cm)
 
-		handler := gomegahandler.GetGomegaHandler(file)
-		if handler == nil { // no gomega import => no use in gomega in this file; nothing to do here
+		gomegaHndlr := gomegahandler.GetGomegaHandler(file)
+		ginkgoHndlr := ginkgohandler.GetGinkgoHandler(file)
+
+		if gomegaHndlr == nil && ginkgoHndlr == nil { // no gomega or ginkgo imports => no use in gomega in this file; nothing to do here
 			continue
 		}
 
 		ast.Inspect(file, func(n ast.Node) bool {
+			if ginkgoHndlr != nil && fileConfig.ForbidFocus {
+				spec, ok := n.(*ast.ValueSpec)
+				if ok {
+					for _, val := range spec.Values {
+						if exp, ok := val.(*ast.CallExpr); ok {
+							if checkFocusContainer(pass, ginkgoHndlr, exp) {
+								return true
+							}
+						}
+					}
+				}
+			}
+
 			stmt, ok := n.(*ast.ExprStmt)
 			if !ok {
 				return true
@@ -175,26 +199,45 @@ func (l *ginkgoLinter) run(pass *analysis.Pass) (interface{}, error) {
 				return true
 			}
 
+			if ginkgoHndlr != nil && bool(config.ForbidFocus) && checkFocusContainer(pass, ginkgoHndlr, assertionExp) {
+				return true
+			}
+
+			// no more ginkgo checks. From here it's only gomega. So if there is no gomega handler, exit here. This is
+			// mostly to prevent nil pointer error.
+			if gomegaHndlr == nil {
+				return true
+			}
+
 			assertionFunc, ok := assertionExp.Fun.(*ast.SelectorExpr)
 			if !ok {
-				checkNoAssertion(pass, assertionExp, handler)
+				checkNoAssertion(pass, assertionExp, gomegaHndlr)
 				return true
 			}
 
 			if !isAssertionFunc(assertionFunc.Sel.Name) {
-				checkNoAssertion(pass, assertionExp, handler)
+				checkNoAssertion(pass, assertionExp, gomegaHndlr)
 				return true
 			}
 
-			actualExpr := handler.GetActualExpr(assertionFunc)
+			actualExpr := gomegaHndlr.GetActualExpr(assertionFunc)
 			if actualExpr == nil {
 				return true
 			}
 
-			return checkExpression(pass, config, assertionExp, actualExpr, handler)
+			return checkExpression(pass, config, assertionExp, actualExpr, gomegaHndlr)
 		})
 	}
 	return nil, nil
+}
+
+func checkFocusContainer(pass *analysis.Pass, ginkgoHndlr ginkgohandler.Handler, exp *ast.CallExpr) bool {
+	isFocus, id := ginkgoHndlr.GetFocusContainerName(exp)
+	if isFocus {
+		reportNewName(pass, id, id.Name[1:], focusContainerFound, id.Name)
+		return true
+	}
+	return false
 }
 
 func checkExpression(pass *analysis.Pass, config types.Config, assertionExp *ast.CallExpr, actualExpr *ast.CallExpr, handler gomegahandler.Handler) bool {
@@ -333,10 +376,7 @@ func checkAsyncAssertion(pass *analysis.Pass, config types.Config, expr *ast.Cal
 		if len(actualExpr.Args) > funcIndex {
 			if fun, funcCall := actualExpr.Args[funcIndex].(*ast.CallExpr); funcCall {
 				t = pass.TypesInfo.TypeOf(fun)
-				switch t.(type) {
-				// allow functions that return function or channel.
-				case *gotypes.Signature, *gotypes.Chan:
-				default:
+				if !isValidAsyncValueType(t) {
 					actualExpr = handler.GetActualExpr(expr.Fun.(*ast.SelectorExpr))
 
 					if len(fun.Args) > 0 {
@@ -369,6 +409,18 @@ func checkAsyncAssertion(pass *analysis.Pass, config types.Config, expr *ast.Cal
 
 	handleAssertionOnly(pass, config, expr, handler, actualExpr, oldExpr, true)
 	return true
+}
+
+func isValidAsyncValueType(t gotypes.Type) bool {
+	switch t.(type) {
+	// allow functions that return function or channel.
+	case *gotypes.Signature, *gotypes.Chan, *gotypes.Pointer:
+		return true
+	case *gotypes.Named:
+		return isValidAsyncValueType(t.Underlying())
+	}
+
+	return false
 }
 
 func startCheckComparison(exp *ast.CallExpr, handler gomegahandler.Handler) (*ast.CallExpr, bool) {
@@ -959,7 +1011,7 @@ func reportNilAssertion(pass *analysis.Pass, expr *ast.CallExpr, handler gomegah
 	report(pass, expr, template, oldExpr)
 }
 
-func report(pass *analysis.Pass, expr *ast.CallExpr, messageTemplate, oldExpr string) {
+func report(pass *analysis.Pass, expr ast.Expr, messageTemplate, oldExpr string) {
 	newExp := goFmt(pass.Fset, expr)
 	pass.Report(analysis.Diagnostic{
 		Pos:     expr.Pos(),
@@ -972,6 +1024,25 @@ func report(pass *analysis.Pass, expr *ast.CallExpr, messageTemplate, oldExpr st
 						Pos:     expr.Pos(),
 						End:     expr.End(),
 						NewText: []byte(newExp),
+					},
+				},
+			},
+		},
+	})
+}
+
+func reportNewName(pass *analysis.Pass, id *ast.Ident, newName string, messageTemplate, oldExpr string) {
+	pass.Report(analysis.Diagnostic{
+		Pos:     id.Pos(),
+		Message: fmt.Sprintf(messageTemplate, newName),
+		SuggestedFixes: []analysis.SuggestedFix{
+			{
+				Message: fmt.Sprintf("should replace %s with %s", oldExpr, newName),
+				TextEdits: []analysis.TextEdit{
+					{
+						Pos:     id.Pos(),
+						End:     id.End(),
+						NewText: []byte(newName),
 					},
 				},
 			},

@@ -23,6 +23,13 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+# Add the forbid-focus-container ginkgolinter flag when running in CI
+# to avoid focus containers sneaking past and being accidentally committed
+if [ -n "${CI}" ]; then
+    # jq still doesn't support in place editing of files
+    jq '.ginkgolinter.analyzer_flags |= . + {"forbid-focus-container":"true"}' nogo_config.json >nogo_config_ci.json && mv nogo_config_ci.json nogo_config.json
+fi
+
 rm -rf "${TESTS_OUT_DIR}"
 mkdir -p "${TESTS_OUT_DIR}/tools"
 mkdir -p "${CMD_OUT_DIR}/dump"
