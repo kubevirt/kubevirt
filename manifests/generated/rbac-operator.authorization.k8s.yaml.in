@@ -63,6 +63,18 @@ rules:
   - routes/custom-host
   verbs:
   - create
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - create
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -112,18 +124,6 @@ rules:
   - create
   - update
   - delete
-  - patch
-- apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - create
   - patch
 - apiGroups:
   - ""
@@ -456,18 +456,6 @@ rules:
   - create
   - patch
 - apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - update
-  - create
-  - patch
-- apiGroups:
   - ""
   resources:
   - events
@@ -705,6 +693,18 @@ rules:
   - list
   - get
   - watch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - update
+  - create
+  - patch
 - apiGroups:
   - kubevirt.io
   resources:
