@@ -211,6 +211,10 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(node, device, util.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred())
 			waitForVirtHandlerWithPrHelperReadyOnNode(node)
+			// Switching the PersistentReservation feature gate on/off
+			// causes redeployment of all KubeVirt components.
+			By("Ensuring all KubeVirt components are ready")
+			testsuite.EnsureKubevirtReady()
 		})
 
 		AfterEach(func() {
@@ -300,6 +304,11 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 				}
 				return len(ds.Spec.Template.Spec.Containers) == 1
 			}, time.Minute*5, time.Second*2).Should(BeTrue())
+
+			// Switching the PersistentReservation feature gate on/off
+			// causes redeployment of all KubeVirt components.
+			By("Ensuring all KubeVirt components are ready")
+			testsuite.EnsureKubevirtReady()
 
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			for _, node := range nodes.Items {
