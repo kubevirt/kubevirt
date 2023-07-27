@@ -206,6 +206,14 @@ func (Memory) SwaggerDoc() map[string]string {
 	}
 }
 
+func (MemoryStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"guestAtBoot":    "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.\n+optional",
+		"guestCurrent":   "GuestCurrent specifies how much memory is currently available for the VirtualMachine.\n+optional",
+		"guestRequested": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.\n+optional",
+	}
+}
+
 func (Hugepages) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",

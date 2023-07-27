@@ -280,6 +280,10 @@ type VirtualMachineInstanceStatus struct {
 	// Current topology may differ from the desired topology in the spec while CPU hotplug
 	// takes place.
 	CurrentCPUTopology *CPUTopology `json:"currentCPUTopology,omitempty"`
+
+	// Memory shows various informations about the VirtualMachine memory.
+	// +optional
+	Memory *MemoryStatus `json:"memory,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC

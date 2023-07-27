@@ -419,6 +419,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.MediatedHostDevice":                                                 schema_kubevirtio_api_core_v1_MediatedHostDevice(ref),
 		"kubevirt.io/api/core/v1.Memory":                                                             schema_kubevirtio_api_core_v1_Memory(ref),
 		"kubevirt.io/api/core/v1.MemoryDumpVolumeSource":                                             schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref),
+		"kubevirt.io/api/core/v1.MemoryStatus":                                                       schema_kubevirtio_api_core_v1_MemoryStatus(ref),
 		"kubevirt.io/api/core/v1.MigrateOptions":                                                     schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		"kubevirt.io/api/core/v1.MigrationConfiguration":                                             schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
 		"kubevirt.io/api/core/v1.MultusNetwork":                                                      schema_kubevirtio_api_core_v1_MultusNetwork(ref),
@@ -19920,6 +19921,38 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_MemoryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"guestAtBoot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"guestCurrent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestCurrent specifies how much memory is currently available for the VirtualMachine.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"guestRequested": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_MigrateOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -24189,11 +24222,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Ref:         ref("kubevirt.io/api/core/v1.CPUTopology"),
 						},
 					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Memory shows various informations about the VirtualMachine memory.",
+							Ref:         ref("kubevirt.io/api/core/v1.MemoryStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 

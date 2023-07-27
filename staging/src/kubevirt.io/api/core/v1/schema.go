@@ -391,6 +391,18 @@ type Memory struct {
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
+type MemoryStatus struct {
+	// GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.
+	// +optional
+	GuestAtBoot *resource.Quantity `json:"guestAtBoot,omitempty"`
+	// GuestCurrent specifies how much memory is currently available for the VirtualMachine.
+	// +optional
+	GuestCurrent *resource.Quantity `json:"guestCurrent,omitempty"`
+	// GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.
+	// +optional
+	GuestRequested *resource.Quantity `json:"guestRequested,omitempty"`
+}
+
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
 type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.

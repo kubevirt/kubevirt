@@ -11964,6 +11964,35 @@ var CRDsValidation map[string]string = map[string]string{
               description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
               type: string
           type: object
+        memory:
+          description: Memory shows various informations about the VirtualMachine
+            memory.
+          properties:
+            guestAtBoot:
+              anyOf:
+              - type: integer
+              - type: string
+              description: GuestAtBoot specifies with how much memory the VirtualMachine
+                intiallly booted with.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            guestCurrent:
+              anyOf:
+              - type: integer
+              - type: string
+              description: GuestCurrent specifies how much memory is currently available
+                for the VirtualMachine.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            guestRequested:
+              anyOf:
+              - type: integer
+              - type: string
+              description: GuestRequested specifies how much memory was requested
+                (hotplug) for the VirtualMachine.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+          type: object
         migrationMethod:
           description: 'Represents the method using which the vmi can be migrated:
             live migration or block migration'

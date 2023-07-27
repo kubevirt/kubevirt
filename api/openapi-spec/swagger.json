@@ -18090,6 +18090,23 @@
      }
     }
    },
+   "v1.MemoryStatus": {
+    "type": "object",
+    "properties": {
+     "guestAtBoot": {
+      "description": "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "guestCurrent": {
+      "description": "GuestCurrent specifies how much memory is currently available for the VirtualMachine.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "guestRequested": {
+      "description": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     }
+    }
+   },
    "v1.MigrateOptions": {
     "description": "MigrateOptions may be provided on migrate request.",
     "type": "object",
@@ -20335,6 +20352,10 @@
      "machine": {
       "description": "Machine shows the final resulting qemu machine type. This can be different than the machine type selected in the spec, due to qemus machine type alias mechanism.",
       "$ref": "#/definitions/v1.Machine"
+     },
+     "memory": {
+      "description": "Memory shows various informations about the VirtualMachine memory.",
+      "$ref": "#/definitions/v1.MemoryStatus"
      },
      "migrationMethod": {
       "description": "Represents the method using which the vmi can be migrated: live migration or block migration",

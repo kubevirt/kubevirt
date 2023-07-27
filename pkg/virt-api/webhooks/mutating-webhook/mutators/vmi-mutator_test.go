@@ -1198,4 +1198,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			return *defaultStrategy
 		}),
 	)
+
+	It("should set guest memory status on VMI creation", func() {
+		memory := resource.MustParse("128Mi")
+		vmi.Spec.Domain.Memory = &v1.Memory{
+			Guest: &memory,
+		}
+		_, _, status := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(status.Memory).ToNot(BeNil())
+		Expect(status.Memory.GuestAtBoot).ToNot(BeNil())
+		Expect(status.Memory.GuestCurrent).ToNot(BeNil())
+		Expect(status.Memory.GuestRequested).ToNot(BeNil())
+		Expect(*status.Memory.GuestAtBoot).To(Equal(memory))
+		Expect(*status.Memory.GuestCurrent).To(Equal(memory))
+		Expect(*status.Memory.GuestRequested).To(Equal(memory))
+	})
 })
