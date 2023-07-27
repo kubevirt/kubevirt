@@ -66,6 +66,7 @@ type AccessCredentialManager struct {
 	secretWatcherStarted bool
 
 	stopCh                     chan struct{}
+	doneCh                     chan struct{}
 	resyncCheckIntervalSeconds int
 
 	watcher *fsnotify.Watcher
@@ -77,7 +78,6 @@ type AccessCredentialManager struct {
 func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex, metadataCache *metadata.Cache) *AccessCredentialManager {
 	return &AccessCredentialManager{
 		virConn:                    connection,
-		stopCh:                     make(chan struct{}),
 		resyncCheckIntervalSeconds: 15,
 		domainModifyLock:           domainModifyLock,
 		metadataCache:              metadataCache,
@@ -537,14 +537,40 @@ func (l *AccessCredentialManager) HandleQemuAgentAccessCredentials(vmi *v1.Virtu
 	for _, dir := range secretDirs {
 		err = l.watcher.Add(dir)
 		if err != nil {
+			// Ignoring error returned by watcher.Close(),
+			// because another error will be returned.
+			_ = l.watcher.Close()
 			return err
 		}
 	}
 
-	go l.watchSecrets(vmi)
+	l.stopCh = make(chan struct{})
+	l.doneCh = make(chan struct{})
+
+	go func() {
+		defer close(l.doneCh)
+		// Ignoring the error, because the watch has stopped.
+		defer func() { _ = l.watcher.Close() }()
+		l.watchSecrets(vmi)
+	}()
+
 	l.secretWatcherStarted = true
 
 	return nil
+}
+
+func (l *AccessCredentialManager) Stop() {
+	l.watchLock.Lock()
+	defer l.watchLock.Unlock()
+
+	if !l.secretWatcherStarted {
+		return
+	}
+
+	close(l.stopCh)
+	<-l.doneCh
+
+	l.secretWatcherStarted = false
 }
 
 type accessCredentialsInfo struct {
@@ -584,11 +610,12 @@ func (a *accessCredentialsInfo) addAccessCredential(accessCred *v1.AccessCredent
 				return fmt.Errorf("error occurred while reading the access credential secret file [%s]: %w", filepath.Join(secretDir, file.Name()), err)
 			}
 
-			pubKey := string(pubKeyBytes)
-			if pubKey == "" {
-				continue
+			for _, pubKey := range strings.Split(string(pubKeyBytes), "\n") {
+				trimmedKey := strings.TrimSpace(pubKey)
+				if trimmedKey != "" {
+					authorizedKeys = append(authorizedKeys, trimmedKey)
+				}
 			}
-			authorizedKeys = append(authorizedKeys, pubKey)
 		}
 
 		if len(authorizedKeys) > 0 {

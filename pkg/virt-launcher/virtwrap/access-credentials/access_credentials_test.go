@@ -126,6 +126,62 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
 
+	It("should support multiple ssh keys in one secret value", func() {
+		secretID := "some-secret-123"
+		user := "fakeuser"
+
+		vmi := &v1.VirtualMachineInstance{}
+		vmi.Spec.AccessCredentials = []v1.AccessCredential{{
+			SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+				Source: v1.SSHPublicKeyAccessCredentialSource{
+					Secret: &v1.AccessCredentialSecretSource{
+						SecretName: secretID,
+					},
+				},
+				PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+					QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+						Users: []string{user},
+					},
+				},
+			},
+		}}
+
+		secretDirs := getSecretDirs(vmi)
+		Expect(secretDirs).To(HaveLen(1))
+
+		secretDir := secretDirs[0]
+		Expect(os.Mkdir(secretDir, 0755)).To(Succeed())
+
+		authorizedKeys := "first key\nsecond key\n"
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0644)).To(Succeed())
+
+		keysLoaded := make(chan struct{})
+
+		domName := util.VMINamespaceKeyFunc(vmi)
+
+		cmdPing := `{"execute":"guest-ping"}`
+		mockConn.EXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
+
+		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
+		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, gomock.Any(), gomock.Any()).Times(1).DoAndReturn(func(_ string, keys []string, _ any) error {
+			defer GinkgoRecover()
+
+			Expect(keys).To(Equal([]string{"first key", "second key"}))
+
+			close(keysLoaded)
+			return nil
+		})
+		mockDomain.EXPECT().Free().Times(1)
+
+		Expect(manager.HandleQemuAgentAccessCredentials(vmi)).To(Succeed())
+		DeferCleanup(func() {
+			manager.Stop()
+		})
+
+		// Wait until ssh keys reload is detected
+		Eventually(keysLoaded, 5*time.Second, 50*time.Millisecond).Should(BeClosed())
+	})
+
 	It("should trigger updating a credential when secret propagation change occurs.", func() {
 		var err error
 
@@ -150,6 +206,7 @@ var _ = Describe("AccessCredentials", func() {
 		}
 		domName := util.VMINamespaceKeyFunc(vmi)
 
+		manager.stopCh = make(chan struct{})
 		manager.watcher, err = fsnotify.NewWatcher()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -206,6 +263,7 @@ var _ = Describe("AccessCredentials", func() {
 			close(manager.stopCh)
 		}()
 
+		// TODO: Rewrite test to not call private functions.
 		manager.watchSecrets(vmi)
 		Expect(matched).To(BeTrue())
 
