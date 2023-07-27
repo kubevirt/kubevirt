@@ -70,6 +70,8 @@ const (
 	Multiarchitecture = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating ceratin VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
+	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
+	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -225,9 +227,15 @@ func (config *ClusterConfig) PersistentReservationEnabled() bool {
 func (config *ClusterConfig) VMPersistentStateEnabled() bool {
 	return config.isFeatureGateEnabled(VMPersistentState)
 }
+
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(Multiarchitecture)
 }
+
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
 	return config.isFeatureGateEnabled(VMLiveUpdateFeaturesGate)
+}
+
+func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
+	return config.isFeatureGateEnabled(BochsDisplayForEFIGuests)
 }

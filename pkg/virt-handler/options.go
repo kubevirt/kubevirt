@@ -39,6 +39,7 @@ func virtualMachineOptions(
 		options.ClusterConfig = &cmdv1.ClusterConfig{
 			ExpandDisksEnabled:        clusterConfig.ExpandDisksEnabled(),
 			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
+			BochsDisplayForEFIGuests:  clusterConfig.BochsDisplayForEFIGuestsEnabled(),
 		}
 	}
 

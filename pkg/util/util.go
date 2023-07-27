@@ -119,17 +119,17 @@ func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func IsAMD64VMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Architecture == "amd64" {
-		return true
-	}
-	return false
+	return vmi.Spec.Architecture == "amd64"
 }
 
 func IsARM64VMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Architecture == "arm64" {
-		return true
-	}
-	return false
+	return vmi.Spec.Architecture == "arm64"
+}
+
+func IsEFIVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Firmware != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
 }
 
 func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
