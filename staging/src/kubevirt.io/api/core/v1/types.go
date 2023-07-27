@@ -2735,6 +2735,9 @@ type LiveUpdateFeatures struct {
 	CPU *LiveUpdateCPU `json:"cpu,omitempty" optional:"true"`
 	// Affinity allows live updating the virtual machines node affinity
 	Affinity *LiveUpdateAffinity `json:"affinity,omitempty" optional:"true"`
+	// MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine
+	// +optional
+	Memory *LiveUpdateMemory `json:"memory,omitempty"`
 }
 
 type LiveUpdateAffinity struct{}
@@ -2747,6 +2750,15 @@ type LiveUpdateCPU struct {
 type LiveUpdateConfiguration struct {
 	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
+	// MaxGuest defines the maximum amount memory that can be allocated
+	// to the guest using hotplug.
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
+}
+
+type LiveUpdateMemory struct {
+	// MaxGuest defines the maximum amount memory that can be allocated for the VM.
+	// +optional
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
 // SEVPlatformInfo contains information about the AMD SEV features for the node.

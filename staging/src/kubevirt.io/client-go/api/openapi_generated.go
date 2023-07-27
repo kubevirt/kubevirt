@@ -411,6 +411,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.LiveUpdateCPU":                                                      schema_kubevirtio_api_core_v1_LiveUpdateCPU(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateConfiguration":                                            schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateFeatures":                                                 schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref),
+		"kubevirt.io/api/core/v1.LiveUpdateMemory":                                                   schema_kubevirtio_api_core_v1_LiveUpdateMemory(ref),
 		"kubevirt.io/api/core/v1.LogVerbosity":                                                       schema_kubevirtio_api_core_v1_LogVerbosity(ref),
 		"kubevirt.io/api/core/v1.LunTarget":                                                          schema_kubevirtio_api_core_v1_LunTarget(ref),
 		"kubevirt.io/api/core/v1.Machine":                                                            schema_kubevirtio_api_core_v1_Machine(ref),
@@ -19567,9 +19568,17 @@ func schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref common.ReferenceC
 							Format:      "int64",
 						},
 					},
+					"maxGuest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxGuest defines the maximum amount memory that can be allocated to the guest using hotplug.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -19591,11 +19600,37 @@ func schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref common.ReferenceCallba
 							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateAffinity"),
 						},
 					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine",
+							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateMemory"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.LiveUpdateAffinity", "kubevirt.io/api/core/v1.LiveUpdateCPU"},
+			"kubevirt.io/api/core/v1.LiveUpdateAffinity", "kubevirt.io/api/core/v1.LiveUpdateCPU", "kubevirt.io/api/core/v1.LiveUpdateMemory"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_LiveUpdateMemory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"maxGuest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxGuest defines the maximum amount memory that can be allocated for the VM.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -19833,6 +19868,12 @@ func schema_kubevirtio_api_core_v1_Memory(ref common.ReferenceCallback) common.O
 					"guest": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Guest allows to specifying the amount of memory which is visible inside the Guest OS. The Guest must lie between Requests and Limits from the resources section. Defaults to the requested memory in the resources section if not specified.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"maxGuest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},

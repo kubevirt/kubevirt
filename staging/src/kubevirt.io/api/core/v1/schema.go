@@ -386,6 +386,9 @@ type Memory struct {
 	// Defaults to the requested memory in the resources section if not specified.
 	// + optional
 	Guest *resource.Quantity `json:"guest,omitempty"`
+	// MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
+	// The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.

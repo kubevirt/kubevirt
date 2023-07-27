@@ -459,6 +459,14 @@ spec:
                           that can be hotplugged
                         format: int32
                         type: integer
+                      maxGuest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: MaxGuest defines the maximum amount memory that
+                          can be allocated to the guest using hotplug.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                     type: object
                   machineType:
                     description: Deprecated. Use architectureConfiguration instead.
@@ -3466,6 +3474,14 @@ spec:
                           that can be hotplugged
                         format: int32
                         type: integer
+                      maxGuest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: MaxGuest defines the maximum amount memory that
+                          can be allocated to the guest using hotplug.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                     type: object
                   machineType:
                     description: Deprecated. Use architectureConfiguration instead.

@@ -17904,6 +17904,10 @@
       "description": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
       "type": "integer",
       "format": "int64"
+     },
+     "maxGuest": {
+      "description": "MaxGuest defines the maximum amount memory that can be allocated to the guest using hotplug.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -17917,6 +17921,19 @@
      "cpu": {
       "description": "LiveUpdateCPU holds hotplug configuration for the CPU resource. Empty struct indicates that default will be used for maxSockets. Default is specified on cluster level. Absence of the struct means opt-out from CPU hotplug functionality.",
       "$ref": "#/definitions/v1.LiveUpdateCPU"
+     },
+     "memory": {
+      "description": "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine",
+      "$ref": "#/definitions/v1.LiveUpdateMemory"
+     }
+    }
+   },
+   "v1.LiveUpdateMemory": {
+    "type": "object",
+    "properties": {
+     "maxGuest": {
+      "description": "MaxGuest defines the maximum amount memory that can be allocated for the VM.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -18045,6 +18062,10 @@
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
+     },
+     "maxGuest": {
+      "description": "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },

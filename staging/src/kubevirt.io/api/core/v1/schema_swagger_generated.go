@@ -202,6 +202,7 @@ func (Memory) SwaggerDoc() map[string]string {
 		"":          "Memory allows specifying the VirtualMachineInstance memory features.",
 		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
 		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"maxGuest":  "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.\nThe delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
 	}
 }
 

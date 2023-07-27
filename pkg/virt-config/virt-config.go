@@ -444,3 +444,11 @@ func (c *ClusterConfig) GetMaximumCpuSockets() (numOfSockets uint32) {
 
 	return
 }
+
+func (c *ClusterConfig) GetMaximumGuestMemory() *resource.Quantity {
+	liveConfig := c.GetConfig().LiveUpdateConfiguration
+	if liveConfig != nil && liveConfig.MaxGuest != nil {
+		return liveConfig.MaxGuest
+	}
+	return nil
+}
