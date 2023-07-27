@@ -231,6 +231,9 @@ Total time (ms) spent on write operations. Type: Counter.
 ### kubevirt_vmi_storage_write_traffic_bytes_total
 Total number of written bytes. Type: Counter.
 
+### kubevirt_vmi_vcpu_delay_seconds_total
+Amount of time spent by each vcpu waiting in the queue instead of running. Type: Counter.
+
 ### kubevirt_vmi_vcpu_seconds
 Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. Type: Counter.
 

@@ -89,6 +89,8 @@ type DomainStatsVcpu struct {
 	Time     uint64
 	WaitSet  bool
 	Wait     uint64
+	DelaySet bool
+	Delay    uint64
 }
 
 type DomainStatsNet struct {

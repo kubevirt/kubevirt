@@ -300,6 +300,16 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 				[]string{stringVcpuIdx},
 			)
 		}
+		if vcpu.DelaySet {
+			metrics.pushCustomMetric(
+				"kubevirt_vmi_vcpu_delay_seconds_total",
+				"Amount of time spent by each vcpu waiting in the queue instead of running.",
+				prometheus.CounterValue,
+				float64(vcpu.Delay)/float64(1000000000),
+				[]string{"id"},
+				[]string{stringVcpuIdx},
+			)
+		}
 	}
 }
 
