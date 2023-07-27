@@ -54,6 +54,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1284,6 +1285,9 @@ func (d *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	d.updateVolumeStatusesFromDomain(vmi, domain)
 	d.updateFSFreezeStatus(vmi, domain)
 	d.updateMachineType(vmi, domain)
+	if err = d.updateMemoryInfo(vmi, domain); err != nil {
+		return err
+	}
 	err = d.netStat.UpdateStatus(vmi, domain)
 	return err
 }
@@ -3472,5 +3476,41 @@ func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 	vmi.Status.CurrentCPUTopology.Cores = vmi.Spec.Domain.CPU.Cores
 	vmi.Status.CurrentCPUTopology.Threads = vmi.Spec.Domain.CPU.Threads
 
+	return nil
+}
+
+func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
+	switch unit {
+	case "b", "bytes":
+		return resource.NewQuantity(value, resource.BinarySI)
+	case "KB":
+		return resource.NewQuantity(value*1000, resource.DecimalSI)
+	case "MB":
+		return resource.NewQuantity(value*1000*1000, resource.DecimalSI)
+	case "GB":
+		return resource.NewQuantity(value*1000*1000*1000, resource.DecimalSI)
+	case "TB":
+		return resource.NewQuantity(value*1000*1000*1000*1000, resource.DecimalSI)
+	case "k", "KiB":
+		return resource.NewQuantity(value*1024, resource.BinarySI)
+	case "M", "MiB":
+		return resource.NewQuantity(value*1024*1024, resource.BinarySI)
+	case "G", "GiB":
+		return resource.NewQuantity(value*1024*1024*1024, resource.BinarySI)
+	case "T", "TiB":
+		return resource.NewQuantity(value*1024*1024*1024*1024, resource.BinarySI)
+	}
+	return nil
+}
+
+func (d *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if domain == nil || vmi == nil || domain.Spec.CurrentMemory == nil {
+		return nil
+	}
+	if vmi.Status.Memory == nil {
+		vmi.Status.Memory = &v1.MemoryStatus{}
+	}
+	currentGuest := parseLibvirtQuantity(int64(domain.Spec.CurrentMemory.Value), domain.Spec.CurrentMemory.Unit)
+	vmi.Status.Memory.GuestCurrent = currentGuest
 	return nil
 }

@@ -2957,6 +2957,40 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, VMIStarted)
 		})
+
+		It("should update Memory information in VMI status", func() {
+			initialMemory := resource.MustParse("128Ki")
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Memory = &v1.MemoryStatus{
+				GuestAtBoot:  &initialMemory,
+				GuestCurrent: &initialMemory,
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.CurrentMemory = &api.Memory{
+				Value: 512,
+				Unit:  "KiB",
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any()).Return(nil)
+
+			expectedMemory := resource.MustParse("512Ki")
+			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+				Expect(*(arg.(*v1.VirtualMachineInstance).Status.Memory.GuestCurrent)).To(Equal(expectedMemory))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
 	})
 
 	Context("VirtualMachineInstance controller gets informed about disk information", func() {
@@ -3368,6 +3402,28 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			}
 		})
 	})
+})
+
+var _ = Describe("CurrentMemory in Libvirt Domain", func() {
+	DescribeTable("should be correctly parsed", func(inputMemory *api.Memory, outputQuantity resource.Quantity) {
+		result := parseLibvirtQuantity(int64(inputMemory.Value), inputMemory.Unit)
+		Expect(result.Equal(outputQuantity)).To(BeTrue())
+	},
+		Entry("bytes", &api.Memory{Value: 512, Unit: "bytes"}, *resource.NewQuantity(512, resource.BinarySI)),
+		Entry("b (bytes)", &api.Memory{Value: 512, Unit: "bytes"}, *resource.NewQuantity(512, resource.BinarySI)),
+		Entry("KB", &api.Memory{Value: 512, Unit: "KB"}, resource.MustParse("512k")),
+		Entry("MB", &api.Memory{Value: 512, Unit: "MB"}, resource.MustParse("512M")),
+		Entry("GB", &api.Memory{Value: 512, Unit: "GB"}, resource.MustParse("512G")),
+		Entry("TB", &api.Memory{Value: 512, Unit: "TB"}, resource.MustParse("512T")),
+		Entry("Ki", &api.Memory{Value: 512, Unit: "KiB"}, resource.MustParse("512Ki")),
+		Entry("Mi", &api.Memory{Value: 512, Unit: "MiB"}, resource.MustParse("512Mi")),
+		Entry("Gi", &api.Memory{Value: 512, Unit: "GiB"}, resource.MustParse("512Gi")),
+		Entry("Ti", &api.Memory{Value: 512, Unit: "TiB"}, resource.MustParse("512Ti")),
+		Entry("Ki (k)", &api.Memory{Value: 512, Unit: "k"}, resource.MustParse("512Ki")),
+		Entry("Mi (M)", &api.Memory{Value: 512, Unit: "M"}, resource.MustParse("512Mi")),
+		Entry("Gi (G)", &api.Memory{Value: 512, Unit: "G"}, resource.MustParse("512Gi")),
+		Entry("Ti (T)", &api.Memory{Value: 512, Unit: "T"}, resource.MustParse("512Ti")),
+	)
 })
 
 type MockGracefulShutdown struct {
