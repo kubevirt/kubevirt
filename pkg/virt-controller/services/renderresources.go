@@ -393,7 +393,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 	}
 
 	// Multiplying the ratio is expected to be the last calculation before returning overhead
-	if additionalOverheadRatio != nil {
+	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
 		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
 		if err != nil {
 			// This error should never happen as it's already validated by webhooks

@@ -30,8 +30,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/opencontainers/selinux/go-selinux"
 
 	"kubevirt.io/api/migrations/v1alpha1"
@@ -578,7 +576,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 			}
 
 			if vmi.Status.MigrationState.Completed &&
-				!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) {
+				!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
+				!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) {
 				migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
 				log.Log.Object(migration).Infof("VMI reported migration succeeded.")
@@ -897,6 +896,14 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 			return err
 		}
 		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodCPULimitsLabel] = strconv.Itoa(int(cpuLimitsCount))
+	}
+
+	if controller.VMIHasHotplugMemory(vmi) {
+		memoryReq, err := getTargetPodMemoryRequests(pod)
+		if err != nil {
+			return err
+		}
+		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodMemoryRequestsLabel] = memoryReq
 	}
 
 	err = c.patchVMI(vmi, vmiCopy)
@@ -1979,23 +1986,37 @@ func (c *MigrationController) removeHandOffKey(migrationKey string) {
 	delete(c.handOffMap, migrationKey)
 }
 
-func getTargetPodLimitsCount(pod *k8sv1.Pod) (int64, error) {
-	var cpuLimit resource.Quantity
-	var cc *k8sv1.Container
+func getComputeContainer(pod *k8sv1.Pod) *k8sv1.Container {
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "compute" {
-			cc = &container
-			break
+			return &container
 		}
 	}
+	return nil
+}
+
+func getTargetPodLimitsCount(pod *k8sv1.Pod) (int64, error) {
+	cc := getComputeContainer(pod)
 	if cc == nil {
 		return 0, fmt.Errorf("Could not find VMI compute container")
 	}
 
 	cpuLimit, ok := cc.Resources.Limits[k8sv1.ResourceCPU]
 	if !ok {
-		return 0, fmt.Errorf("Could not find dedicaded CPU limit in VMI compute container")
+		return 0, fmt.Errorf("Could not find dedicated CPU limit in VMI compute container")
+	}
+	return cpuLimit.Value(), nil
+}
+
+func getTargetPodMemoryRequests(pod *k8sv1.Pod) (string, error) {
+	cc := getComputeContainer(pod)
+	if cc == nil {
+		return "", fmt.Errorf("Could not find VMI compute container")
 	}
 
-	return cpuLimit.Value(), nil
+	memReq, ok := cc.Resources.Requests[k8sv1.ResourceMemory]
+	if !ok {
+		return "", fmt.Errorf("Could not find memory request in VMI compute container")
+	}
+	return memReq.String(), nil
 }

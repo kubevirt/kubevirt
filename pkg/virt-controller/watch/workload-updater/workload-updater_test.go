@@ -23,6 +23,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -440,6 +441,20 @@ var _ = Describe("Workload Updater", func() {
 			Expect(evictionCount).To(Equal(batchDeletions * 2))
 		})
 
+	})
+
+	Context("LiveUpdate features", func() {
+		It("VMI needs to be migrated when memory hotplug is requested", func() {
+			vmi := api.NewMinimalVMI("testvm")
+
+			condition := v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceMemoryChange,
+				Status: k8sv1.ConditionTrue,
+			}
+			virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, &condition)
+
+			Expect(controller.doesRequireMigration(vmi)).To(BeTrue())
+		})
 	})
 
 	AfterEach(func() {

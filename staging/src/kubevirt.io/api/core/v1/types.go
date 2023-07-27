@@ -521,6 +521,8 @@ const (
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Indicates that the VMI is in progress of Hot vCPU Plug/UnPlug
 	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
+	// Indicates that the VMI is hot(un)plugging memory
+	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
 )
 
 const (
@@ -971,6 +973,14 @@ const (
 
 	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
 	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
+	// VirtualMachinePodMemoryRequestsLabel indicates VMI pod Memory resource requests
+	VirtualMachinePodMemoryRequestsLabel string = "kubevirt.io/vmi-pod-memory-resource-requests"
+	// MemoryHotplugOverheadRatioLabel indicates the guest memory overhead ratio required
+	// to correctly compute the target pod memory requests when doing memory hotplug.
+	// The label is used to store this value when memory hotplug is requested as it may change
+	// between the creation of the target pod and when the evaluation of `MemoryHotplugReadyLabel`
+	// happens.
+	MemoryHotplugOverheadRatioLabel string = "kubevirt.io/memory-hotplug-overhead-ratio"
 
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.
