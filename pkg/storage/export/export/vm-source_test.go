@@ -430,7 +430,7 @@ var _ = Describe("PVC source", func() {
 
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(0))
+		Expect(retry).To(BeEquivalentTo(requeueTime))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 	})
 
@@ -476,7 +476,7 @@ var _ = Describe("PVC source", func() {
 
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(requeueTime))
+		Expect(retry).To(BeEquivalentTo(requeueTime * 2))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 	})
 
@@ -507,7 +507,7 @@ var _ = Describe("PVC source", func() {
 		})
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(0))
+		Expect(retry).To(BeEquivalentTo(requeueTime))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 		testutils.ExpectEvent(recorder, ExportPaused)
 	})

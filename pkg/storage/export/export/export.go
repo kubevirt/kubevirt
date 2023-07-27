@@ -511,7 +511,20 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		return ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourceVMSnapshot, ctrl.updateVMExporVMSnapshotStatus)
 	}
 	if ctrl.isSourceVM(&vmExport.Spec) {
-		return ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourceVM, ctrl.updateVMExportVMStatus)
+		var pvcTime time.Duration
+		sv, err := ctrl.getPVCFromSourceVM(vmExport)
+		if err != nil {
+			return 0, err
+		}
+		if len(sv.volumes) != 0 {
+			pvcTime, err = ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourceVM, ctrl.updateVMExportPvcStatus)
+			if err != nil {
+				return pvcTime, err
+			}
+		}
+
+		vmTime, err := ctrl.handleSource(vmExport, service, ctrl.getPVCFromSourceVM, ctrl.updateVMExportVMStatus)
+		return pvcTime + vmTime, err
 	}
 	return 0, nil
 }
