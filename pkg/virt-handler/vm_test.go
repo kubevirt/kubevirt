@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -2132,6 +2134,78 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			controller.Execute()
+		})
+
+		It("should hotplug memory in post-migration when target pod has the required conditions", func() {
+			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			initialMemory := resource.MustParse("512Mi")
+			requestedMemory := resource.MustParse("1Gi")
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest: &requestedMemory,
+			}
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
+			vmi.Status.Memory = &v1.MemoryStatus{
+				GuestAtBoot:    &initialMemory,
+				GuestCurrent:   &initialMemory,
+				GuestRequested: &initialMemory,
+			}
+
+			targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+			targetPodMemory.Add(requestedMemory)
+			vmi.Labels = map[string]string{
+				v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
+			}
+
+			condition := &v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceMemoryChange,
+				Status: k8sv1.ConditionTrue,
+			}
+			conditionManager.UpdateCondition(vmi, condition)
+
+			client.EXPECT().SyncVirtualMachineMemory(vmi, gomock.Any())
+
+			Expect(controller.hotplugMemory(vmi, client)).To(Succeed())
+
+			Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
+			Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
+			Expect(vmi.Status.Memory.GuestRequested).To(Equal(vmi.Spec.Domain.Memory.Guest))
+		})
+
+		It("should not hotplug memory if target pod does not have enough memory", func() {
+			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+			initialMemory := resource.MustParse("512Mi")
+			requestedMemory := resource.MustParse("1Gi")
+
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest: &requestedMemory,
+			}
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
+
+			vmi.Status.Memory = &v1.MemoryStatus{
+				GuestAtBoot:    &initialMemory,
+				GuestCurrent:   &initialMemory,
+				GuestRequested: &initialMemory,
+			}
+			vmi.Labels = map[string]string{
+				v1.VirtualMachinePodMemoryRequestsLabel: initialMemory.String(),
+			}
+
+			condition := &v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceMemoryChange,
+				Status: k8sv1.ConditionTrue,
+			}
+			conditionManager.UpdateCondition(vmi, condition)
+
+			Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
+
+			Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
+			Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
+			Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 		})
 	})
 

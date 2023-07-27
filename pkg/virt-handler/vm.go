@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -3315,6 +3316,11 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
 	}
 
+	if err := d.hotplugMemory(vmi, client); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
+	}
+
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
@@ -3476,6 +3482,44 @@ func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 	vmi.Status.CurrentCPUTopology.Cores = vmi.Spec.Domain.CPU.Cores
 	vmi.Status.CurrentCPUTopology.Threads = vmi.Spec.Domain.CPU.Threads
 
+	return nil
+}
+
+func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+
+	removeVMIMemoryChangeConditionAndLabel := func() {
+		delete(vmi.Labels, v1.VirtualMachinePodMemoryRequestsLabel)
+		delete(vmi.Labels, v1.MemoryHotplugOverheadRatioLabel)
+		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
+	}
+	defer removeVMIMemoryChangeConditionAndLabel()
+
+	if !vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange) {
+		return nil
+	}
+
+	podMemReqStr := vmi.Labels[v1.VirtualMachinePodMemoryRequestsLabel]
+	podMemReq, err := resource.ParseQuantity(podMemReqStr)
+	if err != nil {
+		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
+	}
+
+	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
+	requiredMemory := services.GetMemoryOverhead(vmi, d.clusterConfig.GetClusterCPUArch(), &overheadRatio)
+	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+
+	if podMemReq.Cmp(requiredMemory) < 0 {
+		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
+	}
+
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, nil, d.clusterConfig)
+
+	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
+		return err
+	}
+
+	vmi.Status.Memory.GuestRequested = vmi.Spec.Domain.Memory.Guest
 	return nil
 }
 
