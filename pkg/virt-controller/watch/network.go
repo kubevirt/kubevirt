@@ -24,23 +24,28 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func calculateDynamicInterfaces(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
-	vmiSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+	vmiNonAbsentSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
 	})
-	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiSpecIfaces)
+	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
 
-	vmiSpecNets := vmi.Spec.Networks
-	if ifacesToHotUnplugExist {
-		vmiSpecNets = vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, vmiSpecIfaces)
-	}
-	ifacesToHotplugExist := len(vmispec.NetworksToHotplug(vmiSpecNets, vmi.Status.Interfaces)) > 0
+	ifacesStatusByName := vmispec.IndexInterfacesFromStatus(vmi.Status.Interfaces, nil)
+	ifacesToAnnotate := vmispec.FilterInterfacesSpec(vmiNonAbsentSpecIfaces, func(iface v1.Interface) bool {
+		_, ifaceInStatus := ifacesStatusByName[iface.Name]
+		sriovIfaceNotPlugged := iface.SRIOV != nil && !ifaceInStatus
+		return !sriovIfaceNotPlugged
+	})
+
+	networksToAnnotate := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToAnnotate)
+
+	ifacesToHotplugExist := len(vmispec.NetworksToHotplug(networksToAnnotate, vmi.Status.Interfaces)) > 0
 
 	isIfaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
 	if !isIfaceChangeRequired {
 		return nil, nil, false
 	}
-	return vmiSpecIfaces, vmiSpecNets, isIfaceChangeRequired
+	return ifacesToAnnotate, networksToAnnotate, isIfaceChangeRequired
 }
 
 func applyDynamicIfaceRequestOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, hasOrdinalIfaces bool) *v1.VirtualMachineInstanceSpec {

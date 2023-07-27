@@ -41,13 +41,15 @@ var _ = Describe("Network interface hot{un}plug", func() {
 
 		testNetworkName1 = "testnet1"
 		testNetworkName2 = "testnet2"
+		testNetworkName3 = "testnet3"
+		testNetworkName4 = "testnet4"
 
 		ordinal = true
 	)
 	DescribeTable("calculate if changes are required",
 
 		func(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, expIfaces []v1.Interface, expNets []v1.Network, expToChange bool) {
-			ifaces, nets, exists := calculateDynamicInterfaces(vmi)
+			ifaces, nets, exists := calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi)
 			Expect(ifaces).To(Equal(expIfaces))
 			Expect(nets).To(Equal(expNets))
 			Expect(exists).To(Equal(expToChange))
@@ -69,22 +71,51 @@ var _ = Describe("Network interface hot{un}plug", func() {
 		),
 		Entry("when vmi interfaces have an extra interface which requires hotplug",
 			libvmi.New(
-				libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
 				libvmi.WithInterface(v1.Interface{Name: testNetworkName2}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName3}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName4, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
 				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName4}),
 				withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName1}),
+				withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName2}),
 			),
 			&k8sv1.Pod{
 				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
 					networkv1.NetworkStatusAnnot: `[
-						{"interface":"net1", "name":"red-net", "namespace": "default"}
+						{"interface":"net1", "name":"red-net", "namespace": "default"},
+						{"interface":"net2", "name":"blue-net", "namespace": "default"}
 					]`,
 				}},
 			},
-			[]v1.Interface{{Name: testNetworkName1}, {Name: testNetworkName2}},
-			[]v1.Network{{Name: testNetworkName1}, {Name: testNetworkName2}},
+			[]v1.Interface{{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}, {Name: testNetworkName2}, {Name: testNetworkName3}},
+			[]v1.Network{{Name: testNetworkName1}, {Name: testNetworkName2}, {Name: testNetworkName3}},
 			expectToChange,
+		),
+		Entry("when vmi interfaces have an extra SRIOV interface which requires hotplug, change is not required since SRIOV hotplug to a pod is not supported",
+			libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
+				libvmi.WithInterface(v1.Interface{Name: testNetworkName3, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
+				libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
+				withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName1}),
+				withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName2}),
+			),
+			&k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+					networkv1.NetworkStatusAnnot: `[
+						{"interface":"net1", "name":"red-net", "namespace": "default"},
+						{"interface":"net2", "name":"blue-net", "namespace": "default"}
+					]`,
+				}},
+			},
+			nil,
+			nil,
+			expectNoChange,
 		),
 		Entry("when a vmi interface has state set to `absent`, requiring hotunplug",
 			libvmi.New(
