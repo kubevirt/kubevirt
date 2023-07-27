@@ -21,19 +21,7 @@ func IsSchedulable(node *v1.Node) bool {
 		return false
 	}
 
-	if node.Labels[virtv1.NodeSchedulable] != "true" || node.Spec.Unschedulable {
-		return false
-	}
-
-	if node.Spec.Taints != nil {
-		for _, taint := range node.Spec.Taints {
-			if taint.Effect == v1.TaintEffectNoSchedule {
-				return false
-			}
-		}
-	}
-
-	return true
+	return node.Labels[virtv1.NodeSchedulable] == "true"
 }
 
 func HasInvTSCFrequency(node *v1.Node) bool {

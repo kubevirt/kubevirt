@@ -30,40 +30,6 @@ var _ = Describe("Filter", func() {
 		))
 	})
 
-	It("should filter out nodes with a noschedule taint", func() {
-		nodeWithUnschedulableTaint := node("node0", true)
-		nodeWithUnschedulableTaint.Spec.Taints = []v1.Taint{{Key: "noschedule", Effect: v1.TaintEffectNoSchedule}}
-
-		nodes := topology.NodesToObjects(
-			nodeWithUnschedulableTaint,
-			node("node1", false),
-			node("node2", true),
-			nil,
-		)
-		Expect(topology.FilterNodesFromCache(nodes,
-			topology.IsSchedulable,
-		)).To(ConsistOf(
-			nodes[2],
-		))
-	})
-
-	It("should filter out nodes with spec.unschedulable == true", func() {
-		nodeWithUnschedulableField := node("node0", true)
-		nodeWithUnschedulableField.Spec.Unschedulable = true
-
-		nodes := topology.NodesToObjects(
-			nodeWithUnschedulableField,
-			node("node1", false),
-			node("node2", true),
-			nil,
-		)
-		Expect(topology.FilterNodesFromCache(nodes,
-			topology.IsSchedulable,
-		)).To(ConsistOf(
-			nodes[2],
-		))
-	})
-
 	It("should inverse the search result", func() {
 		nodes := topology.NodesToObjects(
 			node("node0", true),
