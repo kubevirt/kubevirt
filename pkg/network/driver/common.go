@@ -97,7 +97,7 @@ type NetworkHandler interface {
 	GetNFTIPString(ipVersion IPVersion) string
 	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
-	CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
+	CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error
 	DisableTXOffloadChecksum(ifaceName string) error
 }
 
@@ -386,7 +386,7 @@ func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int
 	return selinux.NewContextExecutor(virtLauncherPID, cmd)
 }
 
-func (h *NetworkUtilsHandler) CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
+func (h *NetworkUtilsHandler) CreateMacvtapDevice(tapName string, parentName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string, vmi *v1.VirtualMachineInstance) error {
 	tapDeviceSELinuxCmdExecutor, err := buildMacvtapDeviceMaker(tapName, parentName, queueNumber, launcherPID, mtu, tapOwner)
 	if err != nil {
 		return err
@@ -426,7 +426,7 @@ func (h *NetworkUtilsHandler) CreateMacvtapDevice(tapName string, parentName str
 		return fmt.Errorf("unable to convert minor %s. error: %v", m[1], err)
 	}
 
-	manager, err := cgroup.NewManagerFromPid(launcherPID)
+	manager, err := cgroup.NewManagerFromVM(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to create cgroup manager. error: %v", err)
 	}

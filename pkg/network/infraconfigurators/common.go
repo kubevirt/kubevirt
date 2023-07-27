@@ -47,5 +47,5 @@ func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName strin
 }
 
 func createMacvtap(handler netdriver.NetworkHandler, deviceName string, parentName string, launcherPID int, mtu int, tapOwner string, queues uint32, vmi *v1.VirtualMachineInstance) error {
-	return handler.CreateMacvtapDevice(deviceName, parentName, queues, launcherPID, mtu, tapOwner)
+	return handler.CreateMacvtapDevice(deviceName, parentName, queues, launcherPID, mtu, tapOwner, vmi)
 }
