@@ -29,6 +29,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -597,4 +598,37 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				MaxSockets: 8,
 			},
 			BeFalse()))
+
+	It("should reject updates to maxGuest", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.CPU = &v1.CPU{}
+		updateVmi := vmi.DeepCopy()
+
+		maxGuest := resource.MustParse("64Mi")
+		vmi.Spec.Domain.Memory = &v1.Memory{
+			MaxGuest: &maxGuest,
+		}
+		updatedMaxGuest := resource.MustParse("128Mi")
+		updateVmi.Spec.Domain.Memory = &v1.Memory{
+			MaxGuest: &updatedMaxGuest,
+		}
+
+		newVMIBytes, _ := json.Marshal(&updateVmi)
+		oldVMIBytes, _ := json.Marshal(&vmi)
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				UserInfo: authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + components.ControllerServiceAccountName},
+				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: newVMIBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldVMIBytes,
+				},
+				Operation: admissionv1.Update,
+			},
+		}
+		resp := vmiUpdateAdmitter.Admit(ar)
+		Expect(resp.Allowed).To(BeFalse())
+	})
 })

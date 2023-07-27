@@ -55,6 +55,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
+	rt "runtime"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
@@ -70,12 +73,12 @@ var _ = Describe("Validating VM Admitter", func() {
 		k8sClient           *k8sfake.Clientset
 	)
 
-	enableFeatureGate := func(featureGate string) {
+	enableFeatureGate := func(featureGates ...string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featureGate},
+						FeatureGates: featureGates,
 					},
 				},
 			},
@@ -1717,36 +1720,64 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	Context("Live update features", func() {
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
+			vm = &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					LiveUpdateFeatures: &v1.LiveUpdateFeatures{},
+					Running:            &notRunning,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+		})
+
+		DescribeTable("should be rejected when the feature gate is disabled", func(mutateSpec func(*v1.VirtualMachineSpec)) {
+			disableFeatureGates()
+			mutateSpec(&vm.Spec)
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VMLiveUpdateFeaturesGate)))
+		},
+			Entry("and CPU hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
+				spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{}
+			}),
+			Entry("and Memory hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
+				spec.LiveUpdateFeatures.Memory = &v1.LiveUpdateMemory{}
+			}),
+		)
+
+		DescribeTable("should reject VM creation when VM has instance type assigned", func(mutateSpec func(*v1.VirtualMachineSpec)) {
+			mutateSpec(&vm.Spec)
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name: "foobar",
+			}
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
+			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Live update features cannot be used when instance type is configured"))
+		},
+			Entry("and CPU hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
+				spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{}
+			}),
+			Entry("and Memory hotplug is enabled", func(spec *v1.VirtualMachineSpec) {
+				spec.LiveUpdateFeatures.Memory = &v1.LiveUpdateMemory{}
+			}),
+		)
+
 		Context("CPU", func() {
-			var vm *v1.VirtualMachine
 			const maximumSockets uint32 = 24
 
 			BeforeEach(func() {
-				vmi := api.NewMinimalVMI("testvmi")
-				enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate)
-				vm = &v1.VirtualMachine{
-					Spec: v1.VirtualMachineSpec{
-						LiveUpdateFeatures: &v1.LiveUpdateFeatures{
-							CPU: &v1.LiveUpdateCPU{
-								MaxSockets: pointer.P(maximumSockets),
-							},
-						},
-						Running: &notRunning,
-						Template: &v1.VirtualMachineInstanceTemplateSpec{
-							Spec: vmi.Spec,
-						},
-					},
+				vm.Spec.LiveUpdateFeatures.CPU = &v1.LiveUpdateCPU{
+					MaxSockets: pointer.P(maximumSockets),
 				}
-			})
-			Context("feature gate disabled", func() {
-				It("should reject when the feature gate is disabled", func() {
-					disableFeatureGates()
-					response := admitVm(vmsAdmitter, vm)
-					Expect(response.Allowed).To(BeFalse())
-					Expect(response.Result.Details.Causes).To(HaveLen(1))
-					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
-					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", virtconfig.VMLiveUpdateFeaturesGate)))
-				})
 			})
 
 			It("should reject configuration of maxSockets in VM template", func() {
@@ -1758,16 +1789,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(response.Allowed).To(BeFalse())
 				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.maxSockets"))
 				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring(""))
-			})
-
-			It("should reject VM creation when VM has instance type assigned", func() {
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: "foobar",
-				}
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.liveUpdateFeatures"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Live update features cannot be used when instance type is configured"))
 			})
 
 			It("should reject VM creation when number of sockets exceeds the maximum configured", func() {
@@ -1898,7 +1919,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
 					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
-					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update CPU sockets while VMI migration is in progress"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update while VMI migration is in progress"))
 				})
 				It("should reject updating CPU Sockets while VMIMigration exist ", func() {
 					vmi := api.NewMinimalVMI("testvmi")
@@ -1946,7 +1967,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					response := vmsAdmitter.Admit(ar)
 					Expect(response.Allowed).To(BeFalse())
 					Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
-					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update CPU sockets while VMI migration is in progress: in-flight migration detected"))
+					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("cannot update while VMI migration is in progress: in-flight migration detected"))
 				})
 			})
 			When("VM is running", func() {
@@ -2043,6 +2064,189 @@ var _ = Describe("Validating VM Admitter", func() {
 					Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Cannot update CPU threads while live update features configured"))
 				})
 			})
+		})
+
+		Context("Memory", func() {
+			var maxGuest resource.Quantity
+
+			BeforeEach(func() {
+				guest := resource.MustParse("64Mi")
+				maxGuest = resource.MustParse("128Mi")
+
+				vm.Spec.LiveUpdateFeatures.Memory = &v1.LiveUpdateMemory{
+					MaxGuest: &maxGuest,
+				}
+				vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guest,
+				}
+				vm.Spec.Template.Spec.Architecture = rt.GOARCH
+				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
+				vm.Spec.Template.Spec.Domain.Resources.Requests = nil
+				vm.Status.Ready = true
+			})
+
+			DescribeTable("should reject VM creation if", func(vmSetup func(*v1.VirtualMachine), cause metav1.StatusCause) {
+				vmSetup(vm)
+
+				response := admitVm(vmsAdmitter, vm)
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes).To(ContainElement(cause))
+			},
+				Entry("maxGuest is set in VM template", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Memory.MaxGuest = &maxGuest
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Field:   "spec.template.spec.domain.memory.maxGuest",
+					Message: "Memory maxGuest cannot be set directy in VM template",
+				}),
+				Entry("resource limits are configured", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+					vm.Spec.Template.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.liveUpdateFeatures",
+					Message: "Configuration of Memory limits is not allowed when Memory live update is enabled",
+				}),
+				Entry("hugepages is configured", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
+						PageSize: "2Mi",
+					}
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.memory.hugepages",
+					Message: "Memory hotplug is not compatible with hugepages",
+				}),
+				Entry("realtime is configured", func(vm *v1.VirtualMachine) {
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						DedicatedCPUPlacement: true,
+						Realtime:              &v1.Realtime{},
+						NUMA: &v1.NUMA{
+							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+						},
+					}
+					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
+						PageSize: "2Mi",
+					}
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.cpu.realtime",
+					Message: "Memory hotplug is not compatible with realtime VMs",
+				}),
+				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.WorkloadEncryptionSEV)
+					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.launchSecurity",
+					Message: "Memory hotplug is not compatible with encrypted VMs",
+				}),
+				Entry("dedicated CPUs is configured", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.cpu.dedicatedCpuPlacement",
+					Message: "Memory hotplug is not compatible with dedicated CPUs",
+				}),
+				Entry("guest mapping passthrough is configured", func(vm *v1.VirtualMachine) {
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.NUMAFeatureGate)
+					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						DedicatedCPUPlacement: true,
+						NUMA: &v1.NUMA{
+							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+						},
+					}
+					vm.Spec.Template.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
+						PageSize: "2Mi",
+					}
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.cpu.numa.guestMappingPassthrough",
+					Message: "Memory hotplug is not compatible with guest mapping passthrough",
+				}),
+				Entry("guest memory is not set", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Memory.Guest = nil
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: "Guest memory must be configured when memory hotplug is enabled",
+				}),
+				Entry("guest memory is greater than maxGuest", func(vm *v1.VirtualMachine) {
+					moreThanMax := maxGuest.DeepCopy()
+					moreThanMax.Add(resource.MustParse("16Mi"))
+
+					vm.Spec.Template.Spec.Domain.Memory.Guest = &moreThanMax
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: "Guest memory is greater than the configured maxGuest memory",
+				}),
+				Entry("maxGuest is not properly aligned", func(vm *v1.VirtualMachine) {
+					unAlignedMemory := resource.MustParse("333Mi")
+					vm.Spec.LiveUpdateFeatures.Memory.MaxGuest = &unAlignedMemory
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.liveUpdateFeatures.MaxGuest",
+					Message: fmt.Sprintf("MaxGuest must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
+				}),
+				Entry("guest memory is not properly aligned", func(vm *v1.VirtualMachine) {
+					unAlignedMemory := resource.MustParse("123")
+					vm.Spec.Template.Spec.Domain.Memory.Guest = &unAlignedMemory
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(converter.MemoryHotplugBlockAlignmentBytes, resource.BinarySI)),
+				}),
+				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
+					enableFeatureGate(virtconfig.VMLiveUpdateFeaturesGate, virtconfig.Multiarchitecture)
+					vm.Spec.Template.Spec.Architecture = "arm"
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "spec.template.spec.architecture",
+					Message: "Memory hotplug is only available for x86_64 VMs",
+				}),
+			)
+
+			DescribeTable("should reject VM update if", func(vmSetup func(*v1.VirtualMachine, *v1.VirtualMachineInstance), cause metav1.StatusCause) {
+				newVm := vm.DeepCopy()
+
+				guestAtBoot := vm.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy()
+				vmi := api.NewMinimalVMI(vm.Name)
+				vmi.Status.Memory = &v1.MemoryStatus{
+					GuestAtBoot: &guestAtBoot,
+				}
+
+				vmSetup(newVm, vmi)
+
+				virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(mockVMIClient)
+				mockVMIClient.EXPECT().Get(context.Background(), gomock.Any(), gomock.Any()).Return(vmi, nil)
+
+				response := vmsAdmitter.validateVMUpdate(vm, newVm)
+				Expect(response).ToNot(BeNil())
+				Expect(response).To(ContainElement(cause))
+			},
+				Entry("another memory change is in progress", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+					newGuest := resource.MustParse("128Mi")
+					vm.Spec.Template.Spec.Domain.Memory.Guest = &newGuest
+
+					vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceMemoryChange,
+						Status: k8sv1.ConditionTrue,
+					})
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: "cannot update memory while another memory change is in progress",
+				}),
+				Entry("trying to set less memory than what the guest booted with", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+					newGuest := resource.MustParse("32Mi")
+					vm.Spec.Template.Spec.Domain.Memory.Guest = &newGuest
+				}, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Field:   "spec.template.spec.domain.memory.guest",
+					Message: "cannot set less memory than what the guest booted with",
+				}),
+			)
 		})
 	})
 })
