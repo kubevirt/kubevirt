@@ -49,7 +49,7 @@ func applyDynamicIfaceRequestOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachine
 	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
 	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		_, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
-		shouldBeHotPlug := !existsInVMISpec && vmIface.State != v1.InterfaceStateAbsent && vmIface.InterfaceBindingMethod.Bridge != nil
+		shouldBeHotPlug := !existsInVMISpec && vmIface.State != v1.InterfaceStateAbsent && (vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
 		shouldBeHotUnplug := !hasOrdinalIfaces && existsInVMISpec && vmIface.State == v1.InterfaceStateAbsent
 		if shouldBeHotPlug {
 			vmiSpecCopy.Networks = append(vmiSpecCopy.Networks, vmIndexedNetworks[vmIface.Name])
