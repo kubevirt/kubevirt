@@ -85,6 +85,13 @@ const (
 	vhostNetPath = "/dev/vhost-net"
 )
 
+const (
+	// must be a power of 2 and at least equal
+	// to the size of a transparent hugepage (2MiB on x84_64).
+	// Recommended value by QEMU is 2MiB
+	MemoryHotplugBlockAlignmentBytes = 2097152
+)
+
 var (
 	BootMenuTimeoutMS = uint(10000)
 )
@@ -1221,6 +1228,69 @@ func isUSBNeeded(c *ConverterContext, vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if vmi.Spec.Domain.Memory == nil ||
+		vmi.Spec.Domain.Memory.MaxGuest == nil ||
+		vmi.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.MaxGuest) {
+		var err error
+
+		domain.Spec.Memory, err = vcpu.QuantityToByte(*vcpu.GetVirtualMemory(vmi))
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	maxMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.MaxGuest)
+	if err != nil {
+		return err
+	}
+
+	domain.Spec.MaxMemory = &api.MaxMemory{
+		Unit:  maxMemory.Unit,
+		Value: maxMemory.Value,
+		Slots: 1,
+	}
+
+	domain.Spec.Memory = maxMemory
+
+	initialMemoryApi, err := vcpu.QuantityToByte(*vmi.Status.Memory.GuestAtBoot)
+	if err != nil {
+		return err
+	}
+
+	// The usage of memory devices requires a NUMA configuration for
+	// the domain, even if it's just a single NUMA node
+	domain.Spec.CPU.NUMA = &api.NUMA{
+		Cells: []api.NUMACell{
+			{
+				ID:     "0",
+				CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+				Memory: initialMemoryApi.Value,
+				Unit:   initialMemoryApi.Unit,
+			},
+		},
+	}
+
+	pluggableMemory := vmi.Spec.Domain.Memory.MaxGuest.DeepCopy()
+	pluggableMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
+	pluggableMemorySize, err := vcpu.QuantityToByte(pluggableMemory)
+	if err != nil {
+		return err
+	}
+
+	domain.Spec.Devices.Memory = &api.MemoryDevice{
+		Model: "virtio-mem",
+		Target: &api.MemoryTarget{
+			Size:  pluggableMemorySize,
+			Node:  "0",
+			Block: api.Memory{Unit: "b", Value: MemoryHotplugBlockAlignmentBytes},
+		},
+	}
+
+	return nil
+}
+
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
 
@@ -1424,7 +1494,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if domain.Spec.Memory, err = vcpu.QuantityToByte(*vcpu.GetVirtualMemory(vmi)); err != nil {
+	if err = setupDomainMemory(vmi, domain); err != nil {
 		return err
 	}
 
@@ -1452,16 +1522,19 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		// Set memfd as memory backend to solve SELinux restrictions
 		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
 		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
+
 		// NUMA is required in order to use memfd
-		domain.Spec.CPU.NUMA = &api.NUMA{
-			Cells: []api.NUMACell{
-				{
-					ID:     "0",
-					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-					Memory: uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024)),
-					Unit:   "KiB",
+		if domain.Spec.CPU.NUMA == nil {
+			domain.Spec.CPU.NUMA = &api.NUMA{
+				Cells: []api.NUMACell{
+					{
+						ID:     "0",
+						CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+						Memory: uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024)),
+						Unit:   "KiB",
+					},
 				},
-			},
+			}
 		}
 	}
 
