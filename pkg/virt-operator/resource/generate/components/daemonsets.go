@@ -13,6 +13,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -41,6 +42,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(util.NonRootUID),
 			Privileged: pointer.Bool(true),
 		},
 	}
