@@ -24,10 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,21 +47,9 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
-const (
-	linuxBridgeName = "supadupabr"
-	ifaceName       = "iface1"
-	nadName         = "skynet"
-	vmIfaceName     = "eth1"
-)
+const linuxBridgeName = "supadupabr"
 
-type hotplugMethod string
-
-const (
-	migrationBased hotplugMethod = "migrationBased"
-	inPlace        hotplugMethod = "inPlace"
-)
-
-var _ = SIGDescribe("nic-hotplug", func() {
+var _ = SIGDescribe("bridge nic-hotplug", func() {
 
 	BeforeEach(func() {
 		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
@@ -92,12 +76,12 @@ var _ = SIGDescribe("nic-hotplug", func() {
 			Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), nadName, linuxBridgeName)).To(Succeed())
 
 			By("Hotplugging an interface to the VM")
-			Expect(addInterface(hotPluggedVM, ifaceName, nadName)).To(Succeed())
+			Expect(addBridgeInterface(hotPluggedVM, ifaceName, nadName)).To(Succeed())
 		})
 
 		DescribeTable("can be hotplugged a network interface", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
 
 			updatedVM, err := kubevirt.Client().VirtualMachine(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.Name, &metav1.GetOptions{})
@@ -124,7 +108,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("hotplugged interfaces are available after the VM is restarted", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("restarting the VM")
 			Expect(kubevirt.Client().VirtualMachine(hotPluggedVM.GetNamespace()).Restart(
 				context.Background(),
@@ -156,7 +140,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("can migrate a VMI with hotplugged interfaces", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			migrate(hotPluggedVMI)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, vmIfaceName)).To(Succeed())
@@ -167,7 +151,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("has connectivity over the secondary network", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 
 			const subnetMask = "/24"
 			const ip1 = "10.1.1.1"
@@ -211,13 +195,13 @@ var _ = SIGDescribe("nic-hotplug", func() {
 
 		DescribeTable("is able to hotplug multiple network interfaces", func(plugMethod hotplugMethod) {
 			waitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI)
-			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			By("hotplugging the second interface")
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.GetName(), &metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			const secondHotpluggedIfaceName = "iface2"
-			Expect(addInterface(hotPluggedVM, secondHotpluggedIfaceName, nadName)).To(Succeed())
+			Expect(addBridgeInterface(hotPluggedVM, secondHotpluggedIfaceName, nadName)).To(Succeed())
 
 			By("wait for the second network to appear in the VMI spec")
 			EventuallyWithOffset(1, func() []v1.Network {
@@ -241,7 +225,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 						}},
 					},
 				))
-			hotPluggedVMI = verifyDynamicInterfaceChange(hotPluggedVMI, plugMethod)
+			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)
 			Expect(libnet.InterfaceExists(hotPluggedVMI, "eth2")).To(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
@@ -250,7 +234,7 @@ var _ = SIGDescribe("nic-hotplug", func() {
 	})
 })
 
-var _ = SIGDescribe("nic-hotunplug", func() {
+var _ = SIGDescribe("bridge nic-hotunplug", func() {
 	const (
 		linuxBridgeNetworkName1 = "red"
 		linuxBridgeNetworkName2 = "blue"
@@ -304,7 +288,7 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 			}, 30*time.Second).Should(BeTrue())
 
 			By("verify unplugged interface is not reported in the VMI status")
-			vmi = verifyDynamicInterfaceChange(vmi, plugMethod)
+			vmi = verifyBridgeDynamicInterfaceChange(vmi, plugMethod)
 
 			By("verify unplugged iface cleared from VM & VMI spec")
 			Eventually(func(g Gomega) {
@@ -338,7 +322,7 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 			}, 90*time.Second, 1*time.Second).Should(Succeed())
 			libwait.WaitUntilVMIReady(newVMI, console.LoginToAlpine)
 
-			_ = verifyDynamicInterfaceChange(newVMI, plugMethod)
+			_ = verifyBridgeDynamicInterfaceChange(newVMI, plugMethod)
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -384,58 +368,6 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 	})
 })
 
-func verifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
-	if plugMethod == migrationBased {
-		migrate(vmi)
-	}
-
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-
-	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State != v1.InterfaceStateAbsent
-	})
-	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	var secondaryNetworksNames []string
-	for _, net := range vmispec.FilterMultusNonDefaultNetworks(nonAbsentNets) {
-		secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
-	}
-	ExpectWithOffset(1, secondaryNetworksNames).NotTo(BeEmpty())
-	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
-		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
-	}, 30*time.Second).Should(
-		ConsistOf(interfaceStatusFromInterfaceNames(secondaryNetworksNames...)))
-
-	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-	ExpectWithOffset(1, err).NotTo(HaveOccurred())
-	return vmi
-}
-
-func waitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-	EventuallyWithOffset(1, func() []v1.Network {
-		var err error
-		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), &metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		return vmi.Spec.Networks
-	}, 30*time.Second).Should(
-		ConsistOf(
-			*v1.DefaultPodNetwork(),
-			v1.Network{
-				Name: ifaceName,
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
-					NetworkName: nadName,
-				}},
-			},
-		))
-	return vmi
-}
-
-func vmiCurrentInterfaces(vmiNamespace, vmiName string) []v1.VirtualMachineInstanceNetworkInterface {
-	vmi, err := kubevirt.Client().VirtualMachineInstance(vmiNamespace).Get(context.Background(), vmiName, &metav1.GetOptions{})
-	ExpectWithOffset(2, err).NotTo(HaveOccurred())
-	return secondaryInterfaces(vmi)
-}
-
 func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string) error {
 	return createNetworkAttachmentDefinition(
 		kubevirt.Client(),
@@ -445,99 +377,7 @@ func createBridgeNetworkAttachmentDefinition(namespace, networkName string, brid
 	)
 }
 
-func secondaryInterfaces(vmi *v1.VirtualMachineInstance) []v1.VirtualMachineInstanceNetworkInterface {
-	indexedSecondaryNetworks := indexVMsSecondaryNetworks(vmi)
-
-	var nonDefaultInterfaces []v1.VirtualMachineInstanceNetworkInterface
-	for _, iface := range vmi.Status.Interfaces {
-		if _, isNonDefaultPodNetwork := indexedSecondaryNetworks[iface.Name]; isNonDefaultPodNetwork {
-			nonDefaultInterfaces = append(nonDefaultInterfaces, iface)
-		}
-	}
-	return nonDefaultInterfaces
-}
-
-func indexVMsSecondaryNetworks(vmi *v1.VirtualMachineInstance) map[string]v1.Network {
-	indexedSecondaryNetworks := map[string]v1.Network{}
-	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil && !network.Multus.Default {
-			indexedSecondaryNetworks[network.Name] = network
-		}
-	}
-	return indexedSecondaryNetworks
-}
-
-func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
-	for i := range status {
-		status[i].MAC = ""
-	}
-	return status
-}
-
-func interfaceStatusFromInterfaceNames(ifaceNames ...string) []v1.VirtualMachineInstanceNetworkInterface {
-	const initialIfacesInVMI = 1
-	var ifaceStatus []v1.VirtualMachineInstanceNetworkInterface
-	for i, ifaceName := range ifaceNames {
-		ifaceStatus = append(ifaceStatus, v1.VirtualMachineInstanceNetworkInterface{
-			Name:          ifaceName,
-			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
-			InfoSource: vmispec.NewInfoSource(
-				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
-			QueueCount: 1,
-		})
-	}
-	return ifaceStatus
-}
-
-func newVMWithOneInterface() *v1.VirtualMachine {
-	vm := tests.NewRandomVirtualMachine(libvmi.NewAlpineWithTestTooling(), true)
-	vm.Spec.Template.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	return vm
-}
-
-func migrate(vmi *v1.VirtualMachineInstance) {
-	By("migrating the VMI")
-	migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-	migrationUID := tests.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
-	tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
-}
-
-func addInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
-	newNetwork, newIface := newNetworkInterface(name, netAttachDefName)
-
-	patchData, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchTestOp,
-			Path:  "/spec/template/spec/networks",
-			Value: vm.Spec.Template.Spec.Networks,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec/template/spec/networks",
-			Value: append(vm.Spec.Template.Spec.Networks, newNetwork),
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchTestOp,
-			Path:  "/spec/template/spec/domain/devices/interfaces",
-			Value: vm.Spec.Template.Spec.Domain.Devices.Interfaces,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec/template/spec/domain/devices/interfaces",
-			Value: append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, newIface),
-		},
-	)
-
-	if err != nil {
-		return err
-	}
-
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
-	return err
-}
-
-func newNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
+func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
 	network := v1.Network{
 		Name: name,
 		NetworkSource: v1.NetworkSource{
@@ -553,14 +393,12 @@ func newNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interfac
 	return network, iface
 }
 
-func removeInterface(vm *v1.VirtualMachine, name string) error {
-	specCopy := vm.Spec.Template.Spec.DeepCopy()
-	ifaceToRemove := vmispec.LookupInterfaceByName(specCopy.Domain.Devices.Interfaces, name)
-	ifaceToRemove.State = v1.InterfaceStateAbsent
-	patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/devices/interfaces", vm.Spec.Template.Spec.Domain.Devices.Interfaces, specCopy.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
-	}
-	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &metav1.PatchOptions{})
-	return err
+func addBridgeInterface(vm *v1.VirtualMachine, name, netAttachDefName string) error {
+	newNetwork, newIface := newBridgeNetworkInterface(name, netAttachDefName)
+	return patchVMWithNewInterface(vm, newNetwork, newIface)
+}
+
+func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMethod hotplugMethod) *v1.VirtualMachineInstance {
+	const queueCount = 1
+	return verifyDynamicInterfaceChange(vmi, plugMethod, queueCount)
 }

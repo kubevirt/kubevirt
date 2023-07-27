@@ -7,6 +7,8 @@ go_library(
         "expose.go",
         "framework.go",
         "hotplug.go",
+        "hotplug_bridge.go",
+        "hotplug_sriov.go",
         "kubectl.go",
         "mac.go",
         "macvtap.go",
