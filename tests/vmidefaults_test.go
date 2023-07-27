@@ -128,10 +128,6 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			kvConfiguration = kv.Spec.Configuration
 		})
 
-		AfterEach(func() {
-			tests.UpdateKubeVirtConfigValueAndWait(kvConfiguration)
-		})
-
 		It("[test_id:4556]Should be present in domain", func() {
 			By("Creating a virtual machine")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
@@ -156,7 +152,11 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 					Slot:     "0x00",
 					Function: "0x0",
 				},
-				FreePageReporting: "on",
+			}
+			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
+				expected.FreePageReporting = "off"
+			} else {
+				expected.FreePageReporting = "on"
 			}
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be default memballoon device")
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
@@ -167,6 +167,11 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period
 			tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
+			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
+				expected.FreePageReporting = "off"
+			} else {
+				expected.FreePageReporting = "on"
+			}
 
 			By("Creating a virtual machine")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
@@ -194,7 +199,6 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 					Slot:     "0x00",
 					Function: "0x0",
 				},
-				FreePageReporting: "on",
 			}),
 			Entry("[test_id:4558]with period 0", uint32(0), api.MemBalloon{
 				Model: "virtio-non-transitional",
@@ -205,7 +209,6 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 					Slot:     "0x00",
 					Function: "0x0",
 				},
-				FreePageReporting: "on",
 			}),
 		)
 

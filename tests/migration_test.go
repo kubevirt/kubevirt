@@ -3254,7 +3254,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 		})
 
-		Context("with freePageReporting", func() {
+		Context("[Serial] with freePageReporting", Serial, func() {
+
+			BeforeEach(func() {
+				kv := util.GetCurrentKv(virtClient)
+				kvConfigurationCopy := kv.Spec.Configuration.DeepCopy()
+				kvConfigurationCopy.VirtualMachineOptions = nil
+				tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
+			})
+
 			It("should be able to migrate", func() {
 				vmi := libvmi.NewAlpineWithTestTooling(
 					libvmi.WithMasqueradeNetworking()...,
