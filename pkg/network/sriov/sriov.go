@@ -68,7 +68,7 @@ func mapNetworkNameToPCIAddress(networks []v1.Network, interfaces []v1.Interface
 		multusInterfaceName := networkNameScheme[sriovIface.Name]
 		networkStatusEntry, exist := multusInterfaceNameToNetworkStatusMap[multusInterfaceName]
 		if !exist {
-			return nil, fmt.Errorf("failed to find network-status entry with interface %q", multusInterfaceName)
+			continue // The interface is not plugged yet
 		}
 		if networkStatusEntry.DeviceInfo == nil || networkStatusEntry.DeviceInfo.Pci == nil {
 			return nil, fmt.Errorf("failed to find device-info/pci-address in network-status annotation for SR-IOV interface %q", sriovIface.Name)

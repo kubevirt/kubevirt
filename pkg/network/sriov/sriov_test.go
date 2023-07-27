@@ -200,22 +200,6 @@ var _ = Describe("SRIOV", func() {
 			networkPCIAnnotationValue := sriov.CreateNetworkPCIAnnotationValue(networkList, interfaceList, networkStatusAnnotationValue)
 			Expect(networkPCIAnnotationValue).To(Equal("{}"))
 		},
-		Entry("when pod's networkStatus Annotation does not exist",
-			[]virtv1.Network{newMultusNetwork("foo", "default/nad1")},
-			[]virtv1.Interface{newSRIOVInterface("foo")},
-			"",
-		),
-		Entry("when networkStatusAnnotation is valid but one SR-IOV entry is missing",
-			[]virtv1.Network{
-				newMultusNetwork("foo", "default/nad1"),
-				newMultusNetwork("boo", "default/nad2"),
-			},
-			[]virtv1.Interface{
-				newSRIOVInterface("foo"),
-				newSRIOVInterface("boo"),
-			},
-			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooHashedIfaceName),
-		),
 		Entry("when networkStatusAnnotation is valid but with no pci data on one of the SRIOV interfaces",
 			[]virtv1.Network{
 				newMultusNetwork("foo", "default/nad1"),
@@ -307,6 +291,24 @@ var _ = Describe("SRIOV", func() {
 			},
 			fmt.Sprintf(networkStatusWithOneBridgeOneSRIOVNetworksFmt, fooOrdinalIfaceName, booOrdinalIfaceName),
 			`{"foo":"0000:65:00.2"}`,
+		),
+		Entry("when pod's networkStatus Annotation does not exist",
+			[]virtv1.Network{newMultusNetwork("foo", "default/nad1")},
+			[]virtv1.Interface{newSRIOVInterface("foo")},
+			"",
+			`{}`,
+		),
+		Entry("when networkStatusAnnotation is valid but one SR-IOV entry is missing",
+			[]virtv1.Network{
+				newMultusNetwork("foo", "default/nad1"),
+				newMultusNetwork("boo", "default/nad2"),
+			},
+			[]virtv1.Interface{
+				newSRIOVInterface("foo"),
+				newSRIOVInterface("boo"),
+			},
+			fmt.Sprintf(networkStatusWithOneSRIOVNetworkFmt, fooHashedIfaceName),
+			`{"foo":"0000:04:02.5"}`,
 		),
 	)
 })
