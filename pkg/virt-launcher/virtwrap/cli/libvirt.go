@@ -52,6 +52,7 @@ type Connection interface {
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
+	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
 	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
@@ -86,11 +87,12 @@ type LibvirtConnection struct {
 	reconnect     chan bool
 	reconnectLock *sync.Mutex
 
-	domainEventCallbacks                   []libvirt.DomainEventLifecycleCallback
-	domainDeviceAddedEventCallbacks        []libvirt.DomainEventDeviceAddedCallback
-	domainDeviceRemovedEventCallbacks      []libvirt.DomainEventDeviceRemovedCallback
-	domainEventMigrationIterationCallbacks []libvirt.DomainEventMigrationIterationCallback
-	agentEventCallbacks                    []libvirt.DomainEventAgentLifecycleCallback
+	domainEventCallbacks                        []libvirt.DomainEventLifecycleCallback
+	domainDeviceAddedEventCallbacks             []libvirt.DomainEventDeviceAddedCallback
+	domainDeviceRemovedEventCallbacks           []libvirt.DomainEventDeviceRemovedCallback
+	domainEventMigrationIterationCallbacks      []libvirt.DomainEventMigrationIterationCallback
+	agentEventCallbacks                         []libvirt.DomainEventAgentLifecycleCallback
+	domainDeviceMemoryDeviceSizeChangeCallbacks []libvirt.DomainEventMemoryDeviceSizeChangeCallback
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -194,6 +196,17 @@ func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirD
 		dom = domain.(*libvirt.Domain)
 	}
 	return l.Connect.DomainEventDeviceRemovedRegister(dom, callback)
+}
+
+func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	l.domainDeviceMemoryDeviceSizeChangeCallbacks = append(l.domainDeviceMemoryDeviceSizeChangeCallbacks, callback)
+	_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
 }
 
 func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
@@ -455,6 +468,10 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 		for _, callback := range l.domainDeviceRemovedEventCallbacks {
 			log.Log.Info("Re-registered domain device removed callback")
 			_, err = l.Connect.DomainEventDeviceRemovedRegister(nil, callback)
+		}
+		for _, callback := range l.domainDeviceMemoryDeviceSizeChangeCallbacks {
+			log.Log.Info("Re-registered domain memory device size change callback")
+			_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
 		}
 
 		log.Log.Error("Re-registered domain and agent callbacks for new connection")

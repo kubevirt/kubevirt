@@ -116,6 +116,16 @@ func (_mr *_MockConnectionRecorder) VolatileDomainEventDeviceRemovedRegister(arg
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VolatileDomainEventDeviceRemovedRegister", arg0, arg1)
 }
 
+func (_m *MockConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
+	ret := _m.ctrl.Call(_m, "DomainEventMemoryDeviceSizeChangeRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DomainEventMemoryDeviceSizeChangeRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventMemoryDeviceSizeChangeRegister", arg0)
+}
+
 func (_m *MockConnection) DomainEventDeregister(registrationID int) error {
 	ret := _m.ctrl.Call(_m, "DomainEventDeregister", registrationID)
 	ret0, _ := ret[0].(error)
