@@ -66,12 +66,12 @@ func getAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	return result.Alerts.Alerts, nil
 }
 
-func waitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue int64) {
+func waitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue float64) {
 	waitForMetricValueWithLabels(client, metric, expectedValue, nil)
 }
 
-func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue int64, labels map[string]string) {
-	EventuallyWithOffset(1, func() int {
+func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue float64, labels map[string]string) {
+	EventuallyWithOffset(1, func() float64 {
 		i, err := getMetricValueWithLabels(client, metric, labels)
 		if err != nil {
 			return -1
@@ -80,7 +80,7 @@ func waitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
 }
 
-func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (int, error) {
+func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
 		return -1, err
@@ -99,7 +99,7 @@ func getMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels m
 		return -1, fmt.Errorf("metric value is not string")
 	}
 
-	returnVal, err := strconv.Atoi(output)
+	returnVal, err := strconv.ParseFloat(output, 64)
 	if err != nil {
 		return -1, err
 	}
