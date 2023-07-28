@@ -45,13 +45,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
-	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 var nodeLabellerLabels = []string{
-	util.DeprecatedLabelNamespace + util.DeprecatedcpuModelPrefix,
-	util.DeprecatedLabelNamespace + util.DeprecatedcpuFeaturePrefix,
-	util.DeprecatedLabelNamespace + util.DeprecatedHyperPrefix,
 	kubevirtv1.CPUFeatureLabel,
 	kubevirtv1.CPUModelLabel,
 	kubevirtv1.SupportedHostModelMigrationCPU,
@@ -188,11 +184,10 @@ func (n *NodeLabeller) loadAll() error {
 }
 
 type patches struct {
-	remove             []string
-	add                map[string]string
-	update             map[string]string
-	old                map[string]string
-	removedAnnotations []string
+	remove []string
+	add    map[string]string
+	update map[string]string
+	old    map[string]string
 }
 
 func (n *NodeLabeller) run() error {
@@ -218,8 +213,7 @@ func (n *NodeLabeller) run() error {
 		//prepare new labels
 		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
 		//remove old labeller labels
-		removedLabels, removedAnnotations := n.removeLabellerLabels(node)
-		p.removedAnnotations = removedAnnotations
+		removedLabels := n.removeLabellerLabels(node)
 		//add new labels
 		for key, value := range newLabels {
 			if oldValue, exist := removedLabels[key]; exist {
@@ -251,14 +245,6 @@ func replaceLabels(labels map[string]string) patch.PatchOperation {
 		Op:    "replace",
 		Path:  "/metadata/labels",
 		Value: labels,
-	}
-}
-
-func replaceAnnotations(annotations map[string]string) patch.PatchOperation {
-	return patch.PatchOperation{
-		Op:    "replace",
-		Path:  "/metadata/annotations",
-		Value: annotations,
 	}
 }
 
@@ -308,24 +294,6 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node, pat patches) error
 			)
 		}
 	}
-
-	if !equality.Semantic.DeepEqual(originalNode.Annotations, node.Annotations) {
-		// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
-		p = append(p, patch.PatchOperation{
-			Op:    "test",
-			Path:  "/metadata/annotations",
-			Value: originalNode.Annotations,
-		}, replaceAnnotations(node.Annotations))
-		for _, key := range pat.removedAnnotations {
-			shadownodeOperation = append(shadownodeOperation,
-				patch.PatchOperation{
-					Op:   "remove",
-					Path: fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)),
-				},
-			)
-		}
-	}
-
 	//patch node only if there is change in labels or annotations
 	if len(p) > 0 {
 		payloadBytes, err := json.Marshal(p)
@@ -433,7 +401,7 @@ func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
 }
 
 // removeLabellerLabels removes labels from node
-func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) (map[string]string, []string) {
+func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) map[string]string {
 	removedLabels := map[string]string{}
 	for label, valueOfLabel := range node.Labels {
 		if isNodeLabellerLabel(label) {
@@ -441,15 +409,7 @@ func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) (map[string]string, [
 			removedLabels[label] = valueOfLabel
 		}
 	}
-
-	removedAnnotations := []string{}
-	for annotation := range node.Annotations {
-		if strings.HasPrefix(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
-			delete(node.Annotations, annotation)
-			removedAnnotations = append(removedAnnotations, annotation)
-		}
-	}
-	return removedLabels, removedAnnotations
+	return removedLabels
 }
 
 const kernelSchedRealtimeRuntimeInMicrosecods = "kernel.sched_rt_runtime_us"

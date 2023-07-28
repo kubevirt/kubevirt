@@ -178,6 +178,7 @@ func (r *KubernetesReporter) dumpNamespaces(duration time.Duration, vmiNamespace
 	r.logNetworkAttachmentDefinitionInfo(virtCli)
 	r.logKubeVirtCR(virtCli)
 	r.logNodes(virtCli, nodes)
+	r.logShadowNodes(virtCli)
 	r.logPods(virtCli, pods)
 	r.logVMs(virtCli)
 	r.logVMSnapshot(virtCli)
@@ -700,6 +701,15 @@ func (r *KubernetesReporter) logNamespaces(virtCli kubecli.KubevirtClient) {
 	}
 
 	r.logObjects(virtCli, namespaces, "namespaces")
+}
+
+func (r *KubernetesReporter) logShadowNodes(virtCli kubecli.KubevirtClient) {
+	nodes, err := virtCli.ShadowNodeClient().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch nodes: %v\n", err)
+		return
+	}
+	r.logObjects(virtCli, nodes, "shadownodes")
 }
 
 func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient, nodes *v1.NodeList) {
