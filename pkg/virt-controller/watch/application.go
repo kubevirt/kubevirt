@@ -176,6 +176,7 @@ type VirtControllerApp struct {
 	controllerRevisionInformer cache.SharedIndexInformer
 
 	dataVolumeInformer cache.SharedIndexInformer
+	dataSourceInformer cache.SharedIndexInformer
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 
@@ -392,6 +393,7 @@ func Execute() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		app.cdiInformer = app.informerFactory.CDI()
 		app.cdiConfigInformer = app.informerFactory.CDIConfig()
+		app.dataSourceInformer = app.informerFactory.DataSource()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
 		// Add a dummy DataVolume informer in the event datavolume support
@@ -400,6 +402,7 @@ func Execute() {
 		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
 		app.cdiInformer = app.informerFactory.DummyCDI()
 		app.cdiConfigInformer = app.informerFactory.DummyCDIConfig()
+		app.dataSourceInformer = app.informerFactory.DummyDataSource()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
@@ -688,6 +691,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
+		vca.dataSourceInformer,
+		vca.namespaceStore,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
 		vca.kvPodInformer,
