@@ -24,9 +24,9 @@ import (
 
 const (
 	alertRuleGroup                = "kubevirt.hyperconverged.rules"
-	outOfBandUpdateAlert          = "KubevirtHyperconvergedClusterOperatorCRModification"
-	unsafeModificationAlert       = "KubevirtHyperconvergedClusterOperatorUSModification"
-	installationNotCompletedAlert = "KubevirtHyperconvergedClusterOperatorInstallationNotCompletedAlert"
+	outOfBandUpdateAlert          = "KubeVirtCRModified"
+	unsafeModificationAlert       = "UnsupportedHCOModification"
+	installationNotCompletedAlert = "HCOInstallationIncomplete"
 	severityAlertLabelKey         = "severity"
 	healthImpactAlertLabelKey     = "operator_health_impact"
 	partOfAlertLabelKey           = "kubernetes_operator_part_of"

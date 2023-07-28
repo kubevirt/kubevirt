@@ -9,10 +9,10 @@ The Hyperconverged Cluster Operator configures kubevirt and its supporting opera
 Users are expected to not modify the operands directly. The HyperConverged custom resource is the source of truth for the configuration.
 
 To make it more visible and clear for end users, the Hyperconverged Cluster Operator will count the number of these revert actions in a metric named kubevirt_hco_out_of_band_modifications_total.
-According to the value of that metric in the last 10 minutes, an alert named KubevirtHyperconvergedClusterOperatorCRModification will be eventually fired:
+According to the value of that metric in the last 10 minutes, an alert named KubeVirtCRModified will be eventually fired:
 ```
 Labels
-    alertname=KubevirtHyperconvergedClusterOperatorCRModification
+    alertname=KubeVirtCRModified
     component_name=kubevirt-kubevirt-hyperconverged
     severity=warning
 ```
@@ -1191,10 +1191,10 @@ The jsonpatch annotation feature is particularly dangerous when upgrading Kubevi
 As the usage of the jsonpatch annotation is not safe, the HyperConverged Cluster Operator will count the number of these
 modifications in a metric named kubevirt_hco_unsafe_modifications.
 if the counter is not zero, an alert named
-`KubevirtHyperconvergedClusterOperatorUSModification will` be eventually fired:
+`UnsupportedHCOModification will` be eventually fired:
 ```
 Labels
-    alertname=KubevirtHyperconvergedClusterOperatorUSModification
+    alertname=UnsupportedHCOModification
     annotation_name="kubevirt.kubevirt.io/jsonpatch"
     severity=info
 ```
