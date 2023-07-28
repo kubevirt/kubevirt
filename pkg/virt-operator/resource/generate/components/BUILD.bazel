@@ -7,6 +7,7 @@ go_library(
         "crds.go",
         "daemonsets.go",
         "deployments.go",
+        "instancetypes.go",
         "prometheus.go",
         "routes.go",
         "scc.go",
@@ -14,6 +15,10 @@ go_library(
         "serviceaccountnames.go",
         "validations_generated.go",
         "webhooks.go",
+    ],
+    embedsrcs = [
+        "data/common-clusterinstancetypes-bundle.yaml",
+        "data/common-clusterpreferences-bundle.yaml",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components",
     visibility = ["//visibility:public"],

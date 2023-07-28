@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -94,6 +95,8 @@ type Strategy struct {
 	prometheusRules                 []*promv1.PrometheusRule
 	configMaps                      []*corev1.ConfigMap
 	routes                          []*routev1.Route
+	instancetypes                   []*instancetypev1beta1.VirtualMachineClusterInstancetype
+	preferences                     []*instancetypev1beta1.VirtualMachineClusterPreference
 }
 
 func (ins *Strategy) ServiceAccounts() []*corev1.ServiceAccount {
@@ -207,6 +210,14 @@ func (ins *Strategy) CRDs() []*extv1.CustomResourceDefinition {
 
 func (ins *Strategy) Routes() []*routev1.Route {
 	return ins.routes
+}
+
+func (ins *Strategy) Instancetypes() []*instancetypev1beta1.VirtualMachineClusterInstancetype {
+	return ins.instancetypes
+}
+
+func (ins *Strategy) Preferences() []*instancetypev1beta1.VirtualMachineClusterPreference {
+	return ins.preferences
 }
 
 func encodeManifests(manifests []byte) (string, error) {
@@ -386,6 +397,12 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 	for _, entry := range strategy.routes {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.instancetypes {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.preferences {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
@@ -524,6 +541,18 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecrets(operatorNamespace)...)
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
+
+	instancetypes, err := components.NewClusterInstancetypes()
+	if err != nil {
+		return nil, fmt.Errorf("error generating instancetypes for environment %v", err)
+	}
+	strategy.instancetypes = instancetypes
+
+	preferences, err := components.NewClusterPreferences()
+	if err != nil {
+		return nil, fmt.Errorf("error generating preferences for environment %v", err)
+	}
+	strategy.preferences = preferences
 
 	return strategy, nil
 }
@@ -751,6 +780,18 @@ func loadInstallStrategyFromBytes(data string) (*Strategy, error) {
 				return nil, err
 			}
 			strategy.routes = append(strategy.routes, route)
+		case "VirtualMachineClusterInstancetype":
+			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{}
+			if err := yaml.Unmarshal([]byte(entry), &instancetype); err != nil {
+				return nil, err
+			}
+			strategy.instancetypes = append(strategy.instancetypes, instancetype)
+		case "VirtualMachineClusterPreference":
+			preference := &instancetypev1beta1.VirtualMachineClusterPreference{}
+			if err := yaml.Unmarshal([]byte(entry), &preference); err != nil {
+				return nil, err
+			}
+			strategy.preferences = append(strategy.preferences, preference)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

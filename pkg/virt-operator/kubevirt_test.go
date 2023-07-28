@@ -63,6 +63,9 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	apiinstancetype "kubevirt.io/api/instancetype"
+	"kubevirt.io/api/instancetype/v1beta1"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/version"
@@ -126,13 +129,14 @@ type KubeVirtTestData struct {
 
 	recorder *record.FakeRecorder
 
-	mockQueue   *testutils.MockWorkQueue
-	virtClient  *kubecli.MockKubevirtClient
-	kubeClient  *fake.Clientset
-	secClient   *secv1fake.FakeSecurityV1
-	extClient   *extclientfake.Clientset
-	promClient  *promclientfake.Clientset
-	routeClient *routev1fake.FakeRouteV1
+	mockQueue      *testutils.MockWorkQueue
+	virtClient     *kubecli.MockKubevirtClient
+	virtFakeClient *kubevirtfake.Clientset
+	kubeClient     *fake.Clientset
+	secClient      *secv1fake.FakeSecurityV1
+	extClient      *extclientfake.Clientset
+	promClient     *promclientfake.Clientset
+	routeClient    *routev1fake.FakeRouteV1
 
 	informers util.Informers
 	stores    util.Stores
@@ -279,6 +283,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 		Fake: &fake.NewSimpleClientset().Fake,
 	}
 
+	k.virtFakeClient = kubevirtfake.NewSimpleClientset()
+
 	k.virtClient.EXPECT().AdmissionregistrationV1().Return(k.kubeClient.AdmissionregistrationV1()).AnyTimes()
 	k.virtClient.EXPECT().CoreV1().Return(k.kubeClient.CoreV1()).AnyTimes()
 	k.virtClient.EXPECT().BatchV1().Return(k.kubeClient.BatchV1()).AnyTimes()
@@ -289,6 +295,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.virtClient.EXPECT().PolicyV1().Return(k.kubeClient.PolicyV1()).AnyTimes()
 	k.virtClient.EXPECT().PrometheusClient().Return(k.promClient).AnyTimes()
 	k.virtClient.EXPECT().RouteClient().Return(k.routeClient).AnyTimes()
+	k.virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+	k.virtClient.EXPECT().VirtualMachineClusterPreference().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 	// Make sure that all unexpected calls to kubeClient will fail
 	k.kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -331,6 +339,17 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 	k.routeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		Expect(action).To(BeNil())
+		return true, nil, nil
+	})
+	k.virtFakeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		if action.GetVerb() == "list" && action.GetResource().Resource == apiinstancetype.ClusterPluralResourceName {
+			return true, &v1beta1.VirtualMachineClusterInstancetypeList{}, nil
+		}
+		if action.GetVerb() == "list" && action.GetResource().Resource == apiinstancetype.ClusterPluralPreferenceResourceName {
+			return true, &v1beta1.VirtualMachineClusterPreferenceList{}, nil
+		}
+		// Make sure other unexpected calls fail
 		Expect(action).To(BeNil())
 		return true, nil, nil
 	})
