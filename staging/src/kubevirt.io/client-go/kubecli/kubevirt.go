@@ -94,6 +94,7 @@ type KubevirtClient interface {
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	DynamicClient() dynamic.Interface
 	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
+	ShadowNodeClient() ShadowNodeInterface
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -333,4 +334,11 @@ type ServerVersionInterface interface {
 
 type ExpandSpecInterface interface {
 	ForVirtualMachine(vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
+}
+
+type ShadowNodeInterface interface {
+	Create(ctx context.Context, shadowNode *v1.ShadowNode, opts metav1.CreateOptions) (*v1.ShadowNode, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ShadowNode, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*v1.ShadowNodeList, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ShadowNode, err error)
 }
