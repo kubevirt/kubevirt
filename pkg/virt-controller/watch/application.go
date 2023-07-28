@@ -137,6 +137,9 @@ type VirtControllerApp struct {
 	nodeInformer   cache.SharedIndexInformer
 	nodeController *NodeController
 
+	shadownodeInformer   cache.SharedIndexInformer
+	shadownodeController *ShadowNodeController
+
 	vmiCache      cache.Store
 	vmiController *VMIController
 	vmiInformer   cache.SharedIndexInformer
@@ -346,6 +349,7 @@ func Execute() {
 	app.vmiInformer = app.informerFactory.VMI()
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
+	app.shadownodeInformer = app.informerFactory.KubeVirtShadowNode()
 	app.namespaceStore = app.informerFactory.Namespace().GetStore()
 	app.namespaceInformer = app.informerFactory.Namespace()
 	app.vmiCache = app.vmiInformer.GetStore()
@@ -542,6 +546,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
+		go vca.shadownodeController.Run(vca.nodeControllerThreads, stop)
 		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
@@ -645,6 +650,12 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		panic(err)
 	}
+
+	vca.shadownodeController, err = NewShadowNodeController(vca.clientSet, vca.nodeInformer, vca.shadownodeInformer)
+	if err != nil {
+		panic(err)
+	}
+
 	vca.migrationController, err = NewMigrationController(
 		vca.templateService,
 		vca.vmiInformer,
