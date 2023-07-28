@@ -41,6 +41,7 @@ import (
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -182,9 +183,17 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 	return
 }
 
+// NODE labels
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
+
+	// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
 	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	if err != nil && !errors.IsForbidden(err) {
+		logger.Reason(err).Error("Unable to mark node as unschedulable")
+	}
+
+	_, err = app.virtCli.ShadowNodeClient().Patch(context.TODO(), app.HostOverride, types.MergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Unable to mark node as unschedulable")
 	}
@@ -228,6 +237,15 @@ func (app *virtHandlerApp) Run() {
 	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
+	}
+
+	_, err = app.virtCli.ShadowNodeClient().Create(context.TODO(), &v1.ShadowNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: app.HostOverride,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		panic(fmt.Sprintf("Failed to register node, %s", err))
 	}
 
 	app.markNodeAsUnschedulable(logger)

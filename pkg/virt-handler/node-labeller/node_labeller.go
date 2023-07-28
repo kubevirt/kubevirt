@@ -32,6 +32,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -186,6 +187,14 @@ func (n *NodeLabeller) loadAll() error {
 	return nil
 }
 
+type patches struct {
+	remove             []string
+	add                map[string]string
+	update             map[string]string
+	old                map[string]string
+	removedAnnotations []string
+}
+
 func (n *NodeLabeller) run() error {
 	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUModels()
 	cpuModels := n.getSupportedCpuModels(obsoleteCPUsx86)
@@ -199,16 +208,35 @@ func (n *NodeLabeller) run() error {
 
 	node := originalNode.DeepCopy()
 
+	p := patches{
+		add:    map[string]string{},
+		update: map[string]string{},
+		old:    map[string]string{},
+	}
+
 	if !skipNodeLabelling(node) {
 		//prepare new labels
 		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
 		//remove old labeller labels
-		n.removeLabellerLabels(node)
+		removedLabels, removedAnnotations := n.removeLabellerLabels(node)
+		p.removedAnnotations = removedAnnotations
 		//add new labels
-		n.addLabellerLabels(node, newLabels)
+		for key, value := range newLabels {
+			if oldValue, exist := removedLabels[key]; exist {
+				p.update[key] = value
+				p.old[key] = oldValue
+				delete(removedLabels, key)
+				continue
+			}
+			p.add[key] = value
+			node.Labels[key] = value
+		}
+		for label := range removedLabels {
+			p.remove = append(p.remove, label)
+		}
 	}
 
-	err = n.patchNode(originalNode, node)
+	err = n.patchNode(originalNode, node, p)
 
 	return err
 }
@@ -218,31 +246,84 @@ func skipNodeLabelling(node *v1.Node) bool {
 	return exists
 }
 
-func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
+func replaceLabels(labels map[string]string) patch.PatchOperation {
+	return patch.PatchOperation{
+		Op:    "replace",
+		Path:  "/metadata/labels",
+		Value: labels,
+	}
+}
+
+func replaceAnnotations(annotations map[string]string) patch.PatchOperation {
+	return patch.PatchOperation{
+		Op:    "replace",
+		Path:  "/metadata/annotations",
+		Value: annotations,
+	}
+}
+
+func (n *NodeLabeller) patchNode(originalNode, node *v1.Node, pat patches) error {
 	p := make([]patch.PatchOperation, 0)
+
+	shadownodeOperation := make([]patch.PatchOperation, 0)
 	if !equality.Semantic.DeepEqual(originalNode.Labels, node.Labels) {
+		// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
 		p = append(p, patch.PatchOperation{
 			Op:    "test",
 			Path:  "/metadata/labels",
 			Value: originalNode.Labels,
-		}, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata/labels",
-			Value: node.Labels,
-		})
+		}, replaceLabels(node.Labels))
+
+		for key, value := range pat.add {
+			shadownodeOperation = append(shadownodeOperation,
+				patch.PatchOperation{
+					Op:    "add",
+					Path:  fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+					Value: value,
+				},
+			)
+		}
+		for key, value := range pat.update {
+			oldValue := pat.old[key]
+			shadownodeOperation = append(shadownodeOperation,
+				patch.PatchOperation{
+					Op:    "test",
+					Path:  fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+					Value: oldValue,
+				},
+				patch.PatchOperation{
+					Op:    "replace",
+					Path:  fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+					Value: value,
+				},
+			)
+		}
+
+		for _, key := range pat.remove {
+			shadownodeOperation = append(shadownodeOperation,
+				patch.PatchOperation{
+					Op:   "remove",
+					Path: fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(key)),
+				},
+			)
+		}
 	}
 
 	if !equality.Semantic.DeepEqual(originalNode.Annotations, node.Annotations) {
+		// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
 		p = append(p, patch.PatchOperation{
 			Op:    "test",
 			Path:  "/metadata/annotations",
 			Value: originalNode.Annotations,
-		}, patch.PatchOperation{
-			Op:    "replace",
-			Path:  "/metadata/annotations",
-			Value: node.Annotations,
-		},
-		)
+		}, replaceAnnotations(node.Annotations))
+		for _, key := range pat.removedAnnotations {
+			shadownodeOperation = append(shadownodeOperation,
+				patch.PatchOperation{
+					Op:   "remove",
+					Path: fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)),
+				},
+			)
+		}
 	}
 
 	//patch node only if there is change in labels or annotations
@@ -252,6 +333,17 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 			return err
 		}
 		_, err = n.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+		if err != nil && !errors.IsForbidden(err) {
+			return err
+		}
+	}
+
+	if len(shadownodeOperation) > 0 {
+		payloadBytes, err := json.Marshal(shadownodeOperation)
+		if err != nil {
+			return err
+		}
+		_, err = n.clientset.ShadowNodeClient().Patch(context.TODO(), node.Name, types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -341,18 +433,23 @@ func (n *NodeLabeller) HostCapabilities() *api.Capabilities {
 }
 
 // removeLabellerLabels removes labels from node
-func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) {
-	for label := range node.Labels {
+func (n *NodeLabeller) removeLabellerLabels(node *v1.Node) (map[string]string, []string) {
+	removedLabels := map[string]string{}
+	for label, valueOfLabel := range node.Labels {
 		if isNodeLabellerLabel(label) {
 			delete(node.Labels, label)
+			removedLabels[label] = valueOfLabel
 		}
 	}
 
+	removedAnnotations := []string{}
 	for annotation := range node.Annotations {
 		if strings.HasPrefix(annotation, util.DeprecatedLabellerNamespaceAnnotation) {
 			delete(node.Annotations, annotation)
+			removedAnnotations = append(removedAnnotations, annotation)
 		}
 	}
+	return removedLabels, removedAnnotations
 }
 
 const kernelSchedRealtimeRuntimeInMicrosecods = "kernel.sched_rt_runtime_us"
