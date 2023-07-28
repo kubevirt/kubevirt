@@ -27,6 +27,8 @@ import (
 	clientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
 	fakeclonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1/fake"
+	kubevirtv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
+	fakekubevirtv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1/fake"
 	exportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1"
 	fakeexportv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1alpha1/fake"
 	instancetypev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1alpha1"
@@ -93,6 +95,11 @@ var _ clientset.Interface = &Clientset{}
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
 func (c *Clientset) CloneV1alpha1() clonev1alpha1.CloneV1alpha1Interface {
 	return &fakeclonev1alpha1.FakeCloneV1alpha1{Fake: &c.Fake}
+}
+
+// KubevirtV1 retrieves the KubevirtV1Client
+func (c *Clientset) KubevirtV1() kubevirtv1.KubevirtV1Interface {
+	return &fakekubevirtv1.FakeKubevirtV1{Fake: &c.Fake}
 }
 
 // ExportV1alpha1 retrieves the ExportV1alpha1Client

@@ -1029,3 +1029,23 @@ func (SEVSecretOptions) SwaggerDoc() map[string]string {
 		"secret": "Base64 encoded encrypted launch secret.",
 	}
 }
+
+func (ShadowNode) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient\n+genclient:nonNamespaced",
+	}
+}
+
+func (ShadowNodeSpec) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (ShadowNodeStatus) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (ShadowNodeList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
