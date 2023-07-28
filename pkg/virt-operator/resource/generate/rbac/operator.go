@@ -324,21 +324,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"patch",
 				},
 			},
-			// FIXME - Keep the flavor (now renamed instancetype) permissions around until v0.56 to allow the operator to update from v0.54.
-			{
-				APIGroups: []string{
-					"flavor.kubevirt.io",
-				},
-				Resources: []string{
-					"virtualmachineflavors",
-					"virtualmachineclusterflavors",
-					"virtualmachinepreferences",
-					"virtualmachineclusterpreferences",
-				},
-				Verbs: []string{
-					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
-				},
-			},
 		},
 	}
 
