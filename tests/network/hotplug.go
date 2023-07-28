@@ -294,14 +294,14 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 		DescribeTable("hot-unplug network interface succeed", func(plugMethod hotplugMethod) {
 			Expect(removeInterface(vm, linuxBridgeNetworkName2)).To(Succeed())
 
-			By("wait for requested interface VMI spec to have 'absent' state")
-			Eventually(func() v1.InterfaceState {
+			By("wait for requested interface VMI spec to have 'absent' state or to be removed")
+			Eventually(func() bool {
 				var err error
 				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
-				return iface.State
-			}, 30*time.Second).Should(Equal(v1.InterfaceStateAbsent))
+				return iface == nil || iface.State == v1.InterfaceStateAbsent
+			}, 30*time.Second).Should(BeTrue())
 
 			By("verify unplugged interface is not reported in the VMI status")
 			vmi = verifyDynamicInterfaceChange(vmi, plugMethod)
