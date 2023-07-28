@@ -362,7 +362,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 
 	for _, crd := range r.targetStrategy.CRDs() {
 		_, exists, _ := r.stores.CrdCache.Get(crd)
-		if exists {
+		if exists || strings.Contains(crd.Name, "shadownodes") {
 			// this CRD isn't new, it already exists in cache so we don't
 			// need a blocking admission webhook to wait until the new
 			// apiserver is active
