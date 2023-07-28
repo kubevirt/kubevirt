@@ -33,13 +33,12 @@ type MacvtapPodNetworkConfigurator struct {
 	vmi                 *v1.VirtualMachineInstance
 }
 
-func NewMacvtapPodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, bridgeIfaceName string, launcherPID int, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
+func NewMacvtapPodNetworkConfigurator(vmi *v1.VirtualMachineInstance, vmiSpecIface *v1.Interface, launcherPID int, handler netdriver.NetworkHandler) *MacvtapPodNetworkConfigurator {
 	return &MacvtapPodNetworkConfigurator{
-		vmi:                 vmi,
-		vmiSpecIface:        vmiSpecIface,
-		bridgeInterfaceName: bridgeIfaceName,
-		launcherPID:         launcherPID,
-		handler:             handler,
+		vmi:          vmi,
+		vmiSpecIface: vmiSpecIface,
+		launcherPID:  launcherPID,
+		handler:      handler,
 	}
 }
 
@@ -50,6 +49,7 @@ func (b *MacvtapPodNetworkConfigurator) DiscoverPodNetworkInterface(podIfaceName
 		return err
 	}
 	b.podNicLink = link
+	b.bridgeInterfaceName = virtnetlink.GenerateBridgeName(link.Attrs().Name)
 
 	addrList, err := b.handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {

@@ -86,7 +86,6 @@ func newPhase1PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, handle
 		podnic.infraConfigurator = infraconfigurators.NewMacvtapPodNetworkConfigurator(
 			podnic.vmi,
 			podnic.vmiSpecIface,
-			generateInPodBridgeInterfaceName(podnic.podInterfaceName),
 			*podnic.launcherPID,
 			podnic.handler)
 	}
