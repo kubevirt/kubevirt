@@ -2274,19 +2274,20 @@ type ReloadableComponentConfiguration struct {
 
 // KubeVirtConfiguration holds all kubevirt configurations
 type KubeVirtConfiguration struct {
-	CPUModel                  string                  `json:"cpuModel,omitempty"`
-	CPURequest                *resource.Quantity      `json:"cpuRequest,omitempty"`
-	DeveloperConfiguration    *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
-	EmulatedMachines          []string                `json:"emulatedMachines,omitempty"`
-	ImagePullPolicy           k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
-	MigrationConfiguration    *MigrationConfiguration `json:"migrations,omitempty"`
-	MachineType               string                  `json:"machineType,omitempty"`
-	NetworkConfiguration      *NetworkConfiguration   `json:"network,omitempty"`
-	OVMFPath                  string                  `json:"ovmfPath,omitempty"`
-	SELinuxLauncherType       string                  `json:"selinuxLauncherType,omitempty"`
-	DefaultRuntimeClass       string                  `json:"defaultRuntimeClass,omitempty"`
-	SMBIOSConfig              *SMBiosConfiguration    `json:"smbios,omitempty"`
-	ArchitectureConfiguration *ArchConfiguration      `json:"architectureConfiguration,omitempty"`
+	CPUModel               string                  `json:"cpuModel,omitempty"`
+	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
+	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
+	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
+	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
+	// Deprecated. Use architectureConfiguration instead.
+	MachineType               string                `json:"machineType,omitempty"`
+	NetworkConfiguration      *NetworkConfiguration `json:"network,omitempty"`
+	OVMFPath                  string                `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType       string                `json:"selinuxLauncherType,omitempty"`
+	DefaultRuntimeClass       string                `json:"defaultRuntimeClass,omitempty"`
+	SMBIOSConfig              *SMBiosConfiguration  `json:"smbios,omitempty"`
+	ArchitectureConfiguration *ArchConfiguration    `json:"architectureConfiguration,omitempty"`
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
 	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
 	// field is set it overrides the cluster level one.
