@@ -4,6 +4,7 @@ package instancetype
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1221,13 +1222,26 @@ func applyDiskPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 	}
 }
 
+func isInterfaceBindingUnset(interfaceBindingMethod virtv1.InterfaceBindingMethod) bool {
+	return reflect.ValueOf(interfaceBindingMethod).IsZero()
+}
+
+func isInterfaceOnPodNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachineInstanceSpec) bool {
+	for _, network := range vmiSpec.Networks {
+		if network.Name == interfaceName {
+			return network.Pod != nil
+		}
+	}
+	return false
+}
+
 func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
 		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
 			vmiIface.Model = preferenceSpec.Devices.PreferredInterfaceModel
 		}
-		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && vmiIface.Masquerade == nil {
+		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && isInterfaceBindingUnset(vmiIface.InterfaceBindingMethod) && isInterfaceOnPodNetwork(vmiIface.Name, vmiSpec) {
 			vmiIface.Masquerade = preferenceSpec.Devices.PreferredInterfaceMasquerade.DeepCopy()
 		}
 	}
