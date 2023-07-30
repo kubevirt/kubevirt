@@ -350,14 +350,14 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 				&v1.RemoveInterfaceOptions{Name: linuxBridgeNetworkName2},
 			)).To(Succeed())
 
-			By("wait for requested interface VM spec have 'absent' state")
-			Eventually(func() v1.InterfaceState {
+			By("wait for requested interface VM spec have 'absent' state or to be removed")
+			Eventually(func() bool {
 				var err error
 				vm, err = kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				iface := vmispec.LookupInterfaceByName(vm.Spec.Template.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
-				return iface.State
-			}, 30*time.Second).Should(Equal(v1.InterfaceStateAbsent))
+				return iface == nil || iface.State == v1.InterfaceStateAbsent
+			}, 30*time.Second).Should(BeTrue())
 
 			By("wait for remove iface request remove from VM status")
 			Eventually(func() []v1.VirtualMachineInterfaceRequest {
