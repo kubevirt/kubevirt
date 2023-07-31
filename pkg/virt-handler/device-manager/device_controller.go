@@ -154,7 +154,7 @@ func NewDeviceController(
 		host:             host,
 		maxDevices:       maxDevices,
 		permissions:      permissions,
-		backoff:          []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		backoff:          defaultBackoffTime,
 		virtConfig:       clusterConfig,
 		mdevTypesManager: NewMDEVTypesManager(),
 		clientset:        clientset,
