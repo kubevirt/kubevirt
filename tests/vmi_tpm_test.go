@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, decorators.RequiresRWXFilesystemStorage, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
@@ -102,7 +102,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 	})
 })
 
-var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, func() {
+var _ = Describe("[sig-storage]vTPM", decorators.SigStorage, decorators.RequiresRWXFilesystemStorage, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
