@@ -21,6 +21,8 @@ package watch
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
@@ -91,19 +93,46 @@ func trimDoneInterfaceRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInst
 	vm.Status.InterfaceRequests = updateIfaceRequests
 }
 
-func handleDynamicInterfaceRequests(vm *v1.VirtualMachine) {
+func handleDynamicInterfaceRequests(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
 	if len(vm.Status.InterfaceRequests) == 0 {
-		return
+		return nil
 	}
 
-	vmTemplateCopy := vm.Spec.Template.Spec.DeepCopy()
+	// When a VMI is created, in some cases if the VM has no interfaces, the default interface is auto added to it.
+	// Since the auto added interface is defined only on the VMI spec, explicitly add it to the VM before hot-plugging another interface.
+	vmTemplateCopy, err := addDefaultInterfaceToVm(vm, vmi, clusterConfig)
+	if err != nil {
+		return err
+	}
+
 	for i := range vm.Status.InterfaceRequests {
-		vmTemplateCopy = controller.ApplyNetworkInterfaceRequestOnVMISpec(
+		vmTemplateCopy = controller.ApplyNetworkInterfaceRequestOnVMTemplateSpec(
 			vmTemplateCopy, &vm.Status.InterfaceRequests[i])
 	}
 	vm.Spec.Template.Spec = *vmTemplateCopy
 
-	return
+	return nil
+}
+
+func addDefaultInterfaceToVm(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) (*v1.VirtualMachineInstanceSpec, error) {
+	vmTemplateCopy := vm.Spec.Template.Spec.DeepCopy()
+	if vmi != nil && vmispec.LookupPodNetwork(vmi.Spec.Networks) != nil && len(vmTemplateCopy.Domain.Devices.Interfaces) == 0 {
+		if hasAddRequest(vm) {
+			if err := clusterConfig.SetVMISpecDefaultNetworkInterface(vmTemplateCopy); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return vmTemplateCopy, nil
+}
+
+func hasAddRequest(vm *v1.VirtualMachine) bool {
+	for _, req := range vm.Status.InterfaceRequests {
+		if req.AddInterfaceOptions != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func clearDetachedInterfaces(specIfaces []v1.Interface, specNets []v1.Network, statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface) ([]v1.Interface, []v1.Network) {

@@ -387,7 +387,7 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) 
 	return attachmentPods, nil
 }
 
-func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
+func ApplyNetworkInterfaceRequestOnVMTemplateSpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
 	switch {
 	case request.AddInterfaceOptions != nil:
 		vmiSpec = ApplyNetworkInterfaceAddRequest(vmiSpec, request.AddInterfaceOptions)

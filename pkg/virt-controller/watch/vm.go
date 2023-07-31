@@ -2629,7 +2629,10 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 			vmCopy.Spec.Template.Spec.Networks = networks
 
-			handleDynamicInterfaceRequests(vmCopy)
+			err := handleDynamicInterfaceRequests(vmCopy, vmi, c.clusterConfig)
+			if err != nil {
+				syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling interface hotplug requests: %v", err), HotPlugNetworkInterfaceErrorReason}
+			}
 		}
 
 		err = c.handleVolumeRequests(vmCopy, vmi)
