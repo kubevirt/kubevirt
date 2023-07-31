@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, decorators.RequiresRWXFilesystemStorage, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
