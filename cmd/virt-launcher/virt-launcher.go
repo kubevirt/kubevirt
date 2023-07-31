@@ -237,14 +237,18 @@ func detectDomainWithUUID(domainManager virtwrap.DomainManager) *api.Domain {
 
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
 
-	ticker := time.NewTicker(timeout).C
-	checkEarlyExit := time.NewTicker(time.Second * 2).C
-	domainCheckTicker := time.NewTicker(time.Second * 10).C
+	ticker := time.NewTicker(timeout)
+	defer ticker.Stop()
+	checkEarlyExit := time.NewTicker(time.Second * 2)
+	defer checkEarlyExit.Stop()
+	domainCheckTicker := time.NewTicker(time.Second * 10)
+	defer domainCheckTicker.Stop()
+
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			panic(fmt.Errorf("timed out waiting for domain to be defined"))
-		case <-domainCheckTicker:
+		case <-domainCheckTicker.C:
 			log.Log.V(3).Infof("Periodically checking for domain with UUID")
 			domain := detectDomainWithUUID(domainManager)
 			if domain != nil {
@@ -258,7 +262,7 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 			}
 		case <-stop:
 			return nil
-		case <-checkEarlyExit:
+		case <-checkEarlyExit.C:
 			if cmdserver.ReceivedEarlyExitSignal() {
 				panic(fmt.Errorf("received early exit signal"))
 			}
