@@ -156,6 +156,8 @@ type templateService struct {
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
+	productName                string
+	productComponent           string
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -527,7 +529,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
-			Labels:       podLabels(vmi, hostName),
+			Labels:       podLabels(vmi, hostName, t.productName, t.productComponent),
 			Annotations:  podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
@@ -1128,7 +1130,9 @@ func NewTemplateService(launcherImage string,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
-	exporterImage string) TemplateService {
+	exporterImage string,
+	productName string,
+	productComponent string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
@@ -1146,6 +1150,8 @@ func NewTemplateService(launcherImage string,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
 		exporterImage:              exporterImage,
+		productName:                productName,
+		productComponent:           productComponent,
 	}
 
 	return &svc
@@ -1378,7 +1384,7 @@ func (p VMIResourcePredicates) Apply() []ResourceRendererOption {
 	return options
 }
 
-func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]string {
+func podLabels(vmi *v1.VirtualMachineInstance, hostName, productName, productComponent string) map[string]string {
 	labels := map[string]string{}
 
 	for k, v := range vmi.Labels {
@@ -1387,6 +1393,14 @@ func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]strin
 	labels[v1.AppLabel] = "virt-launcher"
 	labels[v1.CreatedByLabel] = string(vmi.UID)
 	labels[v1.VirtualMachineNameLabel] = hostName
+
+	if productName != "" {
+		labels[v1.AppPartOfLabel] = productName
+	}
+	if productComponent != "" {
+		labels[v1.AppComponentLabel] = productComponent
+	}
+
 	return labels
 }
 

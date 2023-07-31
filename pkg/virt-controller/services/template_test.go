@@ -120,6 +120,8 @@ var _ = Describe("Template", func() {
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
+				"test-name",
+				"test-component",
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -403,6 +405,8 @@ var _ = Describe("Template", func() {
 					v1.AppLabel:                "virt-launcher",
 					v1.CreatedByLabel:          "1234",
 					v1.VirtualMachineNameLabel: "testvmi",
+					v1.AppPartOfLabel:          "test-name",
+					v1.AppComponentLabel:       "test-component",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					v1.DomainAnnotation:                       "testvmi",
@@ -1228,6 +1232,8 @@ var _ = Describe("Template", func() {
 					v1.AppLabel:                "virt-launcher",
 					v1.CreatedByLabel:          "1234",
 					v1.VirtualMachineNameLabel: "testvmi",
+					v1.AppPartOfLabel:          "test-name",
+					v1.AppComponentLabel:       "test-component",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
@@ -1895,6 +1901,8 @@ var _ = Describe("Template", func() {
 						v1.AppLabel:                "virt-launcher",
 						v1.CreatedByLabel:          "1234",
 						v1.VirtualMachineNameLabel: "testvmi",
+						v1.AppPartOfLabel:          "test-name",
+						v1.AppComponentLabel:       "test-component",
 					},
 				))
 			})
