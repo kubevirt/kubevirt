@@ -383,6 +383,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                   schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
 		"kubevirt.io/api/core/v1.Input":                                                              schema_kubevirtio_api_core_v1_Input(ref),
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
+		"kubevirt.io/api/core/v1.InstancetypeStatus":                                                 schema_kubevirtio_api_core_v1_InstancetypeStatus(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                             schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingPlugin":                                             schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref),
@@ -436,6 +437,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.PodNetwork":                                                         schema_kubevirtio_api_core_v1_PodNetwork(ref),
 		"kubevirt.io/api/core/v1.Port":                                                               schema_kubevirtio_api_core_v1_Port(ref),
 		"kubevirt.io/api/core/v1.PreferenceMatcher":                                                  schema_kubevirtio_api_core_v1_PreferenceMatcher(ref),
+		"kubevirt.io/api/core/v1.PreferenceStatus":                                                   schema_kubevirtio_api_core_v1_PreferenceStatus(ref),
 		"kubevirt.io/api/core/v1.Probe":                                                              schema_kubevirtio_api_core_v1_Probe(ref),
 		"kubevirt.io/api/core/v1.ProfilerResult":                                                     schema_kubevirtio_api_core_v1_ProfilerResult(ref),
 		"kubevirt.io/api/core/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":              schema_kubevirtio_api_core_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
@@ -18329,6 +18331,25 @@ func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallb
 	}
 }
 
+func schema_kubevirtio_api_core_v1_InstancetypeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"revisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially captured the first time the VirtualMachine is seen using the instance type.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20675,6 +20696,25 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 					"inferFromVolume": {
 						SchemaProps: spec.SchemaProps{
 							Description: "InferFromVolume lists the name of a volume that should be used to infer or discover the preference to be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher this field is removed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_PreferenceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"revisionName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time VirtualMachine is seen using the preference.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24540,11 +24580,23 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Format:      "int64",
 						},
 					},
+					"instancetypeStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InstancetypeStatus tracks the state of the associated instance type and captured ControllerRevision",
+							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeStatus"),
+						},
+					},
+					"preferenceStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferenceStatus tracks the state of the associated preference and captured ControllerRevision",
+							Ref:         ref("kubevirt.io/api/core/v1.PreferenceStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
+			"kubevirt.io/api/core/v1.InstancetypeStatus", "kubevirt.io/api/core/v1.PreferenceStatus", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus"},
 	}
 }
 

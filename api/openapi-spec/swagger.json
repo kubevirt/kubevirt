@@ -17245,6 +17245,15 @@
      }
     }
    },
+   "v1.InstancetypeStatus": {
+    "type": "object",
+    "properties": {
+     "revisionName": {
+      "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially captured the first time the VirtualMachine is seen using the instance type.",
+      "type": "string"
+     }
+    }
+   },
    "v1.Interface": {
     "type": "object",
     "required": [
@@ -18489,6 +18498,15 @@
      },
      "revisionName": {
       "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.PreferenceStatus": {
+    "type": "object",
+    "properties": {
+     "revisionName": {
+      "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time VirtualMachine is seen using the preference.",
       "type": "string"
      }
     }
@@ -20560,6 +20578,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "instancetypeStatus": {
+      "description": "InstancetypeStatus tracks the state of the associated instance type and captured ControllerRevision",
+      "$ref": "#/definitions/v1.InstancetypeStatus"
+     },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
       "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
@@ -20568,6 +20590,10 @@
       "description": "ObservedGeneration is the generation observed by the vmi when started.",
       "type": "integer",
       "format": "int64"
+     },
+     "preferenceStatus": {
+      "description": "PreferenceStatus tracks the state of the associated preference and captured ControllerRevision",
+      "$ref": "#/definitions/v1.PreferenceStatus"
      },
      "printableStatus": {
       "description": "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",

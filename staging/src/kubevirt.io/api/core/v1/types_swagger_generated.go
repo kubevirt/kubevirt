@@ -358,6 +358,8 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
 		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"instancetypeStatus":     "InstancetypeStatus tracks the state of the associated instance type and captured ControllerRevision\n+nullable\n+optional",
+		"preferenceStatus":       "PreferenceStatus tracks the state of the associated preference and captured ControllerRevision\n+nullable\n+optional",
 	}
 }
 
@@ -892,6 +894,12 @@ func (InstancetypeMatcher) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InstancetypeStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"revisionName": "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially\ncaptured the first time the VirtualMachine is seen using the instance type.\n\n+optional",
+	}
+}
+
 func (PreferenceMatcher) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.",
@@ -899,6 +907,12 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 		"kind":            "Kind specifies which preference resource is referenced.\nAllowed values are: \"VirtualMachinePreference\" and \"VirtualMachineClusterPreference\".\nIf not specified, \"VirtualMachineClusterPreference\" is used by default.\n\n+optional",
 		"revisionName":    "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time the instancetype is applied to the VirtualMachineInstance.\n\n+optional",
 		"inferFromVolume": "InferFromVolume lists the name of a volume that should be used to infer or discover the preference\nto be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher\nthis field is removed.\n\n+optional",
+	}
+}
+
+func (PreferenceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"revisionName": "RevisionName specifies a ControllerRevision containing a specific copy of the\nVirtualMachinePreference or VirtualMachineClusterPreference to be used. This is\ninitially captured the first time VirtualMachine is seen using the preference.\n\n+optional",
 	}
 }
 
