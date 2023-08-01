@@ -25,22 +25,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachineInstanceNetworkInterface) []v1.Network {
-	var networksToHotplug []v1.Network
-	indexedIfacesFromStatus := IndexInterfaceStatusByName(
-		interfaceStatus,
-		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			return true
-		},
-	)
-	for _, iface := range networks {
-		if _, wasFound := indexedIfacesFromStatus[iface.Name]; !wasFound {
-			networksToHotplug = append(networksToHotplug, iface)
-		}
-	}
-	return networksToHotplug
-}
-
 func NetworksToHotplugWhosePodIfacesAreReady(vmi *v1.VirtualMachineInstance) []v1.Network {
 	var networksToHotplug []v1.Network
 	interfacesToHoplug := IndexInterfaceStatusByName(

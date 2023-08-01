@@ -39,7 +39,11 @@ func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMach
 
 	networksToAnnotate := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToAnnotate)
 
-	ifacesToHotplugExist := len(vmispec.NetworksToHotplug(networksToAnnotate, vmi.Status.Interfaces)) > 0
+	ifacesToHotplug := vmispec.FilterInterfacesSpec(ifacesToAnnotate, func(iface v1.Interface) bool {
+		_, inStatus := ifacesStatusByName[iface.Name]
+		return !inStatus
+	})
+	ifacesToHotplugExist := len(ifacesToHotplug) > 0
 
 	isIfaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
 	if !isIfaceChangeRequired {
