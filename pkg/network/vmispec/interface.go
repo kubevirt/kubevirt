@@ -110,16 +110,6 @@ func IndexInterfaceSpecByName(interfaces []v1.Interface) map[string]v1.Interface
 	return ifacesByName
 }
 
-func IndexInterfaceSpecByMac(interfaces []v1.Interface) map[string]v1.Interface {
-	ifacesByMac := map[string]v1.Interface{}
-	for _, ifaceSpec := range interfaces {
-		if mac := ifaceSpec.MacAddress; mac != "" {
-			ifacesByMac[mac] = ifaceSpec
-		}
-	}
-	return ifacesByMac
-}
-
 func LookupInterfaceByName(ifaces []v1.Interface, name string) *v1.Interface {
 	for idx := range ifaces {
 		if ifaces[idx].Name == name {
