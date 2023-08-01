@@ -113,6 +113,17 @@ func newControllerRole(namespace string) *rbacv1.Role {
 					"watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"coordination.k8s.io",
+				},
+				Resources: []string{
+					"leases",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "delete", "update", "create", "patch",
+				},
+			},
 		},
 	}
 }
@@ -189,17 +200,6 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"pods", "configmaps", "endpoints", "services",
-				},
-				Verbs: []string{
-					"get", "list", "watch", "delete", "update", "create", "patch",
-				},
-			},
-			{
-				APIGroups: []string{
-					"coordination.k8s.io",
-				},
-				Resources: []string{
-					"leases",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "delete", "update", "create", "patch",
