@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"regexp"
 	"sync"
 	"time"
 
@@ -54,7 +54,7 @@ func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
 		return nil, err
 	}
 
-	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
 	if err != nil {
 		return nil, err
 	}
@@ -117,17 +117,10 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 }
 
 func podIsReadyComponent(pod *k8sv1.Pod) bool {
-	componentPrefixes := []string{"virt-controller", "virt-handler", "virt-api", "virt-operator"}
-
-	found := false
+	re, _ := regexp.Compile("^(virt-api-|virt-operator-|virt-handler-|virt-controller-).*")
+	isComponentPod := re.MatchString(pod.Name)
 	// filter out any kubevirt related pod that doesn't have profiling capabilities
-	for _, prefix := range componentPrefixes {
-		if strings.Contains(pod.Name, prefix) {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !isComponentPod {
 		return false
 	}
 
