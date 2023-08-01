@@ -1250,9 +1250,9 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("Upgrade Mode", func() {
 			const (
 				oldVersion          = "1.6.1"  // to be sure to cover v2v CRDs removal during upgrades
-				newVersion          = "1.10.0" // TODO: avoid hard-coding values
-				oldComponentVersion = "1.10.0"
-				newComponentVersion = "1.10.3"
+				newVersion          = "1.11.0" // TODO: avoid hard-coding values
+				oldComponentVersion = "1.11.0"
+				newComponentVersion = "1.11.3"
 			)
 
 			// this is used for version label and the tests below
