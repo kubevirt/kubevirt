@@ -1,3 +1,7 @@
+
+> **Note**
+> You want to add yourself to this list? Just fork the repository and open a PR with the required change.
+
 # KubeVirt Adopters
 
 | Type | Name | Since | Website | Use-Case |
