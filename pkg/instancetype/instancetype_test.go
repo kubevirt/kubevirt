@@ -233,7 +233,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
-
+				Expect(vm.Status.InstancetypeStatus.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
 
 			It("store returns a nil revision when RevisionName already populated", func() {
@@ -423,6 +423,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeStatus.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 			})
 
 			It("store fails when instancetype does not exist", func() {
@@ -682,6 +683,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceStatus.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 			})
 
 			It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
@@ -817,7 +819,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
-
+				Expect(vm.Status.PreferenceStatus.RevisionName).To(Equal(preferenceControllerRevision.Name))
 			})
 
 			It("store fails when VirtualMachinePreference doesn't exist", func() {

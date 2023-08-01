@@ -181,6 +181,9 @@ func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachin
 	}
 
 	vm.Spec.Instancetype.RevisionName = storedRevision.Name
+	vm.Status.InstancetypeStatus = &virtv1.InstancetypeStatus{
+		RevisionName: storedRevision.Name,
+	}
 	return storedRevision, nil
 }
 
@@ -219,6 +222,9 @@ func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine)
 	}
 
 	vm.Spec.Preference.RevisionName = storedRevision.Name
+	vm.Status.PreferenceStatus = &virtv1.PreferenceStatus{
+		RevisionName: storedRevision.Name,
+	}
 	return storedRevision, nil
 }
 
@@ -228,13 +234,13 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 	if instancetypeRevision != nil {
 		patches = append(patches,
 			patch.PatchOperation{
-				Op:    patch.PatchTestOp,
+				Op:    patch.PatchReplaceOp,
 				Path:  "/spec/instancetype/revisionName",
-				Value: nil,
+				Value: instancetypeRevision.Name,
 			},
 			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/instancetype/revisionName",
+				Op:    patch.PatchReplaceOp,
+				Path:  "/status/instancetypeStatus/revisionName",
 				Value: instancetypeRevision.Name,
 			},
 		)
@@ -243,13 +249,13 @@ func GenerateRevisionNamePatch(instancetypeRevision, preferenceRevision *appsv1.
 	if preferenceRevision != nil {
 		patches = append(patches,
 			patch.PatchOperation{
-				Op:    patch.PatchTestOp,
+				Op:    patch.PatchReplaceOp,
 				Path:  "/spec/preference/revisionName",
-				Value: nil,
+				Value: preferenceRevision.Name,
 			},
 			patch.PatchOperation{
-				Op:    patch.PatchAddOp,
-				Path:  "/spec/preference/revisionName",
+				Op:    patch.PatchReplaceOp,
+				Path:  "/status/preferenceStatus/revisionName",
 				Value: preferenceRevision.Name,
 			},
 		)
