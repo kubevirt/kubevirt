@@ -30,10 +30,6 @@ func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	return fp.Error
 }
 
-func (fp *FakePlugin) GetDevicePath() string {
-	return fp.devicePath
-}
-
 func (fp *FakePlugin) GetDeviceName() string {
 	return fp.deviceName
 }
