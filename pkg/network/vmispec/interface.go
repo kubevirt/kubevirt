@@ -118,3 +118,13 @@ func LookupInterfaceByName(ifaces []v1.Interface, name string) *v1.Interface {
 	}
 	return nil
 }
+
+func IndexInterfaceStatusByName(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+	for _, iface := range interfaces {
+		if p == nil || p(iface) {
+			indexedInterfaceStatus[iface.Name] = iface
+		}
+	}
+	return indexedInterfaceStatus
+}

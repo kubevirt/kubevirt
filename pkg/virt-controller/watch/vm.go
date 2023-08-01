@@ -2649,7 +2649,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			vmi != nil && vmi.DeletionTimestamp == nil {
 			vmiCopy := vmi.DeepCopy()
 
-			indexedStatusIfaces := vmispec.IndexInterfacesFromStatus(vmi.Status.Interfaces,
+			indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
 				func(ifaceStatus virtv1.VirtualMachineInstanceNetworkInterface) bool { return true })
 
 			ifaces, networks := clearDetachedInterfaces(vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces, vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces)

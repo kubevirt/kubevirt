@@ -143,7 +143,7 @@ func lookupDomainInterfaceByName(domainIfaces []api.Interface, networkName strin
 
 func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
 	var networksToHotplug []v1.Network
-	interfacesToHoplug := netvmispec.IndexInterfacesFromStatus(
+	interfacesToHoplug := netvmispec.IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 			_, exists := indexedDomainIfaces[ifaceStatus.Name]

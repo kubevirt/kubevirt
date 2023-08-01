@@ -272,7 +272,7 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			for _, iface := range specIfaces {
 				testNetworks = append(testNetworks, v1.Network{Name: iface.Name})
 			}
-			testStatusIfaces := vmispec.IndexInterfacesFromStatus(statusIfaces,
+			testStatusIfaces := vmispec.IndexInterfaceStatusByName(statusIfaces,
 				func(i v1.VirtualMachineInstanceNetworkInterface) bool { return true })
 
 			ifaces, networks := clearDetachedInterfaces(specIfaces, testNetworks, testStatusIfaces)

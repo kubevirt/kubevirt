@@ -27,7 +27,7 @@ import (
 
 func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachineInstanceNetworkInterface) []v1.Network {
 	var networksToHotplug []v1.Network
-	indexedIfacesFromStatus := IndexInterfacesFromStatus(
+	indexedIfacesFromStatus := IndexInterfaceStatusByName(
 		interfaceStatus,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 			return true
@@ -41,19 +41,9 @@ func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachin
 	return networksToHotplug
 }
 
-func IndexInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
-	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
-	for _, iface := range interfaces {
-		if p == nil || p(iface) {
-			indexedInterfaceStatus[iface.Name] = iface
-		}
-	}
-	return indexedInterfaceStatus
-}
-
 func NetworksToHotplugWhosePodIfacesAreReady(vmi *v1.VirtualMachineInstance) []v1.Network {
 	var networksToHotplug []v1.Network
-	interfacesToHoplug := IndexInterfacesFromStatus(
+	interfacesToHoplug := IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 			return strings.Contains(ifaceStatus.InfoSource, InfoSourceMultusStatus) &&
