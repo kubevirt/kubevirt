@@ -92,6 +92,20 @@ func WithRng() Option {
 	}
 }
 
+// WithWatchdog adds a watchdog to the vmi devices.
+func WithWatchdog(action v1.WatchdogAction) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+			Name: "watchdog",
+			WatchdogDevice: v1.WatchdogDevice{
+				I6300ESB: &v1.I6300ESBWatchdog{
+					Action: action,
+				},
+			},
+		}
+	}
+}
+
 // WithResourceMemory specifies the vmi memory resource.
 func WithResourceMemory(value string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {

@@ -1120,6 +1120,17 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 }
 
+func AddWatchdog(vmi *v1.VirtualMachineInstance, action v1.WatchdogAction) {
+	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+		Name: "watchdog",
+		WatchdogDevice: v1.WatchdogDevice{
+			I6300ESB: &v1.I6300ESBWatchdog{
+				Action: action,
+			},
+		},
+	}
+}
+
 func NewInt32(x int32) *int32 {
 	return &x
 }

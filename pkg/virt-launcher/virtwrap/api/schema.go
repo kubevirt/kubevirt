@@ -478,7 +478,7 @@ type Devices struct {
 	Inputs      []Input            `xml:"input"`
 	Serials     []Serial           `xml:"serial"`
 	Consoles    []Console          `xml:"console"`
-	Watchdog    *Watchdog          `xml:"watchdog,omitempty"`
+	Watchdogs   []Watchdog         `xml:"watchdog,omitempty"`
 	Rng         *Rng               `xml:"rng,omitempty"`
 	Filesystems []FilesystemDevice `xml:"filesystem,omitempty"`
 	Redirs      []RedirectedDevice `xml:"redirdev,omitempty"`

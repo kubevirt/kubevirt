@@ -53,8 +53,8 @@ func PlacePCIDevicesOnRootComplex(spec *api.DomainSpec) (err error) {
 			return err
 		}
 	}
-	if spec.Devices.Watchdog != nil {
-		spec.Devices.Watchdog.Address, err = assigner.PlacePCIDeviceAtNextSlot(spec.Devices.Watchdog.Address)
+	for i, watchdog := range spec.Devices.Watchdogs {
+		spec.Devices.Watchdogs[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(watchdog.Address)
 		if err != nil {
 			return err
 		}

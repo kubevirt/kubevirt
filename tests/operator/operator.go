@@ -750,6 +750,7 @@ var _ = Describe("[Serial][sig-operator]Operator", Serial, decorators.SigOperato
 					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
 				}
 				tests.AddLabelDownwardAPIVolume(vmi, downwardAPIName)
+				tests.AddWatchdog(vmi, v1.WatchdogActionPoweroff)
 
 				vmis = append(vmis, vmi)
 			}

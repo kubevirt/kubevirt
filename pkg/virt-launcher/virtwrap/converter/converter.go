@@ -1605,7 +1605,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if err != nil {
 			return err
 		}
-		domain.Spec.Devices.Watchdog = newWatchdog
+		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
 	}
 
 	if vmi.Spec.Domain.Devices.Rng != nil {
