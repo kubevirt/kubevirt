@@ -129,8 +129,6 @@ const (
 
 	// Default network-status downward API file path
 	defaultNetworkStatusFilePath = "/etc/podinfo/network-status"
-
-	unprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
 )
 
 type virtHandlerApp struct {
@@ -420,7 +418,7 @@ func (app *virtHandlerApp) Run() {
 		if err != nil {
 			panic(err)
 		}
-		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, se.IsPermissive(), devTun, devNull)
+		err = selinux.RelabelFiles(util.UnprivilegedContainerSELinuxLabel, se.IsPermissive(), devTun, devNull)
 		if err != nil {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
 		}
@@ -564,18 +562,7 @@ func (app *virtHandlerApp) shouldEnablePersistentReservation() {
 	if err != nil {
 		panic(err)
 	}
-	se, exists, err := selinux.NewSELinux()
-	if err == nil && exists {
-		err = selinux.RelabelFiles(unprivilegedContainerSELinuxLabel, se.IsPermissive(), prSockDir)
-		if err != nil {
-			panic(fmt.Errorf("error relabeling required files: %v", err))
-		}
-	} else if err != nil {
-		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
-	}
-
 	log.DefaultLogger().Infof("set permission for %s", reservation.GetPrHelperHostSocketDir())
-
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
