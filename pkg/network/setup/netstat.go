@@ -304,8 +304,12 @@ func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.Inte
 
 func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
 	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
-	ifaceStatus.IP = guestAgentIface.Ip
-	ifaceStatus.IPs = guestAgentIface.IPs
+	if guestAgentIface.Ip != "" {
+		ifaceStatus.IP = guestAgentIface.Ip
+	}
+	if guestAgentIface.IPs != nil {
+		ifaceStatus.IPs = guestAgentIface.IPs
+	}
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
