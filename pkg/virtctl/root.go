@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"kubevirt.io/kubevirt/pkg/virtctl/update"
 	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -108,6 +109,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		imageupload.NewImageUploadCommand(clientConfig),
 		guestfs.NewGuestfsShellCommand(clientConfig),
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
+		update.NewCommand(clientConfig),
 		create.NewCommand(clientConfig),
 		credentials.NewCommand(clientConfig),
 		adm.NewCommand(clientConfig),

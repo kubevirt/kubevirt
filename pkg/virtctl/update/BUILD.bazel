@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["update.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virtctl/update",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virtctl/update/machine-type:go_default_library",
+        "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+    ],
+)
