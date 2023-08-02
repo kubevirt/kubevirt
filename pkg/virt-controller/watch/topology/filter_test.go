@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -26,40 +27,6 @@ var _ = Describe("Filter", func() {
 			topology.IsSchedulable,
 		)).To(ConsistOf(
 			nodes[0],
-			nodes[2],
-		))
-	})
-
-	It("should filter out nodes with a noschedule taint", func() {
-		nodeWithUnschedulableTaint := node("node0", true)
-		nodeWithUnschedulableTaint.Spec.Taints = []v1.Taint{{Key: "noschedule", Effect: v1.TaintEffectNoSchedule}}
-
-		nodes := topology.NodesToObjects(
-			nodeWithUnschedulableTaint,
-			node("node1", false),
-			node("node2", true),
-			nil,
-		)
-		Expect(topology.FilterNodesFromCache(nodes,
-			topology.IsSchedulable,
-		)).To(ConsistOf(
-			nodes[2],
-		))
-	})
-
-	It("should filter out nodes with spec.unschedulable == true", func() {
-		nodeWithUnschedulableField := node("node0", true)
-		nodeWithUnschedulableField.Spec.Unschedulable = true
-
-		nodes := topology.NodesToObjects(
-			nodeWithUnschedulableField,
-			node("node1", false),
-			node("node2", true),
-			nil,
-		)
-		Expect(topology.FilterNodesFromCache(nodes,
-			topology.IsSchedulable,
-		)).To(ConsistOf(
 			nodes[2],
 		))
 	})
@@ -146,6 +113,48 @@ var _ = Describe("Filter", func() {
 		Expect(topology.FilterNodesFromCache(nodes,
 			topology.NodeOfVMI(vmiOnNode("myvmi", "")),
 		)).To(BeEmpty())
+	})
+
+	It("should filter nodes running vmis", func() {
+		vmiStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+		vmi := vmiOnNode("myvmi", "node1")
+		err := vmiStore.Add(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		nodes := topology.NodesToObjects(
+			node("node0", false),
+			node("node1", false),
+			node("node2", false),
+			nil,
+		)
+		Expect(topology.FilterNodesFromCache(nodes,
+			topology.IsNodeRunningVmis(vmiStore),
+		)).To(ConsistOf(
+			nodes[1],
+		))
+	})
+
+	It("should filter nodes running vmis and schedulable nodes", func() {
+		vmiStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+		vmi := vmiOnNode("myvmi", "node1")
+		err := vmiStore.Add(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		nodes := topology.NodesToObjects(
+			node("node0", false),
+			node("node1", false),
+			node("node2", true),
+			nil,
+		)
+		Expect(topology.FilterNodesFromCache(nodes,
+			topology.Or(
+				topology.IsNodeRunningVmis(vmiStore),
+				topology.IsSchedulable,
+			),
+		)).To(ConsistOf(
+			nodes[1],
+			nodes[2],
+		))
 	})
 })
 

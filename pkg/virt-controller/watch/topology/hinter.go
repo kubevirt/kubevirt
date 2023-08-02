@@ -56,7 +56,10 @@ func (t *topologyHinter) LowestTSCFrequencyOnCluster() (int64, error) {
 	}
 	nodes := FilterNodesFromCache(t.nodeStore.List(),
 		HasInvTSCFrequency,
-		IsSchedulable,
+		Or(
+			IsSchedulable,
+			IsNodeRunningVmis(t.vmiStore),
+		),
 	)
 	freq := LowestTSCFrequency(nodes)
 	return freq, nil
