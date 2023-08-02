@@ -237,9 +237,19 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 	}
 
 	for i := 0; i < threadiness; i++ {
+		go wait.Until(ctrl.crdWorker, time.Second, stopCh)
+	}
+
+	log.Log.Infof("CRD queue length: %d", ctrl.crdQueue.Len())
+
+	for ql := ctrl.crdQueue.Len(); ql > 0; ql = ctrl.crdQueue.Len() {
+		log.Log.Infof("Waiting for empty CRD queue, currently: %d", ql)
+		time.Sleep(2 * time.Second)
+	}
+
+	for i := 0; i < threadiness; i++ {
 		go wait.Until(ctrl.vmSnapshotWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmSnapshotContentWorker, time.Second, stopCh)
-		go wait.Until(ctrl.crdWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmSnapshotStatusWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmWorker, time.Second, stopCh)
 	}
