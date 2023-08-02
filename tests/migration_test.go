@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -32,6 +33,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
@@ -647,11 +650,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 	})
 	Describe("Starting a VirtualMachineInstance ", func() {
-		guestAgentMigrationTestFunc := func(mode v1.MigrationMode, pvName string, memoryRequestSize resource.Quantity) {
+		guestAgentMigrationTestFunc := func(pvName string, memoryRequestSize resource.Quantity, migrationPolicy *migrationsv1.MigrationPolicy) {
 			By("Creating the VMI")
 			vmi := tests.NewRandomVMIWithPVC(pvName)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			mode := v1.MigrationPreCopy
+			if migrationPolicy != nil && migrationPolicy.Spec.AllowPostCopy != nil && *migrationPolicy.Spec.AllowPostCopy {
+				mode = v1.MigrationPostCopy
+			}
 
 			// postcopy needs a privileged namespace
 			if mode == v1.MigrationPostCopy {
@@ -669,6 +677,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			disks := vmi.Spec.Domain.Devices.Disks
 			disks[len(disks)-1].Serial = secretDiskSerial
 
+			if migrationPolicy != nil {
+				tests.MatchPolicyAndVmi(vmi, migrationPolicy)
+				migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
+			}
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
@@ -1714,7 +1726,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
-				guestAgentMigrationTestFunc(v1.MigrationPreCopy, dv.Name, resource.MustParse(fedoraVMSize))
+				guestAgentMigrationTestFunc(dv.Name, resource.MustParse(fedoraVMSize), nil)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
@@ -2139,16 +2151,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
-		Context("[Serial] migration postcopy", Serial, func() {
+		Context("migration postcopy", func() {
+
+			var migrationPolicy *migrationsv1.MigrationPolicy
 
 			BeforeEach(func() {
 				By("Allowing post-copy and limit migration bandwidth")
-				config := getCurrentKv()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-				bandwidth := resource.MustParse("40Mi")
-				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
+				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
+				migrationPolicy.Spec.AllowPostCopy = k6tpointer.P(true)
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = k6tpointer.P(int64(1))
+				migrationPolicy.Spec.BandwidthPerMigration = k6tpointer.P(resource.MustParse("40Mi"))
 			})
 
 			Context("with datavolume", func() {
@@ -2178,16 +2191,19 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					guestAgentMigrationTestFunc(v1.MigrationPostCopy, dv.Name, resource.MustParse("1Gi"))
+					guestAgentMigrationTestFunc(dv.Name, resource.MustParse("1Gi"), migrationPolicy)
 				})
 
 			})
 
-			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
+			It("[test_id:4747] should migrate using for postcopy", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				vmi.Namespace = testsuite.NamespacePrivileged
+
+				tests.MatchPolicyAndVmi(vmi, migrationPolicy)
+				migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
@@ -2208,13 +2224,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
 				confirmMigrationMode(vmi, v1.MigrationPostCopy)
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 
