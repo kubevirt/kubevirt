@@ -52,6 +52,15 @@ func FilterInterfacesSpec(ifaces []v1.Interface, predicate func(i v1.Interface) 
 	return filteredIfaces
 }
 
+func IsPodNetworkWithMacvtapBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
+	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
+		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
+			return podInterface.Macvtap != nil
+		}
+	}
+	return true
+}
+
 func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
 	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
 		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {

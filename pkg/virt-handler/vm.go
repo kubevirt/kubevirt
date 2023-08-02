@@ -2368,10 +2368,12 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 	if allowPodBridgeNetworkLiveMigration && netvmispec.IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
 		return nil
 	}
+	if allowPodBridgeNetworkLiveMigration && netvmispec.IsPodNetworkWithMacvtapBindingInterface(vmi.Spec.Networks, ifaces) {
+		return nil
+	}
 	if netvmispec.IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) {
 		return nil
 	}
-
 	return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network or bridge with %s VM annotation", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
 }
 
