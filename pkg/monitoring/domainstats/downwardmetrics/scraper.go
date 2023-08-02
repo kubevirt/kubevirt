@@ -149,6 +149,7 @@ func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiIn
 
 	go func() {
 		ticker := time.NewTicker(DownwardmetricsRefreshDuration)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:

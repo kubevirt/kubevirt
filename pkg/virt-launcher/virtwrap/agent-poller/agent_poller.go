@@ -243,10 +243,10 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 	}
 
 	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-closeChan:
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			execAgentCommands(p.AgentCommands)

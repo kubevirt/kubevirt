@@ -145,6 +145,7 @@ func (f *FailRetryManager) ShouldDelay(key string, isFailure func() bool) (bool,
 // Run starts the manager.
 func (f *FailRetryManager) Run(stopCh chan struct{}) {
 	ticker := time.NewTicker(f.maxWait)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
