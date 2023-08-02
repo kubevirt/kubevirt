@@ -34,11 +34,14 @@ import (
 	"kubevirt.io/client-go/api"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -56,12 +59,16 @@ import (
 
 var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvInformer := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-	var vmsAdmitter *VMsAdmitter
-	var dataSourceInformer cache.SharedIndexInformer
-	var instancetypeMethods *testutils.MockInstancetypeMethods
-	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
-	var mockVMIClient *kubecli.MockVirtualMachineInstanceInterface
-	var virtClient *kubecli.MockKubevirtClient
+	var (
+		vmsAdmitter         *VMsAdmitter
+		dataSourceInformer  cache.SharedIndexInformer
+		namespaceInformer   cache.SharedIndexInformer
+		instancetypeMethods *testutils.MockInstancetypeMethods
+		migrationInterface  *kubecli.MockVirtualMachineInstanceMigrationInterface
+		mockVMIClient       *kubecli.MockVirtualMachineInstanceInterface
+		virtClient          *kubecli.MockKubevirtClient
+		k8sClient           *k8sfake.Clientset
+	)
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
@@ -92,21 +99,43 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	BeforeEach(func() {
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		ns1 := &k8sv1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ns1",
+			},
+		}
+		ns2 := &k8sv1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ns2",
+			},
+		}
+		ns3 := &k8sv1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "ns3",
+			},
+		}
+		Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
+		Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
+		Expect(namespaceInformer.GetStore().Add(ns3)).To(Succeed())
 		instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		vmsAdmitter = &VMsAdmitter{
 			VirtClient:          virtClient,
 			DataSourceInformer:  dataSourceInformer,
+			NamespaceInformer:   namespaceInformer,
 			ClusterConfig:       config,
 			InstancetypeMethods: instancetypeMethods,
-			cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+			cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 				return true, "", nil
 			},
 		}
+		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
 
 	It("reject invalid VirtualMachineInstance spec", func() {
@@ -793,6 +822,48 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 
+	It("should reject VM with DataVolumeTemplate in another namespace", func() {
+		vmi := api.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "testdisk",
+		})
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "testdisk",
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
+				},
+			},
+		})
+
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "vm-namespace",
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running: &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dv1",
+				Namespace: "another-namespace",
+			},
+			Spec: cdiv1.DataVolumeSpec{
+				PVC: &k8sv1.PersistentVolumeClaimSpec{},
+			},
+		})
+
+		testutils.AddDataVolumeAPI(crdInformer)
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
+	})
+
 	It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -1244,7 +1315,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Namespace: arNamespace,
 			}
 
-			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(expectedSourceNamespace, "whocares",
+			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(k8sClient, expectedSourceNamespace, "whocares",
 				expectedTargetNamespace, expectedServiceAccount)
 			causes, err := vmsAdmitter.authorizeVirtualMachineSpec(ar, vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -1330,7 +1401,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			vmsAdmitter.DataSourceInformer.GetIndexer().Add(ds)
 
-			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(expectedSourceNamespace,
+			vmsAdmitter.cloneAuthFunc = makeCloneAdmitFunc(k8sClient, expectedSourceNamespace,
 				"whocares",
 				expectedTargetNamespace,
 				expectedServiceAccount)
@@ -1384,8 +1455,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(causes[0].Message).To(Equal(expectedMessage))
 			}
 		},
-			Entry("when source name not supplied", "", "sourceName", "Clone source /sourceName invalid", nil, "Clone source /sourceName invalid"),
-			Entry("when source namespace not supplied", "sourceNamespace", "", "Clone source sourceNamespace/ invalid", nil, "Clone source sourceNamespace/ invalid"),
 			Entry("when user not authorized", "sourceNamespace", "sourceName", "no permission", nil, "Authorization failed, message is: no permission"),
 			Entry("error occurs", "sourceNamespace", "sourceName", "", fmt.Errorf("bad error"), ""),
 		)
@@ -1993,10 +2062,21 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 	return admitter.Admit(ar)
 }
 
-func makeCloneAdmitFunc(expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {
-	return func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
-		Expect(pvcNamespace).Should(Equal(expectedSourceNamespace))
-		Expect(pvcName).Should(Equal(expectedPVCName))
+func makeCloneAdmitFunc(k8sClient *k8sfake.Clientset, expectedSourceNamespace, expectedPVCName, expectedTargetNamespace, expectedServiceAccount string) CloneAuthFunc {
+	k8sClient.Fake.PrependReactor("create", "subjectaccessreviews", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		return true, &authorizationv1.SubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{
+				Allowed: true,
+			},
+		}, nil
+	})
+
+	return func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
+		response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
+		Expect(err).ToNot(HaveOccurred())
+		// Remove this when CDI patches the NS on the response
+		// Expect(response.Handler.SourceNamespace).Should(Equal(expectedSourceNamespace))
+		Expect(response.Handler.SourceName).Should(Equal(expectedPVCName))
 		Expect(saNamespace).Should(Equal(expectedTargetNamespace))
 		Expect(saName).Should(Equal(expectedServiceAccount))
 		return true, "", nil
@@ -2004,7 +2084,7 @@ func makeCloneAdmitFunc(expectedSourceNamespace, expectedPVCName, expectedTarget
 }
 
 func makeCloneAdmitFailFunc(message string, err error) CloneAuthFunc {
-	return func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+	return func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 		return false, message, err
 	}
 }
