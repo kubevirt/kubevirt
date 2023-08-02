@@ -69,16 +69,16 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			waitForMetricValue(virtClient, "kubevirt_number_of_vms", int64(5))
+			waitForMetricValue(virtClient, "kubevirt_number_of_vms", 5)
 		})
 	})
 
 	Context("VM status metrics", func() {
 		var vm *v1.VirtualMachine
 		var cpuMetrics = []string{
-			"kubevirt_vmi_cpu_system_usage_seconds",
-			"kubevirt_vmi_cpu_usage_seconds",
-			"kubevirt_vmi_cpu_user_usage_seconds",
+			"kubevirt_vmi_cpu_system_usage_seconds_total",
+			"kubevirt_vmi_cpu_usage_seconds_total",
+			"kubevirt_vmi_cpu_user_usage_seconds_total",
 		}
 
 		BeforeEach(func() {
@@ -91,7 +91,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 
 		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
-			EventuallyWithOffset(1, func() int {
+			EventuallyWithOffset(1, func() float64 {
 				i, err := getMetricValueWithLabels(virtClient, metric, labels)
 				if err != nil {
 					return -1
@@ -230,14 +230,14 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
 			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_total{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
 			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
-			numPVCs := 2
+			numPVCs := 2.0
 
-			for i := 1; i < numPVCs+1; i++ {
+			for i := 1.0; i < numPVCs+1; i++ {
 				// Create dummy PVC that is labelled as "restored" from VM snapshot
-				createSimplePVCWithRestoreLabels(fmt.Sprintf("vmsnapshot-restored-pvc-%d", i))
+				createSimplePVCWithRestoreLabels(fmt.Sprintf("vmsnapshot-restored-pvc-%f", i))
 				// Metric values increases per restored disk
-				waitForMetricValue(virtClient, totalMetric, int64(i))
-				waitForMetricValue(virtClient, bytesMetric, quantity.Value()*int64(i))
+				waitForMetricValue(virtClient, totalMetric, i)
+				waitForMetricValue(virtClient, bytesMetric, float64(quantity.Value())*i)
 			}
 		})
 	})
