@@ -1,0 +1,43 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/convert-machine-type",
+    visibility = ["//visibility:private"],
+    deps = ["//pkg/virtctl/update/machine-type/convert-machine-type:go_default_library"],
+)
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "mmtt",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
+    name = "mmtt-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "//conditions:default": "amd64",
+    }),
+    base = "version-container",
+    directory = "/",
+    entrypoint = ["/mmtt"],
+    files = [":mmtt"],
+    visibility = ["//visibility:public"],
+)

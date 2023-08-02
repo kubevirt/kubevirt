@@ -1608,6 +1608,13 @@ type VirtualMachineStatus struct {
 	// updated through an Update() before ObservedGeneration in Status.
 	// +optional
 	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
+
+	// MachineTypeRestartRequired tracks if a running VM must be restarted
+	// after updating its machine type with virtctl update. This will be set to
+	// true upon its machine type being automatically updated, and changed back
+	// to false once it has been stopped or restarted.
+	// +optional
+	MachineTypeRestartRequired bool `json:"machineTypeRestartRequired,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {

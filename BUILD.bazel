@@ -231,6 +231,15 @@ load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 
 # we need to push virt images with the rule from container:container in order to get the digest file
 container_push(
+    name = "push-mmtt-image",
+    format = "Docker",
+    image = "//cmd/convert-machine-type:mmtt-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)mass-machine-type-transition",
+    tag = "$(container_tag)",
+)
+
+container_push(
     name = "push-virt-operator",
     format = "Docker",
     image = "//cmd/virt-operator:virt-operator-image",

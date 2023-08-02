@@ -113,7 +113,8 @@ func generateMassMachineTypeTransitionJob() *batchv1.Job {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name: machineTypeCmd,
+							Name:  machineTypeCmd,
+							Image: "registry:5000/kubevirt/mass-machine-type-transition:devel",
 							Env: []v1.EnvVar{
 								{
 									Name:  "MACHINE_TYPE",

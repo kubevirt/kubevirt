@@ -20985,6 +20985,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "machineTypeRestartRequired": {
+      "description": "MachineTypeRestartRequired tracks if a running VM must be restarted after updating its machine type with virtctl update. This will be set to true upon its machine type being automatically updated, and changed back to false once it has been stopped or restarted.",
+      "type": "boolean"
+     },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
       "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"

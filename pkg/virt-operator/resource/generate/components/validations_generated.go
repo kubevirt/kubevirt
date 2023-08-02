@@ -7551,6 +7551,12 @@ var CRDsValidation map[string]string = map[string]string{
             updated through an Update() before ObservedGeneration in Status.
           format: int64
           type: integer
+        machineTypeRestartRequired:
+          description: MachineTypeRestartRequired tracks if a running VM must be restarted
+            after updating its machine type with virtctl update. This will be set
+            to true upon its machine type being automatically updated, and changed
+            back to false once it has been stopped or restarted.
+          type: boolean
         memoryDumpRequest:
           description: MemoryDumpRequest tracks memory dump request phase and info
             of getting a memory dump to the given pvc
@@ -26871,6 +26877,13 @@ var CRDsValidation map[string]string = map[string]string{
                         ObservedGeneration in Status.
                       format: int64
                       type: integer
+                    machineTypeRestartRequired:
+                      description: MachineTypeRestartRequired tracks if a running
+                        VM must be restarted after updating its machine type with
+                        virtctl update. This will be set to true upon its machine
+                        type being automatically updated, and changed back to false
+                        once it has been stopped or restarted.
+                      type: boolean
                     memoryDumpRequest:
                       description: MemoryDumpRequest tracks memory dump request phase
                         and info of getting a memory dump to the given pvc

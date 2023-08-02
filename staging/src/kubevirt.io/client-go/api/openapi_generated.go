@@ -25087,6 +25087,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Format:      "int64",
 						},
 					},
+					"machineTypeRestartRequired": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MachineTypeRestartRequired tracks if a running VM must be restarted after updating its machine type with virtctl update. This will be set to true upon its machine type being automatically updated, and changed back to false once it has been stopped or restarted.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
