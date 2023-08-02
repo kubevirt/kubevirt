@@ -18313,7 +18313,7 @@ func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallb
 					},
 					"revisionName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
+							Description: "Deprecated: Use vm.status.instancetypeStatus.revisionName instead.\n\nRevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -20688,7 +20688,7 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 					},
 					"revisionName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
+							Description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName instead.\n\nRevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

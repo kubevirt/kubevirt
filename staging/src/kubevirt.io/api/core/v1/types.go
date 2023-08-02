@@ -2673,6 +2673,8 @@ type InstancetypeMatcher struct {
 	// +optional
 	Kind string `json:"kind,omitempty"`
 
+	// Deprecated: Use vm.status.instancetypeStatus.revisionName instead.
+	//
 	// RevisionName specifies a ControllerRevision containing a specific copy of the
 	// VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially
 	// captured the first time the instancetype is applied to the VirtualMachineInstance.
@@ -2719,6 +2721,8 @@ type PreferenceMatcher struct {
 	// +optional
 	Kind string `json:"kind,omitempty"`
 
+	// Deprecated: Use vm.Status.PreferenceStatus.RevisionName instead.
+	//
 	// RevisionName specifies a ControllerRevision containing a specific copy of the
 	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
 	// initially captured the first time the instancetype is applied to the VirtualMachineInstance.

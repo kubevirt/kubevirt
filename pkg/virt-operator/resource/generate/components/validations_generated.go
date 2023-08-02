@@ -4252,10 +4252,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
               type: string
             revisionName:
-              description: RevisionName specifies a ControllerRevision containing
+              description: "Deprecated: Use vm.status.instancetypeStatus.revisionName
+                instead. \n RevisionName specifies a ControllerRevision containing
                 a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
                 to be used. This is initially captured the first time the instancetype
-                is applied to the VirtualMachineInstance.
+                is applied to the VirtualMachineInstance."
               type: string
           type: object
         liveUpdateFeatures:
@@ -4294,10 +4295,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
               type: string
             revisionName:
-              description: RevisionName specifies a ControllerRevision containing
+              description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName
+                instead. \n RevisionName specifies a ControllerRevision containing
                 a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
                 to be used. This is initially captured the first time the instancetype
-                is applied to the VirtualMachineInstance.
+                is applied to the VirtualMachineInstance."
               type: string
           type: object
         runStrategy:
@@ -17797,10 +17799,11 @@ var CRDsValidation map[string]string = map[string]string{
                         or VirtualMachineClusterInstancetype
                       type: string
                     revisionName:
-                      description: RevisionName specifies a ControllerRevision containing
+                      description: "Deprecated: Use vm.status.instancetypeStatus.revisionName
+                        instead. \n RevisionName specifies a ControllerRevision containing
                         a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
                         to be used. This is initially captured the first time the
-                        instancetype is applied to the VirtualMachineInstance.
+                        instancetype is applied to the VirtualMachineInstance."
                       type: string
                   type: object
                 liveUpdateFeatures:
@@ -17841,10 +17844,11 @@ var CRDsValidation map[string]string = map[string]string{
                         or VirtualMachineClusterPreference
                       type: string
                     revisionName:
-                      description: RevisionName specifies a ControllerRevision containing
+                      description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName
+                        instead. \n RevisionName specifies a ControllerRevision containing
                         a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
                         to be used. This is initially captured the first time the
-                        instancetype is applied to the VirtualMachineInstance.
+                        instancetype is applied to the VirtualMachineInstance."
                       type: string
                   type: object
                 runStrategy:
@@ -22804,11 +22808,12 @@ var CRDsValidation map[string]string = map[string]string{
                             or VirtualMachineClusterInstancetype
                           type: string
                         revisionName:
-                          description: RevisionName specifies a ControllerRevision
+                          description: "Deprecated: Use vm.status.instancetypeStatus.revisionName
+                            instead. \n RevisionName specifies a ControllerRevision
                             containing a specific copy of the VirtualMachineInstancetype
                             or VirtualMachineClusterInstancetype to be used. This
                             is initially captured the first time the instancetype
-                            is applied to the VirtualMachineInstance.
+                            is applied to the VirtualMachineInstance."
                           type: string
                       type: object
                     liveUpdateFeatures:
@@ -22851,11 +22856,12 @@ var CRDsValidation map[string]string = map[string]string{
                             or VirtualMachineClusterPreference
                           type: string
                         revisionName:
-                          description: RevisionName specifies a ControllerRevision
+                          description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName
+                            instead. \n RevisionName specifies a ControllerRevision
                             containing a specific copy of the VirtualMachinePreference
                             or VirtualMachineClusterPreference to be used. This is
                             initially captured the first time the instancetype is
-                            applied to the VirtualMachineInstance.
+                            applied to the VirtualMachineInstance."
                           type: string
                       type: object
                     runStrategy:
