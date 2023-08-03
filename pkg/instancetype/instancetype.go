@@ -105,6 +105,13 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 			Name:            revisionName,
 			Namespace:       vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+			Labels: map[string]string{
+				apiinstancetype.ControllerRevisionObjectGenerationLabel: fmt.Sprintf("%d", metaObj.GetGeneration()),
+				apiinstancetype.ControllerRevisionObjectKindLabel:       obj.GetObjectKind().GroupVersionKind().Kind,
+				apiinstancetype.ControllerRevisionObjectNameLabel:       metaObj.GetName(),
+				apiinstancetype.ControllerRevisionObjectUIDLabel:        string(metaObj.GetUID()),
+				apiinstancetype.ControllerRevisionObjectVersionLabel:    obj.GetObjectKind().GroupVersionKind().Version,
+			},
 		},
 		Data: runtime.RawExtension{
 			Object: obj,
