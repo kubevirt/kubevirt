@@ -2499,7 +2499,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(m).To(BeNumerically(">", 83886080), "83886080 B = 80 Mi")
 			})
 			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
-
 				cpuVmi := libvmi.NewCirros()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -2582,21 +2581,19 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				emulator = filepath.Base(emulator)
 
 				virtClient := kubevirt.Client()
-				pscmd := []string{"ps", "-C", emulator, "-o", "pid", "--noheader"}
-				_, err = exec.ExecuteCommandOnPod(
-					virtClient, readyPod, "compute", pscmd)
+				pidCmd := []string{"pidof", emulator}
+				qemuPid, err := exec.ExecuteCommandOnPod(virtClient, readyPod, "compute", pidCmd)
 				// do not check for kvm-pit thread if qemu is not in use
 				if err != nil {
 					return
 				}
-				kvmpitmask, err := tests.GetKvmPitMask(readyPod, emulator, node)
+				kvmpitmask, err := tests.GetKvmPitMask(strings.TrimSpace(qemuPid), node)
 				Expect(err).ToNot(HaveOccurred())
 
 				vcpuzeromask, err := tests.GetVcpuMask(readyPod, emulator, "0")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(kvmpitmask).To(Equal(vcpuzeromask))
-
 			},
 				Entry("[QUARANTINE] with explicit resources set", &virtv1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
