@@ -3396,6 +3396,43 @@ var _ = Describe("Converter", func() {
 			Entry("when false", false, "off"),
 		)
 	})
+
+	Context("with Paused strategy", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		})
+
+		DescribeTable("bootmenu should be", func(startPaused bool) {
+			c = &ConverterContext{
+				AllowEmulation: true,
+			}
+
+			if startPaused {
+				strategy := v1.StartStrategyPaused
+				vmi.Spec.StartStrategy = &strategy
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+
+			if startPaused {
+				Expect(domain.Spec.OS.BootMenu).ToNot(BeNil())
+				Expect(domain.Spec.OS.BootMenu.Enable).To(Equal("yes"))
+				Expect(*domain.Spec.OS.BootMenu.Timeout).To(Equal(BootMenuTimeoutMS))
+			} else {
+				Expect(domain.Spec.OS.BootMenu).To(BeNil())
+			}
+
+		},
+			Entry("enabled when set", true),
+			Entry("disabled when not set", false),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {
