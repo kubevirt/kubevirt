@@ -7888,7 +7888,7 @@ var CRDsValidation map[string]string = map[string]string{
             guest:
               description: "Required number of vCPUs to expose to the guest. \n The
                 resulting CPU topology being derived from the optional PreferredCPUTopology
-                attribute of CPUPreferences that itself defaults to PreferCores."
+                attribute of CPUPreferences that itself defaults to PreferSockets."
               format: int32
               type: integer
             isolateEmulatorThread:
@@ -16650,7 +16650,7 @@ var CRDsValidation map[string]string = map[string]string{
             guest:
               description: "Required number of vCPUs to expose to the guest. \n The
                 resulting CPU topology being derived from the optional PreferredCPUTopology
-                attribute of CPUPreferences that itself defaults to PreferCores."
+                attribute of CPUPreferences that itself defaults to PreferSockets."
               format: int32
               type: integer
             isolateEmulatorThread:
