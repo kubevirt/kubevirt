@@ -461,6 +461,7 @@ spec:
                         type: integer
                     type: object
                   machineType:
+                    description: Deprecated. Use architectureConfiguration instead.
                     type: string
                   mediatedDevicesConfiguration:
                     description: MediatedDevicesConfiguration holds information about
@@ -3459,6 +3460,7 @@ spec:
                         type: integer
                     type: object
                   machineType:
+                    description: Deprecated. Use architectureConfiguration instead.
                     type: string
                   mediatedDevicesConfiguration:
                     description: MediatedDevicesConfiguration holds information about
