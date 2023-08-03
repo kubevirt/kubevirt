@@ -17,9 +17,6 @@ make manifests DOCKER_PREFIX="$DOCKER_PREFIX" DOCKER_TAG="$DOCKER_TAG" # skip ge
 make olm-verify
 make prom-rules-verify
 
-make manifests
-make build-functests
-
 bash hack/gen-swagger-doc/deploy.sh
 bash hack/gen-client-python/deploy.sh
 hack/publish-staging.sh
