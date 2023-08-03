@@ -309,8 +309,8 @@ func (v *vmis) List(ctx context.Context, options *k8smetav1.ListOptions) (vmiLis
 		VersionedParams(options, scheme.ParameterCodec).
 		Do(ctx).
 		Into(vmiList)
-	for _, vmi := range vmiList.Items {
-		vmi.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
+	for i := range vmiList.Items {
+		vmiList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
 	}
 
 	return

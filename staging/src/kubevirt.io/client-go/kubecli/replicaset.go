@@ -87,8 +87,8 @@ func (v *rc) List(options k8smetav1.ListOptions) (replicasetList *v1.VirtualMach
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do(context.Background()).
 		Into(replicasetList)
-	for _, replicaset := range replicasetList.Items {
-		replicaset.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
+	for i := range replicasetList.Items {
+		replicasetList.Items[i].SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
 	}
 
 	return
