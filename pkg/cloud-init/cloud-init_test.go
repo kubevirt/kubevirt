@@ -400,14 +400,36 @@ var _ = Describe("CloudInit", func() {
 					It("should resolve no-cloud data from volume", func() {
 						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						vmi.Spec.AccessCredentials = []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											SecretName: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+									},
+								},
+							},
+						}
+
 						fakeVolumeMountDir("test-volume", map[string]string{
 							"userdata":    "secret-userdata",
 							"networkdata": "secret-networkdata",
 						})
-						err := resolveNoCloudSecrets(vmi, tmpDir)
+
+						fakeVolumeMountDir("my-pkey-access-cred", map[string]string{
+							"somekey":      "ssh-1234",
+							"someotherkey": "ssh-5678",
+						})
+						keys, err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
 						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
 						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
+						Expect(keys).To(HaveLen(2))
 					})
 
 					It("should resolve camel-case no-cloud data from volume", func() {
@@ -417,7 +439,7 @@ var _ = Describe("CloudInit", func() {
 							"userData":    "secret-userdata",
 							"networkData": "secret-networkdata",
 						})
-						err := resolveNoCloudSecrets(vmi, tmpDir)
+						_, err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
 						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
 						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
@@ -425,14 +447,14 @@ var _ = Describe("CloudInit", func() {
 
 					It("should resolve empty no-cloud volume and do nothing", func() {
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
-						err := resolveNoCloudSecrets(vmi, tmpDir)
+						_, err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
 						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
-						err := resolveNoCloudSecrets(vmi, tmpDir)
+						_, err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 					})
