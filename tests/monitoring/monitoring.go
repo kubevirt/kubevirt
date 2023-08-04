@@ -174,7 +174,7 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 	})
 
 	Context("Deprecation Alerts", decorators.SigComputeMigrations, func() {
-		It("KubeVirtDeprecatedAPIsRequested should be triggered when a deprecated API is requested", func() {
+		It("KubeVirtDeprecatedAPIRequested should be triggered when a deprecated API is requested", func() {
 			By("Creating a VMI with deprecated API version")
 			vmi := libvmi.NewCirros()
 			vmi.APIVersion = "v1alpha3"
@@ -183,10 +183,10 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
-			verifyAlertExist(virtClient, "KubeVirtDeprecatedAPIsRequested")
+			verifyAlertExist(virtClient, "KubeVirtDeprecatedAPIRequested")
 
 			By("Verifying the alert disappears")
-			waitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIsRequested")
+			waitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
 		})
 	})
 
