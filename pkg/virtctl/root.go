@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/adm"
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
@@ -109,6 +110,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		vmexport.NewVirtualMachineExportCommand(clientConfig),
 		create.NewCommand(clientConfig),
 		credentials.NewCommand(clientConfig),
+		adm.NewCommand(clientConfig),
 		optionsCmd,
 	)
 	return rootCmd, clientConfig
