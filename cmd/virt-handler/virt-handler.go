@@ -33,7 +33,6 @@ import (
 	"syscall"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
@@ -315,7 +314,6 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldEnablePersistentReservation)
 
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
@@ -546,23 +544,6 @@ func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
 	}
 	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", installPath)
 
-}
-
-func (app *virtHandlerApp) shouldEnablePersistentReservation() {
-	enabled := app.clusterConfig.PersistentReservationEnabled()
-	if !enabled {
-		log.DefaultLogger().Info("Persistent Reservation is not enabled")
-		return
-	}
-	prSockDir, err := safepath.JoinAndResolveWithRelativeRoot("/", reservation.GetPrHelperHostSocketDir())
-	if err != nil {
-		panic(err)
-	}
-	err = safepath.ChownAtNoFollow(prSockDir, util.NonRootUID, util.NonRootUID)
-	if err != nil {
-		panic(err)
-	}
-	log.DefaultLogger().Infof("set permission for %s", reservation.GetPrHelperHostSocketDir())
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {

@@ -42,7 +42,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(util.NonRootUID),
+			RunAsUser:  pointer.Int64(util.RootUser),
 			Privileged: pointer.Bool(true),
 		},
 	}
