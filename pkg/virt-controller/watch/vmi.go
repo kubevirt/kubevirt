@@ -1594,10 +1594,20 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 			return nil
 		}
 		if !exists {
-			return nil
+			if length := len(controllerRef.Name); length > 20 { // virt-launcher-${vmiName}-mmgpv
+				vmiName := controllerRef.Name[14:length-6]
+				log.Log.Infof("get vmiName:%s from pod:%s", vmiName, controllerRef.Name)
+				controllerRef = &v1.OwnerReference{
+					Kind: virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+					Name: vmiName,
+				}
+			} else {
+				return nil
+			}
+		} else {
+			pod, _ := obj.(*k8sv1.Pod)
+			controllerRef = controller.GetControllerOf(pod)
 		}
-		pod, _ := obj.(*k8sv1.Pod)
-		controllerRef = controller.GetControllerOf(pod)
 	}
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it is nil or the wrong Kind.
@@ -1612,11 +1622,11 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 		return nil
 	}
 
-	if vmi.(*virtv1.VirtualMachineInstance).UID != controllerRef.UID {
-		// The controller we found with this Name is not the same one that the
-		// ControllerRef points to.
-		return nil
-	}
+	// if vmi.(*virtv1.VirtualMachineInstance).UID != controllerRef.UID {
+	// 	// The controller we found with this Name is not the same one that the
+	// 	// ControllerRef points to.
+	// 	return nil
+	// }
 	return vmi.(*virtv1.VirtualMachineInstance)
 }
 
