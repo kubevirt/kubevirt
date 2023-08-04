@@ -33,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
@@ -70,6 +71,7 @@ func (dev *USBDevice) GetID() string {
 type USBDevicePlugin struct {
 	socketPath   string
 	stop         <-chan struct{}
+	update       chan struct{}
 	done         chan struct{}
 	deregistered chan struct{}
 	server       *grpc.Server
@@ -114,6 +116,26 @@ func (plugin *USBDevicePlugin) FindDevice(pluginDeviceID string) *PluginDevices 
 		}
 	}
 	return nil
+}
+
+func (plugin *USBDevicePlugin) FindDeviceByUSBID(usbID string) *PluginDevices {
+	for _, pd := range plugin.devices {
+		for _, usb := range pd.Devices {
+			if usb.GetID() == usbID {
+				return pd
+			}
+		}
+	}
+	return nil
+}
+
+func (plugin *USBDevicePlugin) setDeviceHealth(usbID string, isHealthy bool) {
+	pd := plugin.FindDeviceByUSBID(usbID)
+	isDifferent := pd.isHealthy != isHealthy
+	pd.isHealthy = isHealthy
+	if isDifferent {
+		plugin.update <- struct{}{}
+	}
 }
 
 func (plugin *USBDevicePlugin) devicesToKubeVirtDevicePlugin() []*pluginapi.Device {
@@ -199,11 +221,76 @@ func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
 
+	go func() {
+		errChan <- plugin.healthCheck()
+	}()
+
 	plugin.setInitialized(true)
 	plugin.logger.Infof("%s device plugin started", plugin.resourceName)
 	err = <-errChan
 
 	return err
+}
+
+func (plugin *USBDevicePlugin) healthCheck() error {
+	monitoredDevices := make(map[string]string)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+	}
+	defer watcher.Close()
+
+	watchedDirs := make(map[string]struct{})
+	for _, pd := range plugin.devices {
+		for _, usb := range pd.Devices {
+			usbDevicePath := filepath.Join(util.HostRootMount, usb.DevicePath)
+			usbDeviceDirPath := filepath.Dir(usbDevicePath)
+			if _, exists := watchedDirs[usbDeviceDirPath]; !exists {
+				if err := watcher.Add(usbDeviceDirPath); err != nil {
+					return fmt.Errorf("failed to watch device %s parent directory: %s", usbDevicePath, err)
+				}
+				watchedDirs[usbDeviceDirPath] = struct{}{}
+			}
+
+			if err := watcher.Add(usbDevicePath); err != nil {
+				return fmt.Errorf("failed to add the device %s to the watcher: %s", usbDevicePath, err)
+			} else if _, err := os.Stat(usbDevicePath); err != nil {
+				return fmt.Errorf("failed to validate device %s: %s", usbDevicePath, err)
+			}
+			monitoredDevices[usbDevicePath] = usb.GetID()
+		}
+	}
+
+	dirName := filepath.Dir(plugin.socketPath)
+	if err := watcher.Add(dirName); err != nil {
+		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
+	} else if _, err = os.Stat(plugin.socketPath); err != nil {
+		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
+	}
+
+	for {
+		select {
+		case <-plugin.stop:
+			return nil
+		case err := <-watcher.Errors:
+			plugin.logger.Reason(err).Errorf("error watching devices and device plugin directory")
+		case event := <-watcher.Events:
+			plugin.logger.V(2).Infof("health Event: %v", event)
+			if id, exist := monitoredDevices[event.Name]; exist {
+				// Health in this case is if the device path actually exists
+				if event.Op == fsnotify.Create {
+					plugin.logger.Infof("monitored device %s appeared", plugin.resourceName)
+					plugin.setDeviceHealth(id, true)
+				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
+					plugin.logger.Infof("monitored device %s disappeared", plugin.resourceName)
+					plugin.setDeviceHealth(id, false)
+				}
+			} else if event.Name == plugin.socketPath && event.Op == fsnotify.Remove {
+				plugin.logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", plugin.resourceName)
+				return nil
+			}
+		}
+	}
 }
 
 func (plugin *USBDevicePlugin) cleanup() error {
@@ -268,6 +355,10 @@ func (plugin *USBDevicePlugin) ListAndWatch(_ *pluginapi.Empty, lws pluginapi.De
 	done := false
 	for !done {
 		select {
+		case <-plugin.update:
+			if err := sendUpdate(plugin.devicesToKubeVirtDevicePlugin()); err != nil {
+				return err
+			}
 		case <-plugin.stop:
 			done = true
 		}
