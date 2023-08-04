@@ -17908,6 +17908,11 @@
      "maxGuest": {
       "description": "MaxGuest defines the maximum amount memory that can be allocated to the guest using hotplug.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "maxHotplugRatio": {
+      "description": "MaxHotplugRatio is the ratio used to define the max amount of a hotplug resource that can be made available to a VM when the specific Max* setting is not defined (MaxCpuSockets, MaxGuest) Example: VM is configured with 512Mi of guest memory, if MaxGuest is not defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi defaults to 4",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },

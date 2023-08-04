@@ -19562,6 +19562,13 @@ func schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref common.ReferenceC
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"maxHotplugRatio": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxHotplugRatio is the ratio used to define the max amount of a hotplug resource that can be made available to a VM when the specific Max* setting is not defined (MaxCpuSockets, MaxGuest) Example: VM is configured with 512Mi of guest memory, if MaxGuest is not defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi defaults to 4",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"maxCpuSockets": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",

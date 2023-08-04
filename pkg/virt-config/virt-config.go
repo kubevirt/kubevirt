@@ -84,6 +84,8 @@ const (
 	DefaultVirtAPIBurst                   = 10
 	DefaultVirtWebhookClientQPS           = 200
 	DefaultVirtWebhookClientBurst         = 400
+
+	DefaultMaxHotplugRatio = 4
 )
 
 func IsAMD64(arch string) bool {
@@ -447,8 +449,17 @@ func (c *ClusterConfig) GetMaximumCpuSockets() (numOfSockets uint32) {
 
 func (c *ClusterConfig) GetMaximumGuestMemory() *resource.Quantity {
 	liveConfig := c.GetConfig().LiveUpdateConfiguration
-	if liveConfig != nil && liveConfig.MaxGuest != nil {
+	if liveConfig != nil {
 		return liveConfig.MaxGuest
 	}
 	return nil
+}
+
+func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
+	liveConfig := c.GetConfig().LiveUpdateConfiguration
+	if liveConfig == nil {
+		return 1
+	}
+
+	return liveConfig.MaxHotplugRatio
 }
