@@ -48,6 +48,8 @@ const (
 	PathToUSBDevices = "/sys/bus/usb/devices"
 )
 
+var discoverLocalUSBDevicesFunc = discoverPluggedUSBDevices
+
 // The sysfs metadata wrapper for the USB devices
 type USBDevice struct {
 	Name         string
@@ -600,7 +602,7 @@ func discoverAllowedUSBDevices(usbs []v1.USBHostDevice) map[string][]*PluginDevi
 	// The return value: USB Device Plugins found and permitted to be exposed
 	plugins := make(map[string][]*PluginDevices)
 	// All USB devices found plugged in the Node
-	localDevices := discoverPluggedUSBDevices()
+	localDevices := discoverLocalUSBDevicesFunc()
 	for _, usbConfig := range usbs {
 		resourceName := usbConfig.ResourceName
 		index := 0
