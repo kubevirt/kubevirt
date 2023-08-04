@@ -19,13 +19,14 @@
 package watch
 
 import (
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	k8sv1 "k8s.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -261,6 +262,118 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			[]v1.VirtualMachineInterfaceRequest{},
 		),
 	)
+
+	Context("handle dynamic interface requests", func() {
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		})
+
+		DescribeTable("for a VM with no interfaces",
+			func(requests []v1.VirtualMachineInterfaceRequest, expectedInterfaces []v1.Interface, expectedNetworks []v1.Network, vmi *v1.VirtualMachineInstance) {
+				vm := kubecli.NewMinimalVM("test")
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+				vm.Status.InterfaceRequests = requests
+
+				Expect(handleDynamicInterfaceRequests(vm, vmi, clusterConfig)).To(Succeed())
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal(expectedInterfaces))
+				Expect(vm.Spec.Template.Spec.Networks).To(Equal(expectedNetworks))
+			},
+			Entry("no request",
+				[]v1.VirtualMachineInterfaceRequest{},
+				nil,
+				nil,
+				libvmi.New(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(v1.Interface{Name: "default"}),
+				),
+			),
+			Entry("one hot plug request, a default interface should be added to the VM",
+				[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
+				[]v1.Interface{
+					{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+					{Name: "blue", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				},
+				[]v1.Network{
+					*v1.DefaultPodNetwork(),
+					{Name: "blue", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				},
+				libvmi.New(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(v1.Interface{Name: "default"}),
+				),
+			),
+			Entry("one hot plug request, VMI has no pod network",
+				[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
+				[]v1.Interface{
+					{Name: "blue", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				},
+				[]v1.Network{
+					{Name: "blue", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				},
+				libvmi.New(),
+			),
+			Entry("one hot unplug request",
+				[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "blue"}}},
+				nil,
+				nil,
+				libvmi.New(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(v1.Interface{Name: "default"}),
+				),
+			),
+		)
+
+		DescribeTable("for a VM with existing interfaces",
+			func(requests []v1.VirtualMachineInterfaceRequest, expectedInterfaces []v1.Interface, expectedNetworks []v1.Network) {
+				vm := kubecli.NewMinimalVM("test")
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+				vm.Spec.Template.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "oldNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+				vm.Spec.Template.Spec.Networks = []v1.Network{{Name: "oldNet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}}
+				vm.Status.InterfaceRequests = requests
+
+				vmi := libvmi.New(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(v1.Interface{Name: "default"}),
+					libvmi.WithNetwork(&v1.Network{Name: "oldNet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}),
+					libvmi.WithInterface(v1.Interface{Name: "oldNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}),
+				)
+				Expect(handleDynamicInterfaceRequests(vm, vmi, clusterConfig)).To(Succeed())
+				Expect(vm.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal(expectedInterfaces))
+				Expect(vm.Spec.Template.Spec.Networks).To(Equal(expectedNetworks))
+			},
+			Entry("no requests",
+				[]v1.VirtualMachineInterfaceRequest{},
+				[]v1.Interface{
+					{Name: "oldNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				},
+				[]v1.Network{
+					{Name: "oldNet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				},
+			),
+			Entry("one hot plug request",
+				[]v1.VirtualMachineInterfaceRequest{{AddInterfaceOptions: &v1.AddInterfaceOptions{Name: "blue"}}},
+				[]v1.Interface{
+					{Name: "oldNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+					{Name: "blue", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				},
+				[]v1.Network{
+					{Name: "oldNet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+					{Name: "blue", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				},
+			),
+			Entry("one hot unplug request",
+				[]v1.VirtualMachineInterfaceRequest{{RemoveInterfaceOptions: &v1.RemoveInterfaceOptions{Name: "oldNet"}}},
+				[]v1.Interface{
+					{Name: "oldNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}, State: v1.InterfaceStateAbsent},
+				},
+				[]v1.Network{
+					{Name: "oldNet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				},
+			),
+		)
+	})
 })
 
 func withInterfaceStatus(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) libvmi.Option {
