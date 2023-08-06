@@ -3053,10 +3053,16 @@ func (d *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachine
 	sriovSpecIfacesNames := netvmispec.IndexInterfaceSpecByName(sriovSpecInterfaces)
 	attachedSriovStatusIfaces := netvmispec.IndexInterfacesFromStatus(vmi.Status.Interfaces, func(iface v1.VirtualMachineInstanceNetworkInterface) bool {
 		_, exist := sriovSpecIfacesNames[iface.Name]
-		return exist && netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceDomain)
+		return exist && netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceDomain) &&
+			netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
 	})
 
-	if len(sriovSpecInterfaces) == len(attachedSriovStatusIfaces) {
+	desiredSriovMultusPluggedIfaces := netvmispec.IndexInterfacesFromStatus(vmi.Status.Interfaces, func(iface v1.VirtualMachineInstanceNetworkInterface) bool {
+		_, exist := sriovSpecIfacesNames[iface.Name]
+		return exist && netvmispec.ContainsInfoSource(iface.InfoSource, netvmispec.InfoSourceMultusStatus)
+	})
+
+	if len(desiredSriovMultusPluggedIfaces) == len(attachedSriovStatusIfaces) {
 		d.sriovHotplugExecutorPool.Delete(vmi.UID)
 		return nil
 	}

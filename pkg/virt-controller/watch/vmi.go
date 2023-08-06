@@ -1267,8 +1267,8 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			}
 		}
 
-		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateDynamicInterfaces(vmi); dynamicIfacesExist {
-			if err := c.handleDynamicInterfaceRequests(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
+		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi); dynamicIfacesExist {
+			if err := c.updateMultusAnnotation(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
 				return &syncErrorImpl{
 					err:    fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err),
 					reason: FailedHotplugSyncReason,
@@ -2275,7 +2275,7 @@ func (c *VMIController) getVolumePhaseMessageReason(volume *virtv1.Volume, names
 	return virtv1.VolumePending, PVCNotReadyReason, "PVC is in phase Lost"
 }
 
-func (c *VMIController) handleDynamicInterfaceRequests(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
+func (c *VMIController) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
 	podAnnotations := pod.GetAnnotations()
 
 	indexedMultusStatusIfaces := services.NonDefaultMultusNetworksIndexedByIfaceName(pod)

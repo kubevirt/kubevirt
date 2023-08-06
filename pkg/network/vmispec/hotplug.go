@@ -44,7 +44,7 @@ func NetworksToHotplug(networks []v1.Network, interfaceStatus []v1.VirtualMachin
 func IndexInterfacesFromStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
 	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
 	for _, iface := range interfaces {
-		if p(iface) {
+		if p == nil || p(iface) {
 			indexedInterfaceStatus[iface.Name] = iface
 		}
 	}
