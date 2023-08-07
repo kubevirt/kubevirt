@@ -135,7 +135,7 @@ make cluster-up
 
 You can use the `FEATURE_GATES` environment variable to enable one or more feature gates provided by KubeVirt. The 
 list of feature gates (which evolve in time) can be checked directly from the 
-[source code](https://github.com/kubevirt/kubevirt/blob/main/pkg/virt-config/feature-gates.go#L26).
+[source code](https://github.com/kubevirt/kubevirt/blob/main/pkg/virt-config/feature-gates.go).
 
 ```bash
 # export FEATURE_GATES=<feature-gate-1>,<feature-gate-2>
