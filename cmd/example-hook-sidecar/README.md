@@ -14,7 +14,7 @@ annotations:
 
 ```shell
 # Create a VM requesting the hook sidecar
-cluster/kubectl.sh create -f cluster/examples/hook-with-sidecar-hook.yml
+cluster/kubectl.sh create -f examples/vmi-with-sidecar-hook.yaml
 
 # Once the VM is ready, connect to its display and login using name and password "fedora"
 cluster/virtctl.sh vnc vm-with-sidecar-hook
