@@ -449,10 +449,7 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 
 func GetVMIMigratable() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMigratable)
-	// having no network leads to adding a default interface that may be of type bridge on
-	// the pod network and that would make the VMI non-migratable. Therefore, adding a network.
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+	makeMigratable(vmi)
 
 	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), v1.DiskBusVirtio)
 	return vmi
@@ -475,6 +472,7 @@ func GetVMISata() *v1.VirtualMachineInstance {
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	makeMigratable(vmi)
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
@@ -1478,4 +1476,11 @@ func GetVmWindowsInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine
 	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 
 	return vm
+}
+
+func makeMigratable(vmi *v1.VirtualMachineInstance) {
+	// having no network leads to adding a default interface that may be of type bridge on
+	// the pod network and that would make the VMI non-migratable. Therefore, adding a network.
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 }
