@@ -83,11 +83,18 @@ func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	setDefaultResourceRequests(clusterConfig, spec)
 	SetDefaultGuestCPUTopology(clusterConfig, spec)
 	setDefaultPullPoliciesOnContainerDisks(clusterConfig, spec)
+	setDefaultEvictionStrategy(clusterConfig, spec)
 	if err := clusterConfig.SetVMISpecDefaultNetworkInterface(spec); err != nil {
 		return err
 	}
 	util.SetDefaultVolumeDisk(spec)
 	return nil
+}
+
+func setDefaultEvictionStrategy(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+	if spec.EvictionStrategy == nil {
+		spec.EvictionStrategy = clusterConfig.GetConfig().EvictionStrategy
+	}
 }
 
 func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
