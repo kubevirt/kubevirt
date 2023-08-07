@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 
@@ -62,9 +63,14 @@ func RelabelCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not open file %v. Reason: %v", safePath, err)
 			}
-
 			defer fd.Close()
 			filePath := fd.SafePath()
+
+			if fileInfo, err := safepath.StatAtNoFollow(safePath); err != nil {
+				return fmt.Errorf("could not stat file %v. Reason: %v", safePath, err)
+			} else if (fileInfo.Mode() & os.ModeSocket) != 0 {
+				return relabelUnixSocket(filePath, label)
+			}
 
 			writeableFD, err := os.OpenFile(filePath, os.O_APPEND|unix.S_IWRITE, os.ModePerm)
 			if err != nil {
@@ -74,7 +80,7 @@ func RelabelCommand() *cobra.Command {
 
 			currentFileLabel, err := getLabel(writeableFD)
 			if err != nil {
-				return fmt.Errorf("faild to get selinux label for file %v: %v", filePath, err)
+				return fmt.Errorf("failed to get selinux label for file %v: %v", filePath, err)
 			}
 
 			if currentFileLabel != label {
@@ -107,4 +113,15 @@ func getLabel(file *os.File) (string, error) {
 		labelLength = labelLength - 1
 	}
 	return string(buffer[:labelLength]), nil
+}
+
+func relabelUnixSocket(filePath, label string) error {
+	if currentLabel, err := selinux.FileLabel(filePath); err != nil {
+		return fmt.Errorf("could not retrieve label of file %s. Reason: %v", filePath, err)
+	} else if currentLabel != label {
+		if err := unix.Setxattr(filePath, xattrNameSelinux, []byte(label), 0); err != nil {
+			return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", filePath, label, err)
+		}
+	}
+	return nil
 }
