@@ -35,7 +35,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -65,6 +64,7 @@ const (
 var listenAddressFmt string
 var listenAddress = "127.0.0.1"
 var proxyOnly bool
+
 var customPort = 0
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {

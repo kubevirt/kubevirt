@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "emptyvfs.go",
+        "fs.go",
+        "namespace.go",
+        "os.go",
+        "vfs.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/godoc/vfs",
+    importpath = "golang.org/x/tools/godoc/vfs",
+    visibility = ["//visibility:public"],
+)
