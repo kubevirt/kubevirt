@@ -472,6 +472,7 @@ func GetVMISata() *v1.VirtualMachineInstance {
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	makeMigratable(vmi)
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 	return vmi
