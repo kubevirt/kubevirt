@@ -985,9 +985,9 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := ("[" +
-					"{\"interface\":\"pod37a8eec1ce1\",\"name\":\"default\",\"namespace\":\"default\"}," +
-					"{\"interface\":\"pod1b4f0e98519\",\"name\":\"test1\",\"namespace\":\"default\"}," +
-					"{\"interface\":\"pod49dba5c72f0\",\"name\":\"test1\",\"namespace\":\"other-namespace\"}" +
+					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
+					"{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}," +
+					"{\"name\":\"test1\",\"namespace\":\"other-namespace\",\"interface\":\"pod49dba5c72f0\"}" +
 					"]")
 				Expect(value).To(Equal(expectedIfaces))
 			})
@@ -1026,7 +1026,7 @@ var _ = Describe("Template", func() {
 				Expect(value).To(Equal("default"))
 				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(BeTrue())
-				Expect(value).To(Equal("[{\"interface\":\"pod1b4f0e98519\",\"name\":\"test1\",\"namespace\":\"default\"}]"))
+				Expect(value).To(Equal("[{\"name\":\"test1\",\"namespace\":\"default\",\"interface\":\"pod1b4f0e98519\"}]"))
 			})
 			It("should add MAC address in the pod annotation", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
@@ -1070,8 +1070,8 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(BeTrue())
 				expectedIfaces := ("[" +
-					"{\"interface\":\"pod37a8eec1ce1\",\"name\":\"default\",\"namespace\":\"default\"}," +
-					"{\"interface\":\"pod1b4f0e98519\",\"mac\":\"de:ad:00:00:be:af\",\"name\":\"test1\",\"namespace\":\"default\"}" +
+					"{\"name\":\"default\",\"namespace\":\"default\",\"interface\":\"pod37a8eec1ce1\"}," +
+					"{\"name\":\"test1\",\"namespace\":\"default\",\"mac\":\"de:ad:00:00:be:af\",\"interface\":\"pod1b4f0e98519\"}" +
 					"]")
 				Expect(value).To(Equal(expectedIfaces))
 			})

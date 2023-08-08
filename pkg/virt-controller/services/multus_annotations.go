@@ -34,18 +34,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type multusNetworkAnnotation struct {
-	InterfaceName string `json:"interface"`
-	Mac           string `json:"mac,omitempty"`
-	NetworkName   string `json:"name"`
-	Namespace     string `json:"namespace"`
-}
-
 type multusNetworkAnnotationPool struct {
-	pool []multusNetworkAnnotation
+	pool []networkv1.NetworkSelectionElement
 }
 
-func (mnap *multusNetworkAnnotationPool) add(multusNetworkAnnotation multusNetworkAnnotation) {
+func (mnap *multusNetworkAnnotationPool) add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
 	mnap.pool = append(mnap.pool, multusNetworkAnnotation)
 }
 
@@ -82,18 +75,18 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 	return "", nil
 }
 
-func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) multusNetworkAnnotation {
+func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
 	namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
 	}
-	return multusNetworkAnnotation{
-		InterfaceName: podInterfaceName,
-		Mac:           multusIfaceMac,
-		Namespace:     namespace,
-		NetworkName:   networkName,
+	return networkv1.NetworkSelectionElement{
+		InterfaceRequest: podInterfaceName,
+		MacRequest:       multusIfaceMac,
+		Namespace:        namespace,
+		Name:             networkName,
 	}
 }
 
