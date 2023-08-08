@@ -51,6 +51,7 @@ go_test(
     embedsrcs = [
         "testdata/domain_x86_64.xml.tmpl",
         "testdata/domain_ppc64le.xml.tmpl",
+        "testdata/domain_arm64.xml.tmpl",
     ],
     deps = [
         "//pkg/ephemeral-disk/fake:go_default_library",
