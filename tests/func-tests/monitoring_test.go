@@ -68,8 +68,8 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				if rule.Alert != "" {
 					Expect(rule.Annotations).To(HaveKeyWithValue("summary", Not(BeEmpty())),
 						"%s summary is missing or empty", rule.Alert)
-					Expect(rule.Annotations).To(HaveKeyWithValue("runbook_url", Not(BeEmpty())),
-						"%s runbook_url is missing or empty", rule.Alert)
+					Expect(rule.Annotations).To(HaveKeyWithValue("runbook_url", ContainSubstring(rule.Alert)),
+						"%s runbook_url is missing or doesn't contain alert name", rule.Alert)
 					checkRunbookURLAvailability(rule)
 				}
 			}
