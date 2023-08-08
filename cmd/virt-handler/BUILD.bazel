@@ -19,7 +19,6 @@ go_library(
         "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/service:go_default_library",
-        "//pkg/storage/reservation:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/ratelimiter:go_default_library",
         "//pkg/util/tls:go_default_library",
