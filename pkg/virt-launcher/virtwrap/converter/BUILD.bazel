@@ -48,7 +48,10 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
-    embedsrcs = ["testdata/domain_x86_64.xml.tmpl"],
+    embedsrcs = [
+        "testdata/domain_x86_64.xml.tmpl",
+        "testdata/domain_ppc64le.xml.tmpl",
+    ],
     deps = [
         "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
