@@ -38,85 +38,9 @@ import (
 var exampleXML string
 var exampleXMLwithNoneMemballoon string
 
+//go:embed testdata/domain_ppc64le.xml.tmpl
+var exampleXMLppc64le string
 var exampleXMLppc64lewithNoneMemballoon string
-var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>mynamespace_testvmi</name>
-  <memory unit="MB">9</memory>
-  <os>
-    <type arch="ppc64le" machine="pseries">hvm</type>
-  </os>
-  <sysinfo type="smbios">
-    <system>
-      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
-    </system>
-    <bios></bios>
-    <baseBoard></baseBoard>
-    <chassis></chassis>
-  </sysinfo>
-  <devices>
-    <controller type="raw" index="0" model="none"></controller>
-    <video>
-      <model type="vga" heads="1" vram="16384"></model>
-    </video>
-    %s
-    <disk device="disk" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
-      <target dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk"></alias>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target dev="vdb"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk1"></alias>
-    </disk>
-    <disk device="disk" type="block">
-      <source dev="/dev/testdev"></source>
-      <target dev="vdc"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk2"></alias>
-    </disk>
-    <input type="tablet" bus="virtio">
-      <alias name="ua-tablet0"></alias>
-    </input>
-    <console type="pty"></console>
-    <watchdog model="i6300esb" action="poweroff">
-      <alias name="ua-mywatchdog"></alias>
-    </watchdog>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
-  </devices>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
-      <graceperiod>
-        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-  </metadata>
-  <features>
-    <acpi></acpi>
-    <smm></smm>
-    <kvm>
-      <hidden state="on"></hidden>
-      <hint-dedicated state="on"></hint-dedicated>
-    </kvm>
-    <pvspinlock state="off"></pvspinlock>
-    <pmu state="off"></pmu>
-  </features>
-  <cpu mode="custom">
-    <model>Conroe</model>
-    <feature name="pcid" policy="require"></feature>
-    <feature name="monitor" policy="disable"></feature>
-    <topology sockets="1" cores="2" threads="1"></topology>
-  </cpu>
-  <vcpu placement="static">2</vcpu>
-  <iothreads>2</iothreads>
-</domain>`
 
 // TODO: Make the XML fit for real arm64 configuration
 var exampleXMLarm64withNoneMemballoon string
@@ -216,9 +140,9 @@ var _ = ginkgo.Describe("Schema", func() {
       <stats period="10"></stats>
     </memballoon>`)
 
-	exampleXMLppc64lewithNoneMemballoon = fmt.Sprintf(exampleXMLppc64le,
+	exampleXMLppc64lewithNoneMemballoon = templateToString(exampleXMLppc64le,
 		`<memballoon model="none"></memballoon>`)
-	exampleXMLppc64le = fmt.Sprintf(exampleXMLppc64le,
+	exampleXMLppc64le = templateToString(exampleXMLppc64le,
 		`<memballoon model="virtio">
       <stats period="10"></stats>
     </memballoon>`)
