@@ -133,6 +133,17 @@ export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
 ```
 
+You can use the `FEATURE_GATES` environment variable to enable one or more feature gates provided by KubeVirt. The 
+list of feature gates (which evolve in time) can be checked directly from the 
+[source code](https://github.com/kubevirt/kubevirt/blob/main/pkg/virt-config/feature-gates.go).
+
+```bash
+# export FEATURE_GATES=<feature-gate-1>,<feature-gate-2>
+# e.g. to enable Sidecar and HotplugNICs feature gates run below
+$ export FEATURE_GATES=Sidecar,HotplugNICs
+$ make cluster-sync
+```
+
 **Note:** If you see the error below, 
 check if the MTU of the container and the host are the same. 
 If not, try to adjust them to be the same. 
