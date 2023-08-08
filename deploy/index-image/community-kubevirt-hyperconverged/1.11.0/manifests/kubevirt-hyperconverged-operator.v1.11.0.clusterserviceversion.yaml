@@ -3,7 +3,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta2","kind":"SSP","metadata":{"annotations":{"ssp.kubevirt.io/vm-console-proxy-namespace":"kubevirt"},"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"featureGates":{"deployTektonTaskResources":true,"deployVmConsoleProxy":true},"tektonPipelines":{"namespace":"kubevirt"},"tektonTasks":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}}]'
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta2","kind":"SSP","metadata":{"annotations":{"ssp.kubevirt.io/vm-console-proxy-namespace":"kubevirt"},"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"featureGates":{"deployTektonTaskResources":true,"deployVmConsoleProxy":true},"tektonPipelines":{"namespace":"kubevirt"},"tektonTasks":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}},{"apiVersion":"mtq.kubevirt.io/v1alpha1","kind":"MTQ","metadata":{"name":"mtq","namespace":"mtq"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Deep Insights
     categories: OpenShift Optional
     certified: "false"
@@ -15,7 +15,7 @@ metadata:
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
     operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'
-    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","ssps.ssp.kubevirt.io","ssps.ssp.kubevirt.io","cdis.cdi.kubevirt.io","mtqs.mtq.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
   labels:
@@ -104,6 +104,11 @@ spec:
       kind: HostPathProvisioner
       name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
       version: v1beta1
+    - description: Represents a MTQ deployment
+      displayName: MTQ deployment
+      kind: MTQ
+      name: mtqs.mtq.kubevirt.io
+      version: v1alpha1
   description: |-
     **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
     Specifically, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -2769,6 +2774,136 @@ spec:
           - list
           - watch
         serviceAccountName: hostpath-provisioner-operator
+      - rules:
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          - roles
+          verbs:
+          - '*'
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - clusterroles
+          verbs:
+          - '*'
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          verbs:
+          - get
+          - list
+          - watch
+          - delete
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          - customresourcedefinitions/status
+          verbs:
+          - '*'
+        - apiGroups:
+          - mtq.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - scheduling.k8s.io
+          resources:
+          - priorityclasses
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - resourcequotas
+          verbs:
+          - list
+          - watch
+          - update
+        - apiGroups:
+          - mtq.kubevirt.io
+          resources:
+          - virtualmachinemigrationresourcequotas
+          verbs:
+          - get
+          - update
+          - watch
+          - list
+        - apiGroups:
+          - mtq.kubevirt.io
+          resources:
+          - virtualmachinemigrationresourcequotas/status
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstances
+          - virtualmachineinstancemigrations
+          verbs:
+          - watch
+          - list
+        - apiGroups:
+          - admissionregistration.k8s.io
+          resources:
+          - validatingwebhookconfigurations
+          verbs:
+          - create
+          - get
+          - delete
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - list
+          - watch
+        serviceAccountName: mtq-operator
       deployments:
       - label:
           app.kubernetes.io/component: deployment
@@ -2833,6 +2968,7 @@ spec:
                   value: v0.18.2
                 - name: HPPO_VERSION
                   value: v0.16.0
+                - name: MTQ_VERSION
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:5a783ac8af2ad5d6c7dd731ad29dfb013321c06f919dce2242eef1b3d0a9f194
                 - name: KV_CONSOLE_PROXY_IMAGE
@@ -3491,6 +3627,76 @@ spec:
                   - key: tls.key
                     path: tls.key
                   secretName: hostpath-provisioner-operator-webhook-service-cert
+      - label:
+          app.kubernetes.io/component: compute
+          app.kubernetes.io/managed-by: olm
+          app.kubernetes.io/part-of: hyperconverged-cluster
+          app.kubernetes.io/version: 1.11.0
+        name: mtq-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: mtq-operator
+              operator.mtq.kubevirt.io: ""
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                app.kubernetes.io/component: compute
+                app.kubernetes.io/managed-by: olm
+                app.kubernetes.io/part-of: hyperconverged-cluster
+                app.kubernetes.io/version: 1.11.0
+                name: mtq-operator
+                operator.mtq.kubevirt.io: ""
+                prometheus.mtq.kubevirt.io: "true"
+            spec:
+              containers:
+              - args:
+                - -v=1
+                env:
+                - name: DEPLOY_CLUSTER_RESOURCES
+                  value: "true"
+                - name: OPERATOR_VERSION
+                - name: CONTROLLER_IMAGE
+                  value: quay.io/kubevirt/mtq-controller@sha256:2ace617bf35253db8c58c1ceca7e9172caeb1d05b224183a137bb8285f7a465e
+                - name: MTQ_LOCK_SERVER_IMAGE
+                  value: quay.io/kubevirt/mtq-lock-server@sha256:4a405a16ed22af038c093172d00b2c6ebd1cbd73af913d95906683112c8f084e
+                - name: VERBOSITY
+                  value: "1"
+                - name: PULL_POLICY
+                  value: IfNotPresent
+                - name: MONITORING_NAMESPACE
+                image: quay.io/kubevirt/mtq-operator@sha256:086af448a63d7ab4d705037b535da51c71ba0a47d47c8c971e8875f227868a4c
+                imagePullPolicy: IfNotPresent
+                name: mtq-operator
+                ports:
+                - containerPort: 8080
+                  name: metrics
+                  protocol: TCP
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 150Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  runAsNonRoot: true
+                  seccompProfile:
+                    type: RuntimeDefault
+                terminationMessagePath: /dev/termination-log
+                terminationMessagePolicy: File
+              nodeSelector:
+                kubernetes.io/os: linux
+              priorityClassName: kubevirt-cluster-critical
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: mtq-operator
+              tolerations:
+              - key: CriticalAddonsOnly
+                operator: Exists
       permissions:
       - rules:
         - apiGroups:
@@ -3872,6 +4078,44 @@ spec:
           - list
           - watch
         serviceAccountName: hostpath-provisioner-operator
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          - configmaps
+          - events
+          - secrets
+          - services
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - deployments/finalizers
+          verbs:
+          - '*'
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          - prometheusrules
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - '*'
+        serviceAccountName: mtq-operator
     strategy: deployment
   installModes:
   - supported: false
@@ -3953,6 +4197,12 @@ spec:
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
     name: macvtap-cni
+  - image: quay.io/kubevirt/mtq-controller@sha256:2ace617bf35253db8c58c1ceca7e9172caeb1d05b224183a137bb8285f7a465e
+    name: mtq-controller
+  - image: quay.io/kubevirt/mtq-lock-server@sha256:4a405a16ed22af038c093172d00b2c6ebd1cbd73af913d95906683112c8f084e
+    name: mtq-lock-server
+  - image: quay.io/kubevirt/mtq-operator@sha256:086af448a63d7ab4d705037b535da51c71ba0a47d47c8c971e8875f227868a4c
+    name: mtq-operator
   - image: ghcr.io/k8snetworkplumbingwg/multus-cni@sha256:3fbcc32bd4e4d15bd93c96def784a229cd84cca27942bf4858b581f31c97ee02
     name: multus-cni
   - image: ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller@sha256:dee1979d92f0a31598a6e3569ac7004be7d29e7ca9e31db23753ef263110dc04

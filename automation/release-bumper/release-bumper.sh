@@ -77,6 +77,7 @@ function get_current_versions {
     ["SSP"]=""
     ["HPPO"]=""
     ["HPP"]=""
+    ["MTQ"]=""
     ["KUBEVIRT_CONSOLE_PLUGIN"]=""
     ["KUBEVIRT_CONSOLE_PROXY"]=""
   )
@@ -94,6 +95,7 @@ function get_updated_versions {
     ["SSP"]="kubevirt/ssp-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
+    ["MTQ"]="kubevirt/mtq_operator"
     ["KUBEVIRT_CONSOLE_PLUGIN"]="kubevirt-ui/kubevirt-plugin"
     ["KUBEVIRT_CONSOLE_PROXY"]="kubevirt-ui/kubevirt-apiserver-proxy"
   )

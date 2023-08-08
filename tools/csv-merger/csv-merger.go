@@ -87,6 +87,7 @@ var (
 	sspCsv              = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
 	cdiCsv              = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
 	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	mtqCsv              = flag.String("mtq-csv", "", "Managed Tenant Quota Operator CSV String")
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	webhookImage        = flag.String("webhook-image-name", "", "HyperConverged Cluster Webhook image")
 	cliDownloadsImage   = flag.String("cli-downloads-image-name", "", "Downloads Server image")
@@ -115,6 +116,7 @@ var (
 	cnaoVersion                   = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion                    = flag.String("ssp-version", "", "SSP operator version")
 	hppoVersion                   = flag.String("hppo-version", "", "HPP operator version")
+	mtqVersion                    = flag.String("mtq-version", "", "MTQ operator version")
 	apiSources                    = flag.String("api-sources", cwd+"/...", "Project sources")
 	enableUniqueSemver            = flag.Bool("enable-unique-version", false, "Insert a skipRange annotation to support unique semver in the CSV")
 	skipsList                     = flag.String("skips-list", "",
@@ -464,6 +466,10 @@ func getInitialCsvList() []util.CsvWithComponent {
 			Csv:       *hppCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
+		{
+			Csv:       *mtqCsv,
+			Component: hcoutil.AppComponentCompute,
+		},
 	}
 }
 
@@ -517,6 +523,7 @@ func getDeploymentParams() *components.DeploymentOperatorParams {
 		CnaoVersion:        *cnaoVersion,
 		SspVersion:         *sspVersion,
 		HppoVersion:        *hppoVersion,
+		MtqVersion:         *mtqVersion,
 		Env:                envVars,
 	}
 }

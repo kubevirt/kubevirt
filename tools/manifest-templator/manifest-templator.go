@@ -56,6 +56,7 @@ var (
 	sspCsv            = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
 	cdiCsv            = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
 	hppCsv            = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	mtqCsv            = flag.String("mtq-csv", "", "Managed Tenant Quota Operator CSV String")
 	operatorNamespace = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
 	operatorImage     = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
 	webhookImage      = flag.String("webhook-image", "", "HyperConverged Cluster Webhook image")
@@ -69,6 +70,7 @@ var (
 	cnaoVersion       = flag.String("cnao-version", "", "CNA operator version")
 	sspVersion        = flag.String("ssp-version", "", "SSP operator version")
 	hppoVersion       = flag.String("hppo-version", "", "HPP operator version")
+	mtqVersion        = flag.String("mtq-version", "", "MTQ operator version")
 	apiSources        = flag.String("api-sources", cwd+"/...", "Project sources")
 )
 
@@ -388,6 +390,10 @@ func getCsvWithComponent() []util.CsvWithComponent {
 			Csv:       *hppCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
+		{
+			Csv:       *mtqCsv,
+			Component: hcoutil.AppComponentCompute,
+		},
 	}
 	return componentsWithCsvs
 }
@@ -408,6 +414,7 @@ func getOperatorParameters() *components.DeploymentOperatorParams {
 		CnaoVersion:        *cnaoVersion,
 		SspVersion:         *sspVersion,
 		HppoVersion:        *hppoVersion,
+		MtqVersion:         *mtqVersion,
 		Env:                []corev1.EnvVar{},
 	}
 	return params

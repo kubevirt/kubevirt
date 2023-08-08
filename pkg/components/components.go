@@ -70,6 +70,7 @@ type DeploymentOperatorParams struct {
 	CnaoVersion         string
 	SspVersion          string
 	HppoVersion         string
+	MtqVersion          string
 	Env                 []corev1.EnvVar
 }
 
@@ -241,6 +242,10 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 							{
 								Name:  util.HppoVersionEnvV,
 								Value: params.HppoVersion,
+							},
+							{
+								Name:  util.MtqVersionEnvV,
+								Value: params.MtqVersion,
 							},
 							{
 								Name:  util.KVUIPluginImageEnvV,
