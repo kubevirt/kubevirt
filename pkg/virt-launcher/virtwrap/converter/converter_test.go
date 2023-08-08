@@ -68,6 +68,17 @@ var (
 	embedDomainTemplateRootBus string
 )
 
+const (
+	argNoMemBalloon      = `<memballoon model="none"></memballoon>`
+	argMemBalloon0period = `<memballoon model="virtio-non-transitional" freePageReporting="on"></memballoon>`
+	argMemBalloon5period = `<memballoon model="virtio-non-transitional" freePageReporting="on">
+      <stats period="5"></stats>
+    </memballoon>`
+	argMemBalloon10period = `<memballoon model="virtio-non-transitional" freePageReporting="on">
+      <stats period="10"></stats>
+    </memballoon>`
+)
+
 var _ = Describe("getOptimalBlockIO", func() {
 
 	It("Should detect disk block sizes for a file DiskSource", func() {
@@ -563,47 +574,25 @@ var _ = Describe("Converter", func() {
 		})
 
 		var convertedDomain = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
-		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="5"></stats>
-    </memballoon>`)
-		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on"></memballoon>`)
-		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain,
-			`<memballoon model="none"></memballoon>`)
-		convertedDomain = fmt.Sprintf(convertedDomain,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="10"></stats>
-    </memballoon>`)
+		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, argMemBalloon5period)
+		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, argMemBalloon0period)
+		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, argNoMemBalloon)
+
+		convertedDomain = fmt.Sprintf(convertedDomain, argMemBalloon10period)
 
 		var convertedDomainppc64le = strings.TrimSpace(fmt.Sprintf(embedDomainTemplatePPC64le, domainType, "%s"))
-		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="5"></stats>
-    </memballoon>`)
-		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on"></memballoon>`)
+		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le, argMemBalloon5period)
+		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le, argMemBalloon0period)
+		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le, argNoMemBalloon)
 
-		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="none"></memballoon>`)
-		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="10"></stats>
-    </memballoon>`)
+		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le, argMemBalloon10period)
 
 		var convertedDomainarm64 = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateARM64, domainType, "%s"))
-		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="5"></stats>
-    </memballoon>`)
-		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on"></memballoon>`)
-		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64,
-			`<memballoon model="none"></memballoon>`)
-		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64,
-			`<memballoon model="virtio-non-transitional" freePageReporting="on">
-      <stats period="10"></stats>
-    </memballoon>`)
+		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, argMemBalloon5period)
+		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, argMemBalloon0period)
+		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, argNoMemBalloon)
+
+		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, argMemBalloon10period)
 
 		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
 
