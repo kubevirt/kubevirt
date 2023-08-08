@@ -21,6 +21,7 @@ package virtwrap
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -72,6 +73,9 @@ var (
 	expectedFrozenOutput = `{"return":"frozen"}`
 	testDumpPath         = "/test/dump/path/vol1.memory.dump"
 	clusterConfig        *virtconfig.ClusterConfig
+
+	//go:embed testdata/migration_domain.xml
+	embedMigrationDomain string
 )
 
 var _ = BeforeSuite(func() {
@@ -1809,39 +1813,6 @@ var _ = Describe("Manager", func() {
 		})
 		It("should correctly collect a list of disks for migration", func() {
 			_true := true
-			var convertedDomain = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <devices>
-    <disk device="disk" type="block">
-      <source dev="/dev/pvc_block_test"></source>
-      <target bus="virtio" dev="vda"></target>
-      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
-      <alias name="ua-myvolume"></alias>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
-      <target bus="virtio" dev="vdb"></target>
-      <driver cache="none" name="qemu" type="qcow2" iothread="1"></driver>
-      <alias name="ua-myvolume1"></alias>
-      <backingStore type="file">
-        <format type="raw"></format>
-        <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
-      </backingStore>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
-      <target bus="virtio" dev="vdc"></target>
-      <driver name="qemu" type="raw" iothread="2"></driver>
-      <alias name="ua-myvolumehost"></alias>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target bus="virtio" dev="vdd"></target>
-      <driver name="qemu" type="raw" iothread="3"></driver>
-      <alias name="ua-cloudinit"></alias>
-	  <readonly/>
-    </disk>
-  </devices>
-</domain>`
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -1878,7 +1849,7 @@ var _ = Describe("Manager", func() {
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
 
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(convertedDomain), nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(embedMigrationDomain, nil)
 
 			copyDisks := getDiskTargetsForMigration(mockDomain, vmi)
 			Expect(copyDisks).Should(ConsistOf("vdb", "vdd"))
