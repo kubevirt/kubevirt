@@ -33,17 +33,26 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-//go:embed testdata/domain_x86_64.xml.tmpl
-var exampleXML string
-var exampleXMLwithNoneMemballoon string
+var (
+	//go:embed testdata/domain_x86_64.xml.tmpl
+	exampleXML                   string
+	exampleXMLwithNoneMemballoon string
 
-//go:embed testdata/domain_ppc64le.xml.tmpl
-var exampleXMLppc64le string
-var exampleXMLppc64lewithNoneMemballoon string
+	//go:embed testdata/domain_ppc64le.xml.tmpl
+	exampleXMLppc64le                   string
+	exampleXMLppc64lewithNoneMemballoon string
 
-//go:embed testdata/domain_arm64.xml.tmpl
-var exampleXMLarm64 string
-var exampleXMLarm64withNoneMemballoon string
+	//go:embed testdata/domain_arm64.xml.tmpl
+	exampleXMLarm64                   string
+	exampleXMLarm64withNoneMemballoon string
+)
+
+const (
+	argNoMemBalloon     = `<memballoon model="none"></memballoon>`
+	argMemBalloonVirtio = `<memballoon model="virtio">
+      <stats period="10"></stats>
+    </memballoon>`
+)
 
 var _ = ginkgo.Describe("Schema", func() {
 	templateToString := func(templateStr, templateInput string) string {
@@ -55,26 +64,14 @@ var _ = ginkgo.Describe("Schema", func() {
 		return strings.TrimSpace(buf.String())
 	}
 
-	exampleXMLwithNoneMemballoon = templateToString(exampleXML,
-		`<memballoon model="none"></memballoon>`)
-	exampleXML = templateToString(exampleXML,
-		`<memballoon model="virtio">
-      <stats period="10"></stats>
-    </memballoon>`)
+	exampleXMLwithNoneMemballoon = templateToString(exampleXML, argNoMemBalloon)
+	exampleXML = templateToString(exampleXML, argMemBalloonVirtio)
 
-	exampleXMLppc64lewithNoneMemballoon = templateToString(exampleXMLppc64le,
-		`<memballoon model="none"></memballoon>`)
-	exampleXMLppc64le = templateToString(exampleXMLppc64le,
-		`<memballoon model="virtio">
-      <stats period="10"></stats>
-    </memballoon>`)
+	exampleXMLppc64lewithNoneMemballoon = templateToString(exampleXMLppc64le, argNoMemBalloon)
+	exampleXMLppc64le = templateToString(exampleXMLppc64le, argMemBalloonVirtio)
 
-	exampleXMLarm64withNoneMemballoon = templateToString(exampleXMLarm64,
-		`<memballoon model="none"></memballoon>`)
-	exampleXMLarm64 = templateToString(exampleXMLarm64,
-		`<memballoon model="virtio">
-      <stats period="10"></stats>
-    </memballoon>`)
+	exampleXMLarm64withNoneMemballoon = templateToString(exampleXMLarm64, argNoMemBalloon)
+	exampleXMLarm64 = templateToString(exampleXMLarm64, argMemBalloonVirtio)
 
 	//The example domain should stay in sync to the xml above
 	var exampleDomain *Domain
