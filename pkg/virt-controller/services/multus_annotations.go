@@ -54,18 +54,18 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network) (string, error) {
-	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
+func GenerateMultusCNIAnnotation(vmi *v1.VirtualMachineInstance, interfaces []v1.Interface, networks []v1.Network) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(vmi, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
 }
 
-func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
+func GenerateMultusCNIAnnotationFromNameScheme(vmi *v1.VirtualMachineInstance, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.add(
-				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName))
+				newMultusAnnotationData(vmi, interfaces, network, podInterfaceName))
 		}
 	}
 
@@ -75,19 +75,30 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 	return "", nil
 }
 
-func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
+func newMultusAnnotationData(vmi *v1.VirtualMachineInstance, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
-	namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
+	namespace, networkName := getNamespaceAndNetworkName(vmi.Namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
 	if multusIface != nil {
 		multusIfaceMac = multusIface.MacAddress
 	}
-	return networkv1.NetworkSelectionElement{
+
+	nse := networkv1.NetworkSelectionElement{
 		InterfaceRequest: podInterfaceName,
 		MacRequest:       multusIfaceMac,
 		Namespace:        namespace,
 		Name:             networkName,
 	}
+
+	for _, ownerRef := range vmi.OwnerReferences {
+		nse.CNIArgs = &map[string]interface{}{
+			"whereabouts.cni.cncf.io/ownerType":    ownerRef.Kind,
+			"whereabouts.cni.cncf.io/ownerID":      ownerRef.UID,
+			"whereabouts.cni.cncf.io/ownerName":    ownerRef.Name,
+			"whereabouts.cni.cncf.io/ownerVersion": ownerRef.APIVersion,
+		}
+	}
+	return nse
 }
 
 func NonDefaultMultusNetworksIndexedByIfaceName(pod *k8sv1.Pod) map[string]networkv1.NetworkStatus {
