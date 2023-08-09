@@ -1204,6 +1204,16 @@ var CRDsValidation map[string]string = map[string]string{
             network:
               description: NetworkConfiguration holds network options
               properties:
+                binding:
+                  additionalProperties:
+                    properties:
+                      sidecarImage:
+                        description: 'SidecarImage references a container image that
+                          runs in the virt-launcher pod. The sidecar handles (libvirt)
+                          domain configuration and optional services. version: 1alphav1'
+                        type: string
+                    type: object
+                  type: object
                 defaultNetworkInterface:
                   type: string
                 permitBridgeInterfaceOnPodNetwork:

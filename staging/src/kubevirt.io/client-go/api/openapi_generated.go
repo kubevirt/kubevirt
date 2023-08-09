@@ -385,6 +385,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                             schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
+		"kubevirt.io/api/core/v1.InterfaceBindingPlugin":                                             schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref),
 		"kubevirt.io/api/core/v1.InterfaceBridge":                                                    schema_kubevirtio_api_core_v1_InterfaceBridge(ref),
 		"kubevirt.io/api/core/v1.InterfaceMacvtap":                                                   schema_kubevirtio_api_core_v1_InterfaceMacvtap(ref),
 		"kubevirt.io/api/core/v1.InterfaceMasquerade":                                                schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref),
@@ -18494,6 +18495,25 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sidecarImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SidecarImage references a container image that runs in the virt-launcher pod. The sidecar handles (libvirt) domain configuration and optional services. version: 1alphav1",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_InterfaceBridge(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20081,9 +20101,25 @@ func schema_kubevirtio_api_core_v1_NetworkConfiguration(ref common.ReferenceCall
 							Format: "",
 						},
 					},
+					"binding": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.InterfaceBindingPlugin"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.InterfaceBindingPlugin"},
 	}
 }
 
