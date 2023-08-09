@@ -187,7 +187,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 	log.Log.Infof("Monitoring loop: rate %v start timeout %s", rate, timeoutRepr)
 
 	ticker := time.NewTicker(rate)
-
+	defer ticker.Stop()
 	mon.isDone = false
 	mon.timeout = startTimeout
 	mon.start = time.Now()
@@ -206,7 +206,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 		}
 	}
 
-	ticker.Stop()
 }
 
 func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
