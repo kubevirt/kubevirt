@@ -178,17 +178,28 @@ if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     exit 0
 fi
 
+# for migration tests we need three nodes, thus we need to check whether migration tests are going to be run
+KUBEVIRT_NUM_NODES=2
+if [[ "${NEW_TESTS}" =~ migration ]]; then
+    KUBEVIRT_NUM_NODES=3
+else
+    if grep -q 'SkipTestIfNotEnoughNodesWithCPUManager' $(echo ${NEW_TESTS} | tr '|' ' '); then
+        KUBEVIRT_NUM_NODES=3
+    fi
+fi
+
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
+
+export KUBEVIRT_NUM_NODES
+export KUBEVIRT_WITH_CNAO="true"
+export KUBEVIRT_DEPLOY_CDI="true"
+export KUBEVIRT_NUM_SECONDARY_NICS=1
+export KUBEVIRT_STORAGE="rook-ceph-default"
+export KUBEVIRT_DEPLOY_NFS_CSI=true
 
 for lane in "${TEST_LANES[@]}"; do
 
     export KUBEVIRT_PROVIDER="$lane"
-    export KUBEVIRT_NUM_NODES=2
-    export KUBEVIRT_WITH_CNAO="true"
-    export KUBEVIRT_DEPLOY_CDI="true"
-    export KUBEVIRT_NUM_SECONDARY_NICS=1
-    export KUBEVIRT_STORAGE="rook-ceph-default"
-    export KUBEVIRT_DEPLOY_NFS_CSI=true
 
     ginko_params="$ginko_params -no-color -succinct -skip=QUARANTINE -randomize-all"
     for test_file in $(echo ${NEW_TESTS} | tr '|' '\n'); do
