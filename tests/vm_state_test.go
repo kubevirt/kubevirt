@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[sig-storage]VM state", decorators.SigStorage, func() {
+var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.RequiresRWXFilesystemStorage, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
