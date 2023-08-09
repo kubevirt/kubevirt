@@ -1,0 +1,9 @@
+# golangci configuration
+
+linters-settings:
+  ginkgolinter:
+    forbid-focus-container: true
+linters:
+  disable-all: true
+  enable:
+    - ginkgolinter

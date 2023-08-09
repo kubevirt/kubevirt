@@ -213,6 +213,9 @@ lint:
 	  tests/libvmi/... \
 	"
 
+	# FIXME(lyarwood) Use --disable-all -E ginkgolinter once https://github.com/golangci/golangci-lint/issues/3998 is resolved
+	hack/dockerized "golangci-lint run --config .golangci_ginkgo.yml --timeout 20m --verbose"
+
 lint-metrics:
 	hack/dockerized "./hack/prom-metric-linter/metrics_collector.sh > metrics.json"
 	./hack/prom-metric-linter/metric_name_linter.sh --operator-name="kubevirt" --sub-operator-name="kubevirt" --metrics-file=metrics.json
