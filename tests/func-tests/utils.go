@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/net"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -60,6 +61,15 @@ func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
 
 	if !isOpenShift {
 		ginkgo.Skip(fmt.Sprintf("Skipping %s tests when the cluster is not OpenShift", testName))
+	}
+}
+
+func SkipIfNotSingleStackIPv6OpenShift(cli kubecli.KubevirtClient, testName string) {
+	isSingleStackIPv6, err := IsOpenShiftSingleStackIPv6(cli)
+	kvtutil.PanicOnError(err)
+
+	if !isSingleStackIPv6 {
+		ginkgo.Skip(fmt.Sprintf("Skipping %s tests since the OpenShift cluster is not single stack IPv6", testName))
 	}
 }
 
@@ -109,10 +119,53 @@ func (c *cacheIsOpenShift) IsOpenShift(cli kubecli.KubevirtClient) (bool, error)
 	return false, err
 }
 
+func (c *cacheIsOpenShift) IsOpenShiftSingleStackIPv6(cli kubecli.KubevirtClient) (bool, error) {
+	// confirm we are on OpenShift
+	isOpenShift, err := c.IsOpenShift(cli)
+	if err != nil || !isOpenShift {
+		return false, err
+	}
+
+	s := scheme.Scheme
+	_ = openshiftconfigv1.Install(s)
+	s.AddKnownTypes(openshiftconfigv1.GroupVersion)
+
+	clusterNetwork := &openshiftconfigv1.Network{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+	}
+	gvr := schema.GroupVersionResource{
+		Group:    openshiftconfigv1.GroupVersion.Group,
+		Version:  openshiftconfigv1.GroupVersion.Version,
+		Resource: "networks",
+	}
+
+	clustnet, err := cli.DynamicClient().
+		Resource(gvr).
+		Get(context.TODO(), "cluster", metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(clustnet.Object, clusterNetwork)
+	if err != nil {
+		return false, err
+	}
+
+	cn := clusterNetwork.Status.ClusterNetwork
+	isSingleStackIPv6 := len(cn) == 1 && net.IsIPv6CIDRString(cn[0].CIDR)
+	return isSingleStackIPv6, nil
+}
+
 var isOpenShiftCache cacheIsOpenShift
 
 func IsOpenShift(cli kubecli.KubevirtClient) (bool, error) {
 	return isOpenShiftCache.IsOpenShift(cli)
+}
+
+func IsOpenShiftSingleStackIPv6(cli kubecli.KubevirtClient) (bool, error) {
+	return isOpenShiftCache.IsOpenShiftSingleStackIPv6(cli)
 }
 
 // GetHCO reads the HCO CR from the APIServer with a DynamicClient

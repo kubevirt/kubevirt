@@ -27,6 +27,7 @@ const (
 	outOfBandUpdateAlert          = "KubeVirtCRModified"
 	unsafeModificationAlert       = "UnsupportedHCOModification"
 	installationNotCompletedAlert = "HCOInstallationIncomplete"
+	singleStackIPv6Alert          = "SingleStackIPv6Unsupported"
 	severityAlertLabelKey         = "severity"
 	healthImpactAlertLabelKey     = "operator_health_impact"
 	partOfAlertLabelKey           = "kubernetes_operator_part_of"
@@ -140,6 +141,7 @@ func NewPrometheusRuleSpec() *monitoringv1.PrometheusRuleSpec {
 				createInstallationNotCompletedAlertRule(),
 				createRequestCPUCoresRule(),
 				createOperatorHealthStatusRule(),
+				createSingleStackIPv6AlertRule(),
 			},
 		}},
 	}
@@ -213,5 +215,20 @@ func createOperatorHealthStatusRule() monitoringv1.Rule {
 	return monitoringv1.Rule{
 		Record: "kubevirt_hyperconverged_operator_health_status",
 		Expr:   intstr.FromString(`label_replace(vector(2) and on() ((kubevirt_hco_system_health_status>1) or (count(ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="critical"})>0)) or (vector(1) and on() ((kubevirt_hco_system_health_status==1) or (count(ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="warning"})>0))) or vector(0),"name","kubevirt-hyperconverged","","")`),
+	}
+}
+
+func createSingleStackIPv6AlertRule() monitoringv1.Rule {
+	return monitoringv1.Rule{
+		Alert: singleStackIPv6Alert,
+		Expr:  intstr.FromString("kubevirt_hco_single_stack_ipv6 == 1"),
+		Annotations: map[string]string{
+			"description": "KubeVirt Hyperconverged is not supported on a single stack IPv6 cluster",
+			"summary":     "KubeVirt Hyperconverged is not supported on a single stack IPv6 cluster",
+		},
+		Labels: map[string]string{
+			severityAlertLabelKey:     "critical",
+			healthImpactAlertLabelKey: "critical",
+		},
 	}
 }

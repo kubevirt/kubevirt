@@ -528,7 +528,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("console.openshift.io", stringListToSlice("consoleclidownloads", "consolequickstarts")),
 		{
 			APIGroups: stringListToSlice(configOpenshiftIO),
-			Resources: stringListToSlice("clusterversions", "infrastructures", "ingresses"),
+			Resources: stringListToSlice("clusterversions", "infrastructures", "ingresses", "networks"),
 			Verbs:     stringListToSlice("get", "list"),
 		},
 		{

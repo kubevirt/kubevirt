@@ -411,6 +411,7 @@ spec:
           - clusterversions
           - infrastructures
           - ingresses
+          - networks
           verbs:
           - get
           - list

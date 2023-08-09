@@ -299,6 +299,9 @@ func (c ClusterInfoMock) IsConsolePluginImageProvided() bool {
 func (c ClusterInfoMock) IsMonitoringAvailable() bool {
 	return true
 }
+func (c ClusterInfoMock) IsSingleStackIPv6() bool {
+	return true
+}
 func (c ClusterInfoMock) GetPod() *corev1.Pod {
 	return pod
 }
@@ -373,6 +376,9 @@ func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
 func (c ClusterInfoSNOMock) IsMonitoringAvailable() bool {
 	return true
 }
+func (c ClusterInfoSNOMock) IsSingleStackIPv6() bool {
+	return true
+}
 
 // ClusterInfoSRCPHAIMock mocks Openshift with SingleReplica ControlPlane and HighAvailable Infrastructure
 type ClusterInfoSRCPHAIMock struct{}
@@ -416,6 +422,9 @@ func (ClusterInfoSRCPHAIMock) IsConsolePluginImageProvided() bool {
 	return true
 }
 func (ClusterInfoSRCPHAIMock) IsMonitoringAvailable() bool {
+	return true
+}
+func (m ClusterInfoSRCPHAIMock) IsSingleStackIPv6() bool {
 	return true
 }
 func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile {

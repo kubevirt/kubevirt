@@ -131,6 +131,17 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
 	})
 
+	It("KubevirtHyperconvergedClusterOperatorSingleStackIPv6 alert should be fired for single stack ipv6 cluster", func() {
+		tests.SkipIfNotSingleStackIPv6OpenShift(virtCli, "KubevirtHyperconvergedClusterOperatorSingleStackIPv6")
+
+		Eventually(func() *promApiv1.Alert {
+			alerts, err := promClient.Alerts(context.TODO())
+			Expect(err).ToNot(HaveOccurred())
+			return getAlertByName(alerts, "KubevirtHyperconvergedClusterOperatorSingleStackIPv6")
+		}, 60*time.Second, time.Second).ShouldNot(BeNil())
+
+		Expect(getMetricValue(promClient, "kubevirt_hco_single_stack_ipv6")).To(Equal(criticalImpact))
+	})
 })
 
 func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.Alert {

@@ -1486,8 +1486,20 @@ var _ = Describe("webhooks validator", func() {
 						BaseDomain: commontestutils.BaseDomain,
 					},
 				}
+				ipv4network := &openshiftconfigv1.Network{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Status: openshiftconfigv1.NetworkStatus{
+						ClusterNetwork: []openshiftconfigv1.ClusterNetworkEntry{
+							{
+								CIDR: "10.128.0.0/14",
+							},
+						},
+					},
+				}
 
-				resources := []client.Object{clusterVersion, infrastructure, ingress, apiServer, namespace, dns}
+				resources := []client.Object{clusterVersion, infrastructure, ingress, apiServer, namespace, dns, ipv4network}
 				cl = commontestutils.InitClient(resources)
 			})
 

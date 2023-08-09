@@ -135,7 +135,20 @@ var _ = Describe("HyperconvergedController", func() {
 					},
 				}
 
-				resources := []client.Object{clusterVersion, infrastructure, ingress, apiServer, dns}
+				ipv4network := &openshiftconfigv1.Network{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster",
+					},
+					Status: openshiftconfigv1.NetworkStatus{
+						ClusterNetwork: []openshiftconfigv1.ClusterNetworkEntry{
+							{
+								CIDR: "10.128.0.0/14",
+							},
+						},
+					},
+				}
+
+				resources := []client.Object{clusterVersion, infrastructure, ingress, apiServer, dns, ipv4network}
 				cl := commontestutils.InitClient(resources)
 
 				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
