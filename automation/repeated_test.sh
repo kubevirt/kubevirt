@@ -31,6 +31,12 @@ set -euo pipefail
 # * run all changed tests five times and
 # * randomize the test order each time
 
+# include defaults for retrieving proper vendored cluster-up version
+export DOCKER_TAG_ALT=''
+export IMAGE_PREFIX=''
+export IMAGE_PREFIX_ALT=''
+source hack/config-default.sh
+
 export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
@@ -123,7 +129,21 @@ if (( $# > 0 )); then
         shift
     done
 else
-    mapfile -t TEST_LANES < <( find cluster-up/cluster -name 'k8s-[0-9].[0-9][0-9]' -print | sort -rV | grep -oE 'k8s.*' | head -1 )
+    # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
+    # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
+    for k8s_provider in $(find cluster-up/cluster -name 'k8s-[0-9].[0-9][0-9]' -print | sort -rV | grep -oE 'k8s.*'); do
+        k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
+        if [[ ! "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
+            TEST_LANES=("${k8s_provider}")
+            break
+        else
+            echo "Skipping ${k8s_provider_version}"
+        fi
+    done
+    if (( ${#TEST_LANES[@]} == 0 )); then
+        echo "No stable provider found"
+        exit 1
+    fi
 fi
 echo "Test lanes: ${TEST_LANES[*]}"
 for lane in "${TEST_LANES[@]}"; do
