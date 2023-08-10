@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -33,6 +32,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
 	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 
@@ -2161,7 +2162,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
 				migrationPolicy.Spec.AllowPostCopy = k6tpointer.P(true)
 				migrationPolicy.Spec.CompletionTimeoutPerGiB = k6tpointer.P(int64(1))
-				migrationPolicy.Spec.BandwidthPerMigration = k6tpointer.P(resource.MustParse("40Mi"))
+				migrationPolicy.Spec.BandwidthPerMigration = k6tpointer.P(resource.MustParse("5Mi"))
 			})
 
 			Context("with datavolume", func() {
@@ -2198,7 +2199,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			It("[test_id:4747] should migrate using for postcopy", func() {
 				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				vmi.Namespace = testsuite.NamespacePrivileged
 
@@ -2214,12 +2215,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+				runStressTest(vmi, "350M", stressDefaultTimeout)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 150)
 
 				// check VMI, confirm migration state
 				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
