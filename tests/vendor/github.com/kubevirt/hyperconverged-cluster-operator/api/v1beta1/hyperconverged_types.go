@@ -91,6 +91,7 @@ type HyperConvergedSpec struct {
 
 	// ResourceRequirements describes the resource requirements for the operand workloads.
 	// +kubebuilder:default={"vmiCPUAllocationRatio": 10}
+	// +kubebuilder:validation:XValidation:rule="!has(self.vmiCPUAllocationRatio) || self.vmiCPUAllocationRatio != 1",message="Automatic CPU limits are incompatible with a VMI CPU allocation ratio of 1"
 	// +optional
 	ResourceRequirements *OperandResourceRequirements `json:"resourceRequirements,omitempty"`
 
@@ -503,6 +504,13 @@ type OperandResourceRequirements struct {
 	// +default=10
 	// +optional
 	VmiCPUAllocationRatio *int `json:"vmiCPUAllocationRatio,omitempty"`
+
+	// When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside
+	// namespaces that match the label selector.
+	// The CPU limit will equal the number of requested vCPUs.
+	// This setting does not apply to VMIs with dedicated CPUs.
+	// +optional
+	AutoCPULimitNamespaceLabelSelector *metav1.LabelSelector `json:"autoCPULimitNamespaceLabelSelector,omitempty"`
 }
 
 // HyperConvergedObsoleteCPUs allows avoiding scheduling of VMs for obsolete CPU models

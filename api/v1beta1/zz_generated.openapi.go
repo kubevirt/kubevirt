@@ -991,11 +991,17 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_OperandResource
 							Format:      "int32",
 						},
 					},
+					"autoCPULimitNamespaceLabelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside namespaces that match the label selector. The CPU limit will equal the number of requested vCPUs. This setting does not apply to VMIs with dedicated CPUs.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements"},
+			"k8s.io/api/core/v1.ResourceRequirements", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 

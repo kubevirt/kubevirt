@@ -2804,6 +2804,41 @@ Version: 1.2.3`)
 			})
 		})
 
+		Context("Auto CPU limit", func() {
+			It("should set the namespace label selector according to HCO CR", func() {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+					AutoCPULimitNamespaceLabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"someLabel": "true"},
+					},
+				}
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Configuration.AutoCPULimitNamespaceLabelSelector).To(BeNil())
+
+				Expect(foundResource.Spec.Configuration.AutoCPULimitNamespaceLabelSelector).NotTo(BeNil())
+				Expect(foundResource.Spec.Configuration.AutoCPULimitNamespaceLabelSelector.MatchLabels).To(HaveLen(1))
+				Expect(foundResource.Spec.Configuration.AutoCPULimitNamespaceLabelSelector.MatchLabels).To(HaveKeyWithValue("someLabel", "true"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
 		Context("Virtual machine options", func() {
 			It("should set disableFreePageReporting by default", func() {
 				kv, err := NewKubeVirt(hco)

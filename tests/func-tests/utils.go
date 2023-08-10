@@ -246,3 +246,12 @@ func PatchHCO(ctx context.Context, cl kubecli.KubevirtClient, patch []byte) erro
 	_, err := cl.DynamicClient().Resource(hcoGVR).Namespace(flags.KubeVirtInstallNamespace).Patch(ctx, hcoutil.HyperConvergedName, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return err
 }
+
+func RestoreDefaults(ctx context.Context, cli kubecli.KubevirtClient) {
+	Eventually(PatchHCO).
+		WithArguments(ctx, cli, []byte(`[{"op": "replace", "path": "/spec", "value": {}}]`)).
+		WithOffset(1).
+		WithTimeout(time.Second * 5).
+		WithPolling(time.Millisecond * 100).
+		Should(Succeed())
+}

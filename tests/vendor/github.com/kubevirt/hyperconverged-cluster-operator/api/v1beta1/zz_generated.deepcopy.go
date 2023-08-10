@@ -684,6 +684,11 @@ func (in *OperandResourceRequirements) DeepCopyInto(out *OperandResourceRequirem
 		*out = new(int)
 		**out = **in
 	}
+	if in.AutoCPULimitNamespaceLabelSelector != nil {
+		in, out := &in.AutoCPULimitNamespaceLabelSelector, &out.AutoCPULimitNamespaceLabelSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

@@ -907,6 +907,27 @@ spec:
   vmStateStorageClass: "rook-cephfs"
 ```
 
+## Auto CPU limits
+
+`autoCPULimitNamespaceLabelSelector` allows defining a namespace label for which VM pods (virt-launcher) will have a
+CPU resource limit of 1 per vCPU.  
+This option allows defining namespace CPU quotas equal to the maximum total number of vCPU allowed in that namespace.  
+Example:
+```yaml
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  resourceRequirements:
+    autoCPULimitNamespaceLabelSelector:
+      matchLabels:
+        autocpulimit: "true"
+```
+In the example above, VM pods in namespaces that have the label "autocpulimit" set to "true" will have a CPU resource
+limit of 1 per vCPU.  
+**Important note**: this setting is incompatible with a `vmiCPUAllocationRatio` of 1, since that configuration can lead to
+VM pods using more than 1 CPU per vCPU.
+
 ## Virtual machine options
 
 `VirtualMachineOptions` holds the cluster level information regarding the virtual machine.

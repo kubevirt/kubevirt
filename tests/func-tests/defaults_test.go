@@ -29,21 +29,15 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	BeforeEach(func() {
 		var err error
+
 		cli, err = kubecli.GetKubevirtClient()
 		Expect(cli).ToNot(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 
 		ctx = context.Background()
-	})
 
-	restoreDefaults := func(cli kubecli.KubevirtClient) {
-		Eventually(tests.PatchHCO).
-			WithArguments(ctx, cli, []byte(`[{"op": "replace", "path": "/spec", "value": {}}]`)).
-			WithOffset(1).
-			WithTimeout(time.Second * 5).
-			WithPolling(time.Millisecond * 100).
-			Should(Succeed())
-	}
+		tests.RestoreDefaults(ctx, cli)
+	})
 
 	Context("certConfig defaults", func() {
 		defaultCertConfig := v1beta1.HyperConvergedCertConfig{
@@ -58,8 +52,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		}
 
 		DescribeTable("Check that certConfig defaults are behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
@@ -94,8 +86,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
@@ -130,8 +120,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		}
 
 		DescribeTable("Check that liveMigrationConfig defaults are behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
@@ -159,8 +147,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		}
 
 		DescribeTable("Check that resourceRequirements defaults are behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
@@ -185,8 +171,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		}
 
 		DescribeTable("Check that workloadUpdateStrategy defaults are behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
@@ -209,8 +193,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		const defaultUninstallStrategy = `BlockUninstallIfWorkloadsExist`
 
 		DescribeTable("Check that uninstallStrategy default is behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
@@ -232,8 +214,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		}
 
 		DescribeTable("Check that virtualMachineOptions default is behaving as expected", func(path string) {
-			restoreDefaults(cli)
-
 			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
 			Eventually(func() error {
 				return tests.PatchHCO(ctx, cli, patch)
