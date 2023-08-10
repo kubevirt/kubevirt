@@ -1271,6 +1271,31 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   type: array
                   x-kubernetes-list-type: atomic
+                usb:
+                  items:
+                    properties:
+                      resourceName:
+                        description: 'Identifies the list of USB host devices. e.g:
+                          kubevirt.io/storage, kubevirt.io/bootable-usb, etc'
+                        type: string
+                      selectors:
+                        items:
+                          properties:
+                            product:
+                              type: string
+                            vendor:
+                              type: string
+                          required:
+                          - product
+                          - vendor
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    required:
+                    - resourceName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
               type: object
             seccompConfiguration:
               description: SeccompConfiguration holds Seccomp configuration for Kubevirt
