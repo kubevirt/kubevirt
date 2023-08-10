@@ -2,18 +2,24 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["smbios.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/example-hook-sidecar",
+    srcs = ["sidecar_shim.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/hooks:go_default_library",
+        "//pkg/hooks/info:go_default_library",
+        "//pkg/hooks/v1alpha1:go_default_library",
+        "//pkg/hooks/v1alpha2:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
     ],
 )
 
 go_binary(
-    name = "onDefineDomain",
+    name = "sidecar-shim",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
@@ -24,23 +30,14 @@ load(
 )
 
 container_image(
-    name = "version-container",
-    base = "//:passwd-image",
-    directory = "/",
-    files = ["//:get-version"],
-)
-
-container_image(
-    name = "example-hook-sidecar-image",
+    name = "sidecar-shim-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
-    base = select({
-        "//conditions:default": "//cmd/sidecars:sidecar-shim-image",
-    }),
-    directory = "/usr/bin/",
+    base = "//:passwd-image",
+    directory = "/",
     entrypoint = ["/sidecar-shim"],
-    files = [":onDefineDomain"],
+    files = [":sidecar-shim"],
     visibility = ["//visibility:public"],
 )

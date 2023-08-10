@@ -188,6 +188,7 @@ container_bundle(
     name = "build-other-images",
     images = {
         # cmd images
+        "$(container_prefix)/$(image_prefix)sidecar-shim:$(container_tag)": "//cmd/sidecars:sidecar-shim-image",
         "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/example-disk-mutation-hook-sidecar:example-disk-mutation-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
@@ -319,6 +320,15 @@ container_push(
 
 # The following container_push list is synced with the images in container_bundle "build-other-images".
 # cmd images
+container_push(
+    name = "push-sidecar-shim",
+    format = "Docker",
+    image = "//cmd/sidecars:sidecar-shim-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)sidecar-shim",
+    tag = "$(container_tag)",
+)
+
 container_push(
     name = "push-example-hook-sidecar",
     format = "Docker",
