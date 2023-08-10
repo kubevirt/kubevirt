@@ -371,26 +371,32 @@ func createService(webhook csvv1alpha1.WebhookDescription, csvStruct *csvv1alpha
 func getCsvWithComponent() []util.CsvWithComponent {
 	componentsWithCsvs := []util.CsvWithComponent{
 		{
+			Name:      "CNA",
 			Csv:       *cnaCsv,
 			Component: hcoutil.AppComponentNetwork,
 		},
 		{
+			Name:      "KubeVirt",
 			Csv:       *virtCsv,
 			Component: hcoutil.AppComponentCompute,
 		},
 		{
+			Name:      "SSP",
 			Csv:       *sspCsv,
 			Component: hcoutil.AppComponentSchedule,
 		},
 		{
+			Name:      "CDI",
 			Csv:       *cdiCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
 		{
+			Name:      "HPP",
 			Csv:       *hppCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
 		{
+			Name:      "MTQ",
 			Csv:       *mtqCsv,
 			Component: hcoutil.AppComponentCompute,
 		},

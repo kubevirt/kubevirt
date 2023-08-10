@@ -351,24 +351,20 @@ func getHiddenCrds(csvBase csvv1alpha1.ClusterServiceVersion) (string, error) {
 }
 
 func processCsvs(componentsWithCsvs []util.CsvWithComponent, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
-	for i, c := range componentsWithCsvs {
-		processOneCsv(c, i, installStrategyBase, csvBase, ris)
+	for _, c := range componentsWithCsvs {
+		processOneCsv(c, installStrategyBase, csvBase, ris)
 	}
 }
 
-var csvNames = []string{"CNA", "KubeVirt", "SSP", "CDI", "HPP", "VM Import"}
-
-func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
-	csvName := csvNames[i]
-
+func processOneCsv(c util.CsvWithComponent, installStrategyBase *csvv1alpha1.StrategyDetailsDeployment, csvBase *csvv1alpha1.ClusterServiceVersion, ris *[]csvv1alpha1.RelatedImage) {
 	if c.Csv == "" {
-		log.Panicf("ERROR: the %s CSV was empty", csvName)
+		log.Panicf("ERROR: the %s CSV was empty", c.Name)
 	}
 	csvBytes := []byte(c.Csv)
 
 	csvStruct := &csvv1alpha1.ClusterServiceVersion{}
 
-	panicOnError(yaml.Unmarshal(csvBytes, csvStruct), "failed to unmarshal the CSV for", csvName)
+	panicOnError(yaml.Unmarshal(csvBytes, csvStruct), "failed to unmarshal the CSV for", c.Name)
 
 	strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
@@ -395,12 +391,12 @@ func processOneCsv(c util.CsvWithComponent, i int, installStrategyBase *csvv1alp
 		csvBaseAlmString = "[" + csvBaseAlmString + "]"
 	}
 
-	panicOnError(json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs), "failed to unmarshal the example from base from base csv for", csvName, "csvBaseAlmString:", csvBaseAlmString)
-	panicOnError(json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs), "failed to unmarshal the example from base from struct csv for", csvName, "csvStructAlmString:", csvStructAlmString)
+	panicOnError(json.Unmarshal([]byte(csvBaseAlmString), &baseAlmcrs), "failed to unmarshal the example from base from base csv for", c.Name, "csvBaseAlmString:", csvBaseAlmString)
+	panicOnError(json.Unmarshal([]byte(csvStructAlmString), &structAlmcrs), "failed to unmarshal the example from base from struct csv for", c.Name, "csvStructAlmString:", csvStructAlmString)
 
 	baseAlmcrs = append(baseAlmcrs, structAlmcrs...)
 	almB, err := json.Marshal(baseAlmcrs)
-	panicOnError(err, "failed to marshal the combined example for", csvName)
+	panicOnError(err, "failed to marshal the combined example for", c.Name)
 	csvBase.Annotations[almExamplesAnnotation] = string(almB)
 
 	if !*ignoreComponentsRelatedImages {
@@ -447,26 +443,32 @@ func setSupported(csvBase *csvv1alpha1.ClusterServiceVersion) {
 func getInitialCsvList() []util.CsvWithComponent {
 	return []util.CsvWithComponent{
 		{
+			Name:      "CNA",
 			Csv:       *cnaCsv,
 			Component: hcoutil.AppComponentNetwork,
 		},
 		{
+			Name:      "KubeVirt",
 			Csv:       *virtCsv,
 			Component: hcoutil.AppComponentCompute,
 		},
 		{
+			Name:      "SSP",
 			Csv:       *sspCsv,
 			Component: hcoutil.AppComponentSchedule,
 		},
 		{
+			Name:      "CDI",
 			Csv:       *cdiCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
 		{
+			Name:      "HPP",
 			Csv:       *hppCsv,
 			Component: hcoutil.AppComponentStorage,
 		},
 		{
+			Name:      "MTQ",
 			Csv:       *mtqCsv,
 			Component: hcoutil.AppComponentCompute,
 		},
