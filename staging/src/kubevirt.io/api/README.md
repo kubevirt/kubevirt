@@ -26,7 +26,7 @@ client-gen --input-base="kubevirt.io/api/" --input="core/v1" --output-package="t
 ```
 
 `client-gen` always needs a `boilerplate.go.txt` file. If you don't want to
-include a project specific header to the files just create an empy file.
+include a project specific header to the files just create an empty file.
 
 Then run `go get` to fetch any new introduced missing dependencies.
 
