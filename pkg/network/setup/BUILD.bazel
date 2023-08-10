@@ -26,6 +26,7 @@ go_library(
         "//pkg/network/istio:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/netmachinery:go_default_library",
         "//pkg/network/netns:go_default_library",
         "//pkg/network/setup/masquerade:go_default_library",
         "//pkg/network/sriov:go_default_library",

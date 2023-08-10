@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/driver/nft"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/netmachinery"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 )
 
@@ -250,7 +251,7 @@ func ipLoopback(family nft.IPFamily) string {
 // The bridge IP is the guest default gateway and the next address is the one expected on the guest interface.
 func guestIPByGatewayInterface(family nft.IPFamily, bridgeIface nmstate.Interface) string {
 	ipAddr := guestIPGateway(family, bridgeIface)
-	nextIP(ipAddr)
+	netmachinery.NextIP(ipAddr)
 	return ipAddr.String()
 }
 
@@ -263,13 +264,4 @@ func guestIPGateway(family nft.IPFamily, bridgeIface nmstate.Interface) net.IP {
 		ipAddr = net.ParseIP(bridgeIface.IPv6.Address[0].IP)
 	}
 	return ipAddr
-}
-
-func nextIP(ipAddr net.IP) {
-	for j := len(ipAddr) - 1; j >= 0; j-- {
-		ipAddr[j]++
-		if ipAddr[j] > 0 {
-			break
-		}
-	}
 }

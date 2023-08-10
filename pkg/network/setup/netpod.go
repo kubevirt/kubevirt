@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/netmachinery"
 	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
@@ -376,7 +377,7 @@ func gatewayIP(cidr, defaultCIDR string) (nmstate.IPAddress, error) {
 	if prefixLen, maxPrefixLen := ipNet.Mask.Size(); prefixLen > maxPrefixLen-minMaskBitsForHostAddresses {
 		return nmstate.IPAddress{}, fmt.Errorf("VM CIDR subnet is too small, at least 2 host addresses are required: %s", cidr)
 	}
-	nextIP(ipNet.IP)
+	netmachinery.NextIP(ipNet.IP)
 
 	gatewayAddress := ipNet.IP.String()
 	ipGatewayPrefixLen, _ := ipNet.Mask.Size()
@@ -404,15 +405,6 @@ func hasIPGlobalUnicast(ip nmstate.IP) bool {
 		}
 	}
 	return false
-}
-
-func nextIP(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
 }
 
 func createNetworkNameScheme(networks []v1.Network, currentIfaces []nmstate.Interface) map[string]string {

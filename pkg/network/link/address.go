@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/netmachinery"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -43,7 +44,7 @@ func getMasqueradeGwAndHostAddressesFromCIDR(s string) (string, string, error) {
 
 	subnet, _ := ipnet.Mask.Size()
 	var ips []string
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); netmachinery.NextIP(ip) {
 		ips = append(ips, fmt.Sprintf("%s/%d", ip.String(), subnet))
 
 		if len(ips) == 4 {
@@ -53,15 +54,6 @@ func getMasqueradeGwAndHostAddressesFromCIDR(s string) (string, string, error) {
 	}
 
 	return "", "", fmt.Errorf("less than 4 addresses on network")
-}
-
-func inc(ip net.IP) {
-	for j := len(ip) - 1; j >= 0; j-- {
-		ip[j]++
-		if ip[j] > 0 {
-			break
-		}
-	}
 }
 
 func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, ipVersion netdriver.IPVersion) (*netlink.Addr, *netlink.Addr, error) {
