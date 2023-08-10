@@ -5,6 +5,7 @@ digraph component {
 		fontname="Courier-Bold" fontsize=42 group=compute label=compute rank=same style=dashed
 		"KubeVirt/kubevirt-kubevirt-hyperconverged" [label="KubeVirt/kubevirt-kubevirt-hyperconverged"]
 		"daemonset/virt-handler" [label="daemonset/virt-handler"]
+		"deployment/mtq-operator" [label="deployment/mtq-operator"]
 		"deployment/virt-api" [label="deployment/virt-api"]
 		"deployment/virt-controller" [label="deployment/virt-controller"]
 		"deployment/virt-exportproxy" [label="deployment/virt-exportproxy"]
