@@ -309,12 +309,16 @@ func (m *volumeMounter) mountHotplugVolume(vmi *v1.VirtualMachineInstance, volum
 		if m.isBlockVolume(&vmi.Status, volumeName) {
 			logger.V(4).Infof("Mounting block volume: %s", volumeName)
 			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record); err != nil {
-				return fmt.Errorf("failed to mount block hotplug volume %s: %v", volumeName, err)
+				if !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("failed to mount block hotplug volume %s: %v", volumeName, err)
+				}
 			}
 		} else {
 			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
 			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
-				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
+				if !errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
+				}
 			}
 		}
 	}
