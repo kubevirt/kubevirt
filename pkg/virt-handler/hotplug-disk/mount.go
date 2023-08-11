@@ -508,9 +508,10 @@ func (m *volumeMounter) updateBlockMajorMinor(dev uint64, allow bool, manager cg
 func (m *volumeMounter) createBlockDeviceFile(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
 	if _, err := safepath.JoinNoFollow(basePath, deviceName); errors.Is(err, os.ErrNotExist) {
 		return mknodCommand(basePath, deviceName, dev, blockDevicePermissions)
-	} else {
+	} else if err != nil {
 		return err
 	}
+	return nil
 }
 
 func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID, record *vmiMountTargetRecord, mountDirectory bool) error {
@@ -667,6 +668,10 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 			var err error
 			if m.isBlockVolume(&vmi.Status, volumeStatus.Name) {
 				path, err = safepath.JoinNoFollow(basePath, volumeStatus.Name)
+				if errors.Is(err, os.ErrNotExist) {
+					// already unmounted or never mounted
+					continue
+				}
 			} else if m.isDirectoryMounted(&vmi.Status, volumeStatus.Name) {
 				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
 				if os.IsExist(err) {

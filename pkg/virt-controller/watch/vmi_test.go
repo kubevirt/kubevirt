@@ -2700,6 +2700,58 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]string{SuccessfulCreatePodReason}),
 		)
 
+		DescribeTable("Should properly calculate if it needs to handle hotplug volumes", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, match gomegaTypes.GomegaMatcher) {
+			Expect(controller.needsHandleHotplug(hotplugVolumes, attachmentPods)).To(match)
+		},
+			Entry("nil volumes, nil attachmentPods", nil, nil, BeFalse()),
+			Entry("empty volumes, empty attachmentPods", []*virtv1.Volume{}, []*k8sv1.Pod{}, BeFalse()),
+			Entry("single volume, empty attachmentPods", []*virtv1.Volume{
+				{
+					Name: "test",
+				},
+			}, []*k8sv1.Pod{}, BeTrue()),
+			Entry("no volume, single attachmentPod", []*virtv1.Volume{}, makePods(0), BeTrue()),
+			Entry("matching volume, single attachmentPod", []*virtv1.Volume{
+				{
+					Name: "volume0",
+				},
+			}, makePods(0), BeFalse()),
+			Entry("mismatched volume, single attachmentPod", []*virtv1.Volume{
+				{
+					Name: "invalid",
+				},
+			}, makePods(0), BeTrue()),
+			Entry("matching volume, multiple attachmentPods", []*virtv1.Volume{
+				{
+					Name: "volume0",
+				},
+			}, []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, BeTrue()),
+		)
+
+		DescribeTable("Should find active and old pods", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, expectedActive *k8sv1.Pod, expectedOld []*k8sv1.Pod) {
+			active, old := controller.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+			Expect(active).To(Equal(expectedActive))
+			Expect(old).To(ContainElements(expectedOld))
+		},
+			Entry("nil volumes, nil attachmentPods", nil, nil, nil, nil),
+			Entry("empty volumes, empty attachmentPods", []*virtv1.Volume{}, []*k8sv1.Pod{}, nil, []*k8sv1.Pod{}),
+			Entry("matching volume, single attachmentPod", []*virtv1.Volume{
+				{
+					Name: "volume0",
+				},
+			}, makePods(0), makePods(0)[0], []*k8sv1.Pod{}),
+			Entry("matching volume, multiple attachmentPods, first pod matches", []*virtv1.Volume{
+				{
+					Name: "volume0",
+				},
+			}, []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(0)[0], makePods(1)),
+			Entry("matching volume, multiple attachmentPods, second pod matches", []*virtv1.Volume{
+				{
+					Name: "volume1",
+				},
+			}, []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(1)[0], makePods(0)),
+		)
+
 		It("Should get default filesystem overhead if there are multiple CDI instances", func() {
 			cdi := cdiv1.CDI{
 				ObjectMeta: metav1.ObjectMeta{

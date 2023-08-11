@@ -724,6 +724,16 @@ var _ = SIGDescribe("Hotplug", func() {
 				for i := range testVolumes {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
 				}
+				By("Verifying there are no sync errors")
+				events, err := virtClient.CoreV1().Events(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for _, event := range events.Items {
+					if event.InvolvedObject.Kind == "VirtualMachineInstance" && event.InvolvedObject.UID == vmi.UID {
+						if event.Reason == string(v1.SyncFailed) {
+							Fail(fmt.Sprintf("Found sync failed event %v", event))
+						}
+					}
+				}
 			},
 				Entry("with VMs", addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeFilesystem, false),
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
