@@ -1816,10 +1816,8 @@ func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotp
 		return true
 	}
 	// Determine if the ready volumes have changed compared to the current pod
-	for _, attachmentPod := range hotplugAttachmentPods {
-		if c.podVolumesMatchesReadyVolumes(attachmentPod, hotplugVolumes) {
-			return false
-		}
+	if len(hotplugAttachmentPods) == 1 && c.podVolumesMatchesReadyVolumes(hotplugAttachmentPods[0], hotplugVolumes) {
+		return false
 	}
 	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
 }
