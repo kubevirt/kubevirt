@@ -190,6 +190,9 @@ fi
 
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
 
+# Give the nodes enough memory to run tests in parallel, including tests which involve fedora
+export KUBEVIRT_MEMORY_SIZE='9216M'
+
 export KUBEVIRT_NUM_NODES
 export KUBEVIRT_WITH_CNAO="true"
 export KUBEVIRT_DEPLOY_CDI="true"
