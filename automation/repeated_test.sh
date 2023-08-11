@@ -41,29 +41,30 @@ export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
     cat <<EOF
-usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provider[ kubevirtci_provider ...]]
+usage: [NUM_TESTS=x] [NEW_TESTS=tests/file_1.go|...|tests/file_n.go [TARGET_COMMIT=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
 
-    run test lanes repeatedly using the set of test files that have been
-    changed or added since last merge commit, set NEW_TESTS to explicitly name the tests to run
+    run tests repeatedly using the set of test files that have been changed or added since last merge commit
+    set NEW_TESTS to explicitly name the test files to run
 
     options:
-        NUM_TESTS       how often each test lane is run, default is 3
+        NUM_TESTS       how often the test lane is run, default is 5
         NEW_TESTS       what set of tests to run, defaults to all test files added or changed since
                         last merge commit
         TARGET_COMMIT   the commit id to use when fetching the changed test files
                         note: leaving TARGET_COMMIT empty only works if on a git branch different from main.
                         If /clonerefs is at work you need to provide a target commit, as then the latest commit is a
                         merge commit (resulting in no changes detected)
+        TEST_LANE       the kubevirtci provider to use, if not given, use latest stable one
 
     examples:
 
-      1.    NEW_TESTS='operator_test' ./automation/repeated_test.sh 'k8s-1.27'
+      1.    NEW_TESTS='tests/operator_test.go' ./automation/repeated_test.sh 'k8s-1.27'
 
             runs tests/operator_test.go x times on kubevirtci provider k8s-1.27
 
-      2.    NEW_TESTS='operator_test' ./automation/repeated_test.sh
+      2.    NEW_TESTS='tests/operator_test.go' ./automation/repeated_test.sh
 
-            runs tests/operator_test.go x times on latest kubevirtci provider found
+            runs tests/operator_test.go x times on latest stable kubevirtci provider found
 
 EOF
 }
@@ -102,7 +103,7 @@ function should_skip_test_run_due_to_too_many_tests() {
         set -e
     done
     local tests_total_for_all_runs_estimate
-    tests_total_for_all_runs_estimate=$(( tests_to_run_estimate * NUM_TESTS * ${#TEST_LANES[@]} ))
+    tests_total_for_all_runs_estimate=$(( tests_to_run_estimate * NUM_TESTS ))
     echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
     [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
 }
@@ -121,34 +122,28 @@ if (( $# > 0 )); then
 fi
 
 if (( $# > 0 )); then
-    declare -a TEST_LANES
-    max="$#"
-    while [ ! $max -lt 1 ]; do
-        max=$((max-1))
-        TEST_LANES[$max]="$1"
-        shift
-    done
+    TEST_LANE="$1"
+    shift
 else
     # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
     # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
     for k8s_provider in $(cd cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
+        # shellcheck disable=SC2154
         k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
-        if [[ ! "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
-            TEST_LANES=("${k8s_provider}")
-            break
-        else
+        if [[ "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
             echo "Skipping ${k8s_provider_version}"
+        else
+            TEST_LANE="${k8s_provider}"
+            break
         fi
     done
-    if (( ${#TEST_LANES[@]} == 0 )); then
+    if [[ ${TEST_LANE} == "" ]]; then
         echo "No stable provider found"
         exit 1
     fi
 fi
-echo "Test lanes: ${TEST_LANES[*]}"
-for lane in "${TEST_LANES[@]}"; do
-    [ -d "cluster-up/cluster/$lane" ] || ( echo "provider $lane does not exist!"; exit 1 )
-done
+echo "Test lane: ${TEST_LANE}"
+[ -d "cluster-up/cluster/${TEST_LANE}" ] || ( echo "provider ${TEST_LANE} does not exist!"; exit 1 )
 
 if [[ -z ${TARGET_COMMIT-} ]]; then
     # if there's no commit provided default to the latest merge commit
@@ -158,7 +153,7 @@ fi
 if [[ -z ${NEW_TESTS-} ]]; then
 
     set +e # required due to grep barking when it does not have any input
-    NEW_TESTS=$(new_tests $TARGET_COMMIT)
+    NEW_TESTS=$(new_tests "$TARGET_COMMIT")
     set -e
 
     # skip certain tests for now, as we don't have a strategy currently
@@ -168,7 +163,7 @@ if [[ -z "${NEW_TESTS}" ]]; then
     echo "Nothing to test"
     exit 0
 fi
-echo "Test files touched: $(echo ${NEW_TESTS} | tr '|' ',')"
+echo "Test files touched: $(echo "${NEW_TESTS}" | tr '|' ',')"
 
 NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
@@ -178,14 +173,11 @@ if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     exit 0
 fi
 
-# for migration tests we need three nodes, thus we need to check whether migration tests are going to be run
+# for some tests we need three nodes aka two nodes with cpu manager installed, thus we grep whether the skip is present
 KUBEVIRT_NUM_NODES=2
-if [[ "${NEW_TESTS}" =~ migration ]]; then
+# shellcheck disable=SC2046
+if grep -q 'SkipTestIfNotEnoughNodesWithCPUManager' $(echo "${NEW_TESTS}" | tr '|' ' '); then
     KUBEVIRT_NUM_NODES=3
-else
-    if grep -q 'SkipTestIfNotEnoughNodesWithCPUManager' $(echo ${NEW_TESTS} | tr '|' ' '); then
-        KUBEVIRT_NUM_NODES=3
-    fi
 fi
 
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
@@ -200,35 +192,26 @@ export KUBEVIRT_NUM_SECONDARY_NICS=1
 export KUBEVIRT_STORAGE="rook-ceph-default"
 export KUBEVIRT_DEPLOY_NFS_CSI=true
 
-for lane in "${TEST_LANES[@]}"; do
+export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
-    export KUBEVIRT_PROVIDER="$lane"
-
-    ginko_params="$ginko_params -no-color -succinct -skip=QUARANTINE -randomize-all"
-    for test_file in $(echo ${NEW_TESTS} | tr '|' '\n'); do
-        ginko_params+=" -focus-file=${test_file}"
-    done
-
-    echo "test lane: $lane, preparing cluster up"
-
-    if [[ ! "$ginko_params" =~ -dry-run ]]; then
-        make cluster-up
-        make cluster-sync
-    else
-        NUM_TESTS=1
-    fi
-
-    for i in $(seq 1 "$NUM_TESTS"); do
-        echo "test lane: $lane, run: $i"
-        FUNC_TEST_ARGS="$ginko_params" make functest
-        if [[ $? -ne 0 ]]; then
-            echo "test lane: $lane, run: $i, tests failed!"
-            exit 1
-        fi
-    done
-
-    make cluster-down
-
+ginko_params="$ginko_params -no-color -succinct -skip=QUARANTINE -randomize-all"
+for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
+    ginko_params+=" -focus-file=${test_file}"
 done
 
-exit 0
+echo "Test lane: ${TEST_LANE}, preparing cluster up"
+
+if [[ ! "$ginko_params" =~ -dry-run ]]; then
+    make cluster-up
+    make cluster-sync
+else
+    NUM_TESTS=1
+fi
+
+for i in $(seq 1 "$NUM_TESTS"); do
+    echo "Test lane: ${TEST_LANE}, run: $i"
+    if ! FUNC_TEST_ARGS="$ginko_params" make functest; then
+        echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
+        exit 1
+    fi
+done
