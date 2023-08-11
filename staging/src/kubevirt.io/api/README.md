@@ -12,6 +12,13 @@ go get kubevirt.io/api
 
 Then generate the client
 with [client-gen](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/generating-clientset.md).
+
+To download and install the Kubernetes API client code generator `client-gen`, run:
+
+```
+go install k8s.io/code-generator/cmd/client-gen@latest
+```
+
 The following command creates the client inside an example project called `testapi`:
 
 ```bash
@@ -19,7 +26,7 @@ client-gen --input-base="kubevirt.io/api/" --input="core/v1" --output-package="t
 ```
 
 `client-gen` always needs a `boilerplate.go.txt` file. If you don't want to
-include a project specific header to the files just create an empyt file.
+include a project specific header to the files just create an empty file.
 
 Then run `go get` to fetch any new introduced missing dependencies.
 
