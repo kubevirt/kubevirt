@@ -427,6 +427,13 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 		verbosity,
 	}
 
+	if productName != "" {
+		container.Args = append(container.Args, "--product-name", productName)
+	}
+	if productComponent != "" {
+		container.Args = append(container.Args, "--product-component", productComponent)
+	}
+
 	container.Ports = []corev1.ContainerPort{
 		{
 			Name:          "metrics",

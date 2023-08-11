@@ -21,14 +21,11 @@ package watch
 
 import (
 	"context"
-	"fmt"
 	golog "log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
-
-	v1 "kubevirt.io/api/core/v1"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -256,6 +253,8 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	productName                       string
+	productComponent                  string
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -594,8 +593,6 @@ func (vca *VirtControllerApp) initCommon() {
 		log.Log.Warningf("failed to create ephemeral disk dir: %v", err)
 	}
 
-	productName, productComponent := vca.getProductNameAndComponent()
-
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
@@ -609,8 +606,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		vca.launcherSubGid,
 		vca.exporterImage,
-		productName,
-		productComponent,
+		vca.productName,
+		vca.productComponent,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
@@ -961,6 +958,12 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for clone controller")
+
+	flag.StringVar(&vca.productName, "product-name", "",
+		"Designate the apps.kubevirt.io/part-of label for KubeVirt components. Useful if KubeVirt is included as part of a product.")
+
+	flag.StringVar(&vca.productComponent, "product-component", "",
+		"Designate the apps.kubevirt.io/component label for KubeVirt components. Useful if KubeVirt is included as part of a product.")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {
@@ -1008,28 +1011,4 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 		})
 
 	return
-}
-
-func (vca *VirtControllerApp) getProductNameAndComponent() (string, string) {
-	productName := ""
-	productComponent := ""
-
-	stop := context.Background().Done()
-	vca.informerFactory.Start(stop)
-	cache.WaitForCacheSync(stop, vca.kvPodInformer.HasSynced)
-
-	key := fmt.Sprintf("%s/%s", vca.kubevirtNamespace, vca.host)
-	item, exists, err := vca.kvPodInformer.GetStore().GetByKey(key)
-	if err != nil {
-		log.Log.Warningf("failed to get pod %s from informer store: %v", key, err)
-	}
-	if exists {
-		pod := item.(*k8sv1.Pod)
-		productName = pod.Labels[v1.AppPartOfLabel]
-		productComponent = pod.Labels[v1.AppComponentLabel]
-	} else {
-		log.Log.Warningf("pod %s does not exist in informer store", key)
-	}
-
-	return productName, productComponent
 }
