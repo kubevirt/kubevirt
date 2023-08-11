@@ -131,7 +131,7 @@ if (( $# > 0 )); then
 else
     # We only want to use stable providers for flake testing, thus we fetch the k8s version file from kubevirtci.
     # we stop at the first provider that is stable (aka doesn't have an rc or beta or alpha version)
-    for k8s_provider in $(find cluster-up/cluster -name 'k8s-[0-9].[0-9][0-9]' -print | sort -rV | grep -oE 'k8s.*'); do
+    for k8s_provider in $(cd cluster-up/cluster && ls -rd k8s-[0-9]\.[0-9][0-9]); do
         k8s_provider_version=$(curl --fail "https://raw.githubusercontent.com/kubevirt/kubevirtci/${kubevirtci_git_hash}/cluster-provision/k8s/${k8s_provider#"k8s-"}/version")
         if [[ ! "${k8s_provider_version}" =~ -(rc|alpha|beta) ]]; then
             TEST_LANES=("${k8s_provider}")
