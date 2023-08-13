@@ -17256,6 +17256,10 @@
       "type": "integer",
       "format": "int32"
      },
+     "binding": {
+      "description": "Binding specifies the binding plugin that will be used to connect the interface to the guest. It provides an alternative to InterfaceBindingMethod. version: 1alphav1",
+      "$ref": "#/definitions/v1.PluginBinding"
+     },
      "bootOrder": {
       "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices. Lower values take precedence. Each interface or disk that has a boot order must have a unique value. Interfaces without a boot order are not tried.",
       "type": "integer",
@@ -18413,6 +18417,20 @@
      "readOnly": {
       "description": "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.PluginBinding": {
+    "description": "PluginBinding represents a binding implemented in a plugin.",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name references to the binding name as denined in the kubevirt CR. version: 1alphav1",
+      "type": "string",
+      "default": ""
      }
     }
    },

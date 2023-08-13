@@ -5790,6 +5790,19 @@ var CRDsValidation map[string]string = map[string]string{
                                   to the device. This value is required to be unique
                                   across all devices and be between 1 and (16*1024-1).
                                 type: integer
+                              binding:
+                                description: 'Binding specifies the binding plugin
+                                  that will be used to connect the interface to the
+                                  guest. It provides an alternative to InterfaceBindingMethod.
+                                  version: 1alphav1'
+                                properties:
+                                  name:
+                                    description: 'Name references to the binding name
+                                      as denined in the kubevirt CR. version: 1alphav1'
+                                    type: string
+                                required:
+                                - name
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used
                                   to determine ordering of boot devices. Lower values
@@ -10272,6 +10285,18 @@ var CRDsValidation map[string]string = map[string]string{
                           in PCI addresses assigned to the device. This value is required
                           to be unique across all devices and be between 1 and (16*1024-1).
                         type: integer
+                      binding:
+                        description: 'Binding specifies the binding plugin that will
+                          be used to connect the interface to the guest. It provides
+                          an alternative to InterfaceBindingMethod. version: 1alphav1'
+                        properties:
+                          name:
+                            description: 'Name references to the binding name as denined
+                              in the kubevirt CR. version: 1alphav1'
+                            type: string
+                        required:
+                        - name
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine
                           ordering of boot devices. Lower values take precedence.
@@ -12941,6 +12966,18 @@ var CRDsValidation map[string]string = map[string]string{
                           in PCI addresses assigned to the device. This value is required
                           to be unique across all devices and be between 1 and (16*1024-1).
                         type: integer
+                      binding:
+                        description: 'Binding specifies the binding plugin that will
+                          be used to connect the interface to the guest. It provides
+                          an alternative to InterfaceBindingMethod. version: 1alphav1'
+                        properties:
+                          name:
+                            description: 'Name references to the binding name as denined
+                              in the kubevirt CR. version: 1alphav1'
+                            type: string
+                        required:
+                        - name
+                        type: object
                       bootOrder:
                         description: BootOrder is an integer value > 0, used to determine
                           ordering of boot devices. Lower values take precedence.
@@ -15086,6 +15123,19 @@ var CRDsValidation map[string]string = map[string]string{
                                   to the device. This value is required to be unique
                                   across all devices and be between 1 and (16*1024-1).
                                 type: integer
+                              binding:
+                                description: 'Binding specifies the binding plugin
+                                  that will be used to connect the interface to the
+                                  guest. It provides an alternative to InterfaceBindingMethod.
+                                  version: 1alphav1'
+                                properties:
+                                  name:
+                                    description: 'Name references to the binding name
+                                      as denined in the kubevirt CR. version: 1alphav1'
+                                    type: string
+                                required:
+                                - name
+                                type: object
                               bootOrder:
                                 description: BootOrder is an integer value > 0, used
                                   to determine ordering of boot devices. Lower values
@@ -19388,6 +19438,20 @@ var CRDsValidation map[string]string = map[string]string{
                                           value is required to be unique across all
                                           devices and be between 1 and (16*1024-1).
                                         type: integer
+                                      binding:
+                                        description: 'Binding specifies the binding
+                                          plugin that will be used to connect the
+                                          interface to the guest. It provides an alternative
+                                          to InterfaceBindingMethod. version: 1alphav1'
+                                        properties:
+                                          name:
+                                            description: 'Name references to the binding
+                                              name as denined in the kubevirt CR.
+                                              version: 1alphav1'
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
                                       bootOrder:
                                         description: BootOrder is an integer value
                                           > 0, used to determine ordering of boot
@@ -24473,6 +24537,21 @@ var CRDsValidation map[string]string = map[string]string{
                                               be unique across all devices and be
                                               between 1 and (16*1024-1).
                                             type: integer
+                                          binding:
+                                            description: 'Binding specifies the binding
+                                              plugin that will be used to connect
+                                              the interface to the guest. It provides
+                                              an alternative to InterfaceBindingMethod.
+                                              version: 1alphav1'
+                                            properties:
+                                              name:
+                                                description: 'Name references to the
+                                                  binding name as denined in the kubevirt
+                                                  CR. version: 1alphav1'
+                                                type: string
+                                            required:
+                                            - name
+                                            type: object
                                           bootOrder:
                                             description: BootOrder is an integer value
                                               > 0, used to determine ordering of boot
