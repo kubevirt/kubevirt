@@ -24,22 +24,11 @@ package infraconfigurators
 import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
-	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 )
 
 type PodNetworkInfraConfigurator interface {
 	DiscoverPodNetworkInterface(podIfaceName string) error
-	PreparePodNetworkInterface() error
 	GenerateNonRecoverableDomainIfaceSpec() *api.Interface
 	// The method should return dhcp configuration that cannot be calculated in virt-launcher's phase2
 	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
-}
-
-func createAndBindTapToBridge(handler netdriver.NetworkHandler, deviceName string, bridgeIfaceName string, launcherPID int, mtu int, tapOwner string, queues uint32) error {
-	err := handler.CreateTapDevice(deviceName, queues, launcherPID, mtu, tapOwner)
-	if err != nil {
-		return err
-	}
-	return handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
 }

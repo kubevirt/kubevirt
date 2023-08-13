@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "common.go",
-        "ethtool.go",
         "generated_mock_common.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/driver",
@@ -14,8 +13,6 @@ go_library(
         "//pkg/network/dhcp/server:go_default_library",
         "//pkg/network/dhcp/serverv6:go_default_library",
         "//pkg/network/dns:go_default_library",
-        "//pkg/util/sysctl:go_default_library",
-        "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

@@ -678,7 +678,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, nil).SetupPodNetworkPhase2(domain, nonAbsentNets)
+	err = netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}).SetupPodNetworkPhase2(domain, nonAbsentNets)
 	if err != nil {
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
@@ -1124,7 +1124,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	if vmi.IsRunning() {
 		networkInterfaceManager := newVirtIOInterfaceManager(
-			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}, nil))
+			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}))
 		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: oldSpec}, domain); err != nil {
 			return nil, err
 		}

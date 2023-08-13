@@ -3,7 +3,6 @@ package infraconfigurators
 import (
 	"fmt"
 	"net"
-	"strconv"
 
 	"github.com/vishvananda/netlink"
 
@@ -13,9 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 type BridgePodNetworkConfigurator struct {
@@ -96,66 +93,6 @@ func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDHCPConfig() *cache
 	return dhcpConfig
 }
 
-func (b *BridgePodNetworkConfigurator) PreparePodNetworkInterface() error {
-	// Set interface link to down to change its MAC address
-	if err := b.handler.LinkSetDown(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podNicLink.Attrs().Name)
-		return err
-	}
-
-	if b.ipamEnabled {
-		// Remove IP from POD interface
-		err := b.handler.AddrDel(b.podNicLink, &b.podIfaceIP)
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podNicLink.Attrs().Name)
-			return err
-		}
-
-		if err := b.switchPodInterfaceWithDummy(); err != nil {
-			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
-			return err
-		}
-
-		// Set arp_ignore=1 to avoid
-		// the dummy interface being seen by Duplicate Address Detection (DAD).
-		// Without this, some VMs will lose their ip address after a few
-		// minutes.
-		if err := b.handler.ConfigureIpv4ArpIgnore(); err != nil {
-			log.Log.Reason(err).Errorf("failed to set arp_ignore=1")
-			return err
-		}
-	}
-
-	if err := b.createBridge(); err != nil {
-		return err
-	}
-
-	tapOwner := netdriver.LibvirtUserAndGroupId
-	if util.IsNonRootVMI(b.vmi) {
-		tapOwner = strconv.Itoa(util.NonRootUID)
-	}
-
-	queues := converter.CalculateNetworkQueues(b.vmi, converter.GetInterfaceType(b.vmiSpecIface))
-	err := createAndBindTapToBridge(b.handler, b.tapDeviceName, b.bridgeInterfaceName, b.launcherPID, b.podNicLink.Attrs().MTU, tapOwner, queues)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create tap device named %s", b.tapDeviceName)
-		return err
-	}
-
-	if err := b.handler.LinkSetUp(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podNicLink.Attrs().Name)
-		return err
-	}
-
-	if err := b.handler.LinkSetLearningOff(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to disable mac learning for interface: %s", b.podNicLink.Attrs().Name)
-		return err
-	}
-
-	return nil
-}
-
 func (b *BridgePodNetworkConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
 	return &api.Interface{
 		MAC: &api.MAC{MAC: b.vmMac.String()},
@@ -182,94 +119,4 @@ func (b *BridgePodNetworkConfigurator) decorateDhcpConfigRoutes(dhcpConfig *cach
 		dhcpRoutes := virtnetlink.FilterPodNetworkRoutes(b.podIfaceRoutes, dhcpConfig)
 		dhcpConfig.Routes = &dhcpRoutes
 	}
-}
-
-func (b *BridgePodNetworkConfigurator) createBridge() error {
-	// Create a bridge
-	bridge := &netlink.Bridge{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: b.bridgeInterfaceName,
-		},
-	}
-	err := b.handler.LinkAdd(bridge)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create a bridge")
-		return err
-	}
-
-	brLink, err := b.handler.LinkByName(b.bridgeInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to fetch bridge %s link", bridge.Name)
-		return err
-	}
-
-	if err := b.handler.LinkSetHardwareAddr(b.podNicLink, brLink.Attrs().HardwareAddr); err != nil {
-		log.Log.Reason(err).Errorf("failed to set on pod interface (%s) the mac (%s)", b.podNicLink.Attrs().Name, brLink.Attrs().HardwareAddr.String())
-		return err
-	}
-
-	err = b.handler.LinkSetMaster(b.podNicLink, bridge)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to connect interface %s to bridge %s", b.podNicLink.Attrs().Name, bridge.Name)
-		return err
-	}
-
-	err = b.handler.LinkSetUp(bridge)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
-		return err
-	}
-
-	// set fake ip on a bridge
-	addr := virtnetlink.GetFakeBridgeIP(b.vmi.Spec.Domain.Devices.Interfaces, b.vmiSpecIface)
-	fakeaddr, _ := b.handler.ParseAddr(addr)
-
-	if err := b.handler.AddrAdd(bridge, fakeaddr); err != nil {
-		log.Log.Reason(err).Errorf("failed to set bridge IP")
-		return err
-	}
-
-	if err = b.handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
-		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
-		return err
-	}
-
-	return nil
-}
-
-func (b *BridgePodNetworkConfigurator) switchPodInterfaceWithDummy() error {
-	originalPodInterfaceName := b.podNicLink.Attrs().Name
-	newPodInterfaceName := virtnetlink.GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName)
-	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
-
-	// Rename pod interface to free the original name for a new dummy interface
-	err := b.handler.LinkSetName(b.podNicLink, newPodInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podNicLink.Attrs().Name)
-		return err
-	}
-
-	b.podNicLink, err = b.handler.LinkByName(newPodInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", newPodInterfaceName)
-		return err
-	}
-
-	// Create a dummy interface named after the original interface
-	err = b.handler.LinkAdd(dummy)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create dummy interface : %s", originalPodInterfaceName)
-		return err
-	}
-
-	// Replace original pod interface IP address to the dummy
-	// Since the dummy is not connected to anything, it should not affect networking
-	// Replace will add if ip doesn't exist or modify the ip
-	err = b.handler.AddrReplace(dummy, &b.podIfaceIP)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", originalPodInterfaceName)
-		return err
-	}
-
-	return nil
 }

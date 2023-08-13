@@ -31,24 +31,48 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+type setuper interface {
+	Setup() error
+}
+
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheCreator cacheCreator
 	launcherPid  *int
+	netSetup     setuper
 }
 
-func newVMNetworkConfiguratorWithHandlerAndCache(vmi *v1.VirtualMachineInstance, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPid *int) *VMNetworkConfigurator {
-	return &VMNetworkConfigurator{
+type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
+
+func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator, opts ...vmNetConfiguratorOption) *VMNetworkConfigurator {
+	v := &VMNetworkConfigurator{
 		vmi:          vmi,
-		handler:      handler,
+		handler:      &netdriver.NetworkUtilsHandler{},
 		cacheCreator: cacheCreator,
-		launcherPid:  launcherPid,
+	}
+	for _, opt := range opts {
+		opt(v)
+	}
+	return v
+}
+
+func WithNetSetup(netSetup setuper) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.netSetup = netSetup
 	}
 }
 
-func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cacheCreator, launcherPid *int) *VMNetworkConfigurator {
-	return newVMNetworkConfiguratorWithHandlerAndCache(vmi, &netdriver.NetworkUtilsHandler{}, cacheCreator, launcherPid)
+func WithNetUtilsHandler(h netdriver.NetworkHandler) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.handler = h
+	}
+}
+
+func WithLauncherPid(pid int) vmNetConfiguratorOption {
+	return func(v *VMNetworkConfigurator) {
+		v.launcherPid = &pid
+	}
 }
 
 func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Network) ([]podNIC, error) {
@@ -109,12 +133,8 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 		func(nic *podNIC) error {
 			return nic.discoverAndStoreCache()
 		},
-		func(nic *podNIC) error {
-			if nic.infraConfigurator == nil {
-				return nil
-			}
-			return nic.infraConfigurator.PreparePodNetworkInterface()
-		})
+		n.netSetup.Setup,
+	)
 	if err != nil {
 		return fmt.Errorf("failed setup pod network phase1: %w", err)
 	}

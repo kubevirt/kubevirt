@@ -23,15 +23,11 @@ package driver
 
 import (
 	"fmt"
-	"net"
 	"os"
-	"os/exec"
 
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
-	"kubevirt.io/kubevirt/pkg/util/sysctl"
 
 	netutils "k8s.io/utils/net"
 
@@ -42,14 +38,10 @@ import (
 	dhcpserver "kubevirt.io/kubevirt/pkg/network/dhcp/server"
 	dhcpserverv6 "kubevirt.io/kubevirt/pkg/network/dhcp/serverv6"
 	"kubevirt.io/kubevirt/pkg/network/dns"
-	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
 const (
-	randomMacGenerationAttempts = 10
-	allowForwarding             = "1"
-	LibvirtUserAndGroupId       = "0"
-	allowRouteLocalNet          = "1"
+	LibvirtUserAndGroupId = "0"
 )
 
 type IPVersion int
@@ -64,42 +56,15 @@ type NetworkHandler interface {
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 	ReadIPAddressesFromLink(interfaceName string) (string, string, error)
 	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
-	AddrDel(link netlink.Link, addr *netlink.Addr) error
-	AddrAdd(link netlink.Link, addr *netlink.Addr) error
-	AddrReplace(link netlink.Link, addr *netlink.Addr) error
-	LinkSetDown(link netlink.Link) error
-	LinkSetUp(link netlink.Link) error
-	LinkSetName(link netlink.Link, name string) error
-	LinkAdd(link netlink.Link) error
 	LinkDel(link netlink.Link) error
-	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
-	LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error
-	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error)
 	HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
-	ConfigureIpForwarding(ipVersion IPVersion) error
-	ConfigureRouteLocalNet(string) error
-	ConfigureIpv4ArpIgnore() error
-	ConfigurePingGroupRange() error
-	ConfigureUnprivilegedPortStart(string) error
-	NftablesNewChain(ipVersion IPVersion, table, chain string) error
-	NftablesNewTable(ipVersion IPVersion, name string) error
-	NftablesAppendRule(ipVersion IPVersion, table, chain string, rulespec ...string) error
-	CheckNftables() error
-	GetNFTIPString(ipVersion IPVersion) string
-	CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error
-	BindTapDeviceToBridge(tapName string, bridgeName string) error
-	DisableTXOffloadChecksum(ifaceName string) error
 }
 
 type NetworkUtilsHandler struct{}
-
-func (h *NetworkUtilsHandler) LinkSetHardwareAddr(link netlink.Link, hwaddr net.HardwareAddr) error {
-	return netlink.LinkSetHardwareAddr(link, hwaddr)
-}
 
 func (h *NetworkUtilsHandler) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
@@ -110,71 +75,11 @@ func (h *NetworkUtilsHandler) AddrList(link netlink.Link, family int) ([]netlink
 func (h *NetworkUtilsHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	return netlink.RouteList(link, family)
 }
-func (h *NetworkUtilsHandler) AddrReplace(link netlink.Link, addr *netlink.Addr) error {
-	return netlink.AddrReplace(link, addr)
-}
-func (h *NetworkUtilsHandler) AddrDel(link netlink.Link, addr *netlink.Addr) error {
-	return netlink.AddrDel(link, addr)
-}
-func (h *NetworkUtilsHandler) LinkSetDown(link netlink.Link) error {
-	return netlink.LinkSetDown(link)
-}
-func (h *NetworkUtilsHandler) LinkSetUp(link netlink.Link) error {
-	return netlink.LinkSetUp(link)
-}
-func (h *NetworkUtilsHandler) LinkSetName(link netlink.Link, name string) error {
-	return netlink.LinkSetName(link, name)
-}
-func (h *NetworkUtilsHandler) LinkAdd(link netlink.Link) error {
-	return netlink.LinkAdd(link)
-}
 func (h *NetworkUtilsHandler) LinkDel(link netlink.Link) error {
 	return netlink.LinkDel(link)
 }
-func (h *NetworkUtilsHandler) LinkSetLearningOff(link netlink.Link) error {
-	return netlink.LinkSetLearning(link, false)
-}
 func (h *NetworkUtilsHandler) ParseAddr(s string) (*netlink.Addr, error) {
 	return netlink.ParseAddr(s)
-}
-func (h *NetworkUtilsHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) error {
-	return netlink.AddrAdd(link, addr)
-}
-func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
-	return netlink.LinkSetMaster(link, master)
-}
-
-func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
-	err := sysctl.New().SetSysctl(sysctl.Ipv4ArpIgnoreAll, "1")
-	return err
-}
-
-func (h *NetworkUtilsHandler) ConfigureIpForwarding(ipVersion IPVersion) error {
-	var forwarding string
-	if ipVersion == IPv6 {
-		forwarding = sysctl.NetIPv6Forwarding
-	} else {
-		forwarding = sysctl.NetIPv4Forwarding
-	}
-
-	err := sysctl.New().SetSysctl(forwarding, allowForwarding)
-	return err
-}
-
-func (h *NetworkUtilsHandler) ConfigurePingGroupRange() error {
-	err := sysctl.New().SetSysctl(sysctl.PingGroupRange, "107 107")
-	return err
-}
-
-func (h *NetworkUtilsHandler) ConfigureRouteLocalNet(iface string) error {
-	routeLocalNetForIface := fmt.Sprintf(sysctl.IPv4RouteLocalNet, iface)
-	err := sysctl.New().SetSysctl(routeLocalNetForIface, allowRouteLocalNet)
-	return err
-}
-
-func (h *NetworkUtilsHandler) ConfigureUnprivilegedPortStart(port string) error {
-	err := sysctl.New().SetSysctl(sysctl.UnprivilegedPortStart, port)
-	return err
 }
 
 func (h *NetworkUtilsHandler) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
@@ -220,54 +125,6 @@ func (h *NetworkUtilsHandler) IsIpv4Primary() (bool, error) {
 	}
 
 	return !netutils.IsIPv6String(podIP), nil
-}
-
-func (h *NetworkUtilsHandler) NftablesNewTable(ipVersion IPVersion, name string) error {
-	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "table", h.GetNFTIPString(ipVersion), name).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s, error: %s", string(output), err.Error())
-	}
-
-	return nil
-}
-
-func (h *NetworkUtilsHandler) NftablesNewChain(ipVersion IPVersion, table, chain string) error {
-	// #nosec g204 no risk to use GetNFTIPString as  argument as it returns either "ipv6" or "ip" strings
-	output, err := exec.Command("nft", "add", "chain", h.GetNFTIPString(ipVersion), table, chain).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s, error: %s", string(output), err.Error())
-	}
-
-	return nil
-}
-
-func (h *NetworkUtilsHandler) NftablesAppendRule(ipVersion IPVersion, table, chain string, rulespec ...string) error {
-	cmd := append([]string{"add", "rule", h.GetNFTIPString(ipVersion), table, chain}, rulespec...)
-	// #nosec No risk for attacket injection. CMD variables are predefined strings
-	output, err := exec.Command("nft", cmd...).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to apped new nfrule error %s", string(output))
-	}
-
-	return nil
-}
-
-func (h *NetworkUtilsHandler) GetNFTIPString(ipVersion IPVersion) string {
-	if ipVersion == IPv6 {
-		return "ip6"
-	}
-	return "ip"
-}
-
-func (h *NetworkUtilsHandler) CheckNftables() error {
-	output, err := exec.Command("nft", "list", "ruleset").CombinedOutput()
-	if err != nil {
-		log.Log.V(5).Reason(err).Infof("failed to list nftable ruleset")
-		return fmt.Errorf("failed to list nftable ruleset, error: %s", string(output))
-	}
-
-	return nil
 }
 
 func (h *NetworkUtilsHandler) ReadIPAddressesFromLink(interfaceName string) (string, string, error) {
@@ -348,67 +205,6 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 				panic(err)
 			}
 		}()
-	}
-
-	return nil
-}
-
-func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, queueNumber uint32, launcherPID int, mtu int, tapOwner string) error {
-	tapDeviceSELinuxCmdExecutor, err := buildTapDeviceMaker(tapName, queueNumber, launcherPID, mtu, tapOwner)
-	if err != nil {
-		return err
-	}
-	if err := tapDeviceSELinuxCmdExecutor.Execute(); err != nil {
-		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
-	}
-
-	log.Log.Infof("Created tap device: %s in PID: %d", tapName, launcherPID)
-	return nil
-}
-
-func buildTapDeviceMaker(tapName string, queueNumber uint32, virtLauncherPID int, mtu int, tapOwner string) (*selinux.ContextExecutor, error) {
-	createTapDeviceArgs := []string{
-		"create-tap",
-		"--tap-name", tapName,
-		"--uid", tapOwner,
-		"--gid", tapOwner,
-		"--queue-number", fmt.Sprintf("%d", queueNumber),
-		"--mtu", fmt.Sprintf("%d", mtu),
-	}
-	// #nosec No risk for attacket injection. createTapDeviceArgs includes predefined strings
-	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
-	return selinux.NewContextExecutor(virtLauncherPID, cmd)
-}
-
-func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
-	tap, err := netlink.LinkByName(tapName)
-	log.Log.V(4).Infof("Looking for tap device: %s", tapName)
-	if err != nil {
-		return fmt.Errorf("could not find tap device %s; %v", tapName, err)
-	}
-
-	bridge := &netlink.Bridge{
-		LinkAttrs: netlink.LinkAttrs{
-			Name: bridgeName,
-		},
-	}
-	if err := netlink.LinkSetMaster(tap, bridge); err != nil {
-		return fmt.Errorf("failed to bind tap device %s to bridge %s; %v", tapName, bridgeName, err)
-	}
-
-	err = netlink.LinkSetUp(tap)
-	if err != nil {
-		return fmt.Errorf("failed to set tap device %s up; %v", tapName, err)
-	}
-
-	log.Log.Infof("Successfully configured tap device: %s", tapName)
-	return nil
-}
-
-func (h *NetworkUtilsHandler) DisableTXOffloadChecksum(ifaceName string) error {
-	if err := EthtoolTXOff(ifaceName); err != nil {
-		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", ifaceName)
-		return err
 	}
 
 	return nil

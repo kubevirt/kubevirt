@@ -41,16 +41,6 @@ func (_mr *_MockPodNetworkInfraConfiguratorRecorder) DiscoverPodNetworkInterface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoverPodNetworkInterface", arg0)
 }
 
-func (_m *MockPodNetworkInfraConfigurator) PreparePodNetworkInterface() error {
-	ret := _m.ctrl.Call(_m, "PreparePodNetworkInterface")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockPodNetworkInfraConfiguratorRecorder) PreparePodNetworkInterface() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "PreparePodNetworkInterface")
-}
-
 func (_m *MockPodNetworkInfraConfigurator) GenerateNonRecoverableDomainIfaceSpec() *api.Interface {
 	ret := _m.ctrl.Call(_m, "GenerateNonRecoverableDomainIfaceSpec")
 	ret0, _ := ret[0].(*api.Interface)

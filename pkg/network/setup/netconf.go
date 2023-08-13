@@ -21,6 +21,7 @@ package network
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -31,8 +32,14 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+
 	"kubevirt.io/kubevirt/pkg/network/cache"
+	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/netns"
+	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
 )
 
 type cacheCreator interface {
@@ -41,7 +48,7 @@ type cacheCreator interface {
 
 type ConfigStateExecutor interface {
 	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
-	Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func(*podNIC) error) error
+	Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func() error) error
 }
 
 type NetConf struct {
@@ -79,7 +86,20 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
+	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
+	if util.IsNonRootVMI(vmi) {
+		ownerID = util.NonRootUID
+	}
+	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
+	netpod := NewNetPod(
+		vmi.Spec.Networks,
+		vmi.Spec.Domain.Devices.Interfaces,
+		launcherPid,
+		ownerID,
+		queuesCapacity,
+		WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+	)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
 
 	c.configStateMutex.RLock()
 	configState, ok := c.configState[string(vmi.UID)]
@@ -157,6 +177,17 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (c *NetConf) hotUnplugInterfaces(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor, launcherPid int) error {
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, &launcherPid)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
 	return netConfigurator.UnplugPodNetworksPhase1(vmi, networks, configState)
+}
+
+func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
+	if vmi.Status.MigrationTransport == v1.MigrationTransportUnix {
+		return masquerade.New(masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)))
+	} else {
+		return masquerade.New(
+			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
+			masquerade.WithLegacyMigrationPorts(),
+		)
+	}
 }

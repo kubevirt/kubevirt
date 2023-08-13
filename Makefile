@@ -82,6 +82,9 @@ test: bazel-test
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
 
+integ-test:
+	hack/integration-test.sh
+
 functest: build-functests
 	hack/functests.sh
 
