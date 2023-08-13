@@ -29,36 +29,11 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-// excludedMetrics defines the metrics to ignore, open issue:https://github.com/kubevirt/kubevirt/issues/9714
-// Follow the Metrics Naming Guidelines: https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
-// Do not add metrics to this list!
+// This should be used only for very rare cases where the naming conventions that are explained in the best practices:
+// https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
+// should be ignored.
 var excludedMetrics = map[string]struct{}{
-	"kubevirt_allocatable_nodes_count":                     struct{}{},
-	"kubevirt_kvm_available_nodes_count":                   struct{}{},
-	"kubevirt_migrate_vmi_pending_count":                   struct{}{},
-	"kubevirt_migrate_vmi_running_count":                   struct{}{},
-	"kubevirt_migrate_vmi_scheduling_count":                struct{}{},
-	"kubevirt_virt_api_up_total":                           struct{}{},
-	"kubevirt_virt_controller_ready_total":                 struct{}{},
-	"kubevirt_virt_controller_up_total":                    struct{}{},
-	"kubevirt_virt_handler_up_total":                       struct{}{},
-	"kubevirt_virt_operator_leading_total":                 struct{}{},
-	"kubevirt_virt_operator_ready_total":                   struct{}{},
-	"kubevirt_virt_operator_up_total":                      struct{}{},
-	"kubevirt_vmi_filesystem_capacity_bytes_total":         struct{}{},
-	"kubevirt_vmi_memory_domain_bytes_total":               struct{}{},
-	"kubevirt_vmi_memory_pgmajfault":                       struct{}{},
-	"kubevirt_vmi_memory_pgminfault":                       struct{}{},
-	"kubevirt_vmi_memory_swap_in_traffic_bytes_total":      struct{}{},
-	"kubevirt_vmi_memory_swap_out_traffic_bytes_total":     struct{}{},
-	"kubevirt_vmi_outdated_count":                          struct{}{},
-	"kubevirt_vmi_phase_count":                             struct{}{},
-	"kubevirt_vmi_storage_flush_times_ms_total":            struct{}{},
-	"kubevirt_vmi_storage_read_times_ms_total":             struct{}{},
-	"kubevirt_vmi_storage_write_times_ms_total":            struct{}{},
-	"kubevirt_vmi_vcpu_seconds":                            struct{}{},
-	"kubevirt_vmi_vcpu_wait_seconds":                       struct{}{},
-	"kubevirt_vmsnapshot_disks_restored_from_source_total": struct{}{},
+	"kubevirt_vmi_phase_count": struct{}{},
 }
 
 // Extract the name, help, and type from the metrics doc file
