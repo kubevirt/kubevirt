@@ -57,8 +57,9 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
+			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			Expect(out.Name).To(Equal("testName"))
@@ -74,8 +75,9 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
+			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			// very very basic sanity check
@@ -96,8 +98,9 @@ var _ = Describe("StatsConverter", func() {
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
+			dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &inJobInfo, &out)).
+			Expect(Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, nil, devAliasMap, &inJobInfo, dirtyRate, &out)).
 				To(Succeed())
 
 			loaded := new(bytes.Buffer)
