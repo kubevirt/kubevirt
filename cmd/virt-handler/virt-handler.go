@@ -433,6 +433,13 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(10, stop)
 
+	// run guest stat updater controller
+	newGuestStatsCtrl, err := virthandler.NewGuestStatsController(app.VirtShareDir, app.virtCli, vmiSourceInformer)
+	if err != nil {
+		panic(err)
+	}
+	go newGuestStatsCtrl.Run(5, stop)
+
 	doneCh := make(chan string)
 	defer close(doneCh)
 

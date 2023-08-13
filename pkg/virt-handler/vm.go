@@ -408,43 +408,7 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 }
 
 func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
-
-	res, err := d.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
-	}
-
-	// inject the domain-notify.sock into the VMI pod.
-	root, err := res.MountRoot()
-	if err != nil {
-		return err
-	}
-	socketDir, err := root.AppendAndResolveWithRelativeRoot(d.virtShareDir)
-	if err != nil {
-		return err
-	}
-
-	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return err
-	}
-	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		return err
-	}
-
-	if util.IsNonRootVMI(vmi) {
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
-		if err != nil {
-			log.Log.Reason(err).Error("unable to change ownership for domain notify")
-			return err
-		}
-	}
-
-	handleDomainNotifyPipe(domainPipeStopChan, listener, d.virtShareDir, vmi)
-
-	return nil
+	return StartDomainNotifyPipe(vmi, domainPipeStopChan, d.podIsolationDetector, d.virtShareDir)
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -2175,49 +2139,7 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var err error
-
-	clientInfo, exists := d.launcherClients.Load(vmi.UID)
-	if exists && clientInfo.Client != nil {
-		return clientInfo.Client, nil
-	}
-
-	socketFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		return nil, err
-	}
-
-	err = virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := cmdclient.NewClient(socketFile)
-	if err != nil {
-		return nil, err
-	}
-
-	domainPipeStopChan := make(chan struct{})
-	// if this isn't a legacy socket, we need to
-	// pipe in the domain socket into the VMI's filesystem
-	if !cmdclient.IsLegacySocket(socketFile) {
-		err = d.startDomainNotifyPipe(domainPipeStopChan, vmi)
-		if err != nil {
-			client.Close()
-			close(domainPipeStopChan)
-			return nil, err
-		}
-	}
-
-	d.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
-		Client:              client,
-		SocketFile:          socketFile,
-		DomainPipeStopChan:  domainPipeStopChan,
-		NotInitializedSince: time.Now(),
-		Ready:               true,
-	})
-
-	return client, nil
+	return GetLauncherClient(vmi, &d.launcherClients, d.podIsolationDetector, d.virtShareDir)
 }
 
 func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
