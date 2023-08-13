@@ -87,4 +87,37 @@ var _ = Describe("Validating VMI network spec", func() {
 				Field:   "fake.domain.devices.interfaces[0].state",
 			}))
 	})
+
+	It("network interface has both binding plugin and interface binding method", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "foo",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Binding:                &v1.PluginBinding{Name: "boo"},
+		}}
+		Expect(validateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(
+			ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "logical foo interface cannot have both binding plugin and interface binding method",
+				Field:   "fake.domain.devices.interfaces[0].binding",
+			}))
+	})
+
+	It("network interface has only plugin binding", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:    "foo",
+			Binding: &v1.PluginBinding{Name: "boo"},
+		}}
+		Expect(validateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
+	})
+
+	It("network interface has only binding method", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "foo",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		}}
+		Expect(validateInterfaceBinding(k8sfield.NewPath("fake"), &vm.Spec)).To(BeEmpty())
+	})
 })
