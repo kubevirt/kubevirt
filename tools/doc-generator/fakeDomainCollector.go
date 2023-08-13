@@ -36,8 +36,9 @@ func (fc fakeDomainCollector) Collect(ch chan<- prometheus.Metric) {
 	fs := k6tv1.VirtualMachineInstanceFileSystemList{}
 	ident := statsconv.DomainIdentifier(&fakeDomainIdentifier{})
 	devAliasMap := make(map[string]string)
+	dirtyRate := &libvirt.DomainStatsDirtyRate{}
 
-	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inDomInfo, devAliasMap, &jobInfo, &out); err != nil {
+	if err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(ident, in, inMem, inDomInfo, devAliasMap, &jobInfo, dirtyRate, &out); err != nil {
 		panic(err)
 	}
 
