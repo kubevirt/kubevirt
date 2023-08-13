@@ -16532,6 +16532,26 @@
      }
     }
    },
+   "v1.DirtyRateStats": {
+    "type": "object",
+    "properties": {
+     "average": {
+      "description": "Average is the average dirty rate in Mbps",
+      "type": "number",
+      "format": "double"
+     },
+     "sampleCount": {
+      "description": "SamplePeriodSeconds is the number of seconds over which the dirty rate",
+      "type": "integer",
+      "format": "int64"
+     },
+     "variance": {
+      "description": "Variance is the variance of the dirty rate",
+      "type": "number",
+      "format": "double"
+     }
+    }
+   },
    "v1.DisableFreePageReporting": {
     "type": "object"
    },
@@ -17078,6 +17098,14 @@
    "v1.GuestAgentPing": {
     "description": "GuestAgentPing configures the guest-agent based ping probe",
     "type": "object"
+   },
+   "v1.GuestStats": {
+    "type": "object",
+    "properties": {
+     "dirtyRate": {
+      "$ref": "#/definitions/v1.DirtyRateStats"
+     }
+    }
    },
    "v1.HPETTimer": {
     "type": "object",
@@ -20277,6 +20305,10 @@
       "description": "Guest OS Information",
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
+     },
+     "guestStats": {
+      "description": "GuestStats contains the guest statistics.",
+      "$ref": "#/definitions/v1.GuestStats"
      },
      "interfaces": {
       "description": "Interfaces represent the details of available network interfaces.",

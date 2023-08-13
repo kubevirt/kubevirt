@@ -11859,6 +11859,24 @@ var CRDsValidation map[string]string = map[string]string{
               description: Version ID of the Guest OS
               type: string
           type: object
+        guestStats:
+          description: GuestStats contains the guest statistics.
+          properties:
+            dirtyRate:
+              properties:
+                average:
+                  description: Average is the average dirty rate in Mbps
+                  type: number
+                sampleCount:
+                  description: SamplePeriodSeconds is the number of seconds over which
+                    the dirty rate
+                  format: int64
+                  type: integer
+                variance:
+                  description: Variance is the variance of the dirty rate
+                  type: number
+              type: object
+          type: object
         interfaces:
           description: Interfaces represent the details of available network interfaces.
           items:

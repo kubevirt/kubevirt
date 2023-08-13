@@ -344,6 +344,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DataVolumeTemplateSpec":                                             schema_kubevirtio_api_core_v1_DataVolumeTemplateSpec(ref),
 		"kubevirt.io/api/core/v1.DeveloperConfiguration":                                             schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/api/core/v1.Devices":                                                            schema_kubevirtio_api_core_v1_Devices(ref),
+		"kubevirt.io/api/core/v1.DirtyRateStats":                                                     schema_kubevirtio_api_core_v1_DirtyRateStats(ref),
 		"kubevirt.io/api/core/v1.DisableFreePageReporting":                                           schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref),
 		"kubevirt.io/api/core/v1.Disk":                                                               schema_kubevirtio_api_core_v1_Disk(ref),
 		"kubevirt.io/api/core/v1.DiskDevice":                                                         schema_kubevirtio_api_core_v1_DiskDevice(ref),
@@ -372,6 +373,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.GenerationStatus":                                                   schema_kubevirtio_api_core_v1_GenerationStatus(ref),
 		"kubevirt.io/api/core/v1.GuestAgentCommandInfo":                                              schema_kubevirtio_api_core_v1_GuestAgentCommandInfo(ref),
 		"kubevirt.io/api/core/v1.GuestAgentPing":                                                     schema_kubevirtio_api_core_v1_GuestAgentPing(ref),
+		"kubevirt.io/api/core/v1.GuestStats":                                                         schema_kubevirtio_api_core_v1_GuestStats(ref),
 		"kubevirt.io/api/core/v1.HPETTimer":                                                          schema_kubevirtio_api_core_v1_HPETTimer(ref),
 		"kubevirt.io/api/core/v1.Handler":                                                            schema_kubevirtio_api_core_v1_Handler(ref),
 		"kubevirt.io/api/core/v1.HostDevice":                                                         schema_kubevirtio_api_core_v1_HostDevice(ref),
@@ -16986,6 +16988,39 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DirtyRateStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sampleCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SamplePeriodSeconds is the number of seconds over which the dirty rate",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"average": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Average is the average dirty rate in Mbps",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+					"variance": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Variance is the variance of the dirty rate",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17990,6 +18025,25 @@ func schema_kubevirtio_api_core_v1_GuestAgentPing(ref common.ReferenceCallback) 
 				Type:        []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_GuestStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"dirtyRate": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.DirtyRateStats"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.DirtyRateStats"},
 	}
 }
 
@@ -24097,11 +24151,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Ref:         ref("kubevirt.io/api/core/v1.CPUTopology"),
 						},
 					},
+					"guestStats": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestStats contains the guest statistics.",
+							Ref:         ref("kubevirt.io/api/core/v1.GuestStats"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.GuestStats", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 

@@ -1518,3 +1518,16 @@ type CPUTopology struct {
 	// Must be a value greater or equal 1.
 	Threads uint32 `json:"threads,omitempty"`
 }
+
+type GuestStats struct {
+	DirtyRate *DirtyRateStats `json:"dirtyRate,omitempty"`
+}
+
+type DirtyRateStats struct {
+	// SamplePeriodSeconds is the number of seconds over which the dirty rate
+	SampleCount int64 `json:"sampleCount,omitempty"`
+	// Average is the average dirty rate in Mbps
+	Average float64 `json:"average,omitempty"`
+	// Variance is the variance of the dirty rate
+	Variance float64 `json:"variance,omitempty"`
+}

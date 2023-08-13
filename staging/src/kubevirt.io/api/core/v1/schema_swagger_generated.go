@@ -851,3 +851,15 @@ func (CPUTopology) SwaggerDoc() map[string]string {
 		"threads": "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
 	}
 }
+
+func (GuestStats) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (DirtyRateStats) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"sampleCount": "SamplePeriodSeconds is the number of seconds over which the dirty rate",
+		"average":     "Average is the average dirty rate in Mbps",
+		"variance":    "Variance is the variance of the dirty rate",
+	}
+}
