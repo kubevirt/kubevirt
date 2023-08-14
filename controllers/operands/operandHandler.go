@@ -194,6 +194,7 @@ func (h *OperandHandler) EnsureDeleted(req *common.HcoRequest) error {
 		NewNetworkAddonsWithNameOnly(req.Instance),
 		NewSSPWithNameOnly(req.Instance),
 		NewConsoleCLIDownload(req.Instance),
+		NewMTQWithNameOnly(req.Instance),
 	}
 
 	resources = append(resources, h.objects...)
