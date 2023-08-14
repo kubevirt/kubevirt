@@ -32,6 +32,11 @@ const (
 	deleteTimeOut         = 30 * time.Second
 )
 
+// common constants
+const (
+	kvPriorityClass = "kubevirt-cluster-critical"
+)
+
 var (
 	logger = logf.Log.WithName("operandHandlerInit")
 )
@@ -50,6 +55,7 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 		(*genericOperand)(newKubevirtHandler(client, scheme)),
 		(*genericOperand)(newCdiHandler(client, scheme)),
 		(*genericOperand)(newCnaHandler(client, scheme)),
+		newMtqHandler(client, scheme),
 	}
 
 	if ci.IsOpenshift() {

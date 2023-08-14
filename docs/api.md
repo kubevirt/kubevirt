@@ -135,6 +135,7 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 | nonRoot | Enables rootless virt-launcher.\n\nDeprecated: please use the root FG. | *bool | true | false |
 | disableMDevConfiguration | Disable mediated devices handling on KubeVirt | *bool | false | false |
 | persistentReservation | Enable persistent reservation of a LUN through the SCSI Persistent Reserve commands on Kubevirt. In order to issue privileged SCSI ioctls, the VM requires activation of the persistent reservation flag. Once this feature gate is enabled, then the additional container with the qemu-pr-helper is deployed inside the virt-handler pod. Enabling (or removing) the feature gate causes the redeployment of the virt-handler pod. | *bool | false | false |
+| enableManagedTenantQuota | Enable the Managed Tenant Quota operator (MTQ) on the cluster. MTQ streamlines the VirtualMachines migration process in namespaces where resource quotas are applied. Note: this feature is in Developer Preview. | *bool | false | false |
 
 [Back to TOC](#table-of-contents)
 

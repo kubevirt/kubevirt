@@ -260,6 +260,91 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
 			})
 
+			It("should create all managed resources + MTQ", func() {
+
+				hco := commontestutils.NewHco()
+				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+					WithHostPassthroughCPU:    pointer.Bool(true),
+					DeployTektonTaskResources: pointer.Bool(true),
+					EnableManagedTenantQuota:  pointer.Bool(true),
+				}
+
+				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
+				monitoringReconciler := alerts.NewMonitoringReconciler(hcoutil.GetClusterInfo(), cl, commontestutils.NewEventEmitterMock(), commontestutils.GetScheme())
+
+				r := initReconciler(cl, nil)
+				r.monitoringReconciler = monitoringReconciler
+
+				// Do the reconcile
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
+
+				// Get the HCO
+				foundResource := &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+				// Check conditions
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionReconcileComplete,
+					Status:  metav1.ConditionUnknown,
+					Reason:  reconcileInit,
+					Message: reconcileInitMessage,
+				})))
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionAvailable,
+					Status:  metav1.ConditionFalse,
+					Reason:  reconcileInit,
+					Message: "Initializing HyperConverged cluster",
+				})))
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionProgressing,
+					Status:  metav1.ConditionTrue,
+					Reason:  reconcileInit,
+					Message: "Initializing HyperConverged cluster",
+				})))
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionDegraded,
+					Status:  metav1.ConditionFalse,
+					Reason:  reconcileInit,
+					Message: "Initializing HyperConverged cluster",
+				})))
+				Expect(foundResource.Status.Conditions).To(ContainElement(commontestutils.RepresentCondition(metav1.Condition{
+					Type:    hcov1beta1.ConditionUpgradeable,
+					Status:  metav1.ConditionUnknown,
+					Reason:  reconcileInit,
+					Message: "Initializing HyperConverged cluster",
+				})))
+
+				verifySystemHealthStatusError(foundResource)
+
+				res, err = r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res).Should(Equal(reconcile.Result{Requeue: false}))
+				validateOperatorCondition(r, metav1.ConditionTrue, hcoutil.UpgradeableAllowReason, hcoutil.UpgradeableAllowMessage)
+
+				// Get the HCO
+				foundResource = &hcov1beta1.HyperConverged{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+				// Check conditions
+				Expect(foundResource.Status.RelatedObjects).To(HaveLen(23))
+				expectedRef := corev1.ObjectReference{
+					Kind:            "MTQ",
+					Name:            "mtq-kubevirt-hyperconverged",
+					APIVersion:      "mtq.kubevirt.io/v1alpha1",
+					ResourceVersion: "1",
+				}
+				Expect(foundResource.Status.RelatedObjects).To(ContainElement(expectedRef))
+			})
+
 			It("should find all managed resources", func() {
 
 				expected := getBasicDeployment()
@@ -1301,7 +1386,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected.ssp.Status.ObservedVersion = newComponentVersion
 
 				expected.hco.Status.Conditions = origConditions
-
+				_ = os.Setenv(hcoutil.MtqVersionEnvV, newComponentVersion)
 			})
 
 			It("Should update OperatorCondition Upgradeable to False", func() {

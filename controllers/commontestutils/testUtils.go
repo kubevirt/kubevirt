@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	mtqv1alpha1 "kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1"
+
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2" //nolint dot-imports
 	. "github.com/onsi/gomega"    //nolint dot-imports
@@ -159,6 +161,7 @@ func GetScheme() *runtime.Scheme {
 		consolev1.Install,
 		operatorv1.Install,
 		openshiftconfigv1.Install,
+		mtqv1alpha1.AddToScheme,
 	} {
 		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}

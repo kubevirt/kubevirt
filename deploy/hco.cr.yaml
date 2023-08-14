@@ -17,6 +17,7 @@ spec:
     deployVmConsoleProxy: false
     disableMDevConfiguration: false
     enableCommonBootImageImport: true
+    enableManagedTenantQuota: false
     nonRoot: true
     persistentReservation: false
     withHostPassthroughCPU: false

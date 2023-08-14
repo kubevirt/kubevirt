@@ -398,7 +398,7 @@ func getCsvWithComponent() []util.CsvWithComponent {
 		{
 			Name:      "MTQ",
 			Csv:       *mtqCsv,
-			Component: hcoutil.AppComponentCompute,
+			Component: hcoutil.AppComponentMultiTenant,
 		},
 	}
 	return componentsWithCsvs

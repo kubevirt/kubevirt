@@ -155,7 +155,7 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 							},
 						},
 					},
-					PriorityClassName: "kubevirt-cluster-critical",
+					PriorityClassName: kvPriorityClass,
 					Volumes: []corev1.Volume{
 						{
 							Name: servingCertName,

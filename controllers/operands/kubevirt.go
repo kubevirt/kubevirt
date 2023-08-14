@@ -9,10 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/openshift/library-go/pkg/crypto"
-
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
+	"github.com/openshift/library-go/pkg/crypto"
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -800,7 +798,7 @@ func NewKubeVirtPriorityClass(hc *hcov1beta1.HyperConverged) *schedulingv1.Prior
 			Kind:       "PriorityClass",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "kubevirt-cluster-critical",
+			Name:   kvPriorityClass,
 			Labels: getLabels(hc, hcoutil.AppComponentCompute),
 		},
 		// 1 billion is the highest value we can set

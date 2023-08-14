@@ -470,7 +470,7 @@ func getInitialCsvList() []util.CsvWithComponent {
 		{
 			Name:      "MTQ",
 			Csv:       *mtqCsv,
-			Component: hcoutil.AppComponentCompute,
+			Component: hcoutil.AppComponentMultiTenant,
 		},
 	}
 }

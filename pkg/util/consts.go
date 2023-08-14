@@ -78,12 +78,13 @@ const (
 type AppComponent string
 
 const (
-	AppComponentCompute    AppComponent = "compute"
-	AppComponentStorage    AppComponent = "storage"
-	AppComponentNetwork    AppComponent = "network"
-	AppComponentMonitoring AppComponent = "monitoring"
-	AppComponentSchedule   AppComponent = "schedule"
-	AppComponentDeployment AppComponent = "deployment"
-	AppComponentUIPlugin   AppComponent = "kubevirt-console-plugin"
-	AppComponentUIProxy    AppComponent = "kubevirt-apiserver-proxy"
+	AppComponentCompute     AppComponent = "compute"
+	AppComponentStorage     AppComponent = "storage"
+	AppComponentNetwork     AppComponent = "network"
+	AppComponentMonitoring  AppComponent = "monitoring"
+	AppComponentSchedule    AppComponent = "schedule"
+	AppComponentDeployment  AppComponent = "deployment"
+	AppComponentUIPlugin    AppComponent = "kubevirt-console-plugin"
+	AppComponentUIProxy     AppComponent = "kubevirt-apiserver-proxy"
+	AppComponentMultiTenant AppComponent = "multi-tenant"
 )

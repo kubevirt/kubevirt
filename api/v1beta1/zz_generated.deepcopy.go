@@ -250,6 +250,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnableManagedTenantQuota != nil {
+		in, out := &in.EnableManagedTenantQuota, &out.EnableManagedTenantQuota
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

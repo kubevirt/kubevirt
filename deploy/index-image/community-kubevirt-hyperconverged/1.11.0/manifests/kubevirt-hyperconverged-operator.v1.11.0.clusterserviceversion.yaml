@@ -251,6 +251,18 @@ spec:
           - update
           - delete
         - apiGroups:
+          - mtq.kubevirt.io
+          resources:
+          - mtqs
+          - mtqs/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
           - ""
           resources:
           - configmaps
@@ -2970,6 +2982,7 @@ spec:
                 - name: HPPO_VERSION
                   value: v0.16.0
                 - name: MTQ_VERSION
+                  value: v1.1.0
                 - name: KV_CONSOLE_PLUGIN_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:5a783ac8af2ad5d6c7dd731ad29dfb013321c06f919dce2242eef1b3d0a9f194
                 - name: KV_CONSOLE_PROXY_IMAGE
@@ -3629,7 +3642,7 @@ spec:
                     path: tls.key
                   secretName: hostpath-provisioner-operator-webhook-service-cert
       - label:
-          app.kubernetes.io/component: compute
+          app.kubernetes.io/component: multi-tenant
           app.kubernetes.io/managed-by: olm
           app.kubernetes.io/part-of: hyperconverged-cluster
           app.kubernetes.io/version: 1.11.0
@@ -3644,7 +3657,7 @@ spec:
           template:
             metadata:
               labels:
-                app.kubernetes.io/component: compute
+                app.kubernetes.io/component: multi-tenant
                 app.kubernetes.io/managed-by: olm
                 app.kubernetes.io/part-of: hyperconverged-cluster
                 app.kubernetes.io/version: 1.11.0
@@ -3659,6 +3672,7 @@ spec:
                 - name: DEPLOY_CLUSTER_RESOURCES
                   value: "true"
                 - name: OPERATOR_VERSION
+                  value: v1.1.0
                 - name: CONTROLLER_IMAGE
                   value: quay.io/kubevirt/mtq-controller@sha256:2ace617bf35253db8c58c1ceca7e9172caeb1d05b224183a137bb8285f7a465e
                 - name: MTQ_LOCK_SERVER_IMAGE

@@ -36,6 +36,7 @@ require (
 	kubevirt.io/api v1.0.0
 	kubevirt.io/containerized-data-importer-api v1.57.0-rc1
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
+	kubevirt.io/managed-tenant-quota v1.1.0
 	kubevirt.io/ssp-operator/api v0.18.2
 	sigs.k8s.io/controller-runtime v0.15.0
 	sigs.k8s.io/controller-tools v0.12.0

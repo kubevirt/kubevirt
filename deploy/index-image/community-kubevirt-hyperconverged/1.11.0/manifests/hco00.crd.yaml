@@ -1097,6 +1097,13 @@ spec:
                       It is possible to use custom templates by adding them to the
                       dataImportCronTemplates field.'
                     type: boolean
+                  enableManagedTenantQuota:
+                    default: false
+                    description: 'Enable the Managed Tenant Quota operator (MTQ) on
+                      the cluster. MTQ streamlines the VirtualMachines migration process
+                      in namespaces where resource quotas are applied. Note: this
+                      feature is in Developer Preview.'
+                    type: boolean
                   nonRoot:
                     default: true
                     description: "Enables rootless virt-launcher. \n Deprecated: please

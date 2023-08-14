@@ -529,6 +529,18 @@ rules:
   - update
   - delete
 - apiGroups:
+  - mtq.kubevirt.io
+  resources:
+  - mtqs
+  - mtqs/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
   - ""
   resources:
   - configmaps

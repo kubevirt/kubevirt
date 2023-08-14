@@ -202,6 +202,7 @@ function create_mtq_csv() {
     --operator-image=${MTQ_OPERATOR_IMAGE} \
     --controller-image=${MTQ_CONTROLLER_IMAGE} \
     --mtq-lock-server-image=${MTQ_LOCKSERVER_IMAGE} \
+    --operator-version=${MTQ_VERSION} \
     --namespace=${OPERATOR_NAMESPACE} \
     --pull-policy=IfNotPresent \
   "
@@ -333,7 +334,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cnao-version="${NETWORK_ADDONS_VERSION}" \
   --ssp-version="${SSP_VERSION}" \
   --hppo-version="${HPPO_VERSION}" \
-  --mtq-version="${MTQ_OPERATOR_VERSION}" \
+  --mtq-version="${MTQ_VERSION}" \
   --related-images-list="${DIGEST_LIST}" \
   --operator-image-name="${HCO_OPERATOR_IMAGE}" \
   --webhook-image-name="${HCO_WEBHOOK_IMAGE}" \

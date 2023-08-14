@@ -466,6 +466,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("cdi.kubevirt.io", stringListToSlice("cdis", "cdis/finalizers")),
 		roleWithAllPermissions("ssp.kubevirt.io", stringListToSlice("ssps", "ssps/finalizers")),
 		roleWithAllPermissions("networkaddonsoperator.network.kubevirt.io", stringListToSlice("networkaddonsconfigs", "networkaddonsconfigs/finalizers")),
+		roleWithAllPermissions("mtq.kubevirt.io", stringListToSlice("mtqs", "mtqs/finalizers")),
 		roleWithAllPermissions("", stringListToSlice("configmaps")),
 		{
 			APIGroups: emptyAPIGroup,

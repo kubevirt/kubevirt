@@ -204,6 +204,12 @@ VMI example:
 
 **Default**: `false`
 
+### enableManagedTenantQuota Feature Gate
+If set to true, enables the Managed Tenant Quota (MTQ) feature. See more details 
+[here](https://github.com/kubevirt/managed-tenant-quota).
+
+**Default**: `false`
+
 ### Feature Gates Example
 
 ```yaml
@@ -219,6 +225,7 @@ spec:
     enableCommonBootImageImport: true
     deployTektonTaskResources: true
     deployKubeSecondaryDNS: true
+    enableManagedTenantQuota: true
 ```
 
 ## Live Migration Configurations

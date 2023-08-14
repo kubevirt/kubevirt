@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/kubevirt/cluster-network-addons-operator v0.89.0
-	github.com/kubevirt/hyperconverged-cluster-operator v1.8.0
 	github.com/onsi/ginkgo/v2 v2.11.0
 	github.com/onsi/gomega v1.27.8
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
@@ -20,6 +19,7 @@ require (
 	kubevirt.io/client-go v1.0.0
 	kubevirt.io/containerized-data-importer-api v1.57.0-rc1
 	kubevirt.io/kubevirt v1.0.0
+	kubevirt.io/managed-tenant-quota v1.1.0
 	kubevirt.io/qe-tools v0.1.8
 )
 
@@ -44,6 +44,8 @@ replace (
 
 require (
 	github.com/gertd/go-pluralize v0.2.1
+	github.com/kubevirt/hyperconverged-cluster-operator v0.0.0-00010101000000-000000000000
+	github.com/openshift/custom-resource-status v1.1.2
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apiserver v0.27.3
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
@@ -105,7 +107,6 @@ require (
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/opencontainers/runc v1.1.7 // indirect
 	github.com/openshift/client-go v0.0.0 // indirect
-	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/operator-framework/api v0.17.6 // indirect
 	github.com/operator-framework/operator-lib v0.11.1-0.20220921174810-791cc547e6c5 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
@@ -131,7 +132,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/apiextensions-apiserver v0.27.3 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
-	k8s.io/kube-aggregator v0.26.3 // indirect
+	k8s.io/kube-aggregator v0.27.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230515203736-54b630e78af5 // indirect
 	k8s.io/kubectl v0.26.1 // indirect
 	sigs.k8s.io/controller-runtime v0.15.0 // indirect

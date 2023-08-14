@@ -99,7 +99,7 @@ var _ = Describe("KubeVirt Operand", func() {
 						Kind:       "PriorityClass",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "kubevirt-cluster-critical",
+						Name: kvPriorityClass,
 					},
 					Value:         1,
 					GlobalDefault: false,
@@ -112,7 +112,7 @@ var _ = Describe("KubeVirt Operand", func() {
 						Kind:       "PriorityClass",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "kubevirt-cluster-critical",
+						Name: kvPriorityClass,
 					},
 					Value:         1000000000,
 					GlobalDefault: true,
@@ -156,7 +156,7 @@ var _ = Describe("KubeVirt Operand", func() {
 			Entry("get error", func(testClient *commontestutils.HcoTestClient) error {
 				expectedError := fmt.Errorf("fake PriorityClass get error")
 				testClient.InitiateGetErrors(func(key client.ObjectKey) error {
-					if key.Name == "kubevirt-cluster-critical" {
+					if key.Name == kvPriorityClass {
 						return expectedError
 					}
 					return nil
