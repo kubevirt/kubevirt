@@ -64,7 +64,8 @@ const (
 	virtCtlCreate                    = "--create-claim"
 	virtCtlOutputFile                = "--output=%s"
 	virtCtlStorageClass              = "--storage-class=%s"
-	virtCtlPortForward               = "--port-forward=%s"
+	virtCtlPortForward               = "--port-forward"
+	virtCtlLocalPort                 = "--local-port=%s"
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
 	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
@@ -635,8 +636,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			commandAndArgs := []string{commandMemoryDump, "download", name, virtCtlNamespace, namespace}
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
 			if !checks.IsOpenShift() {
-				targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-				commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlPortForward, targetPort))
+				commandAndArgs = append(commandAndArgs, virtCtlPortForward)
 			}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() error {
@@ -663,7 +663,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlOutputFile, outputFile))
 			if !checks.IsOpenShift() {
 				targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-				commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlPortForward, targetPort))
+				commandAndArgs = append(commandAndArgs, virtCtlPortForward, fmt.Sprintf(virtCtlLocalPort, targetPort))
 			}
 			memorydumpCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
 			Eventually(func() error {

@@ -2221,8 +2221,7 @@ var _ = SIGDescribe("Export", func() {
 				}
 
 				if !checks.IsOpenShift() {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--port-forward", targetPort)
+					cmdArgs = append(cmdArgs, "--port-forward")
 				}
 
 				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
@@ -2276,8 +2275,7 @@ var _ = SIGDescribe("Export", func() {
 				}
 
 				if !checks.IsOpenShift() {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--port-forward", targetPort)
+					cmdArgs = append(cmdArgs, "--port-forward")
 				}
 
 				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
@@ -2322,8 +2320,7 @@ var _ = SIGDescribe("Export", func() {
 				}
 
 				if !checks.IsOpenShift() {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--port-forward", targetPort)
+					cmdArgs = append(cmdArgs, "--port-forward")
 				}
 
 				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
@@ -2348,8 +2345,8 @@ var _ = SIGDescribe("Export", func() {
 				export, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if export.Status.Links.External == nil {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", targetPort, "--keep-vme")
+					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort, "--keep-vme")
 				} else {
 					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
 				}
@@ -2385,8 +2382,8 @@ var _ = SIGDescribe("Export", func() {
 					"--namespace", testsuite.GetTestNamespace(export),
 				}
 				if export.Status.Links.External == nil {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--port-forward", targetPort,
+					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--port-forward", "--local-port", localPort,
 						"--insecure", "--keep-vme")
 				}
 				By("Running vmexport command")
@@ -2414,8 +2411,8 @@ var _ = SIGDescribe("Export", func() {
 				}
 				Expect(err).ToNot(HaveOccurred())
 				if vme.Status.Links.External == nil {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", targetPort)
+					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort)
 				} else {
 					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
 				}
@@ -2487,8 +2484,8 @@ var _ = SIGDescribe("Export", func() {
 					testsuite.GetTestNamespace(vm),
 				}
 				if vme.Status.Links.External == nil {
-					targetPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--service-url", fmt.Sprintf("127.0.0.1:%s", targetPort), "--port-forward", targetPort)
+					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
+					cmdArgs = append(cmdArgs, "--service-url", fmt.Sprintf("127.0.0.1:%s", localPort), "--port-forward", "--local-port", localPort)
 				}
 				cmdArgs = append(cmdArgs, extraArgs...)
 				virtctlCmdOut := clientcmd.NewRepeatableVirtctlCommandWithOut(cmdArgs...)

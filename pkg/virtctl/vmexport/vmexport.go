@@ -77,6 +77,7 @@ const (
 	SERVICE_URL_FLAG    = "--service-url"
 	INCLUDE_SECRET_FLAG = "--include-secret"
 	PORT_FORWARD_FLAG   = "--port-forward"
+	LOCAL_PORT_FLAG     = "--local-port"
 
 	// Possible output format for manifests
 	OUTPUT_FORMAT_JSON = "json"
@@ -126,7 +127,8 @@ var (
 	shouldCreate         bool
 	includeSecret        bool
 	exportManifest       bool
-	portForward          string
+	portForward          bool
+	localPort            string
 	serviceUrl           string
 	volumeName           string
 	ttl                  string
@@ -137,7 +139,7 @@ type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
 
 type HTTPClientCreator func(*http.Transport, bool) *http.Client
 
-type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}) error
+type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error
 
 type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duration, time.Duration) error
 
@@ -151,7 +153,8 @@ type VMExportInfo struct {
 	KeepVme        bool
 	IncludeSecret  bool
 	ExportManifest bool
-	PortForward    string
+	PortForward    bool
+	LocalPort      string
 	OutputFile     string
 	OutputWriter   io.Writer
 	VolumeName     string
@@ -217,7 +220,7 @@ func usage() string {
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
 
 	# Download a volume as before but through local port 5410
-	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz --port-forward=5410
+	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz --port-forward --local-port=5410
   
 	# Create a VirtualMachineExport and download the requested volume from it
 	{{ProgramName}} vmexport download vm1-export --vm=vm1 --volume=volume1 --output=disk.img.gz
@@ -254,7 +257,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
 	cmd.Flags().StringVar(&manifestOutputFormat, "manifest-output-format", "", "Manifest output format, defaults to Yaml. Valid options are yaml or json")
 	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
-	cmd.Flags().StringVar(&portForward, "port-forward", "", "Configures port-forwarding on the specified port. Useful to download without proper ingress/route configuration")
+	cmd.Flags().BoolVar(&portForward, "port-forward", false, "Configures port-forwarding on a random port. Useful to download without proper ingress/route configuration")
+	cmd.Flags().StringVar(&localPort, "local-port", "0", "Defines the specific port to be used in port-forward.")
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -351,12 +355,13 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.OutputFormat = manifestOutputFormat
 	vmeInfo.IncludeSecret = includeSecret
 	vmeInfo.ExportManifest = exportManifest
-	if portForward != "" {
+	if portForward {
 		vmeInfo.PortForward = portForward
 		vmeInfo.Insecure = true
+		// Defaults to 0, which will be replaced by a random available port
+		vmeInfo.LocalPort = localPort
 		if vmeInfo.ServiceURL == "" {
-			// Defaulting to localhost
-			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", portForward)
+			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", vmeInfo.LocalPort)
 		}
 	}
 	vmeInfo.TTL = metav1.Duration{}
@@ -451,7 +456,7 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 		defer DeleteVirtualMachineExport(client, vmeInfo)
 	}
 
-	if vmeInfo.PortForward != "" {
+	if vmeInfo.PortForward {
 		stopChan, err := setupPortForward(client, vmeInfo)
 		if err != nil {
 			return err
@@ -647,8 +652,13 @@ func GetManifestUrlsFromVirtualMachineExport(vmexport *exportv1.VirtualMachineEx
 func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) error {
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
-		if err != nil || vmexport == nil {
+		if err != nil {
 			return false, err
+		}
+
+		if vmexport == nil {
+			fmt.Printf("couldn't get VM Export %s, waiting for it to be created...\n", vmeInfo.Name)
+			return false, nil
 		}
 
 		if vmexport.Status == nil {
@@ -838,8 +848,11 @@ func handleCreateFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, CREATE)
 	}
-	if portForward != "" {
+	if portForward {
 		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, CREATE)
+	}
+	if localPort != "0" {
+		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, CREATE)
 	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
@@ -866,8 +879,11 @@ func handleDeleteFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, DELETE)
 	}
-	if portForward != "" {
+	if portForward {
 		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, DELETE)
+	}
+	if localPort != "0" {
+		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, DELETE)
 	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, DELETE)
@@ -883,10 +899,10 @@ func handleDownloadFlags() error {
 		shouldCreate = true
 	}
 
-	if portForward != "" {
-		port, err := strconv.Atoi(portForward)
+	if portForward {
+		port, err := strconv.Atoi(localPort)
 		if err != nil || port < 0 || port > 65535 {
-			return fmt.Errorf(ErrInvalidValue, PORT_FORWARD_FLAG, "valid port numbers")
+			return fmt.Errorf(ErrInvalidValue, LOCAL_PORT_FLAG, "valid port numbers")
 		}
 	}
 
@@ -971,30 +987,6 @@ func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExp
 	return service, err
 }
 
-// runPortForward is the actual function that runs the port-forward. Meant to be run concurrently
-func runPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}) error {
-	// Create a port forwarding request
-	req := client.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(pod.Name).
-		Namespace(namespace).
-		SubResource("portforward")
-
-	// Set up the port forwarding options
-	transport, upgrader, err := spdy.RoundTripperFor(client.Config())
-	if err != nil {
-		log.Fatalf("Failed to set up transport: %v", err)
-	}
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
-
-	// Start port-forwarding
-	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stdout, os.Stderr)
-	if err != nil {
-		log.Fatalf("Failed to setup port forward: %v", err)
-	}
-	return fw.ForwardPorts()
-}
-
 // setupPortForward runs a port-forward after initializing all required arguments
 func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (chan struct{}, error) {
 	// Wait for the vmexport object to be ready
@@ -1018,21 +1010,66 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 	}
 
 	// Set up the port forwarding ports
-	ports, err := translateServicePortToTargetPort(vmeInfo.PortForward, "443", *service, podList.Items[0])
+	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, "443", *service, podList.Items[0])
 	if err != nil {
 		return nil, err
 	}
 
 	stopChan := make(chan struct{}, 1)
 	readyChan := make(chan struct{})
-	go startPortForward(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan)
+	portChan := make(chan uint16)
+	go startPortForward(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan, portChan)
 
 	// Wait for the port forwarding to be ready
 	select {
 	case <-readyChan:
 		fmt.Println("Port forwarding is ready.")
+		// Using 0 allows listening on a random available port.
+		// Now we need to find out which port was used
+		if vmeInfo.LocalPort == "0" {
+			localPort := <-portChan
+			close(portChan)
+			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%d", localPort)
+		}
 	case <-time.After(30 * time.Second):
 		return nil, fmt.Errorf("Timeout waiting for port forwarding to be ready.")
 	}
 	return stopChan, nil
+}
+
+// runPortForward is the actual function that runs the port-forward. Meant to be run concurrently
+func runPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
+	// Create a port forwarding request
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(namespace).
+		SubResource("portforward")
+
+	// Set up the port forwarding options
+	transport, upgrader, err := spdy.RoundTripperFor(client.Config())
+	if err != nil {
+		log.Fatalf("Failed to set up transport: %v", err)
+	}
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+
+	// Start port-forwarding
+	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stdout, os.Stderr)
+	if err != nil {
+		log.Fatalf("Failed to setup port forward: %v", err)
+	}
+	slicedPorts := strings.Split(ports[0], ":")
+	if len(slicedPorts) == 2 && slicedPorts[0] == "0" {
+		// If the local port is 0, then the port-forwarder will pick a random available port.
+		// We need to send this port number back to the caller.
+		go func() {
+			<-readyChan
+			forwardedPorts, err := fw.GetPorts()
+			if err != nil {
+				log.Fatalf("Failed to get forwarded ports: %v", err)
+			}
+			portChan <- forwardedPorts[0].Local
+		}()
+	}
+	return fw.ForwardPorts()
 }
