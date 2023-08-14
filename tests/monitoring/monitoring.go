@@ -452,19 +452,19 @@ var _ = Describe("[Serial][sig-monitoring]Prometheus Alerts", Serial, decorators
 			createVirtualMachine(vm)
 
 			metrics := []string{
-				"kubevirt_vmi_cpu_system_usage_seconds",
-				"kubevirt_vmi_cpu_usage_seconds",
-				"kubevirt_vmi_cpu_user_usage_seconds",
+				"kubevirt_vmi_cpu_system_usage_seconds_total",
+				"kubevirt_vmi_cpu_usage_seconds_total",
+				"kubevirt_vmi_cpu_user_usage_seconds_total",
 			}
 
 			for _, metric := range metrics {
-				Eventually(func() int {
+				Eventually(func() float64 {
 					v, err := getMetricValueWithLabels(virtClient, metric, nil)
 					if err != nil {
 						return -1
 					}
 
-					i, err := strconv.Atoi(v)
+					i, err := strconv.ParseFloat(v, 64)
 					if err != nil {
 						return -1
 					}
