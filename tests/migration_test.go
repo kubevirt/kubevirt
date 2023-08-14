@@ -35,8 +35,6 @@ import (
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
-	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
-
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -679,7 +677,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			disks[len(disks)-1].Serial = secretDiskSerial
 
 			if migrationPolicy != nil {
-				tests.MatchPolicyAndVmi(vmi, migrationPolicy)
+				tests.AlignPolicyAndVmi(vmi, migrationPolicy)
 				migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
 			}
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -2160,9 +2158,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Allowing post-copy and limit migration bandwidth")
 				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
-				migrationPolicy.Spec.AllowPostCopy = k6tpointer.P(true)
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = k6tpointer.P(int64(1))
-				migrationPolicy.Spec.BandwidthPerMigration = k6tpointer.P(resource.MustParse("5Mi"))
+				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
+				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
 			})
 
 			Context("with datavolume", func() {
@@ -2203,7 +2201,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				vmi.Namespace = testsuite.NamespacePrivileged
 
-				tests.MatchPolicyAndVmi(vmi, migrationPolicy)
+				tests.AlignPolicyAndVmi(vmi, migrationPolicy)
 				migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
 
 				By("Starting the VirtualMachineInstance")
@@ -3205,7 +3203,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var expectedPolicyName *string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := tests.PreparePolicyAndVMI(vmi)
+					policy := tests.GeneratePolicyAndAlignVMI(vmi)
 					policy.Spec.AllowAutoConverge = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})

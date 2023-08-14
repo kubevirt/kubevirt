@@ -19,7 +19,7 @@ import (
 )
 
 // If matchingNSLabels is zero, namespace parameter is being ignored and can be nil
-func PreparePolicyAndVMIWithNsAndVmiLabelsWithPreexistingPolicy(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int, policy *migrationsv1.MigrationPolicy) *migrationsv1.MigrationPolicy {
+func PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int, policy *migrationsv1.MigrationPolicy) *migrationsv1.MigrationPolicy {
 	ExpectWithOffset(1, vmi).ToNot(BeNil())
 	if matchingNSLabels > 0 {
 		ExpectWithOffset(1, namespace).ToNot(BeNil())
@@ -86,23 +86,23 @@ func PreparePolicyAndVMIWithNsAndVmiLabelsWithPreexistingPolicy(vmi *v1.VirtualM
 	return policy
 }
 
-func PreparePolicyAndVMIWithNsAndVmiLabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
-	return PreparePolicyAndVMIWithNsAndVmiLabelsWithPreexistingPolicy(vmi, namespace, matchingVmiLabels, matchingNSLabels, nil)
+func PreparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+	return PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi, namespace, matchingVmiLabels, matchingNSLabels, nil)
 }
 
-// PreparePolicyAndVMI mutates the given vmi parameter by adding labels to it. Therefore, it's recommended
+// GeneratePolicyAndAlignVMI mutates the given vmi parameter by adding labels to it. Therefore, it's recommended
 // to use this function before creating the vmi. Otherwise, its labels need to be updated.
-func PreparePolicyAndVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
-	return PreparePolicyAndVMIWithNsAndVmiLabels(vmi, nil, 1, 0)
+func GeneratePolicyAndAlignVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+	return PreparePolicyAndVMIWithNSAndVMILabels(vmi, nil, 1, 0)
 }
 
-// MatchPolicyAndVmi is expected to be called on objects before they're created.
-func MatchPolicyAndVmi(vmi *v1.VirtualMachineInstance, policy *migrationsv1.MigrationPolicy) {
-	PreparePolicyAndVMIWithNsAndVmiLabelsWithPreexistingPolicy(vmi, nil, 1, 0, policy)
+// AlignPolicyAndVmi is expected to be called on objects before they're created.
+func AlignPolicyAndVmi(vmi *v1.VirtualMachineInstance, policy *migrationsv1.MigrationPolicy) {
+	PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi, nil, 1, 0, policy)
 }
 
 func PreparePolicyAndVMIWithBandwidthLimitation(vmi *v1.VirtualMachineInstance, bandwidth resource.Quantity) *migrationsv1.MigrationPolicy {
-	policy := PreparePolicyAndVMI(vmi)
+	policy := GeneratePolicyAndAlignVMI(vmi)
 	policy.Spec.BandwidthPerMigration = &bandwidth
 
 	return policy
