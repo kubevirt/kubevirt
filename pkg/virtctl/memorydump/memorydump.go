@@ -31,7 +31,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -41,6 +40,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 )
 
 const (
@@ -49,44 +49,64 @@ const (
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
 	portForwardArg  = "port-forward"
+	localPortArg    = "local-port"
 
 	configName         = "config"
 	filesystemOverhead = cdiv1.Percent("0.055")
 	fsOverheadMsg      = "Using default 5.5%% filesystem overhead for pvc size"
+
+	processingWaitInterval = 2 * time.Second
+	processingWaitTotal    = 10 * time.Minute
 )
 
 var (
 	claimName    string
 	createClaim  bool
-	portForward  string
+	portForward  bool
+	localPort    string
 	storageClass string
 	accessMode   string
+	outputFile   string
 )
 
 type command struct {
 	clientConfig clientcmd.ClientConfig
 }
 
+type memoryDumpCompleteFunc func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error)
+
+// WaitMemoryDumpCompleted is used to store the function to wait for the memory dump to be complete.
+// Useful for unit tests.
+var WaitMemoryDumpComplete memoryDumpCompleteFunc = func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error) {
+	return "", nil
+}
+
 func usageMemoryDump() string {
 	usage := `  #Dump memory of a virtual machine instance called 'myvm' to an existing pvc called 'memoryvolume'.
-  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume
-
-  #Create a PVC called 'memoryvolume' and dump the memory of a virtual machine instance called 'myvm' to it.
-  {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create-claim
-
-  #Dump memory again to the same virtual machine with an already associated pvc(existing memory dump on vm status).
-  {{ProgramName}} memory-dump get myvm
-
-  #Remove the association of the memory dump pvc.
-  {{ProgramName}} memory-dump remove myvm
-  `
+   {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume
+ 
+   #Create a PVC called 'memoryvolume' and dump the memory of a virtual machine instance called 'myvm' to it.
+   {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create-claim
+ 
+   #Create and download memory dump to the given output file.
+   {{ProgramName}} memory-dump get myvm --claim-name=memoryvolume --create-claim --output=memoryDump.dump.gz
+ 
+   #Dump memory again to the same virtual machine with an already associated pvc(existing memory dump on vm status).
+   {{ProgramName}} memory-dump get myvm
+ 
+   #Download the last memory dump associated on the vm 'myvm' to the given output file.
+   {{ProgramName}} memory-dump download myvm --output=memoryDump.dump.gz
+ 
+   #Remove the association of the memory dump pvc (to be able to dump to another pvc).
+   {{ProgramName}} memory-dump remove myvm
+   `
 	return usage
 }
 
 // NewMemoryDumpCommand returns a cobra.Command to handle the memory dump process
 func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "memory-dump get/remove (VM)",
+		Use:     "memory-dump get/download/remove (VM)",
 		Short:   "Dump the memory of a running VM to a pvc",
 		Example: usageMemoryDump(),
 		Args:    templates.ExactArgs("memory-dump", 2),
@@ -98,9 +118,11 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
 	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
-	cmd.Flags().StringVar(&portForward, portForwardArg, "", "Configure and set port-forward in the specified port to download the memory dump")
+	cmd.Flags().BoolVar(&portForward, portForwardArg, false, "Configure and set port-forward in a random port to download the memory dump")
+	cmd.Flags().StringVar(&localPort, localPortArg, "0", "Specify port for port-forward")
 	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
+	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the memory dump to be downloaded.")
 
 	return cmd
 }
@@ -119,6 +141,8 @@ func (c *command) run(args []string) error {
 	switch args[0] {
 	case "get":
 		return getMemoryDump(namespace, vmName, virtClient)
+	case "download":
+		return downloadMemoryDump(namespace, vmName, virtClient)
 	case "remove":
 		return removeMemoryDump(namespace, vmName, virtClient)
 	default:
@@ -173,12 +197,15 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 		pvc.Spec.StorageClassName = &storageClass
 	}
 
-	if accessMode == string(k8sv1.ReadOnlyMany) {
-		return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
-	} else if accessMode != "" && accessMode != string(k8sv1.ReadWriteOnce) && accessMode != string(k8sv1.ReadWriteMany) {
-		return nil, fmt.Errorf("invalid access mode, use either ReadWriteOnce or ReadWriteMany if supported")
-	}
 	if accessMode != "" {
+		if accessMode == string(k8sv1.ReadOnlyMany) {
+			return nil, fmt.Errorf("cannot dump memory to a readonly pvc, use either ReadWriteOnce or ReadWriteMany if supported")
+		}
+		// TODO: fix when issue: https://github.com/kubevirt/containerized-data-importer/issues/2365 is done
+		if accessMode != string(k8sv1.ReadWriteOnce) && accessMode != string(k8sv1.ReadWriteMany) {
+			return nil, fmt.Errorf("invalid access mode, use either ReadWriteOnce or ReadWriteMany if supported")
+		}
+
 		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode(accessMode)}
 	} else {
 		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
@@ -307,14 +334,14 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		Namespace:    namespace,
 		Name:         vmexportName,
 		ExportSource: exportSource,
+		PortForward:  portForward,
+		LocalPort:    localPort,
 	}
-	// Complete port-forward arguments
-	if portForward != "" {
-		vmExportInfo.PortForward = portForward
-		if vmExportInfo.ServiceURL == "" {
-			vmExportInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", portForward)
-		}
+
+	if portForward {
+		vmExportInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", localPort)
 	}
+
 	// User wants the output in a file, create
 	output, err := os.Create(vmExportInfo.OutputFile)
 	if err != nil {
@@ -324,31 +351,6 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
 }
 
-func waitForMemoryDump(virtClient kubecli.KubevirtClient, namespace, vmName string, interval, timeout time.Duration) (string, error) {
-	var claimName string
-	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		if vm.Status.MemoryDumpRequest == nil {
-			return false, nil
-		}
-
-		if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
-			fmt.Printf("Waiting for memorydump %s to complete, current phase: %s...\n", claimName, vm.Status.MemoryDumpRequest.Phase)
-			return false, nil
-		}
-
-		claimName = vm.Status.MemoryDumpRequest.ClaimName
-		fmt.Println("Memory dump completed successfully")
-		return true, nil
-	})
-
-	return claimName, err
-}
-
 func removeMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
 	err := virtClient.VirtualMachine(namespace).RemoveMemoryDump(vmName)
 	if err != nil {
@@ -356,4 +358,8 @@ func removeMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClien
 	}
 	fmt.Printf("Successfully submitted remove memory dump association of VM %s\n", vmName)
 	return nil
+}
+
+func getVMExportName(vmName, claimName string) string {
+	return fmt.Sprintf("export-%s-%s", vmName, claimName)
 }

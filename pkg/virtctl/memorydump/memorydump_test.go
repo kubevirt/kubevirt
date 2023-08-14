@@ -3,7 +3,12 @@ package memorydump_test
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +27,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
 	"kubevirt.io/kubevirt/pkg/virtctl/utils"
+	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
@@ -300,6 +307,148 @@ var _ = Describe("MemoryDump", func() {
 		commandAndArgs := []string{"memory-dump", "remove", "testvm"}
 		cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 		Expect(cmd.Execute()).To(Succeed())
+	})
+
+	Context("Download of memory dump", func() {
+		var (
+			vmExportClient *kubevirtfake.Clientset
+			server         *httptest.Server
+		)
+		const (
+			secretName     = "secret-test-vme"
+			vmexportName   = "export-testvm-testpvc"
+			outputFileFlag = "--output=out.dump.gz"
+		)
+
+		waitForMemoryDumpDefault := func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error) {
+			return claimName, nil
+		}
+
+		waitForMemoryDumpErr := func(kubecli.KubevirtClient, string, string, time.Duration, time.Duration) (string, error) {
+			return claimName, fmt.Errorf("memory dump failed: test err")
+		}
+
+		addDefaultReactors := func() {
+			vmExportClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+
+				vmExport, ok := create.GetObject().(*exportv1.VirtualMachineExport)
+				Expect(ok).To(BeTrue())
+				return true, vmExport, nil
+			})
+
+			coreClient.Fake.PrependReactor("create", "secrets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				secret, ok := create.GetObject().(*k8sv1.Secret)
+				Expect(ok).To(BeTrue())
+				return true, secret, nil
+			})
+		}
+
+		BeforeEach(func() {
+			vmExportClient = kubevirtfake.NewSimpleClientset()
+
+			kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(coreClient.StorageV1()).AnyTimes()
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(k8smetav1.NamespaceDefault).Return(vmExportClient.ExportV1alpha1().VirtualMachineExports(k8smetav1.NamespaceDefault)).AnyTimes()
+			addDefaultReactors()
+
+			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			vmexport.ExportProcessingComplete = utils.WaitExportCompleteDefault
+			vmexport.SetHTTPClientCreator(func(*http.Transport, bool) *http.Client {
+				return server.Client()
+			})
+			vmexport.SetPortForwarder(func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
+				readyChan <- struct{}{}
+				portChan <- uint16(5432)
+				return nil
+			})
+		})
+
+		AfterEach(func() {
+			vmexport.SetDefaultPortForwarder()
+			vmexport.SetDefaultHTTPClientCreator()
+		})
+
+		It("should get memory dump and call download memory dump", func() {
+			expectVMEndpointMemoryDump("testvm", "")
+			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
+
+			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    claimName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			utils.HandleSecretGet(coreClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
+
+			commandAndArgs := []string{"memory-dump", "get", "testvm", outputFileFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(Succeed())
+		})
+
+		It("should call download memory dump", func() {
+			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
+			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    claimName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			utils.HandleSecretGet(coreClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
+
+			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(Succeed())
+		})
+
+		DescribeTable("should call download memory dump with port-forward", func(commandAndArgs []string) {
+			vmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				Expect(downloadUrl).To(Equal("https://127.0.0.1:5432"))
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("data")),
+				}
+				return &resp, nil
+			}
+			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
+			vme := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    claimName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			vme.Status.Links.Internal = vme.Status.Links.External
+			utils.HandleSecretGet(coreClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vme)
+			utils.HandleServiceGet(coreClient, fmt.Sprintf("virt-export-%s", vme.Name), 443)
+			utils.HandlePodList(coreClient, fmt.Sprintf("virt-export-pod-%s", vme.Name))
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(Succeed())
+		},
+			Entry("with default port-forward", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward"}),
+			Entry("with port-forward specifying local port", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward", "--local-port", "5432"}),
+			Entry("with port-forward specifying default number on local port", []string{"memory-dump", "download", "testvm", outputFileFlag, "--port-forward", "--local-port", "0"}),
+		)
+
+		It("should fail download memory dump if not completed succesfully", func() {
+			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpErr
+
+			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(Equal("memory dump failed: test err"))
+		})
 	})
 })
 

@@ -56,6 +56,8 @@ const (
 	virtCtlClaimName                 = "--claim-name=%s"
 	virtCtlCreate                    = "--create-claim"
 	virtCtlStorageClass              = "--storage-class=%s"
+	virtCtlPortForward               = "--port-forward"
+	virtCtlLocalPort                 = "--local-port=%s"
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
 	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
@@ -610,4 +612,5 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 		})
 	})
+
 })

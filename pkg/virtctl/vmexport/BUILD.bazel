@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 
 go_library(
@@ -25,30 +25,5 @@ go_library(
         "//vendor/k8s.io/client-go/tools/portforward:go_default_library",
         "//vendor/k8s.io/client-go/transport/spdy:go_default_library",
         "//vendor/k8s.io/kubectl/pkg/util:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "vmexport_suite_test.go",
-        "vmexport_test.go",
-    ],
-    deps = [
-        ":go_default_library",
-        "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//tests/clientcmd:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
-        "//vendor/k8s.io/client-go/testing:go_default_library",
     ],
 )
