@@ -534,6 +534,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			},
 		},
 		Spec: k8sv1.PodSpec{
+			ShareProcessNamespace:         pointer.Bool(true),
 			Hostname:                      hostName,
 			Subdomain:                     vmi.Spec.Subdomain,
 			SecurityContext:               computePodSecurityContext(vmi, podSeccompProfile),
