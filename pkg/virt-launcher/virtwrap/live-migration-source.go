@@ -769,14 +769,22 @@ func (m *migrationMonitor) startMonitor() {
 
 // logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
 func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.DomainJobInfo) {
-	logger.V(4).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dB DataRemaining:%dB DataTotal:%dB `+
-		`MemoryProcessed:%dB MemoryRemaining:%dB MemoryTotal:%dB MemoryBandwidth:%dB/s DirtyRate:%dB/s `+
-		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dB ExpectedDowntime:%dms `+
-		`DiskBps:%d`,
-		uid, info.TimeElapsed, info.DataProcessed, info.DataRemaining, info.DataTotal,
-		info.MemProcessed, info.MemRemaining, info.MemTotal, info.MemBps, info.MemDirtyRate*info.MemPageSize,
-		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, info.MemNormalBytes, info.Downtime,
-		info.DiskBps,
+	bToMiB := func(bytes uint64) uint64 {
+		return bytes / 1024 / 1024
+	}
+
+	bToMbps := func(bytes uint64) uint64 {
+		return bytes / 8 / 1000000
+	}
+
+	logger.V(4).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
+		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
+		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
+		`DiskMbps:%d`,
+		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
+		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bToMbps(info.MemBps), bToMbps(info.MemDirtyRate*info.MemPageSize),
+		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
+		bToMbps(info.DiskBps),
 	))
 }
 
