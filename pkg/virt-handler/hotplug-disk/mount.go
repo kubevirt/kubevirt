@@ -677,7 +677,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 				}
 			} else if m.isDirectoryMounted(&vmi.Status, volumeStatus.Name) {
 				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeStatus.Name, false)
-				if os.IsExist(err) {
+				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue
 				}
