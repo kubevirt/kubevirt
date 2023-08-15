@@ -21,13 +21,18 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+
+	vmschema "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/client-go/log"
 
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 
-	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/cmd/network-slirp-binding/callback"
+	"kubevirt.io/kubevirt/cmd/network-slirp-binding/domain"
 )
 
 type InfoServer struct {
@@ -58,7 +63,17 @@ type V1alpha2Server struct {
 func (s V1alpha2Server) OnDefineDomain(_ context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
 	log.Log.Info("OnDefineDomain callback method has been called")
 
-	newDomainXML, err := callback.OnDefineDomain(params.GetDomainXML(), nil)
+	vmi := &vmschema.VirtualMachineInstance{}
+	if err := json.Unmarshal(params.GetVmi(), vmi); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal VMI: %v", err)
+	}
+
+	slirpConfigurator, err := domain.NewSlirpNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, s.SearchDomains)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create slirp configurator: %v", err)
+	}
+
+	newDomainXML, err := callback.OnDefineDomain(params.GetDomainXML(), slirpConfigurator)
 	if err != nil {
 		return nil, err
 	}

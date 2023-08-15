@@ -7,8 +7,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//cmd/network-slirp-binding/callback:go_default_library",
+        "//cmd/network-slirp-binding/domain:go_default_library",
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha2:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
 )
