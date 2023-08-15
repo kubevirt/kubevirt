@@ -145,6 +145,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	exporterImage              string
+	slirpSidecarImage          string
 	launcherQemuTimeout        int
 	virtShareDir               string
 	virtLibDir                 string
@@ -364,6 +365,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 	requestedHookSidecarList = append(requestedHookSidecarList, bindingSidecars...)
+
+	// realize requested hookSidecars from VMI spec
+	slirpIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool { return i.Slirp != nil })
+	if len(slirpIfaces) > 0 {
+		requestedHookSidecarList = append(requestedHookSidecarList, hooks.HookSidecar{Image: t.slirpSidecarImage})
+	}
 
 	var command []string
 	if tempPod {
@@ -1134,7 +1141,8 @@ func NewTemplateService(launcherImage string,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
-	exporterImage string) TemplateService {
+	exporterImage,
+	slirpSidecarImage string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
@@ -1152,6 +1160,7 @@ func NewTemplateService(launcherImage string,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
 		exporterImage:              exporterImage,
+		slirpSidecarImage:          slirpSidecarImage,
 	}
 
 	return &svc

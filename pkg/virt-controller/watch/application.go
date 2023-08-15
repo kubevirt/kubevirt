@@ -97,6 +97,8 @@ const (
 	exporterImage       = "virt-exportserver"
 	launcherQemuTimeout = 240
 
+	slirpSidecarImage = "slirp-hook-sidecar"
+
 	imagePullSecret = ""
 
 	virtShareDir = "/var/run/kubevirt"
@@ -218,6 +220,7 @@ type VirtControllerApp struct {
 
 	launcherImage              string
 	exporterImage              string
+	slirpSidecarImage          string
 	launcherQemuTimeout        int
 	imagePullSecret            string
 	virtShareDir               string
@@ -603,6 +606,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		vca.launcherSubGid,
 		vca.exporterImage,
+		vca.slirpSidecarImage,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
@@ -880,6 +884,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.exporterImage, "exporter-image", exporterImage,
 		"Container for exporting VMs and VM images")
+
+	flag.StringVar(&vca.slirpSidecarImage, "slirp-sidecar-image", slirpSidecarImage,
+		"Container for configuring VMs Slirp interfaces")
 
 	flag.IntVar(&vca.launcherQemuTimeout, "launcher-qemu-timeout", launcherQemuTimeout,
 		"Amount of time to wait for qemu")
