@@ -516,11 +516,7 @@ func (c *VMIController) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 	}
 
 	ownerVM := obj.(*virtv1.VirtualMachine)
-	if controllerRef.UID == ownerVM.UID {
-		return true
-	}
-
-	return false
+	return controllerRef.UID == ownerVM.UID
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
@@ -1816,15 +1812,27 @@ func (c *VMIController) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMac
 }
 
 func (c *VMIController) needsHandleHotplug(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
-	// Determine if the ready volumes have changed compared to the current pod
-	for _, attachmentPod := range hotplugAttachmentPods {
-		if c.podVolumesMatchesReadyVolumes(attachmentPod, hotplugVolumes) {
-			log.DefaultLogger().Infof("Don't need to handle as we have a matching attachment pod")
-			return false
-		}
+	if len(hotplugAttachmentPods) > 1 {
 		return true
 	}
-	return len(hotplugVolumes) > 0
+	// Determine if the ready volumes have changed compared to the current pod
+	if len(hotplugAttachmentPods) == 1 && c.podVolumesMatchesReadyVolumes(hotplugAttachmentPods[0], hotplugVolumes) {
+		return false
+	}
+	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
+}
+
+func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+	var currentPod *k8sv1.Pod
+	oldPods := make([]*k8sv1.Pod, 0)
+	for _, attachmentPod := range hotplugAttachmentPods {
+		if !c.podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
+			oldPods = append(oldPods, attachmentPod)
+		} else {
+			currentPod = attachmentPod
+		}
+	}
+	return currentPod, oldPods
 }
 
 func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
@@ -1855,29 +1863,25 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
 	// Determine if the ready volumes have changed compared to the current pod
-	currentPod := make([]*k8sv1.Pod, 0)
-	oldPods := make([]*k8sv1.Pod, 0)
-	for _, attachmentPod := range hotplugAttachmentPods {
-		if !c.podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
-			oldPods = append(oldPods, attachmentPod)
-		} else {
-			currentPod = append(currentPod, attachmentPod)
-		}
-	}
+	currentPod, oldPods := c.getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
 
-	if len(currentPod) == 0 && len(readyHotplugVolumes) > 0 {
+	if currentPod == nil && len(readyHotplugVolumes) > 0 {
 		// ready volumes have changed
 		// Create new attachment pod that holds all the ready volumes
 		if err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
 			return err
 		}
 	}
-	// Delete old attachment pod
-	for _, attachmentPod := range oldPods {
-		if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
-			return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+
+	if len(readyHotplugVolumes) == 0 || (currentPod != nil && currentPod.Status.Phase == k8sv1.PodRunning) {
+		// Delete old attachment pod
+		for _, attachmentPod := range oldPods {
+			if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+				return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -2121,6 +2125,9 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 	if err != nil {
 		return err
 	}
+
+	attachmentPod, _ := c.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+
 	newStatus := make([]virtv1.VolumeStatus, 0)
 	for i, volume := range vmi.Spec.Volumes {
 		status := virtv1.VolumeStatus{}
@@ -2142,7 +2149,6 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 					ClaimName: volume.Name,
 				}
 			}
-			attachmentPod := c.findAttachmentPodByVolumeName(volume.Name, attachmentPods)
 			if attachmentPod == nil {
 				if !c.volumeReady(status.Phase) {
 					status.HotplugVolume.AttachPodUID = ""
@@ -2156,6 +2162,9 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 				status.HotplugVolume.AttachPodName = attachmentPod.Name
 				if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
 					status.HotplugVolume.AttachPodUID = attachmentPod.UID
+				} else {
+					// Remove UID of old pod if a new one is available, but not yet ready
+					status.HotplugVolume.AttachPodUID = ""
 				}
 				if c.canMoveToAttachedPhase(status.Phase) {
 					status.Phase = virtv1.HotplugVolumeAttachedToNode
@@ -2244,8 +2253,7 @@ func (c *VMIController) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) 
 }
 
 func (c *VMIController) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
-	return (currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending ||
-		currentPhase == virtv1.HotplugVolumeAttachedToNode)
+	return (currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending)
 }
 
 func (c *VMIController) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
