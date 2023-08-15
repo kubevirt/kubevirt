@@ -58,7 +58,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if iface.Binding != nil || iface.SRIOV != nil {
+		if iface.Binding != nil || iface.SRIOV != nil || iface.Slirp != nil {
 			continue
 		}
 
