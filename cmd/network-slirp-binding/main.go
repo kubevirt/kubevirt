@@ -32,10 +32,17 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/cmd/network-slirp-binding/dns"
 	srv "kubevirt.io/kubevirt/cmd/network-slirp-binding/server"
 )
 
 func main() {
+	searchDomains, err := dns.ReadResolvConfSearchDomains()
+	if err != nil {
+		log.Log.Errorf("failed to read resolv.conf search domains: %v", err)
+		os.Exit(1)
+	}
+
 	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, "slirp.sock")
 	socket, err := net.Listen("unix", socketPath)
 	if err != nil {
@@ -47,7 +54,7 @@ func main() {
 
 	server := grpc.NewServer([]grpc.ServerOption{}...)
 	hooksInfo.RegisterInfoServer(server, srv.InfoServer{Version: "v1alpha2"})
-	hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{})
+	hooksV1alpha2.RegisterCallbacksServer(server, srv.V1alpha2Server{SearchDomains: searchDomains})
 
 	log.Log.Infof("Starting hook server exposing 'info' and '%s' services on socket %q", socketPath, "v1alpha2")
 	server.Serve(socket)

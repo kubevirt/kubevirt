@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/network-slirp-binding",
     visibility = ["//visibility:private"],
     deps = [
+        "//cmd/network-slirp-binding/dns:go_default_library",
         "//cmd/network-slirp-binding/server:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hooks/info:go_default_library",

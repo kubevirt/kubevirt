@@ -51,7 +51,9 @@ func (s InfoServer) Info(_ context.Context, _ *hooksInfo.InfoParams) (*hooksInfo
 	}, nil
 }
 
-type V1alpha2Server struct{}
+type V1alpha2Server struct {
+	SearchDomains []string
+}
 
 func (s V1alpha2Server) OnDefineDomain(_ context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
 	log.Log.Info("OnDefineDomain callback method has been called")
