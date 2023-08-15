@@ -116,11 +116,11 @@ import (
 )
 
 const (
-	fedoraVMSize         = "256M"
-	secretDiskSerial     = "D23YZ9W6WA5DJ487"
-	stressDefaultVMSize  = "100"
-	stressLargeVMSize    = "400M"
-	stressDefaultTimeout = 1600
+	fedoraVMSize               = "256M"
+	secretDiskSerial           = "D23YZ9W6WA5DJ487"
+	stressDefaultVMSize        = "100"
+	stressLargeVMSize          = "400M"
+	stressDefaultSleepDuration = 1600
 )
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", decorators.SigComputeMigrations, decorators.SigCompute, func() {
@@ -692,7 +692,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			if mode == v1.MigrationPostCopy {
 				By("Running stress test to allow transition to post-copy")
-				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+				runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
 			}
 
 			// execute a migration, wait for finalized state
@@ -1419,7 +1419,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+				runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -2004,7 +2004,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -2215,7 +2215,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, "350M", stressDefaultTimeout)
+				runStressTest(vmi, "350M", stressDefaultSleepDuration)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -2276,7 +2276,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+					runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -3443,7 +3443,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+				runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -3563,7 +3563,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Put VMI under load
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)
