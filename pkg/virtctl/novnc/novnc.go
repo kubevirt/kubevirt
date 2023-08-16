@@ -41,6 +41,8 @@ var listenAddress = "127.0.0.1"
 var novncServer bool
 var customPort = 0
 
+var serveOnly bool
+
 func init() {
 	virtctl.CommandRegistrationCollback = append(virtctl.CommandRegistrationCollback, NewCommand)
 }
@@ -59,6 +61,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&listenAddress, "address", listenAddress, "--address=127.0.0.1: Setting this will change the listening address of the NOVNC server. Example: --address=0.0.0.0 will make the server listen on all interfaces.")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
+	cmd.Flags().BoolVar(&serveOnly, "serve-only", serveOnly, "--serve-only=false: Setting this true will run only serve novnc on the specified address and port and print the connection url, but will not open a browser")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -97,7 +100,7 @@ func (o *NOVNC) Run(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		defer close(stopChan)
-		err = RunNOVNCWebserver(listenAddress, strconv.Itoa(customPort), vnc.AsConn())
+		err = RunNOVNCWebserver(listenAddress, strconv.Itoa(customPort), serveOnly, vnc.AsConn())
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -114,7 +117,11 @@ func (o *NOVNC) Run(cmd *cobra.Command, args []string) error {
 }
 
 func usage() string {
-	return `  # Connect to the testvmi and open the printed URL to connect via novnc :
+	return `  # Connect to the testvmi and open the printed URL to connect via novnc:
+   {{ProgramName}} vnc novnc --serve-only testvmi
+   Open http://127.0.0.1:39985?autoconnect=true to connect to the virtual machine.
+
+   # Connect to the testvmi and open a browser session automatically:
    {{ProgramName}} vnc novnc testvmi
-   Open http://127.0.0.1:39985?autoconnect=true to connect to the virtual machine.`
+`
 }

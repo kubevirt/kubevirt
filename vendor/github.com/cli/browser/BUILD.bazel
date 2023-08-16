@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "browser.go",
+        "browser_darwin.go",
+        "browser_freebsd.go",
+        "browser_linux.go",
+        "browser_netbsd.go",
+        "browser_openbsd.go",
+        "browser_unsupported.go",
+        "browser_windows.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cli/browser",
+    importpath = "github.com/cli/browser",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

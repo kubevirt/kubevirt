@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cli/browser"
+
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"golang.org/x/tools/godoc/vfs"
@@ -34,7 +36,7 @@ var mimetypes = map[string]string{
 	".ico":  "image/x-icon",
 }
 
-func RunNOVNCWebserver(address, port string, vnc net.Conn) error {
+func RunNOVNCWebserver(address, port string, serveOnly bool, vnc net.Conn) error {
 
 	reader, err := zip.NewReader(bytes.NewReader(novnc), int64(len(novnc)))
 	if err != nil {
@@ -112,7 +114,14 @@ func RunNOVNCWebserver(address, port string, vnc net.Conn) error {
 		errChan <- http.Serve(l, mux)
 	}()
 
-	fmt.Printf("Open http://%v:%v?autoconnect=true to connect to the virtual machine.\n", l.Addr().(*net.TCPAddr).IP, l.Addr().(*net.TCPAddr).Port)
+	url := fmt.Sprintf("http://%v:%v?autoconnect=true", l.Addr().(*net.TCPAddr).IP, l.Addr().(*net.TCPAddr).Port)
+	if !serveOnly {
+		if err := browser.OpenURL(url); err != nil {
+			return err
+		}
+	} else {
+		fmt.Printf("Open %v to connect to the virtual machine.\n", url)
+	}
 	select {
 	case <-writeChan:
 	case <-readChan:
