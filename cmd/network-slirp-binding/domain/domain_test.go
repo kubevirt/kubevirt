@@ -34,20 +34,36 @@ var _ = Describe("QEMU slirp networking", func() {
 	Context("configure domain spec slirp interface QMEU command line", func() {
 		var testSearchDomain = []string{"dns.com"}
 
-		It("should fail given no pod network", func() {
-			network := vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}}
-
-			_, err := domain.NewSlirpNetworkConfigurator(nil, []vmschema.Network{network}, nil)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should fail given no slirp iface", func() {
-			network := vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}}
-			iface := vmschema.Interface{Name: "secondary", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}}
-
-			_, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, nil)
-			Expect(err).To(HaveOccurred())
-		})
+		DescribeTable("should fail, given",
+			func(iface vmschema.Interface, network vmschema.Network) {
+				_, err := domain.NewSlirpNetworkConfigurator(nil, []vmschema.Network{network}, nil)
+				Expect(err).To(HaveOccurred())
+			},
+			Entry("no pod network",
+				vmschema.Interface{},
+				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Multus: &vmschema.MultusNetwork{}}},
+			),
+			Entry("no iface",
+				vmschema.Interface{Name: "other", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}}},
+				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
+			),
+			Entry("iface with no binding method or network binding plugin",
+				vmschema.Interface{Name: "secondary"},
+				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
+			),
+			Entry("iface with no slirp binding method",
+				vmschema.Interface{Name: "secondary",
+					InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}},
+				},
+				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
+			),
+			Entry("iface with no slirp network binding plugin",
+				vmschema.Interface{Name: "secondary",
+					Binding: &vmschema.PluginBinding{Name: "sriov"},
+				},
+				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
+			),
+		)
 
 		DescribeTable("should succeed, given",
 			func(iface vmschema.Interface, network vmschema.Network, expectedQEMUCmdArgs []domainschema.Arg) {
@@ -60,7 +76,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(testMutator.Mutate(testDomainSpec)).To(Equal(expectedDomainSpec))
 			},
-			Entry("default slirp interface",
+			Entry("interface with slirp binding method",
 				*vmschema.DefaultSlirpNetworkInterface(),
 				*vmschema.DefaultPodNetwork(),
 				[]domainschema.Arg{
@@ -71,7 +87,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("custom CIDR",
-				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{
 					VMNetworkCIDR: "192.168.100.0/24",
 				}}},
@@ -81,7 +97,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("ports",
-				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Ports: []vmschema.Port{
 						{Name: "http", Protocol: "TCP", Port: 80},
 						{Port: 8080},
@@ -94,7 +110,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("slirp interface with virtio model type - should be changed to e1000",
-				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Model: "virtio",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
@@ -104,7 +120,7 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 			),
 			Entry("custom MAC address",
-				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}},
+				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					MacAddress: "02:02:02:02:02:02",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
@@ -153,7 +169,7 @@ var _ = Describe("QEMU slirp networking", func() {
 			network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{
 				VMNetworkCIDR: "592.468.300.0/24",
 			}}}
-			iface := vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}}
+			iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName}}
 
 			testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
 			Expect(err).ToNot(HaveOccurred())
@@ -163,7 +179,7 @@ var _ = Describe("QEMU slirp networking", func() {
 
 		DescribeTable("should fail given invalid port",
 			func(port int32) {
-				iface := vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}},
+				iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Ports: []vmschema.Port{{Port: port}},
 				}
 				network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}

@@ -33,6 +33,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+// SlirpPluginName slirp binding plugin name should be registered to Kubevirt through Kubevirt CR
+const SlirpPluginName = "slirp"
+
 type SlirpNetworkConfigurator struct {
 	vmiSpecIface   *vmschema.Interface
 	vmiSpecNetwork *vmschema.Network
@@ -44,9 +47,16 @@ func NewSlirpNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschem
 	if network == nil {
 		return nil, fmt.Errorf("pod network not found")
 	}
+
 	iface := vmispec.LookupInterfaceByName(ifaces, network.Name)
-	if iface == nil || iface.Slirp == nil {
-		return nil, fmt.Errorf("no slirp iface found")
+	if iface == nil {
+		return nil, fmt.Errorf("iface %q not found", network.Name)
+	}
+	if iface.Binding == nil && iface.Slirp == nil {
+		return nil, fmt.Errorf("iface %q is not set with slirp network binding plugin or slirp binding method", network.Name)
+	}
+	if iface.Binding != nil && iface.Binding.Name != SlirpPluginName {
+		return nil, fmt.Errorf("iface %q is not set with slirp network binding plugin", network.Name)
 	}
 
 	return &SlirpNetworkConfigurator{
