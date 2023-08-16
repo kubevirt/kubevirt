@@ -2019,7 +2019,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				It("[test_id:6977]should not secure migrations with TLS", func() {
 					cfg := getCurrentKv()
-					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewMilliQuantity(1, resource.BinarySI)
+					cfg.MigrationConfiguration.BandwidthPerMigration = resource.NewQuantity(1, resource.BinarySI)
 					cfg.MigrationConfiguration.DisableTLS = pointer.BoolPtr(true)
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
@@ -2281,7 +2281,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var timeout int64 = 5
 				cfg.MigrationConfiguration = &v1.MigrationConfiguration{
 					CompletionTimeoutPerGiB: &timeout,
-					BandwidthPerMigration:   resource.NewMilliQuantity(1, resource.BinarySI),
 				}
 				tests.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
@@ -2292,7 +2291,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
 						ProgressTimeout:         pointer.Int64(5),
 						CompletionTimeoutPerGiB: pointer.Int64(5),
-						BandwidthPerMigration:   resource.NewMilliQuantity(1, resource.BinarySI),
+						BandwidthPerMigration:   resource.NewQuantity(1, resource.BinarySI),
 					}
 					tests.UpdateKubeVirtConfigValueAndWait(cfg)
 				})
