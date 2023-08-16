@@ -3674,15 +3674,15 @@ spec:
                 - name: OPERATOR_VERSION
                   value: v1.1.0
                 - name: CONTROLLER_IMAGE
-                  value: quay.io/kubevirt/mtq-controller@sha256:2ace617bf35253db8c58c1ceca7e9172caeb1d05b224183a137bb8285f7a465e
+                  value: quay.io/kubevirt/mtq-controller@sha256:e6d0da5bf005c2a7369427cf2b68567846f5e23cbfd77e6271aa7a517840f57c
                 - name: MTQ_LOCK_SERVER_IMAGE
-                  value: quay.io/kubevirt/mtq-lock-server@sha256:4a405a16ed22af038c093172d00b2c6ebd1cbd73af913d95906683112c8f084e
+                  value: quay.io/kubevirt/mtq-lock-server@sha256:e3291746e786ed6b2dc9447b0f497370a598b30d9380bec5f4b39c962d40af2f
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
                 - name: MONITORING_NAMESPACE
-                image: quay.io/kubevirt/mtq-operator@sha256:086af448a63d7ab4d705037b535da51c71ba0a47d47c8c971e8875f227868a4c
+                image: quay.io/kubevirt/mtq-operator@sha256:d2ea2a3782df78c3e1952ab2315da7600e77ec7ce697132c528b7d77bdf5e1e3
                 imagePullPolicy: IfNotPresent
                 name: mtq-operator
                 ports:
@@ -4212,11 +4212,11 @@ spec:
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
     name: macvtap-cni
-  - image: quay.io/kubevirt/mtq-controller@sha256:2ace617bf35253db8c58c1ceca7e9172caeb1d05b224183a137bb8285f7a465e
+  - image: quay.io/kubevirt/mtq-controller@sha256:e6d0da5bf005c2a7369427cf2b68567846f5e23cbfd77e6271aa7a517840f57c
     name: mtq-controller
-  - image: quay.io/kubevirt/mtq-lock-server@sha256:4a405a16ed22af038c093172d00b2c6ebd1cbd73af913d95906683112c8f084e
+  - image: quay.io/kubevirt/mtq-lock-server@sha256:e3291746e786ed6b2dc9447b0f497370a598b30d9380bec5f4b39c962d40af2f
     name: mtq-lock-server
-  - image: quay.io/kubevirt/mtq-operator@sha256:086af448a63d7ab4d705037b535da51c71ba0a47d47c8c971e8875f227868a4c
+  - image: quay.io/kubevirt/mtq-operator@sha256:d2ea2a3782df78c3e1952ab2315da7600e77ec7ce697132c528b7d77bdf5e1e3
     name: mtq-operator
   - image: ghcr.io/k8snetworkplumbingwg/multus-cni@sha256:3fbcc32bd4e4d15bd93c96def784a229cd84cca27942bf4858b581f31c97ee02
     name: multus-cni
