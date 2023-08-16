@@ -81,7 +81,21 @@ func (s SlirpNetworkConfigurator) Mutate(domainSpec *domainschema.DomainSpec) (*
 	if domainSpecCopy.QEMUCmd == nil {
 		domainSpecCopy.QEMUCmd = &domainschema.Commandline{}
 	}
-	domainSpecCopy.QEMUCmd.QEMUArg = append(domainSpecCopy.QEMUCmd.QEMUArg, slirpQemuCmdArgs...)
+
+	var currentCmdArgString string
+	for _, arg := range domainSpecCopy.QEMUCmd.QEMUArg {
+		currentCmdArgString += arg.Value
+	}
+
+	var generatedCmdArgString string
+	for _, arg := range slirpQemuCmdArgs {
+		generatedCmdArgString += arg.Value
+	}
+
+	if !strings.Contains(currentCmdArgString, generatedCmdArgString) {
+		domainSpecCopy.QEMUCmd.QEMUArg = append(domainSpecCopy.QEMUCmd.QEMUArg, slirpQemuCmdArgs...)
+		return domainSpecCopy, nil
+	}
 
 	return domainSpecCopy, nil
 }
