@@ -105,14 +105,14 @@ Virtual Machine last transition timestamp to running status. Type: Counter.
 ### kubevirt_vm_starting_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to starting status. Type: Counter.
 
-### kubevirt_vmi_cpu_system_usage_seconds
-Total CPU time spent in system mode. Type: Gauge.
+### kubevirt_vmi_cpu_system_usage_seconds_total
+Total CPU time spent in system mode. Type: Counter.
 
-### kubevirt_vmi_cpu_usage_seconds
-Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). Type: Gauge.
+### kubevirt_vmi_cpu_usage_seconds_total
+Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). Type: Counter.
 
-### kubevirt_vmi_cpu_user_usage_seconds
-Total CPU time spent in user mode. Type: Gauge.
+### kubevirt_vmi_cpu_user_usage_seconds_total
+Total CPU time spent in user mode. Type: Counter.
 
 ### kubevirt_vmi_filesystem_capacity_bytes_total
 Total VM filesystem capacity in bytes. Type: Gauge.
