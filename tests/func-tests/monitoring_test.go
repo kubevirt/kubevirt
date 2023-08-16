@@ -10,25 +10,24 @@ import (
 	"strconv"
 	"time"
 
-	openshiftroutev1 "github.com/openshift/api/route/v1"
-	authenticationv1 "k8s.io/api/authentication/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	kvtutil "kubevirt.io/kubevirt/tests/util"
-
-	"kubevirt.io/kubevirt/tests/flags"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftroutev1 "github.com/openshift/api/route/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	promApi "github.com/prometheus/client_golang/api"
 	promApiv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	promConfig "github.com/prometheus/common/config"
 	promModel "github.com/prometheus/common/model"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/tests/flags"
+	kvtutil "kubevirt.io/kubevirt/tests/util"
+
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
 var runbookClient = http.DefaultClient
@@ -39,7 +38,7 @@ const (
 	criticalImpact
 )
 
-var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", func() {
+var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, func() {
 	flag.Parse()
 
 	var err error
@@ -96,21 +95,22 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 	})
 
 	It("KubeVirtCRModified alert should fired when there is a modification on a CR", func() {
-		By("Fetching kubevirt object")
-		kubevirt, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Get("kubevirt-kubevirt-hyperconverged", &metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-
-		By("Updating kubevirt object with a new label")
-		kubevirt.Labels["test-label"] = "test-label-value"
-		_, err = virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Update(kubevirt)
-		Expect(err).ShouldNot(HaveOccurred())
+		By("Patching kubevirt object")
+		Eventually(func(g Gomega) map[string]string {
+			patch := []byte(`[{"op": "add", "path": "/metadata/labels/test-label", "value": "test-label-value"}]`)
+			kv, err := virtCli.KubeVirt(flags.KubeVirtInstallNamespace).Patch("kubevirt-kubevirt-hyperconverged", types.JSONPatchType, patch, &metav1.PatchOptions{})
+			g.Expect(err).ShouldNot(HaveOccurred())
+			return kv.GetLabels()
+		}).WithTimeout(10 * time.Second).
+			WithPolling(100 * time.Millisecond).
+			Should(HaveKeyWithValue("test-label", "test-label-value"))
 
 		Eventually(func() *promApiv1.Alert {
 			alerts, err := promClient.Alerts(context.TODO())
 			Expect(err).ShouldNot(HaveOccurred())
 			alert := getAlertByName(alerts, "KubeVirtCRModified")
 			return alert
-		}, 60*time.Second, time.Second).ShouldNot(BeNil())
+		}).WithTimeout(60 * time.Second).WithPolling(time.Second).ShouldNot(BeNil())
 
 		verifyOperatorHealthMetricValue(promClient, initialOperatorHealthMetricValue, warningImpact)
 	})

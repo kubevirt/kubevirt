@@ -16,7 +16,7 @@ import (
 
 const priorityClassName = "kubevirt-cluster-critical"
 
-var _ = Describe("check update priorityClass", Ordered, func() {
+var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 	var (
 		cli                 kubecli.KubevirtClient
 		ctx                 context.Context
@@ -66,12 +66,12 @@ var _ = Describe("check update priorityClass", Ordered, func() {
 		Eventually(func(g Gomega) {
 			By("make sure a new priority class was created, by checking its UID")
 			pc, err := cli.SchedulingV1().PriorityClasses().Get(ctx, priorityClassName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			g.Expect(err).ToNot(HaveOccurred())
 
 			newUID = pc.UID
 			g.Expect(string(newUID)).ShouldNot(Or(Equal(""), Equal(oldPriorityClassUID)))
 			g.Expect(pc.GetLabels()).ShouldNot(HaveKey("test"))
-		}).WithTimeout(10 * time.Second).
+		}).WithTimeout(30 * time.Second).
 			WithPolling(100 * time.Millisecond).
 			Should(Succeed())
 

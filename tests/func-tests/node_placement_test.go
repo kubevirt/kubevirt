@@ -6,23 +6,20 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"kubevirt.io/kubevirt/tests/flags"
-
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	"kubevirt.io/client-go/kubecli"
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
+	"kubevirt.io/kubevirt/tests/flags"
 	kvtutil "kubevirt.io/kubevirt/tests/util"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -31,7 +28,7 @@ const (
 	workloads = "workloads"
 )
 
-var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, func() {
+var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:system]Node Placement", Ordered, Serial, func() {
 	ctx := context.TODO()
 	tests.FlagParse()
 	hco := &hcov1beta1.HyperConverged{}

@@ -1,19 +1,22 @@
 package tests_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	kvtests "kubevirt.io/kubevirt/tests"
 	kvtutil "kubevirt.io/kubevirt/tests/util"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -21,7 +24,7 @@ const (
 	pollingInterval = 10 * time.Second
 )
 
-var _ = Describe("[rfe_id:273][crit:critical][vendor:cnv-qe@redhat.com][level:system]Virtual Machine", func() {
+var _ = Describe("[rfe_id:273][crit:critical][vendor:cnv-qe@redhat.com][level:system]Virtual Machine", Serial, func() {
 	tests.FlagParse()
 
 	var client kubecli.KubevirtClient
@@ -57,7 +60,7 @@ func verifyVMIRunning(client kubecli.KubevirtClient, vmiName string) *kubevirtco
 		var err error
 		vmi, err = client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Get(context.Background(), vmiName, &k8smetav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
-		Expect(vmi.Status.Phase).ShouldNot(Equal(kubevirtcorev1.Failed), "vmi scheduling failed: %v\n", vmi.Status)
+		Expect(vmi.Status.Phase).ShouldNot(Equal(kubevirtcorev1.Failed), "vmi scheduling failed: %s\n", vmi2JSON(vmi))
 		return vmi.Status.Phase == kubevirtcorev1.Running
 	}, timeout, pollingInterval).Should(BeTrue(), "failed to get the vmi Running")
 
@@ -69,4 +72,17 @@ func verifyVMIDeletion(client kubecli.KubevirtClient, vmiName string) {
 	EventuallyWithOffset(1, func() error {
 		return client.VirtualMachineInstance(kvtutil.NamespaceTestDefault).Delete(context.Background(), vmiName, &k8smetav1.DeleteOptions{})
 	}, timeout, pollingInterval).Should(Not(HaveOccurred()), "failed to delete a vmi")
+}
+
+func vmi2JSON(vmi *kubevirtcorev1.VirtualMachineInstance) string {
+	buff := &bytes.Buffer{}
+	enc := json.NewEncoder(buff)
+	enc.SetIndent("", "  ")
+	err := enc.Encode(vmi)
+	if err != nil {
+		GinkgoWriter.Println("failed to encode VMI. returning a golang struct string instead")
+		return fmt.Sprintf("%#v", vmi)
+	}
+
+	return buff.String()
 }

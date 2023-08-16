@@ -8,9 +8,9 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
-	"kubevirt.io/client-go/kubecli"
 )
 
 var _ = Describe("Cluster level evictionStrategy default value", func() {

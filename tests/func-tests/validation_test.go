@@ -47,7 +47,7 @@ var _ = Describe("Check CR validation", Label("validation"), Serial, func() {
 				hc.Spec.ResourceRequirements = requirements
 				_, err = tests.UpdateHCO(ctx, cli, hc)
 				return err
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(outcome)
+			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).Should(outcome)
 		},
 			Entry("succeed when VMI CPU allocation is nil", nil, Succeed()),
 			Entry("fail when VMI CPU allocation is 1", pointer.Int(1), MatchError(ContainSubstring("Automatic CPU limits are incompatible with a VMI CPU allocation ratio of 1"))),

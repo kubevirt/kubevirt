@@ -56,7 +56,7 @@ var (
 	imageNamespace = defaultImageNamespace
 )
 
-var _ = Describe("golden image test", Label("data-import-coron"), Serial, func() {
+var _ = Describe("golden image test", Label("data-import-coron"), Serial, Ordered, func() {
 	var (
 		cli kubecli.KubevirtClient
 		ctx context.Context
@@ -115,7 +115,7 @@ var _ = Describe("golden image test", Label("data-import-coron"), Serial, func()
 				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, is)).To(Succeed())
 
 				return is.GetLabels()
-			}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).ShouldNot(HaveKey("test-label"))
+			}).WithTimeout(time.Second * 15).WithPolling(time.Millisecond * 100).ShouldNot(HaveKey("test-label"))
 		},
 			Entry("check the centos8 imagestream", "centos8"),
 		)
