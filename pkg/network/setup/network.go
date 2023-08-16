@@ -84,8 +84,8 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Net
 			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		// SR-IOV devices are not part of the phases
-		if iface.SRIOV != nil {
+		// Binding plugin and SR-IOV devices are not part of the phases
+		if iface.Binding != nil || iface.SRIOV != nil {
 			continue
 		}
 
@@ -107,8 +107,8 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		// SR-IOV devices are not part of the phases
-		if iface.SRIOV != nil {
+		// Binding plugin and SR-IOV devices are not part of the phases
+		if iface.Binding != nil || iface.SRIOV != nil {
 			continue
 		}
 

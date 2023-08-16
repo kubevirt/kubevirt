@@ -858,6 +858,12 @@ func (NetworkConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"sidecarImage": "SidecarImage references a container image that runs in the virt-launcher pod.\nThe sidecar handles (libvirt) domain configuration and optional services.\nversion: 1alphav1",
+	}
+}
+
 func (GuestAgentPing) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "GuestAgentPing configures the guest-agent based ping probe",

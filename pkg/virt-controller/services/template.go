@@ -359,6 +359,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
+	bindingSidecars, err := NetBindingPluginSidecarList(vmi, t.clusterConfig.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+	requestedHookSidecarList = append(requestedHookSidecarList, bindingSidecars...)
+
 	var command []string
 	if tempPod {
 		logger := log.DefaultLogger()

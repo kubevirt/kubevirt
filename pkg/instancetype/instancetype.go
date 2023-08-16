@@ -1222,8 +1222,8 @@ func applyDiskPreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 	}
 }
 
-func isInterfaceBindingUnset(interfaceBindingMethod virtv1.InterfaceBindingMethod) bool {
-	return reflect.ValueOf(interfaceBindingMethod).IsZero()
+func isInterfaceBindingUnset(iface *virtv1.Interface) bool {
+	return reflect.ValueOf(iface.InterfaceBindingMethod).IsZero() && iface.Binding == nil
 }
 
 func isInterfaceOnPodNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachineInstanceSpec) bool {
@@ -1241,7 +1241,7 @@ func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachin
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
 			vmiIface.Model = preferenceSpec.Devices.PreferredInterfaceModel
 		}
-		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && isInterfaceBindingUnset(vmiIface.InterfaceBindingMethod) && isInterfaceOnPodNetwork(vmiIface.Name, vmiSpec) {
+		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && isInterfaceBindingUnset(vmiIface) && isInterfaceOnPodNetwork(vmiIface.Name, vmiSpec) {
 			vmiIface.Masquerade = preferenceSpec.Devices.PreferredInterfaceMasquerade.DeepCopy()
 		}
 	}

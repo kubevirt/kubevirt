@@ -2612,9 +2612,17 @@ type KSMConfiguration struct {
 
 // NetworkConfiguration holds network options
 type NetworkConfiguration struct {
-	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
-	PermitSlirpInterface              *bool  `json:"permitSlirpInterface,omitempty"`
-	PermitBridgeInterfaceOnPodNetwork *bool  `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
+	NetworkInterface                  string                            `json:"defaultNetworkInterface,omitempty"`
+	PermitSlirpInterface              *bool                             `json:"permitSlirpInterface,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork *bool                             `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
+	Binding                           map[string]InterfaceBindingPlugin `json:"binding,omitempty"`
+}
+
+type InterfaceBindingPlugin struct {
+	// SidecarImage references a container image that runs in the virt-launcher pod.
+	// The sidecar handles (libvirt) domain configuration and optional services.
+	// version: 1alphav1
+	SidecarImage string `json:"sidecarImage,omitempty"`
 }
 
 // GuestAgentPing configures the guest-agent based ping probe

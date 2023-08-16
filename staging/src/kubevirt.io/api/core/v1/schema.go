@@ -1201,6 +1201,10 @@ type Interface struct {
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
 	InterfaceBindingMethod `json:",inline"`
+	// Binding specifies the binding plugin that will be used to connect the interface to the guest.
+	// It provides an alternative to InterfaceBindingMethod.
+	// version: 1alphav1
+	Binding *PluginBinding `json:"binding,omitempty"`
 	// List of ports to be forwarded to the virtual machine.
 	Ports []Port `json:"ports,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
@@ -1309,6 +1313,13 @@ type InterfaceMacvtap struct{}
 
 // InterfacePasst connects to a given network.
 type InterfacePasst struct{}
+
+// PluginBinding represents a binding implemented in a plugin.
+type PluginBinding struct {
+	// Name references to the binding name as denined in the kubevirt CR.
+	// version: 1alphav1
+	Name string `json:"name"`
+}
 
 // Port represents a port to expose from the virtual machine.
 // Default protocol TCP.

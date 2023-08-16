@@ -640,6 +640,7 @@ func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
 		"model":       "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
 		"ports":       "List of ports to be forwarded to the virtual machine.",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
@@ -708,6 +709,13 @@ func (InterfaceMacvtap) SwaggerDoc() map[string]string {
 func (InterfacePasst) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "InterfacePasst connects to a given network.",
+	}
+}
+
+func (PluginBinding) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "PluginBinding represents a binding implemented in a plugin.",
+		"name": "Name references to the binding name as denined in the kubevirt CR.\nversion: 1alphav1",
 	}
 }
 

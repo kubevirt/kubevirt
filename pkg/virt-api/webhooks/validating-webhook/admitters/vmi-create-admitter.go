@@ -196,6 +196,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateNetworksAssignedToInterfaces(field, spec, networkInterfaceMap)...)
 	causes = append(causes, validateInterfaceStateValue(field, spec)...)
+	causes = append(causes, validateInterfaceBinding(field, spec)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
@@ -323,6 +324,8 @@ func validateInterfaceNetworkBasics(field *k8sfield.Path, networkExists bool, id
 		causes = appendStatusCauseForPasstWithoutPodNetwork(field, causes, idx)
 	} else if iface.Passt != nil && numOfInterfaces > 1 {
 		causes = appendStatusCauseForPasstWithMultipleInterfaces(field, causes, idx)
+	} else if iface.Binding != nil && !config.NetworkBindingPlugingsEnabled() {
+		causes = appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field, causes, idx)
 	}
 	return causes
 }
@@ -619,6 +622,15 @@ func appendStatusCauseForPasstWithMultipleInterfaces(field *k8sfield.Path, cause
 		Message: "Passt interface is only supported as the single interface of the VMI",
 		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 	})
+}
+
+func appendStatusCauseForBindingPluginsFeatureGateNotEnabled(field *k8sfield.Path, causes []metav1.StatusCause, idx int) []metav1.StatusCause {
+	causes = append(causes, metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: "Binding plugins feature gate is not enabled",
+		Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+	})
+	return causes
 }
 
 func validateInterfaceNameFormat(field *k8sfield.Path, iface v1.Interface, idx int) (causes []metav1.StatusCause) {
