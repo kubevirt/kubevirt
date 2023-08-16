@@ -72,6 +72,8 @@ const (
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 	// When BochsDisplayForEFIGuests is enabled, EFI guests will be started with Bochs display instead of VGA
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
+	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
+	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -238,4 +240,8 @@ func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
 
 func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
 	return config.isFeatureGateEnabled(BochsDisplayForEFIGuests)
+}
+
+func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
+	return config.isFeatureGateEnabled(NetworkBindingPlugingsGate)
 }
