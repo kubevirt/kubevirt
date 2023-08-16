@@ -565,7 +565,7 @@ type HostDevice struct {
 	Source    HostDeviceSource `xml:"source"`
 	Type      string           `xml:"type,attr"`
 	BootOrder *BootOrder       `xml:"boot,omitempty"`
-	Managed   string           `xml:"managed,attr"`
+	Managed   string           `xml:"managed,attr,omitempty"`
 	Mode      string           `xml:"mode,attr,omitempty"`
 	Model     string           `xml:"model,attr,omitempty"`
 	Address   *Address         `xml:"address,omitempty"`
