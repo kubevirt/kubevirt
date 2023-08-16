@@ -20,9 +20,12 @@
 package api
 
 import (
+	"bytes"
+	_ "embed"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
+	"strings"
+	"text/template"
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,268 +33,45 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var exampleXMLwithNoneMemballoon string
-var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>mynamespace_testvmi</name>
-  <memory unit="MB">9</memory>
-  <os>
-    <type arch="x86_64" machine="q35">hvm</type>
-  </os>
-  <sysinfo type="smbios">
-    <system>
-      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
-    </system>
-    <bios></bios>
-    <baseBoard></baseBoard>
-    <chassis></chassis>
-  </sysinfo>
-  <devices>
-    <controller type="raw" index="0" model="none"></controller>
-    <video>
-      <model type="vga" heads="1" vram="16384"></model>
-    </video>
-    %s
-    <disk device="disk" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
-      <target dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk"></alias>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target dev="vdb"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk1"></alias>
-    </disk>
-    <disk device="disk" type="block">
-      <source dev="/dev/testdev"></source>
-      <target dev="vdc"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk2"></alias>
-    </disk>
-    <input type="tablet" bus="virtio">
-      <alias name="ua-tablet0"></alias>
-    </input>
-    <console type="pty"></console>
-    <watchdog model="i6300esb" action="poweroff">
-      <alias name="ua-mywatchdog"></alias>
-    </watchdog>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
-  </devices>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
-      <graceperiod>
-        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-  </metadata>
-  <features>
-    <acpi></acpi>
-    <smm></smm>
-    <kvm>
-      <hidden state="on"></hidden>
-      <hint-dedicated state="on"></hint-dedicated>
-    </kvm>
-    <pvspinlock state="off"></pvspinlock>
-    <pmu state="off"></pmu>
-  </features>
-  <cpu mode="custom">
-    <model>Conroe</model>
-    <feature name="pcid" policy="require"></feature>
-    <feature name="monitor" policy="disable"></feature>
-    <topology sockets="1" cores="2" threads="1"></topology>
-  </cpu>
-  <vcpu placement="static">2</vcpu>
-  <iothreads>2</iothreads>
-</domain>`
+var (
+	//go:embed testdata/domain_x86_64.xml.tmpl
+	exampleXML                   string
+	exampleXMLwithNoneMemballoon string
 
-var exampleXMLppc64lewithNoneMemballoon string
-var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>mynamespace_testvmi</name>
-  <memory unit="MB">9</memory>
-  <os>
-    <type arch="ppc64le" machine="pseries">hvm</type>
-  </os>
-  <sysinfo type="smbios">
-    <system>
-      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
-    </system>
-    <bios></bios>
-    <baseBoard></baseBoard>
-    <chassis></chassis>
-  </sysinfo>
-  <devices>
-    <controller type="raw" index="0" model="none"></controller>
-    <video>
-      <model type="vga" heads="1" vram="16384"></model>
-    </video>
-    %s
-    <disk device="disk" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
-      <target dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk"></alias>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target dev="vdb"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk1"></alias>
-    </disk>
-    <disk device="disk" type="block">
-      <source dev="/dev/testdev"></source>
-      <target dev="vdc"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk2"></alias>
-    </disk>
-    <input type="tablet" bus="virtio">
-      <alias name="ua-tablet0"></alias>
-    </input>
-    <console type="pty"></console>
-    <watchdog model="i6300esb" action="poweroff">
-      <alias name="ua-mywatchdog"></alias>
-    </watchdog>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
-  </devices>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
-      <graceperiod>
-        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-  </metadata>
-  <features>
-    <acpi></acpi>
-    <smm></smm>
-    <kvm>
-      <hidden state="on"></hidden>
-      <hint-dedicated state="on"></hint-dedicated>
-    </kvm>
-    <pvspinlock state="off"></pvspinlock>
-    <pmu state="off"></pmu>
-  </features>
-  <cpu mode="custom">
-    <model>Conroe</model>
-    <feature name="pcid" policy="require"></feature>
-    <feature name="monitor" policy="disable"></feature>
-    <topology sockets="1" cores="2" threads="1"></topology>
-  </cpu>
-  <vcpu placement="static">2</vcpu>
-  <iothreads>2</iothreads>
-</domain>`
+	//go:embed testdata/domain_ppc64le.xml.tmpl
+	exampleXMLppc64le                   string
+	exampleXMLppc64lewithNoneMemballoon string
 
-// TODO: Make the XML fit for real arm64 configuration
-var exampleXMLarm64withNoneMemballoon string
-var exampleXMLarm64 = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <name>mynamespace_testvmi</name>
-  <memory unit="MB">9</memory>
-  <os>
-    <type arch="aarch64" machine="virt">hvm</type>
-  </os>
-  <sysinfo type="smbios">
-    <system>
-      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
-    </system>
-    <bios></bios>
-    <baseBoard></baseBoard>
-    <chassis></chassis>
-  </sysinfo>
-  <devices>
-    <controller type="raw" index="0" model="none"></controller>
-    <video>
-      <model type="vga" heads="1" vram="16384"></model>
-    </video>
-    %s
-    <disk device="disk" type="network">
-      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
-        <host name="example.com" port="3260"></host>
-      </source>
-      <target dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk"></alias>
-    </disk>
-    <disk device="disk" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
-      <target dev="vdb"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk1"></alias>
-    </disk>
-    <disk device="disk" type="block">
-      <source dev="/dev/testdev"></source>
-      <target dev="vdc"></target>
-      <driver name="qemu" type="raw"></driver>
-      <alias name="ua-mydisk2"></alias>
-    </disk>
-    <input type="tablet" bus="virtio">
-      <alias name="ua-tablet0"></alias>
-    </input>
-    <console type="pty"></console>
-    <watchdog model="i6300esb" action="poweroff">
-      <alias name="ua-mywatchdog"></alias>
-    </watchdog>
-    <rng model="virtio">
-      <backend model="random">/dev/urandom</backend>
-    </rng>
-  </devices>
-  <metadata>
-    <kubevirt xmlns="http://kubevirt.io">
-      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
-      <graceperiod>
-        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
-      </graceperiod>
-    </kubevirt>
-  </metadata>
-  <features>
-    <acpi></acpi>
-    <smm></smm>
-    <kvm>
-      <hidden state="on"></hidden>
-      <hint-dedicated state="on"></hint-dedicated>
-    </kvm>
-    <pvspinlock state="off"></pvspinlock>
-    <pmu state="off"></pmu>
-  </features>
-  <cpu mode="custom">
-    <model>Conroe</model>
-    <feature name="pcid" policy="require"></feature>
-    <feature name="monitor" policy="disable"></feature>
-    <topology sockets="1" cores="2" threads="1"></topology>
-  </cpu>
-  <vcpu placement="static">2</vcpu>
-  <iothreads>2</iothreads>
-</domain>`
+	//go:embed testdata/domain_arm64.xml.tmpl
+	exampleXMLarm64                   string
+	exampleXMLarm64withNoneMemballoon string
+)
+
+const (
+	argNoMemBalloon     = `<memballoon model="none"></memballoon>`
+	argMemBalloonVirtio = `<memballoon model="virtio">
+      <stats period="10"></stats>
+    </memballoon>`
+)
 
 var _ = ginkgo.Describe("Schema", func() {
-	exampleXMLwithNoneMemballoon = fmt.Sprintf(exampleXML,
-		`<memballoon model="none"></memballoon>`)
-	exampleXML = fmt.Sprintf(exampleXML,
-		`<memballoon model="virtio">
-      <stats period="10"></stats>
-    </memballoon>`)
+	templateToString := func(templateStr, templateInput string) string {
+		tmpl, err := template.New("schema").Parse(templateStr)
+		Expect(err).ToNot(HaveOccurred())
+		buf := bytes.Buffer{}
+		err = tmpl.Execute(&buf, templateInput)
+		Expect(err).ToNot(HaveOccurred())
+		return strings.TrimSpace(buf.String())
+	}
 
-	exampleXMLppc64lewithNoneMemballoon = fmt.Sprintf(exampleXMLppc64le,
-		`<memballoon model="none"></memballoon>`)
-	exampleXMLppc64le = fmt.Sprintf(exampleXMLppc64le,
-		`<memballoon model="virtio">
-      <stats period="10"></stats>
-    </memballoon>`)
+	exampleXMLwithNoneMemballoon = templateToString(exampleXML, argNoMemBalloon)
+	exampleXML = templateToString(exampleXML, argMemBalloonVirtio)
 
-	exampleXMLarm64withNoneMemballoon = fmt.Sprintf(exampleXMLarm64,
-		`<memballoon model="none"></memballoon>`)
-	exampleXMLarm64 = fmt.Sprintf(exampleXMLarm64,
-		`<memballoon model="virtio">
-      <stats period="10"></stats>
-    </memballoon>`)
+	exampleXMLppc64lewithNoneMemballoon = templateToString(exampleXMLppc64le, argNoMemBalloon)
+	exampleXMLppc64le = templateToString(exampleXMLppc64le, argMemBalloonVirtio)
+
+	exampleXMLarm64withNoneMemballoon = templateToString(exampleXMLarm64, argNoMemBalloon)
+	exampleXMLarm64 = templateToString(exampleXMLarm64, argMemBalloonVirtio)
 
 	//The example domain should stay in sync to the xml above
 	var exampleDomain *Domain

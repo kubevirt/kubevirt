@@ -46,7 +46,14 @@ go_test(
         "converter_suite_test.go",
         "converter_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    embedsrcs = [
+        "testdata/domain_x86_64.xml.tmpl",
+        "testdata/domain_ppc64le.xml.tmpl",
+        "testdata/domain_arm64.xml.tmpl",
+        "testdata/domain_x86_64_root.xml.tmpl",
+    ],
     deps = [
         "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",

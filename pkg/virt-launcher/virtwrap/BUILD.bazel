@@ -71,7 +71,9 @@ go_test(
         "nichotplug_test.go",
         "virtwrap_suite_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    embedsrcs = ["testdata/migration_domain.xml"],
     deps = [
         "//pkg/cloud-init:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
