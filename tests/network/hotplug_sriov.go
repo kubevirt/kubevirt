@@ -49,7 +49,9 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
+		if !checks.HasFeature(virtconfig.HotplugNetworkIfacesGate) {
+			Skip("HotplugNICs feature gate is disabled.")
+		}
 	})
 
 	BeforeEach(func() {
