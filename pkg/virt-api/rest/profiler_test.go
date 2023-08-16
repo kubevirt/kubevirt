@@ -31,11 +31,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"github.com/onsi/gomega/types"
 
 	"kubevirt.io/kubevirt/pkg/util/status"
 
@@ -190,6 +192,41 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			Entry("dump function", app.DumpClusterProfilerHandler, "dump"),
 		)
 	})
+
+	DescribeTable(", podIsReadyComponent function should return", func(name string, deletionTimestamp *k8smetav1.Time, phase k8sv1.PodPhase, isReady k8sv1.ConditionStatus, matcher types.GomegaMatcher) {
+		pod := &k8sv1.Pod{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:              name,
+				DeletionTimestamp: deletionTimestamp,
+			},
+			Status: k8sv1.PodStatus{
+				Phase: phase,
+				Conditions: []k8sv1.PodCondition{
+					{
+						Type:   k8sv1.PodReady,
+						Status: isReady,
+					},
+				},
+			},
+		}
+		isReadyComponentPod := podIsReadyComponent(pod)
+		Expect(isReadyComponentPod).To(matcher)
+	},
+		Entry("true with running and ready virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("true with running and ready virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("true with running and ready virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("true with running and ready virt-api", "virt-api-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("false with non running virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with non running virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with non running virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with non running virt-api", "virt-api-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with running but non-ready virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with running but non-ready virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with running but non-ready virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with running but non-ready virt-api", "virt-api-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with deletionTimestamp valued", "virt-handler-8xxfgt", &k8smetav1.Time{Time: time.Now()}, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with other component", "kubevirt-apiproxy-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
+	)
 
 	AfterEach(func() {
 		server.Close()
