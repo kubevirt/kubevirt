@@ -174,6 +174,16 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 			description: "Histogram of VM phase transitions duration from deletion time in seconds.",
 			mType:       "Histogram",
 		},
+		{
+			name:        "kubevirt_virt_operator_leading_status",
+			description: "Indication for an operating virt-operator.",
+			mType:       "Gauge",
+		},
+		{
+			name:        "kubevirt_virt_operator_ready_status",
+			description: "Indication for a virt-operator that is ready to take the lead.",
+			mType:       "Gauge",
+		},
 	}
 
 	for _, rule := range components.GetRecordingRules("") {

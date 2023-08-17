@@ -128,7 +128,7 @@ var (
 
 	readyGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_controller_ready",
+			Name: "kubevirt_virt_controller_ready_status",
 			Help: "Indication for a virt-controller that is ready to take the lead.",
 		},
 	)

@@ -116,14 +116,14 @@ var (
 
 	leaderGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_operator_leading",
+			Name: "kubevirt_virt_operator_leading_status",
 			Help: "Indication for an operating virt-operator.",
 		},
 	)
 
 	readyGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_operator_ready",
+			Name: "kubevirt_virt_operator_ready_status",
 			Help: "Indication for a virt-operator that is ready to take the lead.",
 		},
 	)

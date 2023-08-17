@@ -28,11 +28,11 @@ import (
 )
 
 const (
-	PendingMigrations    = "kubevirt_migrate_vmi_pending_count"
-	SchedulingMigrations = "kubevirt_migrate_vmi_scheduling_count"
-	RunningMigrations    = "kubevirt_migrate_vmi_running_count"
-	SucceededMigrations  = "kubevirt_migrate_vmi_succeeded"
-	FailedMigrations     = "kubevirt_migrate_vmi_failed"
+	PendingMigrations    = "kubevirt_vmi_migrations_pending"
+	SchedulingMigrations = "kubevirt_vmi_migrations_scheduling"
+	RunningMigrations    = "kubevirt_vmi_migrations_running"
+	SucceededMigrations  = "kubevirt_vmi_migrations_succeeded"
+	FailedMigrations     = "kubevirt_vmi_migrations_failed"
 )
 
 var (

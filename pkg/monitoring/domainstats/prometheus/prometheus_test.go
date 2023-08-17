@@ -195,7 +195,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_in_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_in_traffic_bytes"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -220,7 +220,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_out_traffic_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_swap_out_traffic_bytes"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -245,7 +245,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgmajfault"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgmajfault_total"))
 			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -270,7 +270,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgminfault"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_pgminfault_total"))
 			Expect(dto.Counter.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -345,7 +345,7 @@ var _ = Describe("Prometheus", func() {
 			result.Write(dto)
 
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_memory_domain_bytes"))
 			Expect(dto.Gauge.GetValue()).To(BeEquivalentTo(float64(1024)))
 		})
 
@@ -428,7 +428,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_seconds"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_seconds_total"))
 		})
 
 		It("should not expose vcpu metrics for invalid DomainStats", func() {
@@ -674,7 +674,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_read_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_read_times_seconds_total"))
 		})
 
 		It("should handle block write time metrics", func() {
@@ -701,7 +701,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_write_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_write_times_seconds_total"))
 		})
 
 		It("should handle block flush requests metrics", func() {
@@ -755,7 +755,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_times_ms_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_flush_times_seconds_total"))
 		})
 
 		It("should use alias when alias is not empty", func() {
@@ -1151,7 +1151,7 @@ var _ = Describe("Prometheus", func() {
 
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_wait_seconds"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_wait_seconds_total"))
 		})
 
 		It("should expose vcpu delay metric", func() {
@@ -1234,7 +1234,7 @@ var _ = Describe("Prometheus", func() {
 			ps.Report("test", &vmi, newVmStats(domainStats, fsStats))
 			result := <-ch
 			Expect(result).ToNot(BeNil())
-			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_filesystem_capacity_bytes_total"))
+			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_filesystem_capacity_bytes"))
 			result = <-ch
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_filesystem_used_bytes"))
