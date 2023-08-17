@@ -56,7 +56,9 @@ const (
 	DefaultNetworkInterface                         = "bridge"
 	DefaultImagePullPolicy                          = k8sv1.PullIfNotPresent
 	DefaultAllowEmulation                           = false
-	DefaultUnsafeMigrationOverride                  = false
+	// TODO afrosi: find why we need unsafe migration
+	//DefaultUnsafeMigrationOverride                  = false
+	DefaultUnsafeMigrationOverride                  = true
 	DefaultPermitSlirpInterface                     = false
 	SmbiosConfigDefaultFamily                       = "KubeVirt"
 	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
