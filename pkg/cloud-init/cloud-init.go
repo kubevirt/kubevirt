@@ -163,22 +163,21 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 	return nil, nil
 }
 
-func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceDir string, methodNoCloud, methodConfigDrive bool) (map[string]string, error) {
+func isNoCloudAccessCredential(accessCred v1.AccessCredential) bool {
+	return accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.NoCloud != nil
+}
+
+func isConfigDriveAccessCredential(accessCred v1.AccessCredential) bool {
+	return accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.PropagationMethod.ConfigDrive != nil
+}
+
+func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceDir string, isAccessCredentialValidFunc func(v1.AccessCredential) bool) (map[string]string, error) {
 	keys := make(map[string]string)
 	count := 0
 	for _, accessCred := range accessCredentials {
 
-		switch {
-		case methodNoCloud:
-			// check to see if access credential is propagated by no cloud or not
-			if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.NoCloud == nil {
-				continue
-			}
-		case methodConfigDrive:
-			// check to see if access credential is propagated by config drive or not
-			if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.ConfigDrive == nil {
-				continue
-			}
+		if !isAccessCredentialValidFunc(accessCred) {
+			continue
 		}
 
 		secretName := ""
@@ -222,7 +221,7 @@ func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceD
 //
 // Note: when using this function, make sure that your code can access the secret volumes.
 func resolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) (map[string]string, error) {
-	keys, err := resolveSSHPublicKeys(vmi.Spec.AccessCredentials, secretSourceDir, true, false)
+	keys, err := resolveSSHPublicKeys(vmi.Spec.AccessCredentials, secretSourceDir, isNoCloudAccessCredential)
 	if err != nil {
 		return keys, err
 	}
@@ -261,7 +260,7 @@ func resolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir strin
 //
 // Note: when using this function, make sure that your code can access the secret volumes.
 func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) (map[string]string, error) {
-	keys, err := resolveSSHPublicKeys(vmi.Spec.AccessCredentials, secretSourceDir, false, true)
+	keys, err := resolveSSHPublicKeys(vmi.Spec.AccessCredentials, secretSourceDir, isConfigDriveAccessCredential)
 	if err != nil {
 		return keys, err
 	}

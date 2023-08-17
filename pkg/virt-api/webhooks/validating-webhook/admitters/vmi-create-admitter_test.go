@@ -2723,6 +2723,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("requires a noCloud volume to exist"))
 		})
 		It("should reject a configDrive ssh access credential when no configDrive volume exists", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -2753,6 +2754,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("requires a configDrive volume to exist"))
 		})
 		It("should reject a ssh access credential without a source", func() {
 			vmi := api.NewMinimalVMI("testvmi")
