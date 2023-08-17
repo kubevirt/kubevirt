@@ -25,9 +25,11 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,9 +39,13 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
+	kubectlutil "k8s.io/kubectl/pkg/util"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1alpha1"
@@ -70,6 +76,8 @@ const (
 	OUTPUT_FORMAT_FLAG  = "--manifest-output-format"
 	SERVICE_URL_FLAG    = "--service-url"
 	INCLUDE_SECRET_FLAG = "--include-secret"
+	PORT_FORWARD_FLAG   = "--port-forward"
+	LOCAL_PORT_FLAG     = "--local-port"
 
 	// Possible output format for manifests
 	OUTPUT_FORMAT_JSON = "json"
@@ -119,6 +127,8 @@ var (
 	shouldCreate         bool
 	includeSecret        bool
 	exportManifest       bool
+	portForward          bool
+	localPort            string
 	serviceUrl           string
 	volumeName           string
 	ttl                  string
@@ -128,6 +138,8 @@ var (
 type exportFunc func(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) error
 
 type HTTPClientCreator func(*http.Transport, bool) *http.Client
+
+type PortForwardFunc func(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error
 
 type exportCompleteFunc func(kubecli.KubevirtClient, *VMExportInfo, time.Duration, time.Duration) error
 
@@ -141,6 +153,8 @@ type VMExportInfo struct {
 	KeepVme        bool
 	IncludeSecret  bool
 	ExportManifest bool
+	PortForward    bool
+	LocalPort      string
 	OutputFile     string
 	OutputWriter   io.Writer
 	VolumeName     string
@@ -161,6 +175,8 @@ var exportFunction exportFunc
 
 var httpClientCreatorFunc HTTPClientCreator
 
+var startPortForward PortForwardFunc
+
 // SetHTTPClientCreator allows overriding the default http client (useful for unit testing)
 func SetHTTPClientCreator(f HTTPClientCreator) {
 	httpClientCreatorFunc = f
@@ -171,8 +187,19 @@ func SetDefaultHTTPClientCreator() {
 	httpClientCreatorFunc = getHTTPClient
 }
 
+// SetPortForwarder allows overriding the default port-forwarder (useful for unit testing)
+func SetPortForwarder(f PortForwardFunc) {
+	startPortForward = f
+}
+
+// SetDefaultPortForwarder sets the port forwarder back to default
+func SetDefaultPortForwarder() {
+	startPortForward = runPortForward
+}
+
 func init() {
 	SetDefaultHTTPClientCreator()
+	SetDefaultPortForwarder()
 }
 
 // usage provides several valid usage examples of vmexport
@@ -191,6 +218,9 @@ func usage() string {
   
 	# Download a volume from an already existing VirtualMachineExport (--volume is optional when only one volume is available)
 	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz
+
+	# Download a volume as before but through local port 5410
+	{{ProgramName}} vmexport download vm1-export --volume=volume1 --output=disk.img.gz --port-forward --local-port=5410
   
 	# Create a VirtualMachineExport and download the requested volume from it
 	{{ProgramName}} vmexport download vm1-export --vm=vm1 --volume=volume1 --output=disk.img.gz
@@ -227,6 +257,8 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
 	cmd.Flags().StringVar(&manifestOutputFormat, "manifest-output-format", "", "Manifest output format, defaults to Yaml. Valid options are yaml or json")
 	cmd.Flags().StringVar(&serviceUrl, "service-url", "", "Specify service url to use in the returned manifest, instead of the external URL in the Virtual Machine export status. This is useful for NodePorts or if you don't have an external URL configured")
+	cmd.Flags().BoolVar(&portForward, "port-forward", false, "Configures port-forwarding on a random port. Useful to download without proper ingress/route configuration")
+	cmd.Flags().StringVar(&localPort, "local-port", "0", "Defines the specific port to be used in port-forward.")
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -295,6 +327,14 @@ func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) err
 	vmeInfo.Name = args[1]
 
 	// We store the flags in a struct to avoid relying on global variables
+	if err := c.initVMExportInfo(vmeInfo); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.ExportSource = getExportSource()
 	vmeInfo.OutputFile = outputFile
 	// User wants the output in a file, create
@@ -315,6 +355,15 @@ func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) err
 	vmeInfo.OutputFormat = manifestOutputFormat
 	vmeInfo.IncludeSecret = includeSecret
 	vmeInfo.ExportManifest = exportManifest
+	if portForward {
+		vmeInfo.PortForward = portForward
+		vmeInfo.Insecure = true
+		// Defaults to 0, which will be replaced by a random available port
+		vmeInfo.LocalPort = localPort
+		if vmeInfo.ServiceURL == "" {
+			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", vmeInfo.LocalPort)
+		}
+	}
 	vmeInfo.TTL = metav1.Duration{}
 	if ttl != "" {
 		duration, err := time.ParseDuration(ttl)
@@ -323,7 +372,6 @@ func (c *command) parseExportArguments(args []string, vmeInfo *VMExportInfo) err
 		}
 		vmeInfo.TTL = metav1.Duration{Duration: duration}
 	}
-
 	return nil
 }
 
@@ -406,6 +454,14 @@ func DownloadVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpo
 
 	if !vmeInfo.KeepVme && !vmeInfo.ExportManifest {
 		defer DeleteVirtualMachineExport(client, vmeInfo)
+	}
+
+	if vmeInfo.PortForward {
+		stopChan, err := setupPortForward(client, vmeInfo)
+		if err != nil {
+			return err
+		}
+		defer close(stopChan)
 	}
 
 	// Wait for the vmexport object to be ready
@@ -597,11 +653,12 @@ func waitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExpor
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil {
-			return true, err
+			return false, err
 		}
 
 		if vmexport == nil {
-			return true, err
+			fmt.Printf("couldn't get VM Export %s, waiting for it to be created...\n", vmeInfo.Name)
+			return false, nil
 		}
 
 		if vmexport.Status == nil {
@@ -791,6 +848,12 @@ func handleCreateFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, CREATE)
 	}
+	if portForward {
+		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, CREATE)
+	}
+	if localPort != "0" {
+		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, CREATE)
+	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
 	}
@@ -816,8 +879,14 @@ func handleDeleteFlags() error {
 	if keepVme {
 		return fmt.Errorf(ErrIncompatibleFlag, KEEP_FLAG, DELETE)
 	}
+	if portForward {
+		return fmt.Errorf(ErrIncompatibleFlag, PORT_FORWARD_FLAG, DELETE)
+	}
+	if localPort != "0" {
+		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, DELETE)
+	}
 	if serviceUrl != "" {
-		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
+		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, DELETE)
 	}
 
 	return nil
@@ -828,6 +897,13 @@ func handleDownloadFlags() error {
 	// We assume that the vmexport should be created if a source has been specified
 	if hasSource := vm != "" || snapshot != "" || pvc != ""; hasSource {
 		shouldCreate = true
+	}
+
+	if portForward {
+		port, err := strconv.Atoi(localPort)
+		if err != nil || port < 0 || port > 65535 {
+			return fmt.Errorf(ErrInvalidValue, LOCAL_PORT_FLAG, "valid port numbers")
+		}
 	}
 
 	if exportManifest {
@@ -856,4 +932,144 @@ func getExportSecretName(vmexportName string) string {
 // errExportAlreadyExists is used to the determine if an error happened when creating an already existing vmexport
 func errExportAlreadyExists(err error) bool {
 	return strings.Contains(err.Error(), "VirtualMachineExport") && strings.Contains(err.Error(), "already exists")
+}
+
+// Port-forward functions
+
+// translateServicePortToTargetPort tranlates the specified port to be used with the service's pod
+func translateServicePortToTargetPort(localPort string, remotePort string, svc k8sv1.Service, pod k8sv1.Pod) ([]string, error) {
+	ports := []string{}
+	portnum, err := strconv.Atoi(remotePort)
+	if err != nil {
+		return ports, err
+	}
+	containerPort, err := kubectlutil.LookupContainerPortNumberByServicePort(svc, pod, int32(portnum))
+	if err != nil {
+		// can't resolve a named port, or Service did not declare this port, return an error
+		return ports, err
+	}
+
+	// convert the resolved target port back to a string
+	remotePort = strconv.Itoa(int(containerPort))
+	if localPort != remotePort {
+		return append(ports, fmt.Sprintf("%s:%s", localPort, remotePort)), nil
+	}
+
+	return append(ports, remotePort), nil
+}
+
+// waitForExportServiceToBeReady waits until the vmexport service is ready for port-forwarding
+func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
+	service := &k8sv1.Service{}
+	serviceName := fmt.Sprintf("virt-export-%s", vmeInfo.Name)
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		vmexport, err := getVirtualMachineExport(client, vmeInfo)
+		if err != nil || vmexport == nil {
+			return false, err
+		}
+
+		if vmexport.Status == nil || vmexport.Status.Phase != exportv1.Ready {
+			fmt.Printf("waiting for VM Export %s status to be ready...\n", vmeInfo.Name)
+			return false, nil
+		}
+
+		service, err = client.CoreV1().Services(vmeInfo.Namespace).Get(context.TODO(), serviceName, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				fmt.Printf("waiting for service %s to be ready before port-forwarding...\n", serviceName)
+				return false, nil
+			}
+			return false, err
+		}
+		fmt.Printf("service %s is ready for port-forwarding\n", service.Name)
+		return true, nil
+	})
+	return service, err
+}
+
+// setupPortForward runs a port-forward after initializing all required arguments
+func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (chan struct{}, error) {
+	// Wait for the vmexport object to be ready
+	service, err := waitForExportServiceToBeReady(client, vmeInfo, processingWaitInterval, processingWaitTotal)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the target pod selector from the service
+	podSelector := labels.SelectorFromSet(service.Spec.Selector)
+
+	// List the pods matching the selector
+	podList, err := client.CoreV1().Pods(vmeInfo.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podSelector.String()})
+	if err != nil {
+		return nil, fmt.Errorf("Failed to list pods: %v", err)
+	}
+
+	// Pick the first pod to forward the port
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("No pods found for the service %s", service.Name)
+	}
+
+	// Set up the port forwarding ports
+	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, "443", *service, podList.Items[0])
+	if err != nil {
+		return nil, err
+	}
+
+	stopChan := make(chan struct{}, 1)
+	readyChan := make(chan struct{})
+	portChan := make(chan uint16)
+	go startPortForward(client, podList.Items[0], vmeInfo.Namespace, ports, stopChan, readyChan, portChan)
+
+	// Wait for the port forwarding to be ready
+	select {
+	case <-readyChan:
+		fmt.Println("Port forwarding is ready.")
+		// Using 0 allows listening on a random available port.
+		// Now we need to find out which port was used
+		if vmeInfo.LocalPort == "0" {
+			localPort := <-portChan
+			close(portChan)
+			vmeInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%d", localPort)
+		}
+	case <-time.After(30 * time.Second):
+		return nil, fmt.Errorf("Timeout waiting for port forwarding to be ready.")
+	}
+	return stopChan, nil
+}
+
+// runPortForward is the actual function that runs the port-forward. Meant to be run concurrently
+func runPortForward(client kubecli.KubevirtClient, pod k8sv1.Pod, namespace string, ports []string, stopChan, readyChan chan struct{}, portChan chan uint16) error {
+	// Create a port forwarding request
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(namespace).
+		SubResource("portforward")
+
+	// Set up the port forwarding options
+	transport, upgrader, err := spdy.RoundTripperFor(client.Config())
+	if err != nil {
+		log.Fatalf("Failed to set up transport: %v", err)
+	}
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+
+	// Start port-forwarding
+	fw, err := portforward.New(dialer, ports, stopChan, readyChan, os.Stdout, os.Stderr)
+	if err != nil {
+		log.Fatalf("Failed to setup port forward: %v", err)
+	}
+	slicedPorts := strings.Split(ports[0], ":")
+	if len(slicedPorts) == 2 && slicedPorts[0] == "0" {
+		// If the local port is 0, then the port-forwarder will pick a random available port.
+		// We need to send this port number back to the caller.
+		go func() {
+			<-readyChan
+			forwardedPorts, err := fw.GetPorts()
+			if err != nil {
+				log.Fatalf("Failed to get forwarded ports: %v", err)
+			}
+			portChan <- forwardedPorts[0].Local
+		}()
+	}
+	return fw.ForwardPorts()
 }
