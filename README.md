@@ -1,7 +1,7 @@
 # KubeVirt
 
 <p align="center">
-<img src="https://cncf-branding.netlify.app/img/projects/kubevirt/icon/color/kubevirt-icon-color.png" width="100">
+<img src="https://github.com/kubevirt/community/blob/main/logo/KubeVirt_icon.png" width="100">
 </p>
 
 
