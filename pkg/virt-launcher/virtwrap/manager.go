@@ -823,6 +823,14 @@ func shouldExpandOffline(disk api.Disk) bool {
 	return true
 }
 
+func getMigrateLocalStorage(vmi *v1.VirtualMachineInstance) map[string]string {
+	volumes := make(map[string]string)
+	for _, v := range vmi.Status.MigrationState.MigrationLocalDisks {
+		volumes[v.SourcePvc] = v.DestinationPvc
+	}
+	return volumes
+}
+
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
 
 	logger := log.Log.Object(vmi)
@@ -835,6 +843,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	hotplugVolumes := make(map[string]v1.VolumeStatus)
 	permanentVolumes := make(map[string]v1.VolumeStatus)
+	//	migrateVolumes := getMigrateLocalStorage(vmi)
 	for _, status := range vmi.Status.VolumeStatus {
 		if status.HotplugVolume != nil {
 			hotplugVolumes[status.Name] = status
@@ -894,9 +903,10 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		EFIConfiguration:      efiConf,
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
-		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
-		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
+		//MigratedVolumes:       migrateVolumes,
+		EphemeraldiskCreator: l.ephemeralDiskCreator,
+		UseLaunchSecurity:    kutil.IsSEVVMI(vmi),
+		FreePageReporting:    isFreePageReportingEnabled(false, vmi),
 	}
 
 	if options != nil {

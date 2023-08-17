@@ -64,8 +64,9 @@ const (
 )
 
 type migrationDisks struct {
-	shared    map[string]bool
-	generated map[string]bool
+	shared         map[string]bool
+	generated      map[string]bool
+	localToMigrate map[string]bool
 }
 
 type migrationMonitor struct {
@@ -357,19 +358,40 @@ func (d *migrationDisks) isGeneratedVolume(name string) bool {
 	return generated
 }
 
+func (d *migrationDisks) isLocalVolumeToMigrate(name string) bool {
+	_, migrate := d.localToMigrate[name]
+	return migrate
+}
+
 func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks {
 	// This method collects all VMI volumes that should not be copied during
 	// live migration. It also collects all generated disks suck as cloudinit, secrets, ServiceAccount and ConfigMaps
 	// to make sure that these are being copied during migration.
-	// Persistent volume claims without ReadWriteMany access mode
-	// should be filtered out earlier in the process
 
 	disks := &migrationDisks{
-		shared:    make(map[string]bool),
-		generated: make(map[string]bool),
+		shared:         make(map[string]bool),
+		generated:      make(map[string]bool),
+		localToMigrate: make(map[string]bool),
+	}
+	migrateDisks := make(map[string]bool)
+	if vmi.Status.MigrationState != nil {
+		for _, v := range vmi.Status.MigrationState.MigrationLocalDisks {
+			migrateDisks[v.SourcePvc] = true
+		}
 	}
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
+		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil {
+			var name string
+			if volSrc.PersistentVolumeClaim != nil {
+				name = volSrc.PersistentVolumeClaim.PersistentVolumeClaimVolumeSource.ClaimName
+			} else {
+				name = volSrc.DataVolume.Name
+			}
+			if _, ok := migrateDisks[name]; ok {
+				disks.localToMigrate[name] = true
+			}
+		}
 		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil ||
 			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
 			disks.shared[volume.Name] = true
@@ -524,7 +546,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		progressWatermark:        0,
 		remainingData:            0,
 		progressTimeout:          options.ProgressTimeout,
-		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
+		acceptableCompletionTime: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir) * 1000, // TODO afrosi: timeout for migrating disks
 	}
 
 	return monitor
@@ -898,7 +920,6 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 		return nil
 	}
-
 	err = critSection()
 	if err != nil {
 		return err
