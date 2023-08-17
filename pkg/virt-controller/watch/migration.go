@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/api/migrations/v1alpha1"
 
+	k8score "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -582,6 +583,11 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
 				log.Log.Object(migration).Infof("VMI reported migration succeeded.")
+				// Update the VMI spec in there are migrate disks
+				if err := c.updateVMIWithMigrationLocalDisks(vmi, migration); err != nil {
+					return err
+				}
+				log.Log.Object(vmi).Infof("Update migrated volumes")
 			}
 		}
 	}
@@ -632,6 +638,68 @@ func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {
 		}
 	}
 
+	return nil
+}
+
+func replaceSourcePVCswithDestinationPVCsPod(migration *virtv1.VirtualMachineInstanceMigration, pod *k8sv1.Pod) error {
+	replaceVol := make(map[string]string)
+	for _, v := range migration.Spec.LocalStorageMigration.MigrateNonSharedDisks {
+		replaceVol[v.SourcePvc] = v.DestinationPvc
+	}
+
+	// Replace source PVCs with the destination PVCs in the target pod
+	for _, v := range pod.Spec.Volumes {
+		// For now, we only replace PVCs with PVCs
+		if v.VolumeSource.PersistentVolumeClaim == nil {
+			continue
+		}
+		claim := v.VolumeSource.PersistentVolumeClaim.ClaimName
+		if dest, ok := replaceVol[claim]; ok {
+			v.VolumeSource.PersistentVolumeClaim.ClaimName = dest
+			delete(replaceVol, claim)
+		}
+	}
+	if len(replaceVol) != 0 {
+		return fmt.Errorf("failed to replace all local volumes to migrate with the destination volumes in the target pod")
+	}
+	return nil
+}
+
+func replaceSourceVolswithDestinationVolVMI(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	replaceVol := make(map[string]string)
+	for _, v := range migration.Spec.LocalStorageMigration.MigrateNonSharedDisks {
+		replaceVol[v.SourcePvc] = v.DestinationPvc
+	}
+
+	for i, v := range vmi.Spec.Volumes {
+		var claim string
+		switch {
+		case v.VolumeSource.PersistentVolumeClaim != nil:
+			claim = v.VolumeSource.PersistentVolumeClaim.ClaimName
+		case v.VolumeSource.DataVolume != nil:
+			claim = v.VolumeSource.DataVolume.Name
+		default:
+			continue
+		}
+
+		if dest, ok := replaceVol[claim]; ok {
+			switch {
+			case v.VolumeSource.PersistentVolumeClaim != nil:
+				vmi.Spec.Volumes[i].VolumeSource.PersistentVolumeClaim.ClaimName = dest
+			case v.VolumeSource.DataVolume != nil:
+				vmi.Spec.Volumes[i].VolumeSource.PersistentVolumeClaim = &virtv1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
+						ClaimName: dest,
+					},
+				}
+				vmi.Spec.Volumes[i].VolumeSource.DataVolume = nil
+			}
+			delete(replaceVol, claim)
+		}
+	}
+	if len(replaceVol) != 0 {
+		return fmt.Errorf("failed to replace the source volumes with the destination volumes in the VMI")
+	}
 	return nil
 }
 
@@ -698,6 +766,11 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 				break
 			}
 		}
+	}
+	// If we migrate local disks, then replace the source PVCs with the
+	// destination PVCs
+	if err := replaceSourcePVCswithDestinationPVCsPod(migration, templatePod); err != nil {
+		return err
 	}
 
 	key := controller.MigrationKey(migration)
@@ -858,10 +931,11 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
 
 	vmiCopy := vmi.DeepCopy()
 	vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-		MigrationUID: migration.UID,
-		TargetNode:   pod.Spec.NodeName,
-		SourceNode:   vmi.Status.NodeName,
-		TargetPod:    pod.Name,
+		MigrationUID:        migration.UID,
+		TargetNode:          pod.Spec.NodeName,
+		SourceNode:          vmi.Status.NodeName,
+		TargetPod:           pod.Name,
+		MigrationLocalDisks: vmi.Status.MigrationState.MigrationLocalDisks,
 	}
 
 	// By setting this label, virt-handler on the target node will receive
@@ -1201,6 +1275,40 @@ func (c *MigrationController) handlePendingPodTimeout(migration *virtv1.VirtualM
 	return nil
 }
 
+func (c *MigrationController) updateVMIStatusWithMigrationLocalDisksPatch(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
+	vmiCopy := vmi.DeepCopy()
+	if vmi.Status.MigrationState == nil {
+		vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
+	}
+	// Always reinitialized the migrated disks
+	vmiCopy.Status.MigrationState.MigrationLocalDisks = []virtv1.MigrateNonSharedDisk{}
+	for _, d := range migration.Spec.LocalStorageMigration.MigrateNonSharedDisks {
+		vmiCopy.Status.MigrationState.MigrationLocalDisks = append(vmiCopy.Status.MigrationState.MigrationLocalDisks,
+			virtv1.MigrateNonSharedDisk{
+				SourcePvc:      d.SourcePvc,
+				DestinationPvc: d.DestinationPvc})
+
+	}
+	if err := c.patchVMI(vmi, vmiCopy); err != nil {
+		return fmt.Errorf("failed updating migrated disks: %v", err)
+	}
+	vmi = vmiCopy.DeepCopy()
+
+	return nil
+}
+
+func (c *MigrationController) updateVMIWithMigrationLocalDisks(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration) error {
+	vmiCopy := vmi.DeepCopy()
+	if err := replaceSourceVolswithDestinationVolVMI(migration, vmiCopy); err != nil {
+		return err
+	}
+	if _, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmiCopy); err != nil {
+		return fmt.Errorf("failed updating migrated disks: %v", err)
+	}
+	vmi = vmiCopy.DeepCopy()
+	return nil
+}
+
 func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
@@ -1279,11 +1387,15 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 					}
 				}
 			}
+
 			if len(patches) != 0 {
 				vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, controller.GeneratePatchBytes(patches), &v1.PatchOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to set VMI RuntimeUser: %v", err)
 				}
+			}
+			if err := c.updateVMIStatusWithMigrationLocalDisksPatch(vmi, migration); err != nil {
+				return err
 			}
 
 			return c.handleTargetPodCreation(key, migration, vmi, sourcePod)

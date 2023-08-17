@@ -11975,6 +11975,17 @@ var CRDsValidation map[string]string = map[string]string{
                     unsafe to the guest. Defaults to false
                   type: boolean
               type: object
+            migrationLocalDisks:
+              items:
+                description: MigrateNonSharedDisk represents the source PVC to be
+                  migrated to the destination PVC
+                properties:
+                  destinationPvc:
+                    type: string
+                  sourcePvc:
+                    type: string
+                type: object
+              type: array
             migrationPolicyName:
               description: Name of the migration policy. If string is empty, no policy
                 is matched
@@ -12229,6 +12240,23 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        localStorageMigration:
+          description: LocalStorageMigration represents the local storage to be migrated
+          properties:
+            migrateNonSharedDisks:
+              items:
+                description: MigrateNonSharedDisk represents the source PVC to be
+                  migrated to the destination PVC
+                properties:
+                  destinationPvc:
+                    type: string
+                  sourcePvc:
+                    type: string
+                type: object
+              type: array
+            reclaimPolicySourcePvc:
+              type: string
+          type: object
         vmiName:
           description: The name of the VMI to perform the migration on. VMI must exist
             in the migration objects namespace
@@ -12363,6 +12391,17 @@ var CRDsValidation map[string]string = map[string]string{
                     unsafe to the guest. Defaults to false
                   type: boolean
               type: object
+            migrationLocalDisks:
+              items:
+                description: MigrateNonSharedDisk represents the source PVC to be
+                  migrated to the destination PVC
+                properties:
+                  destinationPvc:
+                    type: string
+                  sourcePvc:
+                    type: string
+                type: object
+              type: array
             migrationPolicyName:
               description: Name of the migration policy. If string is empty, no policy
                 is matched
