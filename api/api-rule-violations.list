@@ -134,9 +134,11 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,Interface,Ports
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,EmulatedMachines
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,SupportedGuestAgentVersions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtStatus,Conditions
+API rule violation: list_type_missing,kubevirt.io/api/core/v1,LocalStorageMigration,MigrateNonSharedDisks
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,NodePlacement,Tolerations
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestAgentInfo,UserList
+API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceMigrationState,MigrationLocalDisks
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceMigrationStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IPs
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceReplicaSetStatus,Conditions

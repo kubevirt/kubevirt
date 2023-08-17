@@ -17893,6 +17893,22 @@
      }
     }
    },
+   "v1.LocalStorageMigration": {
+    "description": "LocalStorageMigration represents the local storage to be migrated",
+    "type": "object",
+    "properties": {
+     "migrateNonSharedDisks": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.MigrateNonSharedDisk"
+      }
+     },
+     "reclaimPolicySourcePvc": {
+      "type": "string"
+     }
+    }
+   },
    "v1.LogVerbosity": {
     "description": "LogVerbosity sets log verbosity level of  various components",
     "type": "object",
@@ -18039,6 +18055,18 @@
      "readOnly": {
       "description": "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.MigrateNonSharedDisk": {
+    "description": "MigrateNonSharedDisk represents the source PVC to be migrated to the destination PVC",
+    "type": "object",
+    "properties": {
+     "destinationPvc": {
+      "type": "string"
+     },
+     "sourcePvc": {
+      "type": "string"
      }
     }
    },
@@ -19661,6 +19689,10 @@
    "v1.VirtualMachineInstanceMigrationSpec": {
     "type": "object",
     "properties": {
+     "localStorageMigration": {
+      "default": {},
+      "$ref": "#/definitions/v1.LocalStorageMigration"
+     },
      "vmiName": {
       "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
       "type": "string"
@@ -19693,6 +19725,13 @@
      "migrationConfiguration": {
       "description": "Migration configurations to apply",
       "$ref": "#/definitions/v1.MigrationConfiguration"
+     },
+     "migrationLocalDisks": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.MigrateNonSharedDisk"
+      }
      },
      "migrationPolicyName": {
       "description": "Name of the migration policy. If string is empty, no policy is matched",

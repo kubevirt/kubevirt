@@ -408,6 +408,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.LiveUpdateCPU":                                                      schema_kubevirtio_api_core_v1_LiveUpdateCPU(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateConfiguration":                                            schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateFeatures":                                                 schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref),
+		"kubevirt.io/api/core/v1.LocalStorageMigration":                                              schema_kubevirtio_api_core_v1_LocalStorageMigration(ref),
 		"kubevirt.io/api/core/v1.LogVerbosity":                                                       schema_kubevirtio_api_core_v1_LogVerbosity(ref),
 		"kubevirt.io/api/core/v1.LunTarget":                                                          schema_kubevirtio_api_core_v1_LunTarget(ref),
 		"kubevirt.io/api/core/v1.Machine":                                                            schema_kubevirtio_api_core_v1_Machine(ref),
@@ -415,6 +416,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.MediatedHostDevice":                                                 schema_kubevirtio_api_core_v1_MediatedHostDevice(ref),
 		"kubevirt.io/api/core/v1.Memory":                                                             schema_kubevirtio_api_core_v1_Memory(ref),
 		"kubevirt.io/api/core/v1.MemoryDumpVolumeSource":                                             schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref),
+		"kubevirt.io/api/core/v1.MigrateNonSharedDisk":                                               schema_kubevirtio_api_core_v1_MigrateNonSharedDisk(ref),
 		"kubevirt.io/api/core/v1.MigrateOptions":                                                     schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		"kubevirt.io/api/core/v1.MigrationConfiguration":                                             schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
 		"kubevirt.io/api/core/v1.MultusNetwork":                                                      schema_kubevirtio_api_core_v1_MultusNetwork(ref),
@@ -19537,6 +19539,40 @@ func schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref common.ReferenceCallba
 	}
 }
 
+func schema_kubevirtio_api_core_v1_LocalStorageMigration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalStorageMigration represents the local storage to be migrated",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"migrateNonSharedDisks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.MigrateNonSharedDisk"),
+									},
+								},
+							},
+						},
+					},
+					"reclaimPolicySourcePvc": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.MigrateNonSharedDisk"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_LogVerbosity(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19812,6 +19848,31 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 					},
 				},
 				Required: []string{"claimName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_MigrateNonSharedDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MigrateNonSharedDisk represents the source PVC to be migrated to the destination PVC",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sourcePvc": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"destinationPvc": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -22892,9 +22953,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref commo
 							Format:      "",
 						},
 					},
+					"localStorageMigration": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/core/v1.LocalStorageMigration"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.LocalStorageMigration"},
 	}
 }
 
@@ -23062,11 +23131,24 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"migrationLocalDisks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.MigrateNonSharedDisk"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrationConfiguration"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/core/v1.MigrateNonSharedDisk", "kubevirt.io/api/core/v1.MigrationConfiguration"},
 	}
 }
 

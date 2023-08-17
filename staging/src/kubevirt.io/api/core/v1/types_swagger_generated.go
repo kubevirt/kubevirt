@@ -267,6 +267,18 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (MigrateNonSharedDisk) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MigrateNonSharedDisk represents the source PVC to be migrated to the\ndestination PVC",
+	}
+}
+
+func (LocalStorageMigration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "LocalStorageMigration represents the local storage to be migrated",
+	}
+}
+
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"vmiName": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",

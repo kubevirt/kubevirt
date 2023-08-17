@@ -224,6 +224,7 @@ type VirtualMachineInstanceStatus struct {
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
 	// This represents the migration transport
 	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
+
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -681,6 +682,8 @@ type VirtualMachineInstanceMigrationState struct {
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the numa topology on the target node
 	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
+
+	MigrationLocalDisks []MigrateNonSharedDisk `json:"migrationLocalDisks,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -1223,9 +1226,29 @@ type VirtualMachineInstanceMigrationList struct {
 	Items           []VirtualMachineInstanceMigration `json:"items"`
 }
 
+type ReclaimPolicySourcePvc string
+
+const (
+	DeleteReclaimPolicySourcePvc ReclaimPolicySourcePvc = "Delete"
+)
+
+// MigrateNonSharedDisk represents the source PVC to be migrated to the
+// destination PVC
+type MigrateNonSharedDisk struct {
+	SourcePvc      string `json:"sourcePvc,omitempty" valid:"required"`
+	DestinationPvc string `json:"destinationPvc,omitempty" valid:"required"`
+}
+
+// LocalStorageMigration represents the local storage to be migrated
+type LocalStorageMigration struct {
+	MigrateNonSharedDisks  []MigrateNonSharedDisk `json:"migrateNonSharedDisks,omitempty"`
+	ReclaimPolicySourcePvc ReclaimPolicySourcePvc `json:"reclaimPolicySourcePvc,omitempty"`
+}
+
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
-	VMIName string `json:"vmiName,omitempty" valid:"required"`
+	VMIName               string                `json:"vmiName,omitempty" valid:"required"`
+	LocalStorageMigration LocalStorageMigration `json:"localStorageMigration,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi
