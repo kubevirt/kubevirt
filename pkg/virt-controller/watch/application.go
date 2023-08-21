@@ -635,7 +635,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
-	vca.nodeController, err = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.nodeController, err = NewNodeController(vca.clientSet, vca.shadownodeInformer, vca.vmiInformer, recorder)
 	if err != nil {
 		panic(err)
 	}
