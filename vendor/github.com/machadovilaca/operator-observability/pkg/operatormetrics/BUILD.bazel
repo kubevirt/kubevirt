@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "collector.go",
+        "counter.go",
+        "counter_vec.go",
+        "gauge.go",
+        "gauge_vec.go",
+        "histogram.go",
+        "histogram_vec.go",
+        "metric.go",
+        "registry.go",
+        "summary.go",
+        "summary_vec.go",
+        "wrapper_registry.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics",
+    importpath = "github.com/machadovilaca/operator-observability/pkg/operatormetrics",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/prometheus/client_golang/prometheus:go_default_library"],
+)
