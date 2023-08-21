@@ -24,21 +24,12 @@ load(
 )
 
 container_image(
-    name = "version-container",
-    base = "//:passwd-image",
-    directory = "/",
-    files = ["//:get-version"],
-)
-
-container_image(
     name = "example-hook-sidecar-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
         "//conditions:default": "amd64",
     }),
-    base = select({
-        "//conditions:default": "//cmd/sidecars:sidecar-shim-image",
-    }),
+    base = "//cmd/sidecars:sidecar-shim-image",
     directory = "/usr/bin/",
     entrypoint = ["/sidecar-shim"],
     files = [":onDefineDomain"],
