@@ -22,75 +22,39 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"encoding/xml"
-	"net"
+	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/pflag"
-	"google.golang.org/grpc"
 
 	vmSchema "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/hooks"
-	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
-	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const bootDiskImageNameAnnotation = "diskimage.vm.kubevirt.io/bootImageName"
 
-type infoServer struct {
-	Version string
-}
-
-func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
-	log.Log.Info("Hook's Info method has been called")
-
-	return &hooksInfo.InfoResult{
-		Name: "bootdiskimage",
-		Versions: []string{
-			hooksV1alpha2.Version,
-		},
-		HookPoints: []*hooksInfo.HookPoint{
-			{
-				Name:     hooksInfo.OnDefineDomainHookPointName,
-				Priority: 0,
-			},
-		},
-	}, nil
-}
-
-type v1alpha2Server struct{}
-
-func (s v1alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
-	log.Log.Info("Disk mutation hook's OnDefineDomain callback method has been called")
-
-	domainXML := params.GetDomainXML()
-	vmiJSON := params.GetVmi()
+func OnDefineDomain(log *log.Logger, vmiJSON, domainXML []byte) (string, error) {
 	vmiSpec := vmSchema.VirtualMachineInstance{}
 	err := json.Unmarshal(vmiJSON, &vmiSpec)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given VMI spec: %s", vmiJSON)
-		panic(err)
+		return "", fmt.Errorf("Failed to unmarshal given VMI spec: %s %s", err, string(vmiJSON))
 	}
 
 	annotations := vmiSpec.GetAnnotations()
 	if _, found := annotations[bootDiskImageNameAnnotation]; !found {
-		log.Log.Info("Boot disk hook sidecar was requested, but no attributes provided. Returning original domain spec")
-		return &hooksV1alpha2.OnDefineDomainResult{
-			DomainXML: domainXML,
-		}, nil
+		log.Print("Boot disk hook sidecar was requested, but no attributes provided. Returning original domain spec")
+		return string(domainXML), nil
 	}
 
 	domainSpec := domainSchema.DomainSpec{}
 	err = xml.Unmarshal(domainXML, &domainSpec)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given domain spec: %s", domainXML)
-		panic(err)
+		return "", fmt.Errorf("Failed to unmarshal given domain spec: %s %s", err, string(domainXML))
 	}
 
 	// Get Boot disk
@@ -98,10 +62,8 @@ func (s v1alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	dir, diskName := filepath.Split(bootDiskLocation)
 	newDiskName := annotations[bootDiskImageNameAnnotation]
 	if newDiskName == diskName {
-		log.Log.Infof("Boot disk image name is already %q. Returning original domain spec", newDiskName)
-		return &hooksV1alpha2.OnDefineDomainResult{
-			DomainXML: domainXML,
-		}, nil
+		log.Printf("Boot disk image name is already %q. Returning original domain spec", newDiskName)
+		return string(domainXML), nil
 	}
 
 	bootDiskLocation = filepath.Join(dir, newDiskName)
@@ -109,41 +71,28 @@ func (s v1alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to marshal updated domain spec: %+v", domainSpec)
-		panic(err)
+		return "", fmt.Errorf("Failed to marshal updated domain spec: %s %+v", err, domainSpec)
 	}
 
-	log.Log.Info("Successfully updated original domain spec with requested boot disk attribute")
-	return &hooksV1alpha2.OnDefineDomainResult{
-		DomainXML: newDomainXML,
-	}, nil
-}
-
-func (s v1alpha2Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha2.PreCloudInitIsoParams) (*hooksV1alpha2.PreCloudInitIsoResult, error) {
-	return &hooksV1alpha2.PreCloudInitIsoResult{
-		CloudInitData: params.GetCloudInitData(),
-	}, nil
+	return string(newDomainXML), nil
 }
 
 func main() {
-	log.InitializeLogging("bootdisk-hook-sidecar")
-
-	var version string
-	pflag.StringVar(&version, "version", "", "hook version to use")
+	var vmiJSON, domainXML string
+	pflag.StringVar(&vmiJSON, "vmi", "", "VMI to change in JSON format")
+	pflag.StringVar(&domainXML, "domain", "", "Domain spec in XML format")
 	pflag.Parse()
 
-	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, "bootdisk.sock")
-	socket, err := net.Listen("unix", socketPath)
+	logger := log.New(os.Stderr, "diskimage", log.Ldate)
+	if vmiJSON == "" || domainXML == "" {
+		logger.Printf("Bad input vmi=%d, domain=%d", len(vmiJSON), len(domainXML))
+		os.Exit(1)
+	}
+
+	domainXML, err := OnDefineDomain(logger, []byte(vmiJSON), []byte(domainXML))
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
-		log.Log.Error("Check whether given directory exists and socket name is not already taken by other file")
+		logger.Printf("OnDefineDomain failed: %s", err)
 		panic(err)
 	}
-	defer os.Remove(socketPath)
-
-	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
-	hooksV1alpha2.RegisterCallbacksServer(server, v1alpha2Server{})
-	log.Log.Infof("Starting hook server exposing 'info' and 'v1alpha2' services on socket %s", socketPath)
-	server.Serve(socket)
+	fmt.Println(domainXML)
 }
