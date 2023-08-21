@@ -4,9 +4,9 @@ binaries_and_docker_images="
     cmd/virt-launcher
     cmd/virt-handler
     cmd/virt-api
-    cmd/example-hook-sidecar
     cmd/example-cloudinit-hook-sidecar
     cmd/sidecars
+    cmd/sidecars/smbios
 "
 
 binaries="

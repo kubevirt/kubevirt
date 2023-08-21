@@ -189,7 +189,7 @@ container_bundle(
     images = {
         # cmd images
         "$(container_prefix)/$(image_prefix)sidecar-shim:$(container_tag)": "//cmd/sidecars:sidecar-shim-image",
-        "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/sidecars/smbios:example-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/example-disk-mutation-hook-sidecar:example-disk-mutation-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/network-slirp-binding:network-slirp-binding-image",
@@ -342,7 +342,7 @@ container_push(
 container_push(
     name = "push-example-hook-sidecar",
     format = "Docker",
-    image = "//cmd/example-hook-sidecar:example-hook-sidecar-image",
+    image = "//cmd/sidecars/smbios:example-hook-sidecar-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)example-hook-sidecar",
     tag = "$(container_tag)",
