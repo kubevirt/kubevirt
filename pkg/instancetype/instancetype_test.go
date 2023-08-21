@@ -1670,6 +1670,80 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.PreferredUseSecureBoot))
 			})
+
+			It("should not overwrite user defined Bootloader.BIOS with PreferredUseEfi - bug #10313", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredUseEfi:        pointer.Bool(true),
+						PreferredUseSecureBoot: pointer.Bool(true),
+					},
+				}
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{
+							UseSerial: pointer.Bool(false),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).To(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(BeFalse())
+			})
+
+			It("should not overwrite user defined value with PreferredUseBiosSerial - bug #10313", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredUseBios:       pointer.Bool(true),
+						PreferredUseBiosSerial: pointer.Bool(true),
+					},
+				}
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{
+							UseSerial: pointer.Bool(false),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(BeFalse())
+			})
+
+			It("should not overwrite user defined Bootloader.EFI with PreferredUseBios - bug #10313", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredUseBios:       pointer.Bool(true),
+						PreferredUseBiosSerial: pointer.Bool(true),
+					},
+				}
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.Bool(false),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).To(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
+			})
+
+			It("should not overwrite user defined value with PreferredUseSecureBoot - bug #10313", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredUseEfi:        pointer.Bool(true),
+						PreferredUseSecureBoot: pointer.Bool(true),
+					},
+				}
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.Bool(false),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)).To(BeEmpty())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
+			})
 		})
 
 		Context("Preference.Machine", func() {
