@@ -2195,34 +2195,63 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			})
 
-			It("[test_id:4747] should migrate using for postcopy", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-				vmi.Namespace = testsuite.NamespacePrivileged
+			Context("should migrate using for postcopy", func() {
 
-				tests.AlignPolicyAndVmi(vmi, migrationPolicy)
-				migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
+				applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
+					tests.AlignPolicyAndVmi(vmi, migrationPolicy)
+					migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
+				}
 
-				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				applyKubevirtCR := func() {
+					config := getCurrentKv()
+					config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
+					config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
+					config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
+					tests.UpdateKubeVirtConfigValueAndWait(config)
+				}
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				type applySettingsType string
+				const (
+					applyWithMigrationPolicy applySettingsType = "policy"
+					applyWithKubevirtCR      applySettingsType = "kubevirt"
+				)
 
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
+					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+					vmi.Namespace = testsuite.NamespacePrivileged
 
-				runStressTest(vmi, "350M", stressDefaultSleepDuration)
+					switch settingsType {
+					case applyWithMigrationPolicy:
+						applyMigrationPolicy(vmi)
+					case applyWithKubevirtCR:
+						applyKubevirtCR()
+					}
 
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 150)
+					By("Starting the VirtualMachineInstance")
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
-				confirmMigrationMode(vmi, v1.MigrationPostCopy)
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+					// Need to wait for cloud init to finish and start the agent inside the vmi.
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+					runStressTest(vmi, "350M", stressDefaultSleepDuration)
+
+					// execute a migration, wait for finalized state
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 150)
+
+					// check VMI, confirm migration state
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+					confirmMigrationMode(vmi, v1.MigrationPostCopy)
+				},
+					Entry("a migration policy", applyWithMigrationPolicy),
+					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
+				)
 			})
 		})
 
