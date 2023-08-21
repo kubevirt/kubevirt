@@ -30,7 +30,7 @@ func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMach
 	})
 	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
 
-	ifacesStatusByName := vmispec.IndexInterfacesFromStatus(vmi.Status.Interfaces, nil)
+	ifacesStatusByName := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, nil)
 	ifacesToAnnotate := vmispec.FilterInterfacesSpec(vmiNonAbsentSpecIfaces, func(iface v1.Interface) bool {
 		_, ifaceInStatus := ifacesStatusByName[iface.Name]
 		sriovIfaceNotPlugged := iface.SRIOV != nil && !ifaceInStatus
@@ -39,7 +39,11 @@ func calculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi *v1.VirtualMach
 
 	networksToAnnotate := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToAnnotate)
 
-	ifacesToHotplugExist := len(vmispec.NetworksToHotplug(networksToAnnotate, vmi.Status.Interfaces)) > 0
+	ifacesToHotplug := vmispec.FilterInterfacesSpec(ifacesToAnnotate, func(iface v1.Interface) bool {
+		_, inStatus := ifacesStatusByName[iface.Name]
+		return !inStatus
+	})
+	ifacesToHotplugExist := len(ifacesToHotplug) > 0
 
 	isIfaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
 	if !isIfaceChangeRequired {

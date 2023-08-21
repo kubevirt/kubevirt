@@ -40,49 +40,6 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 		networkName    = "n1"
 	)
 
-	DescribeTable("NetworksToHotplug", func(vmi *v1.VirtualMachineInstance, networksToHotplug ...v1.Network) {
-		Expect(vmispec.NetworksToHotplug(vmi.Spec.Networks, vmi.Status.Interfaces)).To(ConsistOf(networksToHotplug))
-	},
-		Entry("with no networks in spec and status, there is nothing to hotplug", newVMI()),
-		Entry("with a network in spec that is missing from the status, hotplug it",
-			dummyVMIWithoutStatus(networkName, nadName),
-			v1.Network{
-				Name: networkName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: nadName,
-					},
-				},
-			},
-		),
-		Entry(
-			"with a network in spec and status, there is nothing to hotplug",
-			dummyVMIWithOneNetworkAndOneIfaceOnSpecAndStatus(networkName, nadName),
-		),
-		Entry("with a network in status that is missing from spec, there is nothing to hotplug",
-			dummyVMIWithStatusOnly(networkName, "eno123"),
-		),
-		Entry(
-			"when multiple networks available in spec are missing from status, they are hot-plugged",
-			dummyVMIWithMultipleNetworksAndIfacesOnSpec(networkName, nadName),
-			v1.Network{
-				Name: networkName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: nadName,
-					},
-				},
-			},
-			v1.Network{
-				Name: extraNetworkName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: extraNetworkAttachmentName,
-					}},
-			},
-		),
-	)
-
 	DescribeTable("NetworksToHotplugWhosePodIfacesAreReady", func(vmi *v1.VirtualMachineInstance, networksToHotplug ...v1.Network) {
 		Expect(vmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)).To(ConsistOf(networksToHotplug))
 	},
