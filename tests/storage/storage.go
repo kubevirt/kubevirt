@@ -216,6 +216,11 @@ var _ = SIGDescribe("Storage", func() {
 				var pvName string
 				var nfsPod *k8sv1.Pod
 				AfterEach(func() {
+					// Ensure VMI is deleted before bringing down the NFS server
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
 					if targetImagePath != testsuite.HostPathAlpine {
 						tests.DeleteAlpineWithNonQEMUPermissions()
 					}
