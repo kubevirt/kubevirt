@@ -1153,4 +1153,49 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			}),
 	)
+
+	DescribeTable("evictionStrategy should match the", func(f func(*v1.VirtualMachineInstanceSpec) v1.EvictionStrategy) {
+		expected := f(&vmi.Spec)
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(vmiSpec.EvictionStrategy).ToNot(BeNil())
+		Expect(*vmiSpec.EvictionStrategy).To(Equal(expected))
+	},
+		Entry("one set in the VMI", func(s *v1.VirtualMachineInstanceSpec) v1.EvictionStrategy {
+			liveMigrate := v1.EvictionStrategyLiveMigrate
+			s.EvictionStrategy = &liveMigrate
+			return liveMigrate
+		}),
+		Entry("one set cluster-wide", func(*v1.VirtualMachineInstanceSpec) v1.EvictionStrategy {
+			noneStrategy := v1.EvictionStrategyNone
+
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+			kvCR.Spec.Configuration.EvictionStrategy = &noneStrategy
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+
+			return noneStrategy
+		}),
+		Entry("one set in the VMI if both cluster-wide and VMI are set", func(s *v1.VirtualMachineInstanceSpec) v1.EvictionStrategy {
+			clusterStrategy := v1.EvictionStrategyLiveMigrate
+			vmiStrategy := v1.EvictionStrategyNone
+
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+			kvCR.Spec.Configuration.EvictionStrategy = &clusterStrategy
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+
+			s.EvictionStrategy = &vmiStrategy
+
+			return vmiStrategy
+		}),
+		Entry("default one if nothing is set", func(s *v1.VirtualMachineInstanceSpec) v1.EvictionStrategy {
+			s.EvictionStrategy = nil
+
+			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+			kvCR.Spec.Configuration.EvictionStrategy = nil
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+
+			defaultStrategy := mutator.ClusterConfig.GetDefaultClusterConfig().EvictionStrategy
+			Expect(defaultStrategy).ToNot(BeNil())
+			return *defaultStrategy
+		}),
+	)
 })

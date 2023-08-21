@@ -179,6 +179,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	defaultDiskVerification := &v1.DiskVerification{
 		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
 	}
+	defaultEvictionStrategy := v1.EvictionStrategyNone
 
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -198,6 +199,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 				VirtLauncher:   DefaultVirtLauncherLogVerbosity,
 			},
 		},
+		EvictionStrategy: &defaultEvictionStrategy,
 		MigrationConfiguration: &v1.MigrationConfiguration{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
