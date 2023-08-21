@@ -1,5 +1,31 @@
-binaries="cmd/virt-operator cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virtctl cmd/fake-qemu-process cmd/virt-api cmd/example-hook-sidecar cmd/example-cloudinit-hook-sidecar cmd/virt-chroot cmd/sidecars cmd/virt-tail"
-docker_images="cmd/virt-operator cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api images/disks-images-provider images/vm-killer images/nfs-server images/winrmcli cmd/example-hook-sidecar cmd/example-cloudinit-hook-sidecar tests/conformance cmd/sidecars"
+binaries_and_docker_images="
+    cmd/virt-operator
+    cmd/virt-controller
+    cmd/virt-launcher
+    cmd/virt-handler
+    cmd/virt-api
+    cmd/example-hook-sidecar
+    cmd/example-cloudinit-hook-sidecar
+    cmd/sidecars
+"
+
+binaries="
+    ${binaries_and_docker_images}
+    cmd/virtctl
+    cmd/fake-qemu-process
+    cmd/virt-chroot
+    cmd/virt-tail
+"
+
+docker_images="
+    ${binaries_and_docker_images}
+    images/disks-images-provider
+    images/vm-killer
+    images/nfs-server
+    images/winrmcli
+    tests/conformance
+"
+
 docker_tag=${DOCKER_TAG:-latest}
 docker_tag_alt=${DOCKER_TAG_ALT}
 image_prefix=${IMAGE_PREFIX}
