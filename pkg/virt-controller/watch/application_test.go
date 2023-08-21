@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/emicklei/go-restful/v3"
-	io_prometheus_client "github.com/prometheus/client_model/go"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -50,6 +49,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/virt-controller/metrics"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -238,8 +238,8 @@ var _ = Describe("Application", func() {
 		go app.onStartedLeading()(ctx)
 
 		By("Checking prometheus metric before sync")
-		dto := &io_prometheus_client.Metric{}
-		Expect(leaderGauge.Write(dto)).To(Succeed())
+		dto, err := metrics.GetVirtControllerMetric()
+		Expect(err).ToNot(HaveOccurred())
 
 		zero := 0.0
 		Expect(dto.GetGauge().Value).To(Equal(&zero), "Leader should be reported after virt-controller is fully operational")
@@ -252,8 +252,8 @@ var _ = Describe("Application", func() {
 		time.Sleep(time.Second)
 
 		By("Checking prometheus metric")
-		dto = &io_prometheus_client.Metric{}
-		Expect(leaderGauge.Write(dto)).To(Succeed())
+		dto, err = metrics.GetVirtControllerMetric()
+		Expect(err).ToNot(HaveOccurred())
 
 		one := 1.0
 		Expect(dto.GetGauge().Value).To(Equal(&one))

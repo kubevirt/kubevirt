@@ -41,7 +41,6 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -74,6 +73,7 @@ import (
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/perfscale"
+	"kubevirt.io/kubevirt/pkg/monitoring/virt-controller/metrics"
 	vmiprom "kubevirt.io/kubevirt/pkg/monitoring/vmistats" // import for prometheus metrics
 	vmprom "kubevirt.io/kubevirt/pkg/monitoring/vmstats"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -118,20 +118,6 @@ const (
 var (
 	containerDiskDir = filepath.Join(util.VirtShareDir, "container-disks")
 	hotplugDiskDir   = filepath.Join(util.VirtShareDir, "hotplug-disks")
-
-	leaderGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_controller_leading_status",
-			Help: "Indication for an operating virt-controller.",
-		},
-	)
-
-	readyGauge = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_controller_ready_status",
-			Help: "Indication for a virt-controller that is ready to take the lead.",
-		},
-	)
 
 	apiHealthVersion = new(healthz.KubeApiHealthzVersion)
 )
@@ -275,8 +261,7 @@ func init() {
 	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clonev1alpha1.AddToScheme(scheme.Scheme))
 
-	prometheus.MustRegister(leaderGauge)
-	prometheus.MustRegister(readyGauge)
+	metrics.SetupMetrics()
 }
 
 func Execute() {
@@ -506,9 +491,9 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatal(err)
 	}
 
-	readyGauge.Set(1)
+	metrics.SetVirtControllerReady()
 	vca.leaderElector.Run(vca.ctx)
-	readyGauge.Set(0)
+	metrics.SetVirtControllerNotReady()
 	panic("unreachable")
 }
 
@@ -571,7 +556,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced, vca.namespaceInformer.HasSynced, vca.resourceQuotaInformer.HasSynced)
 		close(vca.readyChan)
-		leaderGauge.Set(1)
+		metrics.SetVirtControllerLeading()
 	}
 }
 
