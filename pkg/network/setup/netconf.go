@@ -82,11 +82,8 @@ func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator
 }
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
-func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error {
-	if err := preSetup(); err != nil {
-		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
-	}
-
+// The provided preOnetimeSetup is executed once per VMI.
+func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preOnetimeSetup func() error) error {
 	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
 	if util.IsNonRootVMI(vmi) {
 		ownerID = util.NonRootUID
@@ -108,6 +105,10 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	configState, ok := c.configState[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
+		if err := preOnetimeSetup(); err != nil {
+			return fmt.Errorf("setup failed at pre-onetime-setup stage, err: %w", err)
+		}
+
 		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
 		configStateCache, err := upgradeConfigStateCache(&cache, networks, c.cacheCreator, string(vmi.UID))
 		if err != nil {
