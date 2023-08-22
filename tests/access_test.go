@@ -399,7 +399,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			// AS A TEST USER
 			By(fmt.Sprintf("verifying user rights for verb %s", verb))
 			result, _, _ := clientcmd.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
-			Expect(result).To(ContainSubstring(right))
+			Expect(result).To(ContainSubstring(right), fmt.Sprintf("unexpected permission for %s to %s a %s", testUser, verb, resource))
 		}
 
 		testRights := func(resource, right string) {
