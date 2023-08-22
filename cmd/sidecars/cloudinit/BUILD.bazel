@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["cloudinit.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/example-cloudinit-hook-sidecar",
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/cloudinit",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/cloud-init:go_default_library",
