@@ -154,6 +154,26 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 			description: "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
 			mType:       "Gauge",
 		},
+		{
+			name:        "kubevirt_vmi_migration_phase_transition_time_from_creation_seconds",
+			description: "Histogram of VM migration phase transitions duration from creation time in seconds.",
+			mType:       "Histogram",
+		},
+		{
+			name:        "kubevirt_vmi_phase_transition_time_seconds",
+			description: "Histogram of VM phase transitions duration between different phases in seconds.",
+			mType:       "Histogram",
+		},
+		{
+			name:        "kubevirt_vmi_phase_transition_time_from_creation_seconds",
+			description: "Histogram of VM phase transitions duration from creation time in seconds.",
+			mType:       "Histogram",
+		},
+		{
+			name:        "kubevirt_vmi_phase_transition_time_from_deletion_seconds",
+			description: "Histogram of VM phase transitions duration from deletion time in seconds.",
+			mType:       "Histogram",
+		},
 	}
 
 	for _, rule := range components.GetRecordingRules("") {
