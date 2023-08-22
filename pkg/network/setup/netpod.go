@@ -105,6 +105,10 @@ func (n NetPod) Setup() error {
 	}
 	log.Log.Infof("Current pod network: %s", currentStatusBytes)
 
+	return n.config(currentStatus)
+}
+
+func (n NetPod) config(currentStatus *nmstate.Status) error {
 	desiredSpec, err := n.composeDesiredSpec(currentStatus)
 	if err != nil {
 		return err
