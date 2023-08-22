@@ -20,100 +20,59 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"net"
+	"log"
 	"os"
-	"path/filepath"
 
-	"google.golang.org/grpc"
+	"github.com/spf13/pflag"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	hooks "kubevirt.io/kubevirt/pkg/hooks"
-	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
-	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 )
 
-type infoServer struct{}
+func preCloudInitIso(log *log.Logger, vmiJSON, cloudInitDataJSON []byte) (string, error) {
+	log.Print("Hook's PreCloudInitIso callback method has been called")
 
-func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
-	log.Log.Info("Hook's Info method has been called")
-
-	return &hooksInfo.InfoResult{
-		Name: "cloudinit",
-		Versions: []string{
-			hooksV1alpha2.Version,
-		},
-		HookPoints: []*hooksInfo.HookPoint{
-			{
-				Name:     hooksInfo.PreCloudInitIsoHookPointName,
-				Priority: 0,
-			},
-		},
-	}, nil
-}
-
-type v1alpha2Server struct{}
-
-func (s v1alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
-	log.Log.Warning("Hook's OnDefineDomain callback method has been called which should never happen")
-	return &hooksV1alpha2.OnDefineDomainResult{
-		DomainXML: params.GetDomainXML(),
-	}, nil
-}
-
-func (s v1alpha2Server) PreCloudInitIso(ctx context.Context, params *hooksV1alpha2.PreCloudInitIsoParams) (*hooksV1alpha2.PreCloudInitIsoResult, error) {
-	log.Log.Info("Hook's PreCloudInitIso callback method has been called")
-
-	vmiJSON := params.GetVmi()
 	vmi := v1.VirtualMachineInstance{}
 	err := json.Unmarshal(vmiJSON, &vmi)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given VMI spec: %s", vmiJSON)
-		panic(err)
+		return "", fmt.Errorf("Failed to unmarshal given VMI spec: %s %s", err, string(vmiJSON))
 	}
 
-	cloudInitDataJSON := params.GetCloudInitData()
 	cloudInitData := cloudinit.CloudInitData{}
 	err = json.Unmarshal(cloudInitDataJSON, &cloudInitData)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given CloudInitData: %s", cloudInitDataJSON)
-		panic(err)
+		return "", fmt.Errorf("Failed to unmarshal given CloudInitData: %s %s", err, string(cloudInitDataJSON))
 	}
 
 	cloudInitData.UserData = "#cloud-config\n"
 
 	response, err := json.Marshal(cloudInitData)
 	if err != nil {
-		return &hooksV1alpha2.PreCloudInitIsoResult{
-			CloudInitData: params.GetCloudInitData(),
-		}, fmt.Errorf("Failed to marshal CloudInitData: %v", cloudInitData)
+		return "", fmt.Errorf("Failed to marshal CloudInitData: %s %+v", err, cloudInitData)
 	}
 
-	return &hooksV1alpha2.PreCloudInitIsoResult{
-		CloudInitData: response,
-	}, nil
+	return string(response), nil
 }
 
 func main() {
-	log.InitializeLogging("cloudinit-hook-sidecar")
+	var vmiJSON, cloudInitDataJSON string
+	pflag.StringVar(&vmiJSON, "vmi", "", "Current VMI, in JSON format")
+	pflag.StringVar(&cloudInitDataJSON, "cloud-init", "", "The CloudInitData, in JSON format")
+	pflag.Parse()
 
-	socketPath := filepath.Join(hooks.HookSocketsSharedDirectory, "cloudinit.sock")
-	socket, err := net.Listen("unix", socketPath)
+	logger := log.New(os.Stderr, "cloudinit", log.Ldate)
+	if vmiJSON == "" || cloudInitDataJSON == "" {
+		logger.Printf("Bad input vmi=%d, cloud-init=%d", len(vmiJSON), len(cloudInitDataJSON))
+		os.Exit(1)
+	}
+
+	cloudInitData, err := preCloudInitIso(logger, []byte(vmiJSON), []byte(cloudInitDataJSON))
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to initialized socket on path: %s", socket)
-		log.Log.Error("Check whether given directory exists and socket name is not already taken by other file")
+		logger.Printf("preCloudInitIso failed: %s", err)
 		panic(err)
 	}
-	defer os.Remove(socketPath)
-
-	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, infoServer{})
-	hooksV1alpha2.RegisterCallbacksServer(server, v1alpha2Server{})
-	log.Log.Infof("Starting hook server exposing 'info' and 'v1alpha2' services on socket %s", socketPath)
-	server.Serve(socket)
+	fmt.Println(cloudInitData)
 }
