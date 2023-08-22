@@ -56,7 +56,7 @@ json_output=$(_out/prom-metrics-collector 2>/dev/null)
 source hack/cri-bin.sh
 
 # Run the linter by using the prom-metrics-linter Docker container
-errors=$($CRI_BIN run -i "quay.io/kubevirt/prom-metrics-linter:$linter_image_tag" \
+errors=$($CRI_BIN run --rm -i "quay.io/kubevirt/prom-metrics-linter:$linter_image_tag" \
     --metric-families="$json_output" \
     --operator-name="$operator_name" \
     --sub-operator-name="$sub_operator_name" 2>/dev/null)
