@@ -121,7 +121,7 @@ var (
 
 	leaderGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "kubevirt_virt_controller_leading",
+			Name: "kubevirt_virt_controller_leading_status",
 			Help: "Indication for an operating virt-controller.",
 		},
 	)
