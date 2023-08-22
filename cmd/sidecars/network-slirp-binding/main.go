@@ -32,8 +32,8 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/cmd/network-slirp-binding/dns"
-	srv "kubevirt.io/kubevirt/cmd/network-slirp-binding/server"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/dns"
+	srv "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/server"
 )
 
 func main() {
