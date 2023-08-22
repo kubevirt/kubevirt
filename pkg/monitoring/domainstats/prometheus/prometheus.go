@@ -161,7 +161,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.SwapInSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_swap_in_traffic_bytes_total",
+			"kubevirt_vmi_memory_swap_in_traffic_bytes",
 			"The total amount of data read from swap space of the guest in bytes.",
 			prometheus.GaugeValue,
 			float64(mem.SwapIn)*1024,
@@ -170,7 +170,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.SwapOutSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_swap_out_traffic_bytes_total",
+			"kubevirt_vmi_memory_swap_out_traffic_bytes",
 			"The total amount of memory written out to swap space of the guest in bytes.",
 			prometheus.GaugeValue,
 			float64(mem.SwapOut)*1024,
@@ -179,7 +179,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.MajorFaultSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_pgmajfault",
+			"kubevirt_vmi_memory_pgmajfault_total",
 			"The number of page faults when disk IO was required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is required, it is considered as major fault.",
 			prometheus.CounterValue,
 			float64(mem.MajorFault),
@@ -188,7 +188,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.MinorFaultSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_pgminfault",
+			"kubevirt_vmi_memory_pgminfault_total",
 			"The number of other page faults, when disk IO was not required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is NOT required, it is considered as minor fault.",
 			prometheus.CounterValue,
 			float64(mem.MinorFault),
@@ -215,7 +215,7 @@ func (metrics *vmiMetrics) updateMemory(mem *stats.DomainStatsMemory) {
 
 	if mem.TotalSet {
 		metrics.pushCommonMetric(
-			"kubevirt_vmi_memory_domain_bytes_total",
+			"kubevirt_vmi_memory_domain_bytes",
 			"The amount of memory in bytes allocated to the domain. The `memory` value in domain xml file.",
 			prometheus.GaugeValue,
 			float64(mem.Total)*1024,
@@ -285,7 +285,7 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 
 		if vcpu.StateSet && vcpu.TimeSet {
 			metrics.pushCustomMetric(
-				"kubevirt_vmi_vcpu_seconds",
+				"kubevirt_vmi_vcpu_seconds_total",
 				"Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`].",
 				prometheus.CounterValue,
 				float64(vcpu.Time/1000000000),
@@ -296,10 +296,10 @@ func (metrics *vmiMetrics) updateVcpu(vcpuStats []stats.DomainStatsVcpu) {
 
 		if vcpu.WaitSet {
 			metrics.pushCustomMetric(
-				"kubevirt_vmi_vcpu_wait_seconds",
+				"kubevirt_vmi_vcpu_wait_seconds_total",
 				"Amount of time spent by each vcpu while waiting on I/O.",
 				prometheus.CounterValue,
-				float64(vcpu.Wait/1000000),
+				float64(vcpu.Wait)/float64(1000000000),
 				[]string{"id"},
 				[]string{stringVcpuIdx},
 			)
@@ -377,10 +377,10 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 
 		if block.RdTimesSet {
 			metrics.pushCustomMetric(
-				"kubevirt_vmi_storage_read_times_ms_total",
-				"Total time (ms) spent on read operations.",
+				"kubevirt_vmi_storage_read_times_seconds_total",
+				"Total time spent on read operations.",
 				prometheus.CounterValue,
-				float64(block.RdTimes)/1000000,
+				float64(block.RdTimes)/1000000000,
 				blkLabels,
 				blkLabelValues,
 			)
@@ -388,10 +388,10 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 
 		if block.WrTimesSet {
 			metrics.pushCustomMetric(
-				"kubevirt_vmi_storage_write_times_ms_total",
-				"Total time (ms) spent on write operations.",
+				"kubevirt_vmi_storage_write_times_seconds_total",
+				"Total time spent on write operations.",
 				prometheus.CounterValue,
-				float64(block.WrTimes)/1000000,
+				float64(block.WrTimes)/1000000000,
 				blkLabels,
 				blkLabelValues,
 			)
@@ -410,10 +410,10 @@ func (metrics *vmiMetrics) updateBlock(blkStats []stats.DomainStatsBlock) {
 
 		if block.FlTimesSet {
 			metrics.pushCustomMetric(
-				"kubevirt_vmi_storage_flush_times_ms_total",
-				"Total time (ms) spent on cache flushing.",
+				"kubevirt_vmi_storage_flush_times_seconds_total",
+				"Total time spent on cache flushing.",
 				prometheus.CounterValue,
-				float64(block.FlTimes)/1000000,
+				float64(block.FlTimes)/1000000000,
 				blkLabels,
 				blkLabelValues,
 			)
@@ -546,7 +546,7 @@ func (metrics *vmiMetrics) updateFilesystem(vmFSStats k6tv1.VirtualMachineInstan
 		fsLabelValues := []string{fsStat.DiskName, fsStat.MountPoint, fsStat.FileSystemType}
 
 		metrics.pushCustomMetric(
-			"kubevirt_vmi_filesystem_capacity_bytes_total",
+			"kubevirt_vmi_filesystem_capacity_bytes",
 			"Total VM filesystem capacity in bytes.",
 			prometheus.GaugeValue,
 			float64(fsStat.TotalBytes),

@@ -159,14 +159,14 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
 
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_pending_count", 0)
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_running_count", 0)
+			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_pending", 0)
+			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_scheduling", 0)
+			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_running", 0)
 
 			labels := map[string]string{
 				"vmi": vmi.Name,
 			}
-			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_succeeded", 1, labels)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migrations_succeeded", 1, labels)
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -190,12 +190,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
 			migration = tests.RunMigration(virtClient, migration)
 
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 1)
+			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_scheduling", 1)
 
 			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
-			waitForMetricValue(virtClient, "kubevirt_migrate_vmi_scheduling_count", 0)
-			waitForMetricValueWithLabels(virtClient, "kubevirt_migrate_vmi_failed", 1, labels)
+			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_scheduling", 0)
+			waitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migrations_failed", 1, labels)
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
@@ -228,7 +228,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
-			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_total{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
+			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
 			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", util.NamespaceTestDefault)
 			numPVCs := 2.0
 

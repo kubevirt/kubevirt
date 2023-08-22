@@ -842,9 +842,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 						continue
 					}
 					switch data {
-					case "kubevirt_virt_controller_leading 1":
+					case "kubevirt_virt_controller_leading_status 1":
 						foundMetrics["leading"]++
-					case "kubevirt_virt_controller_ready 1":
+					case "kubevirt_virt_controller_ready_status 1":
 						foundMetrics["ready"]++
 					}
 				}
@@ -877,9 +877,9 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 						continue
 					}
 					switch data {
-					case "kubevirt_virt_operator_leading 1":
+					case "kubevirt_virt_operator_leading_status 1":
 						foundMetrics["leading"]++
-					case "kubevirt_virt_operator_ready 1":
+					case "kubevirt_virt_operator_ready_status 1":
 						foundMetrics["ready"]++
 					}
 				}
@@ -1010,18 +1010,18 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 		},
 			Entry("[test_id:4142] storage flush requests metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
 			Entry("[test_id:6228] storage flush requests metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-			Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
-			Entry("[test_id:6229] time (ms) spent on cache flushing metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_ms_total", ">="),
+			Entry("[test_id:4142] time (ms) spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+			Entry("[test_id:6229] time (ms) spent on cache flushing metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
 			Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
 			Entry("[test_id:6230] I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
 			Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
 			Entry("[test_id:6231] I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-			Entry("[test_id:4142] storage read operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
-			Entry("[test_id:6232] storage read operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_ms_total", ">="),
+			Entry("[test_id:4142] storage read operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
+			Entry("[test_id:6232] storage read operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
 			Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
 			Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-			Entry("[test_id:4142] storage write operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
-			Entry("[test_id:6234] storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_ms_total", ">="),
+			Entry("[test_id:4142] storage write operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
+			Entry("[test_id:6234] storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
 			Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 			Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 		)
@@ -1046,8 +1046,8 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 			Entry("[test_id:6237] memory metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
 			Entry("[test_id:4553] vcpu wait by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
 			Entry("[test_id:6238] vcpu wait by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-			Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
-			Entry("[test_id:6239] vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds", ">="),
+			Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds_total", ">="),
+			Entry("[test_id:6239] vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds_total", ">="),
 			Entry("[test_id:4556] vmi unused memory by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
 			Entry("[test_id:6240] vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
 		)
@@ -1133,7 +1133,7 @@ var _ = Describe("[Serial][sig-compute]Infrastructure", Serial, decorators.SigCo
 
 			// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 			// be enough to its metrics to contain a kubernetes label
-			metrics := collectMetrics(ip, "kubevirt_vmi_vcpu_seconds")
+			metrics := collectMetrics(ip, "kubevirt_vmi_vcpu_seconds_total")
 			By("Checking collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			containK8sLabel := false
