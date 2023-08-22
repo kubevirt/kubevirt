@@ -19,9 +19,20 @@ communication with the main container.
 The `sidecar-shim-image` contains the `sidecar-shim` binary which should be kept as the entrypoint
 of the container. This binary will search in $PATH for binaries named after the Hook names (e.g
 onDefineDomain) and run them and provide the necessary arguments as command line options (flags).
-In the case of `onDefineDomain`, the arguments will be the VMI information (a JSON string) and the
-current domain XML to the users binaries. As standard output it expects the modified domain XML.
 
+In the case of `onDefineDomain`, the arguments will be the VMI information as JSON string, (e.g
+--vmi vmiJSON) and the current domain XML (e.g --domain domainXML) to the users binaries. As
+standard output it expects the modified domain XML.
+
+In the case of `preCloudInitIso`, the arguments will be the VMI information as JSON string, (e.g
+--vmi vmiJSON) and the [CloudInitData](../../pkg/cloud-init/cloud-init.go) (e.g --cloud-init
+cloudInitJSON) to the users binaries. As standard output it expects the modified CloudInitData (as
+JSON).
+
+## Notes
+
+The `sidecar-shim` binary needs to inform what gRPC protocol version it'll communicate with, so it
+requires a `--version` parameter (e.g: v1alpha2)
 
 ## Example
 
