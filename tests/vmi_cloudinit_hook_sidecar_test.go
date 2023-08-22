@@ -98,7 +98,8 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 		virtClient = kubevirt.Client()
 		vmi = libvmi.NewCirros(
 			libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars",
-				fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, flags.KubeVirtUtilityVersionTag)))
+				fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+					flags.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, flags.KubeVirtUtilityVersionTag)))
 	})
 
 	Describe("VMI definition", func() {
@@ -118,11 +119,11 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
-					Should(ContainSubstring("Hook's Info method has been called"))
+					Should(ContainSubstring("Info method has been called"))
 				Eventually(logs,
 					11*time.Second,
 					500*time.Millisecond).
-					Should(ContainSubstring("Hook's PreCloudInitIso callback method has been called"))
+					Should(ContainSubstring("PreCloudInitIso method has been called"))
 			})
 
 			It("[test_id:3169]should have cloud-init user-data from sidecar", func() {
