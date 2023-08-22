@@ -23,6 +23,16 @@ func ListUnfinishedMigrations(informer cache.SharedIndexInformer) []*v1.VirtualM
 	return migrations
 }
 
+func FilterRunningMigrations(migrations []*v1.VirtualMachineInstanceMigration) []*v1.VirtualMachineInstanceMigration {
+	runningMigrations := []*v1.VirtualMachineInstanceMigration{}
+	for _, migration := range migrations {
+		if migration.IsRunning() {
+			runningMigrations = append(runningMigrations, migration)
+		}
+	}
+	return runningMigrations
+}
+
 // IsMigrating returns true if a given VMI is still migrating and false otherwise.
 func IsMigrating(vmi *v1.VirtualMachineInstance) bool {
 
