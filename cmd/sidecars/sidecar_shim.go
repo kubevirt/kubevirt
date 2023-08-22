@@ -54,17 +54,31 @@ type infoServer struct {
 
 func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
 	log.Log.Info("Info method has been called")
+	supportedHookPoints := map[string]string{
+		hooksInfo.OnDefineDomainHookPointName: onDefineDomainBin,
+	}
+	var hookPoints = []*hooksInfo.HookPoint{}
+
+	for hookPointName, binName := range supportedHookPoints {
+		if _, err := exec.LookPath(binName); err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				log.Log.Infof("Info: %s has not been found", binName)
+			}
+			continue
+		}
+
+		hookPoints = append(hookPoints, &hooksInfo.HookPoint{
+			Name:     hookPointName,
+			Priority: 0,
+		})
+	}
+
 	return &hooksInfo.InfoResult{
 		Name: "shim",
 		Versions: []string{
 			s.Version,
 		},
-		HookPoints: []*hooksInfo.HookPoint{
-			{
-				Name:     hooksInfo.OnDefineDomainHookPointName,
-				Priority: 0,
-			},
-		},
+		HookPoints: hookPoints,
 	}, nil
 }
 
