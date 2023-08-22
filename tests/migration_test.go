@@ -101,7 +101,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -3761,7 +3760,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
+					runningMigrations := filterRunningMigrations(migrationList.Items)
 
 					return len(runningMigrations)
 				}, 2*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
@@ -3777,7 +3776,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
+					runningMigrations := filterRunningMigrations(migrationList.Items)
 					Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
 
 					return nodes
@@ -4916,4 +4915,14 @@ func affinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNo
 			},
 		},
 	}, nil
+}
+
+func filterRunningMigrations(migrations []v1.VirtualMachineInstanceMigration) []v1.VirtualMachineInstanceMigration {
+	runningMigrations := []v1.VirtualMachineInstanceMigration{}
+	for _, migration := range migrations {
+		if migration.IsRunning() {
+			runningMigrations = append(runningMigrations, migration)
+		}
+	}
+	return runningMigrations
 }
