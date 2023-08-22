@@ -745,22 +745,43 @@ type ConsoleSource struct {
 // BEGIN Inteface -----------------------------
 
 type Interface struct {
-	Address             *Address         `xml:"address,omitempty"`
-	Type                string           `xml:"type,attr"`
-	TrustGuestRxFilters string           `xml:"trustGuestRxFilters,attr,omitempty"`
-	Source              InterfaceSource  `xml:"source"`
-	Target              *InterfaceTarget `xml:"target,omitempty"`
-	Model               *Model           `xml:"model,omitempty"`
-	MAC                 *MAC             `xml:"mac,omitempty"`
-	MTU                 *MTU             `xml:"mtu,omitempty"`
-	BandWidth           *BandWidth       `xml:"bandwidth,omitempty"`
-	BootOrder           *BootOrder       `xml:"boot,omitempty"`
-	LinkState           *LinkState       `xml:"link,omitempty"`
-	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
-	Alias               *Alias           `xml:"alias,omitempty"`
-	Driver              *InterfaceDriver `xml:"driver,omitempty"`
-	Rom                 *Rom             `xml:"rom,omitempty"`
-	ACPI                *ACPI            `xml:"acpi,omitempty"`
+	Address             *Address               `xml:"address,omitempty"`
+	Type                string                 `xml:"type,attr"`
+	TrustGuestRxFilters string                 `xml:"trustGuestRxFilters,attr,omitempty"`
+	Source              InterfaceSource        `xml:"source"`
+	Target              *InterfaceTarget       `xml:"target,omitempty"`
+	Model               *Model                 `xml:"model,omitempty"`
+	MAC                 *MAC                   `xml:"mac,omitempty"`
+	MTU                 *MTU                   `xml:"mtu,omitempty"`
+	BandWidth           *BandWidth             `xml:"bandwidth,omitempty"`
+	BootOrder           *BootOrder             `xml:"boot,omitempty"`
+	LinkState           *LinkState             `xml:"link,omitempty"`
+	FilterRef           *FilterRef             `xml:"filterref,omitempty"`
+	Alias               *Alias                 `xml:"alias,omitempty"`
+	Driver              *InterfaceDriver       `xml:"driver,omitempty"`
+	Rom                 *Rom                   `xml:"rom,omitempty"`
+	ACPI                *ACPI                  `xml:"acpi,omitempty"`
+	Backend             *InterfaceBackend      `xml:"backend,omitempty"`
+	PortForward         []InterfacePortForward `xml:"portForward,omitempty"`
+}
+
+type InterfacePortForward struct {
+	Proto   string                      `xml:"proto,attr"`
+	Address string                      `xml:"address,attr,omitempty"`
+	Dev     string                      `xml:"dev,attr,omitempty"`
+	Ranges  []InterfacePortForwardRange `xml:"range,omitempty"`
+}
+
+type InterfacePortForwardRange struct {
+	Start   uint   `xml:"start,attr"`
+	End     uint   `xml:"end,attr,omitempty"`
+	To      uint   `xml:"to,attr,omitempty"`
+	Exclude string `xml:"exclude,attr,omitempty"`
+}
+
+type InterfaceBackend struct {
+	Type    string `xml:"type,attr,omitempty"`
+	LogFile string `xml:"logFile,attr,omitempty"`
 }
 
 type ACPI struct {
