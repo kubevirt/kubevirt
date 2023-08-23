@@ -23,9 +23,6 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"strings"
-
-	"kubevirt.io/kubevirt/pkg/network/istio"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,8 +34,17 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
+	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+var istioPortForwardRange = []api.InterfacePortForwardRange{
+	{Start: 15000, Exclude: "yes"}, {Start: 15001, Exclude: "yes"},
+	{Start: 15004, Exclude: "yes"}, {Start: 15006, Exclude: "yes"},
+	{Start: 15008, Exclude: "yes"}, {Start: 15009, Exclude: "yes"},
+	{Start: 15020, Exclude: "yes"}, {Start: 15021, Exclude: "yes"},
+	{Start: 15053, Exclude: "yes"}, {Start: 15090, Exclude: "yes"},
+}
 
 var _ = Describe("Pod Network", func() {
 	var mockNetwork *netdriver.MockNetworkHandler
@@ -96,12 +102,9 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
 			})
 		})
+
 		Context("Passt plug", func() {
 			var specGenerator *PasstLibvirtSpecGenerator
-
-			getPorts := func(specGenerator *PasstLibvirtSpecGenerator) string {
-				return strings.Join(specGenerator.generatePorts(), " ")
-			}
 
 			createPasstInterface := func() *v1.Interface {
 				return &v1.Interface{
@@ -115,7 +118,10 @@ var _ = Describe("Pod Network", func() {
 			It("Should forward all ports if ports are not specified in spec.interfaces", func() {
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					createPasstInterface(), nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-t all -u all"))
+				expectedPortFwd := []api.InterfacePortForward{
+					{Proto: "tcp"}, {Proto: "udp"},
+				}
+				Expect(specGenerator.generatePortForward()).To(Equal(expectedPortFwd))
 			})
 
 			It("Should forward the specified tcp and udp ports", func() {
@@ -123,7 +129,22 @@ var _ = Describe("Pod Network", func() {
 				passtIface.Ports = []v1.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-t 1,4 -u 2,3"))
+
+				expectedPortFwd := []api.InterfacePortForward{
+					{
+						Proto: "tcp",
+						Ranges: []api.InterfacePortForwardRange{
+							{Start: 1}, {Start: 4},
+						},
+					},
+					{
+						Proto: "udp",
+						Ranges: []api.InterfacePortForwardRange{
+							{Start: 2}, {Start: 3},
+						},
+					},
+				}
+				Expect(specGenerator.generatePortForward()).To(Equal(expectedPortFwd))
 			})
 
 			It("Should forward the specified tcp ports", func() {
@@ -131,7 +152,17 @@ var _ = Describe("Pod Network", func() {
 				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-t 1,4"))
+
+				expectedPortFwd := []api.InterfacePortForward{
+					{
+						Proto: "tcp",
+						Ranges: []api.InterfacePortForwardRange{
+							{Start: 1}, {Start: 4},
+						},
+					},
+				}
+
+				Expect(specGenerator.generatePortForward()).To(Equal(expectedPortFwd))
 			})
 
 			It("Should forward the specified udp ports", func() {
@@ -139,7 +170,17 @@ var _ = Describe("Pod Network", func() {
 				passtIface.Ports = []v1.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
-				Expect(getPorts(specGenerator)).To(Equal("-u 2,3"))
+
+				expectedPortFwd := []api.InterfacePortForward{
+					{
+						Proto: "udp",
+						Ranges: []api.InterfacePortForwardRange{
+							{Start: 2}, {Start: 3},
+						},
+					},
+				}
+
+				Expect(specGenerator.generatePortForward()).To(Equal(expectedPortFwd))
 			})
 
 			It("Should exclude istio ports", func() {
@@ -150,7 +191,66 @@ var _ = Describe("Pod Network", func() {
 				}
 				specGenerator = NewPasstLibvirtSpecGenerator(
 					passtIface, nil, istioVmi)
-				Expect(getPorts(specGenerator)).To(Equal("-t ~15000,~15001,~15004,~15006,~15008,~15009,~15020,~15021,~15053,~15090 -u all"))
+
+				expectedPortFwd := []api.InterfacePortForward{
+					{
+						Proto:  "tcp",
+						Ranges: istioPortForwardRange,
+					},
+				}
+
+				Expect(specGenerator.generatePortForward()).To(Equal(expectedPortFwd))
+			})
+
+			It("should set passt domain interface", func() {
+				istioVmi := api2.NewMinimalVMI("test")
+				istioVmi.Annotations = map[string]string{istio.ISTIO_INJECT_ANNOTATION: "true"}
+
+				testDom := api.NewMinimalDomain("test")
+				testAlias := api.NewUserDefinedAlias("default")
+				testModel := &api.Model{Type: "virtio"}
+				testDomIface := api.Interface{Alias: testAlias, Model: testModel}
+				testDom.Spec.Devices.Interfaces = append(testDom.Spec.Devices.Interfaces, testDomIface)
+
+				vmiSpecIface := &v1.Interface{
+					Name:                   "default",
+					MacAddress:             "02:02:02:02:02:02",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+					Ports: []v1.Port{
+						{Protocol: "udp", Port: 100}, {Protocol: "udp", Port: 200},
+						{Protocol: "tcp", Port: 8080},
+						{Port: 80},
+					},
+				}
+
+				specGenerator = NewPasstLibvirtSpecGenerator(vmiSpecIface, testDom, istioVmi)
+
+				expectedIface := &api.Interface{
+					Type:    "user",
+					Backend: &api.InterfaceBackend{Type: "passt", LogFile: passtLogFile},
+					Source:  api.InterfaceSource{Device: "eth0"},
+					Alias:   testAlias,
+					Model:   testModel,
+					MAC:     &api.MAC{MAC: "02:02:02:02:02:02"},
+					PortForward: []api.InterfacePortForward{
+						{
+							Proto: "tcp",
+							Ranges: append(
+								istioPortForwardRange,
+								api.InterfacePortForwardRange{Start: 8080},
+								api.InterfacePortForwardRange{Start: 80},
+							),
+						},
+						{
+							Proto: "udp",
+							Ranges: []api.InterfacePortForwardRange{
+								{Start: 100}, {Start: 200},
+							},
+						},
+					},
+				}
+				copy := testDomIface.DeepCopy()
+				Expect(specGenerator.generateInterface(copy)).To(Equal(expectedIface))
 			})
 		})
 	})

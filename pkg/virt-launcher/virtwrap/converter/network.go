@@ -115,8 +115,6 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			} else {
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
-		} else if iface.Passt != nil {
-			domain.Spec.Devices.Emulator = "/usr/bin/qrap"
 		}
 
 		if c.UseLaunchSecurity {
