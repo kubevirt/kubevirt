@@ -13,7 +13,7 @@ import (
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
-var _ = Describe("Cluster level evictionStrategy default value", func() {
+var _ = Describe("Cluster level evictionStrategy default value", Serial, Ordered, func() {
 	tests.FlagParse()
 	var cli kubecli.KubevirtClient
 	ctx := context.TODO()

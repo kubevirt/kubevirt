@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/net"
 
 	"kubevirt.io/client-go/kubecli"
@@ -48,16 +49,20 @@ func FlagParse() {
 
 func BeforeEach() {
 	virtClient, err := kubecli.GetKubevirtClient()
-	kvtutil.PanicOnError(err)
+	Expect(err).ShouldNot(HaveOccurred())
 
-	kvtutil.PanicOnError(virtClient.RestClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("virtualmachines").Do(context.TODO()).Error())
-	kvtutil.PanicOnError(virtClient.RestClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("virtualmachineinstances").Do(context.TODO()).Error())
-	kvtutil.PanicOnError(virtClient.CoreV1().RESTClient().Delete().Namespace(kvtutil.NamespaceTestDefault).Resource("persistentvolumeclaims").Do(context.TODO()).Error())
+	deleteAllResources(virtClient.RestClient(), "virtualmachines")
+	deleteAllResources(virtClient.RestClient(), "virtualmachineinstances")
+	deleteAllResources(virtClient.CoreV1().RESTClient(), "persistentvolumeclaims")
 }
 
 func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
-	isOpenShift, err := IsOpenShift(cli)
-	kvtutil.PanicOnError(err)
+	isOpenShift := false
+	Eventually(func() error {
+		var err error
+		isOpenShift, err = IsOpenShift(cli)
+		return err
+	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "failed to check if running on an openshift cluster")
 
 	if !isOpenShift {
 		ginkgo.Skip(fmt.Sprintf("Skipping %s tests when the cluster is not OpenShift", testName))
@@ -66,7 +71,7 @@ func SkipIfNotOpenShift(cli kubecli.KubevirtClient, testName string) {
 
 func SkipIfNotSingleStackIPv6OpenShift(cli kubecli.KubevirtClient, testName string) {
 	isSingleStackIPv6, err := IsOpenShiftSingleStackIPv6(cli)
-	kvtutil.PanicOnError(err)
+	Expect(err).ShouldNot(HaveOccurred())
 
 	if !isSingleStackIPv6 {
 		ginkgo.Skip(fmt.Sprintf("Skipping %s tests since the OpenShift cluster is not single stack IPv6", testName))
@@ -254,4 +259,13 @@ func RestoreDefaults(ctx context.Context, cli kubecli.KubevirtClient) {
 		WithTimeout(time.Second * 5).
 		WithPolling(time.Millisecond * 100).
 		Should(Succeed())
+}
+
+func deleteAllResources(restClient rest.Interface, resourceName string) {
+	Eventually(func() bool {
+		err := restClient.Delete().Namespace(kvtutil.NamespaceTestDefault).Resource(resourceName).Do(context.TODO()).Error()
+		return err == nil || apierrors.IsNotFound(err)
+	}).WithTimeout(time.Minute).
+		WithPolling(time.Second).
+		Should(BeTrue())
 }

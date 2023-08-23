@@ -23,11 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests/flags"
-	kvtutil "kubevirt.io/kubevirt/tests/util"
-
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
 var runbookClient = http.DefaultClient
@@ -52,7 +50,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 	BeforeEach(func() {
 		virtCli, err = kubecli.GetKubevirtClient()
-		kvtutil.PanicOnError(err)
+		Expect(err).ShouldNot(HaveOccurred())
 
 		tests.SkipIfNotOpenShift(virtCli, "Prometheus")
 		promClient = initializePromClient(getPrometheusURL(virtCli), getAuthorizationTokenForPrometheus(virtCli))
@@ -217,7 +215,7 @@ func initializePromClient(prometheusURL string, token string) promApiv1.API {
 		RoundTripper: promConfig.NewAuthorizationCredentialsRoundTripper("Bearer", promConfig.Secret(token), defaultRoundTripper),
 	})
 
-	kvtutil.PanicOnError(err)
+	Expect(err).ShouldNot(HaveOccurred())
 
 	promClient := promApiv1.NewAPI(c)
 	return promClient
@@ -253,15 +251,17 @@ func getPrometheusURL(cli kubecli.KubevirtClient) string {
 
 	var route openshiftroutev1.Route
 
-	err := cli.RestClient().Get().
-		Resource("routes").
-		Name("prometheus-k8s").
-		Namespace("openshift-monitoring").
-		AbsPath("/apis", openshiftroutev1.GroupVersion.Group, openshiftroutev1.GroupVersion.Version).
-		Timeout(10 * time.Second).
-		Do(context.TODO()).Into(&route)
-
-	kvtutil.PanicOnError(err)
+	Eventually(func() error {
+		return cli.RestClient().Get().
+			Resource("routes").
+			Name("prometheus-k8s").
+			Namespace("openshift-monitoring").
+			AbsPath("/apis", openshiftroutev1.GroupVersion.Group, openshiftroutev1.GroupVersion.Version).
+			Timeout(10 * time.Second).
+			Do(context.TODO()).Into(&route)
+	}).WithTimeout(2 * time.Minute).
+		WithPolling(15 * time.Second). // longer than the request timeout
+		Should(Succeed())
 
 	return fmt.Sprintf("https://%s", route.Spec.Host)
 }

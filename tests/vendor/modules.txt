@@ -1005,10 +1005,6 @@ kubevirt.io/kubevirt/tests/watcher
 ## explicit; go 1.19
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
-# kubevirt.io/qe-tools v0.1.8
-## explicit; go 1.16
-kubevirt.io/qe-tools/pkg/ginkgo-reporters
-kubevirt.io/qe-tools/pkg/polarion-xml
 # kubevirt.io/ssp-operator/api v0.18.2
 ## explicit; go 1.19
 kubevirt.io/ssp-operator/api/v1beta2
