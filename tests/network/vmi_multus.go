@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/configdrive"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -557,6 +558,37 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(getPodInterfaceMtu(vmi)).To(Equal(getVmiInterfaceMtu(vmi)))
 			})
+
+			It("should be successfully configured the secondary interface using CloudInitConfigDrive", func() {
+				const (
+					customMacAddress              = "50:00:00:00:90:0d"
+					secondaryInterfaceIPv4Address = "192.168.50.123"
+					secondaryInterfaceIPv4Netmask = "255.255.255.0"
+				)
+
+				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
+				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
+
+				vmiUnderTest := libvmi.NewFedora(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
+					libvmi.WithNetwork(&linuxBridgeNetwork),
+					libvmi.WithCloudInitConfigDriveNetworkData(
+						cloudInitConfigDriveNetworkData(
+							linuxBridgeNetwork.Name,
+							linuxBridgeNetwork.Multus.NetworkName,
+							linuxBridgeInterfaceWithCustomMac.MacAddress,
+							secondaryInterfaceIPv4Address,
+							secondaryInterfaceIPv4Netmask,
+						),
+					))
+				vmiUnderTest = tests.CreateVmiOnNode(vmiUnderTest, nodes.Items[0].Name)
+
+				vmiUnderTest = libwait.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
+				Expect(runSafeCommand(vmiUnderTest, fmt.Sprintf("ip addr show eth1 | grep %s\n", linuxBridgeInterfaceWithCustomMac.MacAddress))).To(Succeed())
+				Expect(runSafeCommand(vmiUnderTest, fmt.Sprintf("ip addr show eth1 | grep %s\n", secondaryInterfaceIPv4Address+"/24"))).To(Succeed())
+			})
 		})
 
 		Context("VirtualMachineInstance with invalid MAC address", func() {
@@ -832,6 +864,29 @@ func cloudInitNetworkDataWithStaticIPsByDevice(deviceName, ipAddress string) str
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "should successfully create static IPs by device name cloud init network data")
 	return networkData
+}
+
+func cloudInitConfigDriveNetworkData(linkId, networkId, macAddress, ipAddress, netmask string) string {
+	networkData := configdrive.NewNetworkData(
+		configdrive.WithLink(
+			configdrive.Link{
+				Id:                 linkId,
+				Type:               configdrive.LinkTypePhy,
+				EthernetMacAddress: macAddress,
+			},
+		),
+		configdrive.WithNetwork(
+			configdrive.NewNetwork(
+				networkId,
+				configdrive.NetworkTypeIPv4,
+				linkId,
+				configdrive.WithIPAddress(ipAddress),
+				configdrive.WithNetmask(netmask),
+			),
+		),
+	)
+
+	return networkData.String()
 }
 
 // If staticIP is empty the interface would get a dynamic IP

@@ -71,6 +71,16 @@ func WithCloudInitConfigDriveData(data string, b64Encoding bool) Option {
 	}
 }
 
+// WithCloudInitConfigDriveNetworkData adds cloud-init configDrive network data
+func WithCloudInitConfigDriveNetworkData(networkData string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDiskVolumeWithCloudInitConfigDrive(vmi, cloudInitDiskName, v1.DiskBusVirtio)
+		volume := getVolume(vmi, cloudInitDiskName)
+
+		volume.CloudInitConfigDrive.NetworkData = networkData
+	}
+}
+
 func addDiskVolumeWithCloudInitConfigDrive(vmi *v1.VirtualMachineInstance, diskName string, bus v1.DiskBus) {
 	addDisk(vmi, newDisk(diskName, bus))
 	v := newVolume(diskName)
