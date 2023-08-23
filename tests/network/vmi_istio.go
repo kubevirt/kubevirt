@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -358,7 +359,7 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-				networkData := libnet.CreateDefaultCloudInitNetworkData()
+				networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 				serverVMI = libvmi.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -502,7 +503,7 @@ func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineI
 }
 
 func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 	vmi := libvmi.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),

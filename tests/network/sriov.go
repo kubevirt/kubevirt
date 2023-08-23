@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -645,7 +646,7 @@ func validatePodKubevirtResourceNameByVMI(virtClient kubecli.KubevirtClient, vmi
 }
 
 func defaultCloudInitNetworkData() string {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 	return networkData
 }
 

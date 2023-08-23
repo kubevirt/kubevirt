@@ -92,7 +92,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -780,7 +780,7 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskB
 }
 
 func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -790,7 +790,7 @@ func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -800,7 +800,7 @@ func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 	return libvmi.NewFedora(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

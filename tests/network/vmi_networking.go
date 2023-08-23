@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -354,7 +355,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			By(checkingEth0MACAddr)
 			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
 			masqIface.MacAddress = "de:ad:00:00:be:af"
-			networkData := libnet.CreateDefaultCloudInitNetworkData()
+			networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 			deadbeafVMI := libvmi.NewAlpineWithTestTooling(
 				libvmi.WithInterface(masqIface),
@@ -644,10 +645,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		}
 
 		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-			networkData, err := libnet.NewNetworkData(
-				libnet.WithEthernet("eth0",
-					libnet.WithDHCP4Enabled(),
-					libnet.WithDHCP6Enabled(),
+			networkData, err := nocloud.NewNetworkData(
+				nocloud.WithEthernet("eth0",
+					nocloud.WithDHCP4Enabled(),
+					nocloud.WithDHCP6Enabled(),
 				),
 			)
 			if err != nil {
@@ -977,7 +978,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				var err error
 
 				By("Create masquerade VMI")
-				networkData := libnet.CreateDefaultCloudInitNetworkData()
+				networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 				vmi = libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

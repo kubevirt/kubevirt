@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
@@ -106,7 +107,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 				})
 
 				It("should report VMIs static IPv6 at interface status", func() {
-					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(ContainElement(libnet.DefaultIPv6Address), "should contain IPv6 address set by cloud-init and reported by guest agent")
+					Eventually(vmiIPs, 2*time.Minute, 5*time.Second).Should(ContainElement(nocloud.DefaultIPv6Address), "should contain IPv6 address set by cloud-init and reported by guest agent")
 				})
 			})
 			When("no Guest Agent exists", func() {
@@ -186,7 +187,7 @@ func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance)
 }
 
 func newFedoraWithGuestAgentAndDefaultInterface(iface v1.Interface) (*v1.VirtualMachineInstance, error) {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 
 	vmi := libvmi.NewFedora(
 		libvmi.WithInterface(iface),

@@ -22,7 +22,7 @@ package libvmi
 import (
 	kvirtv1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 )
 
 const DefaultInterfaceName = "default"
@@ -44,7 +44,7 @@ func WithNetwork(network *kvirtv1.Network) Option {
 }
 
 func WithMasqueradeNetworking(ports ...kvirtv1.Port) []Option {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
+	networkData := nocloud.CreateDefaultCloudInitNetworkData()
 	return []Option{
 		WithInterface(InterfaceDeviceWithMasqueradeBinding(ports...)),
 		WithNetwork(kvirtv1.DefaultPodNetwork()),

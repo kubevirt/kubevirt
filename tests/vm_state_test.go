@@ -7,8 +7,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 
-	"kubevirt.io/kubevirt/tests/libnet"
-
 	"kubevirt.io/kubevirt/tests/libvmi"
 
 	expect "github.com/google/goexpect"
@@ -24,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit/nocloud"
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
@@ -119,7 +118,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			vmi := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithCloudInitNoCloudNetworkData(libnet.CreateDefaultCloudInitNetworkData()),
+				libvmi.WithCloudInitNoCloudNetworkData(nocloud.CreateDefaultCloudInitNetworkData()),
 				libvmi.WithUefi(false),
 				libvmi.WithResourceMemory("1Gi"),
 			)
