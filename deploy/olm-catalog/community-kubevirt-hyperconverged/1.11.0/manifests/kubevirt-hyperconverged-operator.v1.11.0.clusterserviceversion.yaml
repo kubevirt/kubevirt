@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2023-08-17 07:30:48"
+    createdAt: "2023-08-23 05:12:49"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -99,8 +99,8 @@ spec:
       kind: CDI
       name: cdis.cdi.kubevirt.io
       version: v1beta1
-    - description: Represents a HostPathProvisioner deployment
-      displayName: HostPathProvisioner deployment
+    - description: Represents the deployment of HostPathProvisioner
+      displayName: HostPathProvisioner Deployment
       kind: HostPathProvisioner
       name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
       version: v1beta1
@@ -2980,7 +2980,7 @@ spec:
                 - name: SSP_VERSION
                   value: v0.18.2
                 - name: HPPO_VERSION
-                  value: v0.16.0
+                  value: v0.17.0
                 - name: MTQ_VERSION
                   value: v1.1.1
                 - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -3573,7 +3573,7 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:e6c1a6f9d3bf1678e7802bbdd238e8f3a4311682e517ae4c543aea49faf1b126
+                  value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:16ecabb1d733aa17084cd16d88963c5255d04f389e0f4d41941d67e8be973594
                 - name: PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
                 - name: CSI_PROVISIONER_IMAGE
@@ -3591,7 +3591,7 @@ spec:
                 - name: MONITORING_NAMESPACE
                 - name: PRIORITY_CLASS
                   value: kubevirt-cluster-critical
-                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:e6c1a6f9d3bf1678e7802bbdd238e8f3a4311682e517ae4c543aea49faf1b126
+                image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:16ecabb1d733aa17084cd16d88963c5255d04f389e0f4d41941d67e8be973594
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   failureThreshold: 1
@@ -4192,7 +4192,7 @@ spec:
     name: hostpath-csi-driver
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
     name: hostpath-provisioner
-  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:e6c1a6f9d3bf1678e7802bbdd238e8f3a4311682e517ae4c543aea49faf1b126
+  - image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:16ecabb1d733aa17084cd16d88963c5255d04f389e0f4d41941d67e8be973594
     name: hostpath-provisioner-operator
   - image: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
     name: hyperconverged-cluster-operator
