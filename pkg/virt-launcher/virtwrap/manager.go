@@ -1023,7 +1023,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	var efiConf *converter.EFIConfiguration
 	if vmi.IsBootloaderEFI() {
-		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
+		secureBoot := vmi.IsSecureBootEnabled()
 		sev := kutil.IsSEVVMI(vmi)
 
 		if !l.efiEnvironment.Bootable(secureBoot, sev) {
