@@ -321,7 +321,7 @@ func (b *PasstLibvirtSpecGenerator) generatePorts() []string {
 	if len(b.vmiSpecIface.Ports) == 0 {
 		if istio.ProxyInjectionEnabled(b.vmi) {
 			for _, port := range istio.ReservedPorts() {
-				tcpPorts = append(tcpPorts, fmt.Sprintf("~%s", port))
+				tcpPorts = append(tcpPorts, fmt.Sprintf("~%d", port))
 			}
 		} else {
 			tcpPorts = append(tcpPorts, "all")
