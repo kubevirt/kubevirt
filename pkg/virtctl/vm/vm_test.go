@@ -273,7 +273,7 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		})
 
-		It("should force restart vm", func() {
+		It("should force restart VM when --force=true and --grace-period is set", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
@@ -287,8 +287,35 @@ var _ = Describe("VirtualMachine", func() {
 			cmd := clientcmd.NewVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
 			Expect(cmd.Execute()).To(Succeed())
 		})
+		DescribeTable("should not force restart VM", func(force bool, gracePeriodSet bool) {
+			var cmd *cobra.Command
 
-		It("should force delete vm", func() {
+			if force {
+				cmd = clientcmd.NewVirtctlCommand("stop", vmName, "--force")
+			} else {
+				cmd = clientcmd.NewVirtctlCommand("stop", vmName, "--grace-period=0")
+			}
+
+			err := fmt.Errorf("Must both use --force=true and set --grace-period.")
+			Expect(cmd.Execute()).To(MatchError(err))
+		},
+			Entry("when --force=true and --grace-period is not set", true, false),
+			Entry("when --force=false and --grace-period is set", false, true),
+		)
+	})
+
+	Context("with stop VM cmd", func() {
+		It("should stop VM", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().Stop(context.Background(), vm.Name, &stopOpts).Return(nil).Times(1)
+
+			cmd := clientcmd.NewVirtctlCommand("stop", vmName)
+			Expect(cmd.Execute()).To(Succeed())
+		})
+
+		It("should force stop VM when --force=true and --grace-period is set", func() {
 			vm := kubecli.NewMinimalVM(vmName)
 
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
@@ -302,6 +329,22 @@ var _ = Describe("VirtualMachine", func() {
 			cmd := clientcmd.NewVirtctlCommand("stop", vmName, "--force", "--grace-period=0")
 			Expect(cmd.Execute()).To(Succeed())
 		})
+
+		DescribeTable("should not force stop VM", func(force bool, gracePeriodSet bool) {
+			var cmd *cobra.Command
+
+			if force {
+				cmd = clientcmd.NewVirtctlCommand("stop", vmName, "--force")
+			} else {
+				cmd = clientcmd.NewVirtctlCommand("stop", vmName, "--grace-period=0")
+			}
+
+			err := fmt.Errorf("Must both use --force=true and set --grace-period.")
+			Expect(cmd.Execute()).To(MatchError(err))
+		},
+			Entry("when --force=true and --grace-period is not set", true, false),
+			Entry("when --force=false and --grace-period is set", false, true),
+		)
 	})
 
 	Context("with dry-run parameter", func() {

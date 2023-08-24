@@ -82,17 +82,12 @@ func usageAddVolume() string {
 }
 
 func (o *Command) addVolumeRun(args []string) error {
-	var dryRunOption []string
-
 	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
 	if err != nil {
 		return err
 	}
 
-	if dryRun {
-		dryRunOption = []string{metav1.DryRunAll}
-		fmt.Printf("Dry Run execution\n")
-	}
+	dryRunOption := setDryRunOption(dryRun)
 
 	return addVolume(args[0], volumeName, namespace, virtClient, &dryRunOption)
 }

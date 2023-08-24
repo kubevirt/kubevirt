@@ -24,7 +24,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 
@@ -53,7 +52,6 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func (o *Command) stopRun(args []string, cmd *cobra.Command) error {
-	var dryRunOption []string
 	vmiName := args[0]
 
 	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
@@ -61,23 +59,17 @@ func (o *Command) stopRun(args []string, cmd *cobra.Command) error {
 		return err
 	}
 
-	if dryRun {
-		dryRunOption = []string{metav1.DryRunAll}
-		fmt.Printf("Dry Run execution\n")
-	}
+	dryRunOption := setDryRunOption(dryRun)
+	gracePeriodChanged := cmd.Flags().Changed(gracePeriodArg)
 
-	if cmd.Flags().Changed(gracePeriodArg) && forceRestart == false {
-		return fmt.Errorf("Can not set gracePeriod without --force=true")
+	if gracePeriodChanged != forceRestart {
+		return fmt.Errorf("Must both use --force=true and set --grace-period.")
 	}
 
 	if forceRestart {
-		if cmd.Flags().Changed(gracePeriodArg) {
-			err = virtClient.VirtualMachine(namespace).ForceStop(context.Background(), vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
-			if err != nil {
-				return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
-			}
-		} else if !cmd.Flags().Changed(gracePeriodArg) {
-			return fmt.Errorf("Can not force stop without gracePeriod")
+		err = virtClient.VirtualMachine(namespace).ForceStop(context.Background(), vmiName, &v1.StopOptions{GracePeriod: &gracePeriod, DryRun: dryRunOption})
+		if err != nil {
+			return fmt.Errorf("Error force stopping VirtualMachine, %v", err)
 		}
 	} else {
 		err = virtClient.VirtualMachine(namespace).Stop(context.Background(), vmiName, &v1.StopOptions{DryRun: dryRunOption})
