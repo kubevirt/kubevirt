@@ -205,13 +205,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockHotplugVolumeMounter = hotplug_volume.NewMockVolumeMounter(ctrl)
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
-		controller, _ = NewController(recorder,
+		controller, _ = NewController(
+			recorder,
 			virtClient,
 			host,
 			podIpAddress,
 			shareDir,
 			privateDir,
 			podsDir,
+			util.KubeletRoot,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,

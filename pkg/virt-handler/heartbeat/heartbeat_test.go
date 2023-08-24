@@ -14,6 +14,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
@@ -38,7 +39,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 	Context("upon finishing", func() {
 		It("should set the node to not schedulable", func() {
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode")
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", util.KubeletRoot)
 			stopChan := make(chan struct{})
 			done := heartbeat.Run(30*time.Second, stopChan)
 			Eventually(func() map[string]string {
@@ -57,7 +58,7 @@ var _ = Describe("Heartbeat", func() {
 	})
 
 	DescribeTable("with cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, cpuManagerPaths []string, schedulable string, cpumanager string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(virtconfig.CPUManager), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(virtconfig.CPUManager), "mynode", util.KubeletRoot)
 		heartbeat.cpuManagerPaths = cpuManagerPaths
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
@@ -92,7 +93,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without cpumanager featuregate should set the node to", func(deviceController device_manager.DeviceControllerInterface, schedulable string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode", util.KubeletRoot)
 		heartbeat.do()
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -110,7 +111,7 @@ var _ = Describe("Heartbeat", func() {
 	)
 
 	DescribeTable("without deviceplugin and", func(deviceController device_manager.DeviceControllerInterface, initiallySchedulable string, finallySchedulable string) {
-		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode")
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController, config(), "mynode", util.KubeletRoot)
 		heartbeat.devicePluginWaitTimeout = 2 * time.Second
 		heartbeat.devicePluginPollIntervall = 10 * time.Millisecond
 		stopChan := make(chan struct{})

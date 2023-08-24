@@ -181,6 +181,7 @@ func NewController(
 	virtShareDir string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
+	kubeletRoot string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -284,7 +285,7 @@ func NewController(
 		device_manager.PermanentHostDevicePlugins(maxDevices, permissions),
 		clusterConfig,
 		clientset.CoreV1())
-	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host, kubeletRoot)
 
 	return c, nil
 }
