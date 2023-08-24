@@ -10,6 +10,15 @@ Fixes #
 
 **Special notes for your reviewer**:
 
+**Checklist**
+
+This checklist is not enforcing, but it's a reminder of items that could be relevant to this PR:
+
+- [ ] Design: A design document was considered and is present (link) or not required
+- [ ] Test: Unit and e2e tests were balanced each other and the right approach chosen
+- [ ] Documentation: A user-guide update was considered and is present (link) or not required
+- [ ] Community: Announce to the kubevirt-dev was considered
+
 **Release note**:
 <!--  Write your release note:
 1. Enter your extended release note in the below block. If the PR requires additional action from users switching to the new release, include the string "action required".
