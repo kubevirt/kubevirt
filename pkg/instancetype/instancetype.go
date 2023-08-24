@@ -1327,7 +1327,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 		vmiSpec.Domain.Firmware.Bootloader.BIOS = &virtv1.BIOS{}
 	}
 
-	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil {
+	if preferenceSpec.Firmware.PreferredUseBiosSerial != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS != nil && vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial == nil {
 		vmiSpec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(*preferenceSpec.Firmware.PreferredUseBiosSerial)
 	}
 
@@ -1335,7 +1335,7 @@ func applyFirmwarePreferences(preferenceSpec *instancetypev1beta1.VirtualMachine
 		vmiSpec.Domain.Firmware.Bootloader.EFI = &virtv1.EFI{}
 	}
 
-	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && vmiSpec.Domain.Firmware.Bootloader.EFI != nil {
+	if preferenceSpec.Firmware.PreferredUseSecureBoot != nil && vmiSpec.Domain.Firmware.Bootloader.EFI != nil && vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil {
 		vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.Bool(*preferenceSpec.Firmware.PreferredUseSecureBoot)
 	}
 }
