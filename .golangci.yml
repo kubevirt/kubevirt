@@ -2,3 +2,6 @@ linters:
   enable:
   - ginkgolinter
   - revive
+linters-settings:
+  ginkgolinter:
+    forbid-focus-container: true
