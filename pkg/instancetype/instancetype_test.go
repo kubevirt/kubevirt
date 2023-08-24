@@ -232,6 +232,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				expectControllerRevisionCreation(clusterInstancetypeControllerRevision)
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
 				Expect(vm.Status.InstancetypeStatus.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
@@ -250,6 +251,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
 
@@ -273,6 +275,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 			})
 
@@ -422,6 +425,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				expectControllerRevisionCreation(instancetypeControllerRevision)
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 				Expect(vm.Status.InstancetypeStatus.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 			})
@@ -447,6 +451,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 			})
 
@@ -463,6 +468,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 
 			})
@@ -682,6 +688,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				expectControllerRevisionCreation(clusterPreferenceControllerRevision)
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 				Expect(vm.Status.PreferenceStatus.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 			})
@@ -700,9 +707,11 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				vm.Spec.Preference.RevisionName = clusterPreferenceControllerRevision.Name
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 			})
 
@@ -719,6 +728,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 
 			})
@@ -818,6 +828,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				expectControllerRevisionCreation(preferenceControllerRevision)
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
 				Expect(vm.Status.PreferenceStatus.RevisionName).To(Equal(preferenceControllerRevision.Name))
 			})
@@ -836,9 +847,11 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				vm.Spec.Preference.RevisionName = preferenceControllerRevision.Name
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
 
 			})
@@ -856,6 +869,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, &metav1.PatchOptions{})
 
 				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(Succeed())
+				//nolint:staticcheck //Ignoring deprecation of RevisionName
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
 
 			})
