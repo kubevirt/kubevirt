@@ -262,7 +262,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 		return nil, nil, nil
 	}
 
-	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
+	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
 
 	if len(conflicts) == 0 {
 		return instancetypeSpec, preferenceSpec, nil
