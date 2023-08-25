@@ -121,4 +121,5 @@ The lowest bar for acceptable golang **coding standards** (anti-patterns, coding
 
 The lowest **testing bar** to pass:
 * New code requires new unit tests.
-* New features and bug fixes require at least on e2e test (the core case must be tested).
+* New features at least on e2e test (only the core case must be tested)
+* Bug fixes might require an update to or a new unit or e2e test

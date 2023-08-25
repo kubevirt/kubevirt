@@ -17,7 +17,7 @@ Approvers are expected to review this list.
 
 - [ ] Design: A [design document](https://github.com/kubevirt/community/tree/main/design-proposals) was considered and is present (link) or not required
 - [ ] Maintenance: The [Boy Scout Rule](https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html) was considered and applied if needed
-- [ ] Testing: New code requires [new unit tests](https://github.com/kubevirt/kubevirt/blob/main/docs/reviewer-guide.md#when-is-a-pr-good-enough). New features and bug fixes require at least one e2e test
+- [ ] Testing: New code requires [new unit tests](https://github.com/kubevirt/kubevirt/blob/main/docs/reviewer-guide.md#when-is-a-pr-good-enough). New features require at least one e2e test. Bug fixes: It depends
 - [ ] Documentation: A [user-guide update](https://github.com/kubevirt/user-guide/) was considered and is present (link) or not required
 - [ ] Community: Announce to the [kubevirt-dev](https://groups.google.com/g/kubevirt-dev/) was considered
 
