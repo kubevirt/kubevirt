@@ -22793,6 +22793,14 @@
      "memory"
     ],
     "properties": {
+     "annotations": {
+      "description": "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
      "cpu": {
       "description": "Required CPU related attributes of the instancetype.",
       "default": {},
@@ -22902,6 +22910,14 @@
     "description": "VirtualMachinePreferenceSpec is a description of the VirtualMachinePreference or VirtualMachineClusterPreference.",
     "type": "object",
     "properties": {
+     "annotations": {
+      "description": "Optionally defines preferred Annotations for the VirtualMachineInstance",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
      "clock": {
       "description": "Clock optionally defines preferences associated with the Clock attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1beta1.ClockPreferences"

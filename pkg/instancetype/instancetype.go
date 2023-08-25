@@ -40,7 +40,7 @@ const (
 
 type Methods interface {
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
-	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, prefernceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts
+	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error)
@@ -120,10 +120,10 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 	}, nil
 }
 
-func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) error {
+func (m *InstancetypeMethods) checkForInstancetypeConflicts(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) error {
 	// Apply the instancetype to a copy of the VMISpec as we don't want to persist any changes here in the VM being passed around
 	vmiSpecCopy := vmiSpec.DeepCopy()
-	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy)
+	conflicts := m.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy, vmiMetadata)
 	if len(conflicts) > 0 {
 		return fmt.Errorf("VM field conflicts with selected Instancetype: %v", conflicts.String())
 	}
@@ -141,7 +141,7 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
 		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
 		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err := m.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec); err != nil {
+		if err := m.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta); err != nil {
 			return nil, err
 		}
 		return CreateControllerRevision(vm, instancetype)
@@ -155,7 +155,7 @@ func (m *InstancetypeMethods) createInstancetypeRevision(vm *virtv1.VirtualMachi
 		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
 		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
 		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err := m.checkForInstancetypeConflicts(&clusterInstancetype.Spec, &vm.Spec.Template.Spec); err != nil {
+		if err := m.checkForInstancetypeConflicts(&clusterInstancetype.Spec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta); err != nil {
 			return nil, err
 		}
 		return CreateControllerRevision(vm, clusterInstancetype)
@@ -422,7 +422,7 @@ func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *inst
 	return nil, nil
 }
 
-func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {
+func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts {
 	var conflicts Conflicts
 
 	if instancetypeSpec != nil {
@@ -434,6 +434,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 		conflicts = append(conflicts, applyLaunchSecurity(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyGPUs(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyHostDevices(field, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
 	}
 
 	if preferenceSpec != nil {
@@ -446,6 +447,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 		applyClockPreferences(preferenceSpec, vmiSpec)
 		applySubdomain(preferenceSpec, vmiSpec)
 		applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
+		applyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
 	}
 
 	return conflicts
@@ -849,6 +851,39 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 		return m.inferDefaultsFromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
 	}
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
+}
+
+func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
+	if target.GetAnnotations() == nil {
+		target.SetAnnotations(make(map[string]string))
+	}
+
+	targetAnnotations := target.GetAnnotations()
+	for key, value := range annotations {
+		if targetValue, exists := targetAnnotations[key]; exists {
+			if targetValue != value {
+				conflicts = append(conflicts, k8sfield.NewPath("annotations", key))
+			}
+			continue
+		}
+		targetAnnotations[key] = value
+	}
+
+	return conflicts
+}
+
+func applyPreferenceAnnotations(annotations map[string]string, target metav1.Object) {
+	if target.GetAnnotations() == nil {
+		target.SetAnnotations(make(map[string]string))
+	}
+
+	targetAnnotations := target.GetAnnotations()
+	for key, value := range annotations {
+		if _, exists := targetAnnotations[key]; exists {
+			continue
+		}
+		targetAnnotations[key] = value
+	}
 }
 
 func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) Conflicts {

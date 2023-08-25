@@ -39,6 +39,7 @@ func (VirtualMachineInstancetypeSpec) SwaggerDoc() map[string]string {
 		"hostDevices":     "Optionally defines any HostDevices associated with the instancetype.\n\n+optional\n+listType=atomic",
 		"ioThreadsPolicy": "Optionally defines the IOThreadsPolicy to be used by the instancetype.\n\n+optional",
 		"launchSecurity":  "Optionally defines the LaunchSecurity to be used by the instancetype.\n\n+optional",
+		"annotations":     "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance\n\n+optional",
 	}
 }
 
@@ -104,6 +105,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"preferredSubdomain":                     "Subdomain of the VirtualMachineInstance\n\n+optional",
 		"preferredTerminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.\n\n+optional",
 		"requirements":                           "Requirements defines the minium amount of instance type defined resources required by a set of preferences\n\n+optional",
+		"annotations":                            "Optionally defines preferred Annotations for the VirtualMachineInstance\n\n+optional",
 	}
 }
 

@@ -127,9 +127,14 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			}
 
 			cpu := &v1.CPU{Cores: 2}
+			annotations := map[string]string{
+				"annotations-1": "1",
+				"annotations-2": "2",
+			}
 
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
 				vmiSpec.Domain.CPU = cpu
+				vmiMetadata.Annotations = annotations
 				return nil
 			}
 
@@ -139,11 +144,13 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			expectedVm := vm.DeepCopy()
 			expectedVm.Spec.Template.Spec.Domain.CPU = cpu
+			expectedVm.Spec.Template.ObjectMeta.Annotations = annotations
 
 			recorder := callExpandSpecApi(vm)
 			responseVm := &v1.VirtualMachine{}
 			Expect(json.NewDecoder(recorder.Body).Decode(responseVm)).To(Succeed())
 
+			Expect(responseVm.Spec.Template.ObjectMeta).To(Equal(expectedVm.Spec.Template.ObjectMeta))
 			Expect(responseVm.Spec.Template.Spec).To(Equal(expectedVm.Spec.Template.Spec))
 		})
 
@@ -153,7 +160,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			}
 
 			machineType := "test-machine"
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
 				vmiSpec.Domain.Machine = &v1.Machine{Type: machineType}
 				return nil
 			}
@@ -177,7 +184,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
 			}
 
-			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
 				return instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "example", "path")}
 			}
 

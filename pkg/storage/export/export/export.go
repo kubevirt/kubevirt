@@ -1328,7 +1328,7 @@ func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) 
 		return vm, nil
 	}
 
-	conflicts := ctrl.instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
+	conflicts := ctrl.instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
 	if len(conflicts) > 0 {
 		return nil, fmt.Errorf("cannot expand instancetype to VM, due to %d conflicts", len(conflicts))
 	}
