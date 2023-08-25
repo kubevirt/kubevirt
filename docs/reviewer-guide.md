@@ -120,6 +120,6 @@ The lowest bar for acceptable golang **coding standards** (anti-patterns, coding
   analyzers when one builds kubevirt. If a check fails the build fails.
 
 The lowest **testing bar** to pass:
-* Nw code requires new unit tests.
+* New code requires new unit tests.
 * New features require at least one e2e test. As they are costly: As many as needed, but as few as possible.
 * Bug fixes might require an update to existing or the creation of new unit or e2e test
