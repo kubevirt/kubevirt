@@ -40,12 +40,12 @@ const (
 func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	vmiSpec := vmSchema.VirtualMachineInstance{}
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to unmarshal given VMI spec: %s %s", err, string(vmiJSON))
 	}
 
 	domainSpec := api.DomainSpec{}
 	if err := xml.Unmarshal(domainXML, &domainSpec); err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to unmarshal given Domain spec: %s %s", err, string(domainXML))
 	}
 
 	annotations := vmiSpec.GetAnnotations()
@@ -67,7 +67,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("Failed to marshal new Domain spec: %s %+v", err, domainSpec)
 	}
 
 	return string(newDomainXML), nil
@@ -87,6 +87,7 @@ func main() {
 
 	domainXML, err := onDefineDomain([]byte(vmiJSON), []byte(domainXML))
 	if err != nil {
+		logger.Printf("onDefineDomain failed: %s", err)
 		panic(err)
 	}
 	fmt.Println(domainXML)
