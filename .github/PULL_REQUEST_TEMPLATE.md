@@ -16,10 +16,11 @@ This checklist is not enforcing, but it's a reminder of items that could be rele
 Approvers are expected to review this list.
 
 - [ ] Design: A [design document](https://github.com/kubevirt/community/tree/main/design-proposals) was considered and is present (link) or not required
+- [ ] PR: The description will help fufutre contributors
 - [ ] Maintenance: The [Boy Scout Rule](https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html) was considered and applied if needed
 - [ ] Upgrade: Impact of this change on upgrade flows was considered and addressed if required
 - [ ] Testing: New code requires [new unit tests](https://github.com/kubevirt/kubevirt/blob/main/docs/reviewer-guide.md#when-is-a-pr-good-enough). New features require at least one e2e test. Bug fixes: It depends
-- [ ] Documentation: A [user-guide update](https://github.com/kubevirt/user-guide/) was considered and is present (link) or not required
+- [ ] Documentation: A [user-guide update](https://github.com/kubevirt/user-guide/) was considered and is present (link) or not required. You want a user-guide update if it's a user facing feature / API change.
 - [ ] Community: Announce to the [kubevirt-dev](https://groups.google.com/g/kubevirt-dev/) was considered
 
 **Release note**:
