@@ -48,6 +48,9 @@ var (
 
 	//go:embed testdata/domain_numa_topology.xml
 	domainNumaTopology []byte
+
+	//go:embed testdata/cpu_pinning.xml
+	cpuPinningXML []byte
 )
 
 const (
@@ -292,13 +295,6 @@ var _ = ginkgo.Describe("Schema", func() {
 	})
 
 	ginkgo.Context("With cpu pinning", func() {
-		var testXML = `<cputune>
-<vcpupin vcpu="0" cpuset="1"/>
-<vcpupin vcpu="1" cpuset="5"/>
-<iothreadpin iothread="0" cpuset="1"/>
-<iothreadpin iothread="1" cpuset="5"/>
-<emulatorpin cpuset="6"/>
-</cputune>`
 		var exampleCpuTune = CPUTune{
 			VCPUPin: []CPUTuneVCPUPin{
 				{
@@ -327,7 +323,7 @@ var _ = ginkgo.Describe("Schema", func() {
 
 		ginkgo.It("Unmarshal into struct", func() {
 			newCpuTune := CPUTune{}
-			Expect(xml.Unmarshal([]byte(testXML), &newCpuTune)).To(Succeed())
+			Expect(xml.Unmarshal(cpuPinningXML, &newCpuTune)).To(Succeed())
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
 		})
 	})
