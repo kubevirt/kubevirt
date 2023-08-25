@@ -12,12 +12,14 @@ Fixes #
 
 **Checklist**
 
-This checklist is not enforcing, but it's a reminder of items that could be relevant to this PR:
+This checklist is not enforcing, but it's a reminder of items that could be relevant to every PR.
+Approvers are expected to review this list.
 
-- [ ] Design: A design document was considered and is present (link) or not required
-- [ ] Test: Unit and e2e tests were balanced each other and the right approach chosen
-- [ ] Documentation: A user-guide update was considered and is present (link) or not required
-- [ ] Community: Announce to the kubevirt-dev was considered
+- [ ] Design: A [design document](https://github.com/kubevirt/community/tree/main/design-proposals) was considered and is present (link) or not required
+- [ ] Maintenance: The [Boy Scout Rule](https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html) was considered and applied if needed
+- [ ] Testing: New code requires [new unit tests](https://github.com/kubevirt/kubevirt/blob/main/docs/reviewer-guide.md#when-is-a-pr-good-enough). New features and bug fixes require at least one e2e test
+- [ ] Documentation: A [user-guide update](https://github.com/kubevirt/user-guide/) was considered and is present (link) or not required
+- [ ] Community: Announce to the [kubevirt-dev](https://groups.google.com/g/kubevirt-dev/) was considered
 
 **Release note**:
 <!--  Write your release note:
