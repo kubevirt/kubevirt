@@ -21,8 +21,11 @@ package netpod_test
 
 import (
 	"errors"
+	"os"
+	"sync"
 
-	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
+	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -31,12 +34,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
+	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
 )
 
 const (
 	defaultPodNetworkName = "default"
+
+	vmiUID = "12345"
+
+	primaryIPv4Address = "10.222.222.1"
+	primaryIPv6Address = "2001::1"
 )
 
 var (
@@ -44,18 +54,36 @@ var (
 )
 
 var _ = Describe("netpod", func() {
+
+	var (
+		baseCacheCreator tempCacheCreator
+	)
+
+	BeforeEach(dutils.MockDefaultOwnershipManager)
+
+	AfterEach(func() {
+		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
+	})
+
+	BeforeEach(func() {
+		DeferCleanup(os.Setenv, "MY_POD_IP", os.Getenv("MY_POD_IP"))
+		Expect(os.Setenv("MY_POD_IP", "10.10.10.10")).To(Succeed())
+	})
+
 	It("fails setup when reading nmstate status fails", func() {
 		netPod := netpod.NewNetPod(
-			nil, nil, 0, 0, 0,
+			nil, nil, vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstateStub{readErr: errNMStateRead}),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(MatchError(errNMStateRead))
 	})
 
 	It("fails setup when applying nmstate status fails", func() {
 		netPod := netpod.NewNetPod(
-			nil, nil, 0, 0, 0,
+			nil, nil, vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstateStub{applyErr: errNMStateApply}),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(MatchError(errNMStateApply))
 	})
@@ -64,7 +92,7 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName}},
-			0, 0, 0,
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
 					Name:       "eth0",
@@ -75,6 +103,7 @@ var _ = Describe("netpod", func() {
 					MTU:        1500,
 				}},
 			}}),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		err := netPod.Setup()
 		Expect(err.Error()).To(HavePrefix("undefined binding method"))
@@ -87,7 +116,7 @@ var _ = Describe("netpod", func() {
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			}},
-			0, 0, 0,
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
 					Name:       "eth0",
@@ -99,9 +128,29 @@ var _ = Describe("netpod", func() {
 				}},
 			}}),
 			netpod.WithMasqueradeAdapter(&masqueradeStub{setupErr: errMasqueradeSetup}),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(MatchError(errMasqueradeSetup))
 	})
+
+	DescribeTable("fails setup discovery when pod interface is missing", func(binding v1.InterfaceBindingMethod) {
+		netPod := netpod.NewNetPod(
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{{Name: defaultPodNetworkName, InterfaceBindingMethod: binding}},
+			vmiUID, 0, 0, 0,
+			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
+				Interfaces: []nmstate.Interface{{Name: "other0"}},
+			}}),
+			netpod.WithCacheCreator(&baseCacheCreator),
+		)
+		err := netPod.Setup()
+		Expect(err.Error()).To(HavePrefix("pod link (eth0) is missing"))
+	},
+		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
+		Entry("masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
+		Entry("passt", v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}}),
+		Entry("slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}),
+	)
 
 	It("setup masquerade binding", func() {
 		nmstatestub := nmstateStub{status: nmstate.Status{
@@ -115,14 +164,14 @@ var _ = Describe("netpod", func() {
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
@@ -130,15 +179,17 @@ var _ = Describe("netpod", func() {
 		}}
 		masqstub := masqueradeStub{}
 
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
-			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-			}},
-			0, 0, 0,
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithMasqueradeAdapter(&masqstub),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -181,6 +232,11 @@ var _ = Describe("netpod", func() {
 		Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
 		Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
 		Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+			Iface:  &vmiIface,
+			PodIP:  primaryIPv4Address,
+			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+		}))
 	})
 
 	It("setup bridge binding with IP", func() {
@@ -195,28 +251,30 @@ var _ = Describe("netpod", func() {
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
 			}},
 		}}
 
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
-			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}},
-			0, 0, 0,
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -259,14 +317,14 @@ var _ = Describe("netpod", func() {
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{
-								IP:        "10.222.222.1",
+								IP:        primaryIPv4Address,
 								PrefixLen: 30,
 							}},
 						},
 						IPv6: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{
-								IP:        "2001::1",
+								IP:        primaryIPv6Address,
 								PrefixLen: 64,
 							}},
 						},
@@ -278,6 +336,11 @@ var _ = Describe("netpod", func() {
 				}},
 			}),
 		)
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+			Iface:  &vmiIface,
+			PodIP:  primaryIPv4Address,
+			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+		}))
 	})
 
 	It("setup bridge binding without IP", func() {
@@ -307,8 +370,9 @@ var _ = Describe("netpod", func() {
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}},
-			0, 0, 0,
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -357,6 +421,9 @@ var _ = Describe("netpod", func() {
 				},
 			}),
 		)
+		// When there are no IP/s, the pod interface data is not stored.
+		_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)
+		Expect(err).To(HaveOccurred())
 	})
 
 	When("using secondary network", func() {
@@ -391,14 +458,14 @@ var _ = Describe("netpod", func() {
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{
-								IP:        "10.222.222.1",
+								IP:        primaryIPv4Address,
 								PrefixLen: 30,
 							}},
 						},
 						IPv6: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{
-								IP:        "2001::1",
+								IP:        primaryIPv6Address,
 								PrefixLen: 64,
 							}},
 						},
@@ -445,9 +512,10 @@ var _ = Describe("netpod", func() {
 			netPod := netpod.NewNetPod(
 				initialNetworksToPlug,
 				initialInterfacesToPlug,
-				0, 0, 0,
+				vmiUID, 0, 0, 0,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
+				netpod.WithCacheCreator(&baseCacheCreator),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -495,9 +563,10 @@ var _ = Describe("netpod", func() {
 			netPod = netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
-				0, 0, 0,
+				vmiUID, 0, 0, 0,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
+				netpod.WithCacheCreator(&baseCacheCreator),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -551,6 +620,14 @@ var _ = Describe("netpod", func() {
 			Expect(masqstub.bridgeIfaceSpec.Name).To(Equal("k6t-eth0"))
 			Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
 			Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
+			Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+				Iface:  &specInterfaces[0],
+				PodIP:  primaryIPv4Address,
+				PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+			}))
+			// When there are no IP/s, the pod interface data is not stored.
+			_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, secondaryNetworkName)
+			Expect(err).To(HaveOccurred())
 		},
 			Entry("with two setup invokes", !hotplugEnabled),
 			Entry("with hotplug (second invoke adds a network)", hotplugEnabled),
@@ -561,9 +638,10 @@ var _ = Describe("netpod", func() {
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
-				0, 0, 0,
+				vmiUID, 0, 0, 0,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
+				netpod.WithCacheCreator(&baseCacheCreator),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -615,9 +693,10 @@ var _ = Describe("netpod", func() {
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
-				0, 0, 0,
+				vmiUID, 0, 0, 0,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
+				netpod.WithCacheCreator(&baseCacheCreator),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -711,27 +790,30 @@ var _ = Describe("netpod", func() {
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "10.222.222.1",
+						IP:        primaryIPv4Address,
 						PrefixLen: 30,
 					}},
 				},
 				IPv6: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{
-						IP:        "2001::1",
+						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
 				},
 			}},
 		}}
+
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
-			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
-			}},
-			0, 0, 0,
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -743,6 +825,11 @@ var _ = Describe("netpod", func() {
 				}},
 			},
 		))
+		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
+			Iface:  &vmiIface,
+			PodIP:  primaryIPv4Address,
+			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
+		}))
 	})
 
 	DescribeTable("setup unhandled bindings", func(binding v1.InterfaceBindingMethod) {
@@ -762,12 +849,14 @@ var _ = Describe("netpod", func() {
 			[]v1.Network{
 				{
 					Name:          "somenet",
-					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "somenad"}},
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					//NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "somenad"}},
 				},
 			},
 			[]v1.Interface{{Name: "somenet", InterfaceBindingMethod: binding}},
-			0, 0, 0,
+			vmiUID, 0, 0, 0,
 			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(nmstate.Spec{Interfaces: []nmstate.Interface{}}))
@@ -819,4 +908,20 @@ func (m *masqueradeStub) Setup(bridgeIfaceSpec, podIfaceSpec *nmstate.Interface,
 	m.podIfaceSpec = podIfaceSpec
 	m.vmiIfaceSpec = vmiIfaceSpec
 	return nil
+}
+
+type tempCacheCreator struct {
+	once   sync.Once
+	tmpDir string
+}
+
+func (c *tempCacheCreator) New(filePath string) *cache.Cache {
+	c.once.Do(func() {
+		tmpDir, err := os.MkdirTemp("", "temp-cache")
+		if err != nil {
+			panic("Unable to create temp cache directory")
+		}
+		c.tmpDir = tmpDir
+	})
+	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
 }
