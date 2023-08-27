@@ -45,7 +45,7 @@ The number of VMs in the cluster by namespace. Type: Gauge.
 ### kubevirt_virt_api_up
 The number of virt-api pods that are up. Type: Gauge.
 
-### kubevirt_virt_controller_leading
+### kubevirt_virt_controller_leading_status
 Indication for an operating virt-controller. Type: Gauge.
 
 ### kubevirt_virt_controller_ready
