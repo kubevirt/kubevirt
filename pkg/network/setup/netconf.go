@@ -95,10 +95,12 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	netpod := netpod.NewNetPod(
 		vmi.Spec.Networks,
 		vmi.Spec.Domain.Devices.Interfaces,
+		string(vmi.UID),
 		launcherPid,
 		ownerID,
 		queuesCapacity,
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+		netpod.WithCacheCreator(c.cacheCreator),
 	)
 	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
 

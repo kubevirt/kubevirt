@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 	"kubevirt.io/kubevirt/pkg/network/link"
@@ -51,29 +52,39 @@ type masqueradeAdapter interface {
 	Setup(bridgeIfaceSpec, podIfaceSpec *nmstate.Interface, vmiIface v1.Interface) error
 }
 
+type cacheCreator interface {
+	New(filePath string) *cache.Cache
+}
+
 type NetPod struct {
 	vmiSpecIfaces []v1.Interface
 	vmiSpecNets   []v1.Network
+	vmiUID        string
 	podPID        int
 	ownerID       int
 	queuesCap     int
 
 	nmstateAdapter    nmstateAdapter
 	masqueradeAdapter masqueradeAdapter
+
+	cacheCreator cacheCreator
 }
 
 type option func(*NetPod)
 
-func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, podPID, ownerID, queuesCapacity int, opts ...option) NetPod {
+func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string, podPID, ownerID, queuesCapacity int, opts ...option) NetPod {
 	n := NetPod{
 		vmiSpecIfaces: vmiIfaces,
 		vmiSpecNets:   vmiNetworks,
+		vmiUID:        vmiUID,
 		podPID:        podPID,
 		ownerID:       ownerID,
 		queuesCap:     queuesCapacity,
 
 		nmstateAdapter:    nmstate.New(),
 		masqueradeAdapter: masquerade.New(),
+
+		cacheCreator: cache.CacheCreator{},
 	}
 	for _, opt := range opts {
 		opt(&n)
@@ -93,6 +104,12 @@ func WithMasqueradeAdapter(h masqueradeAdapter) option {
 	}
 }
 
+func WithCacheCreator(c cacheCreator) option {
+	return func(n *NetPod) {
+		n.cacheCreator = c
+	}
+}
+
 func (n NetPod) Setup() error {
 	currentStatus, err := n.nmstateAdapter.Read()
 	if err != nil {
@@ -104,6 +121,10 @@ func (n NetPod) Setup() error {
 		return err
 	}
 	log.Log.Infof("Current pod network: %s", currentStatusBytes)
+
+	if err = n.discover(currentStatus); err != nil {
+		return err
+	}
 
 	return n.config(currentStatus)
 }
@@ -402,14 +423,18 @@ func hasIP6GlobalUnicast(iface nmstate.Interface) bool {
 }
 
 func hasIPGlobalUnicast(ip nmstate.IP) bool {
+	return firstIPGlobalUnicast(ip) != ""
+}
+
+func firstIPGlobalUnicast(ip nmstate.IP) string {
 	if ip.Enabled != nil && *ip.Enabled {
 		for _, addr := range ip.Address {
 			if net.ParseIP(addr.IP).IsGlobalUnicast() {
-				return true
+				return addr.IP
 			}
 		}
 	}
-	return false
+	return ""
 }
 
 func createNetworkNameScheme(networks []v1.Network, currentIfaces []nmstate.Interface) map[string]string {
