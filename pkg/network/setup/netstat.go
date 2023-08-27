@@ -103,11 +103,11 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
 	)
 
-	// TODO this is needed since currently passt is configured directly via qemu so the passt interfaces are not in the libvirt domain
-	// once passt will be configured via libvirt, this code can be removed
-	interfacesStatus = append(interfacesStatus,
-		passtIfacesStatusFromVmiSpec(vmi.Spec.Domain.Devices.Interfaces)...,
-	)
+	//// TODO this is needed since currently passt is configured directly via qemu so the passt interfaces are not in the libvirt domain
+	//// once passt will be configured via libvirt, this code can be removed
+	//interfacesStatus = append(interfacesStatus,
+	//	passtIfacesStatusFromVmiSpec(vmi.Spec.Domain.Devices.Interfaces)...,
+	//)
 
 	var err error
 	if len(domain.Status.Interfaces) > 0 {
