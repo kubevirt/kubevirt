@@ -17,7 +17,7 @@
  *
  */
 
-package network_test
+package netpod_test
 
 import (
 	"errors"
@@ -32,7 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
-	network "kubevirt.io/kubevirt/pkg/network/setup"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
 )
 
 const (
@@ -45,27 +45,27 @@ var (
 
 var _ = Describe("netpod", func() {
 	It("fails setup when reading nmstate status fails", func() {
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			nil, nil, 0, 0, 0,
-			network.WithNMStateAdapter(&nmstateStub{readErr: errNMStateRead}),
+			netpod.WithNMStateAdapter(&nmstateStub{readErr: errNMStateRead}),
 		)
 		Expect(netPod.Setup()).To(MatchError(errNMStateRead))
 	})
 
 	It("fails setup when applying nmstate status fails", func() {
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			nil, nil, 0, 0, 0,
-			network.WithNMStateAdapter(&nmstateStub{applyErr: errNMStateApply}),
+			netpod.WithNMStateAdapter(&nmstateStub{applyErr: errNMStateApply}),
 		)
 		Expect(netPod.Setup()).To(MatchError(errNMStateApply))
 	})
 
 	It("fails setup when applying nmstate status with undefined binding", func() {
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
+			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
 					Name:       "eth0",
 					Index:      0,
@@ -81,14 +81,14 @@ var _ = Describe("netpod", func() {
 	})
 
 	It("fails setup when masquerade (nft) setup fails", func() {
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
+			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
 					Name:       "eth0",
 					Index:      0,
@@ -98,7 +98,7 @@ var _ = Describe("netpod", func() {
 					MTU:        1500,
 				}},
 			}}),
-			network.WithMasqueradeAdapter(&masqueradeStub{setupErr: errMasqueradeSetup}),
+			netpod.WithMasqueradeAdapter(&masqueradeStub{setupErr: errMasqueradeSetup}),
 		)
 		Expect(netPod.Setup()).To(MatchError(errMasqueradeSetup))
 	})
@@ -130,15 +130,15 @@ var _ = Describe("netpod", func() {
 		}}
 		masqstub := masqueradeStub{}
 
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstatestub),
-			network.WithMasqueradeAdapter(&masqstub),
+			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithMasqueradeAdapter(&masqstub),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -209,14 +209,14 @@ var _ = Describe("netpod", func() {
 			}},
 		}}
 
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstatestub),
+			netpod.WithNMStateAdapter(&nmstatestub),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -301,14 +301,14 @@ var _ = Describe("netpod", func() {
 			}},
 		}}
 
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstatestub),
+			netpod.WithNMStateAdapter(&nmstatestub),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -442,12 +442,12 @@ var _ = Describe("netpod", func() {
 			if asHotPlug {
 				initialNetworksToPlug, initialInterfacesToPlug = specNetworks[:1], specInterfaces[:1]
 			}
-			netPod := network.NewNetPod(
+			netPod := netpod.NewNetPod(
 				initialNetworksToPlug,
 				initialInterfacesToPlug,
 				0, 0, 0,
-				network.WithNMStateAdapter(&nmstatestub),
-				network.WithMasqueradeAdapter(&masqstub),
+				netpod.WithNMStateAdapter(&nmstatestub),
+				netpod.WithMasqueradeAdapter(&masqstub),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -492,12 +492,12 @@ var _ = Describe("netpod", func() {
 				))
 			}
 
-			netPod = network.NewNetPod(
+			netPod = netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
 				0, 0, 0,
-				network.WithNMStateAdapter(&nmstatestub),
-				network.WithMasqueradeAdapter(&masqstub),
+				netpod.WithNMStateAdapter(&nmstatestub),
+				netpod.WithMasqueradeAdapter(&masqstub),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 
@@ -558,12 +558,12 @@ var _ = Describe("netpod", func() {
 
 		It("setup secondary bridge binding with hashed pod interfaces and absent set", func() {
 			specInterfaces[1].State = v1.InterfaceStateAbsent
-			netPod := network.NewNetPod(
+			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
 				0, 0, 0,
-				network.WithNMStateAdapter(&nmstatestub),
-				network.WithMasqueradeAdapter(&masqstub),
+				netpod.WithNMStateAdapter(&nmstatestub),
+				netpod.WithMasqueradeAdapter(&masqstub),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -612,12 +612,12 @@ var _ = Describe("netpod", func() {
 
 		It("setup secondary bridge binding with ordered pod interfaces", func() {
 			nmstatestub.status.Interfaces[1].Name = secondaryPodInterfaceOrderedName
-			netPod := network.NewNetPod(
+			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
 				0, 0, 0,
-				network.WithNMStateAdapter(&nmstatestub),
-				network.WithMasqueradeAdapter(&masqstub),
+				netpod.WithNMStateAdapter(&nmstatestub),
+				netpod.WithMasqueradeAdapter(&masqstub),
 			)
 			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
@@ -724,14 +724,14 @@ var _ = Describe("netpod", func() {
 				},
 			}},
 		}}
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
 			}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstatestub),
+			netpod.WithNMStateAdapter(&nmstatestub),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
@@ -758,7 +758,7 @@ var _ = Describe("netpod", func() {
 				},
 			},
 		}}
-		netPod := network.NewNetPod(
+		netPod := netpod.NewNetPod(
 			[]v1.Network{
 				{
 					Name:          "somenet",
@@ -767,7 +767,7 @@ var _ = Describe("netpod", func() {
 			},
 			[]v1.Interface{{Name: "somenet", InterfaceBindingMethod: binding}},
 			0, 0, 0,
-			network.WithNMStateAdapter(&nmstatestub),
+			netpod.WithNMStateAdapter(&nmstatestub),
 		)
 		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(nmstate.Spec{Interfaces: []nmstate.Interface{}}))

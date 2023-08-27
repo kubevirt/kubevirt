@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package netpod
 
 import (
 	"encoding/json"
@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/netmachinery"
-	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"

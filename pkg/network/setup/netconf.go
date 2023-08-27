@@ -39,7 +39,8 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/netns"
-	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 )
 
 type cacheCreator interface {
@@ -91,13 +92,13 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		ownerID = util.NonRootUID
 	}
 	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
-	netpod := NewNetPod(
+	netpod := netpod.NewNetPod(
 		vmi.Spec.Networks,
 		vmi.Spec.Domain.Devices.Interfaces,
 		launcherPid,
 		ownerID,
 		queuesCapacity,
-		WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 	)
 	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
 
