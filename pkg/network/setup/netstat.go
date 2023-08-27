@@ -103,12 +103,6 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
 	)
 
-	// TODO this is needed since currently passt is configured directly via qemu so the passt interfaces are not in the libvirt domain
-	// once passt will be configured via libvirt, this code can be removed
-	interfacesStatus = append(interfacesStatus,
-		passtIfacesStatusFromVmiSpec(vmi.Spec.Domain.Devices.Interfaces)...,
-	)
-
 	var err error
 	if len(domain.Status.Interfaces) > 0 {
 		interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
@@ -257,22 +251,6 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 			vmiStatusIface.MAC = iface.MacAddress
 		}
 		vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
-	}
-	return vmiStatusIfaces
-}
-
-func passtIfacesStatusFromVmiSpec(interfaces []v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
-	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
-
-	for _, ifaceSpec := range interfaces {
-		if ifaceSpec.Passt != nil {
-			vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
-				Name:       ifaceSpec.Name,
-				InfoSource: netvmispec.InfoSourceDomain,
-			}
-			vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
-		}
-
 	}
 	return vmiStatusIfaces
 }
