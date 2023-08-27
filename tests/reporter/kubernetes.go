@@ -1208,6 +1208,7 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: "env", fileNameSuffix: "env"},
+		{command: "[ -f /var/run/kubevirt/passt.log ] && cat /var/run/kubevirt/passt.log", fileNameSuffix: "passt"},
 	}
 
 	if tests.IsRunningOnKindInfra() {
