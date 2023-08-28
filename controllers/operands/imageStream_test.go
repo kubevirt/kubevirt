@@ -132,7 +132,7 @@ var _ = Describe("imageStream tests", func() {
 			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 			eventEmitter := commontestutils.NewEventEmitterMock()
 			ci := commontestutils.ClusterInfoMock{}
-			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
+			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco, ci.GetCSV()})
 			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
 			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 
@@ -191,10 +191,10 @@ var _ = Describe("imageStream tests", func() {
 
 			hcoNamespace := commontestutils.NewHcoNamespace()
 			hco := commontestutils.NewHco()
-			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
+			ci := commontestutils.ClusterInfoMock{}
+			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco, ci.GetCSV()})
 
 			eventEmitter := commontestutils.NewEventEmitterMock()
-			ci := commontestutils.ClusterInfoMock{}
 			handler := NewOperandHandler(cli, commontestutils.GetScheme(), ci, eventEmitter)
 			handler.FirstUseInitiation(commontestutils.GetScheme(), ci, hco)
 

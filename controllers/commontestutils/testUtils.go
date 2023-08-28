@@ -162,6 +162,7 @@ func GetScheme() *runtime.Scheme {
 		operatorv1.Install,
 		openshiftconfigv1.Install,
 		mtqv1alpha1.AddToScheme,
+		csvv1alpha1.AddToScheme,
 	} {
 		Expect(f(testScheme)).ToNot(HaveOccurred())
 	}
@@ -226,6 +227,9 @@ var ( // own resources
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      RSName,
 			Namespace: Namespace,
+			Annotations: map[string]string{
+				components.DisableOperandDeletionAnnotation: "true",
+			},
 		},
 	}
 

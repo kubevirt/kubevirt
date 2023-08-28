@@ -11,6 +11,7 @@ import (
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsapiv2 "github.com/operator-framework/api/pkg/operators/v2"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -130,6 +131,7 @@ type BasicExpected struct {
 	consoleProxySvc      *corev1.Service
 	consolePlugin        *consolev1.ConsolePlugin
 	consoleConfig        *operatorv1.Console
+	csv                  *csvv1alpha1.ClusterServiceVersion
 }
 
 func (be BasicExpected) toArray() []client.Object {
@@ -156,6 +158,7 @@ func (be BasicExpected) toArray() []client.Object {
 		be.consoleProxySvc,
 		be.consolePlugin,
 		be.consoleConfig,
+		be.csv,
 	}
 }
 
@@ -303,6 +306,9 @@ func getBasicDeployment() *BasicExpected {
 		},
 	}
 	res.hcoCRD = hcoCrd
+
+	csv := hcoutil.GetClusterInfo().GetCSV()
+	res.csv = csv
 
 	return res
 }

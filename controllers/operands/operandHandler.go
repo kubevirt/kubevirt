@@ -73,6 +73,10 @@ func NewOperandHandler(client client.Client, scheme *runtime.Scheme, ci hcoutil.
 		operands = append(operands, (*genericOperand)(newServiceHandler(client, scheme, NewKvUIProxySvc)))
 	}
 
+	if ci.IsManagedByOLM() {
+		operands = append(operands, newCsvHandler(client, ci))
+	}
+
 	return &OperandHandler{
 		client:       client,
 		operands:     operands,

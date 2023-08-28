@@ -33,6 +33,8 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
+const DisableOperandDeletionAnnotation = "console.openshift.io/disable-operand-delete"
+
 const (
 	crName              = util.HyperConvergedName
 	packageName         = util.HyperConvergedName
@@ -507,7 +509,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		{
 			APIGroups: stringListToSlice("operators.coreos.com"),
 			Resources: stringListToSlice("clusterserviceversions"),
-			Verbs:     stringListToSlice("get", "list", "watch"),
+			Verbs:     stringListToSlice("get", "list", "watch", "update", "patch"),
 		},
 		{
 			APIGroups: stringListToSlice("scheduling.k8s.io"),
@@ -841,16 +843,16 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 			Name:      fmt.Sprintf("%v.v%v", params.Name, params.Version.String()),
 			Namespace: "placeholder",
 			Annotations: map[string]string{
-				"alm-examples":   string(almExamples),
-				"capabilities":   "Deep Insights",
-				"certified":      "false",
-				"categories":     "OpenShift Optional",
-				"containerImage": params.Image,
-				"console.openshift.io/disable-operand-delete": "true",
-				"createdAt":   time.Now().Format("2006-01-02 15:04:05"),
-				"description": params.MetaDescription,
-				"repository":  "https://github.com/kubevirt/hyperconverged-cluster-operator",
-				"support":     "false",
+				"alm-examples":                   string(almExamples),
+				"capabilities":                   "Deep Insights",
+				"certified":                      "false",
+				"categories":                     "OpenShift Optional",
+				"containerImage":                 params.Image,
+				DisableOperandDeletionAnnotation: "true",
+				"createdAt":                      time.Now().Format("2006-01-02 15:04:05"),
+				"description":                    params.MetaDescription,
+				"repository":                     "https://github.com/kubevirt/hyperconverged-cluster-operator",
+				"support":                        "false",
 				"operatorframework.io/suggested-namespace":       params.Namespace,
 				"operators.openshift.io/infrastructure-features": `["disconnected","proxy-aware"]`,
 				"operatorframework.io/initialization-resource":   string(almExamples),

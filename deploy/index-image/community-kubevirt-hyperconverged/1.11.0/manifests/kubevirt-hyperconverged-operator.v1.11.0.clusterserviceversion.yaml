@@ -391,6 +391,8 @@ spec:
           - get
           - list
           - watch
+          - update
+          - patch
         - apiGroups:
           - scheduling.k8s.io
           resources:
