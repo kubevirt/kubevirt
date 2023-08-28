@@ -718,7 +718,6 @@ rules:
   resources:
   - nodes
   verbs:
-  - patch
   - list
   - watch
   - get
