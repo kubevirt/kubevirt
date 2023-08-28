@@ -255,9 +255,15 @@ var _ = Describe("Workload Updater", func() {
 
 		It("should detect in-flight migrations when only migrate VMIs up to the global max migration count", func() {
 			const desiredNumberOfVMs = 50
+			const vmsPendingMigration = int(virtconfig.ParallelMigrationsPerClusterDefault)
 			kv := newKubeVirt(desiredNumberOfVMs)
 			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
 			addKubeVirt(kv)
+
+			By("populating with pending migrations that should be ignored while counting the threshold")
+			for i := 0; i < vmsPendingMigration; i++ {
+				migrationFeeder.Add(newMigration(fmt.Sprintf("vmim-pending-%d", i), fmt.Sprintf("testvm-migratable-pending-%d", i), v1.MigrationPending))
+			}
 
 			reasons := []string{}
 			for i := 0; i < desiredNumberOfVMs; i++ {
