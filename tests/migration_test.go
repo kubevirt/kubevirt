@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -112,11 +114,11 @@ import (
 )
 
 const (
-	fedoraVMSize         = "256M"
-	secretDiskSerial     = "D23YZ9W6WA5DJ487"
-	stressDefaultVMSize  = "100"
-	stressLargeVMSize    = "400"
-	stressDefaultTimeout = 1600
+	fedoraVMSize               = "256M"
+	secretDiskSerial           = "D23YZ9W6WA5DJ487"
+	stressDefaultVMSize        = "100M"
+	stressLargeVMSize          = "400M"
+	stressDefaultSleepDuration = 1600
 )
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] VM Live Migration", decorators.SigComputeMigrations, decorators.SigCompute, func() {
@@ -557,7 +559,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	runStressTest := func(vmi *v1.VirtualMachineInstance, vmsize string, stressTimeoutSeconds int) {
 		By("Run a stress test to dirty some pages and slow down the migration")
-		stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %sM --vm-keep --timeout %ds&\n", vmsize, stressTimeoutSeconds)
+		stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: console.PromptExpression},
@@ -647,11 +649,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 	})
 	Describe("Starting a VirtualMachineInstance ", func() {
-		guestAgentMigrationTestFunc := func(mode v1.MigrationMode, pvName string, memoryRequestSize resource.Quantity) {
+		guestAgentMigrationTestFunc := func(pvName string, memoryRequestSize resource.Quantity, migrationPolicy *migrationsv1.MigrationPolicy) {
 			By("Creating the VMI")
 			vmi := tests.NewRandomVMIWithPVC(pvName)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = memoryRequestSize
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			mode := v1.MigrationPreCopy
+			if migrationPolicy != nil && migrationPolicy.Spec.AllowPostCopy != nil && *migrationPolicy.Spec.AllowPostCopy {
+				mode = v1.MigrationPostCopy
+			}
 
 			// postcopy needs a privileged namespace
 			if mode == v1.MigrationPostCopy {
@@ -669,6 +676,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			disks := vmi.Spec.Domain.Devices.Disks
 			disks[len(disks)-1].Serial = secretDiskSerial
 
+			if migrationPolicy != nil {
+				tests.AlignPolicyAndVmi(vmi, migrationPolicy)
+				migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
+			}
 			vmi = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			// Wait for cloud init to finish and start the agent inside the vmi.
@@ -679,7 +690,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 			if mode == v1.MigrationPostCopy {
 				By("Running stress test to allow transition to post-copy")
-				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+				runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
 			}
 
 			// execute a migration, wait for finalized state
@@ -1406,7 +1417,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+				runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1714,7 +1725,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
-				guestAgentMigrationTestFunc(v1.MigrationPreCopy, dv.Name, resource.MustParse(fedoraVMSize))
+				guestAgentMigrationTestFunc(dv.Name, resource.MustParse(fedoraVMSize), nil)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
@@ -1991,7 +2002,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -2139,16 +2150,17 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 
-		Context("[Serial] migration postcopy", Serial, func() {
+		Context("migration postcopy", func() {
+
+			var migrationPolicy *migrationsv1.MigrationPolicy
 
 			BeforeEach(func() {
 				By("Allowing post-copy and limit migration bandwidth")
-				config := getCurrentKv()
-				config.MigrationConfiguration.AllowPostCopy = pointer.BoolPtr(true)
-				config.MigrationConfiguration.CompletionTimeoutPerGiB = pointer.Int64Ptr(1)
-				bandwidth := resource.MustParse("40Mi")
-				config.MigrationConfiguration.BandwidthPerMigration = &bandwidth
-				tests.UpdateKubeVirtConfigValueAndWait(config)
+				policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
+				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
+				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
+				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
 			})
 
 			Context("with datavolume", func() {
@@ -2178,43 +2190,68 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				})
 
 				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
-					guestAgentMigrationTestFunc(v1.MigrationPostCopy, dv.Name, resource.MustParse("1Gi"))
+					guestAgentMigrationTestFunc(dv.Name, resource.MustParse("1Gi"), migrationPolicy)
 				})
 
 			})
 
-			It("[test_id:4747] should migrate using cluster level config for postcopy", func() {
-				vmi := tests.NewRandomFedoraVMIWithGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-				vmi.Namespace = testsuite.NamespacePrivileged
+			Context("should migrate using for postcopy", func() {
 
-				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
+				applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
+					tests.AlignPolicyAndVmi(vmi, migrationPolicy)
+					migrationPolicy = tests.CreateMigrationPolicy(virtClient, migrationPolicy)
+				}
 
-				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				applyKubevirtCR := func() {
+					config := getCurrentKv()
+					config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
+					config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
+					config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
+					tests.UpdateKubeVirtConfigValueAndWait(config)
+				}
 
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				type applySettingsType string
+				const (
+					applyWithMigrationPolicy applySettingsType = "policy"
+					applyWithKubevirtCR      applySettingsType = "kubevirt"
+				)
 
-				runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+				DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
+					vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+					vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+					vmi.Namespace = testsuite.NamespacePrivileged
 
-				// execute a migration, wait for finalized state
-				By("Starting the Migration")
-				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 180)
+					switch settingsType {
+					case applyWithMigrationPolicy:
+						applyMigrationPolicy(vmi)
+					case applyWithKubevirtCR:
+						applyKubevirtCR()
+					}
 
-				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
-				confirmMigrationMode(vmi, v1.MigrationPostCopy)
+					By("Starting the VirtualMachineInstance")
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 240)
 
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+					By("Checking that the VirtualMachineInstance console has expected output")
+					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				By("Waiting for VMI to disappear")
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+					// Need to wait for cloud init to finish and start the agent inside the vmi.
+					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+					runStressTest(vmi, "350M", stressDefaultSleepDuration)
+
+					// execute a migration, wait for finalized state
+					By("Starting the Migration")
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, 150)
+
+					// check VMI, confirm migration state
+					tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+					confirmMigrationMode(vmi, v1.MigrationPostCopy)
+				},
+					Entry("a migration policy", applyWithMigrationPolicy),
+					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
+				)
 			})
 		})
 
@@ -2266,7 +2303,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					runStressTest(vmi, stressLargeVMSize, stressDefaultTimeout)
+					runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -3195,7 +3232,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				var expectedPolicyName *string
 				if defineMigrationPolicy {
 					By("Creating a migration policy that overrides cluster policy")
-					policy := tests.PreparePolicyAndVMI(vmi)
+					policy := tests.GeneratePolicyAndAlignVMI(vmi)
 					policy.Spec.AllowAutoConverge = pointer.BoolPtr(false)
 
 					_, err := virtClient.MigrationPolicy().Create(context.Background(), policy, metav1.CreateOptions{})
@@ -3433,7 +3470,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+				runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -3553,7 +3590,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Put VMI under load
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultTimeout)
+					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
 					// Mark the masters as schedulable so we can migrate there
 					setControlPlaneUnschedulable(false)

@@ -1644,7 +1644,7 @@ var _ = Describe("Migration watcher", func() {
 				policies := make([]migrationsv1.MigrationPolicy, 0)
 
 				for _, info := range policiesToDefine {
-					policy := tests.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, info.vmiMatchingLabels, info.namespaceMatchingLabels)
+					policy := tests.PreparePolicyAndVMIWithNSAndVMILabels(vmi, &namespace, info.vmiMatchingLabels, info.namespaceMatchingLabels)
 					policy.Name = info.name
 					policies = append(policies, *policy)
 				}
@@ -1667,7 +1667,7 @@ var _ = Describe("Migration watcher", func() {
 			It("policy with one non-fitting label should not match", func() {
 				const labelKeyFmt = "%s-key-0"
 
-				policy := tests.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, 4, 3)
+				policy := tests.PreparePolicyAndVMIWithNSAndVMILabels(vmi, &namespace, 4, 3)
 				_, exists := policy.Spec.Selectors.VirtualMachineInstanceSelector[fmt.Sprintf(labelKeyFmt, policy.Name)]
 				Expect(exists).To(BeTrue())
 
@@ -1689,8 +1689,8 @@ var _ = Describe("Migration watcher", func() {
 				numberOfLabels := rand.Intn(5) + 1
 
 				By(fmt.Sprintf("Defining two policies with %d labels, one with VMI labels and one with NS labels", numberOfLabels))
-				policyWithNSLabels := tests.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, 0, numberOfLabels)
-				policyWithVmiLabels := tests.PreparePolicyAndVMIWithNsAndVmiLabels(vmi, &namespace, numberOfLabels, 0)
+				policyWithNSLabels := tests.PreparePolicyAndVMIWithNSAndVMILabels(vmi, &namespace, 0, numberOfLabels)
+				policyWithVmiLabels := tests.PreparePolicyAndVMIWithNSAndVMILabels(vmi, &namespace, numberOfLabels, 0)
 
 				policyList := kubecli.NewMinimalMigrationPolicyList(*policyWithNSLabels, *policyWithVmiLabels)
 
@@ -1702,7 +1702,7 @@ var _ = Describe("Migration watcher", func() {
 
 		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
 			By("Defining migration policy, matching it to vmi to posting it into the cluster")
-			migrationPolicy := tests.PreparePolicyAndVMI(vmi)
+			migrationPolicy := tests.GeneratePolicyAndAlignVMI(vmi)
 			defineMigrationPolicy(&migrationPolicy.Spec)
 			addMigrationPolicies(*migrationPolicy)
 

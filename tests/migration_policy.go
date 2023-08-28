@@ -19,22 +19,25 @@ import (
 )
 
 // If matchingNSLabels is zero, namespace parameter is being ignored and can be nil
-func PreparePolicyAndVMIWithNsAndVmiLabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
-	Expect(vmi).ToNot(BeNil())
+func PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int, policy *migrationsv1.MigrationPolicy) *migrationsv1.MigrationPolicy {
+	ExpectWithOffset(1, vmi).ToNot(BeNil())
 	if matchingNSLabels > 0 {
-		Expect(namespace).ToNot(BeNil())
+		ExpectWithOffset(1, namespace).ToNot(BeNil())
 	}
 
-	policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
-	policy := kubecli.NewMinimalMigrationPolicy(policyName)
+	var policyName string
+	if policy == nil {
+		policyName = fmt.Sprintf("testpolicy-%s", rand.String(5))
+		policy = kubecli.NewMinimalMigrationPolicy(policyName)
+	} else {
+		policyName = policy.Name
+		ExpectWithOffset(1, policyName).ToNot(BeEmpty())
+	}
+
 	if policy.Labels == nil {
 		policy.Labels = map[string]string{}
 	}
 	policy.Labels[cleanup.TestLabelForNamespace(util2.NamespaceTestDefault)] = ""
-
-	if vmi.Labels == nil {
-		vmi.Labels = make(map[string]string)
-	}
 
 	var namespaceLabels map[string]string
 	if namespace != nil {
@@ -43,6 +46,10 @@ func PreparePolicyAndVMIWithNsAndVmiLabels(vmi *v1.VirtualMachineInstance, names
 		}
 
 		namespaceLabels = namespace.Labels
+	}
+
+	if vmi.Labels == nil {
+		vmi.Labels = make(map[string]string)
 	}
 
 	if policy.Spec.Selectors == nil {
@@ -70,23 +77,32 @@ func PreparePolicyAndVMIWithNsAndVmiLabels(vmi *v1.VirtualMachineInstance, names
 	}
 
 	applyLabels(policy.Spec.Selectors.VirtualMachineInstanceSelector, vmi.Labels, matchingVmiLabels)
-	applyLabels(policy.Spec.Selectors.NamespaceSelector, namespaceLabels, matchingNSLabels)
 
 	if namespace != nil {
+		applyLabels(policy.Spec.Selectors.NamespaceSelector, namespaceLabels, matchingNSLabels)
 		namespace.Labels = namespaceLabels
 	}
 
 	return policy
 }
 
-// PreparePolicyAndVMI mutates the given vmi parameter by adding labels to it. Therefore, it's recommended
+func PreparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
+	return PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi, namespace, matchingVmiLabels, matchingNSLabels, nil)
+}
+
+// GeneratePolicyAndAlignVMI mutates the given vmi parameter by adding labels to it. Therefore, it's recommended
 // to use this function before creating the vmi. Otherwise, its labels need to be updated.
-func PreparePolicyAndVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
-	return PreparePolicyAndVMIWithNsAndVmiLabels(vmi, nil, 1, 0)
+func GeneratePolicyAndAlignVMI(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+	return PreparePolicyAndVMIWithNSAndVMILabels(vmi, nil, 1, 0)
+}
+
+// AlignPolicyAndVmi is expected to be called on objects before they're created.
+func AlignPolicyAndVmi(vmi *v1.VirtualMachineInstance, policy *migrationsv1.MigrationPolicy) {
+	PreparePolicyAndVMIWithNSAndVMILabelsWithPreexistingPolicy(vmi, nil, 1, 0, policy)
 }
 
 func PreparePolicyAndVMIWithBandwidthLimitation(vmi *v1.VirtualMachineInstance, bandwidth resource.Quantity) *migrationsv1.MigrationPolicy {
-	policy := PreparePolicyAndVMI(vmi)
+	policy := GeneratePolicyAndAlignVMI(vmi)
 	policy.Spec.BandwidthPerMigration = &bandwidth
 
 	return policy
