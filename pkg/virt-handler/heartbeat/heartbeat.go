@@ -35,6 +35,9 @@ type HeartBeat struct {
 	cpuManagerPaths           []string
 	devicePluginPollIntervall time.Duration
 	devicePluginWaitTimeout   time.Duration
+	// Indicates if "Node" object needs to be updated or ShadowNode is fully functional
+	// This is optimization because heartbeat is executed more often than any Node update
+	updateNodeHeartBeat bool
 }
 
 func NewHeartBeat(shadowClient kubecli.ShadowNodeInterface, nodeClient k8scli.NodeInterface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
@@ -48,6 +51,8 @@ func NewHeartBeat(shadowClient kubecli.ShadowNodeInterface, nodeClient k8scli.No
 		cpuManagerPaths:           []string{virtutil.CPUManagerPath, virtutil.CPUManagerOS3Path},
 		devicePluginPollIntervall: 1 * time.Second,
 		devicePluginWaitTimeout:   10 * time.Second,
+
+		updateNodeHeartBeat: true,
 	}
 }
 
@@ -162,14 +167,16 @@ func (h *HeartBeat) do() {
 		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
 	// TODO: This can be safely removed once we do not support upgrade from a version that does not have Shadow Node
-	_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
-	if err != nil {
-		if !errors.IsForbidden(err) {
-			log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+	if h.updateNodeHeartBeat {
+		_, err = h.nodeClientSet.Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+		if err != nil {
+			if errors.IsForbidden(err) {
+				h.updateNodeHeartBeat = false
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
+			}
 		}
-
 	}
-
 	_, err = h.shadowNodeClient.Patch(context.TODO(), h.host, types.MergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)

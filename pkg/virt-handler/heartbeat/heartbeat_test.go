@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
@@ -48,45 +48,72 @@ var _ = Describe("Heartbeat", func() {
 	})
 	Context("upgrade/downgrade", func() {
 
-		PIt("should patch node if RBAC allows it", func() {
-			nodePatchCountA := atomic.Int64{}
-			shadowNodePatchCountA := atomic.Int64{}
+		DescribeTable("should patch node if RBAC allows it", func(failureFormat string, allowNodePatch bool, match func(node, shadowNode int) bool) {
+			nodePatchCountA := 0
+			shadowNodePatchCountA := 0
 
-			fakeK8sClient.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				nodePatchCountA.Add(1)
-				return true, nil, nil
+			fakeK8sClient.PrependReactor("patch", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				nodePatchCountA += 1
+				if allowNodePatch {
+					return true, nil, nil
+				}
+				return true, nil, errors.NewForbidden(v1.Resource("node"), "mynode", fmt.Errorf("RBAC missing"))
 			})
+
+			stopService := make(chan struct{})
 			fakeClient.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				shadowNodePatchCountA.Add(1)
+				shadowNodePatchCountA += 1
+				if match(nodePatchCountA, shadowNodePatchCountA) {
+					select {
+					case stopService <- struct{}{}:
+					default:
+					}
+				}
 				return true, nil, nil
 			})
 
 			heartbeat := NewHeartBeat(fakeClient.KubevirtV1().ShadowNodes(), fakeK8sClient.CoreV1().Nodes(), deviceController(true), config(), "mynode")
+
+			timeout := time.NewTicker(2 * time.Second)
+			DeferCleanup(func() { timeout.Stop() })
+
 			stopChan := make(chan struct{})
-
-			nodePatchCount := 0
-			shadowNodePatchCount := 0
-
-			_ = heartbeat.Run(100*time.Millisecond, stopChan)
-			DeferCleanup(func() { close(stopChan) })
-			ticker := time.NewTicker(100 * time.Millisecond)
-			timeout := time.NewTicker(10 * 100 * time.Millisecond)
-
-			DeferCleanup(func() { ticker.Stop(); timeout.Stop() })
-			for _ = range ticker.C {
-				nodePatchCount = int(nodePatchCountA.Load())
-				shadowNodePatchCount = int(shadowNodePatchCountA.Load())
+			DeferCleanup(func() {
 				select {
-				case <-timeout.C:
-					Fail(fmt.Sprintf("%d node patch count needs to be == %d shadownode path count", nodePatchCount, shadowNodePatchCount))
+				case _, ok := <-stopChan:
+					if ok {
+						close(stopChan)
+					}
 				default:
 				}
+			})
 
-				if nodePatchCount > 2 && nodePatchCount == shadowNodePatchCount {
-					return
+			// To prevent double close
+			go func() {
+				<-stopService
+				close(stopChan)
+			}()
+			done := heartbeat.Run(100*time.Millisecond, stopChan)
+			// ticker := time.NewTicker(200 * time.Millisecond)
+			select {
+			case <-timeout.C:
+				select {
+				case stopService <- struct{}{}:
+					<-done
+				default:
+					<-done
 				}
+			case <-done:
 			}
-		})
+
+			// -1 because shutdown of hearbeat does one more update
+			if !match(nodePatchCountA-1, shadowNodePatchCountA-1) {
+				Fail(fmt.Sprintf(failureFormat, nodePatchCountA, shadowNodePatchCountA))
+			}
+		},
+			Entry("equally node and shadow node", "%d node patch count needs to be == %d shadownode path count", true, func(node, shadownode int) bool { return node > 2 && node == shadownode }),
+			Entry("node should be attemped only once", "%d node patch count needs to be == 1 && < %d shadownode path count", false, func(node, shadownode int) bool { return node == 1 && shadownode > node }),
+		)
 	})
 
 	Context("upon finishing", func() {
