@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/blang/semver/v4"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -21,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/loader"
@@ -204,10 +205,6 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 								},
 							},
 							{
-								Name:  "WATCH_NAMESPACE",
-								Value: "",
-							},
-							{
 								Name:  "VIRTIOWIN_CONTAINER",
 								Value: params.VirtIOWinContainer,
 							},
@@ -325,7 +322,7 @@ func getLabels(name, hcoKvIoVersion string) map[string]string {
 
 func GetStdPodSecurityContext() *v1.PodSecurityContext {
 	return &v1.PodSecurityContext{
-		RunAsNonRoot: pointer.Bool(true),
+		RunAsNonRoot: ptr.To(true),
 		SeccompProfile: &v1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
@@ -334,7 +331,7 @@ func GetStdPodSecurityContext() *v1.PodSecurityContext {
 
 func GetStdContainerSecurityContext() *v1.SecurityContext {
 	return &v1.SecurityContext{
-		AllowPrivilegeEscalation: pointer.Bool(false),
+		AllowPrivilegeEscalation: ptr.To(false),
 		Capabilities: &v1.Capabilities{
 			Drop: []v1.Capability{"ALL"},
 		},
@@ -408,10 +405,6 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 										FieldPath: "metadata.name",
 									},
 								},
-							},
-							{
-								Name:  "WATCH_NAMESPACE",
-								Value: "",
 							},
 						}, env...),
 						Resources: v1.ResourceRequirements{
@@ -811,7 +804,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 			},
 		},
-		WebhookPath: pointer.String(util.HCONSWebhookPath),
+		WebhookPath: ptr.To(util.HCONSWebhookPath),
 	}
 
 	mutatingHyperConvergedWebhook := csvv1alpha1.WebhookDescription{
@@ -836,7 +829,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				},
 			},
 		},
-		WebhookPath: pointer.String(util.HCOMutatingWebhookPath),
+		WebhookPath: ptr.To(util.HCOMutatingWebhookPath),
 	}
 
 	return &csvv1alpha1.ClusterServiceVersion{

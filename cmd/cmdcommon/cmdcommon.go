@@ -92,16 +92,6 @@ func (h HcCmdHelper) RegisterPPROFServer(mgr manager.Manager) error {
 	}))
 }
 
-func (h HcCmdHelper) GetWatchNS() string {
-	if !h.runInLocal {
-		watchNamespace, err := hcoutil.GetWatchNamespace()
-		h.ExitOnError(err, "Failed to get watch namespace")
-		return watchNamespace
-	}
-
-	return ""
-}
-
 func (h HcCmdHelper) ExitOnError(err error, message string, keysAndValues ...interface{}) {
 	if err != nil {
 		h.Logger.Error(err, message, keysAndValues...)

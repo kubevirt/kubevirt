@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
@@ -166,8 +166,8 @@ func getDeploymentReference(deployment *appsv1.Deployment) metav1.OwnerReference
 		Kind:               "Deployment",
 		Name:               deployment.GetName(),
 		UID:                deployment.GetUID(),
-		BlockOwnerDeletion: pointer.Bool(false),
-		Controller:         pointer.Bool(false),
+		BlockOwnerDeletion: ptr.To(false),
+		Controller:         ptr.To(false),
 	}
 }
 

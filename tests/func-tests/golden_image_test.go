@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -353,7 +353,7 @@ func getDICT() hcov1beta1.DataImportCronTemplate {
 					Source: &cdiv1beta1.DataVolumeSource{
 						Registry: &cdiv1beta1.DataVolumeSourceRegistry{
 							PullMethod: &pullMethod,
-							URL:        pointer.String("docker://quay.io/containerdisks/centos:7-2009"),
+							URL:        ptr.To("docker://quay.io/containerdisks/centos:7-2009"),
 						},
 					},
 					Storage: &cdiv1beta1.StorageSpec{

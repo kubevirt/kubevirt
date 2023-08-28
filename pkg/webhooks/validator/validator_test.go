@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -291,7 +291,7 @@ var _ = Describe("webhooks validator", func() {
 						Template: cdiv1beta1.DataVolume{
 							Spec: cdiv1beta1.DataVolumeSpec{
 								Source: &cdiv1beta1.DataVolumeSource{
-									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image1")},
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image1")},
 								},
 							},
 						},
@@ -306,7 +306,7 @@ var _ = Describe("webhooks validator", func() {
 						Template: cdiv1beta1.DataVolume{
 							Spec: cdiv1beta1.DataVolumeSpec{
 								Source: &cdiv1beta1.DataVolumeSource{
-									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image2")},
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image2")},
 								},
 							},
 						},
@@ -321,7 +321,7 @@ var _ = Describe("webhooks validator", func() {
 						Template: cdiv1beta1.DataVolume{
 							Spec: cdiv1beta1.DataVolumeSpec{
 								Source: &cdiv1beta1.DataVolumeSource{
-									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image3")},
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image3")},
 								},
 							},
 						},
@@ -336,7 +336,7 @@ var _ = Describe("webhooks validator", func() {
 						Template: cdiv1beta1.DataVolume{
 							Spec: cdiv1beta1.DataVolumeSpec{
 								Source: &cdiv1beta1.DataVolumeSource{
-									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: pointer.String("docker://someregistry/image4")},
+									Registry: &cdiv1beta1.DataVolumeSourceRegistry{URL: ptr.To("docker://someregistry/image4")},
 								},
 							},
 						},
@@ -1867,7 +1867,7 @@ func initiateTimeout(_ client.Object) error {
 func newRequest(operation admissionv1.Operation, cr *v1beta1.HyperConverged, encoder runtime.Encoder, dryrun bool) admission.Request {
 	req := admission.Request{
 		AdmissionRequest: admissionv1.AdmissionRequest{
-			DryRun:    pointer.Bool(dryrun),
+			DryRun:    ptr.To(dryrun),
 			Operation: operation,
 			Resource: metav1.GroupVersionResource{
 				Group:    v1beta1.SchemeGroupVersion.Group,

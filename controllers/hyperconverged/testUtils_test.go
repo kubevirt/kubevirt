@@ -20,7 +20,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -211,8 +211,8 @@ func getBasicDeployment() *BasicExpected {
 		Kind:               "Deployment",
 		Name:               "hco-operator",
 		UID:                "1234567890",
-		BlockOwnerDeletion: pointer.Bool(false),
-		Controller:         pointer.Bool(false),
+		BlockOwnerDeletion: ptr.To(false),
+		Controller:         ptr.To(false),
 	}
 	res.mService = alerts.NewMetricsService(namespace, deploymentRef)
 	res.serviceMonitor = alerts.NewServiceMonitor(namespace, deploymentRef)

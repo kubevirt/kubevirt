@@ -12,13 +12,19 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
 type ImageTagMirrorSet struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
 	// +kubebuilder:validation:Required
 	// +required
 	Spec ImageTagMirrorSetSpec `json:"spec"`
+	// status contains the observed state of the resource.
+	// +optional
+	Status ImageTagMirrorSetStatus `json:"status,omitempty"`
 }
 
 // ImageTagMirrorSetSpec is the specification of the ImageTagMirrorSet CRD.
@@ -53,6 +59,8 @@ type ImageTagMirrorSetSpec struct {
 	ImageTagMirrors []ImageTagMirrors `json:"imageTagMirrors"`
 }
 
+type ImageTagMirrorSetStatus struct{}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ImageTagMirrorSetList lists the items in the ImageTagMirrorSet CRD.
@@ -61,6 +69,9 @@ type ImageTagMirrorSetSpec struct {
 // +openshift:compatibility-gen:level=1
 type ImageTagMirrorSetList struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard list's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
 	Items []ImageTagMirrorSet `json:"items"`

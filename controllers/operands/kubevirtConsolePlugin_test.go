@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 
@@ -269,7 +269,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			outdatedResource.ObjectMeta.UID = "oldObjectUID"
 			outdatedResource.ObjectMeta.ResourceVersion = "1234"
 
-			outdatedResource.Spec.Replicas = pointer.Int32(123)
+			outdatedResource.Spec.Replicas = ptr.To(int32(123))
 			outdatedResource.Spec.Template.Spec.Containers[0].Image = "quay.io/fake/image:latest"
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})

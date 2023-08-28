@@ -5,7 +5,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,7 +43,7 @@ var _ = Describe("imageStream tests", func() {
 
 	Context("test imageStreamHandler", func() {
 		It("should not create the ImageStream resource if the FG is not set", func() {
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(false)
 
 			getImageStreamFileLocation = func() string {
 				return testFilesLocation
@@ -70,7 +70,7 @@ var _ = Describe("imageStream tests", func() {
 		})
 
 		It("should delete the ImageStream resource if the FG is not set", func() {
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(false)
 
 			getImageStreamFileLocation = func() string {
 				return testFilesLocation
@@ -129,7 +129,7 @@ var _ = Describe("imageStream tests", func() {
 
 			hcoNamespace := commontestutils.NewHcoNamespace()
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 			eventEmitter := commontestutils.NewEventEmitterMock()
 			ci := commontestutils.ClusterInfoMock{}
 			cli := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
@@ -155,7 +155,7 @@ var _ = Describe("imageStream tests", func() {
 
 			By("Run again, this time when the FG is false")
 			eventEmitter.Reset()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(false)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(false)
 			req = commontestutils.NewReq(hco)
 			Expect(handler.Ensure(req)).To(Succeed())
 
@@ -221,7 +221,7 @@ var _ = Describe("imageStream tests", func() {
 			}
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 			cli := commontestutils.InitClient([]client.Object{hco})
 			handlers, err := getImageStreamHandlers(logger, cli, schemeForTest, hco)
 			Expect(err).ToNot(HaveOccurred())
@@ -275,7 +275,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)
 				res := handlers[0].ensure(req)
@@ -339,7 +339,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)
@@ -412,7 +412,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)
@@ -481,7 +481,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)
@@ -550,7 +550,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)
@@ -620,7 +620,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)
@@ -689,7 +689,7 @@ var _ = Describe("imageStream tests", func() {
 			Expect(imageStreamNames).To(ContainElement("test-image-stream"))
 
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.EnableCommonBootImageImport = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
 			By("apply the ImageStream CRs", func() {
 				req := commontestutils.NewReq(hco)

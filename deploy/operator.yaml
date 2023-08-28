@@ -42,7 +42,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: WATCH_NAMESPACE
         - name: VIRTIOWIN_CONTAINER
           value: quay.io/kubevirt/virtio-container-disk@sha256:f8e71a3a930ce95d646d80862d5ff6f9d3ed7ef2541dd2e2acec0bce26274734
         - name: SMBIOS
@@ -143,7 +142,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        - name: WATCH_NAMESPACE
         image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.11.0-unstable
         imagePullPolicy: IfNotPresent
         livenessProbe:

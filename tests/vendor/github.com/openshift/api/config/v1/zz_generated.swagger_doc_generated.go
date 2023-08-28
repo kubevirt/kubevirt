@@ -266,9 +266,10 @@ func (StringSourceSpec) SwaggerDoc() map[string]string {
 }
 
 var map_APIServer = map[string]string{
-	"":       "APIServer holds configuration (like serving certificates, client CA and CORS domains) shared by all API servers in the system, among them especially kube-apiserver and openshift-apiserver. The canonical name of an instance is 'cluster'.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "APIServer holds configuration (like serving certificates, client CA and CORS domains) shared by all API servers in the system, among them especially kube-apiserver and openshift-apiserver. The canonical name of an instance is 'cluster'.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (APIServer) SwaggerDoc() map[string]string {
@@ -284,7 +285,8 @@ func (APIServerEncryption) SwaggerDoc() map[string]string {
 }
 
 var map_APIServerList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (APIServerList) SwaggerDoc() map[string]string {
@@ -342,9 +344,10 @@ func (AuditCustomRule) SwaggerDoc() map[string]string {
 }
 
 var map_Authentication = map[string]string{
-	"":       "Authentication specifies cluster-wide settings for authentication (like OAuth and webhook token authenticators). The canonical name of an instance is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Authentication specifies cluster-wide settings for authentication (like OAuth and webhook token authenticators). The canonical name of an instance is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Authentication) SwaggerDoc() map[string]string {
@@ -352,7 +355,8 @@ func (Authentication) SwaggerDoc() map[string]string {
 }
 
 var map_AuthenticationList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (AuthenticationList) SwaggerDoc() map[string]string {
@@ -364,7 +368,7 @@ var map_AuthenticationSpec = map[string]string{
 	"oauthMetadata":              "oauthMetadata contains the discovery endpoint data for OAuth 2.0 Authorization Server Metadata for an external OAuth server. This discovery document can be viewed from its served location: oc get --raw '/.well-known/oauth-authorization-server' For further details, see the IETF Draft: https://tools.ietf.org/html/draft-ietf-oauth-discovery-04#section-2 If oauthMetadata.name is non-empty, this value has precedence over any metadata reference stored in status. The key \"oauthMetadata\" is used to locate the data. If specified and the config map or expected key is not found, no metadata is served. If the specified metadata is not valid, no metadata is served. The namespace for this config map is openshift-config.",
 	"webhookTokenAuthenticators": "webhookTokenAuthenticators is DEPRECATED, setting it has no effect.",
 	"webhookTokenAuthenticator":  "webhookTokenAuthenticator configures a remote token reviewer. These remote authentication webhooks can be used to verify bearer tokens via the tokenreviews.authentication.k8s.io REST API. This is required to honor bearer tokens that are provisioned by an external authentication service.",
-	"serviceAccountIssuer":       "serviceAccountIssuer is the identifier of the bound service account token issuer. The default is https://kubernetes.default.svc WARNING: Updating this field will result in the invalidation of all bound tokens with the previous issuer value. Unless the holder of a bound token has explicit support for a change in issuer, they will not request a new bound token until pod restart or until their existing token exceeds 80% of its duration.",
+	"serviceAccountIssuer":       "serviceAccountIssuer is the identifier of the bound service account token issuer. The default is https://kubernetes.default.svc WARNING: Updating this field will not result in immediate invalidation of all bound tokens with the previous issuer value. Instead, the tokens issued by previous service account issuer will continue to be trusted for a time period chosen by the platform (currently set to 24h). This time period is subject to change over time. This allows internal components to transition to use new service account issuer without service distruption.",
 }
 
 func (AuthenticationSpec) SwaggerDoc() map[string]string {
@@ -398,8 +402,9 @@ func (WebhookTokenAuthenticator) SwaggerDoc() map[string]string {
 }
 
 var map_Build = map[string]string{
-	"":     "Build configures the behavior of OpenShift builds for the entire cluster. This includes default settings that can be overridden in BuildConfig objects, and overrides which are applied to all builds.\n\nThe canonical name is \"cluster\"\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec": "Spec holds user-settable values for the build controller configuration",
+	"":         "Build configures the behavior of OpenShift builds for the entire cluster. This includes default settings that can be overridden in BuildConfig objects, and overrides which are applied to all builds.\n\nThe canonical name is \"cluster\"\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "Spec holds user-settable values for the build controller configuration",
 }
 
 func (Build) SwaggerDoc() map[string]string {
@@ -419,7 +424,8 @@ func (BuildDefaults) SwaggerDoc() map[string]string {
 }
 
 var map_BuildList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (BuildList) SwaggerDoc() map[string]string {
@@ -457,9 +463,10 @@ func (ImageLabel) SwaggerDoc() map[string]string {
 }
 
 var map_ClusterOperator = map[string]string{
-	"":       "ClusterOperator is the Custom Resource object which holds the current state of an operator. This object is used by operators to convey their state to the rest of the cluster.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds configuration that could apply to any operator.",
-	"status": "status holds the information about the state of an operator.  It is consistent with status information across the Kubernetes ecosystem.",
+	"":         "ClusterOperator is the Custom Resource object which holds the current state of an operator. This object is used by operators to convey their state to the rest of the cluster.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds configuration that could apply to any operator.",
+	"status":   "status holds the information about the state of an operator.  It is consistent with status information across the Kubernetes ecosystem.",
 }
 
 func (ClusterOperator) SwaggerDoc() map[string]string {
@@ -467,7 +474,8 @@ func (ClusterOperator) SwaggerDoc() map[string]string {
 }
 
 var map_ClusterOperatorList = map[string]string{
-	"": "ClusterOperatorList is a list of OperatorStatus resources.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "ClusterOperatorList is a list of OperatorStatus resources.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ClusterOperatorList) SwaggerDoc() map[string]string {
@@ -539,9 +547,10 @@ func (ClusterCondition) SwaggerDoc() map[string]string {
 }
 
 var map_ClusterVersion = map[string]string{
-	"":       "ClusterVersion is the configuration for the ClusterVersionOperator. This is where parameters related to automatic updates can be set.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec is the desired state of the cluster version - the operator will work to ensure that the desired version is applied to the cluster.",
-	"status": "status contains information about the available updates and any in-progress updates.",
+	"":         "ClusterVersion is the configuration for the ClusterVersionOperator. This is where parameters related to automatic updates can be set.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec is the desired state of the cluster version - the operator will work to ensure that the desired version is applied to the cluster.",
+	"status":   "status contains information about the available updates and any in-progress updates.",
 }
 
 func (ClusterVersion) SwaggerDoc() map[string]string {
@@ -569,7 +578,8 @@ func (ClusterVersionCapabilitiesStatus) SwaggerDoc() map[string]string {
 }
 
 var map_ClusterVersionList = map[string]string{
-	"": "ClusterVersionList is a list of ClusterVersion resources.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "ClusterVersionList is a list of ClusterVersion resources.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ClusterVersionList) SwaggerDoc() map[string]string {
@@ -579,7 +589,7 @@ func (ClusterVersionList) SwaggerDoc() map[string]string {
 var map_ClusterVersionSpec = map[string]string{
 	"":              "ClusterVersionSpec is the desired version state of the cluster. It includes the version the cluster should be at, how the cluster is identified, and where the cluster should look for version updates.",
 	"clusterID":     "clusterID uniquely identifies this cluster. This is expected to be an RFC4122 UUID value (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx in hexadecimal values). This is a required field.",
-	"desiredUpdate": "desiredUpdate is an optional field that indicates the desired value of the cluster version. Setting this value will trigger an upgrade (if the current version does not match the desired version). The set of recommended update values is listed as part of available updates in status, and setting values outside that range may cause the upgrade to fail. You may specify the version field without setting image if an update exists with that version in the availableUpdates or history.\n\nIf an upgrade fails the operator will halt and report status about the failing component. Setting the desired update value back to the previous version will cause a rollback to be attempted. Not all rollbacks will succeed.",
+	"desiredUpdate": "desiredUpdate is an optional field that indicates the desired value of the cluster version. Setting this value will trigger an upgrade (if the current version does not match the desired version). The set of recommended update values is listed as part of available updates in status, and setting values outside that range may cause the upgrade to fail.\n\nSome of the fields are inter-related with restrictions and meanings described here. 1. image is specified, version is specified, architecture is specified. API validation error. 2. image is specified, version is specified, architecture is not specified. You should not do this. version is silently ignored and image is used. 3. image is specified, version is not specified, architecture is specified. API validation error. 4. image is specified, version is not specified, architecture is not specified. image is used. 5. image is not specified, version is specified, architecture is specified. version and desired architecture are used to select an image. 6. image is not specified, version is specified, architecture is not specified. version and current architecture are used to select an image. 7. image is not specified, version is not specified, architecture is specified. API validation error. 8. image is not specified, version is not specified, architecture is not specified. API validation error.\n\nIf an upgrade fails the operator will halt and report status about the failing component. Setting the desired update value back to the previous version will cause a rollback to be attempted. Not all rollbacks will succeed.",
 	"upstream":      "upstream may be used to specify the preferred update server. By default it will use the appropriate update server for the cluster and region.",
 	"channel":       "channel is an identifier for explicitly requesting that a non-default set of updates be applied to this cluster. The default channel will be contain stable updates that are appropriate for production clusters.",
 	"capabilities":  "capabilities configures the installation of optional, core cluster components.  A null value here is identical to an empty object; see the child properties for default semantics.",
@@ -653,7 +663,7 @@ func (PromQLClusterCondition) SwaggerDoc() map[string]string {
 
 var map_Release = map[string]string{
 	"":         "Release represents an OpenShift release image and associated metadata.",
-	"version":  "version is a semantic versioning identifying the update version. When this field is part of spec, version is optional if image is specified.",
+	"version":  "version is a semantic version identifying the update version. When this field is part of spec, version is optional if image is specified.",
 	"image":    "image is a container image location that contains the update. When this field is part of spec, image is optional if version is specified and the availableUpdates field contains a matching version.",
 	"url":      "url contains information about this release. This URL is set by the 'url' metadata property on a release or the metadata returned by the update API and should be displayed as a link in user interfaces. The URL field may not be set for test or nightly releases.",
 	"channels": "channels is the set of Cincinnati channels to which the release currently belongs.",
@@ -664,10 +674,11 @@ func (Release) SwaggerDoc() map[string]string {
 }
 
 var map_Update = map[string]string{
-	"":        "Update represents an administrator update request.",
-	"version": "version is a semantic versioning identifying the update version. When this field is part of spec, version is optional if image is specified.",
-	"image":   "image is a container image location that contains the update. When this field is part of spec, image is optional if version is specified and the availableUpdates field contains a matching version.",
-	"force":   "force allows an administrator to update to an image that has failed verification or upgradeable checks. This option should only be used when the authenticity of the provided image has been verified out of band because the provided image will run with full administrative access to the cluster. Do not use this flag with images that comes from unknown or potentially malicious sources.",
+	"":             "Update represents an administrator update request.",
+	"architecture": "architecture is an optional field that indicates the desired value of the cluster architecture. In this context cluster architecture means either a single architecture or a multi architecture. architecture can only be set to Multi thereby only allowing updates from single to multi architecture. If architecture is set, image cannot be set and version must be set. Valid values are 'Multi' and empty.",
+	"version":      "version is a semantic version identifying the update version. version is ignored if image is specified and required if architecture is specified.",
+	"image":        "image is a container image location that contains the update. image should be used when the desired version does not exist in availableUpdates or history. When image is set, version is ignored. When image is set, version should be empty. When image is set, architecture cannot be specified.",
+	"force":        "force allows an administrator to update to an image that has failed verification or upgradeable checks. This option should only be used when the authenticity of the provided image has been verified out of band because the provided image will run with full administrative access to the cluster. Do not use this flag with images that comes from unknown or potentially malicious sources.",
 }
 
 func (Update) SwaggerDoc() map[string]string {
@@ -679,7 +690,7 @@ var map_UpdateHistory = map[string]string{
 	"state":          "state reflects whether the update was fully applied. The Partial state indicates the update is not fully applied, while the Completed state indicates the update was successfully rolled out at least once (all parts of the update successfully applied).",
 	"startedTime":    "startedTime is the time at which the update was started.",
 	"completionTime": "completionTime, if set, is when the update was fully applied. The update that is currently being applied will have a null completion time. Completion time will always be set for entries that are not the current update (usually to the started time of the next update).",
-	"version":        "version is a semantic versioning identifying the update version. If the requested image does not define a version, or if a failure occurs retrieving the image, this value may be empty.",
+	"version":        "version is a semantic version identifying the update version. If the requested image does not define a version, or if a failure occurs retrieving the image, this value may be empty.",
 	"image":          "image is a container image location that contains the update. This value is always populated.",
 	"verified":       "verified indicates whether the provided update was properly verified before it was installed. If this is false the cluster may not be trusted. Verified does not cover upgradeable checks that depend on the cluster state at the time when the update target was accepted.",
 	"acceptedRisks":  "acceptedRisks records risks which were accepted to initiate the update. For example, it may menition an Upgradeable=False or missing signature that was overriden via desiredUpdate.force, or an update that was initiated despite not being in the availableUpdates set of recommended update targets.",
@@ -690,9 +701,10 @@ func (UpdateHistory) SwaggerDoc() map[string]string {
 }
 
 var map_Console = map[string]string{
-	"":       "Console holds cluster-wide configuration for the web console, including the logout URL, and reports the public URL of the console. The canonical name is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Console holds cluster-wide configuration for the web console, including the logout URL, and reports the public URL of the console. The canonical name is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Console) SwaggerDoc() map[string]string {
@@ -709,7 +721,8 @@ func (ConsoleAuthentication) SwaggerDoc() map[string]string {
 }
 
 var map_ConsoleList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ConsoleList) SwaggerDoc() map[string]string {
@@ -733,10 +746,20 @@ func (ConsoleStatus) SwaggerDoc() map[string]string {
 	return map_ConsoleStatus
 }
 
+var map_AWSDNSSpec = map[string]string{
+	"":                   "AWSDNSSpec contains DNS configuration specific to the Amazon Web Services cloud provider.",
+	"privateZoneIAMRole": "privateZoneIAMRole contains the ARN of an IAM role that should be assumed when performing operations on the cluster's private hosted zone specified in the cluster DNS config. When left empty, no role should be assumed.",
+}
+
+func (AWSDNSSpec) SwaggerDoc() map[string]string {
+	return map_AWSDNSSpec
+}
+
 var map_DNS = map[string]string{
-	"":       "DNS holds cluster-wide information about DNS. The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "DNS holds cluster-wide information about DNS. The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (DNS) SwaggerDoc() map[string]string {
@@ -744,17 +767,29 @@ func (DNS) SwaggerDoc() map[string]string {
 }
 
 var map_DNSList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (DNSList) SwaggerDoc() map[string]string {
 	return map_DNSList
 }
 
+var map_DNSPlatformSpec = map[string]string{
+	"":     "DNSPlatformSpec holds cloud-provider-specific configuration for DNS administration.",
+	"type": "type is the underlying infrastructure provider for the cluster. Allowed values: \"\", \"AWS\".\n\nIndividual components may not support all platforms, and must handle unrecognized platforms with best-effort defaults.",
+	"aws":  "aws contains DNS configuration specific to the Amazon Web Services cloud provider.",
+}
+
+func (DNSPlatformSpec) SwaggerDoc() map[string]string {
+	return map_DNSPlatformSpec
+}
+
 var map_DNSSpec = map[string]string{
 	"baseDomain":  "baseDomain is the base domain of the cluster. All managed DNS records will be sub-domains of this base.\n\nFor example, given the base domain `openshift.example.com`, an API server DNS record may be created for `cluster-api.openshift.example.com`.\n\nOnce set, this field cannot be changed.",
 	"publicZone":  "publicZone is the location where all the DNS records that are publicly accessible to the internet exist.\n\nIf this field is nil, no public records should be created.\n\nOnce set, this field cannot be changed.",
 	"privateZone": "privateZone is the location where all the DNS records that are only available internally to the cluster exist.\n\nIf this field is nil, no private records should be created.\n\nOnce set, this field cannot be changed.",
+	"platform":    "platform holds configuration specific to the underlying infrastructure provider for DNS. When omitted, this means the user has no opinion and the platform is left to choose reasonable defaults. These defaults are subject to change over time.",
 }
 
 func (DNSSpec) SwaggerDoc() map[string]string {
@@ -781,17 +816,37 @@ func (CustomFeatureGates) SwaggerDoc() map[string]string {
 }
 
 var map_FeatureGate = map[string]string{
-	"":       "Feature holds cluster-wide information about feature gates.  The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Feature holds cluster-wide information about feature gates.  The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (FeatureGate) SwaggerDoc() map[string]string {
 	return map_FeatureGate
 }
 
+var map_FeatureGateAttributes = map[string]string{
+	"name": "name is the name of the FeatureGate.",
+}
+
+func (FeatureGateAttributes) SwaggerDoc() map[string]string {
+	return map_FeatureGateAttributes
+}
+
+var map_FeatureGateDetails = map[string]string{
+	"version":  "version matches the version provided by the ClusterVersion and in the ClusterOperator.Status.Versions field.",
+	"enabled":  "enabled is a list of all feature gates that are enabled in the cluster for the named version.",
+	"disabled": "disabled is a list of all feature gates that are disabled in the cluster for the named version.",
+}
+
+func (FeatureGateDetails) SwaggerDoc() map[string]string {
+	return map_FeatureGateDetails
+}
+
 var map_FeatureGateList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (FeatureGateList) SwaggerDoc() map[string]string {
@@ -807,10 +862,20 @@ func (FeatureGateSelection) SwaggerDoc() map[string]string {
 	return map_FeatureGateSelection
 }
 
+var map_FeatureGateStatus = map[string]string{
+	"conditions":   "conditions represent the observations of the current state. Known .status.conditions.type are: \"DeterminationDegraded\"",
+	"featureGates": "featureGates contains a list of enabled and disabled featureGates that are keyed by payloadVersion. Operators other than the CVO and cluster-config-operator, must read the .status.featureGates, locate the version they are managing, find the enabled/disabled featuregates and make the operand and operator match. The enabled/disabled values for a particular version may change during the life of the cluster as various .spec.featureSet values are selected. Operators may choose to restart their processes to pick up these changes, but remembering past enable/disable lists is beyond the scope of this API and is the responsibility of individual operators. Only featureGates with .version in the ClusterVersion.status will be present in this list.",
+}
+
+func (FeatureGateStatus) SwaggerDoc() map[string]string {
+	return map_FeatureGateStatus
+}
+
 var map_Image = map[string]string{
-	"":       "Image governs policies related to imagestream imports and runtime configuration for external registries. It allows cluster admins to configure which registries OpenShift is allowed to import images from, extra CA trust bundles for external registries, and policies to block or allow registry hostnames. When exposing OpenShift's image registry to the public, this also lets cluster admins specify the external hostname.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Image governs policies related to imagestream imports and runtime configuration for external registries. It allows cluster admins to configure which registries OpenShift is allowed to import images from, extra CA trust bundles for external registries, and policies to block or allow registry hostnames. When exposing OpenShift's image registry to the public, this also lets cluster admins specify the external hostname.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Image) SwaggerDoc() map[string]string {
@@ -818,7 +883,8 @@ func (Image) SwaggerDoc() map[string]string {
 }
 
 var map_ImageList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ImageList) SwaggerDoc() map[string]string {
@@ -868,8 +934,9 @@ func (RegistrySources) SwaggerDoc() map[string]string {
 }
 
 var map_ImageContentPolicy = map[string]string{
-	"":     "ImageContentPolicy holds cluster-wide information about how to handle registry mirror rules. When multiple policies are defined, the outcome of the behavior is defined on each field.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec": "spec holds user settable values for configuration",
+	"":         "ImageContentPolicy holds cluster-wide information about how to handle registry mirror rules. When multiple policies are defined, the outcome of the behavior is defined on each field.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
 }
 
 func (ImageContentPolicy) SwaggerDoc() map[string]string {
@@ -877,7 +944,8 @@ func (ImageContentPolicy) SwaggerDoc() map[string]string {
 }
 
 var map_ImageContentPolicyList = map[string]string{
-	"": "ImageContentPolicyList lists the items in the ImageContentPolicy CRD.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "ImageContentPolicyList lists the items in the ImageContentPolicy CRD.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ImageContentPolicyList) SwaggerDoc() map[string]string {
@@ -905,8 +973,10 @@ func (RepositoryDigestMirrors) SwaggerDoc() map[string]string {
 }
 
 var map_ImageDigestMirrorSet = map[string]string{
-	"":     "ImageDigestMirrorSet holds cluster-wide information about how to handle registry mirror rules on using digest pull specification. When multiple policies are defined, the outcome of the behavior is defined on each field.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec": "spec holds user settable values for configuration",
+	"":         "ImageDigestMirrorSet holds cluster-wide information about how to handle registry mirror rules on using digest pull specification. When multiple policies are defined, the outcome of the behavior is defined on each field.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status contains the observed state of the resource.",
 }
 
 func (ImageDigestMirrorSet) SwaggerDoc() map[string]string {
@@ -914,7 +984,8 @@ func (ImageDigestMirrorSet) SwaggerDoc() map[string]string {
 }
 
 var map_ImageDigestMirrorSetList = map[string]string{
-	"": "ImageDigestMirrorSetList lists the items in the ImageDigestMirrorSet CRD.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "ImageDigestMirrorSetList lists the items in the ImageDigestMirrorSet CRD.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ImageDigestMirrorSetList) SwaggerDoc() map[string]string {
@@ -942,8 +1013,10 @@ func (ImageDigestMirrors) SwaggerDoc() map[string]string {
 }
 
 var map_ImageTagMirrorSet = map[string]string{
-	"":     "ImageTagMirrorSet holds cluster-wide information about how to handle registry mirror rules on using tag pull specification. When multiple policies are defined, the outcome of the behavior is defined on each field.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec": "spec holds user settable values for configuration",
+	"":         "ImageTagMirrorSet holds cluster-wide information about how to handle registry mirror rules on using tag pull specification. When multiple policies are defined, the outcome of the behavior is defined on each field.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status contains the observed state of the resource.",
 }
 
 func (ImageTagMirrorSet) SwaggerDoc() map[string]string {
@@ -951,7 +1024,8 @@ func (ImageTagMirrorSet) SwaggerDoc() map[string]string {
 }
 
 var map_ImageTagMirrorSetList = map[string]string{
-	"": "ImageTagMirrorSetList lists the items in the ImageTagMirrorSet CRD.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "ImageTagMirrorSetList lists the items in the ImageTagMirrorSet CRD.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ImageTagMirrorSetList) SwaggerDoc() map[string]string {
@@ -1061,10 +1135,30 @@ var map_AzurePlatformStatus = map[string]string{
 	"networkResourceGroupName": "networkResourceGroupName is the Resource Group for network resources like the Virtual Network and Subnets used by the cluster. If empty, the value is same as ResourceGroupName.",
 	"cloudName":                "cloudName is the name of the Azure cloud environment which can be used to configure the Azure SDK with the appropriate Azure API endpoints. If empty, the value is equal to `AzurePublicCloud`.",
 	"armEndpoint":              "armEndpoint specifies a URL to use for resource management in non-soverign clouds such as Azure Stack.",
+	"resourceTags":             "resourceTags is a list of additional tags to apply to Azure resources created for the cluster. See https://docs.microsoft.com/en-us/rest/api/resources/tags for information on tagging Azure resources. Due to limitations on Automation, Content Delivery Network, DNS Azure resources, a maximum of 15 tags may be applied. OpenShift reserves 5 tags for internal use, allowing 10 tags for user configuration.",
 }
 
 func (AzurePlatformStatus) SwaggerDoc() map[string]string {
 	return map_AzurePlatformStatus
+}
+
+var map_AzureResourceTag = map[string]string{
+	"":      "AzureResourceTag is a tag to apply to Azure resources created for the cluster.",
+	"key":   "key is the key part of the tag. A tag key can have a maximum of 128 characters and cannot be empty. Key must begin with a letter, end with a letter, number or underscore, and must contain only alphanumeric characters and the following special characters `_ . -`.",
+	"value": "value is the value part of the tag. A tag value can have a maximum of 256 characters and cannot be empty. Value must contain only alphanumeric characters and the following special characters `_ + , - . / : ; < = > ? @`.",
+}
+
+func (AzureResourceTag) SwaggerDoc() map[string]string {
+	return map_AzureResourceTag
+}
+
+var map_BareMetalPlatformLoadBalancer = map[string]string{
+	"":     "BareMetalPlatformLoadBalancer defines the load balancer used by the cluster on BareMetal platform.",
+	"type": "type defines the type of load balancer used by the cluster on BareMetal platform which can be a user-managed or openshift-managed load balancer that is to be used for the OpenShift API and Ingress endpoints. When set to OpenShiftManagedDefault the static pods in charge of API and Ingress traffic load-balancing defined in the machine config operator will be deployed. When set to UserManaged these static pods will not be deployed and it is expected that the load balancer is configured out of band by the deployer. When omitted, this means no opinion and the platform is left to choose a reasonable default. The default value is OpenShiftManagedDefault.",
+}
+
+func (BareMetalPlatformLoadBalancer) SwaggerDoc() map[string]string {
+	return map_BareMetalPlatformLoadBalancer
 }
 
 var map_BareMetalPlatformSpec = map[string]string{
@@ -1076,14 +1170,26 @@ func (BareMetalPlatformSpec) SwaggerDoc() map[string]string {
 }
 
 var map_BareMetalPlatformStatus = map[string]string{
-	"":                    "BareMetalPlatformStatus holds the current status of the BareMetal infrastructure provider. For more information about the network architecture used with the BareMetal platform type, see: https://github.com/openshift/installer/blob/master/docs/design/baremetal/networking-infrastructure.md",
-	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
-	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
-	"nodeDNSIP":           "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for BareMetal deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"":                     "BareMetalPlatformStatus holds the current status of the BareMetal infrastructure provider. For more information about the network architecture used with the BareMetal platform type, see: https://github.com/openshift/installer/blob/master/docs/design/baremetal/networking-infrastructure.md",
+	"apiServerInternalIP":  "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.\n\nDeprecated: Use APIServerInternalIPs instead.",
+	"apiServerInternalIPs": "apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.",
+	"ingressIP":            "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.\n\nDeprecated: Use IngressIPs instead.",
+	"ingressIPs":           "ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.",
+	"nodeDNSIP":            "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for BareMetal deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"loadBalancer":         "loadBalancer defines how the load balancer used by the cluster is configured.",
 }
 
 func (BareMetalPlatformStatus) SwaggerDoc() map[string]string {
 	return map_BareMetalPlatformStatus
+}
+
+var map_CloudControllerManagerStatus = map[string]string{
+	"":      "CloudControllerManagerStatus holds the state of Cloud Controller Manager (a.k.a. CCM or CPI) related settings",
+	"state": "state determines whether or not an external Cloud Controller Manager is expected to be installed within the cluster. https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/#running-cloud-controller-manager\n\nValid values are \"External\", \"None\" and omitted. When set to \"External\", new nodes will be tainted as uninitialized when created, preventing them from running workloads until they are initialized by the cloud controller manager. When omitted or set to \"None\", new nodes will be not tainted and no extra initialization from the cloud controller manager is expected.",
+}
+
+func (CloudControllerManagerStatus) SwaggerDoc() map[string]string {
+	return map_CloudControllerManagerStatus
 }
 
 var map_EquinixMetalPlatformSpec = map[string]string{
@@ -1104,6 +1210,24 @@ func (EquinixMetalPlatformStatus) SwaggerDoc() map[string]string {
 	return map_EquinixMetalPlatformStatus
 }
 
+var map_ExternalPlatformSpec = map[string]string{
+	"":             "ExternalPlatformSpec holds the desired state for the generic External infrastructure provider.",
+	"platformName": "PlatformName holds the arbitrary string representing the infrastructure provider name, expected to be set at the installation time. This field is solely for informational and reporting purposes and is not expected to be used for decision-making.",
+}
+
+func (ExternalPlatformSpec) SwaggerDoc() map[string]string {
+	return map_ExternalPlatformSpec
+}
+
+var map_ExternalPlatformStatus = map[string]string{
+	"":                       "ExternalPlatformStatus holds the current status of the generic External infrastructure provider.",
+	"cloudControllerManager": "cloudControllerManager contains settings specific to the external Cloud Controller Manager (a.k.a. CCM or CPI). When omitted, new nodes will be not tainted and no extra initialization from the cloud controller manager is expected.",
+}
+
+func (ExternalPlatformStatus) SwaggerDoc() map[string]string {
+	return map_ExternalPlatformStatus
+}
+
 var map_GCPPlatformSpec = map[string]string{
 	"": "GCPPlatformSpec holds the desired state of the Google Cloud Platform infrastructure provider. This only includes fields that can be modified in the cluster.",
 }
@@ -1113,13 +1237,36 @@ func (GCPPlatformSpec) SwaggerDoc() map[string]string {
 }
 
 var map_GCPPlatformStatus = map[string]string{
-	"":          "GCPPlatformStatus holds the current status of the Google Cloud Platform infrastructure provider.",
-	"projectID": "resourceGroupName is the Project ID for new GCP resources created for the cluster.",
-	"region":    "region holds the region for new GCP resources created for the cluster.",
+	"":               "GCPPlatformStatus holds the current status of the Google Cloud Platform infrastructure provider.",
+	"projectID":      "resourceGroupName is the Project ID for new GCP resources created for the cluster.",
+	"region":         "region holds the region for new GCP resources created for the cluster.",
+	"resourceLabels": "resourceLabels is a list of additional labels to apply to GCP resources created for the cluster. See https://cloud.google.com/compute/docs/labeling-resources for information on labeling GCP resources. GCP supports a maximum of 64 labels per resource. OpenShift reserves 32 labels for internal use, allowing 32 labels for user configuration.",
+	"resourceTags":   "resourceTags is a list of additional tags to apply to GCP resources created for the cluster. See https://cloud.google.com/resource-manager/docs/tags/tags-overview for information on tagging GCP resources. GCP supports a maximum of 50 tags per resource.",
 }
 
 func (GCPPlatformStatus) SwaggerDoc() map[string]string {
 	return map_GCPPlatformStatus
+}
+
+var map_GCPResourceLabel = map[string]string{
+	"":      "GCPResourceLabel is a label to apply to GCP resources created for the cluster.",
+	"key":   "key is the key part of the label. A label key can have a maximum of 63 characters and cannot be empty. Label key must begin with a lowercase letter, and must contain only lowercase letters, numeric characters, and the following special characters `_-`. Label key must not have the reserved prefixes `kubernetes-io` and `openshift-io`.",
+	"value": "value is the value part of the label. A label value can have a maximum of 63 characters and cannot be empty. Value must contain only lowercase letters, numeric characters, and the following special characters `_-`.",
+}
+
+func (GCPResourceLabel) SwaggerDoc() map[string]string {
+	return map_GCPResourceLabel
+}
+
+var map_GCPResourceTag = map[string]string{
+	"":         "GCPResourceTag is a tag to apply to GCP resources created for the cluster.",
+	"parentID": "parentID is the ID of the hierarchical resource where the tags are defined, e.g. at the Organization or the Project level. To find the Organization or Project ID refer to the following pages: https://cloud.google.com/resource-manager/docs/creating-managing-organization#retrieving_your_organization_id, https://cloud.google.com/resource-manager/docs/creating-managing-projects#identifying_projects. An OrganizationID must consist of decimal numbers, and cannot have leading zeroes. A ProjectID must be 6 to 30 characters in length, can only contain lowercase letters, numbers, and hyphens, and must start with a letter, and cannot end with a hyphen.",
+	"key":      "key is the key part of the tag. A tag key can have a maximum of 63 characters and cannot be empty. Tag key must begin and end with an alphanumeric character, and must contain only uppercase, lowercase alphanumeric characters, and the following special characters `._-`.",
+	"value":    "value is the value part of the tag. A tag value can have a maximum of 63 characters and cannot be empty. Tag value must begin and end with an alphanumeric character, and must contain only uppercase, lowercase alphanumeric characters, and the following special characters `_-.@%=+:,*#&(){}[]` and spaces.",
+}
+
+func (GCPResourceTag) SwaggerDoc() map[string]string {
+	return map_GCPResourceTag
 }
 
 var map_IBMCloudPlatformSpec = map[string]string{
@@ -1136,6 +1283,7 @@ var map_IBMCloudPlatformStatus = map[string]string{
 	"resourceGroupName": "ResourceGroupName is the Resource Group for new IBMCloud resources created for the cluster.",
 	"providerType":      "ProviderType indicates the type of cluster that was created",
 	"cisInstanceCRN":    "CISInstanceCRN is the CRN of the Cloud Internet Services instance managing the DNS zone for the cluster's base domain",
+	"dnsInstanceCRN":    "DNSInstanceCRN is the CRN of the DNS Services instance managing the DNS zone for the cluster's base domain",
 }
 
 func (IBMCloudPlatformStatus) SwaggerDoc() map[string]string {
@@ -1143,9 +1291,10 @@ func (IBMCloudPlatformStatus) SwaggerDoc() map[string]string {
 }
 
 var map_Infrastructure = map[string]string{
-	"":       "Infrastructure holds cluster-wide information about Infrastructure.  The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Infrastructure holds cluster-wide information about Infrastructure.  The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Infrastructure) SwaggerDoc() map[string]string {
@@ -1153,7 +1302,8 @@ func (Infrastructure) SwaggerDoc() map[string]string {
 }
 
 var map_InfrastructureList = map[string]string{
-	"": "InfrastructureList is\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "InfrastructureList is\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (InfrastructureList) SwaggerDoc() map[string]string {
@@ -1180,6 +1330,7 @@ var map_InfrastructureStatus = map[string]string{
 	"apiServerInternalURI":   "apiServerInternalURL is a valid URI with scheme 'https', address and optionally a port (defaulting to 443).  apiServerInternalURL can be used by components like kubelets, to contact the Kubernetes API server using the infrastructure provider rather than Kubernetes networking.",
 	"controlPlaneTopology":   "controlPlaneTopology expresses the expectations for operands that normally run on control nodes. The default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster. The 'SingleReplica' mode will be used in single-node deployments and the operators should not configure the operand for highly-available operation The 'External' mode indicates that the control plane is hosted externally to the cluster and that its components are not visible within the cluster.",
 	"infrastructureTopology": "infrastructureTopology expresses the expectations for infrastructure services that do not run on control plane nodes, usually indicated by a node selector for a `role` value other than `master`. The default is 'HighlyAvailable', which represents the behavior operators have in a \"normal\" cluster. The 'SingleReplica' mode will be used in single-node deployments and the operators should not configure the operand for highly-available operation NOTE: External topology mode is not applicable for this field.",
+	"cpuPartitioning":        "cpuPartitioning expresses if CPU partitioning is a currently enabled feature in the cluster. CPU Partitioning means that this cluster can support partitioning workloads to specific CPU Sets. Valid values are \"None\" and \"AllNodes\". When omitted, the default value is \"None\". The default value of \"None\" indicates that no nodes will be setup with CPU partitioning. The \"AllNodes\" value indicates that all nodes have been setup with CPU partitioning, and can then be further configured via the PerformanceProfile API.",
 }
 
 func (InfrastructureStatus) SwaggerDoc() map[string]string {
@@ -1204,8 +1355,19 @@ func (KubevirtPlatformStatus) SwaggerDoc() map[string]string {
 	return map_KubevirtPlatformStatus
 }
 
+var map_NutanixPlatformLoadBalancer = map[string]string{
+	"":     "NutanixPlatformLoadBalancer defines the load balancer used by the cluster on Nutanix platform.",
+	"type": "type defines the type of load balancer used by the cluster on Nutanix platform which can be a user-managed or openshift-managed load balancer that is to be used for the OpenShift API and Ingress endpoints. When set to OpenShiftManagedDefault the static pods in charge of API and Ingress traffic load-balancing defined in the machine config operator will be deployed. When set to UserManaged these static pods will not be deployed and it is expected that the load balancer is configured out of band by the deployer. When omitted, this means no opinion and the platform is left to choose a reasonable default. The default value is OpenShiftManagedDefault.",
+}
+
+func (NutanixPlatformLoadBalancer) SwaggerDoc() map[string]string {
+	return map_NutanixPlatformLoadBalancer
+}
+
 var map_NutanixPlatformSpec = map[string]string{
-	"": "NutanixPlatformSpec holds the desired state of the Nutanix infrastructure provider. This only includes fields that can be modified in the cluster.",
+	"":              "NutanixPlatformSpec holds the desired state of the Nutanix infrastructure provider. This only includes fields that can be modified in the cluster.",
+	"prismCentral":  "prismCentral holds the endpoint address and port to access the Nutanix Prism Central. When a cluster-wide proxy is installed, by default, this endpoint will be accessed via the proxy. Should you wish for communication with this endpoint not to be proxied, please add the endpoint to the proxy spec.noProxy list.",
+	"prismElements": "prismElements holds one or more endpoint address and port data to access the Nutanix Prism Elements (clusters) of the Nutanix Prism Central. Currently we only support one Prism Element (cluster) for an OpenShift cluster, where all the Nutanix resources (VMs, subnets, volumes, etc.) used in the OpenShift cluster are located. In the future, we may support Nutanix resources (VMs, etc.) spread over multiple Prism Elements (clusters) of the Prism Central.",
 }
 
 func (NutanixPlatformSpec) SwaggerDoc() map[string]string {
@@ -1213,13 +1375,45 @@ func (NutanixPlatformSpec) SwaggerDoc() map[string]string {
 }
 
 var map_NutanixPlatformStatus = map[string]string{
-	"":                    "NutanixPlatformStatus holds the current status of the Nutanix infrastructure provider.",
-	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
-	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
+	"":                     "NutanixPlatformStatus holds the current status of the Nutanix infrastructure provider.",
+	"apiServerInternalIP":  "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.\n\nDeprecated: Use APIServerInternalIPs instead.",
+	"apiServerInternalIPs": "apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.",
+	"ingressIP":            "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.\n\nDeprecated: Use IngressIPs instead.",
+	"ingressIPs":           "ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.",
+	"loadBalancer":         "loadBalancer defines how the load balancer used by the cluster is configured.",
 }
 
 func (NutanixPlatformStatus) SwaggerDoc() map[string]string {
 	return map_NutanixPlatformStatus
+}
+
+var map_NutanixPrismElementEndpoint = map[string]string{
+	"":         "NutanixPrismElementEndpoint holds the name and endpoint data for a Prism Element (cluster)",
+	"name":     "name is the name of the Prism Element (cluster). This value will correspond with the cluster field configured on other resources (eg Machines, PVCs, etc).",
+	"endpoint": "endpoint holds the endpoint address and port data of the Prism Element (cluster). When a cluster-wide proxy is installed, by default, this endpoint will be accessed via the proxy. Should you wish for communication with this endpoint not to be proxied, please add the endpoint to the proxy spec.noProxy list.",
+}
+
+func (NutanixPrismElementEndpoint) SwaggerDoc() map[string]string {
+	return map_NutanixPrismElementEndpoint
+}
+
+var map_NutanixPrismEndpoint = map[string]string{
+	"":        "NutanixPrismEndpoint holds the endpoint address and port to access the Nutanix Prism Central or Element (cluster)",
+	"address": "address is the endpoint address (DNS name or IP address) of the Nutanix Prism Central or Element (cluster)",
+	"port":    "port is the port number to access the Nutanix Prism Central or Element (cluster)",
+}
+
+func (NutanixPrismEndpoint) SwaggerDoc() map[string]string {
+	return map_NutanixPrismEndpoint
+}
+
+var map_OpenStackPlatformLoadBalancer = map[string]string{
+	"":     "OpenStackPlatformLoadBalancer defines the load balancer used by the cluster on OpenStack platform.",
+	"type": "type defines the type of load balancer used by the cluster on OpenStack platform which can be a user-managed or openshift-managed load balancer that is to be used for the OpenShift API and Ingress endpoints. When set to OpenShiftManagedDefault the static pods in charge of API and Ingress traffic load-balancing defined in the machine config operator will be deployed. When set to UserManaged these static pods will not be deployed and it is expected that the load balancer is configured out of band by the deployer. When omitted, this means no opinion and the platform is left to choose a reasonable default. The default value is OpenShiftManagedDefault.",
+}
+
+func (OpenStackPlatformLoadBalancer) SwaggerDoc() map[string]string {
+	return map_OpenStackPlatformLoadBalancer
 }
 
 var map_OpenStackPlatformSpec = map[string]string{
@@ -1231,15 +1425,27 @@ func (OpenStackPlatformSpec) SwaggerDoc() map[string]string {
 }
 
 var map_OpenStackPlatformStatus = map[string]string{
-	"":                    "OpenStackPlatformStatus holds the current status of the OpenStack infrastructure provider.",
-	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
-	"cloudName":           "cloudName is the name of the desired OpenStack cloud in the client configuration file (`clouds.yaml`).",
-	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
-	"nodeDNSIP":           "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for OpenStack deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"":                     "OpenStackPlatformStatus holds the current status of the OpenStack infrastructure provider.",
+	"apiServerInternalIP":  "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.\n\nDeprecated: Use APIServerInternalIPs instead.",
+	"apiServerInternalIPs": "apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.",
+	"cloudName":            "cloudName is the name of the desired OpenStack cloud in the client configuration file (`clouds.yaml`).",
+	"ingressIP":            "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.\n\nDeprecated: Use IngressIPs instead.",
+	"ingressIPs":           "ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.",
+	"nodeDNSIP":            "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for OpenStack deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"loadBalancer":         "loadBalancer defines how the load balancer used by the cluster is configured.",
 }
 
 func (OpenStackPlatformStatus) SwaggerDoc() map[string]string {
 	return map_OpenStackPlatformStatus
+}
+
+var map_OvirtPlatformLoadBalancer = map[string]string{
+	"":     "OvirtPlatformLoadBalancer defines the load balancer used by the cluster on Ovirt platform.",
+	"type": "type defines the type of load balancer used by the cluster on Ovirt platform which can be a user-managed or openshift-managed load balancer that is to be used for the OpenShift API and Ingress endpoints. When set to OpenShiftManagedDefault the static pods in charge of API and Ingress traffic load-balancing defined in the machine config operator will be deployed. When set to UserManaged these static pods will not be deployed and it is expected that the load balancer is configured out of band by the deployer. When omitted, this means no opinion and the platform is left to choose a reasonable default. The default value is OpenShiftManagedDefault.",
+}
+
+func (OvirtPlatformLoadBalancer) SwaggerDoc() map[string]string {
+	return map_OvirtPlatformLoadBalancer
 }
 
 var map_OvirtPlatformSpec = map[string]string{
@@ -1251,10 +1457,13 @@ func (OvirtPlatformSpec) SwaggerDoc() map[string]string {
 }
 
 var map_OvirtPlatformStatus = map[string]string{
-	"":                    "OvirtPlatformStatus holds the current status of the  oVirt infrastructure provider.",
-	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
-	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
-	"nodeDNSIP":           "deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.",
+	"":                     "OvirtPlatformStatus holds the current status of the  oVirt infrastructure provider.",
+	"apiServerInternalIP":  "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.\n\nDeprecated: Use APIServerInternalIPs instead.",
+	"apiServerInternalIPs": "apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.",
+	"ingressIP":            "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.\n\nDeprecated: Use IngressIPs instead.",
+	"ingressIPs":           "ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.",
+	"nodeDNSIP":            "deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.",
+	"loadBalancer":         "loadBalancer defines how the load balancer used by the cluster is configured.",
 }
 
 func (OvirtPlatformStatus) SwaggerDoc() map[string]string {
@@ -1277,6 +1486,7 @@ var map_PlatformSpec = map[string]string{
 	"powervs":      "PowerVS contains settings specific to the IBM Power Systems Virtual Servers infrastructure provider.",
 	"alibabaCloud": "AlibabaCloud contains settings specific to the Alibaba Cloud infrastructure provider.",
 	"nutanix":      "Nutanix contains settings specific to the Nutanix infrastructure provider.",
+	"external":     "ExternalPlatformType represents generic infrastructure provider. Platform-specific components should be supplemented separately.",
 }
 
 func (PlatformSpec) SwaggerDoc() map[string]string {
@@ -1299,6 +1509,7 @@ var map_PlatformStatus = map[string]string{
 	"powervs":      "PowerVS contains settings specific to the Power Systems Virtual Servers infrastructure provider.",
 	"alibabaCloud": "AlibabaCloud contains settings specific to the Alibaba Cloud infrastructure provider.",
 	"nutanix":      "Nutanix contains settings specific to the Nutanix infrastructure provider.",
+	"external":     "External contains settings specific to the generic External infrastructure provider.",
 }
 
 func (PlatformStatus) SwaggerDoc() map[string]string {
@@ -1318,8 +1529,10 @@ var map_PowerVSPlatformStatus = map[string]string{
 	"":                 "PowerVSPlatformStatus holds the current status of the IBM Power Systems Virtual Servers infrastrucutre provider.",
 	"region":           "region holds the default Power VS region for new Power VS resources created by the cluster.",
 	"zone":             "zone holds the default zone for the new Power VS resources created by the cluster. Note: Currently only single-zone OCP clusters are supported",
+	"resourceGroup":    "resourceGroup is the resource group name for new IBMCloud resources created for a cluster. The resource group specified here will be used by cluster-image-registry-operator to set up a COS Instance in IBMCloud for the cluster registry. More about resource groups can be found here: https://cloud.ibm.com/docs/account?topic=account-rgs. When omitted, the image registry operator won't be able to configure storage, which results in the image registry cluster operator not being in an available state.",
 	"serviceEndpoints": "serviceEndpoints is a list of custom endpoints which will override the default service endpoints of a Power VS service.",
 	"cisInstanceCRN":   "CISInstanceCRN is the CRN of the Cloud Internet Services instance managing the DNS zone for the cluster's base domain",
+	"dnsInstanceCRN":   "DNSInstanceCRN is the CRN of the DNS Services instance managing the DNS zone for the cluster's base domain",
 }
 
 func (PowerVSPlatformStatus) SwaggerDoc() map[string]string {
@@ -1336,8 +1549,54 @@ func (PowerVSServiceEndpoint) SwaggerDoc() map[string]string {
 	return map_PowerVSServiceEndpoint
 }
 
+var map_VSpherePlatformFailureDomainSpec = map[string]string{
+	"":         "VSpherePlatformFailureDomainSpec holds the region and zone failure domain and the vCenter topology of that failure domain.",
+	"name":     "name defines the arbitrary but unique name of a failure domain.",
+	"region":   "region defines the name of a region tag that will be attached to a vCenter datacenter. The tag category in vCenter must be named openshift-region.",
+	"zone":     "zone defines the name of a zone tag that will be attached to a vCenter cluster. The tag category in vCenter must be named openshift-zone.",
+	"server":   "server is the fully-qualified domain name or the IP address of the vCenter server.",
+	"topology": "Topology describes a given failure domain using vSphere constructs",
+}
+
+func (VSpherePlatformFailureDomainSpec) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformFailureDomainSpec
+}
+
+var map_VSpherePlatformLoadBalancer = map[string]string{
+	"":     "VSpherePlatformLoadBalancer defines the load balancer used by the cluster on VSphere platform.",
+	"type": "type defines the type of load balancer used by the cluster on VSphere platform which can be a user-managed or openshift-managed load balancer that is to be used for the OpenShift API and Ingress endpoints. When set to OpenShiftManagedDefault the static pods in charge of API and Ingress traffic load-balancing defined in the machine config operator will be deployed. When set to UserManaged these static pods will not be deployed and it is expected that the load balancer is configured out of band by the deployer. When omitted, this means no opinion and the platform is left to choose a reasonable default. The default value is OpenShiftManagedDefault.",
+}
+
+func (VSpherePlatformLoadBalancer) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformLoadBalancer
+}
+
+var map_VSpherePlatformNodeNetworking = map[string]string{
+	"":         "VSpherePlatformNodeNetworking holds the external and internal node networking spec.",
+	"external": "external represents the network configuration of the node that is externally routable.",
+	"internal": "internal represents the network configuration of the node that is routable only within the cluster.",
+}
+
+func (VSpherePlatformNodeNetworking) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformNodeNetworking
+}
+
+var map_VSpherePlatformNodeNetworkingSpec = map[string]string{
+	"":                         "VSpherePlatformNodeNetworkingSpec holds the network CIDR(s) and port group name for including and excluding IP ranges in the cloud provider. This would be used for example when multiple network adapters are attached to a guest to help determine which IP address the cloud config manager should use for the external and internal node networking.",
+	"networkSubnetCidr":        "networkSubnetCidr IP address on VirtualMachine's network interfaces included in the fields' CIDRs that will be used in respective status.addresses fields.",
+	"network":                  "network VirtualMachine's VM Network names that will be used to when searching for status.addresses fields. Note that if internal.networkSubnetCIDR and external.networkSubnetCIDR are not set, then the vNIC associated to this network must only have a single IP address assigned to it. The available networks (port groups) can be listed using `govc ls 'network/*'`",
+	"excludeNetworkSubnetCidr": "excludeNetworkSubnetCidr IP addresses in subnet ranges will be excluded when selecting the IP address from the VirtualMachine's VM for use in the status.addresses fields.",
+}
+
+func (VSpherePlatformNodeNetworkingSpec) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformNodeNetworkingSpec
+}
+
 var map_VSpherePlatformSpec = map[string]string{
-	"": "VSpherePlatformSpec holds the desired state of the vSphere infrastructure provider. This only includes fields that can be modified in the cluster.",
+	"":               "VSpherePlatformSpec holds the desired state of the vSphere infrastructure provider. In the future the cloud provider operator, storage operator and machine operator will use these fields for configuration.",
+	"vcenters":       "vcenters holds the connection details for services to communicate with vCenter. Currently, only a single vCenter is supported.",
+	"failureDomains": "failureDomains contains the definition of region, zone and the vCenter topology. If this is omitted failure domains (regions and zones) will not be used.",
+	"nodeNetworking": "nodeNetworking contains the definition of internal and external network constraints for assigning the node's networking. If this field is omitted, networking defaults to the legacy address selection behavior which is to only support a single address and return the first one found.",
 }
 
 func (VSpherePlatformSpec) SwaggerDoc() map[string]string {
@@ -1345,14 +1604,51 @@ func (VSpherePlatformSpec) SwaggerDoc() map[string]string {
 }
 
 var map_VSpherePlatformStatus = map[string]string{
-	"":                    "VSpherePlatformStatus holds the current status of the vSphere infrastructure provider.",
-	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
-	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
-	"nodeDNSIP":           "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for vSphere deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"":                     "VSpherePlatformStatus holds the current status of the vSphere infrastructure provider.",
+	"apiServerInternalIP":  "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.\n\nDeprecated: Use APIServerInternalIPs instead.",
+	"apiServerInternalIPs": "apiServerInternalIPs are the IP addresses to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. These are the IPs for a self-hosted load balancer in front of the API servers. In dual stack clusters this list contains two IPs otherwise only one.",
+	"ingressIP":            "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.\n\nDeprecated: Use IngressIPs instead.",
+	"ingressIPs":           "ingressIPs are the external IPs which route to the default ingress controller. The IPs are suitable targets of a wildcard DNS record used to resolve default route host names. In dual stack clusters this list contains two IPs otherwise only one.",
+	"nodeDNSIP":            "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for vSphere deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"loadBalancer":         "loadBalancer defines how the load balancer used by the cluster is configured.",
 }
 
 func (VSpherePlatformStatus) SwaggerDoc() map[string]string {
 	return map_VSpherePlatformStatus
+}
+
+var map_VSpherePlatformTopology = map[string]string{
+	"":               "VSpherePlatformTopology holds the required and optional vCenter objects - datacenter, computeCluster, networks, datastore and resourcePool - to provision virtual machines.",
+	"datacenter":     "datacenter is the name of vCenter datacenter in which virtual machines will be located. The maximum length of the datacenter name is 80 characters.",
+	"computeCluster": "computeCluster the absolute path of the vCenter cluster in which virtual machine will be located. The absolute path is of the form /<datacenter>/host/<cluster>. The maximum length of the path is 2048 characters.",
+	"networks":       "networks is the list of port group network names within this failure domain. Currently, we only support a single interface per RHCOS virtual machine. The available networks (port groups) can be listed using `govc ls 'network/*'` The single interface should be the absolute path of the form /<datacenter>/network/<portgroup>.",
+	"datastore":      "datastore is the absolute path of the datastore in which the virtual machine is located. The absolute path is of the form /<datacenter>/datastore/<datastore> The maximum length of the path is 2048 characters.",
+	"resourcePool":   "resourcePool is the absolute path of the resource pool where virtual machines will be created. The absolute path is of the form /<datacenter>/host/<cluster>/Resources/<resourcepool>. The maximum length of the path is 2048 characters.",
+	"folder":         "folder is the absolute path of the folder where virtual machines are located. The absolute path is of the form /<datacenter>/vm/<folder>. The maximum length of the path is 2048 characters.",
+}
+
+func (VSpherePlatformTopology) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformTopology
+}
+
+var map_VSpherePlatformVCenterSpec = map[string]string{
+	"":            "VSpherePlatformVCenterSpec stores the vCenter connection fields. This is used by the vSphere CCM.",
+	"server":      "server is the fully-qualified domain name or the IP address of the vCenter server.",
+	"port":        "port is the TCP port that will be used to communicate to the vCenter endpoint. When omitted, this means the user has no opinion and it is up to the platform to choose a sensible default, which is subject to change over time.",
+	"datacenters": "The vCenter Datacenters in which the RHCOS vm guests are located. This field will be used by the Cloud Controller Manager. Each datacenter listed here should be used within a topology.",
+}
+
+func (VSpherePlatformVCenterSpec) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformVCenterSpec
+}
+
+var map_AWSIngressSpec = map[string]string{
+	"":     "AWSIngressSpec holds the desired state of the Ingress for Amazon Web Services infrastructure provider. This only includes fields that can be modified in the cluster.",
+	"type": "type allows user to set a load balancer type. When this field is set the default ingresscontroller will get created using the specified LBType. If this field is not set then the default ingress controller of LBType Classic will be created. Valid values are:\n\n* \"Classic\": A Classic Load Balancer that makes routing decisions at either\n  the transport layer (TCP/SSL) or the application layer (HTTP/HTTPS). See\n  the following for additional details:\n\n    https://docs.aws.amazon.com/AmazonECS/latest/developerguide/load-balancer-types.html#clb\n\n* \"NLB\": A Network Load Balancer that makes routing decisions at the\n  transport layer (TCP/SSL). See the following for additional details:\n\n    https://docs.aws.amazon.com/AmazonECS/latest/developerguide/load-balancer-types.html#nlb",
+}
+
+func (AWSIngressSpec) SwaggerDoc() map[string]string {
+	return map_AWSIngressSpec
 }
 
 var map_ComponentRouteSpec = map[string]string{
@@ -1383,9 +1679,10 @@ func (ComponentRouteStatus) SwaggerDoc() map[string]string {
 }
 
 var map_Ingress = map[string]string{
-	"":       "Ingress holds cluster-wide information about ingress, including the default ingress domain used for routes. The canonical name is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Ingress holds cluster-wide information about ingress, including the default ingress domain used for routes. The canonical name is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Ingress) SwaggerDoc() map[string]string {
@@ -1393,11 +1690,22 @@ func (Ingress) SwaggerDoc() map[string]string {
 }
 
 var map_IngressList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (IngressList) SwaggerDoc() map[string]string {
 	return map_IngressList
+}
+
+var map_IngressPlatformSpec = map[string]string{
+	"":     "IngressPlatformSpec holds the desired state of Ingress specific to the underlying infrastructure provider of the current cluster. Since these are used at spec-level for the underlying cluster, it is supposed that only one of the spec structs is set.",
+	"type": "type is the underlying infrastructure provider for the cluster. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Libvirt\", \"OpenStack\", \"VSphere\", \"oVirt\", \"KubeVirt\", \"EquinixMetal\", \"PowerVS\", \"AlibabaCloud\", \"Nutanix\" and \"None\". Individual components may not support all platforms, and must handle unrecognized platforms as None if they do not support that platform.",
+	"aws":  "aws contains settings specific to the Amazon Web Services infrastructure provider.",
+}
+
+func (IngressPlatformSpec) SwaggerDoc() map[string]string {
+	return map_IngressPlatformSpec
 }
 
 var map_IngressSpec = map[string]string{
@@ -1405,6 +1713,7 @@ var map_IngressSpec = map[string]string{
 	"appsDomain":           "appsDomain is an optional domain to use instead of the one specified in the domain field when a Route is created without specifying an explicit host. If appsDomain is nonempty, this value is used to generate default host values for Route. Unlike domain, appsDomain may be modified after installation. This assumes a new ingresscontroller has been setup with a wildcard certificate.",
 	"componentRoutes":      "componentRoutes is an optional list of routes that are managed by OpenShift components that a cluster-admin is able to configure the hostname and serving certificate for. The namespace and name of each route in this list should match an existing entry in the status.componentRoutes list.\n\nTo determine the set of configurable Routes, look at namespace and name of entries in the .status.componentRoutes list, where participating operators write the status of configurable routes.",
 	"requiredHSTSPolicies": "requiredHSTSPolicies specifies HSTS policies that are required to be set on newly created  or updated routes matching the domainPattern/s and namespaceSelector/s that are specified in the policy. Each requiredHSTSPolicy must have at least a domainPattern and a maxAge to validate a route HSTS Policy route annotation, and affect route admission.\n\nA candidate route is checked for HSTS Policies if it has the HSTS Policy route annotation: \"haproxy.router.openshift.io/hsts_header\" E.g. haproxy.router.openshift.io/hsts_header: max-age=31536000;preload;includeSubDomains\n\n- For each candidate route, if it matches a requiredHSTSPolicy domainPattern and optional namespaceSelector, then the maxAge, preloadPolicy, and includeSubdomainsPolicy must be valid to be admitted.  Otherwise, the route is rejected. - The first match, by domainPattern and optional namespaceSelector, in the ordering of the RequiredHSTSPolicies determines the route's admission status. - If the candidate route doesn't match any requiredHSTSPolicy domainPattern and optional namespaceSelector, then it may use any HSTS Policy annotation.\n\nThe HSTS policy configuration may be changed after routes have already been created. An update to a previously admitted route may then fail if the updated route does not conform to the updated HSTS policy configuration. However, changing the HSTS policy configuration will not cause a route that is already admitted to stop working.\n\nNote that if there are no RequiredHSTSPolicies, any HSTS Policy annotation on the route is valid.",
+	"loadBalancer":         "loadBalancer contains the load balancer details in general which are not only specific to the underlying infrastructure provider of the current cluster and are required for Ingress Controller to work on OpenShift.",
 }
 
 func (IngressSpec) SwaggerDoc() map[string]string {
@@ -1412,11 +1721,20 @@ func (IngressSpec) SwaggerDoc() map[string]string {
 }
 
 var map_IngressStatus = map[string]string{
-	"componentRoutes": "componentRoutes is where participating operators place the current route status for routes whose hostnames and serving certificates can be customized by the cluster-admin.",
+	"componentRoutes":  "componentRoutes is where participating operators place the current route status for routes whose hostnames and serving certificates can be customized by the cluster-admin.",
+	"defaultPlacement": "defaultPlacement is set at installation time to control which nodes will host the ingress router pods by default. The options are control-plane nodes or worker nodes.\n\nThis field works by dictating how the Cluster Ingress Operator will consider unset replicas and nodePlacement fields in IngressController resources when creating the corresponding Deployments.\n\nSee the documentation for the IngressController replicas and nodePlacement fields for more information.\n\nWhen omitted, the default value is Workers",
 }
 
 func (IngressStatus) SwaggerDoc() map[string]string {
 	return map_IngressStatus
+}
+
+var map_LoadBalancer = map[string]string{
+	"platform": "platform holds configuration specific to the underlying infrastructure provider for the ingress load balancers. When omitted, this means the user has no opinion and the platform is left to choose reasonable defaults. These defaults are subject to change over time.",
+}
+
+func (LoadBalancer) SwaggerDoc() map[string]string {
+	return map_LoadBalancer
 }
 
 var map_ClusterNetworkEntry = map[string]string{
@@ -1470,9 +1788,10 @@ func (MTUMigrationValues) SwaggerDoc() map[string]string {
 }
 
 var map_Network = map[string]string{
-	"":       "Network holds cluster-wide information about Network. The canonical name is `cluster`. It is used to configure the desired network configuration, such as: IP address pools for services/pod IPs, network plugin, etc. Please view network.spec for an explanation on what applies when configuring this resource.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration. As a general rule, this SHOULD NOT be read directly. Instead, you should consume the NetworkStatus, as it indicates the currently deployed configuration. Currently, most spec fields are immutable after installation. Please view the individual ones for further details on each.",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Network holds cluster-wide information about Network. The canonical name is `cluster`. It is used to configure the desired network configuration, such as: IP address pools for services/pod IPs, network plugin, etc. Please view network.spec for an explanation on what applies when configuring this resource.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration. As a general rule, this SHOULD NOT be read directly. Instead, you should consume the NetworkStatus, as it indicates the currently deployed configuration. Currently, most spec fields are immutable after installation. Please view the individual ones for further details on each.",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Network) SwaggerDoc() map[string]string {
@@ -1480,7 +1799,8 @@ func (Network) SwaggerDoc() map[string]string {
 }
 
 var map_NetworkList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (NetworkList) SwaggerDoc() map[string]string {
@@ -1524,9 +1844,10 @@ func (NetworkStatus) SwaggerDoc() map[string]string {
 }
 
 var map_Node = map[string]string{
-	"":       "Node holds cluster-wide information about node specific features.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values.",
+	"":         "Node holds cluster-wide information about node specific features.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values.",
 }
 
 func (Node) SwaggerDoc() map[string]string {
@@ -1534,7 +1855,8 @@ func (Node) SwaggerDoc() map[string]string {
 }
 
 var map_NodeList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (NodeList) SwaggerDoc() map[string]string {
@@ -1548,36 +1870,6 @@ var map_NodeSpec = map[string]string{
 
 func (NodeSpec) SwaggerDoc() map[string]string {
 	return map_NodeSpec
-}
-
-var map_NodeStatus = map[string]string{
-	"workerLatencyProfileStatus": "WorkerLatencyProfileStatus provides the current status of WorkerLatencyProfile",
-}
-
-func (NodeStatus) SwaggerDoc() map[string]string {
-	return map_NodeStatus
-}
-
-var map_WorkerLatencyProfileStatus = map[string]string{
-	"":           "WorkerLatencyProfileStatus provides status information about the WorkerLatencyProfile rollout",
-	"conditions": "conditions describes the state of the WorkerLatencyProfile and related components (Kubelet or Controller Manager or Kube API Server)",
-}
-
-func (WorkerLatencyProfileStatus) SwaggerDoc() map[string]string {
-	return map_WorkerLatencyProfileStatus
-}
-
-var map_WorkerLatencyStatusCondition = map[string]string{
-	"owner":              "Owner specifies the operator that is updating this condition",
-	"type":               "type specifies the aspect reported by this condition.",
-	"status":             "status of the condition, one of True, False, Unknown.",
-	"lastTransitionTime": "lastTransitionTime is the time of the last update to the current status property.",
-	"reason":             "reason is the CamelCase reason for the condition's current status.",
-	"message":            "message provides additional information about the current condition. This is only to be consumed by humans.  It may contain Line Feed characters (U+000A), which should be rendered as new lines.",
-}
-
-func (WorkerLatencyStatusCondition) SwaggerDoc() map[string]string {
-	return map_WorkerLatencyStatusCondition
 }
 
 var map_BasicAuthIdentityProvider = map[string]string{
@@ -1698,9 +1990,10 @@ func (LDAPIdentityProvider) SwaggerDoc() map[string]string {
 }
 
 var map_OAuth = map[string]string{
-	"":       "OAuth holds cluster-wide information about OAuth.  The canonical name is `cluster`. It is used to configure the integrated OAuth server. This configuration is only honored when the top level Authentication config has type set to IntegratedOAuth.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "OAuth holds cluster-wide information about OAuth.  The canonical name is `cluster`. It is used to configure the integrated OAuth server. This configuration is only honored when the top level Authentication config has type set to IntegratedOAuth.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (OAuth) SwaggerDoc() map[string]string {
@@ -1708,7 +2001,8 @@ func (OAuth) SwaggerDoc() map[string]string {
 }
 
 var map_OAuthList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (OAuthList) SwaggerDoc() map[string]string {
@@ -1832,7 +2126,8 @@ func (HubSourceStatus) SwaggerDoc() map[string]string {
 }
 
 var map_OperatorHub = map[string]string{
-	"": "OperatorHub is the Schema for the operatorhubs API. It can be used to change the state of the default hub sources for OperatorHub on the cluster from enabled to disabled and vice versa.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "OperatorHub is the Schema for the operatorhubs API. It can be used to change the state of the default hub sources for OperatorHub on the cluster from enabled to disabled and vice versa.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (OperatorHub) SwaggerDoc() map[string]string {
@@ -1840,7 +2135,8 @@ func (OperatorHub) SwaggerDoc() map[string]string {
 }
 
 var map_OperatorHubList = map[string]string{
-	"": "OperatorHubList contains a list of OperatorHub\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "OperatorHubList contains a list of OperatorHub\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (OperatorHubList) SwaggerDoc() map[string]string {
@@ -1867,9 +2163,10 @@ func (OperatorHubStatus) SwaggerDoc() map[string]string {
 }
 
 var map_Project = map[string]string{
-	"":       "Project holds cluster-wide information about Project.  The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Project holds cluster-wide information about Project.  The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Project) SwaggerDoc() map[string]string {
@@ -1877,7 +2174,8 @@ func (Project) SwaggerDoc() map[string]string {
 }
 
 var map_ProjectList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ProjectList) SwaggerDoc() map[string]string {
@@ -1904,9 +2202,10 @@ func (TemplateReference) SwaggerDoc() map[string]string {
 }
 
 var map_Proxy = map[string]string{
-	"":       "Proxy holds cluster-wide information on how to configure default proxies for the cluster. The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "Spec holds user-settable values for the proxy configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Proxy holds cluster-wide information on how to configure default proxies for the cluster. The canonical name is `cluster`\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "Spec holds user-settable values for the proxy configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Proxy) SwaggerDoc() map[string]string {
@@ -1914,7 +2213,8 @@ func (Proxy) SwaggerDoc() map[string]string {
 }
 
 var map_ProxyList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (ProxyList) SwaggerDoc() map[string]string {
@@ -1946,9 +2246,10 @@ func (ProxyStatus) SwaggerDoc() map[string]string {
 }
 
 var map_Scheduler = map[string]string{
-	"":       "Scheduler holds cluster-wide config information to run the Kubernetes Scheduler and influence its placement decisions. The canonical name for this config is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
-	"spec":   "spec holds user settable values for configuration",
-	"status": "status holds observed values from the cluster. They may not be overridden.",
+	"":         "Scheduler holds cluster-wide config information to run the Kubernetes Scheduler and influence its placement decisions. The canonical name for this config is `cluster`.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec holds user settable values for configuration",
+	"status":   "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (Scheduler) SwaggerDoc() map[string]string {
@@ -1956,7 +2257,8 @@ func (Scheduler) SwaggerDoc() map[string]string {
 }
 
 var map_SchedulerList = map[string]string{
-	"": "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 }
 
 func (SchedulerList) SwaggerDoc() map[string]string {

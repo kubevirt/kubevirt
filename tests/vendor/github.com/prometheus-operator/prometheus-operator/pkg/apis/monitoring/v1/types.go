@@ -17,25 +17,17 @@ package v1
 import (
 	"fmt"
 
-	"github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
 )
 
 const (
 	Version = "v1"
 )
-
-var resourceToKind = map[string]string{
-	PrometheusName:     PrometheusesKind,
-	AlertmanagerName:   AlertmanagersKind,
-	ServiceMonitorName: ServiceMonitorsKind,
-	PodMonitorName:     PodMonitorsKind,
-	PrometheusRuleName: PrometheusRuleKind,
-	ProbeName:          ProbesKind,
-}
 
 // ByteSize is a valid memory size type based on powers-of-2, so 1KB is 1024B.
 // Supported units: B, KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB Ex: `512MB`.
@@ -47,6 +39,14 @@ type ByteSize string
 // Examples: `30s`, `1m`, `1h20m15s`, `15d`
 // +kubebuilder:validation:Pattern:="^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$"
 type Duration string
+
+// NonEmptyDuration is a valid time duration that can be parsed by Prometheus model.ParseDuration() function.
+// Compared to Duration,  NonEmptyDuration enforces a minimum length of 1.
+// Supported units: y, w, d, h, m, s, ms
+// Examples: `30s`, `1m`, `1h20m15s`, `15d`
+// +kubebuilder:validation:Pattern:="^(0|(([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?)$"
+// +kubebuilder:validation:MinLength=1
+type NonEmptyDuration string
 
 // GoDuration is a valid time duration that can be parsed by Go's time.ParseDuration() function.
 // Supported units: h, m, s, ms
@@ -65,12 +65,13 @@ type HostAlias struct {
 	Hostnames []string `json:"hostnames"`
 }
 
-// PrometheusRuleExcludeConfig enables users to configure excluded PrometheusRule names and their namespaces
-// to be ignored while enforcing namespace label for alerts and metrics.
+// PrometheusRuleExcludeConfig enables users to configure excluded
+// PrometheusRule names and their namespaces to be ignored while enforcing
+// namespace label for alerts and metrics.
 type PrometheusRuleExcludeConfig struct {
-	// RuleNamespace - namespace of excluded rule
+	// Namespace of the excluded PrometheusRule object.
 	RuleNamespace string `json:"ruleNamespace"`
-	// RuleNamespace - name of excluded rule
+	// Name of the excluded PrometheusRule object.
 	RuleName string `json:"ruleName"`
 }
 
@@ -83,14 +84,14 @@ type ObjectReference struct {
 	Group string `json:"group"`
 	// Resource of the referent.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=prometheusrules;servicemonitors;podmonitors;probes
+	// +kubebuilder:validation:Enum=prometheusrules;servicemonitors;podmonitors;probes;scrapeconfigs
 	Resource string `json:"resource"`
 	// Namespace of the referent.
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Namespace string `json:"namespace"`
-	// Name of the referent. When not set, all resources are matched.
+	// Name of the referent. When not set, all resources in the namespace are matched.
 	// +optional
 	Name string `json:"name,omitempty"`
 }
@@ -103,12 +104,8 @@ func (obj *ObjectReference) GroupResource() schema.GroupResource {
 }
 
 func (obj *ObjectReference) GroupKind() schema.GroupKind {
-	_, found := resourceToKind[obj.Resource]
-	if !found {
-		panic(fmt.Sprintf("failed to map resource %q to a kind", obj.Resource))
-	}
 	return schema.GroupKind{
-		Kind:  resourceToKind[obj.Resource],
+		Kind:  monitoring.ResourceToKind(obj.Resource),
 		Group: obj.getGroup(),
 	}
 }
@@ -198,14 +195,12 @@ type EmbeddedPersistentVolumeClaim struct {
 	// EmbeddedMetadata contains metadata relevant to an EmbeddedResource.
 	EmbeddedObjectMetadata `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	// Spec defines the desired characteristics of a volume requested by a pod author.
+	// Defines the desired characteristics of a volume requested by a pod author.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
 	// +optional
 	Spec v1.PersistentVolumeClaimSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 
-	// Status represents the current information/status of a persistent volume claim.
-	// Read-only.
-	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// *Deprecated: this field is never set.*
 	// +optional
 	Status v1.PersistentVolumeClaimStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }

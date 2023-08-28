@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -75,15 +75,15 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("feature gate defaults", func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
-			DeployKubeSecondaryDNS:      pointer.Bool(false),
-			DeployTektonTaskResources:   pointer.Bool(false),
-			DeployVMConsoleProxy:        pointer.Bool(false),
-			DisableMDevConfiguration:    pointer.Bool(false),
-			EnableCommonBootImageImport: pointer.Bool(true),
-			PersistentReservation:       pointer.Bool(false),
-			NonRoot:                     pointer.Bool(true), //nolint SA1019
-			WithHostPassthroughCPU:      pointer.Bool(false),
-			EnableManagedTenantQuota:    pointer.Bool(false),
+			DeployKubeSecondaryDNS:      ptr.To(false),
+			DeployTektonTaskResources:   ptr.To(false),
+			DeployVMConsoleProxy:        ptr.To(false),
+			DisableMDevConfiguration:    ptr.To(false),
+			EnableCommonBootImageImport: ptr.To(true),
+			PersistentReservation:       ptr.To(false),
+			NonRoot:                     ptr.To(true), //nolint SA1019
+			WithHostPassthroughCPU:      ptr.To(false),
+			EnableManagedTenantQuota:    ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {
@@ -113,12 +113,12 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("liveMigrationConfig defaults", func() {
 		defaultLiveMigrationConfig := v1beta1.LiveMigrationConfigurations{
-			AllowAutoConverge:                 pointer.Bool(false),
-			AllowPostCopy:                     pointer.Bool(false),
-			CompletionTimeoutPerGiB:           pointer.Int64(800),
-			ParallelMigrationsPerCluster:      pointer.Uint32(5),
-			ParallelOutboundMigrationsPerNode: pointer.Uint32(2),
-			ProgressTimeout:                   pointer.Int64(150),
+			AllowAutoConverge:                 ptr.To(false),
+			AllowPostCopy:                     ptr.To(false),
+			CompletionTimeoutPerGiB:           ptr.To(int64(800)),
+			ParallelMigrationsPerCluster:      ptr.To(uint32(5)),
+			ParallelOutboundMigrationsPerNode: ptr.To(uint32(2)),
+			ProgressTimeout:                   ptr.To(int64(150)),
 		}
 
 		DescribeTable("Check that liveMigrationConfig defaults are behaving as expected", func(path string) {
@@ -145,7 +145,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("resourceRequirements defaults", func() {
 		defaultResourceRequirements := v1beta1.OperandResourceRequirements{
-			VmiCPUAllocationRatio: pointer.Int(10),
+			VmiCPUAllocationRatio: ptr.To(10),
 		}
 
 		DescribeTable("Check that resourceRequirements defaults are behaving as expected", func(path string) {
@@ -168,7 +168,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 	Context("workloadUpdateStrategy defaults", func() {
 		defaultWorkloadUpdateStrategy := v1beta1.HyperConvergedWorkloadUpdateStrategy{
 			BatchEvictionInterval: &metav1.Duration{Duration: time.Minute},
-			BatchEvictionSize:     pointer.Int(10),
+			BatchEvictionSize:     ptr.To(10),
 			WorkloadUpdateMethods: []string{"LiveMigrate"},
 		}
 

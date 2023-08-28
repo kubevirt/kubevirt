@@ -8,7 +8,7 @@ import (
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -193,7 +193,7 @@ Version: 1.2.3`)
 		It("should create if not present", func() {
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: pointer.Bool(true),
+				WithHostPassthroughCPU: ptr.To(true),
 			}
 
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
@@ -293,7 +293,7 @@ Version: 1.2.3`)
 		It("should force mandatory configurations", func() {
 			mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: pointer.Bool(true),
+				WithHostPassthroughCPU: ptr.To(true),
 			}
 
 			os.Setenv(smbiosEnvName,
@@ -340,8 +340,8 @@ Version: 1.2.3`)
 				ParallelOutboundMigrationsPerNode: &wrongNumeric32Value,
 				ProgressTimeout:                   &wrongNumeric64Value,
 				Network:                           &network,
-				AllowAutoConverge:                 pointer.Bool(false),
-				AllowPostCopy:                     pointer.Bool(false),
+				AllowAutoConverge:                 ptr.To(false),
+				AllowPostCopy:                     ptr.To(false),
 			}
 
 			cl := commontestutils.InitClient([]client.Object{hco, existKv})
@@ -400,7 +400,7 @@ Version: 1.2.3`)
 
 		It("should fail if the SMBIOS is wrongly formatted mandatory configurations", func() {
 			hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-				WithHostPassthroughCPU: pointer.Bool(true),
+				WithHostPassthroughCPU: ptr.To(true),
 			}
 
 			_ = os.Setenv(smbiosEnvName, "WRONG YAML")
@@ -527,8 +527,8 @@ Version: 1.2.3`)
 			hco.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &parallelMigrationsPerCluster
 			hco.Spec.LiveMigrationConfig.ProgressTimeout = &progressTimeout
 			hco.Spec.LiveMigrationConfig.Network = &network
-			hco.Spec.LiveMigrationConfig.AllowAutoConverge = pointer.Bool(true)
-			hco.Spec.LiveMigrationConfig.AllowPostCopy = pointer.Bool(true)
+			hco.Spec.LiveMigrationConfig.AllowAutoConverge = ptr.To(true)
+			hco.Spec.LiveMigrationConfig.AllowPostCopy = ptr.To(true)
 
 			cl := commontestutils.InitClient([]client.Object{hco, existKv})
 			handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -1191,7 +1191,7 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 
 				testCPUModel := "testValue"
-				hco.Spec.DefaultCPUModel = pointer.String(testCPUModel)
+				hco.Spec.DefaultCPUModel = ptr.To(testCPUModel)
 
 				cl := commontestutils.InitClient([]client.Object{hco, existKv})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -1494,7 +1494,7 @@ Version: 1.2.3`)
 				It("should add the WithHostPassthroughCPU feature gate if it's set in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: pointer.Bool(true),
+						WithHostPassthroughCPU: ptr.To(true),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1508,7 +1508,7 @@ Version: 1.2.3`)
 				It("should not add the WithHostPassthroughCPU feature gate if it's disabled in HyperConverged CR", func() {
 					// one enabled, one disabled and one missing
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: pointer.Bool(false),
+						WithHostPassthroughCPU: ptr.To(false),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1521,7 +1521,7 @@ Version: 1.2.3`)
 
 				It("should not add the Root feature gate if NonRoot is true in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: pointer.Bool(true), //nolint SA1019
+						NonRoot: ptr.To(true), //nolint SA1019
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1534,7 +1534,7 @@ Version: 1.2.3`)
 
 				It("should add the Root feature gate if NonRoot is false in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						NonRoot: pointer.Bool(false), //nolint SA1019
+						NonRoot: ptr.To(false), //nolint SA1019
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1560,7 +1560,7 @@ Version: 1.2.3`)
 
 				It("should add the DisableMDevConfiguration feature gate if DisableMDevConfiguration is true in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						DisableMDevConfiguration: pointer.Bool(true),
+						DisableMDevConfiguration: ptr.To(true),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1586,7 +1586,7 @@ Version: 1.2.3`)
 
 				It("should not add the DisableMDevConfiguration feature gate if DisableMDevConfiguration is false in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						DisableMDevConfiguration: pointer.Bool(false),
+						DisableMDevConfiguration: ptr.To(false),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1599,7 +1599,7 @@ Version: 1.2.3`)
 
 				It("should add the PersistentReservation feature gate if PersistentReservation is true in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						PersistentReservation: pointer.Bool(true),
+						PersistentReservation: ptr.To(true),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1625,7 +1625,7 @@ Version: 1.2.3`)
 
 				It("should not add the PersistentReservation feature gate if PersistentReservation is false in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						PersistentReservation: pointer.Bool(false),
+						PersistentReservation: ptr.To(false),
 					}
 
 					existingResource, err := NewKubeVirt(hco)
@@ -1670,8 +1670,8 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU:   pointer.Bool(true),
-						DisableMDevConfiguration: pointer.Bool(true),
+						WithHostPassthroughCPU:   ptr.To(true),
+						DisableMDevConfiguration: ptr.To(true),
 					}
 
 					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -1701,8 +1701,8 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU:   pointer.Bool(false),
-						DisableMDevConfiguration: pointer.Bool(false),
+						WithHostPassthroughCPU:   ptr.To(false),
+						DisableMDevConfiguration: ptr.To(false),
 					}
 
 					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -1769,7 +1769,7 @@ Version: 1.2.3`)
 					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: pointer.Bool(true),
+						WithHostPassthroughCPU: ptr.To(true),
 					}
 
 					By("Make sure the existing KV is with the the expected FGs", func() {
@@ -1814,7 +1814,7 @@ Version: 1.2.3`)
 					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: pointer.Bool(false),
+						WithHostPassthroughCPU: ptr.To(false),
 					}
 
 					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -1949,25 +1949,25 @@ Version: 1.2.3`)
 					),
 					Entry("When not using kvm-emulation and all FGs are disabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(false)},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(false)},
 						basicNumFgOnOpenshift,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs},
 					),
 					Entry("When using kvm-emulation all FGs are disabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(false)},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(false)},
 						len(hardCodeKvFgs),
 						[][]string{hardCodeKvFgs},
 					),
 					Entry("When not using kvm-emulation and all FGs are enabled",
 						false,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(true)},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(true)},
 						basicNumFgOnOpenshift+1,
 						[][]string{hardCodeKvFgs, sspConditionKvFgs, {kvWithHostPassthroughCPU}},
 					),
 					Entry("When using kvm-emulation all FGs are enabled",
 						true,
-						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: pointer.Bool(true)},
+						&hcov1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(true)},
 						len(hardCodeKvFgs)+1,
 						[][]string{hardCodeKvFgs, {kvWithHostPassthroughCPU}},
 					))
@@ -2780,7 +2780,7 @@ Version: 1.2.3`)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Modify HCO's VM state storage class configuration")
-				hco.Spec.VMStateStorageClass = pointer.String("rook-cephfs")
+				hco.Spec.VMStateStorageClass = ptr.To("rook-cephfs")
 
 				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -3480,7 +3480,7 @@ Version: 1.2.3`)
 				Expect(kv.Spec.Configuration.DefaultRuntimeClass).To(BeEmpty())
 			},
 				Entry("nil defaultRuntimeClass", nil),
-				Entry("empty defaultRuntimeClass", pointer.String("")),
+				Entry("empty defaultRuntimeClass", ptr.To("")),
 			)
 
 		})
@@ -3503,8 +3503,8 @@ Version: 1.2.3`)
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
 				Network:                           &network,
-				AllowAutoConverge:                 pointer.Bool(true),
-				AllowPostCopy:                     pointer.Bool(true),
+				AllowAutoConverge:                 ptr.To(true),
+				AllowPostCopy:                     ptr.To(true),
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).ToNot(HaveOccurred())
@@ -3543,8 +3543,8 @@ Version: 1.2.3`)
 				ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 				ProgressTimeout:                   &progressTimeout,
 				Network:                           &network,
-				AllowAutoConverge:                 pointer.Bool(true),
-				AllowPostCopy:                     pointer.Bool(true),
+				AllowAutoConverge:                 ptr.To(true),
+				AllowPostCopy:                     ptr.To(true),
 			}
 			mc, err := hcLiveMigrationToKv(lmc)
 			Expect(err).To(HaveOccurred())

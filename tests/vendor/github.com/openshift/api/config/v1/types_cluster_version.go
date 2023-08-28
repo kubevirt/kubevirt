@@ -13,8 +13,12 @@ import (
 //
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
+// +kubebuilder:validation:XValidation:rule="has(self.spec.capabilities) && has(self.spec.capabilities.additionalEnabledCapabilities) && self.spec.capabilities.baselineCapabilitySet == 'None' && 'baremetal' in self.spec.capabilities.additionalEnabledCapabilities ? 'MachineAPI' in self.spec.capabilities.additionalEnabledCapabilities || (has(self.status) && has(self.status.capabilities) && has(self.status.capabilities.enabledCapabilities) && 'MachineAPI' in self.status.capabilities.enabledCapabilities) : true",message="the `baremetal` capability requires the `MachineAPI` capability, which is neither explicitly or implicitly enabled in this cluster, please enable the `MachineAPI` capability"
 type ClusterVersion struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec is the desired state of the cluster version - the operator will work
@@ -45,8 +49,17 @@ type ClusterVersionSpec struct {
 	// the current version does not match the desired version). The set of
 	// recommended update values is listed as part of available updates in
 	// status, and setting values outside that range may cause the upgrade
-	// to fail. You may specify the version field without setting image if
-	// an update exists with that version in the availableUpdates or history.
+	// to fail.
+	//
+	// Some of the fields are inter-related with restrictions and meanings described here.
+	// 1. image is specified, version is specified, architecture is specified. API validation error.
+	// 2. image is specified, version is specified, architecture is not specified. You should not do this. version is silently ignored and image is used.
+	// 3. image is specified, version is not specified, architecture is specified. API validation error.
+	// 4. image is specified, version is not specified, architecture is not specified. image is used.
+	// 5. image is not specified, version is specified, architecture is specified. version and desired architecture are used to select an image.
+	// 6. image is not specified, version is specified, architecture is not specified. version and current architecture are used to select an image.
+	// 7. image is not specified, version is not specified, architecture is specified. API validation error.
+	// 8. image is not specified, version is not specified, architecture is not specified. API validation error.
 	//
 	// If an upgrade fails the operator will halt and report status
 	// about the failing component. Setting the desired update value back to
@@ -191,7 +204,7 @@ type UpdateHistory struct {
 	// +nullable
 	CompletionTime *metav1.Time `json:"completionTime"`
 
-	// version is a semantic versioning identifying the update version. If the
+	// version is a semantic version identifying the update version. If the
 	// requested image does not define a version, or if a failure occurs
 	// retrieving the image, this value may be empty.
 	//
@@ -224,8 +237,18 @@ type UpdateHistory struct {
 // ClusterID is string RFC4122 uuid.
 type ClusterID string
 
+// ClusterVersionArchitecture enumerates valid cluster architectures.
+// +kubebuilder:validation:Enum="Multi";""
+type ClusterVersionArchitecture string
+
+const (
+	// ClusterVersionArchitectureMulti identifies a multi architecture. A multi
+	// architecture cluster is capable of running nodes with multiple architectures.
+	ClusterVersionArchitectureMulti ClusterVersionArchitecture = "Multi"
+)
+
 // ClusterVersionCapability enumerates optional, core cluster components.
-// +kubebuilder:validation:Enum=openshift-samples;baremetal
+// +kubebuilder:validation:Enum=openshift-samples;baremetal;marketplace;Console;Insights;Storage;CSISnapshot;NodeTuning;MachineAPI;Build;DeploymentConfig
 type ClusterVersionCapability string
 
 const (
@@ -240,10 +263,93 @@ const (
 	// baremetal operator which is responsible for running the metal3
 	// deployment.
 	ClusterVersionCapabilityBaremetal ClusterVersionCapability = "baremetal"
+
+	// ClusterVersionCapabilityMarketplace manages the Marketplace operator which
+	// supplies Operator Lifecycle Manager (OLM) users with default catalogs of
+	// "optional" operators.
+	ClusterVersionCapabilityMarketplace ClusterVersionCapability = "marketplace"
+
+	// ClusterVersionCapabilityConsole manages the Console operator which
+	// installs and maintains the web console.
+	ClusterVersionCapabilityConsole ClusterVersionCapability = "Console"
+
+	// ClusterVersionCapabilityInsights manages the Insights operator which
+	// collects anonymized information about the cluster to generate
+	// recommendations for possible cluster issues.
+	ClusterVersionCapabilityInsights ClusterVersionCapability = "Insights"
+
+	// ClusterVersionCapabilityStorage manages the storage operator which
+	// is responsible for providing cluster-wide storage defaults
+	// WARNING: Do not disable this capability when deployed to
+	// RHEV and OpenStack without reading the docs.
+	// These clusters heavily rely on that capability and may cause
+	// damage to the cluster.
+	ClusterVersionCapabilityStorage ClusterVersionCapability = "Storage"
+
+	// ClusterVersionCapabilityCSISnapshot manages the csi snapshot
+	// controller operator which is responsible for watching the
+	// VolumeSnapshot CRD objects and manages the creation and deletion
+	// lifecycle of volume snapshots
+	ClusterVersionCapabilityCSISnapshot ClusterVersionCapability = "CSISnapshot"
+
+	// ClusterVersionCapabilityNodeTuning manages the Node Tuning Operator
+	// which is responsible for watching the Tuned and Profile CRD
+	// objects and manages the containerized TuneD daemon which controls
+	// system level tuning of Nodes
+	ClusterVersionCapabilityNodeTuning ClusterVersionCapability = "NodeTuning"
+
+	// ClusterVersionCapabilityMachineAPI manages
+	// machine-api-operator
+	// cluster-autoscaler-operator
+	// cluster-control-plane-machine-set-operator
+	// which is responsible for machines configuration and heavily
+	// targeted for SNO clusters.
+	//
+	// The following CRDs are disabled as well
+	// machines
+	// machineset
+	// controlplanemachineset
+	//
+	// WARNING: Do not disable that capability without reading
+	// documentation. This is important part of openshift system
+	// and may cause cluster damage
+	ClusterVersionCapabilityMachineAPI ClusterVersionCapability = "MachineAPI"
+
+	// ClusterVersionCapabilityBuild manages the Build API which is responsible
+	// for watching the Build API objects and managing their lifecycle.
+	// The functionality is located under openshift-apiserver and openshift-controller-manager.
+	//
+	// The following resources are taken into account:
+	// - builds
+	// - buildconfigs
+	ClusterVersionCapabilityBuild ClusterVersionCapability = "Build"
+
+	// ClusterVersionCapabilityDeploymentConfig manages the DeploymentConfig API
+	// which is responsible for watching the DeploymentConfig API and managing their lifecycle.
+	// The functionality is located under openshift-apiserver and openshift-controller-manager.
+	//
+	// The following resources are taken into account:
+	// - deploymentconfigs
+	ClusterVersionCapabilityDeploymentConfig ClusterVersionCapability = "DeploymentConfig"
 )
 
+// KnownClusterVersionCapabilities includes all known optional, core cluster components.
+var KnownClusterVersionCapabilities = []ClusterVersionCapability{
+	ClusterVersionCapabilityBaremetal,
+	ClusterVersionCapabilityConsole,
+	ClusterVersionCapabilityInsights,
+	ClusterVersionCapabilityMarketplace,
+	ClusterVersionCapabilityStorage,
+	ClusterVersionCapabilityOpenShiftSamples,
+	ClusterVersionCapabilityCSISnapshot,
+	ClusterVersionCapabilityNodeTuning,
+	ClusterVersionCapabilityMachineAPI,
+	ClusterVersionCapabilityBuild,
+	ClusterVersionCapabilityDeploymentConfig,
+}
+
 // ClusterVersionCapabilitySet defines sets of cluster version capabilities.
-// +kubebuilder:validation:Enum=None;v4.11;vCurrent
+// +kubebuilder:validation:Enum=None;v4.11;v4.12;v4.13;v4.14;vCurrent
 type ClusterVersionCapabilitySet string
 
 const (
@@ -257,6 +363,24 @@ const (
 	// version of OpenShift is installed.
 	ClusterVersionCapabilitySet4_11 ClusterVersionCapabilitySet = "v4.11"
 
+	// ClusterVersionCapabilitySet4_12 is the recommended set of
+	// optional capabilities to enable for the 4.12 version of
+	// OpenShift.  This list will remain the same no matter which
+	// version of OpenShift is installed.
+	ClusterVersionCapabilitySet4_12 ClusterVersionCapabilitySet = "v4.12"
+
+	// ClusterVersionCapabilitySet4_13 is the recommended set of
+	// optional capabilities to enable for the 4.13 version of
+	// OpenShift.  This list will remain the same no matter which
+	// version of OpenShift is installed.
+	ClusterVersionCapabilitySet4_13 ClusterVersionCapabilitySet = "v4.13"
+
+	// ClusterVersionCapabilitySet4_14 is the recommended set of
+	// optional capabilities to enable for the 4.14 version of
+	// OpenShift.  This list will remain the same no matter which
+	// version of OpenShift is installed.
+	ClusterVersionCapabilitySet4_14 ClusterVersionCapabilitySet = "v4.14"
+
 	// ClusterVersionCapabilitySetCurrent is the recommended set
 	// of optional capabilities to enable for the cluster's
 	// current version of OpenShift.
@@ -267,12 +391,57 @@ const (
 var ClusterVersionCapabilitySets = map[ClusterVersionCapabilitySet][]ClusterVersionCapability{
 	ClusterVersionCapabilitySetNone: {},
 	ClusterVersionCapabilitySet4_11: {
-		ClusterVersionCapabilityOpenShiftSamples,
 		ClusterVersionCapabilityBaremetal,
+		ClusterVersionCapabilityMarketplace,
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityMachineAPI,
+	},
+	ClusterVersionCapabilitySet4_12: {
+		ClusterVersionCapabilityBaremetal,
+		ClusterVersionCapabilityConsole,
+		ClusterVersionCapabilityInsights,
+		ClusterVersionCapabilityMarketplace,
+		ClusterVersionCapabilityStorage,
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityCSISnapshot,
+		ClusterVersionCapabilityMachineAPI,
+	},
+	ClusterVersionCapabilitySet4_13: {
+		ClusterVersionCapabilityBaremetal,
+		ClusterVersionCapabilityConsole,
+		ClusterVersionCapabilityInsights,
+		ClusterVersionCapabilityMarketplace,
+		ClusterVersionCapabilityStorage,
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityCSISnapshot,
+		ClusterVersionCapabilityNodeTuning,
+		ClusterVersionCapabilityMachineAPI,
+	},
+	ClusterVersionCapabilitySet4_14: {
+		ClusterVersionCapabilityBaremetal,
+		ClusterVersionCapabilityConsole,
+		ClusterVersionCapabilityInsights,
+		ClusterVersionCapabilityMarketplace,
+		ClusterVersionCapabilityStorage,
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityCSISnapshot,
+		ClusterVersionCapabilityNodeTuning,
+		ClusterVersionCapabilityMachineAPI,
+		ClusterVersionCapabilityBuild,
+		ClusterVersionCapabilityDeploymentConfig,
 	},
 	ClusterVersionCapabilitySetCurrent: {
-		ClusterVersionCapabilityOpenShiftSamples,
 		ClusterVersionCapabilityBaremetal,
+		ClusterVersionCapabilityConsole,
+		ClusterVersionCapabilityInsights,
+		ClusterVersionCapabilityMarketplace,
+		ClusterVersionCapabilityStorage,
+		ClusterVersionCapabilityOpenShiftSamples,
+		ClusterVersionCapabilityCSISnapshot,
+		ClusterVersionCapabilityNodeTuning,
+		ClusterVersionCapabilityMachineAPI,
+		ClusterVersionCapabilityBuild,
+		ClusterVersionCapabilityDeploymentConfig,
 	},
 }
 
@@ -346,17 +515,33 @@ type ComponentOverride struct {
 type URL string
 
 // Update represents an administrator update request.
+// +kubebuilder:validation:XValidation:rule="has(self.architecture) && has(self.image) ? (self.architecture == '' || self.image == '') : true",message="cannot set both Architecture and Image"
+// +kubebuilder:validation:XValidation:rule="has(self.architecture) && self.architecture != '' ? self.version != '' : true",message="Version must be set if Architecture is set"
 // +k8s:deepcopy-gen=true
 type Update struct {
-	// version is a semantic versioning identifying the update version. When this
-	// field is part of spec, version is optional if image is specified.
+	// architecture is an optional field that indicates the desired
+	// value of the cluster architecture. In this context cluster
+	// architecture means either a single architecture or a multi
+	// architecture. architecture can only be set to Multi thereby
+	// only allowing updates from single to multi architecture. If
+	// architecture is set, image cannot be set and version must be
+	// set.
+	// Valid values are 'Multi' and empty.
+	//
+	// +optional
+	Architecture ClusterVersionArchitecture `json:"architecture"`
+
+	// version is a semantic version identifying the update version.
+	// version is ignored if image is specified and required if
+	// architecture is specified.
 	//
 	// +optional
 	Version string `json:"version"`
 
-	// image is a container image location that contains the update. When this
-	// field is part of spec, image is optional if version is specified and the
-	// availableUpdates field contains a matching version.
+	// image is a container image location that contains the update.
+	// image should be used when the desired version does not exist in availableUpdates or history.
+	// When image is set, version is ignored. When image is set, version should be empty.
+	// When image is set, architecture cannot be specified.
 	//
 	// +optional
 	Image string `json:"image"`
@@ -375,7 +560,7 @@ type Update struct {
 // Release represents an OpenShift release image and associated metadata.
 // +k8s:deepcopy-gen=true
 type Release struct {
-	// version is a semantic versioning identifying the update version. When this
+	// version is a semantic version identifying the update version. When this
 	// field is part of spec, version is optional if image is specified.
 	// +required
 	Version string `json:"version"`
@@ -519,6 +704,9 @@ type PromQLClusterCondition struct {
 // +openshift:compatibility-gen:level=1
 type ClusterVersionList struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard list's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
 	Items []ClusterVersion `json:"items"`

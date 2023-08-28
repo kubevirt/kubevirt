@@ -49,34 +49,6 @@ var _ = Describe("Test general utilities", func() {
 		})
 	})
 
-	Context("test GetWatchNamespace", func() {
-		var origVal string
-		BeforeEach(func() {
-			origVal = os.Getenv(WatchNamespaceEnvVar)
-		})
-
-		AfterEach(func() {
-			_ = os.Setenv(WatchNamespaceEnvVar, origVal)
-		})
-
-		It("should return the namespace from the WATCH_NAMESPACE env var", func() {
-
-			const expectedNs = "mynamespace"
-			_ = os.Setenv(WatchNamespaceEnvVar, expectedNs)
-
-			ns, err := GetWatchNamespace()
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(ns).Should(Equal(expectedNs))
-		})
-
-		It("should return an error if the WATCH_NAMESPACE env var is not set", func() {
-			_ = os.Unsetenv(WatchNamespaceEnvVar)
-
-			_, err := GetWatchNamespace()
-			Expect(err).Should(HaveOccurred())
-		})
-	})
-
 	Context("test EnsureDeleted", func() {
 
 		const appName = "appName"

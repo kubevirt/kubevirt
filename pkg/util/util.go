@@ -35,11 +35,6 @@ const (
 	LocalRunMode   RunModeType = "local"
 	ClusterRunMode RunModeType = "cluster"
 
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which is the namespace where the watch activity happens.
-	// this value is empty if the operator is running with clusterScope.
-	WatchNamespaceEnvVar = "WATCH_NAMESPACE"
-
 	// PodNameEnvVar is the constant for env variable POD_NAME
 	// which is the name of the current pod.
 	PodNameEnvVar = "POD_NAME"
@@ -79,15 +74,6 @@ var GetOperatorNamespace = func(logger logr.Logger) (string, error) {
 	}
 	ns := strings.TrimSpace(string(nsBytes))
 	logger.Info("Found namespace", "Namespace", ns)
-	return ns, nil
-}
-
-// GetWatchNamespace returns the namespace the operator should be watching for changes
-func GetWatchNamespace() (string, error) {
-	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
-	}
 	return ns, nil
 }
 

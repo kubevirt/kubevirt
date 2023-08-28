@@ -56,7 +56,6 @@ Add new "Go Build" run configuration.
 ![](../images/local_goland_env.png)
 `make local` creates the `_local/envs.txt` file that includes all the required environment variables in GoLand/Intellij
 format. Copy  the content of this file to the `Environment` field. The minimum requirement environment variables are:
-  * `WATCH_NAMESPACE=kubevirt-hyperconverged`
   * `KUBECONFIG=_kubevirtci/_ci-configs/k8s-1.17/.kubeconfig` (example)
   * `OSDK_FORCE_RUN_MODE=local`
   * `OPERATOR_NAMESPACE=kubevirt-hyperconverged`

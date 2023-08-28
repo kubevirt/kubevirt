@@ -16,7 +16,10 @@ import (
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
 type ClusterOperator struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata"`
 
 	// spec holds configuration that could apply to any operator.
@@ -188,6 +191,13 @@ const (
 	// allow updates when this condition is not False, including when it is
 	// missing, True, or Unknown.
 	OperatorUpgradeable ClusterStatusConditionType = "Upgradeable"
+
+	// EvaluationConditionsDetected is used to indicate the result of the detection
+	// logic that was added to a component to evaluate the introduction of an
+	// invasive change that could potentially result in highly visible alerts,
+	// breakages or upgrade failures. You can concatenate multiple Reason using
+	// the "::" delimiter if you need to evaluate the introduction of multiple changes.
+	EvaluationConditionsDetected ClusterStatusConditionType = "EvaluationConditionsDetected"
 )
 
 // ClusterOperatorList is a list of OperatorStatus resources.
@@ -197,6 +207,9 @@ const (
 // +openshift:compatibility-gen:level=1
 type ClusterOperatorList struct {
 	metav1.TypeMeta `json:",inline"`
+
+	// metadata is the standard list's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
 	Items []ClusterOperator `json:"items"`

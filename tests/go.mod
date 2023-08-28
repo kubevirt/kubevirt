@@ -3,35 +3,28 @@ module github.com/kubevirt/hyperconverged-cluster-operator/tests
 go 1.19
 
 require (
-	github.com/kubevirt/cluster-network-addons-operator v0.89.0
-	github.com/onsi/ginkgo/v2 v2.11.0
-	github.com/onsi/gomega v1.27.8
+	github.com/onsi/ginkgo/v2 v2.12.0
+	github.com/onsi/gomega v1.27.10
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.65.1
+	github.com/openshift/client-go v0.0.1 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.67.1
 	github.com/prometheus/client_golang v1.16.0
-	github.com/prometheus/common v0.43.0
+	github.com/prometheus/common v0.44.0
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.27.3
-	k8s.io/apimachinery v0.27.3
+	k8s.io/api v0.28.1
+	k8s.io/apimachinery v0.28.1
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/utils v0.0.0-20230505201702-9f6742963106
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	kubevirt.io/api v1.0.0
 	kubevirt.io/client-go v1.0.0
 	kubevirt.io/containerized-data-importer-api v1.57.0
 	kubevirt.io/kubevirt v1.0.0
-	kubevirt.io/managed-tenant-quota v1.1.1
 )
 
-// -----
-// to be able to bump k8s/* deps to 0.26.3, see: https://github.com/kubevirt/kubevirt/pull/9623
-// remove when we will move to kubevirt.io/kubevirt v1.0.0
-replace kubevirt.io/kubevirt => kubevirt.io/kubevirt v1.0.0
-
-replace kubevirt.io/client-go => kubevirt.io/client-go v1.0.0
-
-// -----
-
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.13.1
+replace (
+	github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.0.0-20230717184314-6efbe3a22f6f
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.0
+)
 
 // Build with hyperconverged-cluster-operator from the repo
 replace (
@@ -43,11 +36,13 @@ replace (
 
 require (
 	github.com/gertd/go-pluralize v0.2.1
+	github.com/kubevirt/cluster-network-addons-operator v0.89.0
 	github.com/kubevirt/hyperconverged-cluster-operator v0.0.0-00010101000000-000000000000
 	github.com/openshift/custom-resource-status v1.1.2
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apiserver v0.27.3
+	k8s.io/apiserver v0.28.1
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
+	kubevirt.io/managed-tenant-quota v1.1.1
 	kubevirt.io/ssp-operator/api v0.18.2
 )
 
@@ -59,12 +54,14 @@ require (
 	github.com/cilium/ebpf v0.9.1 // indirect
 	github.com/coreos/prometheus-operator v0.38.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/elazarl/goproxy v0.0.0-20190911111923-ecfe977594f1 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.14.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
 	github.com/go-kit/kit v0.10.0 // indirect
+	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -82,8 +79,8 @@ require (
 	github.com/google/goexpect v0.0.0-20191001010744-5b6988669ffa // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/goterm v0.0.0-20190703233501-fc88cf888a3f // indirect
-	github.com/google/pprof v0.0.0-20230705174524-200ffdc848b8 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/pprof v0.0.0-20230821062121-407c9e7a662f // indirect
+	github.com/google/uuid v1.3.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -105,38 +102,37 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/opencontainers/runc v1.1.7 // indirect
-	github.com/openshift/client-go v0.0.0 // indirect
-	github.com/operator-framework/api v0.17.6 // indirect
+	github.com/operator-framework/api v0.17.7 // indirect
 	github.com/operator-framework/operator-lib v0.11.1-0.20220921174810-791cc547e6c5 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
-	github.com/spf13/cobra v1.6.1 // indirect
+	github.com/sirupsen/logrus v1.9.2 // indirect
+	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/crypto v0.11.0 // indirect
-	golang.org/x/net v0.12.0 // indirect
+	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/term v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/term v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.11.0 // indirect
+	golang.org/x/tools v0.12.1-0.20230815132531-74c255bcf846 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230125152338-dcaf20b6aeaa // indirect
-	google.golang.org/grpc v1.53.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
+	google.golang.org/grpc v1.54.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.27.3 // indirect
+	k8s.io/apiextensions-apiserver v0.28.1 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-aggregator v0.27.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230515203736-54b630e78af5 // indirect
+	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443 // indirect
 	k8s.io/kubectl v0.26.1 // indirect
-	sigs.k8s.io/controller-runtime v0.15.0 // indirect
+	sigs.k8s.io/controller-runtime v0.16.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
@@ -215,7 +211,7 @@ replace (
 replace (
 	github.com/appscode/jsonpatch => github.com/appscode/jsonpatch v1.0.1
 	github.com/coreos/prometheus-operator/pkg/apis/monitoring => github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.52.1
-	github.com/go-kit/kit => github.com/go-kit/kit v0.9.0
+	github.com/go-kit/kit => github.com/go-kit/kit v0.12.0
 	github.com/kubevirt/cluster-network-addons-operator => github.com/kubevirt/cluster-network-addons-operator v0.89.0
 	github.com/kubevirt/cluster-network-addons-operator/pkg/apis => github.com/kubevirt/cluster-network-addons-operator/pkg/apis v0.89.0
 	github.com/openshift/machine-api-operator => github.com/openshift/machine-api-operator v0.2.1-0.20191025120018-fb3724fc7bdf
@@ -223,11 +219,10 @@ replace (
 	kubevirt.io/containerized-data-importer-api => kubevirt.io/containerized-data-importer-api v1.57.0
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer-api/blob/release-v1.41.1
 replace (
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20220315184754-d7c10d0b647e
-	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
-	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200804184258-4fc3a5379c7a
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20230825144922-938af62eda38
+	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20230807132528-be5346fb33cb
+	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20230809121909-d7e7beca5bae
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v1.0.2
 )
 
@@ -241,14 +236,12 @@ replace bitbucket.org/ww/goautoneg => github.com/munnerz/goautoneg v0.0.0-201207
 // prune the list once not explicitly required
 replace (
 	github.com/dgrijalva/jwt-go => github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1
-	github.com/gorilla/websocket => github.com/gorilla/websocket v1.4.2
+	github.com/gorilla/websocket => github.com/gorilla/websocket v1.5.0
 	github.com/kubernetes-csi/external-snapshotter/v2 => github.com/kubernetes-csi/external-snapshotter/v2 v2.1.3
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/crypto/ssh => golang.org/x/crypto/ssh v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/crypto/ssh/terminal => golang.org/x/crypto/ssh/terminal v0.0.0-20220525230936-793ad666bf5e
 )
-
-replace github.com/u-root/u-root => github.com/u-root/u-root v0.1.0
 
 // FIX: Unhandled exception in gopkg.in/yaml.v3
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1

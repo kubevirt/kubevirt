@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -140,8 +140,8 @@ var _ = Describe("HyperconvergedController", func() {
 
 				hco := commontestutils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-					WithHostPassthroughCPU:    pointer.Bool(true),
-					DeployTektonTaskResources: pointer.Bool(true),
+					WithHostPassthroughCPU:    ptr.To(true),
+					DeployTektonTaskResources: ptr.To(true),
 				}
 
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
@@ -264,9 +264,9 @@ var _ = Describe("HyperconvergedController", func() {
 
 				hco := commontestutils.NewHco()
 				hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-					WithHostPassthroughCPU:    pointer.Bool(true),
-					DeployTektonTaskResources: pointer.Bool(true),
-					EnableManagedTenantQuota:  pointer.Bool(true),
+					WithHostPassthroughCPU:    ptr.To(true),
+					DeployTektonTaskResources: ptr.To(true),
+					EnableManagedTenantQuota:  ptr.To(true),
 				}
 
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})

@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
 	"github.com/openshift/library-go/pkg/crypto"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -64,7 +66,6 @@ func main() {
 
 	cmdHelper.InitiateCommand()
 
-	watchNamespace := cmdHelper.GetWatchNS()
 	operatorNamespace, err := hcoutil.GetOperatorNamespaceFromEnv()
 	cmdHelper.ExitOnError(err, "can't get operator expected namespace")
 
@@ -91,8 +92,9 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:              watchNamespace,
-		MetricsBindAddress:     fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
+		Metrics: server.Options{
+			BindAddress: fmt.Sprintf("%s:%d", hcoutil.MetricsHost, hcoutil.MetricsPort),
+		},
 		HealthProbeBindAddress: fmt.Sprintf("%s:%d", hcoutil.HealthProbeHost, hcoutil.HealthProbePort),
 		ReadinessEndpointName:  hcoutil.ReadinessEndpointName,
 		LivenessEndpointName:   hcoutil.LivenessEndpointName,

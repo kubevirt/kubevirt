@@ -188,6 +188,7 @@ func createUnsafeModificationAlertRule() monitoringv1.Rule {
 }
 
 func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
+	var hour1 monitoringv1.Duration = "1h"
 	return monitoringv1.Rule{
 		Alert: installationNotCompletedAlert,
 		Expr:  intstr.FromString("kubevirt_hco_hyperconverged_cr_exists == 0"),
@@ -195,7 +196,7 @@ func createInstallationNotCompletedAlertRule() monitoringv1.Rule {
 			"description": "the installation was not completed; the HyperConverged custom resource is missing. In order to complete the installation of the Hyperconverged Cluster Operator you should create the HyperConverged custom resource.",
 			"summary":     "the installation was not completed; to complete the installation, create a HyperConverged custom resource.",
 		},
-		For: "1h",
+		For: &hour1,
 		Labels: map[string]string{
 			severityAlertLabelKey:     "info",
 			healthImpactAlertLabelKey: "critical",

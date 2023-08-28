@@ -46,7 +46,6 @@ def get_env_file(outdir, file_format='txt'):
         "WEBHOOK_MODE=false",
         "WEBHOOK_CERT_DIR=./_local/certs",
         f"KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION={KUBEVIRT_CLIENT_GO_SCHEME_REGISTRATION_VERSION}",
-        "WATCH_NAMESPACE=kubevirt-hyperconverged",
         "OSDK_FORCE_RUN_MODE=local",
         "OPERATOR_NAMESPACE=kubevirt-hyperconverged",
     ])

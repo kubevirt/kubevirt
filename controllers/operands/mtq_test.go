@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"kubevirt.io/controller-lifecycle-operator-sdk/api"
@@ -159,7 +159,7 @@ var _ = Describe("MTQ tests", func() {
 		})
 
 		It("should create MTQ if the FG is set", func() {
-			hco.Spec.FeatureGates.EnableManagedTenantQuota = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
 			cl = commontestutils.InitClient([]client.Object{hco})
 
 			handler := newMtqHandler(cl, commontestutils.GetScheme())
@@ -188,7 +188,7 @@ var _ = Describe("MTQ tests", func() {
 		It("should update MTQ fields, if not matched to the requirements", func() {
 			wrongPC := mtqv1alpha1.MTQPriorityClass("wrongPC")
 
-			hco.Spec.FeatureGates.EnableManagedTenantQuota = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
 			mtq := NewMTQWithNameOnly(hco)
 			mtq.Spec.Infra = testNodePlacement
 			mtq.Spec.PriorityClass = &wrongPC
@@ -230,7 +230,7 @@ var _ = Describe("MTQ tests", func() {
 
 	Context("check cache", func() {
 		It("should create new cache if it empty", func() {
-			hco.Spec.FeatureGates.EnableManagedTenantQuota = pointer.Bool(true)
+			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
 			handler := newMtqHandler(cl, commontestutils.GetScheme())
 			op, ok := handler.(*mtqOperand)
 			Expect(ok).Should(BeTrue())
