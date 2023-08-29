@@ -280,7 +280,7 @@ func init() {
 
 func Execute() {
 	var err error
-	var app VirtControllerApp = VirtControllerApp{}
+	var app = VirtControllerApp{}
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
@@ -461,11 +461,11 @@ func (vca *VirtControllerApp) configModificationCallback() {
 }
 
 // Update virt-controller rate limiter
-func (app *VirtControllerApp) shouldChangeRateLimiter() {
-	config := app.clusterConfig.GetConfig()
+func (vca *VirtControllerApp) shouldChangeRateLimiter() {
+	config := vca.clusterConfig.GetConfig()
 	qps := config.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.QPS
 	burst := config.ControllerConfiguration.RestClient.RateLimiter.TokenBucketRateLimiter.Burst
-	app.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
+	vca.reloadableRateLimiter.Set(flowcontrol.NewTokenBucketRateLimiter(qps, burst))
 	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
 }
 

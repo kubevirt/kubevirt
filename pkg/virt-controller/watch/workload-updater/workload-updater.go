@@ -8,8 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/time/rate"
+
+	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -38,9 +39,9 @@ const (
 	FailedCreateVirtualMachineInstanceMigrationReason = "FailedCreate"
 	// SuccessfulCreateVirtualMachineInstanceMigrationReason is added in an event if creating a VirtualMachineInstanceMigration succeeded.
 	SuccessfulCreateVirtualMachineInstanceMigrationReason = "SuccessfulCreate"
-	// FailedEvictVirtualMachineReason is added in an event if a deletion of a VMI fails
+	// FailedEvictVirtualMachineInstanceReason is added in an event if a deletion of a VMI fails
 	FailedEvictVirtualMachineInstanceReason = "FailedEvict"
-	// SuccessfulEvictVirtualMachineReason is added in an event if a deletion of a VMI Succeeds
+	// SuccessfulEvictVirtualMachineInstanceReason is added in an event if a deletion of a VMI Succeeds
 	SuccessfulEvictVirtualMachineInstanceReason = "SuccessfulEvict"
 )
 
@@ -502,12 +503,12 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	}
 
 	migrateCount := int(math.Min(float64(maxNewMigrations), float64(len(data.migratableOutdatedVMIs))))
-	migrationCandidates := []*virtv1.VirtualMachineInstance{}
+	var migrationCandidates []*virtv1.VirtualMachineInstance
 	if migrateCount > 0 {
 		migrationCandidates = data.migratableOutdatedVMIs[0:migrateCount]
 	}
 
-	evictionCandidates := []*virtv1.VirtualMachineInstance{}
+	var evictionCandidates []*virtv1.VirtualMachineInstance
 	if batchDeletionCount > 0 {
 		evictionCandidates = data.evictOutdatedVMIs[0:batchDeletionCount]
 	}

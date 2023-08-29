@@ -664,7 +664,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	}
 
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
-	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = string(migration.Name)
+	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
 
 	// If cpu model is "host model" allow migration only to nodes that supports this cpu model
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == virtv1.CPUModeHostModel {
@@ -1064,7 +1064,7 @@ func (c *MigrationController) createAttachmentPod(migration *virtv1.VirtualMachi
 	}
 
 	attachmentPodTemplate.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
-	attachmentPodTemplate.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = string(migration.Name)
+	attachmentPodTemplate.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
 
 	key := controller.MigrationKey(migration)
 	c.podExpectations.ExpectCreations(key, 1)
@@ -1360,7 +1360,7 @@ func (c *MigrationController) listMatchingTargetPods(migration *virtv1.VirtualMa
 		return nil, err
 	}
 
-	pods := []*k8sv1.Pod{}
+	var pods []*k8sv1.Pod
 	for _, obj := range objs {
 		pod := obj.(*k8sv1.Pod)
 		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
@@ -1656,13 +1656,13 @@ func (c *MigrationController) garbageCollectFinalizedMigrations(vmi *virtv1.Virt
 	return nil
 }
 
-func (c *MigrationController) filterMigrations(namespace, name string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
+func (c *MigrationController) filterMigrations(namespace string, filter func(*virtv1.VirtualMachineInstanceMigration) bool) ([]*virtv1.VirtualMachineInstanceMigration, error) {
 	objs, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	migrations := []*virtv1.VirtualMachineInstanceMigration{}
+	var migrations []*virtv1.VirtualMachineInstanceMigration
 	for _, obj := range objs {
 		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 
@@ -1675,13 +1675,13 @@ func (c *MigrationController) filterMigrations(namespace, name string, filter fu
 
 // takes a namespace and returns all migrations listening for this vmi
 func (c *MigrationController) listMigrationsMatchingVMI(namespace, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, name, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
+	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
 		return migration.Spec.VMIName == name
 	})
 }
 
 func (c *MigrationController) listEvacuationMigrations(namespace string, name string) ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	return c.filterMigrations(namespace, name, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
+	return c.filterMigrations(namespace, func(migration *virtv1.VirtualMachineInstanceMigration) bool {
 		_, isEvacuation := migration.Annotations[virtv1.EvacuationMigrationAnnotation]
 		return migration.Spec.VMIName == name && isEvacuation
 	})
