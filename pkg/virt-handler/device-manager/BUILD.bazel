@@ -36,6 +36,8 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )
 

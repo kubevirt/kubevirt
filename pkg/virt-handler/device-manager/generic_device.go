@@ -33,6 +33,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"kubevirt.io/client-go/log"
 
@@ -260,7 +262,8 @@ func (dpi *GenericDevicePlugin) cleanup() error {
 
 func (dpi *GenericDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
+		PreStartRequired:                false,
+		GetPreferredAllocationAvailable: false,
 	}
 	return options, nil
 }
@@ -268,6 +271,11 @@ func (dpi *GenericDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *plu
 func (dpi *GenericDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
 	return res, nil
+}
+
+// GetPreferredAllocation not implemented
+func (dpi *GenericDevicePlugin) GetPreferredAllocation(_ context.Context, _ *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "GetPreferredAllocation is not implemented")
 }
 
 func (dpi *GenericDevicePlugin) healthCheck() error {

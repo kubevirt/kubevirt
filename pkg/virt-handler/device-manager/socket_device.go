@@ -34,6 +34,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"kubevirt.io/client-go/log"
 
@@ -245,7 +247,8 @@ func (dpi *SocketDevicePlugin) cleanup() error {
 
 func (dpi *SocketDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
 	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
+		PreStartRequired:                false,
+		GetPreferredAllocationAvailable: false,
 	}
 	return options, nil
 }
@@ -253,6 +256,10 @@ func (dpi *SocketDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *plug
 func (dpi *SocketDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
 	res := &pluginapi.PreStartContainerResponse{}
 	return res, nil
+}
+
+func (dpi *SocketDevicePlugin) GetPreferredAllocation(ctx context.Context, r *pluginapi.PreferredAllocationRequest) (*pluginapi.PreferredAllocationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "GetPreferredAllocation is not implemented")
 }
 
 func (dpi *SocketDevicePlugin) healthCheck() error {
