@@ -26,6 +26,7 @@ import (
 	"path"
 	"sort"
 	"strconv"
+	"strings"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
@@ -445,6 +446,12 @@ func writeOperatorDeploymentsAndServices(deployments []appsv1.Deployment, servic
 	check(err)
 	defer operatorYaml.Close()
 	for _, deployment := range deployments {
+		if strings.HasPrefix(deployment.Name, "hyperconverged-cluster-") {
+			for i := range deployment.Spec.Template.Spec.Containers {
+				deployment.Spec.Template.Spec.Containers[i].ImagePullPolicy = corev1.PullAlways
+			}
+		}
+
 		check(util.MarshallObject(deployment, operatorYaml))
 	}
 

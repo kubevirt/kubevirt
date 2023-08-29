@@ -66,7 +66,7 @@ spec:
         - name: KV_CONSOLE_PLUGIN_IMAGE
         - name: KV_CONSOLE_PROXY_IMAGE
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 1
           httpGet:
@@ -143,7 +143,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         image: quay.io/kubevirt/hyperconverged-cluster-webhook:1.11.0-unstable
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 1
           httpGet:
@@ -216,7 +216,7 @@ spec:
     spec:
       containers:
       - image: quay.io/kubevirt/virt-artifacts-server:1.11.0-unstable
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: server
         ports:
         - containerPort: 8080
