@@ -57,7 +57,7 @@ var (
 const periodicReEnqueueIntervalSeconds = 30
 
 // ensures we don't execute more than once every 5 seconds
-const defaultThrottleIntervalSeconds = 5 * time.Second
+const defaultThrottleInterval = 5 * time.Second
 
 const defaultBatchDeletionIntervalSeconds = 60
 const defaultBatchDeletionCount = 10
@@ -102,8 +102,8 @@ func NewWorkloadUpdateController(
 ) (*WorkloadUpdateController, error) {
 
 	rl := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(time.Duration(defaultThrottleIntervalSeconds)*time.Second, 300*time.Second),
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(time.Duration(defaultThrottleIntervalSeconds)*time.Second), 1)},
+		workqueue.NewItemExponentialFailureRateLimiter(defaultThrottleInterval, 300*time.Second),
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(defaultThrottleInterval), 1)},
 	)
 
 	c := &WorkloadUpdateController{
@@ -181,7 +181,7 @@ func (c *WorkloadUpdateController) addMigration(obj interface{}) {
 		}
 	}
 
-	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
+	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
 func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
@@ -190,7 +190,7 @@ func (c *WorkloadUpdateController) deleteMigration(_ interface{}) {
 		return
 	}
 
-	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
+	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
 func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
@@ -199,7 +199,7 @@ func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
 		return
 	}
 
-	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
+	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
 func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
@@ -222,7 +222,7 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 		return
 	}
 
-	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
+	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
 func (c *WorkloadUpdateController) addKubeVirt(obj interface{}) {
@@ -248,7 +248,7 @@ func (c *WorkloadUpdateController) enqueueKubeVirt(obj interface{}) {
 		logger.Object(kv).Reason(err).Error("Failed to extract key from KubeVirt.")
 		return
 	}
-	c.queue.AddAfter(key, defaultThrottleIntervalSeconds)
+	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
 // Run runs the passed in NodeController.
