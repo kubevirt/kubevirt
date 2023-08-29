@@ -2,6 +2,14 @@ load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
 )
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+
+pkg_tar(
+    name = "entrypoint",
+    srcs = [":entrypoint.sh"],
+    mode = "0775",
+    package_dir = "/",
+)
 
 container_image(
     name = "nfs-server-image",
@@ -13,6 +21,7 @@ container_image(
         "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64//image",
         "//conditions:default": "@nfs-server//image",
     }),
+    cmd = ["/entrypoint.sh"],
     ports = [
         "111/udp",
         "2049/udp",
@@ -24,6 +33,9 @@ container_image(
         "32765/tcp",
         "32766/tcp",
         "32767/tcp",
+    ],
+    tars = [
+        ":entrypoint",
     ],
     visibility = ["//visibility:public"],
 )

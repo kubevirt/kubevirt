@@ -216,6 +216,11 @@ var _ = SIGDescribe("Storage", func() {
 				var pvName string
 				var nfsPod *k8sv1.Pod
 				AfterEach(func() {
+					// Ensure VMI is deleted before bringing down the NFS server
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
 					if targetImagePath != testsuite.HostPathAlpine {
 						tests.DeleteAlpineWithNonQEMUPermissions()
 					}
@@ -226,11 +231,10 @@ var _ = SIGDescribe("Storage", func() {
 					var nodeName string
 					// Start the VirtualMachineInstance with the PVC attached
 					if storageEngine == "nfs" {
-						targetImage := targetImagePath
 						if !imageOwnedByQEMU {
-							targetImage, nodeName = tests.CopyAlpineWithNonQEMUPermissions()
+							targetImagePath, nodeName = tests.CopyAlpineWithNonQEMUPermissions()
 						}
-						nfsPod = storageframework.InitNFS(targetImage, nodeName)
+						nfsPod = storageframework.InitNFS(targetImagePath, nodeName)
 						pvName = createNFSPvAndPvc(family, nfsPod)
 					} else {
 						pvName = tests.DiskAlpineHostPath
