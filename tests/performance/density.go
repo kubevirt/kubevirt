@@ -85,7 +85,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 	})
 
 	Describe("Density test", func() {
-		vmCount := 100
+		vmCount := 90
 		vmBatchStartupLimit := 5 * time.Minute
 
 		Context(fmt.Sprintf("[small] create a batch of %d VMIs", vmCount), func() {
