@@ -44,8 +44,8 @@ go_test(
         "restart_test.go",
         "start_test.go",
         "stop_test.go",
+        "user_list_test.go",
         "vm_suite_test.go",
-        "vm_test.go",
     ],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
