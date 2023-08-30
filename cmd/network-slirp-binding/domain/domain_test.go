@@ -141,28 +141,76 @@ var _ = Describe("QEMU slirp networking", func() {
 			),
 		)
 
-		It("should not override other QEMU CMD args", func() {
-			network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}
+		DescribeTable("should not override existing QEMU cmd args, given",
+			func(iface vmschema.Interface, network vmschema.Network, existingArgs, expectedArgs []domainschema.Arg) {
+				testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
+				Expect(err).ToNot(HaveOccurred())
+
+				domSpec := &domainschema.DomainSpec{
+					QEMUCmd: &domainschema.Commandline{QEMUArg: existingArgs},
+				}
+
+				mutatedDomSpec, err := testMutator.Mutate(domSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(mutatedDomSpec.QEMUCmd.QEMUArg).To(Equal(expectedArgs))
+			},
+			Entry("other qmeu cmd args exist",
+				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}},
+				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
+				[]domainschema.Arg{
+					{Value: "-device"}, {Value: "foo"},
+					{Value: "-M"},
+				},
+				[]domainschema.Arg{
+					{Value: "-device"}, {Value: "foo"},
+					{Value: "-M"},
+					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+				},
+			),
+			Entry("slirp iface qemu cmd args already exist",
+				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}},
+				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
+				[]domainschema.Arg{
+					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+				},
+				[]domainschema.Arg{
+					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+				},
+			),
+		)
+
+		It("should set QEMU cmd args correctly when executed more than once", func() {
 			iface := vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Slirp: &vmschema.InterfaceSlirp{}}}
+			network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}
+			existingArgs := []domainschema.Arg{
+				{Value: "-device"}, {Value: "foo"},
+				{Value: "-M"},
+			}
 
 			testMutator, err := domain.NewSlirpNetworkConfigurator([]vmschema.Interface{iface}, []vmschema.Network{network}, testSearchDomain)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedArg := "abc"
 			domSpec := &domainschema.DomainSpec{
-				QEMUCmd: &domainschema.Commandline{QEMUArg: []domainschema.Arg{{Value: expectedArg}}},
+				QEMUCmd: &domainschema.Commandline{QEMUArg: existingArgs},
 			}
+
+			expectedArgs := append(
+				existingArgs,
+				domainschema.Arg{Value: `-netdev`}, domainschema.Arg{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+				domainschema.Arg{Value: `-device`}, domainschema.Arg{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+			)
 
 			mutatedDomSpec, err := testMutator.Mutate(domSpec)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(mutatedDomSpec.QEMUCmd.QEMUArg).To(Equal(expectedArgs))
 
-			Expect(mutatedDomSpec.QEMUCmd.QEMUArg).To(Equal(
-				[]domainschema.Arg{
-					{Value: expectedArg},
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
-				},
-			))
+			mutatedDomSpec, err = testMutator.Mutate(domSpec)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mutatedDomSpec.QEMUCmd.QEMUArg).To(Equal(expectedArgs))
 		})
 
 		It("should fail given invalid custom CIDR", func() {
