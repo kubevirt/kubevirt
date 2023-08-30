@@ -2,12 +2,14 @@ package vm_test
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/utils/pointer"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -24,12 +26,10 @@ var _ = Describe("VirtualMachine", func() {
 	var ctrl *gomock.Controller
 
 	runStrategyAlways := v1.RunStrategyAlways
-	runStrategyManual := v1.RunStrategyManual
 	runStrategyHalted := v1.RunStrategyHalted
 
 	startOpts := v1.StartOptions{Paused: false, DryRun: nil}
 	stopOpts := v1.StopOptions{DryRun: nil}
-	restartOpts := v1.RestartOptions{DryRun: nil}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -46,10 +46,6 @@ var _ = Describe("VirtualMachine", func() {
 		})
 		It("should fail a stop", func() {
 			cmd := clientcmd.NewRepeatableVirtctlCommand("stop")
-			Expect(cmd()).NotTo(Succeed())
-		})
-		It("should fail a restart", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand("restart")
 			Expect(cmd()).NotTo(Succeed())
 		})
 	})
@@ -145,61 +141,6 @@ var _ = Describe("VirtualMachine", func() {
 
 	})
 
-	Context("with restart VM cmd", func() {
-		It("should restart vm", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Restart(context.Background(), vm.Name, &restartOpts).Return(nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("restart", vmName)
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
-		Context("using RunStrategy", func() {
-			It("should restart a vm with runStrategy:manual", func() {
-				vm := kubecli.NewMinimalVM(vmName)
-				vm.Spec.RunStrategy = &runStrategyManual
-
-				kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-				vmInterface.EXPECT().Restart(context.Background(), vm.Name, &restartOpts).Return(nil).Times(1)
-
-				cmd := clientcmd.NewVirtctlCommand("restart", vmName)
-				Expect(cmd.Execute()).To(Succeed())
-			})
-		})
-
-		It("should force restart VM when --force=true and --grace-period is set", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			gracePeriod := int64(0)
-			restartOptions := v1.RestartOptions{
-				GracePeriodSeconds: &gracePeriod,
-				DryRun:             nil,
-			}
-			vmInterface.EXPECT().ForceRestart(context.Background(), vm.Name, &restartOptions).Return(nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
-			Expect(cmd.Execute()).To(Succeed())
-		})
-		DescribeTable("should not force restart VM", func(force bool, gracePeriodSet bool) {
-			var cmd *cobra.Command
-
-			if force {
-				cmd = clientcmd.NewVirtctlCommand("stop", vmName, "--force")
-			} else {
-				cmd = clientcmd.NewVirtctlCommand("stop", vmName, "--grace-period=0")
-			}
-
-			err := fmt.Errorf("Must both use --force=true and set --grace-period.")
-			Expect(cmd.Execute()).To(MatchError(err))
-		},
-			Entry("when --force=true and --grace-period is not set", true, false),
-			Entry("when --force=false and --grace-period is set", false, true),
-		)
-	})
-
 	Context("with stop VM cmd", func() {
 		It("should stop VM", func() {
 			vm := kubecli.NewMinimalVM(vmName)
@@ -253,17 +194,6 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
 			cmd := clientcmd.NewVirtctlCommand("start", vmName, "--dry-run")
-			Expect(cmd.Execute()).To(Succeed())
-		})
-
-		It("should not restart VM", func() {
-			vm := kubecli.NewMinimalVM(vmName)
-			vm.Spec.Running = pointer.Bool(true)
-
-			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-			vmInterface.EXPECT().Restart(context.Background(), vm.Name, &v1.RestartOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
-
-			cmd := clientcmd.NewVirtctlCommand("restart", vmName, "--dry-run")
 			Expect(cmd.Execute()).To(Succeed())
 		})
 
