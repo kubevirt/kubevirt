@@ -282,7 +282,6 @@ var _ = Describe("Workload Updater", func() {
 
 			waitForNumberOfInstancesOnVMIInformerCache(controller, desiredNumberOfVMs)
 
-			//migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).AnyTimes()
 			migrationInterface.EXPECT().Create(gomock.Any(), &metav1.CreateOptions{}).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).Times(1)
 
 			controller.Execute()
