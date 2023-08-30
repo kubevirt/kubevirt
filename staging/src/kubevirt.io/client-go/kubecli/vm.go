@@ -137,8 +137,8 @@ func (v *vm) List(ctx context.Context, options *k8smetav1.ListOptions) (*v1.Virt
 		Do(ctx).
 		Into(newVmList)
 
-	for _, vm := range newVmList.Items {
-		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	for i := range newVmList.Items {
+		newVmList.Items[i].SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
 
 	return newVmList, err

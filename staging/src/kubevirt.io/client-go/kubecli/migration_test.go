@@ -31,6 +31,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt Migration Client", func() {
@@ -90,10 +91,13 @@ var _ = Describe("Kubevirt Migration Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewMigrationList(*migration)),
 		))
 		fetchedMigrationList, err := client.VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).List(&k8smetav1.ListOptions{})
+		apiVersion, kind := v1.VirtualMachineInstanceMigrationGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedMigrationList.Items).To(HaveLen(1))
+		Expect(fetchedMigrationList.Items[0].APIVersion).To(Equal(apiVersion))
+		Expect(fetchedMigrationList.Items[0].Kind).To(Equal(kind))
 		Expect(fetchedMigrationList.Items[0]).To(Equal(*migration))
 	},
 		Entry("with regular server URL", ""),

@@ -100,10 +100,13 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVMIList(*vmi)),
 		))
 		fetchedVMIList, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).List(context.Background(), &k8smetav1.ListOptions{})
+		apiVersion, kind := v1.VirtualMachineInstanceGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(fetchedVMIList.Items).To(HaveLen(1))
+		Expect(fetchedVMIList.Items[0].APIVersion).To(Equal(apiVersion))
+		Expect(fetchedVMIList.Items[0].Kind).To(Equal(kind))
 		Expect(fetchedVMIList.Items[0]).To(Equal(*vmi))
 	},
 		Entry("with regular server URL", ""),

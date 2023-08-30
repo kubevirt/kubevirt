@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	v1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
@@ -89,10 +90,13 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, NewVirtualMachineInstancePresetList(*preset)),
 		))
 		fetchedVMIPresetList, err := client.VirtualMachineInstancePreset(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
+		apiVersion, kind := v1.VirtualMachineInstancePresetGroupVersionKind.ToAPIVersionAndKind()
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(fetchedVMIPresetList.Items).To(HaveLen(1))
+		Expect(fetchedVMIPresetList.Items[0].APIVersion).To(Equal(apiVersion))
+		Expect(fetchedVMIPresetList.Items[0].Kind).To(Equal(kind))
 		Expect(fetchedVMIPresetList.Items[0]).To(Equal(*preset))
 	},
 		Entry("with regular server URL", ""),
