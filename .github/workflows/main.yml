@@ -149,3 +149,4 @@ jobs:
           export DOCKER_PREFIX=$HARBOR
           docker manifest create $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-amd64 $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG-arm64
           docker manifest push $HARBOR/ecf-edge/kubevirt/${{ matrix.docekr_image }}:$DOCKER_PREFIX_TAG
+
