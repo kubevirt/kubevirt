@@ -176,7 +176,7 @@ func (n NMState) readRoutesFamily(family int) ([]Route, error) {
 		return nil, err
 	}
 
-	defaultDst := defaultDestinationRoute(family)
+	defaultDst := DefaultDestinationRoute(family)
 
 	var routesState []Route
 	for _, route := range routes {
@@ -204,7 +204,7 @@ func (n NMState) readRoutesFamily(family int) ([]Route, error) {
 	return routesState, nil
 }
 
-func defaultDestinationRoute(family int) *net.IPNet {
+func DefaultDestinationRoute(family int) *net.IPNet {
 	if family == vishnetlink.FAMILY_V4 {
 		return &net.IPNet{IP: net.IPv4zero, Mask: net.IPv4Mask(0, 0, 0, 0)}
 	}
