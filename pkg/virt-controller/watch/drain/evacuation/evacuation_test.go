@@ -491,6 +491,55 @@ var _ = Describe("Evacuation", func() {
 
 			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
 		})
+
+		It("should treat pending migrations as non-running migrations", func() {
+			const maxParallelMigrationsPerCluster uint32 = 10
+			const maxParallelMigrationsPerSourceNode uint32 = 10
+			const pendingMigrations = 10
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				MigrationConfiguration: &v1.MigrationConfiguration{
+					ParallelMigrationsPerCluster:      pointer.P(maxParallelMigrationsPerCluster),
+					ParallelOutboundMigrationsPerNode: pointer.P(maxParallelMigrationsPerSourceNode),
+				},
+			})
+
+			controller, _ = evacuation.
+				NewEvacuationController(
+					vmiInformer,
+					migrationInformer,
+					nodeInformer,
+					podInformer,
+					recorder,
+					virtClient,
+					config)
+
+			nodeName := "node01"
+			addNode(newNode(nodeName))
+
+			By(fmt.Sprintf("Creating %d pending migrations from source node %s", pendingMigrations, nodeName))
+			for i := 1; i <= pendingMigrations; i++ {
+				vmiName := fmt.Sprintf("testvmi%d", i)
+				vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
+			}
+
+			By(fmt.Sprintf("Creating a migration candidate from source node %s", nodeName))
+			vmiName := fmt.Sprintf("testvmi%d", pendingMigrations+1)
+			vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
+
+			By("migration should be created for the candidate")
+			migrationInterface.
+				EXPECT().
+				Create(gomock.Any(), &v13.CreateOptions{}).
+				Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil).
+				Times(1)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+
+		})
 	})
 
 	AfterEach(func() {
