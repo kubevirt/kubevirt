@@ -21,8 +21,11 @@ package netpod_test
 
 import (
 	"errors"
+	"net"
 	"os"
 	"sync"
+
+	vishnetlink "github.com/vishvananda/netlink"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
@@ -239,14 +242,19 @@ var _ = Describe("netpod", func() {
 		}))
 	})
 
-	It("setup bridge binding with IP", func() {
+	It("setup bridge binding with IP and a static route", func() {
+		const (
+			defaultGatewayIP4Address = "10.222.222.254"
+
+			podIfaceOrignalMAC = "12:34:56:78:90:ab"
+		)
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
 				Name:       "eth0",
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "12:34:56:78:90:ab",
+				MacAddress: podIfaceOrignalMAC,
 				MTU:        1500,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
@@ -261,6 +269,29 @@ var _ = Describe("netpod", func() {
 						IP:        primaryIPv6Address,
 						PrefixLen: 64,
 					}},
+				},
+			}},
+			Routes: nmstate.Routes{Running: []nmstate.Route{
+				// Default Route
+				{
+					Destination:      "0.0.0.0/0",
+					NextHopInterface: "eth0",
+					NextHopAddress:   defaultGatewayIP4Address,
+					TableID:          0,
+				},
+				// Local Route (should be ignored)
+				{
+					Destination:      "10.222.222.0/30",
+					NextHopInterface: "eth0",
+					NextHopAddress:   primaryIPv4Address,
+					TableID:          0,
+				},
+				// Static Route
+				{
+					Destination:      "192.168.1.0/24",
+					NextHopInterface: "eth0",
+					NextHopAddress:   defaultGatewayIP4Address,
+					TableID:          0,
 				},
 			}},
 		}}
@@ -341,6 +372,15 @@ var _ = Describe("netpod", func() {
 			PodIP:  primaryIPv4Address,
 			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
 		}))
+
+		expDHCPConfig, err := expectedDHCPConfig(
+			"10.222.222.1/30",
+			podIfaceOrignalMAC,
+			defaultGatewayIP4Address,
+			"192.168.1.0/24",
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
 	})
 
 	It("setup bridge binding without IP", func() {
@@ -424,6 +464,9 @@ var _ = Describe("netpod", func() {
 		// When there are no IP/s, the pod interface data is not stored.
 		_, err := cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)
 		Expect(err).To(HaveOccurred())
+
+		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(
+			Equal(&cache.DHCPConfig{IPAMDisabled: true}))
 	})
 
 	When("using secondary network", func() {
@@ -924,4 +967,31 @@ func (c *tempCacheCreator) New(filePath string) *cache.Cache {
 		c.tmpDir = tmpDir
 	})
 	return cache.NewCustomCache(filePath, kfs.NewWithRootPath(c.tmpDir))
+}
+
+func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst string) (*cache.DHCPConfig, error) {
+	ipv4, err := vishnetlink.ParseAddr(podIfaceCIDR)
+	if err != nil {
+		return nil, err
+	}
+	mac, err := net.ParseMAC(podIfaceMAC)
+	if err != nil {
+		return nil, err
+	}
+	destAddr, err := vishnetlink.ParseAddr(staticRouteDst)
+	if err != nil {
+		return nil, err
+	}
+	routes := []vishnetlink.Route{
+		{Gw: net.ParseIP(defaultGW)},
+		{Dst: destAddr.IPNet, Gw: net.ParseIP(defaultGW)},
+	}
+	return &cache.DHCPConfig{
+		IP:           *ipv4,
+		MAC:          mac,
+		Routes:       &routes,
+		IPAMDisabled: false,
+		Gateway:      net.ParseIP(defaultGW),
+		Subdomain:    "",
+	}, nil
 }
