@@ -111,17 +111,16 @@ func (n NetPod) storePodInterfaceData(vmiSpecIface v1.Interface, ifaceState nmst
 
 	ipv4 := firstIPGlobalUnicast(ifaceState.IPv4)
 	ipv6 := firstIPGlobalUnicast(ifaceState.IPv6)
-
 	switch {
-	case ipv4 != "" && ipv6 != "":
-		ifCache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+	case ipv4 != nil && ipv6 != nil:
+		ifCache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4.IP, ipv6.IP)
 		if err != nil {
 			return err
 		}
-	case ipv4 != "":
-		ifCache.PodIPs = []string{ipv4}
-	case ipv6 != "":
-		ifCache.PodIPs = []string{ipv6}
+	case ipv4 != nil:
+		ifCache.PodIPs = []string{ipv4.IP}
+	case ipv6 != nil:
+		ifCache.PodIPs = []string{ipv6.IP}
 	default:
 		return nil
 	}

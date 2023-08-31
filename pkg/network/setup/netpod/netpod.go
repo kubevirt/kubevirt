@@ -423,18 +423,19 @@ func hasIP6GlobalUnicast(iface nmstate.Interface) bool {
 }
 
 func hasIPGlobalUnicast(ip nmstate.IP) bool {
-	return firstIPGlobalUnicast(ip) != ""
+	return firstIPGlobalUnicast(ip) != nil
 }
 
-func firstIPGlobalUnicast(ip nmstate.IP) string {
+func firstIPGlobalUnicast(ip nmstate.IP) *nmstate.IPAddress {
 	if ip.Enabled != nil && *ip.Enabled {
 		for _, addr := range ip.Address {
 			if net.ParseIP(addr.IP).IsGlobalUnicast() {
-				return addr.IP
+				address := addr
+				return &address
 			}
 		}
 	}
-	return ""
+	return nil
 }
 
 func createNetworkNameScheme(networks []v1.Network, currentIfaces []nmstate.Interface) map[string]string {
