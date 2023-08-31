@@ -51,6 +51,12 @@ jobs:
     name: linter Checks
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        working-directory:
+          - "."
+          - tests
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -58,7 +64,7 @@ jobs:
 
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.19' # The Go version to download (if necessary) and use.
+          go-version-file: ${{matrix.working-directory}}/go.mod
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3
@@ -66,11 +72,4 @@ jobs:
           version: v1.54.2
           skip-pkg-cache: true
           args: --timeout=5m --out-${NO_FUTURE}format line-number
-
-      - name: Run golangci-lint on tests/
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.53.2
-          skip-pkg-cache: true
-          args: --timeout=5m --out-${NO_FUTURE}format line-number
-          working-directory: tests/
+          working-directory: ${{matrix.working-directory}}
