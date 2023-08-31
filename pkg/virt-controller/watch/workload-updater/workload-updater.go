@@ -349,7 +349,8 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 		}
 	}
 
-	data.numActiveMigrations = len(migrations)
+	runningMigrations := migrationutils.FilterRunningMigrations(migrations)
+	data.numActiveMigrations = len(runningMigrations)
 
 	objs := c.vmiInformer.GetStore().List()
 	for _, obj := range objs {
