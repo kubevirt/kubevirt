@@ -85,6 +85,10 @@ const (
 	ProvisioningFailed = "ProvisioningFailed"
 	// ErrClaimNotValid stores the 'ErrClaimNotValid' event condition used for DV error handling
 	ErrClaimNotValid = "ErrClaimNotValid"
+
+	// OptimisticLockErrorMsg is returned by kube-apiserver when trying to update an old version of a resource
+	// https://github.com/kubernetes/kubernetes/blob/b89f564539fad77cd22de1b155d84638daf8c83f/staging/src/k8s.io/apiserver/pkg/registry/generic/registry/store.go#L240
+	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
 var (
@@ -855,7 +859,9 @@ func handleEventErrors(client kubecli.KubevirtClient, pvcName, dvName, namespace
 	for _, event := range eventList.Items {
 		if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.UID == pvcUID {
 			if event.Reason == ProvisioningFailed {
-				return fmt.Errorf("Provisioning failed: %s", event.Message)
+				if !strings.Contains(event.Message, OptimisticLockErrorMsg) {
+					return fmt.Errorf("Provisioning failed: %s", event.Message)
+				}
 			}
 		}
 		if event.InvolvedObject.Kind == "DataVolume" && event.InvolvedObject.UID == dvUID {
