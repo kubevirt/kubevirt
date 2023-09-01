@@ -47,18 +47,16 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	return New(opts...)
 }
 
+var CirrosOpts = []Option{
+	WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+	// Supplied with no user data, Cirros image takes 230s to allow login
+	WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true),
+	WithResourceMemory(cirrosMemory()),
+}
+
 // NewCirros instantiates a new CirrOS based VMI configuration
 func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
-	// Supplied with no user data, Cirros image takes 230s to allow login
-	withNonEmptyUserData := WithCloudInitNoCloudUserData("#!/bin/bash\necho hello\n", true)
-
-	cirrosOpts := []Option{
-		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-		withNonEmptyUserData,
-		WithResourceMemory(cirrosMemory()),
-	}
-	cirrosOpts = append(cirrosOpts, opts...)
-	return New(cirrosOpts...)
+	return New(append(CirrosOpts, opts...)...)
 }
 
 // NewAlpine instantiates a new Alpine based VMI configuration
