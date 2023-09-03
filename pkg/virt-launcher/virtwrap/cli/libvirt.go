@@ -62,7 +62,7 @@ type Connection interface {
 	// We add this helper to
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
-	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags, addDirtyRateCalc bool) ([]*stats.DomainStats, error)
 	GetQemuVersion() (string, error)
 	GetSEVInfo() (*api.SEVNodeParameters, error)
 }
@@ -289,7 +289,7 @@ func (l *LibvirtConnection) GetQemuVersion() (string, error) {
 	return fmt.Sprintf("QEMU %d.%d.%d", major, minor, release), err
 }
 
-func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, migrateJobInfo *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
+func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, migrateJobInfo *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags, addDirtyRateCalc bool) ([]*stats.DomainStats, error) {
 	domStats, err := l.GetAllDomainStats(statsTypes, flags)
 	if err != nil {
 		return nil, err
@@ -303,6 +303,18 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 			}
 		}
 	}()
+
+	if addDirtyRateCalc {
+		for i := range domStats {
+			err := domStats[i].Domain.StartDirtyRateCalc(1, libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING)
+			if err != nil {
+				log.Log.Reason(err).Warning("Can't start dirty rate calc")
+			}
+		}
+
+		// Wait for the dirty rate calculation to finish
+		time.Sleep(1300 * time.Millisecond)
+	}
 
 	var list []*stats.DomainStats
 	for i, domStat := range domStats {
@@ -324,6 +336,21 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		}
 
 		dirtyRateInfo := domStat.DirtyRate
+		// warn if dirty rate calc is not set or not finished
+		if addDirtyRateCalc {
+			if !dirtyRateInfo.CalcStatusSet {
+				log.Log.Warning("dirty calc status is not set")
+			} else if dirtyRateInfo.CalcStatus != int(libvirt.DOMAIN_DIRTYRATE_MEASURED) {
+				var status string
+				switch dirtyRateInfo.CalcStatus {
+				case int(libvirt.DOMAIN_DIRTYRATE_UNSTARTED):
+					status = "DOMAIN_DIRTYRATE_UNSTARTED"
+				case int(libvirt.DOMAIN_DIRTYRATE_MEASURING):
+					status = "DOMAIN_DIRTYRATE_MEASURING"
+				}
+				log.Log.Warningf("dirty calc status is %s", status)
+			}
+		}
 
 		stat := &stats.DomainStats{}
 		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, domInfo, devAliasMap, migrateJobInfo, dirtyRateInfo, stat)

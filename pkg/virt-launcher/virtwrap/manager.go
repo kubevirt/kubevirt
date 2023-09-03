@@ -224,7 +224,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
 	reCalcDomainStats := func() (*stats.DomainStats, error) {
-		list, err := manager.getDomainStats()
+		list, err := manager.getDomainStats(false)
 		if err != nil {
 			return nil, err
 		}
@@ -1796,11 +1796,11 @@ func (l *LibvirtDomainManager) GetDomainStats() (*stats.DomainStats, error) {
 	return l.domainStatsCache.Get()
 }
 
-func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
+func (l *LibvirtDomainManager) getDomainStats(addDirtyRateCalc bool) ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags, addDirtyRateCalc)
 }
 
 func formatPCIAddressStr(address *api.Address) string {
