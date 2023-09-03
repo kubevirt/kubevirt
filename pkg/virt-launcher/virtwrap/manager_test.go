@@ -2104,7 +2104,7 @@ var _ = Describe("Manager", func() {
 			domStats, err := manager.GetDomainStats()
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(domStats).To(HaveLen(1))
+			Expect(domStats).ToNot(BeNil())
 		})
 	})
 

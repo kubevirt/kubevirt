@@ -210,21 +210,20 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("should return domain stats", func() {
-			var list []*stats.DomainStats
 			dom := api.NewMinimalDomain("testvmstats1")
-			list = append(list, &stats.DomainStats{
+			domainStats := &stats.DomainStats{
 				Name: dom.Spec.Name,
 				UUID: dom.Spec.UUID,
-			})
+			}
 
-			domainManager.EXPECT().GetDomainStats().Return(list, nil)
+			domainManager.EXPECT().GetDomainStats().Return(domainStats, nil)
 			domStats, exists, err := client.GetDomainStats()
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(exists).To(BeTrue())
 			Expect(domStats).ToNot(BeNil())
-			Expect(domStats.Name).To(Equal(list[0].Name))
-			Expect(domStats.UUID).To(Equal(list[0].UUID))
+			Expect(domStats.Name).To(Equal(domainStats.Name))
+			Expect(domStats.UUID).To(Equal(domainStats.UUID))
 		})
 
 		It("should return full user list", func() {
