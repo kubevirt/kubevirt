@@ -723,6 +723,21 @@ func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLa
 	return response, nil
 }
 
+func (l *Launcher) GetGuestStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestStatsResponse, error) {
+	guestStats := l.domainManager.GetGuestStats()
+	success := &cmdv1.Response{Success: true}
+
+	return &cmdv1.GuestStatsResponse{
+		Response: success,
+		DirtyRate: &cmdv1.DirtyRateResponse{
+			Response: success,
+			Samples:  uint64(guestStats.DirtyRate.SampleCount),
+			Average:  float32(guestStats.DirtyRate.Average),
+			Variance: float32(guestStats.DirtyRate.Variance),
+		},
+	}, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit

@@ -112,6 +112,7 @@ type LauncherClient interface {
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
+	GetGuestStats() (v1.GuestStats, error)
 }
 
 type VirtLauncherClient struct {
@@ -852,4 +853,22 @@ func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, 
 	response, err := c.v1client.InjectLaunchSecret(ctx, request)
 
 	return handleError(err, "InjectLaunchSecret", response)
+}
+
+func (c *VirtLauncherClient) GetGuestStats() (v1.GuestStats, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	response, err := c.v1client.GetGuestStats(ctx, &cmdv1.EmptyRequest{})
+	if err != nil {
+		return v1.GuestStats{}, err
+	}
+
+	return v1.GuestStats{
+		DirtyRate: &v1.DirtyRateStats{
+			SampleCount: int64(response.DirtyRate.Samples),
+			Average:     float64(response.DirtyRate.Average),
+			Variance:    float64(response.DirtyRate.Variance),
+		},
+	}, nil
 }
