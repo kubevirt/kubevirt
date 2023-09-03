@@ -350,6 +350,7 @@ func main() {
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
+	enableDirtyRateStats := pflag.Bool("enable-dirty-rate-stats", false, "Dirty rate statistics would be auto-calculated for this workload.")
 
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
@@ -417,6 +418,11 @@ func main() {
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache)
 	if err != nil {
 		panic(err)
+	}
+
+	if *enableDirtyRateStats {
+		log.Log.Info("Dirty rate statistics enabled")
+		go domainManager.StartDirtyRateMeasurement(stopChan)
 	}
 
 	// Start the virt-launcher command service.

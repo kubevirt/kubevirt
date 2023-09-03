@@ -32,6 +32,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +141,8 @@ type DomainManager interface {
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
+	StartDirtyRateMeasurement(stopCh chan struct{})
+	GetGuestStats() v1.GuestStats
 }
 
 type LibvirtDomainManager struct {
@@ -171,6 +174,8 @@ type LibvirtDomainManager struct {
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *cache2.TimeDefinedCache[*stats.DomainStats]
+
+	guestStats v1.GuestStats
 }
 
 type pausedVMIs struct {
@@ -236,6 +241,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		return list[0], nil
 	}
 	manager.domainStatsCache = cache2.NewTimeDefinedCache(5*time.Second, true, reCalcDomainStats)
+	manager.guestStats = v1.GuestStats{DirtyRate: &v1.DirtyRateStats{}}
 
 	return &manager, nil
 }
@@ -1801,6 +1807,68 @@ func (l *LibvirtDomainManager) getDomainStats(addDirtyRateCalc bool) ([]*stats.D
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
 	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags, addDirtyRateCalc)
+}
+
+func calcNewAverageAndVariance(prevSampleCount, prevAverage, prevVar, newSample float64) (newAverage, newVariance float64) {
+	newSampleCount := prevSampleCount + 1
+	newSum := (prevSampleCount * prevAverage) + newSample
+
+	newAverage = newSum / newSampleCount
+	// Welford's online algorithm for variance
+	newVariance = (prevSampleCount / newSampleCount) * (prevVar + (math.Pow(newSample-prevAverage, 2) / newSampleCount))
+
+	return
+}
+
+func (l *LibvirtDomainManager) StartDirtyRateMeasurement(stopCh chan struct{}) {
+	updateDirtyRateStats := func() {
+		domainStatsWithDirtyRate, err := l.getDomainStats(true)
+		if err != nil {
+			log.Log.Reason(err).Error("Failed to get domain stats")
+			return
+		} else if len(domainStatsWithDirtyRate) == 0 {
+			log.Log.Error("Failed to get domain stats")
+			return
+		}
+
+		domainStats := domainStatsWithDirtyRate[0]
+		l.domainStatsCache.Set(domainStats)
+
+		if !domainStats.DirtyRate.MegabytesPerSecondSet {
+			log.Log.Warning("Dirty rate not set")
+			return
+		}
+
+		dirtyRateStats := l.guestStats.DirtyRate
+
+		newAverage, newVariance := calcNewAverageAndVariance(
+			float64(dirtyRateStats.SampleCount),
+			dirtyRateStats.Average,
+			dirtyRateStats.Variance,
+			float64(domainStats.DirtyRate.MegabytesPerSecond),
+		)
+
+		dirtyRateStats.Average = newAverage
+		dirtyRateStats.Variance = newVariance
+		dirtyRateStats.SampleCount++
+
+		l.guestStats.DirtyRate = dirtyRateStats
+
+		log.Log.V(4).Infof("Updating dirty rate average to %v, variance to %v", newAverage, newVariance)
+	}
+
+	for {
+		select {
+		case <-time.After(1 * time.Minute):
+			updateDirtyRateStats()
+		case <-stopCh:
+			return
+		}
+	}
+}
+
+func (l *LibvirtDomainManager) GetGuestStats() v1.GuestStats {
+	return l.guestStats
 }
 
 func formatPCIAddressStr(address *api.Address) string {

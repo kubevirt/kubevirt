@@ -392,6 +392,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			command = append(command, "--libvirt-log-filters", customDebugFilters)
 		}
+		if t.clusterConfig.DirtyRateStatsGateEnabled() {
+			command = append(command, "--enable-dirty-rate-stats")
+		}
 	}
 
 	if t.clusterConfig.AllowEmulation() {
