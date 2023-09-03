@@ -164,9 +164,9 @@ func (_mr *_MockDomainManagerRecorder) PrepareMigrationTarget(arg0, arg1, arg2 i
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMigrationTarget", arg0, arg1, arg2)
 }
 
-func (_m *MockDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
+func (_m *MockDomainManager) GetDomainStats() (*stats.DomainStats, error) {
 	ret := _m.ctrl.Call(_m, "GetDomainStats")
-	ret0, _ := ret[0].([]*stats.DomainStats)
+	ret0, _ := ret[0].(*stats.DomainStats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
