@@ -304,6 +304,16 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		}
 	}()
 
+	for i := range domStats {
+		err := domStats[i].Domain.StartDirtyRateCalc(1, libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING)
+		if err != nil {
+			log.Log.Reason(err).Warning("Can't start dirty rate calc")
+		}
+	}
+
+	// Wait for the dirty rate calculation to finish
+	time.Sleep(1300 * time.Millisecond)
+
 	var list []*stats.DomainStats
 	for i, domStat := range domStats {
 		var err error
@@ -324,6 +334,19 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		}
 
 		dirtyRateInfo := domStat.DirtyRate
+		// warn if dirty rate calc is not set or not finished
+		if !dirtyRateInfo.CalcStatusSet {
+			log.Log.Warning("dirty calc status is not set")
+		} else if dirtyRateInfo.CalcStatus != int(libvirt.DOMAIN_DIRTYRATE_MEASURED) {
+			var status string
+			switch dirtyRateInfo.CalcStatus {
+			case int(libvirt.DOMAIN_DIRTYRATE_UNSTARTED):
+				status = "DOMAIN_DIRTYRATE_UNSTARTED"
+			case int(libvirt.DOMAIN_DIRTYRATE_MEASURING):
+				status = "DOMAIN_DIRTYRATE_MEASURING"
+			}
+			log.Log.Warningf("dirty calc status is %s", status)
+		}
 
 		stat := &stats.DomainStats{}
 		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStats[i], memStats, domInfo, devAliasMap, migrateJobInfo, dirtyRateInfo, stat)
