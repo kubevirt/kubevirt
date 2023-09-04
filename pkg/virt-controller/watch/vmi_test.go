@@ -28,8 +28,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	"k8s.io/utils/pointer"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -3024,7 +3022,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 	})
 
-	Context("topology hints", decorators.TscFrequencies, func() {
+	Context("topology hints", func() {
 
 		getVmiWithInvTsc := func() *virtv1.VirtualMachineInstance {
 			vmi := NewPendingVirtualMachine("testvmi")
