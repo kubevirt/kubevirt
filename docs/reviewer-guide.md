@@ -108,7 +108,7 @@ end-to-end tests for their features and fixes. All tests are run and required
 to pass on each PR.
 Maintainers are allowed to take in code with varying quality for as long as the
 project's maintainability is not at stake and all required criterias are met
-(especially the testing and architectural criterias) to be open and inclusive.
+(especially the testing and architectural criteria) to be open and inclusive.
 
 The lowest bar for acceptable **coding styles** is enforced via automation:
 * [goimports](https://pkg.go.dev/golang.org/x/tools/cmd/goimports) to enforce a common coding style for go code.

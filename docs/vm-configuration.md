@@ -329,7 +329,7 @@ In order to avoid surprises we need to keep that order also on the API level.
 
 By having an inlined wrapper-struct, containing optional structs corresponding
 to different types, we get a reasonable usable API and can maintain explicit
-mapping withing the code.
+mapping within the code.
 
 Given a `Disk` which can have different `DiskSource`s
 
