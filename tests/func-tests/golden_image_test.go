@@ -56,7 +56,7 @@ var (
 	imageNamespace = defaultImageNamespace
 )
 
-var _ = Describe("golden image test", Label("data-import-coron"), Serial, Ordered, func() {
+var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, func() {
 	var (
 		cli kubecli.KubevirtClient
 		ctx context.Context

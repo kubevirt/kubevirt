@@ -68,7 +68,7 @@ spec:
     env:
     - name: INSTALLED_NAMESPACE
       value: $INSTALLED_NAMESPACE
-    image: $computed_test_image
+    image: $FUNC_TEST_IMAGE
     volumeMounts:
       - mountPath: /test/output
         name: output-volume
@@ -77,7 +77,7 @@ spec:
       capabilities:
         add: ["NET_RAW"]
   - name: copy
-    image: $computed_test_image
+    image: $FUNC_TEST_IMAGE
     command: ["/bin/sh"]
     args: [ "-c", "trap : TERM INT; sleep infinity & wait"]
     volumeMounts:
