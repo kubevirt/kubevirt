@@ -647,6 +647,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				libnet.WithEthernet("eth0",
 					libnet.WithDHCP4Enabled(),
 					libnet.WithDHCP6Enabled(),
+					libnet.WithAddresses(ipv6NetworkCIDR),
 				),
 			)
 			if err != nil {
@@ -669,7 +670,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				networkCIDR = api.DefaultVMIpv6CIDR
 			}
 
-			err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
+			err := console.RunCommand(vmi, "dhclient -6 eth0", 120*time.Second)
 			if err != nil {
 				return err
 			}
