@@ -2204,6 +2204,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -2328,6 +2340,22 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
@@ -2351,6 +2379,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+- apiGroups:
   - instancetype.kubevirt.io
   resources:
   - virtualmachineclusterinstancetypes
@@ -2373,14 +2407,6 @@ rules:
   - list
   - patch
   - update
-  - watch
-- apiGroups:
-  - kubevirt.io
-  resources:
-  - virtualmachineinstances
-  verbs:
-  - get
-  - list
   - watch
 - apiGroups:
   - kubevirt.io
@@ -2438,6 +2464,20 @@ rules:
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
+  - clusterrolebindings
+  - clusterroles
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
   - clusterroles
   - rolebindings
   verbs:
@@ -2475,6 +2515,19 @@ rules:
   - update
   - watch
 - apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io/v1
   resources:
   - role
@@ -2493,12 +2546,8 @@ rules:
   resources:
   - routes
   verbs:
-  - create
   - delete
-  - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - ssp.kubevirt.io
@@ -2562,6 +2611,12 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/vnc
+  verbs:
+  - get
 - apiGroups:
   - subresources.kubevirt.io
   resources:
