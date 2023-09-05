@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/errorhandling"
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
@@ -252,6 +253,57 @@ var _ = SIGDescribe("[Serial]ImageUpload", Serial, func() {
 			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolumeForceBind, deleteDataVolume),
 			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVCForceBind, deletePVC),
 		)
+	})
+
+	Context("Upload fails when DV is in WFFC/PendingPopulation phase", func() {
+		It("but uploads after consumer is created", func() {
+			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(storageClass) {
+				Skip("Skip no wffc storage class available")
+			}
+			defer deleteDataVolume("target-dv")
+
+			By("Upload image")
+			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
+				"dv", "target-dv",
+				namespaceArg, testsuite.GetTestNamespace(nil),
+				"--image-path", imagePath,
+				sizeArg, pvcSize,
+				"--storage-class", storageClass,
+				"--access-mode", "ReadWriteOnce",
+				insecureArg)
+
+			err := virtctlCmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("make sure the PVC is Bound, or use force-bind flag"))
+
+			By("Start VM")
+			vmi := tests.NewRandomVMIWithDataVolume("target-dv")
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() {
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}()
+
+			By("Wait for DV to be in UploadReady phase")
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), "target-dv", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dataVolume, 240, matcher.BeInPhase(cdiv1.UploadReady))
+
+			By("Upload image, now should succeed")
+			virtctlCmd = clientcmd.NewRepeatableVirtctlCommand(imageUploadCmd,
+				"dv", "target-dv",
+				namespaceArg, testsuite.GetTestNamespace(nil),
+				"--image-path", imagePath,
+				sizeArg, pvcSize,
+				"--storage-class", storageClass,
+				"--access-mode", "ReadWriteOnce",
+				insecureArg)
+
+			Expect(virtctlCmd()).To(Succeed())
+			validateDataVolume("target-dv", storageClass)
+		})
 	})
 
 	Context("Create upload archive volume", func() {
