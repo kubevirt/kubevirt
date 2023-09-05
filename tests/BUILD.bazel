@@ -13,7 +13,6 @@ go_library(
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
-        "//pkg/downwardmetrics/vhostmd/api:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",

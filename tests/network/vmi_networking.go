@@ -898,7 +898,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime)
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -940,7 +940,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				By("starting the migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime)
 
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())

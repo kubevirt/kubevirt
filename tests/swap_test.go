@@ -134,7 +134,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 	}
 
 	getAffinityForTargetNode := func(targetNode *v1.Node) (nodeAffinity *v1.Affinity, err error) {
-		nodeAffinityRuleForVmiToFill, err := libmigration.AffinityToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
+		nodeAffinityRuleForVmiToFill, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(targetNode, targetNode)
 		return &v1.Affinity{
 			NodeAffinity: nodeAffinityRuleForVmiToFill,
 		}, err
@@ -181,7 +181,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			vmiMemSizeMi := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTheVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 
 			vmi := tests.NewRandomFedoraVMI()
-			nodeAffinityRule, err := libmigration.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmi.Spec.Affinity = &v1.Affinity{
 				NodeAffinity: nodeAffinityRule,
@@ -206,7 +206,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migration = libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime*2)
+			migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime*2)
 
 			// check VMI, confirm migration state
 			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
@@ -257,7 +257,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			vmiToMigrate := tests.NewRandomFedoraVMI()
-			nodeAffinityRule, err := libmigration.AffinityToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
+			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToMigrate.Spec.Affinity = &v1.Affinity{
 				NodeAffinity: nodeAffinityRule,
@@ -272,7 +272,7 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmiToMigrate.Name, vmiToMigrate.Namespace)
-			libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+			libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime)
 
 			By("The workloads in the node should consume more memory than the memory size eventually.")
 			swapSizeKib := getSwapSizeInKib(*targetNode)

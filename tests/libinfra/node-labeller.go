@@ -53,7 +53,7 @@ func WakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
 	tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
 
-func StopNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+func ExpectStoppingNodeLabellerToSucceed(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
 	var err error
 	var node *k8sv1.Node
 
@@ -75,7 +75,7 @@ func StopNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1
 	return node
 }
 
-func ResumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
 	var err error
 	var node *k8sv1.Node
 
@@ -87,7 +87,7 @@ func ResumeNodeLabeller(nodeName string, virtClient kubecli.KubevirtClient) *k8s
 		return node
 	}
 
-	By(fmt.Sprintf("Patching node to %s not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
+	By(fmt.Sprintf("Patching node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
 	libnode.RemoveAnnotationFromNode(nodeName, v1.LabellerSkipNodeAnnotation)
 
 	// In order to make sure node-labeller has updated the node, the host-model label (which node-labeller

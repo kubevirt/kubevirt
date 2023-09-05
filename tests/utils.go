@@ -111,7 +111,6 @@ const (
 	DiskWindowsSysprep          = "disk-windows-sysprep"
 	DiskCustomHostPath          = "disk-custom-host-path"
 	defaultDiskSize             = "1Gi"
-	MigrationWaitTime           = 240
 	ContainerCompletionWaitTime = 60
 )
 

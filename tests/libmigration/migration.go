@@ -35,11 +35,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-func ExpectMigrationSuccess(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
-	return ExpectMigrationSuccessWithOffset(2, virtClient, migration, timeout)
+const MigrationWaitTime = 240
+
+func ExpectMigrationToSucceed(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
+	return ExpectMigrationToSucceedWithOffset(2, virtClient, migration, timeout)
 }
 
-func ExpectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
+func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	By("Waiting until the Migration Completes")
 	EventuallyWithOffset(offset, func() error {
 		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
@@ -58,10 +60,10 @@ func ExpectMigrationSuccessWithOffset(offset int, virtClient kubecli.KubevirtCli
 	return migration
 }
 
-func RunMigrationAndExpectCompletion(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
+func RunMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	migration = RunMigration(virtClient, migration)
 
-	return ExpectMigrationSuccess(virtClient, migration, timeout)
+	return ExpectMigrationToSucceed(virtClient, migration, timeout)
 }
 
 func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
@@ -113,7 +115,7 @@ func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return vmi
 }
 
-func SetOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
+func setOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 	virtClient := kubevirt.Client()
 
 	kv := util.GetCurrentKv(virtClient)
@@ -170,11 +172,11 @@ func SetOrClearDedicatedMigrationNetwork(nad string, set bool) *v1.KubeVirt {
 }
 
 func SetDedicatedMigrationNetwork(nad string) *v1.KubeVirt {
-	return SetOrClearDedicatedMigrationNetwork(nad, true)
+	return setOrClearDedicatedMigrationNetwork(nad, true)
 }
 
 func ClearDedicatedMigrationNetwork() *v1.KubeVirt {
-	return SetOrClearDedicatedMigrationNetwork("", false)
+	return setOrClearDedicatedMigrationNetwork("", false)
 }
 
 func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
@@ -295,7 +297,7 @@ func GetValidSourceNodeAndTargetNodeForHostModelMigration(virtCli kubecli.Kubevi
 	return nil, nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
 }
 
-func AffinityToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNode *k8sv1.Node) (nodefiinity *k8sv1.NodeAffinity, err error) {
+func CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.Node, targetNode *k8sv1.Node) (nodefiinity *k8sv1.NodeAffinity, err error) {
 	if sourceNode == nil || targetNode == nil {
 		return nil, fmt.Errorf("couldn't find valid nodes for host-model migration")
 	}

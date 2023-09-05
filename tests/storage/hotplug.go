@@ -1084,7 +1084,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Expect(sourceAttachmentPods).To(HaveLen(1))
 
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migration = libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+					migration = libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime)
 					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 					By("Verifying the volume is still accessible and usable")
 					verifyVolumeAccessible(vmi, targets[0])

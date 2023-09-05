@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libmigration"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -207,7 +208,7 @@ var istioTests = func(vmType VmType) {
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func() error {
 					return migrationCompleted(migration)
-				}, tests.MigrationWaitTime, time.Second).Should(Succeed(), fmt.Sprintf(" migration should succeed"))
+				}, libmigration.MigrationWaitTime, time.Second).Should(Succeed(), fmt.Sprintf(" migration should succeed"))
 			})
 			It("All containers should complete in source virt-launcher pod after migration", func() {
 				Eventually(func() error {

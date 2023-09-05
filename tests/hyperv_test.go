@@ -89,7 +89,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 
 				By("Migrating the VM")
 				migration := tests.NewRandomMigration(reEnlightenmentVMI.Name, reEnlightenmentVMI.Namespace)
-				migrationUID := libmigration.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migrationUID := libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime)
 
 				By("Checking VMI, confirm migration state")
 				libmigration.ConfirmVMIPostMigration(virtClient, reEnlightenmentVMI, migrationUID)
@@ -132,7 +132,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
 					for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
-						libinfra.StopNodeLabeller(node.Name, virtClient)
+						libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, virtClient)
 						removeTSCFrequencyFromNode(node)
 					}
 				}
@@ -140,7 +140,7 @@ var _ = Describe("[Serial][sig-compute] Hyper-V enlightenments", Serial, decorat
 
 			AfterEach(func() {
 				for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
-					_ = libinfra.ResumeNodeLabeller(node.Name, virtClient)
+					_ = libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient)
 				}
 			})
 
