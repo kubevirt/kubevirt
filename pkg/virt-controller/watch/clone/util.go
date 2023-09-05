@@ -96,6 +96,11 @@ func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.V
 }
 
 func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName, namespace, cloneName, snapshotName string, cloneUID types.UID, patches []string) *v1alpha1.VirtualMachineRestore {
+	targetInfo = targetInfo.DeepCopy()
+	if targetInfo.Name == "" {
+		targetInfo.Name = generateVMName(sourceVMName)
+	}
+
 	return &v1alpha1.VirtualMachineRestore{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      generateRestoreName(cloneName, sourceVMName),
@@ -105,7 +110,7 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 			},
 		},
 		Spec: v1alpha1.VirtualMachineRestoreSpec{
-			Target:                     *targetInfo.DeepCopy(),
+			Target:                     *targetInfo,
 			VirtualMachineSnapshotName: snapshotName,
 			Patches:                    patches,
 		},
