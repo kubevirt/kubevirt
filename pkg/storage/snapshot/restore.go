@@ -564,16 +564,15 @@ func (t *vmRestoreTarget) reconcileSpec() (bool, error) {
 	newVM.Spec.Template.Spec.Volumes = newVolumes
 	setLastRestoreAnnotation(t.vmRestore, newVM)
 
-	newVM, err = patchVM(newVM, t.vmRestore.Spec.Patches)
-	if err != nil {
-		return false, fmt.Errorf("error patching VM %s: %v", newVM.Name, err)
-	}
-
 	if err = t.restoreInstancetypeControllerRevisions(newVM); err != nil {
 		return false, err
 	}
 
 	if !t.doesTargetVMExist() {
+		newVM, err = patchVM(newVM, t.vmRestore.Spec.Patches)
+		if err != nil {
+			return false, fmt.Errorf("error patching VM %s: %v", newVM.Name, err)
+		}
 		newVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), newVM)
 	} else {
 		newVM, err = t.controller.Client.VirtualMachine(newVM.Namespace).Update(context.Background(), newVM)
