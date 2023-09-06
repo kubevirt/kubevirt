@@ -365,6 +365,21 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 	requestedHookSidecarList = append(requestedHookSidecarList, bindingSidecars...)
 
+	// Read requested hookSidecars from VMI spec
+	slirpIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
+		return i.Slirp != nil
+	})
+	if len(slirpIfaces) > 0 {
+		if plugin := ReadNetBindingPluginConfiguration(t.clusterConfig.GetConfig(), SlirpNetworkBindingPluginName); plugin == nil {
+			return nil, fmt.Errorf("couldn't find %s network binding plugin configuration, make sure its specified in Kubevirt config", SlirpNetworkBindingPluginName)
+		} else {
+			requestedHookSidecarList = append(requestedHookSidecarList, hooks.HookSidecar{
+				Image:           plugin.SidecarImage,
+				ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
+			})
+		}
+	}
+
 	var command []string
 	if tempPod {
 		logger := log.DefaultLogger()

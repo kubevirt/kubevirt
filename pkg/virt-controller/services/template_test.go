@@ -2788,16 +2788,17 @@ var _ = Describe("Template", func() {
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
 		})
-		Context("with slirp interface", func() {
+
+		Context("with ports", func() {
 			It("Should have empty port list in the pod manifest", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				slirpInterface := v1.InterfaceSlirp{}
+				iface := v1.InterfaceMasquerade{}
 				domain := v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
 				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface}}}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &iface}}}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
@@ -2813,14 +2814,14 @@ var _ = Describe("Template", func() {
 			})
 			It("Should create a port list in the pod manifest", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				slirpInterface := v1.InterfaceSlirp{}
+				iface := v1.InterfaceMasquerade{}
 				ports := []v1.Port{{Name: "http", Port: 80}, {Protocol: "UDP", Port: 80}, {Port: 90}, {Name: "other-http", Port: 80}}
 				domain := v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
 				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface}}}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &iface}}}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
@@ -2848,8 +2849,8 @@ var _ = Describe("Template", func() {
 			})
 			It("Should create a port list in the pod manifest with multiple interfaces", func() {
 				config, kvInformer, svc = configFactory(defaultArch)
-				slirpInterface1 := v1.InterfaceSlirp{}
-				slirpInterface2 := v1.InterfaceSlirp{}
+				masqueradeIface := v1.InterfaceMasquerade{}
+				bridgeIface := v1.InterfaceBridge{}
 				ports1 := []v1.Port{{Name: "http", Port: 80}}
 				ports2 := []v1.Port{{Name: "other-http", Port: 80}}
 				domain := v1.DomainSpec{
@@ -2860,10 +2861,10 @@ var _ = Describe("Template", func() {
 				domain.Devices.Interfaces = []v1.Interface{
 					{Name: "testnet",
 						Ports:                  ports1,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface1}},
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &masqueradeIface}},
 					{Name: "testnet",
 						Ports:                  ports2,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface2}}}
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &bridgeIface}}}
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -2883,6 +2884,47 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Ports[1].Name).To(Equal("other-http"))
 				Expect(pod.Spec.Containers[0].Ports[1].ContainerPort).To(Equal(int32(80)))
 				Expect(pod.Spec.Containers[0].Ports[1].Protocol).To(Equal(kubev1.Protocol("TCP")))
+			})
+		})
+
+		Context("with slirp interface", func() {
+			It("should add slirp network binding hook sidecar container with default image when no image is registered", func() {
+				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				}}
+				vmi.Spec.Networks = append(vmi.Spec.Networks, *v1.DefaultPodNetwork())
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *v1.DefaultSlirpNetworkInterface())
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers).To(HaveLen(2))
+				Expect(pod.Spec.Containers[1].Image).To(Equal("quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"))
+				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
+			})
+			It("should add slirp network binding hook sidecar container using registered image", func() {
+				const slirpPluginSidecarImage = "kubevirt/network-slirp-binding:v1"
+				testBindingPluginNetConf := &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{"slirp": {SidecarImage: slirpPluginSidecarImage}}}
+
+				config, kvInformer, _ = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.NetworkConfiguration = testBindingPluginNetConf
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+				}
+				vmi.Spec.Networks = append(vmi.Spec.Networks, *v1.DefaultPodNetwork())
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *v1.DefaultSlirpNetworkInterface())
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers).To(HaveLen(2))
+				Expect(pod.Spec.Containers[1].Image).To(Equal(slirpPluginSidecarImage))
+				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 			})
 		})
 
