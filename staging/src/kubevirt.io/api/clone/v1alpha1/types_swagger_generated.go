@@ -10,9 +10,10 @@ func (VirtualMachineClone) SwaggerDoc() map[string]string {
 
 func (VirtualMachineCloneSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"target":            "If the target is not provided, a random name would be generated for the target.\nThe target's name can be viewed by inspecting status \"TargetName\" field below.\n+optional",
-		"annotationFilters": "+optional\n+listType=atomic",
-		"labelFilters":      "+optional\n+listType=atomic",
+		"source":            "Source is the object that would be cloned. Currently supported source types are:\nVirtualMachine of kubevirt.io API group,\nVirtualMachineSnapshot of snapshot.kubevirt.io API group",
+		"target":            "Target is the outcome of the cloning process.\nCurrently supported source types are:\n- VirtualMachine of kubevirt.io API group\n- Empty (nil).\nIf the target is not provided, the target type would default to VirtualMachine and a random\nname would be generated for the target. The target's name can be viewed by\ninspecting status \"TargetName\" field below.\n+optional",
+		"annotationFilters": "Example use: \"!some/key*\".\nFor a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.\n+optional\n+listType=atomic",
+		"labelFilters":      "Example use: \"!some/key*\".\nFor a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.\n+optional\n+listType=atomic",
 		"newMacAddresses":   "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the\nvalue is the new mac address. If this field is not specified, a new MAC address will\nbe generated automatically, as for any interface that is not included in this map.\n+optional",
 		"newSMBiosSerial":   "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will\nbe generated automatically.\n+optional",
 	}
