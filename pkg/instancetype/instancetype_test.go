@@ -1562,6 +1562,16 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
 			})
+
+			It("[test_id:CNV-9817] Should ignore preference when a VMI disk have a DiskDevice defined", func() {
+				diskTypeForTest := v1.DiskBusSCSI
+
+				vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus = diskTypeForTest
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec)
+				Expect(conflicts).To(BeEmpty())
+
+				Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(diskTypeForTest))
+			})
 		})
 
 		Context("Preference.Features", func() {
