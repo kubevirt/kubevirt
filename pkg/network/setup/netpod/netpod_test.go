@@ -29,6 +29,7 @@ import (
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -381,9 +382,13 @@ var _ = Describe("netpod", func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(Equal(expDHCPConfig))
+		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", defaultPodNetworkName)).To(Equal(&api.Interface{
+			MAC: &api.MAC{MAC: podIfaceOrignalMAC},
+		}))
 	})
 
 	It("setup bridge binding without IP", func() {
+		const podIfaceOrignalMAC = "12:34:56:78:90:ab"
 		const linklocalIPv6Address = "fe80::1"
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{{
@@ -391,7 +396,7 @@ var _ = Describe("netpod", func() {
 				Index:      0,
 				TypeName:   nmstate.TypeVETH,
 				State:      nmstate.IfaceStateUp,
-				MacAddress: "12:34:56:78:90:ab",
+				MacAddress: podIfaceOrignalMAC,
 				MTU:        1500,
 				IPv4:       ipDisabled,
 				IPv6: nmstate.IP{
@@ -467,6 +472,10 @@ var _ = Describe("netpod", func() {
 
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(
 			Equal(&cache.DHCPConfig{IPAMDisabled: true}))
+
+		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", defaultPodNetworkName)).To(Equal(&api.Interface{
+			MAC: &api.MAC{MAC: podIfaceOrignalMAC},
+		}))
 	})
 
 	When("using secondary network", func() {
