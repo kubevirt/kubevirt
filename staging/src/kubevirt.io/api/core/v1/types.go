@@ -2240,6 +2240,27 @@ type SMBiosConfiguration struct {
 	Family       string `json:"family,omitempty"`
 }
 
+type SupportContainerType string
+
+const (
+	// HotplugAttachment is the container resources of the hotplug attachment pod used to hotplug a disk
+	HotplugAttachment SupportContainerType = "hotplug-disk"
+	// ContainerDisk is the container resources used to attach a container disk to the Virtual Machine
+	ContainerDisk SupportContainerType = "container-disk"
+	// VirtioFS is the container resources used to attach a virtio-fs volume to the Virtual Machine
+	VirtioFS SupportContainerType = "virtiofs"
+	// SideCar is the container resources for a side car
+	SideCar SupportContainerType = "sidecar"
+	// VMExport is the container resources for a vm exporter pod
+	VMExport SupportContainerType = "vmexport"
+)
+
+// SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
+type SupportContainerResources struct {
+	Type      SupportContainerType       `json:"type"`
+	Resources k8sv1.ResourceRequirements `json:"resources"`
+}
+
 type TLSProtocolVersion string
 
 const (
