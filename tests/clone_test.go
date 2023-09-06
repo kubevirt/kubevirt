@@ -130,7 +130,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 		return snapshot
 	}
 
-	generateCloneFromVM := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
@@ -271,7 +271,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 		}
 
 		generateCloneFromVM := func() *clonev1alpha1.VirtualMachineClone {
-			return generateCloneFromVM(sourceVM, targetVMName)
+			return generateCloneFromVMWithParams(sourceVM, targetVMName)
 		}
 
 		Context("simple VM and cloning operations", func() {
@@ -652,6 +652,48 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
 					Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 				})
+			})
+
+			It("double cloning: clone target as a clone source", func() {
+				addAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+					filters := []string{"somekey/*"}
+					vmClone.Spec.LabelFilters = filters
+					vmClone.Spec.AnnotationFilters = filters
+				}
+				generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+					vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+					addAnnotationAndLabelFilters(vmclone)
+					return vmclone
+				}
+
+				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				if snapshotStorageClass == "" {
+					Skip("Skipping test, no VolumeSnapshot support")
+				}
+
+				sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
+				vmClone = generateCloneWithFilters(sourceVM, targetVMName)
+
+				createCloneAndWaitForFinish(vmClone)
+
+				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("Creating another clone from the target VM")
+				const cloneFromCloneName = "vm-clone-from-clone"
+				vmCloneFromClone := generateCloneWithFilters(targetVM, cloneFromCloneName)
+				vmCloneFromClone.Name = "test-clone-from-clone"
+				createCloneAndWaitForFinish(vmCloneFromClone)
+
+				By(fmt.Sprintf("Getting the target VM %s", cloneFromCloneName))
+				targetVMCloneFromClone, err := virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), cloneFromCloneName, &v1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				expectVMRunnable(targetVMCloneFromClone)
+				expectEqualLabels(targetVMCloneFromClone, sourceVM)
+				expectEqualAnnotations(targetVMCloneFromClone, sourceVM)
 			})
 		})
 	})
