@@ -192,7 +192,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 				}, libmigration.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 				migration = migrationCreated
 
-				libmigration.ExpectMigrationToSucceed(virtClient, migration, libmigration.MigrationWaitTime)
+				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 				k8sClient := clientcmd.GetK8sCmdClient()
 				result, _, err := clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)

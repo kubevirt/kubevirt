@@ -150,7 +150,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				}
 				return false
 			}, 30*time.Second, time.Second).Should(BeTrue())
-			libmigration.ExpectMigrationToSucceed(virtClient, migration, libmigration.MigrationWaitTime)
+			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {
@@ -239,7 +239,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
 			Expect(err).To(HaveOccurred())
 
-			libmigration.ExpectMigrationToSucceed(virtClient, migration, libmigration.MigrationWaitTime)
+			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Enabling the second socket")
 			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
@@ -267,7 +267,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				}
 				return false
 			}, 30*time.Second, time.Second).Should(BeTrue())
-			libmigration.ExpectMigrationToSucceed(virtClient, migration, libmigration.MigrationWaitTime)
+			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {

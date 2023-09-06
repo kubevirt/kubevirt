@@ -41,6 +41,10 @@ func ExpectMigrationToSucceed(virtClient kubecli.KubevirtClient, migration *v1.V
 	return ExpectMigrationToSucceedWithOffset(2, virtClient, migration, timeout)
 }
 
+func ExpectMigrationToSucceedWithDefaultTimeout(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
+	return ExpectMigrationToSucceed(virtClient, migration, MigrationWaitTime)
+}
+
 func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, timeout int) *v1.VirtualMachineInstanceMigration {
 	By("Waiting until the Migration Completes")
 	EventuallyWithOffset(offset, func() error {
@@ -64,6 +68,10 @@ func RunMigrationAndExpectToComplete(virtClient kubecli.KubevirtClient, migratio
 	migration = RunMigration(virtClient, migration)
 
 	return ExpectMigrationToSucceed(virtClient, migration, timeout)
+}
+
+func RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {
+	return RunMigrationAndExpectToComplete(virtClient, migration, MigrationWaitTime)
 }
 
 func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigration {

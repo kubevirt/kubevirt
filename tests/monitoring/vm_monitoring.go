@@ -159,7 +159,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 			By("Migrating VMIs")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			libmigration.RunMigrationAndExpectToComplete(virtClient, migration, libmigration.MigrationWaitTime)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_pending", 0)
 			waitForMetricValue(virtClient, "kubevirt_vmi_migrations_scheduling", 0)
