@@ -32,7 +32,7 @@ import (
 )
 
 type setuper interface {
-	Setup() error
+	Setup(func() error) error
 }
 
 type VMNetworkConfigurator struct {
@@ -129,10 +129,6 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks 
 
 	err = configState.Run(
 		nics,
-		preConfigStateRun,
-		func(nic *podNIC) error {
-			return nic.discoverAndStoreCache()
-		},
 		n.netSetup.Setup,
 	)
 	if err != nil {
@@ -154,26 +150,6 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 	return nil
 }
 
-func preConfigStateRun(nics []podNIC) ([]podNIC, error) {
-	nics, err := discoverPodInterfaces(nics)
-	if err != nil {
-		return nil, err
-	}
-
-	return filterOutAbsentIfaces(nics), nil
-}
-
-func discoverPodInterfaces(nics []podNIC) ([]podNIC, error) {
-	for idx, nic := range nics {
-		podIfaceName, err := discoverPodInterfaceName(nic.handler, nic.vmi.Spec.Networks, *nic.vmiSpecNetwork)
-		if err != nil {
-			return nil, err
-		}
-		nics[idx].podInterfaceName = podIfaceName
-	}
-	return nics, nil
-}
-
 func discoverPodInterfaceName(handler netdriver.NetworkHandler, networks []v1.Network, subjectNetwork v1.Network) (string, error) {
 	ifaceLink, err := link.DiscoverByNetwork(handler, networks, subjectNetwork)
 	if err != nil {
@@ -185,19 +161,6 @@ func discoverPodInterfaceName(handler netdriver.NetworkHandler, networks []v1.Ne
 		}
 		return ifaceLink.Attrs().Name, nil
 	}
-}
-
-func filterOutAbsentIfaces(nics []podNIC) []podNIC {
-	var filteredNics []podNIC
-	for _, nic := range nics {
-		toAdd := nic.vmiSpecIface.State != v1.InterfaceStateAbsent ||
-			(nic.vmiSpecIface.State == v1.InterfaceStateAbsent &&
-				namescheme.OrdinalSecondaryInterfaceName(nic.podInterfaceName))
-		if toAdd {
-			filteredNics = append(filteredNics, nic)
-		}
-	}
-	return filteredNics
 }
 
 func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor) error {

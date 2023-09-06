@@ -88,8 +88,11 @@ func (c configStateCacheStub) Read(key string) (cache.PodIfaceState, error) {
 }
 
 func (c configStateCacheStub) Write(key string, state cache.PodIfaceState) error {
+	if c.writeErr != nil {
+		return c.writeErr
+	}
 	c.stateCache[key] = state
-	return c.writeErr
+	return nil
 }
 
 func (c configStateCacheStub) Delete(key string) error {
@@ -120,7 +123,7 @@ func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func([]v1.Network) ([]string,
 	return nil
 }
 
-func (c *ConfigStateStub) Run(_ []podNIC, _ func([]podNIC) ([]podNIC, error), _ func(*podNIC) error, _ func() error) error {
+func (c *ConfigStateStub) Run(_ []podNIC, _ func(func() error) error) error {
 	c.RunWasExecuted = true
 	return nil
 }
