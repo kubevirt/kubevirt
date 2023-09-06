@@ -20,7 +20,6 @@
 package network
 
 import (
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,12 +36,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 
-	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
-
 	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -295,67 +290,30 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 	Context("pod network phase1", func() {
 		var (
-			mockNetworkH *netdriver.MockNetworkHandler
-
-			vmi                   *v1.VirtualMachineInstance
-			vmNetworkConfigurator *VMNetworkConfigurator
-			configState           ConfigState
+			vmi         *v1.VirtualMachineInstance
+			configState ConfigState
 		)
 
 		BeforeEach(func() {
-			ctrl := gomock.NewController(GinkgoT())
-			mockNetworkH = netdriver.NewMockNetworkHandler(ctrl)
-
 			dutils.MockDefaultOwnershipManager()
 
 			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithNetUtilsHandler(mockNetworkH), WithLauncherPid(0))
-			stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
+			stateCache := NewConfigStateCache(string(vmi.UID), &baseCacheCreator)
 			configState = NewConfigState(&stateCache, nsExecutorStub{})
 		})
 
-		It("fails setup during network discovery", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
-			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return("", "", fmt.Errorf("discovery error"))
-
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)
-			Expect(err).To(HaveOccurred())
-			var errCritical *neterrors.CriticalNetworkError
-			Expect(errors.As(err, &errCritical)).To(BeFalse(), "expected a non-critical error, but got %v", err)
-		})
-
-		It("fails (critically) setup during network preparation (config)", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
-			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return("1.2.3.4", "2001::1", nil)
-			mockNetworkH.EXPECT().IsIpv4Primary().Return(true, nil)
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{}, nil)
-			mockNetworkH.EXPECT().AddrList(gomock.Any(), gomock.Any()).Return([]netlink.Addr{}, nil)
-
+		It("fails setup during network setup", func() {
 			netPodWithError := netpodStub{errSetup: fmt.Errorf("config error")}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netPodWithError), WithNetUtilsHandler(mockNetworkH))
+			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netPodWithError))
 			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)
 			Expect(err).To(HaveOccurred())
-			var errCritical *neterrors.CriticalNetworkError
-			Expect(errors.As(err, &errCritical)).To(BeTrue(), "expected critical error, but got %v", err)
 		})
 
-		It("is passing setup successfully (and persists cache data)", func() {
-			linkIP4, linkIP6 := "1.2.3.4", "2001::1"
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: namescheme.PrimaryPodInterfaceName}}, nil)
-			mockNetworkH.EXPECT().ReadIPAddressesFromLink(gomock.Any()).Return(linkIP4, linkIP6, nil)
-			mockNetworkH.EXPECT().IsIpv4Primary().Return(true, nil)
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{}, nil)
-			mockNetworkH.EXPECT().AddrList(gomock.Any(), gomock.Any()).Return([]netlink.Addr{}, nil)
-
+		It("is passing setup successfully", func() {
+			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(0))
 			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)).To(Succeed())
-
-			var podData *cache.PodIfaceCacheData
-			podData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, string(vmi.UID), "default")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(podData.PodIP).To(Equal(linkIP4))
-			Expect(podData.PodIPs).To(ConsistOf(linkIP4, linkIP6))
 		})
 	})
 	Context("UnplugPodNetworksPhase1", func() {
@@ -443,6 +401,6 @@ type netpodStub struct {
 	errSetup error
 }
 
-func (n netpodStub) Setup() error {
+func (n netpodStub) Setup(_ func() error) error {
 	return n.errSetup
 }

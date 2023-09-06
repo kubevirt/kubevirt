@@ -49,7 +49,7 @@ type cacheCreator interface {
 
 type ConfigStateExecutor interface {
 	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
-	Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func() error) error
+	Run(nics []podNIC, setupFunc func(func() error) error) error
 }
 
 type NetConf struct {

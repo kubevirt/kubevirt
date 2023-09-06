@@ -59,91 +59,59 @@ var _ = Describe("config state", func() {
 		})
 
 		It("runs with no current state (cache is empty)", func() {
-			discover, config := &discoverStub{}, &configStub{}
+			config := &configStub{}
 
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(Succeed())
+			Expect(configState.Run(nics, config.f)).To(Succeed())
 
-			Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
-			Expect(config.executed).To(BeTrue(), "the config step should execute")
-
-			state, err := configStateCache.Read(testNet0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 		})
 
 		It("runs with current pending state", func() {
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
-			discover, config := &discoverStub{}, &configStub{}
+			config := &configStub{}
 
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(Succeed())
+			Expect(configState.Run(nics, config.f)).To(Succeed())
 
-			Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
-			Expect(config.executed).To(BeTrue(), "the config step should execute")
-
-			state, err := configStateCache.Read(testNet0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 		})
 
 		It("runs with current started state", func() {
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationStarted)).To(Succeed())
-			discover, config := &discoverStub{}, &configStub{}
+			config := &configStub{}
 
 			ns.shouldNotBeExecuted = true
-			err := configState.Run(nics, noopCSPreRun, discover.f, config.f)
+			err := configState.Run(nics, config.f)
+
 			Expect(err).To(HaveOccurred())
 			var criticalNetErr *neterrors.CriticalNetworkError
 			Expect(errors.As(err, &criticalNetErr)).To(BeTrue())
 
-			Expect(discover.executedNetworks).To(BeEmpty(), "the discover step should not be execute")
 			Expect(config.executed).To(BeFalse(), "the config step should not be execute")
 
-			state, err := configStateCache.Read(testNet0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(state).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 		})
 
 		It("runs with current finished state", func() {
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
-			discover, config := &discoverStub{}, &configStub{}
+			config := &configStub{}
 
 			ns.shouldNotBeExecuted = true
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(Succeed())
+			Expect(configState.Run(nics, config.f)).To(Succeed())
 
-			Expect(discover.executedNetworks).To(BeEmpty(), "the discover step should not be execute")
 			Expect(config.executed).To(BeFalse(), "the config step should not execute")
 
-			state, err := configStateCache.Read(testNet0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 		})
 
-		It("runs and fails at the discover step", func() {
-			injectedErr := fmt.Errorf("fail discovery")
-			discover, config := &discoverStub{errRun: injectedErr}, &configStub{}
-
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(MatchError(injectedErr))
-
-			Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
-			Expect(config.executed).To(BeFalse(), "the config step should not execute")
-
-			state, err := configStateCache.Read(testNet0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(state).To(Equal(cache.PodIfaceNetworkPreparationPending))
-		})
-
-		It("runs and fails at the config step", func() {
+		It("runs and fails at the setup step", func() {
 			injectedErr := fmt.Errorf("fail config")
-			discover, config := &discoverStub{}, &configStub{errRun: injectedErr}
+			config := &configStub{errRun: injectedErr}
 
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(MatchError(injectedErr))
+			Expect(configState.Run(nics, config.f)).To(MatchError(injectedErr))
 
-			Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
 			Expect(config.executed).To(BeTrue(), "the config step should execute")
 
-			state, err := configStateCache.Read(testNet0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(state).To(Equal(cache.PodIfaceNetworkPreparationStarted))
+			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationStarted))
 		})
 
 		It("runs and fails reading the cache", func() {
@@ -151,12 +119,11 @@ var _ = Describe("config state", func() {
 			configStateCache.readErr = injectedErr
 			configState = NewConfigState(&configStateCache, ns)
 
-			discover, config := &discoverStub{}, &configStub{}
+			config := &configStub{}
 
 			ns.shouldNotBeExecuted = true
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(MatchError(injectedErr))
+			Expect(configState.Run(nics, config.f)).To(MatchError(injectedErr))
 
-			Expect(discover.executedNetworks).To(BeEmpty(), "the discover step shouldn't execute")
 			Expect(config.executed).To(BeFalse(), "the config step shouldn't execute")
 		})
 
@@ -165,11 +132,10 @@ var _ = Describe("config state", func() {
 			configStateCache.writeErr = injectedErr
 			configState = NewConfigState(&configStateCache, ns)
 
-			discover, config := &discoverStub{}, &configStub{}
+			config := &configStub{}
 
-			Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(MatchError(injectedErr))
+			Expect(configState.Run(nics, config.f)).To(MatchError(ContainSubstring(injectedErr.Error())))
 
-			Expect(discover.executedNetworks).To(Equal([]string{testNet0}), "the discover step should execute")
 			Expect(config.executed).To(BeFalse(), "the config step shouldn't execute")
 		})
 
@@ -182,43 +148,29 @@ var _ = Describe("config state", func() {
 			})
 
 			It("runs with no current state (cache is empty)", func() {
-				discover, config := &discoverStub{}, &configStub{}
+				config := &configStub{}
 
-				Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(Succeed())
+				Expect(configState.Run(nics, config.f)).To(Succeed())
 
-				Expect(discover.executedNetworks).To(Equal([]string{testNet0, testNet1, testNet2}))
 				Expect(config.executed).To(BeTrue())
 
 				for _, testNet := range []string{testNet0, testNet1, testNet2} {
-					state, err := configStateCache.Read(testNet)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(state).To(Equal(cache.PodIfaceNetworkPreparationFinished))
+					Expect(configStateCache.Read(testNet)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 				}
 			})
 
-			It("runs and fails at the discovery step, 2nd network", func() {
-				injectedErr := fmt.Errorf("fail docovery")
-				discover, config := &discoverStub{errRun: injectedErr, errRunForPodIfaceName: testNet1}, &configStub{}
+			It("runs and fails at the setup step", func() {
+				injectedErr := fmt.Errorf("fail write cache")
+				configStateCache.writeErr = injectedErr
+				configState = NewConfigState(&configStateCache, ns)
+				config := &configStub{}
 
-				Expect(configState.Run(nics, noopCSPreRun, discover.f, config.f)).To(MatchError(injectedErr))
+				Expect(configState.Run(nics, config.f)).To(MatchError(ContainSubstring(injectedErr.Error())))
 
-				Expect(discover.executedNetworks).To(Equal([]string{testNet0, testNet1}))
-				Expect(config.executed).To(BeFalse())
-
+				Expect(config.executed).To(BeFalse(), "the config step shouldn't execute")
 				for _, testNet := range []string{testNet0, testNet1, testNet2} {
 					Expect(configStateCache.Read(testNet)).To(Equal(cache.PodIfaceNetworkPreparationPending))
 				}
-			})
-
-			It("runs with filter that removes all networks", func() {
-				discover, config := &discoverStub{}, &configStub{}
-				preRunFilterOutAll := func(_ []podNIC) ([]podNIC, error) {
-					return nil, nil
-				}
-				Expect(configState.Run(nics, preRunFilterOutAll, discover.f, config.f)).To(Succeed())
-
-				Expect(discover.executedNetworks).To(BeEmpty())
-				Expect(config.executed).To(BeFalse())
 			})
 		})
 	})
@@ -307,27 +259,12 @@ type configStub struct {
 	executed bool
 }
 
-func (f *configStub) f() error {
-	f.executed = true
-	return f.errRun
-}
-
-type discoverStub struct {
-	executedNetworks      []string
-	errRun                error
-	errRunForPodIfaceName string
-}
-
-func (f *discoverStub) f(nic *podNIC) error {
-	f.executedNetworks = append(f.executedNetworks, nic.vmiSpecNetwork.Name)
-
-	// If an error is specified, return it if there is no filter at all, or if the filter is specified and matches.
-	// The filter is the network name.
-	var err error
-	if f.errRunForPodIfaceName == "" || f.errRunForPodIfaceName == nic.vmiSpecNetwork.Name {
-		err = f.errRun
+func (c *configStub) f(hook func() error) error {
+	if err := hook(); err != nil {
+		return err
 	}
-	return err
+	c.executed = true
+	return c.errRun
 }
 
 type unplugFuncStub struct {
@@ -338,10 +275,6 @@ type unplugFuncStub struct {
 func (f *unplugFuncStub) f(name string) error {
 	f.executedNetworks = append(f.executedNetworks, name)
 	return f.errRunForPodIfaces[name]
-}
-
-func noopCSPreRun(nics []podNIC) ([]podNIC, error) {
-	return nics, nil
 }
 
 type filterFuncStub struct {

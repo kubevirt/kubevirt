@@ -12,6 +12,7 @@ go_library(
         "//pkg/network/cache:go_default_library",
         "//pkg/network/driver/nmstate:go_default_library",
         "//pkg/network/driver/procsys:go_default_library",
+        "//pkg/network/errors:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/netmachinery:go_default_library",

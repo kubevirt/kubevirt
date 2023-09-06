@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/netmachinery"
@@ -110,7 +111,7 @@ func WithCacheCreator(c cacheCreator) option {
 	}
 }
 
-func (n NetPod) Setup() error {
+func (n NetPod) Setup(postDiscoveryHook func() error) error {
 	currentStatus, err := n.nmstateAdapter.Read()
 	if err != nil {
 		return err
@@ -122,11 +123,19 @@ func (n NetPod) Setup() error {
 	}
 	log.Log.Infof("Current pod network: %s", currentStatusBytes)
 
-	if err = n.discover(currentStatus); err != nil {
+	if derr := n.discover(currentStatus); derr != nil {
+		return derr
+	}
+
+	if err = postDiscoveryHook(); err != nil {
 		return err
 	}
 
-	return n.config(currentStatus)
+	if err = n.config(currentStatus); err != nil {
+		log.Log.Reason(err).Errorf("failed to configure pod network")
+		return neterrors.CreateCriticalNetworkError(err)
+	}
+	return nil
 }
 
 func (n NetPod) config(currentStatus *nmstate.Status) error {
