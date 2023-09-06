@@ -125,6 +125,23 @@ var _ = Describe("create", func() {
 			Entry("VirtualMachineClusterInstacetype set to shared", "", "shared", false, v1.IOThreadsPolicyShared),
 		)
 
+		It("should create namespaced object and apply namespace when namespace is specified", func() {
+			const namespace = "my-namespace"
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype,
+				setFlag(CPUFlag, "1"),
+				setFlag(MemoryFlag, "128Mi"),
+				setFlag("namespace", namespace),
+			)()
+			Expect(err).ToNot(HaveOccurred())
+
+			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
+			Expect(err).ToNot(HaveOccurred())
+
+			instancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineInstancetype)
+			Expect(ok).To(BeTrue())
+			Expect(instancetype.Namespace).To(Equal(namespace))
+		})
+
 		DescribeTable("invalid cpu and memory", func(cpu, memory, errMsg string) {
 			err := clientcmd.NewRepeatableVirtctlCommand(create, Instancetype, namespaced,
 				setFlag(CPUFlag, cpu),

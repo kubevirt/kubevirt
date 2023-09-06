@@ -51,6 +51,15 @@ var _ = Describe("create vm", func() {
 			_ = unmarshalVM(out)
 		})
 
+		It("VM with specified namespace", func() {
+			const namespace = "my-namespace"
+			out, err := runCmd(setFlag("namespace", namespace))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Namespace).To(Equal(namespace))
+		})
+
 		It("VM with specified name", func() {
 			const name = "my-vm"
 			out, err := runCmd(setFlag(NameFlag, name))
@@ -470,7 +479,6 @@ var _ = Describe("create vm", func() {
 			const terminationGracePeriod int64 = 123
 			const instancetypeKind = "virtualmachineinstancetype"
 			const instancetypeName = "my-instancetype"
-			const preferenceName = "my-preference"
 			const dsNamespace = "my-ns"
 			const dsName = "my-ds"
 			const dvtSize = "10Gi"

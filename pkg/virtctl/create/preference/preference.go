@@ -21,11 +21,11 @@ package preference
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/util/rand"
-	"sigs.k8s.io/yaml"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/clientcmd"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
@@ -46,11 +46,14 @@ const (
 )
 
 type createPreference struct {
+	namespace             string
 	name                  string
 	namespaced            bool
 	CPUTopology           string
 	machineType           string
 	preferredStorageClass string
+
+	clientConfig clientcmd.ClientConfig
 }
 
 type optionFn func(*createPreference, *instancetypev1beta1.VirtualMachinePreferenceSpec) error
@@ -61,8 +64,10 @@ var optFns = map[string]optionFn{
 	CPUTopologyFlag:        withCPUTopology,
 }
 
-func NewCommand() *cobra.Command {
-	c := createPreference{}
+func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	c := createPreference{
+		clientConfig: clientConfig,
+	}
 	cmd := &cobra.Command{
 		Use:     Preference,
 		Short:   "Create a VirtualMachinePreference or VirtualMachineClusterPreference manifest.",
@@ -80,9 +85,18 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-func (c *createPreference) setDefaults(cmd *cobra.Command) {
+func (c *createPreference) setDefaults(cmd *cobra.Command) error {
+	namespace, overridden, err := c.clientConfig.Namespace()
+	if err != nil {
+		return err
+	}
+	if overridden {
+		c.namespace = namespace
+		c.namespaced = true
+	}
+
 	if cmd.Flags().Changed(NameFlag) {
-		return
+		return nil
 	}
 
 	if c.namespaced {
@@ -90,6 +104,8 @@ func (c *createPreference) setDefaults(cmd *cobra.Command) {
 	} else {
 		c.name = "clusterpreference-" + rand.String(5)
 	}
+
+	return nil
 }
 
 func withVolumeStorageClass(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
@@ -147,7 +163,7 @@ func (c *createPreference) newClusterPreference() *instancetypev1beta1.VirtualMa
 }
 
 func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePreference {
-	return &instancetypev1beta1.VirtualMachinePreference{
+	preference := &instancetypev1beta1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachinePreference",
 			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
@@ -156,6 +172,12 @@ func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePr
 			Name: c.name,
 		},
 	}
+
+	if c.namespace != "" {
+		preference.Namespace = c.namespace
+	}
+
+	return preference
 }
 
 func (c *createPreference) applyFlags(cmd *cobra.Command, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
