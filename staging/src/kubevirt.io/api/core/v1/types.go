@@ -2406,6 +2406,8 @@ const (
 	VirtioFS SupportContainerType = "virtiofs"
 	// SideCar is the container resources for a side car
 	SideCar SupportContainerType = "sidecar"
+	// VMExport is the container resources for a vm exporter pod
+	VMExport SupportContainerType = "vmexport"
 )
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
