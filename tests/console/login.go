@@ -137,9 +137,11 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
+	hostName := dns.SanitizeHostname(vmi)
+
 	// Do not login, if we already logged in
 	loggedInPromptRegex := fmt.Sprintf(
-		`(\[fedora@(localhost|fedora|%s) ~\]\$ |\[root@(localhost|fedora|%s) fedora\]\# )`, vmi.Name, vmi.Name,
+		`(\[fedora@(localhost|fedora|%s|%s) ~\]\$ |\[root@(localhost|fedora|%s|%s) fedora\]\# )`, vmi.Name, hostName, vmi.Name, hostName,
 	)
 	b := []expect.Batcher{
 		&expect.BSnd{S: "\n"},
@@ -157,7 +159,7 @@ func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 			&expect.Case{
 				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
 				// and in case the VM's did not get hostname form DHCP server try the default hostname
-				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s) login: `, vmi.Name)),
+				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s|%s) login: `, vmi.Name, hostName)),
 				S:  "fedora\n",
 				T:  expect.Next(),
 				Rt: 10,
