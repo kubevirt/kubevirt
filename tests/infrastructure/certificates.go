@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -42,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -127,7 +127,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 		By("checking that we can still start virtual machines and connect to the VMI")
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi := libvmi.NewAlpine()
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 	})
@@ -143,7 +143,7 @@ var _ = DescribeInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 		Eventually(func() (rotated bool) {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+			vmi := libvmi.NewAlpine()
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
