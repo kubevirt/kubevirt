@@ -1060,6 +1060,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 						AllowPrivilegeEscalation: pointer.Bool(false),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
+					Resources: vmExportContainerResourceRequirements(t.clusterConfig),
 				},
 			},
 		},
