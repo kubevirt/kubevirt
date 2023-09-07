@@ -248,7 +248,7 @@ If you would like to run specific functional tests only, you can leverage `ginkg
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-focus=vmi_networking_test -regexScansFilePath' make functest
+    FUNC_TEST_ARGS='-focus-file=vmi_networking_test' make functest
 ```
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
