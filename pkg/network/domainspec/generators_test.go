@@ -20,7 +20,6 @@
 package domainspec
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"runtime"
@@ -65,61 +64,6 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	Context("on successful setup", func() {
-		Context("Slirp Plug", func() {
-			var (
-				domain *api.Domain
-				vmi    *v1.VirtualMachineInstance
-			)
-
-			BeforeEach(func() {
-				domain = NewDomainWithSlirpInterface()
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				vmi = newVMISlirpInterface("testnamespace", "testVmName")
-			})
-
-			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
-				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.Generate()).To(Succeed())
-
-				Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
-				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: `{"driver":"e1000","netdev":"default","id":"default"}`}))
-			})
-
-			It("Should append MAC address to qemu arguments if set", func() {
-				mac := "de-ad-00-00-be-af"
-				device := fmt.Sprintf(`{"driver":"e1000","netdev":"default","id":"default","mac":%q}`, mac)
-
-				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
-				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.Generate()).To(Succeed())
-
-				Expect(domain.Spec.Devices.Interfaces).To(BeEmpty())
-				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: device}))
-			})
-			It("Should create an interface in the qemu command line, remove it from the interfaces and leave the other interfaces inplace", func() {
-				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
-					Model: &api.Model{
-						Type: v1.VirtIO,
-					},
-					Type: "bridge",
-					Source: api.InterfaceSource{
-						Bridge: api.DefaultBridgeName,
-					},
-					Alias: api.NewUserDefinedAlias("default"),
-				})
-				specGenerator := NewSlirpLibvirtSpecGenerator(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
-				Expect(specGenerator.Generate()).To(Succeed())
-
-				Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
-				Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[0]).To(Equal(api.Arg{Value: "-device"}))
-				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: `{"driver":"e1000","netdev":"default","id":"default"}`}))
-			})
-		})
 		Context("Macvtap plug", func() {
 			const primaryPodIfaceName = "eth0"
 

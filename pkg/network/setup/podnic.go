@@ -268,9 +268,6 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 	if l.vmiSpecIface.Masquerade != nil {
 		return domainspec.NewMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
-	if l.vmiSpecIface.Slirp != nil {
-		return domainspec.NewSlirpLibvirtSpecGenerator(l.vmiSpecIface, domain)
-	}
 	if l.vmiSpecIface.Macvtap != nil {
 		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
 	}

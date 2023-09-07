@@ -22,7 +22,6 @@ package services_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -104,4 +103,55 @@ var _ = Describe("Network Binding", func() {
 		})
 	})
 
+	Context("binding plugin configuration", func() {
+		It("should read registered network binding plugins successfully", func() {
+			const testPluginName = "test"
+			testPlugin := v1.InterfaceBindingPlugin{SidecarImage: "kubevirt/network-slirp-binding"}
+
+			config := &v1.KubeVirtConfiguration{
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					Binding: map[string]v1.InterfaceBindingPlugin{
+						"plugin1":      {SidecarImage: "org1/plugin1"},
+						testPluginName: testPlugin,
+						"plugin2":      {SidecarImage: "org2/plugin2"},
+					},
+				},
+			}
+
+			Expect(services.ReadNetBindingPluginConfiguration(config, testPluginName)).To(Equal(&testPlugin))
+		})
+
+		DescribeTable("should return no network binding plugins configuration, when config", func(config *v1.KubeVirtConfiguration) {
+			Expect(services.ReadNetBindingPluginConfiguration(config, "myplugin")).To(BeNil())
+		},
+			Entry("is nil", nil),
+			Entry("has no network configuration set", &v1.KubeVirtConfiguration{}),
+			Entry("has no network binding plugin set",
+				&v1.KubeVirtConfiguration{
+					NetworkConfiguration: &v1.NetworkConfiguration{},
+				},
+			),
+			Entry("has no network binding plugin registered",
+				&v1.KubeVirtConfiguration{
+					NetworkConfiguration: &v1.NetworkConfiguration{
+						Binding: map[string]v1.InterfaceBindingPlugin{},
+					},
+				},
+			),
+			Entry("does not have the image registered",
+				&v1.KubeVirtConfiguration{
+					NetworkConfiguration: &v1.NetworkConfiguration{
+						Binding: map[string]v1.InterfaceBindingPlugin{
+							"anotherPlugin": {SidecarImage: "anotherOrg/anotherPlugin"},
+						},
+					},
+				},
+			),
+		)
+
+		It("should return default image when no Slirp network binding plugin image is registered", func() {
+			expectedIfaceBindingPlugin := &v1.InterfaceBindingPlugin{SidecarImage: "quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"}
+			Expect(services.ReadNetBindingPluginConfiguration(&v1.KubeVirtConfiguration{}, "slirp")).To(Equal(expectedIfaceBindingPlugin))
+		})
+	})
 })

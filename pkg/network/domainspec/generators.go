@@ -77,13 +77,6 @@ func NewMasqueradeLibvirtSpecGenerator(
 	}
 }
 
-func NewSlirpLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain) *SlirpLibvirtSpecGenerator {
-	return &SlirpLibvirtSpecGenerator{
-		vmiSpecIface: iface,
-		domain:       domain,
-	}
-}
-
 func NewBridgeLibvirtSpecGenerator(
 	iface *v1.Interface,
 	domain *api.Domain,
@@ -205,44 +198,6 @@ func (b *MasqueradeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interfa
 		domainIface.MAC = &api.MAC{MAC: mac.String()}
 	}
 	return &domainIface, nil
-}
-
-type SlirpLibvirtSpecGenerator struct {
-	vmiSpecIface *v1.Interface
-	domain       *api.Domain
-}
-
-func (b *SlirpLibvirtSpecGenerator) Generate() error {
-	// remove slirp interface from domain spec devices interfaces
-	var foundIfaceModelType string
-	for i, iface := range b.domain.Spec.Devices.Interfaces {
-		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			b.domain.Spec.Devices.Interfaces = append(
-				b.domain.Spec.Devices.Interfaces[:i],
-				b.domain.Spec.Devices.Interfaces[i+1:]...,
-			)
-			foundIfaceModelType = iface.Model.Type
-			break
-		}
-	}
-
-	if foundIfaceModelType == "" {
-		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
-	}
-
-	qemuArg := fmt.Sprintf(`{"driver":%q,"netdev":%q,"id":%q`, foundIfaceModelType, b.vmiSpecIface.Name, b.vmiSpecIface.Name)
-	if b.vmiSpecIface.MacAddress != "" {
-		// We assume address was already validated in API layer so just pass it to libvirt as-is.
-		qemuArg += fmt.Sprintf(`,"mac":%q`, b.vmiSpecIface.MacAddress)
-	}
-	qemuArg += "}"
-	// Add interface configuration to qemuArgs
-	b.domain.Spec.QEMUCmd.QEMUArg = append(
-		b.domain.Spec.QEMUCmd.QEMUArg,
-		api.Arg{Value: "-device"},
-		api.Arg{Value: qemuArg},
-	)
-	return nil
 }
 
 type MacvtapLibvirtSpecGenerator struct {

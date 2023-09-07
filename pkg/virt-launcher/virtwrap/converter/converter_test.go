@@ -1324,85 +1324,6 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
-		It("should add tcp if protocol not exist", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-
-			Expect(configPortForward(&qemuArg, iface)).To(Succeed())
-			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80", iface.Name)))
-		})
-		It("should not fail for duplicate port with different protocol configuration", func() {
-			iface := v1.Interface{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-
-			Expect(configPortForward(&qemuArg, iface)).To(Succeed())
-			Expect(qemuArg.Value).To(Equal(fmt.Sprintf("user,id=%s,hostfwd=tcp::80-:80,hostfwd=udp::80-:80", iface.Name)))
-		})
-		It("Should create network configuration for slirp device", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name := "otherName"
-			iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
-			iface.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			net := v1.DefaultPodNetwork()
-			net.Name = name
-			vmi.Spec.Networks = []v1.Network{*net}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(BeNil())
-			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-		})
-		It("Should create two network configuration for slirp device", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "Name"
-
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 80}, {Port: 80, Protocol: "UDP"}}}
-			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			net1 := v1.DefaultPodNetwork()
-			net1.Name = name1
-
-			name2 := "otherName"
-			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 90}}}
-			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			net2 := v1.DefaultPodNetwork()
-			net2.Name = name2
-
-			vmi.Spec.Networks = []v1.Network{*net1, *net2}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(BeNil())
-			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(4))
-		})
-		It("Should create two network configuration one for slirp device and one for bridge device", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name1 := "Name"
-
-			iface1 := v1.DefaultBridgeNetworkInterface()
-			iface1.Name = name1
-			net1 := v1.DefaultPodNetwork()
-			net1.Name = name1
-
-			name2 := "otherName"
-			iface2 := v1.Interface{Name: name2, InterfaceBindingMethod: v1.InterfaceBindingMethod{}, Ports: []v1.Port{{Port: 90}}}
-			iface2.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
-			net2 := v1.DefaultPodNetwork()
-			net2.Name = name2
-
-			vmi.Spec.Networks = []v1.Network{*net1, *net2}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface1, iface2}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(BeNil())
-			Expect(domain.Spec.QEMUCmd.QEMUArg).To(HaveLen(2))
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
-			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
-			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio-non-transitional"))
-			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
-			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
-		})
 		It("Should set domain interface source correctly for multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -1498,7 +1419,6 @@ var _ = Describe("Converter", func() {
 			name1 := "Name"
 
 			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
-			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
 
@@ -1515,7 +1435,6 @@ var _ = Describe("Converter", func() {
 			name1 := "Name"
 
 			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
-			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
 
@@ -2515,11 +2434,13 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.BoolPtr(true)
+			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
+			secondaryNetwork := v1.Network{Name: "red"}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(), *v1.DefaultSlirpNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(), nonVirtioIface,
 			}
 			vmi.Spec.Networks = []v1.Network{
-				*v1.DefaultPodNetwork(), *v1.DefaultPodNetwork(),
+				*v1.DefaultPodNetwork(), secondaryNetwork,
 			}
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{},

@@ -24,6 +24,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/hooks"
 )
 
@@ -50,4 +52,25 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 		}
 	}
 	return pluginSidecars, nil
+}
+
+const SlirpNetworkBindingPluginName = "slirp"
+
+func ReadNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, pluginName string) *v1.InterfaceBindingPlugin {
+	if kvConfig != nil && kvConfig.NetworkConfiguration != nil && kvConfig.NetworkConfiguration.Binding != nil {
+		if plugin, exist := kvConfig.NetworkConfiguration.Binding[pluginName]; exist {
+			return &plugin
+		}
+	}
+
+	// TODO: in case no Slirp network binding plugin is registered (i.e.: specified in in Kubevirt config) use the
+	// following default image to prevent newly created Slirp VMs from handing, and reduce friction for users who didnt
+	// registered and image yet. This workaround should be removed by the next Kubevirt release v1.2.0.
+	const defaulSlirpPluginImage = "quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"
+	if pluginName == SlirpNetworkBindingPluginName {
+		log.Log.Warningf("no Slirp network binding plugin image is set in Kubevirt config, using %q sidecar image for Slirp network binding configuration", defaulSlirpPluginImage)
+		return &v1.InterfaceBindingPlugin{SidecarImage: defaulSlirpPluginImage}
+	}
+
+	return nil
 }

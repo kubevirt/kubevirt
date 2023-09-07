@@ -22,7 +22,6 @@ package converter
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -58,7 +57,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if iface.Binding != nil || iface.SRIOV != nil {
+		if iface.Binding != nil || iface.SRIOV != nil || iface.Slirp != nil {
 			continue
 		}
 
@@ -105,18 +104,6 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 			} else {
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
-		} else if iface.Slirp != nil {
-			domainIface.Type = "user"
-
-			// Create network interface
-			initializeQEMUCmdAndQEMUArg(domain)
-
-			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
-			// append the ports from all the interfaces connected to the same network
-			err := createSlirpNetwork(iface, *net, domain)
-			if err != nil {
-				return nil, err
-			}
 		} else if iface.Macvtap != nil {
 			if net.Multus == nil {
 				return nil, fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
@@ -150,14 +137,6 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 }
 
 func GetInterfaceType(iface *v1.Interface) string {
-	if iface.Slirp != nil {
-		// Slirp configuration works only with e1000 or rtl8139
-		if iface.Model != "e1000" && iface.Model != "rtl8139" {
-			log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
-			return "e1000"
-		}
-		return iface.Model
-	}
 	if iface.Model != "" {
 		return iface.Model
 	}
@@ -170,30 +149,6 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 		netsByName[network.Name] = network.DeepCopy()
 	}
 	return netsByName
-}
-
-func createSlirpNetwork(iface v1.Interface, network v1.Network, domain *api.Domain) error {
-	qemuArg := api.Arg{Value: fmt.Sprintf("user,id=%s", iface.Name)}
-
-	err := configVMCIDR(&qemuArg, network)
-	if err != nil {
-		return err
-	}
-
-	err = configDNSSearchName(&qemuArg)
-	if err != nil {
-		return err
-	}
-
-	err = configPortForward(&qemuArg, iface)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-netdev"})
-	domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, qemuArg)
-
-	return nil
 }
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
@@ -220,63 +175,6 @@ func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
 
 func isTrue(networkInterfaceMultiQueue *bool) bool {
 	return (networkInterfaceMultiQueue != nil) && (*networkInterfaceMultiQueue)
-}
-
-func configPortForward(qemuArg *api.Arg, iface v1.Interface) error {
-	if iface.Ports == nil {
-		return nil
-	}
-
-	// Can't be duplicated ports forward or the qemu process will crash
-	configuredPorts := make(map[string]struct{}, 0)
-	for _, forwardPort := range iface.Ports {
-
-		if forwardPort.Port == 0 {
-			return fmt.Errorf("Port must be configured")
-		}
-
-		if forwardPort.Protocol == "" {
-			forwardPort.Protocol = api.DefaultProtocol
-		}
-
-		portConfig := fmt.Sprintf("%s-%d", forwardPort.Protocol, forwardPort.Port)
-		if _, ok := configuredPorts[portConfig]; !ok {
-			qemuArg.Value += fmt.Sprintf(",hostfwd=%s::%d-:%d", strings.ToLower(forwardPort.Protocol), forwardPort.Port, forwardPort.Port)
-			configuredPorts[portConfig] = struct{}{}
-		}
-	}
-
-	return nil
-}
-
-func configVMCIDR(qemuArg *api.Arg, network v1.Network) error {
-	vmNetworkCIDR := ""
-	if network.Pod.VMNetworkCIDR != "" {
-		_, _, err := net.ParseCIDR(network.Pod.VMNetworkCIDR)
-		if err != nil {
-			return fmt.Errorf("Failed parsing CIDR %s", network.Pod.VMNetworkCIDR)
-		}
-		vmNetworkCIDR = network.Pod.VMNetworkCIDR
-	} else {
-		vmNetworkCIDR = api.DefaultVMCIDR
-	}
-
-	// Insert configuration to qemu commandline
-	qemuArg.Value += fmt.Sprintf(",net=%s", vmNetworkCIDR)
-
-	return nil
-}
-
-func configDNSSearchName(qemuArg *api.Arg) error {
-	_, dnsDoms, err := GetResolvConfDetailsFromPod()
-	if err != nil {
-		return err
-	}
-
-	for _, dom := range dnsDoms {
-		qemuArg.Value += fmt.Sprintf(",dnssearch=%s", dom)
-	}
-	return nil
 }
 
 // returns nameservers [][]byte, searchdomains []string, error
