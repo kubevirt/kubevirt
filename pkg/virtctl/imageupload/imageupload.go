@@ -67,6 +67,8 @@ const (
 	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 	contentTypeAnnotation           = "cdi.kubevirt.io/storage.contentType"
 	deleteAfterCompletionAnnotation = "cdi.kubevirt.io/storage.deleteAfterCompletion"
+	UsePopulatorAnnotation          = "cdi.kubevirt.io/storage.usePopulator"
+	PVCPrimeNameAnnotation          = "cdi.kubevirt.io/storage.populator.pvcPrime"
 
 	uploadReadyWaitInterval = 2 * time.Second
 
@@ -766,7 +768,7 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 	}
 
 	if !createPVC {
-		_, err = client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		dv, err := client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
 			// When the PVC exists but the DV doesn't, there are two possible outcomes:
 			if k8serrors.IsNotFound(err) {
@@ -779,6 +781,17 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 				return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", namespace, name)
 			}
 			return nil, err
+		}
+		// When using populators, the upload happens on the PVC Prime. We need to check it instead.
+		if dv.Annotations[UsePopulatorAnnotation] == "true" {
+			pvcPrimeName, ok := pvc.Annotations[PVCPrimeNameAnnotation]
+			if !ok {
+				return nil, fmt.Errorf("Unable to get PVC Prime name from PVC %s/%s", namespace, name)
+			}
+			pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("Unable to get PVC Prime %s/%s", namespace, name)
+			}
 		}
 	}
 
