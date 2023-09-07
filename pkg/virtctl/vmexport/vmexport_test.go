@@ -391,6 +391,23 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("VirtualMachineExport download succeeds when --raw is used but only compressed is available", func() {
+			testInit(http.StatusOK)
+			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    "no-test-volume",
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.RAW_FLAG, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("VirtualMachineExport download succeeds when there's only one volume and no --volume has been specified", func() {
 			testInit(http.StatusOK)
 			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
@@ -439,10 +456,13 @@ var _ = Describe("vmexport", func() {
 
 	Context("getUrlFromVirtualMachineExport", func() {
 		// Mocking the minimum viable VMExportInfo struct
-		vmeinfo := &virtctlvmexport.VMExportInfo{
-			Name:       vmexportName,
-			VolumeName: volumeName,
-		}
+		var vmeinfo *virtctlvmexport.VMExportInfo
+		BeforeEach(func() {
+			vmeinfo = &virtctlvmexport.VMExportInfo{
+				Name:       vmexportName,
+				VolumeName: volumeName,
+			}
+		})
 
 		It("Should get compressed URL even when there's multiple URLs", func() {
 			vmExport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
@@ -482,6 +502,37 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat("raw", exportv1.KubeVirtRaw),
 				},
 			}, secretName)
+			url, err := virtctlvmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(url).Should(Equal("raw"))
+		})
+
+		It("Should get raw URL if --raw is specified", func() {
+			vmExport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vmExport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    "raw",
+						},
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    "raw",
+						},
+						{
+							Format: exportv1.KubeVirtGz,
+							Url:    "compressed",
+						},
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    "raw",
+						},
+					},
+				},
+			}, secretName)
+			vmeinfo.RawImg = true
 			url, err := virtctlvmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(url).Should(Equal("raw"))
