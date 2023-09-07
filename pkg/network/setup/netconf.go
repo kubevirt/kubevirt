@@ -49,7 +49,7 @@ type cacheCreator interface {
 
 type ConfigStateExecutor interface {
 	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
-	Run(nics []podNIC, setupFunc func(func() error) error) error
+	Run(networkNames []string, setupFunc func(func() error) error) error
 }
 
 type NetConf struct {
@@ -122,7 +122,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	}
 
 	// Absent networks are passed as well since, Absent network with ordinary name has to be plugged
-	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
+	err := netConfigurator.SetupPodNetworkPhase1(networks, configState)
 
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)

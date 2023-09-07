@@ -44,7 +44,7 @@ var _ = Describe("config state", func() {
 	var (
 		configState      ConfigState
 		configStateCache configStateCacheStub
-		nics             []podNIC
+		networkNames     []string
 		ns               nsExecutorStub
 	)
 
@@ -53,15 +53,13 @@ var _ = Describe("config state", func() {
 			configStateCache = newConfigStateCacheStub()
 			ns = nsExecutorStub{}
 			configState = NewConfigState(&configStateCache, ns)
-			nics = []podNIC{{
-				vmiSpecNetwork: &v1.Network{Name: testNet0},
-			}}
+			networkNames = []string{testNet0}
 		})
 
 		It("runs with no current state (cache is empty)", func() {
 			config := &configStub{}
 
-			Expect(configState.Run(nics, config.f)).To(Succeed())
+			Expect(configState.Run(networkNames, config.f)).To(Succeed())
 
 			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 		})
@@ -70,7 +68,7 @@ var _ = Describe("config state", func() {
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 			config := &configStub{}
 
-			Expect(configState.Run(nics, config.f)).To(Succeed())
+			Expect(configState.Run(networkNames, config.f)).To(Succeed())
 
 			Expect(configStateCache.Read(testNet0)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 		})
@@ -80,7 +78,7 @@ var _ = Describe("config state", func() {
 			config := &configStub{}
 
 			ns.shouldNotBeExecuted = true
-			err := configState.Run(nics, config.f)
+			err := configState.Run(networkNames, config.f)
 
 			Expect(err).To(HaveOccurred())
 			var criticalNetErr *neterrors.CriticalNetworkError
@@ -96,7 +94,7 @@ var _ = Describe("config state", func() {
 			config := &configStub{}
 
 			ns.shouldNotBeExecuted = true
-			Expect(configState.Run(nics, config.f)).To(Succeed())
+			Expect(configState.Run(networkNames, config.f)).To(Succeed())
 
 			Expect(config.executed).To(BeFalse(), "the config step should not execute")
 
@@ -107,7 +105,7 @@ var _ = Describe("config state", func() {
 			injectedErr := fmt.Errorf("fail config")
 			config := &configStub{errRun: injectedErr}
 
-			Expect(configState.Run(nics, config.f)).To(MatchError(injectedErr))
+			Expect(configState.Run(networkNames, config.f)).To(MatchError(injectedErr))
 
 			Expect(config.executed).To(BeTrue(), "the config step should execute")
 
@@ -122,7 +120,7 @@ var _ = Describe("config state", func() {
 			config := &configStub{}
 
 			ns.shouldNotBeExecuted = true
-			Expect(configState.Run(nics, config.f)).To(MatchError(injectedErr))
+			Expect(configState.Run(networkNames, config.f)).To(MatchError(injectedErr))
 
 			Expect(config.executed).To(BeFalse(), "the config step shouldn't execute")
 		})
@@ -134,23 +132,20 @@ var _ = Describe("config state", func() {
 
 			config := &configStub{}
 
-			Expect(configState.Run(nics, config.f)).To(MatchError(ContainSubstring(injectedErr.Error())))
+			Expect(configState.Run(networkNames, config.f)).To(MatchError(ContainSubstring(injectedErr.Error())))
 
 			Expect(config.executed).To(BeFalse(), "the config step shouldn't execute")
 		})
 
 		When("with multiple interfaces", func() {
 			BeforeEach(func() {
-				nics = append(nics,
-					podNIC{vmiSpecNetwork: &v1.Network{Name: testNet1}},
-					podNIC{vmiSpecNetwork: &v1.Network{Name: testNet2}},
-				)
+				networkNames = append(networkNames, testNet1, testNet2)
 			})
 
 			It("runs with no current state (cache is empty)", func() {
 				config := &configStub{}
 
-				Expect(configState.Run(nics, config.f)).To(Succeed())
+				Expect(configState.Run(networkNames, config.f)).To(Succeed())
 
 				Expect(config.executed).To(BeTrue())
 
@@ -165,7 +160,7 @@ var _ = Describe("config state", func() {
 				configState = NewConfigState(&configStateCache, ns)
 				config := &configStub{}
 
-				Expect(configState.Run(nics, config.f)).To(MatchError(ContainSubstring(injectedErr.Error())))
+				Expect(configState.Run(networkNames, config.f)).To(MatchError(ContainSubstring(injectedErr.Error())))
 
 				Expect(config.executed).To(BeFalse(), "the config step shouldn't execute")
 				for _, testNet := range []string{testNet0, testNet1, testNet2} {

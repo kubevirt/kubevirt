@@ -75,29 +75,6 @@ func WithLauncherPid(pid int) vmNetConfiguratorOption {
 	}
 }
 
-func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Network) ([]podNIC, error) {
-	var nics []podNIC
-
-	for i := range networks {
-		iface := vmispec.LookupInterfaceByName(v.vmi.Spec.Domain.Devices.Interfaces, networks[i].Name)
-		if iface == nil {
-			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
-		}
-
-		// Some bindings are not participation in phase 1.
-		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
-			continue
-		}
-
-		nic, err := newPhase1PodNIC(v.vmi, &networks[i], iface, v.handler, v.cacheCreator, launcherPID)
-		if err != nil {
-			return nil, err
-		}
-		nics = append(nics, *nic)
-	}
-	return nics, nil
-}
-
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.Network) ([]podNIC, error) {
 	var nics []podNIC
 
@@ -121,16 +98,23 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 	return nics, nil
 }
 
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(launcherPID int, networks []v1.Network, configState ConfigStateExecutor) error {
-	nics, err := n.getPhase1NICs(&launcherPID, networks)
-	if err != nil {
-		return err
+func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(networks []v1.Network, configState ConfigStateExecutor) error {
+	var networkNames []string
+	for _, network := range networks {
+		iface := vmispec.LookupInterfaceByName(n.vmi.Spec.Domain.Devices.Interfaces, network.Name)
+		if iface == nil {
+			return fmt.Errorf("no iface matching with network %s", network.Name)
+		}
+
+		// Some bindings are not participation in phase 1.
+		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
+			continue
+		}
+
+		networkNames = append(networkNames, network.Name)
 	}
 
-	err = configState.Run(
-		nics,
-		n.netSetup.Setup,
-	)
+	err := configState.Run(networkNames, n.netSetup.Setup)
 	if err != nil {
 		return fmt.Errorf("failed setup pod network phase1: %w", err)
 	}

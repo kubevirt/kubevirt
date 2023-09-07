@@ -37,7 +37,6 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	"kubevirt.io/kubevirt/pkg/network/infraconfigurators"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -51,217 +50,19 @@ var _ = Describe("VMNetworkConfigurator", func() {
 	})
 	Context("interface configuration", func() {
 
-		Context("when vm has no network source", func() {
-			var (
-				vmi                   *v1.VirtualMachineInstance
-				vmNetworkConfigurator *VMNetworkConfigurator
-				configState           ConfigState
-			)
-
-			BeforeEach(func() {
-				vmi = newVMIBridgeInterface("testnamespace", "testVmName")
-				vmi.Spec.Networks = []v1.Network{{
-					Name:          "default",
-					NetworkSource: v1.NetworkSource{},
-				}}
-				vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(0))
-				stateCache := NewConfigStateCache(string(vmi.UID), vmNetworkConfigurator.cacheCreator)
-				configState = NewConfigState(&stateCache, nsExecutorStub{})
-			})
-			It("should propagate errors when phase1 is called", func() {
-				launcherPID := 0
-				err := vmNetworkConfigurator.SetupPodNetworkPhase1(launcherPID, vmi.Spec.Networks, &configState)
-				Expect(err).To(MatchError("Network not implemented"))
-			})
-			It("should propagate errors when phase2 is called", func() {
-				var domain *api.Domain
-				err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
-				Expect(err).To(MatchError("Network not implemented"))
-			})
+		It("when vm has no network source should propagate errors when phase2 is called", func() {
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			vmi.Spec.Networks = []v1.Network{{
+				Name:          "default",
+				NetworkSource: v1.NetworkSource{},
+			}}
+			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(0))
+			var domain *api.Domain
+			err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
+			Expect(err).To(MatchError("Network not implemented"))
 		})
+
 		Context("when calling []podNIC factory functions", func() {
-			It("should configure bridged pod networking by default", func() {
-				vm := newVMIBridgeInterface("testnamespace", "testVmName")
-
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
-				iface := v1.DefaultBridgeNetworkInterface()
-				defaultNet := v1.DefaultPodNetwork()
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(ConsistOf([]podNIC{{
-					vmi:            vm,
-					vmiSpecIface:   iface,
-					vmiSpecNetwork: defaultNet,
-					handler:        vmNetworkConfigurator.handler,
-					cacheCreator:   vmNetworkConfigurator.cacheCreator,
-					launcherPID:    &launcherPID,
-					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-						vm,
-						iface,
-						launcherPID,
-						vmNetworkConfigurator.handler),
-				}}))
-			})
-			It("should accept empty network list", func() {
-				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(BeEmpty())
-			})
-			It("should configure networking with multus", func() {
-				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-				iface := v1.DefaultBridgeNetworkInterface()
-				cniNet := vmiPrimaryNetwork()
-				vmi.Spec.Networks = []v1.Network{*cniNet}
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(ConsistOf([]podNIC{{
-					vmi:            vmi,
-					vmiSpecIface:   iface,
-					vmiSpecNetwork: cniNet,
-					handler:        vmNetworkConfigurator.handler,
-					cacheCreator:   vmNetworkConfigurator.cacheCreator,
-					launcherPID:    &launcherPID,
-					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-						vmi,
-						iface,
-						launcherPID,
-						vmNetworkConfigurator.handler),
-				}}))
-			})
-			It("should configure networking with multus and a default multus network", func() {
-				vm := newVMIBridgeInterface("testnamespace", "testVmName")
-
-				// We plug three multus interfaces in, with the default being second, to ensure the netN
-				// interfaces are numbered correctly
-				vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					{
-						Name: "additional1",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-					{
-						Name: "default",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-					{
-						Name: "additional2",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					},
-				}
-
-				cniNet := &v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "default", Default: true},
-					},
-				}
-				additionalCNINet1 := &v1.Network{
-					Name: "additional1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "additional1"},
-					},
-				}
-				additionalCNINet2 := &v1.Network{
-					Name: "additional2",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "additional2"},
-					},
-				}
-
-				vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
-
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vm, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vm.Spec.Networks)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(ContainElements([]podNIC{
-					{
-						vmi:            vm,
-						vmiSpecIface:   &vm.Spec.Domain.Devices.Interfaces[0],
-						vmiSpecNetwork: additionalCNINet1,
-						handler:        vmNetworkConfigurator.handler,
-						cacheCreator:   vmNetworkConfigurator.cacheCreator,
-						launcherPID:    &launcherPID,
-						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-							vm,
-							&vm.Spec.Domain.Devices.Interfaces[0],
-							launcherPID,
-							vmNetworkConfigurator.handler),
-					},
-					{
-						vmi:            vm,
-						vmiSpecIface:   &vm.Spec.Domain.Devices.Interfaces[1],
-						vmiSpecNetwork: cniNet,
-						handler:        vmNetworkConfigurator.handler,
-						cacheCreator:   vmNetworkConfigurator.cacheCreator,
-						launcherPID:    &launcherPID,
-						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-							vm,
-							&vm.Spec.Domain.Devices.Interfaces[1],
-							launcherPID,
-							vmNetworkConfigurator.handler),
-					},
-					{
-						vmi:            vm,
-						vmiSpecIface:   &vm.Spec.Domain.Devices.Interfaces[2],
-						vmiSpecNetwork: additionalCNINet2,
-						handler:        vmNetworkConfigurator.handler,
-						cacheCreator:   vmNetworkConfigurator.cacheCreator,
-						launcherPID:    &launcherPID,
-						infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-							vm, &vm.Spec.Domain.Devices.Interfaces[2],
-							launcherPID,
-							vmNetworkConfigurator.handler),
-					},
-				}))
-			})
-
-			It("should configure networking for an hotplugged interface", func() {
-				const ifaceToHotplug = "newnet1"
-
-				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-
-				hotplugNetwork := networkToHotplug(ifaceToHotplug)
-				vmi.Spec.Networks = append(vmi.Spec.Networks, hotplugNetwork)
-
-				hotplugInterface := v1.Interface{
-					Name:                   ifaceToHotplug,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				}
-				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, hotplugInterface)
-
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
-
-				Expect(vmNetworkConfigurator.getPhase1NICs(
-					&launcherPID,
-					[]v1.Network{networkToHotplug(ifaceToHotplug)},
-				)).To(ConsistOf(podNIC{
-					vmi:            vmi,
-					launcherPID:    &launcherPID,
-					vmiSpecIface:   &hotplugInterface,
-					vmiSpecNetwork: &hotplugNetwork,
-					handler:        vmNetworkConfigurator.handler,
-					cacheCreator:   vmNetworkConfigurator.cacheCreator,
-					infraConfigurator: infraconfigurators.NewBridgePodNetworkConfigurator(
-						vmi,
-						&hotplugInterface,
-						launcherPID,
-						vmNetworkConfigurator.handler),
-				}))
-			})
-
 			It("should not process SR-IOV networks", func() {
 				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
 				const networkName = "sriov"
@@ -277,11 +78,8 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 				launcherPID := 0
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
-				nics, err := vmNetworkConfigurator.getPhase1NICs(&launcherPID, vmi.Spec.Networks)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nics).To(BeEmpty())
 
-				nics, err = vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
+				nics, err := vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(BeEmpty())
 			})
@@ -307,13 +105,13 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		It("fails setup during network setup", func() {
 			netPodWithError := netpodStub{errSetup: fmt.Errorf("config error")}
 			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netPodWithError))
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)
+			err := vmNetworkConfigurator.SetupPodNetworkPhase1(vmi.Spec.Networks, &configState)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("is passing setup successfully", func() {
 			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(0))
-			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(0, vmi.Spec.Networks, &configState)).To(Succeed())
+			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(vmi.Spec.Networks, &configState)).To(Succeed())
 		})
 	})
 	Context("UnplugPodNetworksPhase1", func() {
@@ -375,27 +173,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		})
 	})
 })
-
-func vmiPrimaryNetwork() *v1.Network {
-	return &v1.Network{
-		Name: "default",
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{NetworkName: "default"},
-		},
-	}
-}
-
-func networkToHotplug(name string) v1.Network {
-	const nadName = "mynad"
-	return v1.Network{
-		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: nadName,
-			},
-		},
-	}
-}
 
 type netpodStub struct {
 	errSetup error
