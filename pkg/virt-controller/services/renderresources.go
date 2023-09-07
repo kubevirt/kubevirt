@@ -658,7 +658,7 @@ func vmExportContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceLis
 	if cpu := config.GetSupportContainerLimit(v1.VMExport, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu
 	}
-	memQuantity := resource.MustParse("1024M")
+	memQuantity := resource.MustParse("1024Mi")
 	if mem := config.GetSupportContainerLimit(v1.VMExport, k8sv1.ResourceMemory); mem != nil {
 		memQuantity = *mem
 	}
@@ -673,7 +673,7 @@ func vmExportContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceL
 	if cpu := config.GetSupportContainerRequest(v1.VMExport, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu
 	}
-	memQuantity := resource.MustParse("200M")
+	memQuantity := resource.MustParse("200Mi")
 	if mem := config.GetSupportContainerRequest(v1.VMExport, k8sv1.ResourceMemory); mem != nil {
 		memQuantity = *mem
 	}
