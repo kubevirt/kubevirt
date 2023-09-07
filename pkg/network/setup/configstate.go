@@ -52,32 +52,28 @@ func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigS
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c *ConfigState) Run(nics []podNIC, setupFunc func(func() error) error) error {
-	var pendingNICs []podNIC
-	for _, nic := range nics {
-		state, err := c.cache.Read(nic.vmiSpecNetwork.Name)
+func (c *ConfigState) Run(networkNames []string, setupFunc func(func() error) error) error {
+	var pendingNets []string
+	for _, netName := range networkNames {
+		state, err := c.cache.Read(netName)
 		if err != nil {
 			return err
 		}
 
 		switch state {
 		case cache.PodIfaceNetworkPreparationPending:
-			pendingNICs = append(pendingNICs, nic)
+			pendingNets = append(pendingNets, netName)
 		case cache.PodIfaceNetworkPreparationStarted:
 			return neterrors.CreateCriticalNetworkError(
-				fmt.Errorf("network %s preparation cannot be restarted", nic.vmiSpecNetwork.Name),
+				fmt.Errorf("network %s preparation cannot be restarted", netName),
 			)
 		}
 	}
 
-	if len(pendingNICs) == 0 {
+	if len(pendingNets) == 0 {
 		return nil
 	}
 
-	var networkNames []string
-	for _, n := range pendingNICs {
-		networkNames = append(networkNames, n.vmiSpecNetwork.Name)
-	}
 	err := c.ns.Do(func() error {
 		return c.plug(networkNames, setupFunc)
 	})
