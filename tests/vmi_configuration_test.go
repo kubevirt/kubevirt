@@ -1200,7 +1200,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomFedoraVMIWithGuestAgent()
+				agentVMI := tests.NewRandomFedoraVMI()
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI)
@@ -2795,7 +2795,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[Serial][test_id:2927]Test Chassis value in a newly created VM", Serial, func() {
-			vmi := tests.NewRandomFedoraVMIWithDmidecode()
+			vmi := tests.NewRandomFedoraVMIWithEphemeralDiskHighMemory()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
 			}
@@ -2827,7 +2827,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			vmi = tests.NewRandomFedoraVMIWithEphemeralDiskHighMemory()
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
@@ -2909,7 +2909,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		var DiskBusIDE v1.DiskBus = "ide"
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			vmi = tests.NewRandomFedoraVMIWithEphemeralDiskHighMemory()
 		})
 
 		DescribeTable("For various bus types", func(bus v1.DiskBus, errMsg string) {
@@ -2985,7 +2985,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		BeforeEach(func() {
 			var bootOrder uint = 1
-			vmi = tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi = tests.NewRandomFedoraVMI()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1024M")
 			vmi.Spec.Domain.Devices.Disks[0].BootOrder = &bootOrder
 		})
@@ -3022,7 +3022,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Skip("Skip KVM MSR prescence test on kind")
 			}
 
-			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper()
+			vmi = tests.NewRandomFedoraVMIWithEphemeralDiskHighMemory()
 		})
 
 		It("[test_id:5271]test cpuid hidden", func() {

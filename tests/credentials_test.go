@@ -66,7 +66,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 	Context("with qemu guest agent", func() {
 		It("[test_id:6220]should propagate public ssh keys", func() {
 			secretID := "my-pub-key"
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := tests.NewRandomFedoraVMI()
 			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{
 				{
@@ -137,7 +137,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 
 		It("[test_id:6221]should propagate user password", func() {
 			secretID := "my-user-pass"
-			vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+			vmi := tests.NewRandomFedoraVMI()
 			vmi.Namespace = util.NamespaceTestDefault
 
 			vmi.Spec.AccessCredentials = []v1.AccessCredential{

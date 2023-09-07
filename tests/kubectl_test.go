@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -174,7 +176,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
 				By("Starting the VirtualMachineInstance")
-				vmi = tests.RunVMIAndExpectLaunch(vmi, tests.MigrationWaitTime)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, libmigration.MigrationWaitTime)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
@@ -187,10 +189,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 				Eventually(func() error {
 					migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
 					return err
-				}, tests.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
+				}, libmigration.MigrationWaitTime, 1*time.Second).Should(Succeed(), "migration creation should succeed")
 				migration = migrationCreated
 
-				tests.ExpectMigrationSuccess(virtClient, migration, tests.MigrationWaitTime)
+				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
 				k8sClient := clientcmd.GetK8sCmdClient()
 				result, _, err := clientcmd.RunCommand(k8sClient, "get", "vmim", migration.Name)

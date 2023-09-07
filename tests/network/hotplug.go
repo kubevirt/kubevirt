@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -161,8 +163,8 @@ func newVMWithOneInterface() *v1.VirtualMachine {
 func migrate(vmi *v1.VirtualMachineInstance) {
 	By("migrating the VMI")
 	migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-	migrationUID := tests.RunMigrationAndExpectCompletion(kubevirt.Client(), migration, tests.MigrationWaitTime)
-	tests.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+	migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+	libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
 }
 
 func patchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {

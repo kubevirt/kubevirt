@@ -174,7 +174,6 @@
       "tests/reporter/": "tests/reporter pkg does not pass errcheck yet",
       "tests/canary_upgrade_test.go": "canary_upgrade_test does not pass errcheck yet",
       "tests/kubectl_test.go": "kubectl_test does not pass errcheck yet",
-      "tests/migration_test.go": "migration_test does not pass errcheck yet",
       "tests/replicaset_test.go": "replicaset_test does not pass errcheck yet",
       "tests/usbredir_test.go": "kubectl_test does not pass errcheck yet",
       "tests/utils.go": "utils.go does not pass errcheck yet",

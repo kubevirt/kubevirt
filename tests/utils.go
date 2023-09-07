@@ -102,29 +102,17 @@ import (
 )
 
 const (
-	BinBash                = "/bin/bash"
-	StartingVMInstance     = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue    = "echo $?\n"
+	BinBash                     = "/bin/bash"
+	StartingVMInstance          = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart      = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue         = "echo $?\n"
+	CustomHostPath              = "custom-host-path"
+	DiskAlpineHostPath          = "disk-alpine-host-path"
+	DiskWindowsSysprep          = "disk-windows-sysprep"
+	DiskCustomHostPath          = "disk-custom-host-path"
+	defaultDiskSize             = "1Gi"
+	ContainerCompletionWaitTime = 60
 )
-
-const (
-	CustomHostPath = "custom-host-path"
-)
-
-const (
-	DiskAlpineHostPath = "disk-alpine-host-path"
-	DiskWindows        = "disk-windows"
-	DiskWindowsSysprep = "disk-windows-sysprep"
-	DiskCustomHostPath = "disk-custom-host-path"
-)
-
-const (
-	defaultDiskSize = "1Gi"
-)
-
-const MigrationWaitTime = 240
-const ContainerCompletionWaitTime = 60
 
 func TestCleanup() {
 	GinkgoWriter.Println("Global test cleanup started.")
@@ -779,23 +767,14 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus v1.DiskB
 	return vmi
 }
 
-func NewRandomFedoraVMI() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	networkData := libnet.CreateDefaultCloudInitNetworkData()
 
-	return libvmi.NewFedora(
+	return libvmi.NewFedora(append([]libvmi.Option{
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
-	)
-}
-
-func NewRandomFedoraVMIWithGuestAgent() *v1.VirtualMachineInstance {
-	networkData := libnet.CreateDefaultCloudInitNetworkData()
-
-	return libvmi.NewFedora(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithCloudInitNoCloudNetworkData(networkData),
+		libvmi.WithCloudInitNoCloudNetworkData(networkData)},
+		opts...)...,
 	)
 }
 
@@ -810,12 +789,7 @@ func NewRandomFedoraVMIWithBlacklistGuestAgent(commands string) *v1.VirtualMachi
 	)
 }
 
-func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
-	return vmi
-}
-
-func NewRandomFedoraVMIWithVirtWhatCpuidHelper() *v1.VirtualMachineInstance {
+func NewRandomFedoraVMIWithEphemeralDiskHighMemory() *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
 	return vmi
 }

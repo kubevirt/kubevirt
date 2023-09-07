@@ -44,6 +44,7 @@ import (
 	_ "kubevirt.io/kubevirt/tests/hotplug"
 	_ "kubevirt.io/kubevirt/tests/infrastructure"
 	_ "kubevirt.io/kubevirt/tests/launchsecurity"
+	_ "kubevirt.io/kubevirt/tests/migration"
 	_ "kubevirt.io/kubevirt/tests/monitoring"
 	_ "kubevirt.io/kubevirt/tests/network"
 	_ "kubevirt.io/kubevirt/tests/numa"

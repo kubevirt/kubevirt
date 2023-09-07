@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libmigration"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -172,16 +173,6 @@ var istioTests = func(vmType VmType) {
 			var (
 				sourcePodName string
 			)
-			migrationCompleted := func(migration *v1.VirtualMachineInstanceMigration) error {
-				migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if migration.Status.Phase == v1.MigrationSucceeded {
-					return nil
-				}
-				return fmt.Errorf("migration is in phase %s", migration.Status.Phase)
-			}
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
@@ -203,11 +194,7 @@ var istioTests = func(vmType VmType) {
 			JustBeforeEach(func() {
 				sourcePodName = tests.GetVmPodName(virtClient, vmi)
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration, &metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Eventually(func() error {
-					return migrationCompleted(migration)
-				}, tests.MigrationWaitTime, time.Second).Should(Succeed(), fmt.Sprintf(" migration should succeed"))
+				libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			})
 			It("All containers should complete in source virt-launcher pod after migration", func() {
 				Eventually(func() error {

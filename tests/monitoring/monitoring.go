@@ -25,8 +25,12 @@ import (
 	"net/http"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libmigration"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/tests/decorators"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 
@@ -35,7 +39,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -93,10 +96,10 @@ var _ = Describe("[Serial][sig-monitoring]Monitoring", Serial, decorators.SigMon
 			By("Migrating the VMI 13 times")
 			for i := 0; i < 13; i++ {
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration = tests.RunMigrationAndExpectCompletion(virtClient, migration, tests.MigrationWaitTime)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
-				tests.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			}
 
 			By("Verifying KubeVirtVMIExcessiveMigration alert exists")

@@ -40,10 +40,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -56,8 +53,6 @@ import (
 )
 
 const (
-	windowsDisk        = "windows-disk"
-	windowsFirmware    = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 	windowsVMIUser     = "Administrator"
 	windowsVMIPassword = "Heslo123"
 )
@@ -74,10 +69,9 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 	BeforeEach(func() {
 		const OSWindows = "windows"
 		virtClient = kubevirt.Client()
-		checks.SkipIfMissingRequiredImage(virtClient, tests.DiskWindows)
+		checks.SkipIfMissingRequiredImage(virtClient, libvmi.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
-		windowsVMI = tests.NewRandomVMI()
-		windowsVMI.Spec = getWindowsVMISpec()
+		windowsVMI = libvmi.NewWindows()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
@@ -122,7 +116,7 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 					return err
 				}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 				By("Checking that the Windows VirtualMachineInstance has expected UUID")
-				Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
+				Expect(output).Should(ContainSubstring(strings.ToUpper(libvmi.WindowsFirmware)))
 			})
 
 			It("[test_id:3159]should have default masquerade IP", func() {
@@ -236,68 +230,6 @@ var _ = Describe("[Serial][sig-compute]Windows VirtualMachineInstance", Serial, 
 		})
 	})
 })
-
-func getWindowsVMISpec() v1.VirtualMachineInstanceSpec {
-	gracePeriod := int64(0)
-	spinlocks := uint32(8191)
-	firmware := types.UID(windowsFirmware)
-	_false := false
-	return v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
-			CPU: &v1.CPU{Cores: 2},
-			Features: &v1.Features{
-				ACPI: v1.FeatureState{},
-				APIC: &v1.FeatureAPIC{},
-				Hyperv: &v1.FeatureHyperv{
-					Relaxed:    &v1.FeatureState{},
-					SyNICTimer: &v1.SyNICTimer{Direct: &v1.FeatureState{}},
-					VAPIC:      &v1.FeatureState{},
-					Spinlocks:  &v1.FeatureSpinlocks{Retries: &spinlocks},
-				},
-			},
-			Clock: &v1.Clock{
-				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
-				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: &_false},
-					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
-					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
-					Hyperv: &v1.HypervTimer{},
-				},
-			},
-			Firmware: &v1.Firmware{UUID: firmware},
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
-				},
-			},
-			Devices: v1.Devices{
-				Disks: []v1.Disk{
-					{
-						Name: windowsDisk,
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{
-								Bus: v1.DiskBusSATA,
-							},
-						},
-					},
-				},
-			},
-		},
-		Volumes: []v1.Volume{
-			{
-				Name: windowsDisk,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: tests.DiskWindows,
-						},
-					},
-				},
-			},
-		},
-	}
-}
 
 func winrnLoginCommand(virtClient kubecli.KubevirtClient, windowsVMI *v1.VirtualMachineInstance) []string {
 	var err error

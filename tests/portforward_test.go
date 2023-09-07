@@ -46,7 +46,7 @@ var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
 	})
 
 	It("should successfully open connection to guest", func() {
-		vmi := tests.NewRandomFedoraVMIWithGuestAgent()
+		vmi := tests.NewRandomFedoraVMI()
 		vmi.Namespace = util.NamespaceTestDefault
 		tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
