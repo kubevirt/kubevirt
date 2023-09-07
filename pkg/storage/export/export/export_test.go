@@ -38,7 +38,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -909,11 +908,11 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
 		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(100)))
 		Expect(pod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
-		Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ScaledValue(resource.Mega)).To(Equal(int64(200)))
+		Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(209715200)))
 		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
 		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
 		Expect(pod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
-		Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ScaledValue(resource.Mega)).To(Equal(int64(1024)))
+		Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1073741824)))
 	},
 		Entry("PVC", createPVCVMExport, 3),
 		Entry("VM", populateVmExportVM, 4),

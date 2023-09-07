@@ -484,9 +484,9 @@ var _ = SIGDescribe("Export", func() {
 		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
 		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(Equal(int64(1)))
 		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
-		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(200000000)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(200 * 1024 * 1024)))
 		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
-		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1024000000)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1024 * 1024 * 1024)))
 	}
 
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
@@ -1556,8 +1556,8 @@ var _ = SIGDescribe("Export", func() {
 			if !exists {
 				Skip("Skip test when Filesystem storage is not present")
 			}
-			cpu := resource.MustParse("1")
-			mem := resource.MustParse("1024Mi")
+			cpu := resource.MustParse("500m")
+			mem := resource.MustParse("1240Mi")
 			updateKubeVirtExportRequestLimit(&cpu, &cpu, &mem, &mem)
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -1599,13 +1599,13 @@ var _ = SIGDescribe("Export", func() {
 			By("Verifying the ratio is proper for the exporter pod")
 			exporterPod := getExporterPod(export)
 			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
-			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu().Value()).To(Equal(int64(1)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(500)))
 			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
-			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(Equal(int64(1)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()).To(Equal(int64(500)))
 			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
-			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(1073741824)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(1240 * 1024 * 1024)))
 			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
-			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1073741824)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1240 * 1024 * 1024)))
 			// Remove limit range to avoid having to configure proper VMI ratio for VMI.
 			removeLimitRangeFromNamespace()
 			By("Starting VMI, the export should return to pending")
