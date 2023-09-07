@@ -20,17 +20,13 @@
 package nodelabeller
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
-
-	"k8s.io/apimachinery/pkg/labels"
 
 	"k8s.io/client-go/tools/record"
 
@@ -50,11 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
-
-// In some environments, sysfs is mounted read-only even for privileged
-// containers: https://github.com/containerd/containerd/issues/8445.
-// Use the path from the host filesystem.
-const ksmPath = "/proc/1/root/sys/kernel/mm/ksm/run"
 
 var nodeLabellerLabels = []string{
 	util.DeprecatedLabelNamespace + util.DeprecatedcpuModelPrefix,
@@ -93,14 +84,13 @@ type NodeLabeller struct {
 	capabilities            *api.Capabilities
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
-	KSM                     KSMConfiguration
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, recorder record.EventRecorder) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, recorder, ksmPath)
+	return newNodeLabeller(clusterConfig, clientset, host, namespace, nodeLabellerVolumePath, recorder)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, recorder record.EventRecorder, ksmSysFsFilePath string) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.KubevirtClient, host, namespace string, volumePath string, recorder record.EventRecorder) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:                recorder,
 		clientset:               clientset,
@@ -112,7 +102,6 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, clientset kubecli.
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
-		KSM:                     KSMConfiguration{SysfsFilePath: ksmSysFsFilePath},
 	}
 
 	err := n.loadAll()
@@ -210,7 +199,6 @@ func (n *NodeLabeller) run() error {
 	}
 
 	node := originalNode.DeepCopy()
-	n.handleKSM(node)
 
 	if !skipNodeLabelling(node) {
 		//prepare new labels
@@ -309,7 +297,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 		n.logger.Reason(err).Error("failed to get tsc cpu frequency, will continue without the tsc frequency label")
 	}
 
-	for feature, _ := range hostCpuModel.requiredFeatures {
+	for feature := range hostCpuModel.requiredFeatures {
 		newLabels[kubevirtv1.HostModelRequiredFeaturesLabel+feature] = "true"
 	}
 	if _, obsolete := obsoleteCPUsx86[hostCpuModel.Name]; obsolete {
@@ -337,10 +325,6 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 
 	if n.SEV.SupportedES == "yes" {
 		newLabels[kubevirtv1.SEVESLabel] = ""
-	}
-
-	if n.KSM.Enabled {
-		newLabels[kubevirtv1.KSMEnabledLabel] = "true"
 	}
 
 	return newLabels
@@ -428,85 +412,10 @@ func (n *NodeLabeller) shouldAddCPUModelLabel(
 		return false
 	}
 	missingFeatures := make([]string, 0)
-	for f, _ := range requiredFeatures {
+	for f := range requiredFeatures {
 		if _, isFeatureSupported := featureLabels[kubevirtv1.CPUFeatureLabel+f]; !isFeatureSupported {
 			missingFeatures = append(missingFeatures, f)
 		}
 	}
 	return len(missingFeatures) == 0
-}
-
-func (n *NodeLabeller) loadKSM() {
-	ksmValue, err := os.ReadFile(n.KSM.SysfsFilePath)
-	if err != nil {
-		log.DefaultLogger().Warningf("An error occurred while reading the ksm module file; Maybe it is not available: %s", err)
-		// Only enable for ksm-available nodes
-		return
-	}
-
-	n.KSM.Available = true
-	n.KSM.Enabled = bytes.Equal(ksmValue, []byte("1\n"))
-	return
-}
-
-// handleKSM will update the ksm of the node (if available) based on the kv configuration and
-// will set the outcome value to the n.KSM struct
-// If the node labels match the selector terms, the ksm will be enabled.
-// Empty Selector will enable ksm for every node
-func (n *NodeLabeller) handleKSM(node *v1.Node) {
-	n.loadKSM()
-	if !n.KSM.Available {
-		return
-	}
-
-	ksmConfig := n.clusterConfig.GetKSMConfiguration()
-	if ksmConfig == nil {
-		n.disableKSM(node)
-		return
-	}
-
-	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
-	if err != nil {
-		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
-		return
-	}
-
-	if !selector.Matches(labels.Set(node.ObjectMeta.Labels)) {
-		n.disableKSM(node)
-		return
-	}
-
-	n.enableKSM(node)
-}
-
-func (n *NodeLabeller) enableKSM(node *v1.Node) {
-	if !n.KSM.Enabled {
-		err := os.WriteFile(n.KSM.SysfsFilePath, []byte("1\n"), 0644)
-		if err != nil {
-			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
-			return
-		}
-	}
-
-	n.KSM.Enabled = true
-	if _, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; !found {
-		node.Annotations[kubevirtv1.KSMHandlerManagedAnnotation] = "true"
-	}
-
-	log.DefaultLogger().Infof("KSM enabled")
-}
-
-func (n *NodeLabeller) disableKSM(node *v1.Node) {
-	if _, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found {
-		if n.KSM.Enabled {
-			err := os.WriteFile(n.KSM.SysfsFilePath, []byte("0\n"), 0644)
-			if err != nil {
-				log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
-				return
-			}
-		}
-
-		n.KSM.Enabled = false
-		delete(node.Annotations, kubevirtv1.KSMHandlerManagedAnnotation)
-	}
 }

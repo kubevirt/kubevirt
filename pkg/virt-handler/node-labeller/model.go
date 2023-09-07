@@ -98,9 +98,3 @@ type SEVConfiguration struct {
 	MaxESGuests     uint   `xml:"maxESGuests"`
 	SupportedES     string `xml:"-"`
 }
-
-type KSMConfiguration struct {
-	Available     bool
-	SysfsFilePath string
-	Enabled       bool
-}
