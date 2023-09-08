@@ -33,6 +33,7 @@ var _ = Describe("SCC", func() {
 			Expect(scc.AllowedCapabilities).To(ConsistOf(
 				v1.Capability("SYS_NICE"),
 				v1.Capability("NET_BIND_SERVICE"),
+				v1.Capability("SYS_PTRACE"),
 			))
 		})
 
