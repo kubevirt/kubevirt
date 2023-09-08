@@ -352,3 +352,15 @@ func SetNodeSchedulable(nodeName string, virtCli kubecli.KubevirtClient) {
 func GetVirtHandlerPod(virtCli kubecli.KubevirtClient, nodeName string) (*k8sv1.Pod, error) {
 	return kubecli.NewVirtHandlerClient(virtCli, &http.Client{}).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 }
+
+func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
+	controlPlaneNodes, err := virtCli.
+		CoreV1().
+		Nodes().
+		List(context.Background(),
+			k8smetav1.ListOptions{LabelSelector: `node-role.kubernetes.io/control-plane`})
+	Expect(err).ShouldNot(HaveOccurred(), "could not list control-plane nodes")
+	Expect(controlPlaneNodes.Items).ShouldNot(BeEmpty(),
+		"There are no control-plane nodes in the cluster")
+	return controlPlaneNodes
+}

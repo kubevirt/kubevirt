@@ -21,7 +21,6 @@ package migration
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -46,12 +45,9 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/kubevirt/tests/libwait"
-
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -72,41 +68,26 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	setControlPlaneUnschedulable := func(mode bool) {
-		controlPlaneNodes, err := virtClient.
-			CoreV1().
-			Nodes().
-			List(context.Background(),
-				metav1.ListOptions{LabelSelector: `node-role.kubernetes.io/control-plane`})
-		Expect(err).ShouldNot(HaveOccurred(), "could not list control-plane nodes")
-		Expect(controlPlaneNodes.Items).ShouldNot(BeEmpty(),
-			"There are no control-plane nodes in the cluster")
-
+	setControlPlaneSchedulability := func(setSchedulable bool) {
+		Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the cluster nodes must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
+		controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
 		for _, node := range controlPlaneNodes.Items {
-			if node.Spec.Unschedulable == mode {
-				continue
+			if setSchedulable {
+				libnode.SetNodeUnschedulable(node.Name, virtClient)
+			} else {
+				libnode.SetNodeSchedulable(node.Name, virtClient)
 			}
-
-			nodeCopy := node.DeepCopy()
-			nodeCopy.Spec.Unschedulable = mode
-
-			oldData, err := json.Marshal(node)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			newData, err := json.Marshal(nodeCopy)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, node)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
 		}
 	}
 
 	// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
 	// nodes with this taint will be reset to their original state on each
 	// test teardown by the test framework. Check `libnode.CleanNodes`.
+	// TODO: move this function in `libnode` package. First resolve cycle in dependency graph
+	//  .-> //tests/testsuite:go_default_library
+	//  |   //tests/libnode:go_default_library
+	//  |   //tests/clientcmd:go_default_library
+	//  `-- //tests/testsuite:go_default_library
 	temporaryNodeDrain := func(nodeName string) {
 		By("taining the node with `NoExecute`, the framework will reset the node's taints and un-schedulable properties on test teardown")
 		libnode.Taint(nodeName, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
@@ -311,11 +292,11 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
 						tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
-					setControlPlaneUnschedulable(true)
+					setControlPlaneSchedulability(false)
 				})
 
 				AfterEach(func() {
-					setControlPlaneUnschedulable(false)
+					setControlPlaneSchedulability(true)
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
@@ -326,8 +307,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					// Mark the masters as schedulable so we can migrate there
-					setControlPlaneUnschedulable(false)
+					// Mark the control-plane nodes as schedulable so we can migrate there
+					setControlPlaneSchedulability(true)
 
 					node := vmi.Status.NodeName
 					temporaryNodeDrain(node)
@@ -379,8 +360,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					// Put VMI under load
 					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
-					// Mark the masters as schedulable so we can migrate there
-					setControlPlaneUnschedulable(false)
+					// Mark the control-plane nodes as schedulable so we can migrate there
+					setControlPlaneSchedulability(true)
 
 					node := vmi.Status.NodeName
 					temporaryNodeDrain(node)
@@ -416,8 +397,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					By("Starting the VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
-					// Mark the masters as schedulable so we can migrate there
-					setControlPlaneUnschedulable(false)
+					// Mark the control-plane nodes as schedulable so we can migrate there
+					setControlPlaneSchedulability(true)
 
 					node := vmi.Status.NodeName
 					temporaryNodeDrain(node)
@@ -504,8 +485,8 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_evict2.Status.NodeName))
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_noevict.Status.NodeName))
 
-					// Mark the masters as schedulable so we can migrate there
-					setControlPlaneUnschedulable(false)
+					// Mark the control-plane nodes as schedulable so we can migrate there
+					setControlPlaneSchedulability(true)
 
 					node := vmi_evict1.Status.NodeName
 					temporaryNodeDrain(node)
