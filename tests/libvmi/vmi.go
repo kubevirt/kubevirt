@@ -255,6 +255,12 @@ func WithNodeAffinityFor(node *k8sv1.Node) Option {
 	}
 }
 
+func WithEvictionStrategy(evictionStrategy v1.EvictionStrategy) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.EvictionStrategy = &evictionStrategy
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
