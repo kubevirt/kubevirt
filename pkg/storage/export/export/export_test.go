@@ -905,6 +905,14 @@ var _ = Describe("Export controller", func() {
 		}))
 		Expect(pod.Annotations[annCertParams]).To(Equal("{\"Duration\":7200000000000,\"RenewBefore\":3600000000000}"))
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(expectedPodEnvVars))
+		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(100)))
+		Expect(pod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(209715200)))
+		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
+		Expect(pod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
+		Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1073741824)))
 	},
 		Entry("PVC", createPVCVMExport, 3),
 		Entry("VM", populateVmExportVM, 4),

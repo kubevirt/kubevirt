@@ -476,6 +476,19 @@ var _ = SIGDescribe("Export", func() {
 		Expect(*vmExport.Status.TokenSecretRef).ToNot(BeEmpty())
 	}
 
+	verifyDefaultRequestLimits := func(export *exportv1.VirtualMachineExport) {
+		By("Verifying the exporter pod has default request/limits")
+		exporterPod := getExporterPod(export)
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(100)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(Equal(int64(1)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(200 * 1024 * 1024)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1024 * 1024 * 1024)))
+	}
+
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
 	type storageClassFunction func() (string, bool)
@@ -514,6 +527,7 @@ var _ = SIGDescribe("Export", func() {
 		export = waitForReadyExport(export)
 		checkExportSecretRef(export)
 		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
+		verifyDefaultRequestLimits(export)
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
@@ -1455,52 +1469,151 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 	})
 
-	It("should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
-		}
-		dataVolume := libdv.NewDataVolume(
-			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+	Context("with limit range", func() {
+		var (
+			lr             *k8sv1.LimitRange
+			originalConfig virtv1.KubeVirtConfiguration
 		)
-		dataVolume = createDataVolume(dataVolume)
-		vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-		vmi = createVMI(vmi)
-		Eventually(func() virtv1.VirtualMachineInstancePhase {
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-			if errors.IsNotFound(err) {
-				return ""
-			}
-			Expect(err).ToNot(HaveOccurred())
-			return vmi.Status.Phase
-		}, 180*time.Second, time.Second).Should(Equal(virtv1.Running))
-		// For testing the token is the name of the source VM.
-		token := createExportTokenSecret(vmi.Name, vmi.Namespace)
-		pvcName := ""
-		for _, volume := range vmi.Spec.Volumes {
-			if volume.DataVolume != nil {
-				pvcName = volume.DataVolume.Name
-			}
-		}
-		Expect(pvcName).ToNot(BeEmpty())
-		export := createPVCExportObject(pvcName, vmi.Namespace, token)
-		Expect(export).ToNot(BeNil())
-		waitForExportPhase(export, exportv1.Pending)
-		waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
 
-		By("Deleting VMI, we should get the export ready eventually")
-		deleteVMI(vmi)
-		export = waitForReadyExport(export)
-		checkExportSecretRef(export)
-		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
-		verifyKubevirtInternal(export, export.Name, export.Namespace, vmi.Spec.Volumes[0].DataVolume.Name)
-		By("Starting VMI, the export should return to pending")
-		vmi = tests.NewRandomVMIWithDataVolume(dataVolume.Name)
-		vmi = createVMI(vmi)
-		waitForExportPhase(export, exportv1.Pending)
-		waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
+		updateKubeVirtExportRequestLimit := func(cpuRequest, cpuLimit, memRequest, memLimit *resource.Quantity) {
+			By("Updating hotplug and container disks ratio to the specified ratio")
+			resources := k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    *cpuRequest,
+					k8sv1.ResourceMemory: *memRequest,
+				},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    *cpuLimit,
+					k8sv1.ResourceMemory: *memLimit,
+				},
+			}
+			config := originalConfig.DeepCopy()
+			config.SupportContainerResources = []virtv1.SupportContainerResources{
+				{
+					Type:      virtv1.VMExport,
+					Resources: resources,
+				},
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(*config)
+		}
+
+		createLimitRangeInNamespace := func(namespace string, memRatio, cpuRatio float64) {
+			lr = &k8sv1.LimitRange{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+					Name:      fmt.Sprintf("%s-lr", namespace),
+				},
+				Spec: k8sv1.LimitRangeSpec{
+					Limits: []k8sv1.LimitRangeItem{
+						{
+							Type: k8sv1.LimitTypeContainer,
+							MaxLimitRequestRatio: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse(fmt.Sprintf("%f", memRatio)),
+								k8sv1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%f", cpuRatio)),
+							},
+							Max: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("2Gi"),
+								k8sv1.ResourceCPU:    resource.MustParse("2"),
+							},
+							Min: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("1Mi"),
+								k8sv1.ResourceCPU:    resource.MustParse("1m"),
+							},
+						},
+					},
+				},
+			}
+			lr, err = virtClient.CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Ensuring LimitRange exists")
+			Eventually(func() error {
+				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
+				return err
+			}, 30*time.Second, 1*time.Second).Should(BeNil())
+		}
+
+		removeLimitRangeFromNamespace := func() {
+			if lr != nil {
+				err = virtClient.CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
+				if !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+				lr = nil
+			}
+			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+		}
+
+		BeforeEach(func() {
+			originalConfig = *util.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
+		})
+
+		AfterEach(func() {
+			removeLimitRangeFromNamespace()
+		})
+
+		It("[Serial] should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Skip("Skip test when Filesystem storage is not present")
+			}
+			cpu := resource.MustParse("500m")
+			mem := resource.MustParse("1240Mi")
+			updateKubeVirtExportRequestLimit(&cpu, &cpu, &mem, &mem)
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			)
+			dataVolume = createDataVolume(dataVolume)
+			vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+			vmi = createVMI(vmi)
+			Eventually(func() virtv1.VirtualMachineInstancePhase {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return ""
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Phase
+			}, 180*time.Second, time.Second).Should(Equal(virtv1.Running))
+			createLimitRangeInNamespace(testsuite.GetTestNamespace(nil), float64(1), float64(1))
+			// For testing the token is the name of the source VM.
+			token := createExportTokenSecret(vmi.Name, vmi.Namespace)
+			pvcName := ""
+			for _, volume := range vmi.Spec.Volumes {
+				if volume.DataVolume != nil {
+					pvcName = volume.DataVolume.Name
+				}
+			}
+			Expect(pvcName).ToNot(BeEmpty())
+			export := createPVCExportObject(pvcName, vmi.Namespace, token)
+			Expect(export).ToNot(BeNil())
+			waitForExportPhase(export, exportv1.Pending)
+			waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
+
+			By("Deleting VMI, we should get the export ready eventually")
+			deleteVMI(vmi)
+			export = waitForReadyExport(export)
+			checkExportSecretRef(export)
+			Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
+			verifyKubevirtInternal(export, export.Name, export.Namespace, vmi.Spec.Volumes[0].DataVolume.Name)
+			By("Verifying the ratio is proper for the exporter pod")
+			exporterPod := getExporterPod(export)
+			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
+			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu().MilliValue()).To(Equal(int64(500)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
+			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu().MilliValue()).To(Equal(int64(500)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
+			Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(1240 * 1024 * 1024)))
+			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
+			Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1240 * 1024 * 1024)))
+			// Remove limit range to avoid having to configure proper VMI ratio for VMI.
+			removeLimitRangeFromNamespace()
+			By("Starting VMI, the export should return to pending")
+			vmi = tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+			vmi = createVMI(vmi)
+			waitForExportPhase(export, exportv1.Pending)
+			waitForExportCondition(export, expectedPVCInUseCondition(dataVolume.Name, dataVolume.Namespace), "export should report pvc in use")
+		})
 	})
 
 	getManifestUrl := func(manifests []exportv1.VirtualMachineExportManifest, manifestType exportv1.ExportManifestType) string {
