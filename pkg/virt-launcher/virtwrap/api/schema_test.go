@@ -45,6 +45,12 @@ var (
 	//go:embed testdata/domain_arm64.xml.tmpl
 	exampleXMLarm64                   string
 	exampleXMLarm64withNoneMemballoon string
+
+	//go:embed testdata/domain_numa_topology.xml
+	domainNumaTopology []byte
+
+	//go:embed testdata/cpu_pinning.xml
+	cpuPinningXML []byte
 )
 
 const (
@@ -255,27 +261,6 @@ var _ = ginkgo.Describe("Schema", func() {
 
 	ginkgo.Context("With numa topology", func() {
 		ginkgo.It("should marshal and unmarshal the values", func() {
-			var testXML = `
-<domain>
-<cputune>
-	<vcpupin vcpu="0" cpuset="1"/>
-	<vcpupin vcpu="1" cpuset="5"/>
-	<vcpupin vcpu="2" cpuset="2"/>
-	<vcpupin vcpu="3" cpuset="6"/>
-</cputune>
-<numatune>
-  <memory mode="strict" nodeset="1-2"/> 
-  <memnode cellid="0" mode="strict" nodeset="1"/>
-  <memnode cellid="2" mode="preferred" nodeset="2"/>
-</numatune>
-<cpu>
-	<numa>
-		<cell id="0" cpus="0-1" memory="3" unit="GiB"/>
-		<cell id="1" cpus="2-3" memory="3" unit="GiB"/>
-	</numa>
-</cpu>
-</domain>
-`
 			spec := &DomainSpec{}
 			expectedSpec := &DomainSpec{
 				CPU: CPU{NUMA: &NUMA{Cells: []NUMACell{
@@ -301,7 +286,7 @@ var _ = ginkgo.Describe("Schema", func() {
 					},
 				},
 			}
-			Expect(xml.Unmarshal([]byte(testXML), spec)).To(Succeed())
+			Expect(xml.Unmarshal(domainNumaTopology, spec)).To(Succeed())
 			Expect(spec.NUMATune).To(Equal(expectedSpec.NUMATune))
 			Expect(spec.CPUTune).To(Equal(expectedSpec.CPUTune))
 			Expect(spec.CPU).To(Equal(expectedSpec.CPU))
@@ -310,13 +295,6 @@ var _ = ginkgo.Describe("Schema", func() {
 	})
 
 	ginkgo.Context("With cpu pinning", func() {
-		var testXML = `<cputune>
-<vcpupin vcpu="0" cpuset="1"/>
-<vcpupin vcpu="1" cpuset="5"/>
-<iothreadpin iothread="0" cpuset="1"/>
-<iothreadpin iothread="1" cpuset="5"/>
-<emulatorpin cpuset="6"/>
-</cputune>`
 		var exampleCpuTune = CPUTune{
 			VCPUPin: []CPUTuneVCPUPin{
 				{
@@ -345,7 +323,7 @@ var _ = ginkgo.Describe("Schema", func() {
 
 		ginkgo.It("Unmarshal into struct", func() {
 			newCpuTune := CPUTune{}
-			Expect(xml.Unmarshal([]byte(testXML), &newCpuTune)).To(Succeed())
+			Expect(xml.Unmarshal(cpuPinningXML, &newCpuTune)).To(Succeed())
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
 		})
 	})

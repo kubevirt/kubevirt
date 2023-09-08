@@ -665,10 +665,7 @@ spec:
                             resourceName:
                               description: The name of the resource that is representing
                                 the device. Exposed by a device plugin and requested
-                                by VMs. Typically of the form vendor.com/product_nameThe
-                                name of the resource that is representing the device.
-                                Exposed by a device plugin and requested by VMs. Typically
-                                of the form vendor.com/product_name
+                                by VMs. Typically of the form vendor.com/product_name
                               type: string
                           required:
                           - pciVendorSelector
@@ -3675,10 +3672,7 @@ spec:
                             resourceName:
                               description: The name of the resource that is representing
                                 the device. Exposed by a device plugin and requested
-                                by VMs. Typically of the form vendor.com/product_nameThe
-                                name of the resource that is representing the device.
-                                Exposed by a device plugin and requested by VMs. Typically
-                                of the form vendor.com/product_name
+                                by VMs. Typically of the form vendor.com/product_name
                               type: string
                           required:
                           - pciVendorSelector

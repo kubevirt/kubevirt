@@ -20365,7 +20365,7 @@ func schema_kubevirtio_api_core_v1_PciHostDevice(ref common.ReferenceCallback) c
 					},
 					"resourceName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The name of the resource that is representing the device. Exposed by a device plugin and requested by VMs. Typically of the form vendor.com/product_nameThe name of the resource that is representing the device. Exposed by a device plugin and requested by VMs. Typically of the form vendor.com/product_name",
+							Description: "The name of the resource that is representing the device. Exposed by a device plugin and requested by VMs. Typically of the form vendor.com/product_name",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

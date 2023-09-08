@@ -1,0 +1,7 @@
+<cputune>
+  <vcpupin vcpu="0" cpuset="1"/>
+  <vcpupin vcpu="1" cpuset="5"/>
+  <iothreadpin iothread="0" cpuset="1"/>
+  <iothreadpin iothread="1" cpuset="5"/>
+  <emulatorpin cpuset="6"/>
+</cputune>`
