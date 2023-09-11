@@ -3564,6 +3564,10 @@ var _ = Describe("VirtualMachine", func() {
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachineClusterInstancetype",
+						},
 						Spec: instancetypeSpec,
 					}
 					_, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
@@ -3582,7 +3586,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.UID, instancetypeObj.Generation)
+					expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.GroupVersionKind().Version, instancetypeObj.UID, instancetypeObj.Generation)
 					expectedRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
@@ -3794,7 +3798,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
+					expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
 					expectedRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 					expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(expectedRevision, nil)
@@ -4070,6 +4074,10 @@ var _ = Describe("VirtualMachine", func() {
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							Kind:       "VirtualMachineClusterPreference",
+						},
 						Spec: preferenceSpec,
 					}
 					_, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
@@ -4088,7 +4096,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.UID, preference.Generation)
+					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -4312,7 +4320,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					addVirtualMachine(vm)
 
-					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.UID, clusterPreference.Generation)
+					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.GroupVersionKind().Version, clusterPreference.UID, clusterPreference.Generation)
 					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 					Expect(err).ToNot(HaveOccurred())
 
