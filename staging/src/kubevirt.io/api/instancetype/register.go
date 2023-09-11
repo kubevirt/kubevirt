@@ -19,9 +19,12 @@
 
 package instancetype
 
-// GroupName is the group name used in this package
 const (
+	// GroupName is the group name used in this package
 	GroupName = "instancetype.kubevirt.io"
+
+	// Used to determine the version to upgrade ControllerRevision stashed objects to
+	LatestVersion = "v1beta1"
 
 	SingularResourceName = "virtualmachineinstancetype"
 	PluralResourceName   = SingularResourceName + "s"
