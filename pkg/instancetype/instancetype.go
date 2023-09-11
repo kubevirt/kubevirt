@@ -81,8 +81,8 @@ func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePref
 	return preferredTopology
 }
 
-func GetRevisionName(vmName, resourceName string, resourceUID types.UID, resourceGeneration int64) string {
-	return fmt.Sprintf("%s-%s-%s-%d", vmName, resourceName, resourceUID, resourceGeneration)
+func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
@@ -95,7 +95,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		return nil, fmt.Errorf("unexpected object format returned from GenerateKubeVirtGroupVersionKind")
 	}
 
-	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), metaObj.GetUID(), metaObj.GetGeneration())
+	revisionName := GetRevisionName(vm.Name, metaObj.GetName(), obj.GetObjectKind().GroupVersionKind().Version, metaObj.GetUID(), metaObj.GetGeneration())
 
 	// Removing unnecessary metadata
 	metaObj.SetLabels(nil)
