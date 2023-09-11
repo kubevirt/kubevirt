@@ -20,6 +20,7 @@
 package vmexport
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -71,6 +72,7 @@ const (
 	INSECURE_FLAG       = "--insecure"
 	KEEP_FLAG           = "--keep-vme"
 	RAW_FLAG            = "--raw"
+	DECOMPRESS_FLAG     = "--decompress"
 	PVC_FLAG            = "--pvc"
 	TTL_FLAG            = "--ttl"
 	MANIFEST_FLAG       = "--manifest"
@@ -130,6 +132,7 @@ var (
 	exportManifest       bool
 	rawImg               bool
 	portForward          bool
+	decompress           bool
 	localPort            string
 	serviceUrl           string
 	volumeName           string
@@ -156,6 +159,7 @@ type VMExportInfo struct {
 	IncludeSecret  bool
 	ExportManifest bool
 	RawImg         bool
+	Decompress     bool
 	PortForward    bool
 	LocalPort      string
 	OutputFile     string
@@ -265,6 +269,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
 	cmd.Flags().BoolVar(&rawImg, "raw", false, "Used to download the raw image. By default, we always attempt to download the compressed one")
+	cmd.Flags().BoolVar(&decompress, "decompress", false, "Used to unzip the compressed image.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -355,6 +360,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
 	vmeInfo.RawImg = rawImg
+	vmeInfo.Decompress = decompress
 	vmeInfo.VolumeName = volumeName
 	vmeInfo.ServiceURL = serviceUrl
 	vmeInfo.OutputFormat = manifestOutputFormat
@@ -556,7 +562,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 	}
 
 	// Lastly, copy the file to the expected output
-	if err := copyFileWithProgressBar(vmeInfo.OutputWriter, resp); err != nil {
+	if err := copyFileWithProgressBar(vmeInfo.OutputWriter, resp, vmeInfo.Decompress); err != nil {
 		return err
 	}
 
@@ -584,6 +590,7 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 	var (
 		downloadUrl string
 		err         error
+		format      exportv1.VirtualMachineExportVolumeFormat
 		links       *exportv1.VirtualMachineExportLink
 	)
 
@@ -602,7 +609,7 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 	for _, exportVolume := range links.Volumes {
 		// Access the requested volume
 		if volumeNumber == 1 || exportVolume.Name == vmeInfo.VolumeName {
-			for _, format := range exportVolume.Formats {
+			for _, format = range exportVolume.Formats {
 				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz || format.Format == exportv1.KubeVirtRaw {
 					downloadUrl, err = replaceUrlWithServiceUrl(format.Url, vmeInfo)
 					if err != nil {
@@ -617,6 +624,11 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 				}
 			}
 		}
+	}
+
+	// No need to decompress file if format is not gzip
+	if format.Format == exportv1.KubeVirtRaw {
+		vmeInfo.Decompress = false
 	}
 
 	if downloadUrl == "" {
@@ -746,14 +758,27 @@ func getHTTPClient(transport *http.Transport, insecure bool) *http.Client {
 }
 
 // copyFileWithProgressBar serves as a wrapper to copy the file with a progress bar
-func copyFileWithProgressBar(output io.Writer, resp *http.Response) error {
+func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress bool) error {
+	var rd io.Reader
 	barTemplate := fmt.Sprintf(`{{ "Downloading file:" }} {{counters . }} {{ cycle . %s }} {{speed . }}`, progressBarCycle)
 
 	// start bar based on our template
 	bar := pb.ProgressBarTemplate(barTemplate).Start(0)
 	defer bar.Finish()
-	rd := bar.NewProxyReader(resp.Body)
+	barRd := bar.NewProxyReader(resp.Body)
+	rd = barRd
 	bar.Start()
+
+	if decompress {
+		// Create a new gzip reader
+		gzipReader, err := gzip.NewReader(barRd)
+		if err != nil {
+			return err
+		}
+		defer gzipReader.Close()
+		rd = gzipReader
+		fmt.Println("Decompressing image:")
+	}
 
 	_, err := io.Copy(output, rd)
 	return err
@@ -864,6 +889,9 @@ func handleCreateFlags() error {
 	if rawImg {
 		return fmt.Errorf(ErrIncompatibleFlag, RAW_FLAG, CREATE)
 	}
+	if decompress {
+		return fmt.Errorf(ErrIncompatibleFlag, DECOMPRESS_FLAG, CREATE)
+	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
 	}
@@ -897,6 +925,9 @@ func handleDeleteFlags() error {
 	}
 	if rawImg {
 		return fmt.Errorf(ErrIncompatibleFlag, RAW_FLAG, DELETE)
+	}
+	if decompress {
+		return fmt.Errorf(ErrIncompatibleFlag, DECOMPRESS_FLAG, DELETE)
 	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, DELETE)

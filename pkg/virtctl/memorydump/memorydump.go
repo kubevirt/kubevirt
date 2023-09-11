@@ -51,6 +51,7 @@ const (
 	accessModeArg   = "access-mode"
 	portForwardArg  = "port-forward"
 	rawArg          = "raw"
+	decompressArg   = "decompress"
 	localPortArg    = "local-port"
 
 	configName         = "config"
@@ -66,6 +67,7 @@ var (
 	createClaim  bool
 	portForward  bool
 	rawImg       bool
+	decompress   bool
 	localPort    string
 	storageClass string
 	accessMode   string
@@ -121,6 +123,7 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
 	cmd.Flags().BoolVar(&portForward, portForwardArg, false, "Configure and set port-forward in a random port to download the memory dump")
 	cmd.Flags().BoolVar(&rawImg, rawArg, false, "Downloads in raw format.")
+	cmd.Flags().BoolVar(&decompress, decompressArg, false, "Downloads and decompress in the same step.")
 	cmd.Flags().StringVar(&localPort, localPortArg, "0", "Specify port for port-forward")
 	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
@@ -339,6 +342,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		PortForward:  portForward,
 		LocalPort:    localPort,
 		RawImg:       rawImg,
+		Decompress:   decompress,
 	}
 
 	if portForward {

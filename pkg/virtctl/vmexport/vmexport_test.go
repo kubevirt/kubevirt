@@ -1,6 +1,7 @@
 package vmexport_test
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -354,6 +355,42 @@ var _ = Describe("vmexport", func() {
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Succesfully create and download a VirtualMachineExport with decompress flag", func() {
+			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(bytes.NewReader([]byte{
+						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+						0x00, 0x00,
+						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+						0x00, 0x00,
+					})),
+				}
+				return &resp, nil
+			}
+			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.DECOMPRESS_FLAG, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
