@@ -282,6 +282,12 @@ func GetNodesWithKVM() []*k8sv1.Node {
 	return nodes
 }
 
+func GetAllSchedulableShadowNodes(virtClient kubecli.KubevirtClient) *v1.ShadowNodeList {
+	nodes, err := virtClient.ShadowNodeClient().List(context.Background(), k8smetav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+	return nodes
+}
+
 // GetAllSchedulableNodes returns list of Nodes which are "KubeVirt" schedulable.
 func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{

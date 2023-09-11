@@ -612,30 +612,30 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		Context("[Serial]when virt-handler is responsive", Serial, func() {
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
-				By("adding a heartbeat annotation and a schedulable label to the node")
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				By("Remove Schedulable label from a node")
+				nodes := libnode.GetAllSchedulableShadowNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for _, node := range nodes.Items {
-					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(BeEmpty(), "Nodes should have be ready for VMI")
+					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(BeEmpty(), "ShadowNodes should have heartbeat")
 				}
 
 				node := &nodes.Items[0]
-				node, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
+				node, err = virtClient.ShadowNodeClient().Patch(context.Background(), node.Name, types.MergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)), metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 				timestamp := node.Annotations[v1.VirtHandlerHeartbeat]
 
-				By("setting the schedulable label back to true")
+				By("Expecting the schedulable label to switch back")
 				Eventually(func() string {
-					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					n, err := virtClient.ShadowNodeClient().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.NodeSchedulable]
 				}, 5*time.Minute, 2*time.Second).Should(Equal("true"), "Nodes should be schedulable")
-				By("updating the heartbeat roughly every minute")
+				By("Expecting the heartbeat to be updated")
 				Expect(func() string {
-					n, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					n, err := virtClient.ShadowNodeClient().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.VirtHandlerHeartbeat]
-				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
+				}()).ShouldNot(Equal(timestamp), "Should not have old heartbeat")
 			})
 
 			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
@@ -750,12 +750,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[test_id:1634]the node controller should mark the node as unschedulable when the virt-handler heartbeat has timedout", func() {
-				// Update virt-handler heartbeat, to trigger a timeout
+				By("Update virt-handler heartbeat, to trigger a timeout")
 				data := []byte(fmt.Sprintf(`{"metadata": { "labels": { "%s": "true" }, "annotations": {"%s": "%s"}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, nowAsJSONWithOffset(-10*time.Minute)))
-				_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), nodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+				_, err = virtClient.ShadowNodeClient().Patch(context.Background(), nodeName, types.MergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
-				// Delete vmi pod
+				By("Delete vmi pod")
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
 				})
@@ -767,28 +767,21 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				})).To(Succeed(), "The vmi pod should be deleted successfully")
 
 				// it will take at least 45 seconds until the vmi is gone, check the schedulable state in the meantime
-				By("marking the node as not schedulable")
+				By("Expecting the node to see as not schedulable")
 				Eventually(func() string {
 					node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get node successfully")
 					return node.Labels[v1.NodeSchedulable]
 				}, 20*time.Second, 1*time.Second).Should(Equal("false"), "The node should not be schedulable")
 
-				By("moving stuck vmis to failed state")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Phase
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+				By("Expecting the VMI to see in failed state")
+				Eventually(matcher.ThisVMI(vmi), 3*time.Minute, 1*time.Second).Should(matcher.BeInPhase(v1.Failed))
 
-				Eventually(func() string {
-					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-					return failedVMI.Status.Reason
-				}, 180*time.Second, 1*time.Second).Should(Equal(watch.NodeUnresponsiveReason))
-
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				By("Expecting to see NodeUnresponsive as reason of failed state")
+				Expect(matcher.ThisVMI(vmi)()).To(WithTransform(func(vmi *v1.VirtualMachineInstance) string {
+					return vmi.Status.Reason
+				}, Equal(watch.NodeUnresponsiveReason),
+				), "Failed reason should be set")
 			})
 
 			AfterEach(func() {
