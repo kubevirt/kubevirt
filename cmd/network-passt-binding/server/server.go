@@ -21,11 +21,17 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	vmschema "kubevirt.io/api/core/v1"
 
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 
 	"kubevirt.io/kubevirt/cmd/network-passt-binding/callback"
+	"kubevirt.io/kubevirt/cmd/network-passt-binding/domain"
 )
 
 type InfoServer struct {
@@ -50,8 +56,32 @@ func (s InfoServer) Info(_ context.Context, _ *hooksInfo.InfoParams) (*hooksInfo
 type V1alpha2Server struct{}
 
 func (s V1alpha2Server) OnDefineDomain(_ context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
-	// TODO: implement and pass domain spec mutator
-	newDomainXML, err := callback.OnDefineDomain(params.GetDomainXML(), nil)
+	vmi := &vmschema.VirtualMachineInstance{}
+	if err := json.Unmarshal(params.GetVmi(), vmi); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal VMI: %v", err)
+	}
+
+	useVirtioTransitional := vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional
+	useLaunchSecurity := vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
+
+	const istioInjectAnnotation = "sidecar.istio.io/inject"
+	istioProxyInjectionEnabled := false
+	if val, ok := vmi.GetAnnotations()[istioInjectAnnotation]; ok {
+		istioProxyInjectionEnabled = strings.ToLower(val) == "true"
+	}
+
+	opts := domain.NetworkConfiguratorOptions{
+		UseVirtioTransitional:      useVirtioTransitional,
+		UseLaunchSecurity:          useLaunchSecurity,
+		IstioProxyInjectionEnabled: istioProxyInjectionEnabled,
+	}
+
+	passtConfigurator, err := domain.NewPasstNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create passt configurator: %v", err)
+	}
+
+	newDomainXML, err := callback.OnDefineDomain(params.GetDomainXML(), passtConfigurator)
 	if err != nil {
 		return nil, err
 	}
