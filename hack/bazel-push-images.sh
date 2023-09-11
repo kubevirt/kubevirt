@@ -51,6 +51,7 @@ default_targets="
     winrmcli
     sidecar-shim
     network-slirp-binding
+    network-passt-binding
 "
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
