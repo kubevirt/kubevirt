@@ -268,6 +268,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				return false
 			}, 30*time.Second, time.Second).Should(BeTrue())
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {
