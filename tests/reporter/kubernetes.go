@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -1192,7 +1193,7 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
 	}
 
-	if tests.IsRunningOnKindInfra() {
+	if checks.IsRunningOnKindInfra() {
 		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
 	}
 
@@ -1211,7 +1212,7 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: "[ -f /var/run/kubevirt/passt.log ] && cat /var/run/kubevirt/passt.log", fileNameSuffix: "passt"},
 	}
 
-	if tests.IsRunningOnKindInfra() {
+	if checks.IsRunningOnKindInfra() {
 		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
 	}
 

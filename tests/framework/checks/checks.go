@@ -2,6 +2,8 @@ package checks
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -117,4 +119,9 @@ func RequireFeatureGateVirtHandlerRestart(feature string) bool {
 		}
 	}
 	return false
+}
+
+func IsRunningOnKindInfra() bool {
+	provider := os.Getenv("KUBEVIRT_PROVIDER")
+	return strings.HasPrefix(provider, "kind")
 }

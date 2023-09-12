@@ -2184,7 +2184,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[2].Alias.GetName()).To(Equal("hostpath-pvc"))
 			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
 			// As such, it behaves as plugging in a hostDisk - check disks[6].
-			if tests.IsRunningOnKindInfra() {
+			if checks.IsRunningOnKindInfra() {
 				// The cache mode is set to cacheWritethrough
 				Expect(string(disks[2].Driver.IO)).To(Equal(ioNone))
 			} else {
@@ -3098,9 +3098,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			if tests.IsRunningOnKindInfra() {
-				Skip("Skip KVM MSR prescence test on kind")
-			}
+			checks.SkipIfRunningOnKindInfra("Skip KVM MSR prescence test on kind")
 
 			vmi = tests.NewRandomFedoraVMIWithEphemeralDiskHighMemory()
 		})

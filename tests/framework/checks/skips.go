@@ -229,3 +229,9 @@ func SkipIfARM64(arch string, message string) {
 		ginkgo.Skip("Skip test on arm64: " + message)
 	}
 }
+
+func SkipIfRunningOnKindInfra(message string) {
+	if IsRunningOnKindInfra() {
+		ginkgo.Skip("Skip test on kind infra: " + message)
+	}
+}
