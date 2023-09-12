@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2023-09-12 05:12:38"
+    createdAt: "2023-09-12 16:58:09"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -3240,7 +3240,7 @@ spec:
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
                 - name: KUBE_RBAC_PROXY_IMAGE
-                  value: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
+                  value: quay.io/openshift/origin-kube-rbac-proxy@sha256:b5e574c5b2fdd0a90d899793e2ce97792dc2d3e3fbf934a107139b1b4f2732a7
                 - name: KUBE_SECONDARY_DNS_IMAGE
                   value: ghcr.io/kubevirt/kubesecondarydns@sha256:77132adb5f840ceb0aadd408731a5c8b01a4b427a78084ab5e4e9b961195cb02
                 - name: CORE_DNS_IMAGE
@@ -3286,7 +3286,7 @@ spec:
                 - --logtostderr
                 - --secure-listen-address=:8443
                 - --upstream=http://127.0.0.1:8080
-                image: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
+                image: quay.io/openshift/origin-kube-rbac-proxy@sha256:b5e574c5b2fdd0a90d899793e2ce97792dc2d3e3fbf934a107139b1b4f2732a7
                 imagePullPolicy: IfNotPresent
                 name: kube-rbac-proxy
                 ports:
@@ -3633,15 +3633,15 @@ spec:
                 - name: PROVISIONER_IMAGE
                   value: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
                 - name: CSI_PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-csi-driver@sha256:c4c57725f677e0413e5b2c1b1e8e2dd473dd7f1d88cdaf76106708056ef3a78d
+                  value: quay.io/kubevirt/hostpath-csi-driver@sha256:0ca8b50b0adb20afd4e20da9974200f3290b6d51aa7c1129de6e1b953bf26594
                 - name: NODE_DRIVER_REG_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-node-driver-registrar@sha256:2dee3fe5fe861bb66c3a4ac51114f3447a4cd35870e0f2e2b558c7a400d89589
+                  value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:f6717ce72a2615c7fbc746b4068f788e78579c54c43b8716e5ce650d97af2df1
                 - name: LIVENESS_PROBE_IMAGE
-                  value: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
+                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:4dc0b87ccd69f9865b89234d8555d3a614ab0a16ed94a3016ffd27f8106132ce
                 - name: CSI_SNAPSHOT_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-snapshotter@sha256:818f35653f2e214db81d655063e81995de9073328a3430498624c140881026a3
+                  value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:becc53e25b96573f61f7469923a92fb3e9d3a3781732159954ce0d9da07233a2
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
-                  value: k8s.gcr.io/sig-storage/csi-provisioner@sha256:4e74c0492bceddc598de1c90cc5bc14dcda94cb49fa9c5bad9d117c4834b5e08
+                  value: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
                 - name: VERBOSITY
                   value: "1"
                 - name: MONITORING_NAMESPACE
@@ -4238,13 +4238,13 @@ spec:
     name: cni-default-plugins
   - image: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
     name: coredns
-  - image: k8s.gcr.io/sig-storage/csi-node-driver-registrar@sha256:2dee3fe5fe861bb66c3a4ac51114f3447a4cd35870e0f2e2b558c7a400d89589
+  - image: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:f6717ce72a2615c7fbc746b4068f788e78579c54c43b8716e5ce650d97af2df1
     name: csi-node-driver-registrar
-  - image: k8s.gcr.io/sig-storage/csi-provisioner@sha256:4e74c0492bceddc598de1c90cc5bc14dcda94cb49fa9c5bad9d117c4834b5e08
+  - image: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
     name: csi-provisioner
-  - image: k8s.gcr.io/sig-storage/csi-snapshotter@sha256:818f35653f2e214db81d655063e81995de9073328a3430498624c140881026a3
+  - image: registry.k8s.io/sig-storage/csi-snapshotter@sha256:becc53e25b96573f61f7469923a92fb3e9d3a3781732159954ce0d9da07233a2
     name: csi-snapshotter
-  - image: quay.io/kubevirt/hostpath-csi-driver@sha256:c4c57725f677e0413e5b2c1b1e8e2dd473dd7f1d88cdaf76106708056ef3a78d
+  - image: quay.io/kubevirt/hostpath-csi-driver@sha256:0ca8b50b0adb20afd4e20da9974200f3290b6d51aa7c1129de6e1b953bf26594
     name: hostpath-csi-driver
   - image: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
     name: hostpath-provisioner
@@ -4264,7 +4264,7 @@ spec:
     name: kubevirt-plugin
   - image: quay.io/kubevirt/libguestfs-tools@sha256:12cf13c034ef0e87c6d6a9e1e26fa0779348e26b1e20fa4cf5fe8074e1b5581b
     name: libguestfs-tools
-  - image: k8s.gcr.io/sig-storage/livenessprobe@sha256:1b7c978a792a8fa4e96244e8059bd71bb49b07e2e5a897fb0c867bdc6db20d5d
+  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:4dc0b87ccd69f9865b89234d8555d3a614ab0a16ed94a3016ffd27f8106132ce
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
     name: macvtap-cni
@@ -4278,7 +4278,7 @@ spec:
     name: multus-cni
   - image: ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller@sha256:dee1979d92f0a31598a6e3569ac7004be7d29e7ca9e31db23753ef263110dc04
     name: multus-dynamic-networks-controller
-  - image: quay.io/openshift/origin-kube-rbac-proxy@sha256:baedb268ac66456018fb30af395bb3d69af5fff3252ff5d549f0231b1ebb6901
+  - image: quay.io/openshift/origin-kube-rbac-proxy@sha256:b5e574c5b2fdd0a90d899793e2ce97792dc2d3e3fbf934a107139b1b4f2732a7
     name: origin-kube-rbac-proxy
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:5f7290e2294255ab2547c3b4bf48cc2d75531ec5a43e600366e9b2719bef983f
     name: ovs-cni-plugin
