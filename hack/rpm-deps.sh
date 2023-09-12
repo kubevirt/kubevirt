@@ -261,6 +261,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --name pr-helper_x86_64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
         $pr_helper
 
     # remove all RPMs which are no longer referenced by a rpmtree
@@ -362,6 +364,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --name pr-helper_aarch64 --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
         $pr_helper
 
     # remove all RPMs which are no longer referenced by a rpmtree
