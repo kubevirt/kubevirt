@@ -88,8 +88,9 @@ var _ = Describe("Clone", func() {
 		go snapshotInformer.Run(stop)
 		go restoreInformer.Run(stop)
 		go cloneInformer.Run(stop)
+		go snapshotContentInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced, snapshotInformer.HasSynced,
-			restoreInformer.HasSynced, cloneInformer.HasSynced)).To(BeTrue())
+			restoreInformer.HasSynced, cloneInformer.HasSynced, snapshotContentInformer.HasSynced)).To(BeTrue())
 	}
 
 	addVM := func(vm *virtv1.VirtualMachine) {
@@ -105,6 +106,11 @@ var _ = Describe("Clone", func() {
 
 	addSnapshot := func(snapshot *snapshotv1alpha1.VirtualMachineSnapshot) {
 		err := snapshotInformer.GetStore().Add(snapshot)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+
+	addSnapshotContent := func(snapshotcontent *snapshotv1alpha1.VirtualMachineSnapshotContent) {
+		err := snapshotContentInformer.GetStore().Add(snapshotcontent)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
@@ -328,9 +334,12 @@ var _ = Describe("Clone", func() {
 				vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
 				vmClone.Status.Phase = clonev1alpha1.SnapshotInProgress
 
+				snapshotcontent := createVirtualMachineSnapshotContent(sourceVM)
+
 				addVM(sourceVM)
 				addClone(vmClone)
 				addSnapshot(snapshot)
+				addSnapshotContent(snapshotcontent)
 
 				expectCloneUpdate(clonev1alpha1.RestoreInProgress)
 				expectRestoreCreate(snapshot.Name, vmClone)
@@ -478,11 +487,14 @@ var _ = Describe("Clone", func() {
 			snapshotName = snapshot.Name
 			snapshot.Status.ReadyToUse = pointer.BoolPtr(true)
 
+			snapshotcontent := createVirtualMachineSnapshotContent(sourceVM)
+
 			vmClone.Status.SnapshotName = pointer.String(snapshot.Name)
 			vmClone.Status.Phase = clonev1alpha1.RestoreInProgress
 
 			addVM(sourceVM)
 			addSnapshot(snapshot)
+			addSnapshotContent(snapshotcontent)
 
 			// update to restore name is expected, although phase remains the same
 			expectCloneUpdate(clonev1alpha1.RestoreInProgress)
@@ -780,6 +792,24 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine) *snapshotv1alpha1.V
 			},
 		},
 		Status: &snapshotv1alpha1.VirtualMachineSnapshotStatus{},
+	}
+}
+
+func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1alpha1.VirtualMachineSnapshotContent {
+	return &snapshotv1alpha1.VirtualMachineSnapshotContent{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vmsnapshot-content-snapshot-UID",
+			Namespace: vm.Namespace,
+		},
+		Spec: snapshotv1alpha1.VirtualMachineSnapshotContentSpec{
+			Source: snapshotv1alpha1.SourceSpec{
+				VirtualMachine: &snapshotv1alpha1.VirtualMachine{
+					ObjectMeta: vm.ObjectMeta,
+					Spec:       vm.Spec,
+					Status:     vm.Status,
+				},
+			},
+		},
 	}
 }
 

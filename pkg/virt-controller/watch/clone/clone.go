@@ -192,7 +192,12 @@ func (ctrl *VMCloneController) syncSourceVMTargetVM(source *k6tv1.VirtualMachine
 		}
 
 		if vmClone.Status.RestoreName == nil {
-			syncInfo = ctrl.createRestoreFromVm(vmClone, source, snapshot.Name, syncInfo)
+			vm, err := ctrl.getVmFromSnapshot(snapshot)
+			if err != nil {
+				return addErrorToSyncInfo(syncInfo, fmt.Errorf("cannot get VM manifest from snapshot: %v", err))
+			}
+
+			syncInfo = ctrl.createRestoreFromVm(vmClone, vm, snapshot.Name, syncInfo)
 			return syncInfo
 		}
 
