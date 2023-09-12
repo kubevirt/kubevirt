@@ -53,7 +53,6 @@ const (
 
 // AgentUpdatedEvent fire up when data is changes in the store
 type AgentUpdatedEvent struct {
-	Type       AgentCommand
 	DomainInfo api.DomainGuestInfo
 }
 
@@ -84,21 +83,14 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 
 	if updated {
 		domainInfo := api.DomainGuestInfo{}
-		// Fill only updated part of the domainInfo
-		// not everything have to be watched for
 		switch key {
-		case GET_OSINFO:
-			info := value.(api.GuestOSInfo)
-			domainInfo.OSInfo = &info
-		case GET_INTERFACES:
-			domainInfo.Interfaces = value.([]api.InterfaceStatus)
-		case GET_FSFREEZE_STATUS:
-			status := value.(api.FSFreeze)
-			domainInfo.FSFreezeStatus = &status
+		case GET_OSINFO, GET_INTERFACES, GET_FSFREEZE_STATUS:
+			domainInfo.OSInfo = s.GetGuestOSInfo()
+			domainInfo.Interfaces = s.GetInterfaceStatus()
+			domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
 		}
 
 		s.AgentUpdated <- AgentUpdatedEvent{
-			Type:       key,
 			DomainInfo: domainInfo,
 		}
 	}
@@ -169,15 +161,14 @@ func (s *AsyncAgentStore) GetGA() AgentInfo {
 }
 
 // GetFSFreezeStatus returns the Guest fsfreeze status
-func (s *AsyncAgentStore) GetFSFreezeStatus() api.FSFreeze {
+func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
 	data, ok := s.store.Load(GET_FSFREEZE_STATUS)
-	status := api.FSFreeze{}
 	if !ok {
-		return status
+		return nil
 	}
 
 	fsfreezeStatus := data.(api.FSFreeze)
-	return fsfreezeStatus
+	return &fsfreezeStatus
 }
 
 // GetFS returns the filesystem list limited to the limit set

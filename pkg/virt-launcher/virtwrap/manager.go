@@ -1922,7 +1922,10 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 	sysInfo := l.agentData.GetSysInfo()
 	fsInfo := l.agentData.GetFS(10)
 	userInfo := l.agentData.GetUsers(10)
-	fsFreezestatus := l.agentData.GetFSFreezeStatus()
+	var fsFreezestatus api.FSFreeze
+	if status := l.agentData.GetFSFreezeStatus(); status != nil {
+		fsFreezestatus = *status
+	}
 
 	gaInfo := l.agentData.GetGA()
 

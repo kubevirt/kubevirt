@@ -29,6 +29,32 @@ import (
 )
 
 var _ = Describe("Qemu agent poller", func() {
+	var fakeInterfaces []api.InterfaceStatus
+	var fakeFSFreezeStatus api.FSFreeze
+	var fakeInfo api.GuestOSInfo
+
+	BeforeEach(func() {
+		fakeInterfaces = []api.InterfaceStatus{
+			{
+				Mac: "00:00:00:00:00:01",
+			},
+		}
+
+		fakeFSFreezeStatus = api.FSFreeze{
+			Status: "frozen",
+		}
+
+		fakeInfo = api.GuestOSInfo{
+			Name:          "TestGuestOSName",
+			KernelRelease: "1.1.0-Generic",
+			Version:       "1.0.0",
+			PrettyName:    "TestGuestOSName 1.0.0",
+			VersionId:     "1.0.0",
+			KernelVersion: "1.1.0",
+			Machine:       "x86_64",
+			Id:            "testguestos",
+		}
+	})
 	Context("with AsyncAgentStore", func() {
 
 		It("should store and load the data", func() {
@@ -42,28 +68,27 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should fire an event for new fsfreezestatus", func() {
 			var agentStore = NewAsyncAgentStore()
-
-			fakeFSFreezeStatus := api.FSFreeze{
-				Status: "frozen",
-			}
 			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
 
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				Type:       GET_FSFREEZE_STATUS,
-				DomainInfo: api.DomainGuestInfo{FSFreezeStatus: &fakeFSFreezeStatus},
+				DomainInfo: api.DomainGuestInfo{
+					Interfaces:     nil,
+					FSFreezeStatus: &fakeFSFreezeStatus,
+					OSInfo:         nil,
+				},
 			})))
 		})
 
 		It("should not fire an event for the same fsfreezestatus", func() {
 			var agentStore = NewAsyncAgentStore()
-			fakeFSFreezeStatus := api.FSFreeze{
-				Status: "frozen",
-			}
 			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
 
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				Type:       GET_FSFREEZE_STATUS,
-				DomainInfo: api.DomainGuestInfo{FSFreezeStatus: &fakeFSFreezeStatus},
+				DomainInfo: api.DomainGuestInfo{
+					Interfaces:     nil,
+					FSFreezeStatus: &fakeFSFreezeStatus,
+					OSInfo:         nil,
+				},
 			})))
 
 			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
@@ -72,46 +97,48 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should fire an event for new sysinfo data", func() {
 			var agentStore = NewAsyncAgentStore()
-
-			fakeInfo := api.GuestOSInfo{
-				Name:          "TestGuestOSName",
-				KernelRelease: "1.1.0-Generic",
-				Version:       "1.0.0",
-				PrettyName:    "TestGuestOSName 1.0.0",
-				VersionId:     "1.0.0",
-				KernelVersion: "1.1.0",
-				Machine:       "x86_64",
-				Id:            "testguestos",
-			}
 			agentStore.Store(GET_OSINFO, fakeInfo)
-
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				Type:       GET_OSINFO,
 				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
 			})))
 		})
 
 		It("should not fire an event for the same sysinfo data", func() {
 			var agentStore = NewAsyncAgentStore()
-			fakeInfo := api.GuestOSInfo{
-				Name:          "TestGuestOSName",
-				KernelRelease: "1.1.0-Generic",
-				Version:       "1.0.0",
-				PrettyName:    "TestGuestOSName 1.0.0",
-				VersionId:     "1.0.0",
-				KernelVersion: "1.1.0",
-				Machine:       "x86_64",
-				Id:            "testguestos",
-			}
-
 			agentStore.Store(GET_OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				Type:       GET_OSINFO,
 				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
 			})))
 
 			agentStore.Store(GET_OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
+		})
+
+		It("should fire an event with new updated key and old non updated keys", func() {
+			var agentStore = NewAsyncAgentStore()
+			agentStore.Store(GET_INTERFACES, fakeInterfaces)
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{
+					Interfaces: fakeInterfaces,
+				},
+			})))
+
+			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{
+					Interfaces:     fakeInterfaces,
+					FSFreezeStatus: &fakeFSFreezeStatus,
+				},
+			})))
+
+			agentStore.Store(GET_OSINFO, fakeInfo)
+			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{
+					Interfaces:     fakeInterfaces,
+					FSFreezeStatus: &fakeFSFreezeStatus,
+					OSInfo:         &fakeInfo,
+				},
+			})))
 		})
 
 		It("should report nil slice when no interfaces exists", func() {
@@ -123,12 +150,6 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should report interfaces info when interfaces exists", func() {
 			var agentStore = NewAsyncAgentStore()
-
-			fakeInterfaces := []api.InterfaceStatus{
-				{
-					Mac: "00:00:00:00:00:01",
-				},
-			}
 			agentStore.Store(GET_INTERFACES, fakeInterfaces)
 			interfacesStatus := agentStore.GetInterfaceStatus()
 
@@ -144,17 +165,6 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should report osInfo when osInfo exists", func() {
 			var agentStore = NewAsyncAgentStore()
-			fakeInfo := api.GuestOSInfo{
-				Name:          "TestGuestOSName",
-				KernelRelease: "1.1.0-Generic",
-				Version:       "1.0.0",
-				PrettyName:    "TestGuestOSName 1.0.0",
-				VersionId:     "1.0.0",
-				KernelVersion: "1.1.0",
-				Machine:       "x86_64",
-				Id:            "testguestos",
-			}
-
 			agentStore.Store(GET_OSINFO, fakeInfo)
 			osInfo := agentStore.GetGuestOSInfo()
 
