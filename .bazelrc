@@ -14,6 +14,10 @@ build:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 run:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 test:aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo --host_javabase=@local_jdk//:jdk
 
+build:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
+run:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo
+test:s390x --platforms=@io_bazel_rules_go//go/toolchain:linux_s390x_cgo --host_javabase=@local_jdk//:jdk
+
 build:crossbuild-aarch64 --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 run:crossbuild-aarch64  --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:aarch64-none-linux-gnu --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo
 test:crossbuild-aarch64 --platforms=@io_bazel_rules_go//go/toolchain:linux_arm64_cgo --host_javabase=@local_jdk//:jdk
