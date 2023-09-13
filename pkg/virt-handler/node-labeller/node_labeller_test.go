@@ -22,11 +22,7 @@
 package nodelabeller
 
 import (
-	"fmt"
-	"os"
 	"time"
-
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -58,7 +54,6 @@ var _ = Describe("Node-labeller ", func() {
 	var config *virtconfig.ClusterConfig
 	var addedNode *v1.Node
 	var recorder *record.FakeRecorder
-	var customKSMFilePath = "fake_path"
 
 	addNode := func(node *v1.Node) {
 		mockQueue.ExpectAdds(1)
@@ -67,46 +62,13 @@ var _ = Describe("Node-labeller ", func() {
 		mockQueue.Wait()
 	}
 
-	expectPatch := func(expect bool, expectedPatches ...string) {
-		kubeClient.Fake.PrependReactor("patch", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			patch, ok := action.(testing.PatchAction)
-			Expect(ok).To(BeTrue())
-			for _, expectedPatch := range expectedPatches {
-				if expect {
-					Expect(string(patch.GetPatch())).To(ContainSubstring(expectedPatch))
-				} else {
-					Expect(string(patch.GetPatch())).ToNot(ContainSubstring(expectedPatch))
-				}
-			}
-			return true, nil, nil
-		})
-	}
-
-	expectNodePatch := func(expectedPatches ...string) {
-		expectPatch(true, expectedPatches...)
-	}
-
-	doNotExpectNodePatch := func(expectedPatches ...string) {
-		expectPatch(false, expectedPatches...)
-	}
-
-	createCustomKSMFile := func(value string) {
-		customKSMFile, err := os.CreateTemp("", "mock_ksm_run")
-		Expect(err).ToNot(HaveOccurred())
-		defer customKSMFile.Close()
-		_, err = customKSMFile.WriteString(value)
-		Expect(err).ToNot(HaveOccurred())
-		customKSMFilePath = customKSMFile.Name()
-	}
-
-	initNodeLabeller := func(kubevirt *kubevirtv1.KubeVirt, ksmNodeValue string, nodeLabels, nodeAnnotations map[string]string) {
+	initNodeLabeller := func(kubevirt *kubevirtv1.KubeVirt, nodeLabels, nodeAnnotations map[string]string) {
 		var err error
 		config, _, _ = testutils.NewFakeClusterConfigUsingKV(kubevirt)
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		createCustomKSMFile(fmt.Sprint(ksmNodeValue))
-		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder, customKSMFilePath)
+		nlController, err = newNodeLabeller(config, virtClient, "testNode", k8sv1.NamespaceDefault, "testdata", recorder)
 		Expect(err).ToNot(HaveOccurred())
 
 		mockQueue = testutils.NewMockWorkQueue(nlController.queue)
@@ -114,10 +76,6 @@ var _ = Describe("Node-labeller ", func() {
 		nlController.queue = mockQueue
 		addNode(newNode("testNode", nodeLabels, nodeAnnotations))
 	}
-
-	AfterEach(func() {
-		diskutils.RemoveFilesIfExist(customKSMFilePath)
-	})
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
@@ -145,11 +103,11 @@ var _ = Describe("Node-labeller ", func() {
 			},
 		}
 
-		initNodeLabeller(kv, "1\n", make(map[string]string), make(map[string]string))
+		initNodeLabeller(kv, make(map[string]string), make(map[string]string))
 	})
 
 	It("should run node-labelling", func() {
-		expectNodePatch()
+		testutils.ExpectNodePatch(kubeClient)
 		res := nlController.execute()
 		Expect(res).To(BeTrue(), "labeller should end with true result")
 		Consistently(func() int {
@@ -167,30 +125,30 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should add host cpu model label", func() {
-		expectNodePatch(kubevirtv1.HostModelCPULabel)
+		testutils.ExpectNodePatch(kubeClient, kubevirtv1.HostModelCPULabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 	It("should add host cpu required features", func() {
-		expectNodePatch(kubevirtv1.HostModelRequiredFeaturesLabel)
+		testutils.ExpectNodePatch(kubeClient, kubevirtv1.HostModelRequiredFeaturesLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 
 	It("should add SEV label", func() {
-		expectNodePatch(kubevirtv1.SEVLabel)
+		testutils.ExpectNodePatch(kubeClient, kubevirtv1.SEVLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 
 	It("should add SEVES label", func() {
-		expectNodePatch(kubevirtv1.SEVESLabel)
+		testutils.ExpectNodePatch(kubeClient, kubevirtv1.SEVESLabel)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {
-		expectNodePatch(
+		testutils.ExpectNodePatch(kubeClient,
 			kubevirtv1.HostModelCPULabel+"Skylake-Client-IBRS",
 			kubevirtv1.CPUModelLabel+"Skylake-Client-IBRS",
 			kubevirtv1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS",
@@ -200,7 +158,7 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should add usable cpu model labels if all required features are supported", func() {
-		expectNodePatch(
+		testutils.ExpectNodePatch(kubeClient,
 			kubevirtv1.CPUModelLabel+"Penryn",
 			kubevirtv1.SupportedHostModelMigrationCPU+"Penryn",
 		)
@@ -209,62 +167,12 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	It("should not add usable cpu model labels if some features are not suported (svm)", func() {
-		doNotExpectNodePatch(
+		testutils.DoNotExpectNodePatch(kubeClient,
 			kubevirtv1.CPUModelLabel+"Opteron_G2",
 			kubevirtv1.SupportedHostModelMigrationCPU+"Opteron_G2",
 		)
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
-	})
-
-	It("should add KSM label", func() {
-		expectNodePatch(kubevirtv1.KSMEnabledLabel)
-		res := nlController.execute()
-		Expect(res).To(BeTrue())
-	})
-
-	Describe(", when ksmConfiguration is provided,", func() {
-		var kv *kubevirtv1.KubeVirt
-		BeforeEach(func() {
-			kv = &kubevirtv1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
-				Spec: kubevirtv1.KubeVirtSpec{
-					Configuration: kubevirtv1.KubeVirtConfiguration{
-						KSMConfiguration: &kubevirtv1.KSMConfiguration{
-							NodeLabelSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"test_label": "true",
-								},
-							},
-						},
-					},
-				},
-			}
-		})
-
-		DescribeTable("should", func(initialKsmValue string, nodeLabels, nodeAnnotations map[string]string, expectedNodePatch []string, expectedKsmValue string) {
-			initNodeLabeller(kv, initialKsmValue, nodeLabels, nodeAnnotations)
-			expectNodePatch(expectedNodePatch...)
-			res := nlController.execute()
-			Expect(res).To(BeTrue())
-			Expect(os.ReadFile(customKSMFilePath)).To(BeEquivalentTo([]byte(expectedKsmValue)))
-		},
-			Entry("enable ksm if the node labels match ksmConfiguration.nodeLabelSelector",
-				"0\n", map[string]string{"test_label": "true"}, make(map[string]string),
-				[]string{kubevirtv1.KSMEnabledLabel, kubevirtv1.KSMHandlerManagedAnnotation}, "1\n",
-			),
-			Entry("disable ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node has the KSMHandlerManagedAnnotation annotation",
-				"1\n", map[string]string{"test_label": "false"}, map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
-				[]string{kubevirtv1.KSMHandlerManagedAnnotation}, "0\n",
-			),
-			Entry("not change ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node does not have the KSMHandlerManagedAnnotation annotation",
-				"1\n", map[string]string{"test_label": "false"}, make(map[string]string),
-				nil, "1\n",
-			),
-		)
 	})
 
 	AfterEach(func() {

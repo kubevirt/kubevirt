@@ -62,7 +62,6 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
-	kubevirtv1.KSMEnabledLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller

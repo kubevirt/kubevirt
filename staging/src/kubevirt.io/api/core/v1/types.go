@@ -923,6 +923,15 @@ const (
 	// KSMHandlerManagedAnnotation is an annotation used to mark the nodes where the virt-handler has enabled the ksm
 	KSMHandlerManagedAnnotation string = "kubevirt.io/ksm-handler-managed"
 
+	// KSM debug annotations to override default constants
+	KSMPagesBoostOverride      string = "kubevirt.io/ksm-pages-boost-override"
+	KSMPagesDecayOverride      string = "kubevirt.io/ksm-pages-decay-override"
+	KSMPagesMinOverride        string = "kubevirt.io/ksm-pages-min-override"
+	KSMPagesMaxOverride        string = "kubevirt.io/ksm-pages-max-override"
+	KSMPagesInitOverride       string = "kubevirt.io/ksm-pages-init-override"
+	KSMSleepMsBaselineOverride string = "kubevirt.io/ksm-sleep-ms-baseline-override"
+	KSMFreePercentOverride     string = "kubevirt.io/ksm-free-percent-override"
+
 	// InstancetypeAnnotation is the name of a VirtualMachineInstancetype
 	InstancetypeAnnotation string = "kubevirt.io/instancetype-name"
 

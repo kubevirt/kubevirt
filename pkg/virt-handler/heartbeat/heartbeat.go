@@ -143,7 +143,7 @@ func (h *HeartBeat) do() {
 	}
 	ksmEnabled, ksmEnabledByUs := handleKSM(node, h.clusterConfig)
 
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s", "%t"}, "annotations": {"%s": %s, "%s": "%t"}}}`,
+	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s, "%s": "%t"}}}`,
 		v1.NodeSchedulable, kubevirtSchedulable,
 		v1.CPUManager, cpuManagerEnabled,
 		v1.KSMEnabledLabel, ksmEnabled,

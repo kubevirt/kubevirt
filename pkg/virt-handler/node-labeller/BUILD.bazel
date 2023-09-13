@@ -41,7 +41,6 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     deps = [
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/node-labeller/api:go_default_library",
