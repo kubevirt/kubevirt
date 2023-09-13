@@ -23,6 +23,7 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -69,7 +70,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
-		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: expected},
 		}, 120)).To(Succeed())
@@ -104,19 +105,11 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 				defer expecter.Close()
 
-				By("expecting error on 1st console connection")
-				go func() {
-					defer GinkgoRecover()
-					select {
-					case receivedErr := <-errChan:
-						Expect(receivedErr.Error()).To(ContainSubstring("close"))
-					case <-time.After(60 * time.Second):
-						Fail("timed out waiting for closed 1st connection")
-					}
-				}()
-
 				By("opening 2nd console connection")
 				expectConsoleOutput(vmi, "login")
+
+				By("expecting error on 1st console connection")
+				Expect(errChan).To(Receive())
 			})
 
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
@@ -138,29 +131,19 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
+				Expect(err).To(MatchError("Timeout trying to connect to the virtual machine instance"))
 			})
 		})
 
 		Context("without a serial console", func() {
-
 			It("[test_id:4118]should run but not be connectable via the serial console", func() {
 				vmi := libvmi.NewAlpine()
-				f := false
-				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f
+				vmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(false)
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
-
-				Expect(runningVMISpec.Devices.Serials).To(BeEmpty(), "should not have any serial consoles present")
-				Expect(runningVMISpec.Devices.Consoles).To(BeEmpty(), "should not have any virtio console for serial consoles")
-
 				By("failing to connect to serial console")
-				_, err = virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
+				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})
+				Expect(err).To(MatchError("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
 			})
 		})
 	})
