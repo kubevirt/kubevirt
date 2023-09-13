@@ -6,6 +6,7 @@ go_library(
         "compatibility.go",
         "errors.go",
         "instancetype.go",
+        "upgrade.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype",
     visibility = ["//visibility:public"],
