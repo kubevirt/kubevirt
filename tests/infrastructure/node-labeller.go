@@ -276,7 +276,10 @@ var _ = DescribeInfra("Node-labeller", func() {
 		It("[test_id:6252] should remove all cpu model labels (all cpu model are in obsolete list)", func() {
 			node := nodesWithKVM[0]
 
-			obsoleteModels := nodelabellerutil.DefaultObsoleteCPUModels
+			obsoleteModels := map[string]bool{}
+			for k, v := range nodelabellerutil.DefaultObsoleteCPUModels {
+				obsoleteModels[k] = v
+			}
 
 			for key := range node.Labels {
 				if strings.Contains(key, v1.CPUModelLabel) {
