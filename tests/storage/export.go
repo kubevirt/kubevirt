@@ -541,6 +541,19 @@ var _ = SIGDescribe("Export", func() {
 		Expect(*vmExport.Status.TokenSecretRef).ToNot(BeEmpty())
 	}
 
+	verifyDefaultRequestLimits := func(export *exportv1.VirtualMachineExport) {
+		By("Verifying the exporter pod has default request/limits")
+		exporterPod := getExporterPod(export)
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Cpu().Value()).To(Equal(int64(1)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(Equal(int64(1)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(int64(1024 * 1024 * 1024)))
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory()).ToNot(BeNil())
+		Expect(exporterPod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(Equal(int64(1024 * 1024 * 1024)))
+	}
+
 	type populateFunction func(string, k8sv1.PersistentVolumeMode) (*k8sv1.PersistentVolumeClaim, string)
 	type verifyFunction func(string, string, *k8sv1.Pod, k8sv1.PersistentVolumeMode)
 	type storageClassFunction func() (string, bool)
@@ -579,6 +592,7 @@ var _ = SIGDescribe("Export", func() {
 		export = waitForReadyExport(export)
 		checkExportSecretRef(export)
 		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
+		verifyDefaultRequestLimits(export)
 
 		By("Creating download pod, so we can download image")
 		targetPvc := &k8sv1.PersistentVolumeClaim{
@@ -1519,7 +1533,7 @@ var _ = SIGDescribe("Export", func() {
 		waitForExportCondition(export, expectedVMRunningCondition(vm.Name, vm.Namespace), "export should report VM running")
 	})
 
-	It("should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", func() {
+	It("[Serial] should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")

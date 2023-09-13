@@ -565,6 +565,31 @@ func hotplugContainerMinimalLimits() k8sv1.ResourceList {
 	}
 }
 
+func vmExportContainerResourceRequirements(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+	return k8sv1.ResourceRequirements{
+		Limits:   vmExportContainerLimits(config),
+		Requests: vmExportContainerRequests(config),
+	}
+}
+
+func vmExportContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("1")
+	memQuantity := resource.MustParse("1024Mi")
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func vmExportContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+	cpuQuantity := resource.MustParse("1")
+	memQuantity := resource.MustParse("1024Mi")
+	return k8sv1.ResourceList{
+		k8sv1.ResourceCPU:    cpuQuantity,
+		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
 func multiplyMemory(mem resource.Quantity, multiplication float64) resource.Quantity {
 	overheadAddition := float64(mem.ScaledValue(resource.Kilo)) * (multiplication - 1.0)
 	additionalOverhead := resource.NewScaledQuantity(int64(overheadAddition), resource.Kilo)

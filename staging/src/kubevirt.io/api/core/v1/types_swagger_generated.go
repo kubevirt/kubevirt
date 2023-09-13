@@ -694,6 +694,12 @@ func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (SupportContainerResources) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.",
+	}
+}
+
 func (CustomProfile) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
