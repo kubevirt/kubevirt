@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "compatibility.go",
         "instancetype.go",
+        "upgrade.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype",
     visibility = ["//visibility:public"],
@@ -41,6 +42,7 @@ go_test(
         "compatibility_test.go",
         "instancetype_suite_test.go",
         "instancetype_test.go",
+        "upgrade_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
