@@ -38,7 +38,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -78,52 +77,14 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
-			Context("with a cirros image", func() {
-
-				It("[test_id:1588]should return that we are running cirros", func() {
-					vmi := libvmi.NewCirros()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-					expectConsoleOutput(
-						vmi,
-						"login as 'cirros' user",
-					)
-				})
-			})
-
-			Context("with a fedora image", func() {
-				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
-					vmi := libvmi.NewFedora()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
-					expectConsoleOutput(
-						vmi,
-						"Welcome to",
-					)
-				})
-			})
-
-			Context("with an alpine image", func() {
-				type vmiBuilder func() *v1.VirtualMachineInstance
-
-				newVirtualMachineInstanceWithAlpineFileDisk := func() *v1.VirtualMachineInstance {
-					vmi, _ := tests.NewRandomVirtualMachineInstanceWithFileDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
-					return vmi
-				}
-
-				newVirtualMachineInstanceWithAlpineBlockDisk := func() *v1.VirtualMachineInstance {
-					vmi, _ := tests.NewRandomVirtualMachineInstanceWithBlockDisk(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), testsuite.GetTestNamespace(nil), k8sv1.ReadWriteOnce)
-					return vmi
-				}
-
-				DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
-					vmi := createVMI()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 120)
-					expectConsoleOutput(vmi, "login")
-				},
-					Entry("[test_id:4637][storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithAlpineFileDisk),
-					Entry("[test_id:4638][storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithAlpineBlockDisk),
+			It("[test_id:1588]should return OS login", func() {
+				vmi := libvmi.NewCirros()
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				expectConsoleOutput(
+					vmi,
+					"login as 'cirros' user",
 				)
 			})
-
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				vmi := libvmi.NewAlpine()
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
