@@ -291,6 +291,7 @@ var _ = Describe("vmexport", func() {
 			Entry("Using 'manifest' with volume type", fmt.Sprintf(virtctlvmexport.ErrIncompatibleFlag, virtctlvmexport.VOLUME_FLAG, virtctlvmexport.MANIFEST_FLAG), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.VM_FLAG, "test"), setflag(virtctlvmexport.VOLUME_FLAG, "volume")),
 			Entry("Using 'manifest' with invalid output_format_flag", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.OUTPUT_FORMAT_FLAG, "json/yaml"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.MANIFEST_FLAG, setflag(virtctlvmexport.OUTPUT_FORMAT_FLAG, "invalid")),
 			Entry("Using 'port-forward' with invalid port", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.LOCAL_PORT_FLAG, "valid port numbers"), virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.PORT_FORWARD_FLAG, setflag(virtctlvmexport.LOCAL_PORT_FLAG, "test")),
+			Entry("Using 'format' with invalid download format", fmt.Sprintf(virtctlvmexport.ErrInvalidValue, virtctlvmexport.FORMAT_FLAG, "gzip/raw"), virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, "test")),
 		)
 
 		AfterEach(func() {
@@ -359,7 +360,7 @@ var _ = Describe("vmexport", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Succesfully create and download a VirtualMachineExport with decompress flag", func() {
+		It("Succesfully create and download a VirtualMachineExport with raw format", func() {
 			virtctlvmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				resp := http.Response{
 					StatusCode: http.StatusOK,
@@ -390,7 +391,23 @@ var _ = Describe("vmexport", func() {
 			utils.HandleSecretGet(kubeClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.DECOMPRESS_FLAG, setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, virtctlvmexport.RAW_FORMAT), setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
+			err := cmd()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Succesfully download a VirtualMachineExport without decompressing is url is already raw", func() {
+			vmexport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    volumeName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtRaw),
+				},
+			}, secretName)
+			utils.HandleSecretGet(kubeClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.FORMAT_FLAG, virtctlvmexport.RAW_FORMAT), setflag(virtctlvmexport.PVC_FLAG, "test-pvc"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName), setflag(virtctlvmexport.OUTPUT_FLAG, "test-pvc"), virtctlvmexport.INSECURE_FLAG)
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -424,23 +441,6 @@ var _ = Describe("vmexport", func() {
 			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
 
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
-			err := cmd()
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("VirtualMachineExport download succeeds when --raw is used but only compressed is available", func() {
-			testInit(http.StatusOK)
-			vme := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vme.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name:    "no-test-volume",
-					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
-				},
-			}, secretName)
-			utils.HandleSecretGet(kubeClient, secretName)
-			utils.HandleVMExportGet(vmExportClient, vme, vmexportName)
-
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, virtctlvmexport.DOWNLOAD, vmexportName, virtctlvmexport.RAW_FLAG, setflag(virtctlvmexport.OUTPUT_FLAG, "disk.img"), setflag(virtctlvmexport.VOLUME_FLAG, volumeName))
 			err := cmd()
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -539,37 +539,6 @@ var _ = Describe("vmexport", func() {
 					Formats: utils.GetExportVolumeFormat("raw", exportv1.KubeVirtRaw),
 				},
 			}, secretName)
-			url, err := virtctlvmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(url).Should(Equal("raw"))
-		})
-
-		It("Should get raw URL if --raw is specified", func() {
-			vmExport := utils.VMExportSpecPVC(vmexportName, metav1.NamespaceDefault, "test-pvc", secretName)
-			vmExport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
-				{
-					Name: volumeName,
-					Formats: []exportv1.VirtualMachineExportVolumeFormat{
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    "raw",
-						},
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    "raw",
-						},
-						{
-							Format: exportv1.KubeVirtGz,
-							Url:    "compressed",
-						},
-						{
-							Format: exportv1.KubeVirtRaw,
-							Url:    "raw",
-						},
-					},
-				},
-			}, secretName)
-			vmeinfo.RawImg = true
 			url, err := virtctlvmexport.GetUrlFromVirtualMachineExport(vmExport, vmeinfo)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(url).Should(Equal("raw"))

@@ -71,8 +71,7 @@ const (
 	SNAPSHOT_FLAG       = "--snapshot"
 	INSECURE_FLAG       = "--insecure"
 	KEEP_FLAG           = "--keep-vme"
-	RAW_FLAG            = "--raw"
-	DECOMPRESS_FLAG     = "--decompress"
+	FORMAT_FLAG         = "--format"
 	PVC_FLAG            = "--pvc"
 	TTL_FLAG            = "--ttl"
 	MANIFEST_FLAG       = "--manifest"
@@ -85,6 +84,10 @@ const (
 	// Possible output format for manifests
 	OUTPUT_FORMAT_JSON = "json"
 	OUTPUT_FORMAT_YAML = "yaml"
+
+	// Possible output format for volumes
+	GZIP_FORMAT = "gzip"
+	RAW_FORMAT  = "raw"
 
 	ACCEPT           = "Accept"
 	APPLICATION_YAML = "application/yaml"
@@ -130,9 +133,8 @@ var (
 	shouldCreate         bool
 	includeSecret        bool
 	exportManifest       bool
-	rawImg               bool
 	portForward          bool
-	decompress           bool
+	format               string
 	localPort            string
 	serviceUrl           string
 	volumeName           string
@@ -158,7 +160,6 @@ type VMExportInfo struct {
 	KeepVme        bool
 	IncludeSecret  bool
 	ExportManifest bool
-	RawImg         bool
 	Decompress     bool
 	PortForward    bool
 	LocalPort      string
@@ -259,6 +260,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
+	cmd.Flags().StringVar(&format, "format", "", "Used to specify the format of the downloaded image. There's two options: gzip (default) and raw.")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
 	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
@@ -268,8 +270,6 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.Flags().StringVar(&localPort, "local-port", "0", "Defines the specific port to be used in port-forward.")
 	cmd.Flags().BoolVar(&includeSecret, "include-secret", false, "When used with manifest and set to true include a secret that contains proper headers for CDI to import using the manifest")
 	cmd.Flags().BoolVar(&exportManifest, "manifest", false, "Instead of downloading a volume, retrieve the VM manifest")
-	cmd.Flags().BoolVar(&rawImg, "raw", false, "Used to download the raw image. By default, we always attempt to download the compressed one")
-	cmd.Flags().BoolVar(&decompress, "decompress", false, "Used to unzip the compressed image.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
@@ -356,11 +356,13 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 	} else {
 		vmeInfo.OutputWriter = c.cmd.OutOrStdout()
 	}
+	// If raw format is specified, we'll attempt to download and decompress a gzipped volume
+	if format == RAW_FORMAT {
+		vmeInfo.Decompress = true
+	}
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
 	vmeInfo.KeepVme = keepVme
-	vmeInfo.RawImg = rawImg
-	vmeInfo.Decompress = decompress
 	vmeInfo.VolumeName = volumeName
 	vmeInfo.ServiceURL = serviceUrl
 	vmeInfo.OutputFormat = manifestOutputFormat
@@ -616,10 +618,9 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 						return "", err
 					}
 				}
-				// By default, we always attempt to find and get the compressed file URL, so we only break the loop when one is found.
-				// If --raw is set to true, we attempt to return the raw URL instead.
-				if (vmeInfo.RawImg && format.Format == exportv1.KubeVirtRaw) ||
-					(!vmeInfo.RawImg && (format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz)) {
+				// By default, we always attempt to find and get the compressed file URL,
+				// so we only break the loop when one is found.
+				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz {
 					break
 				}
 			}
@@ -886,11 +887,8 @@ func handleCreateFlags() error {
 	if localPort != "0" {
 		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, CREATE)
 	}
-	if rawImg {
-		return fmt.Errorf(ErrIncompatibleFlag, RAW_FLAG, CREATE)
-	}
-	if decompress {
-		return fmt.Errorf(ErrIncompatibleFlag, DECOMPRESS_FLAG, CREATE)
+	if format != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, FORMAT_FLAG, CREATE)
 	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
@@ -923,11 +921,8 @@ func handleDeleteFlags() error {
 	if localPort != "0" {
 		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, DELETE)
 	}
-	if rawImg {
-		return fmt.Errorf(ErrIncompatibleFlag, RAW_FLAG, DELETE)
-	}
-	if decompress {
-		return fmt.Errorf(ErrIncompatibleFlag, DECOMPRESS_FLAG, DELETE)
+	if format != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, FORMAT_FLAG, DELETE)
 	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, DELETE)
@@ -948,6 +943,10 @@ func handleDownloadFlags() error {
 		if err != nil || port < 0 || port > 65535 {
 			return fmt.Errorf(ErrInvalidValue, LOCAL_PORT_FLAG, "valid port numbers")
 		}
+	}
+
+	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT {
+		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw")
 	}
 
 	if exportManifest {

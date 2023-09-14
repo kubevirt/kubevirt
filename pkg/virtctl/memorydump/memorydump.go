@@ -50,8 +50,7 @@ const (
 	storageClassArg = "storage-class"
 	accessModeArg   = "access-mode"
 	portForwardArg  = "port-forward"
-	rawArg          = "raw"
-	decompressArg   = "decompress"
+	formatArg       = "format"
 	localPortArg    = "local-port"
 
 	configName         = "config"
@@ -66,8 +65,7 @@ var (
 	claimName    string
 	createClaim  bool
 	portForward  bool
-	rawImg       bool
-	decompress   bool
+	format       string
 	localPort    string
 	storageClass string
 	accessMode   string
@@ -122,8 +120,7 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&claimName, claimNameArg, "", "pvc name to contain the memory dump")
 	cmd.Flags().BoolVar(&createClaim, createClaimArg, false, "Create the pvc that will conatin the memory dump")
 	cmd.Flags().BoolVar(&portForward, portForwardArg, false, "Configure and set port-forward in a random port to download the memory dump")
-	cmd.Flags().BoolVar(&rawImg, rawArg, false, "Downloads in raw format.")
-	cmd.Flags().BoolVar(&decompress, decompressArg, false, "Downloads and decompress in the same step.")
+	cmd.Flags().StringVar(&format, formatArg, "", "Specifies the format of the memory dump download (gzipped or raw).")
 	cmd.Flags().StringVar(&localPort, localPortArg, "0", "Specify port for port-forward")
 	cmd.Flags().StringVar(&storageClass, storageClassArg, "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, accessModeArg, "", "The access mode for the PVC.")
@@ -341,12 +338,14 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 		ExportSource: exportSource,
 		PortForward:  portForward,
 		LocalPort:    localPort,
-		RawImg:       rawImg,
-		Decompress:   decompress,
 	}
 
 	if portForward {
 		vmExportInfo.ServiceURL = fmt.Sprintf("127.0.0.1:%s", localPort)
+	}
+	// User wants a raw download, will decompress gzipped file if necessary
+	if format == "raw" {
+		vmExportInfo.Decompress = true
 	}
 
 	// User wants the output in a file, create

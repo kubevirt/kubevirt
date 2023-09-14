@@ -446,7 +446,7 @@ var _ = Describe("MemoryDump", func() {
 			utils.HandleSecretGet(coreClient, secretName)
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
-			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag, "--decompress"}
+			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag, "--format", "raw"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(Succeed())
 		})
