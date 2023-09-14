@@ -904,8 +904,13 @@ func (PreferenceMatcher) SwaggerDoc() map[string]string {
 
 func (LiveUpdateFeatures) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"cpu": "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
+		"cpu":      "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
+		"affinity": "Affinity allows live updating the virtual machines node affinity",
 	}
+}
+
+func (LiveUpdateAffinity) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (LiveUpdateCPU) SwaggerDoc() map[string]string {

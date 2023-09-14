@@ -406,6 +406,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.KubeVirtStatus":                                                     schema_kubevirtio_api_core_v1_KubeVirtStatus(ref),
 		"kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy":                                     schema_kubevirtio_api_core_v1_KubeVirtWorkloadUpdateStrategy(ref),
 		"kubevirt.io/api/core/v1.LaunchSecurity":                                                     schema_kubevirtio_api_core_v1_LaunchSecurity(ref),
+		"kubevirt.io/api/core/v1.LiveUpdateAffinity":                                                 schema_kubevirtio_api_core_v1_LiveUpdateAffinity(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateCPU":                                                      schema_kubevirtio_api_core_v1_LiveUpdateCPU(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateConfiguration":                                            schema_kubevirtio_api_core_v1_LiveUpdateConfiguration(ref),
 		"kubevirt.io/api/core/v1.LiveUpdateFeatures":                                                 schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref),
@@ -19506,6 +19507,16 @@ func schema_kubevirtio_api_core_v1_LaunchSecurity(ref common.ReferenceCallback) 
 	}
 }
 
+func schema_kubevirtio_api_core_v1_LiveUpdateAffinity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_LiveUpdateCPU(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19556,11 +19567,17 @@ func schema_kubevirtio_api_core_v1_LiveUpdateFeatures(ref common.ReferenceCallba
 							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateCPU"),
 						},
 					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Affinity allows live updating the virtual machines node affinity",
+							Ref:         ref("kubevirt.io/api/core/v1.LiveUpdateAffinity"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.LiveUpdateCPU"},
+			"kubevirt.io/api/core/v1.LiveUpdateAffinity", "kubevirt.io/api/core/v1.LiveUpdateCPU"},
 	}
 }
 

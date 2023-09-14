@@ -17877,6 +17877,9 @@
      }
     }
    },
+   "v1.LiveUpdateAffinity": {
+    "type": "object"
+   },
    "v1.LiveUpdateCPU": {
     "type": "object",
     "properties": {
@@ -17900,6 +17903,10 @@
    "v1.LiveUpdateFeatures": {
     "type": "object",
     "properties": {
+     "affinity": {
+      "description": "Affinity allows live updating the virtual machines node affinity",
+      "$ref": "#/definitions/v1.LiveUpdateAffinity"
+     },
      "cpu": {
       "description": "LiveUpdateCPU holds hotplug configuration for the CPU resource. Empty struct indicates that default will be used for maxSockets. Default is specified on cluster level. Absence of the struct means opt-out from CPU hotplug functionality.",
       "$ref": "#/definitions/v1.LiveUpdateCPU"
