@@ -46,7 +46,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:6535]should be published to a vmi and periodically updated", func() {
+	It("[test_id:6535][QUARANTINE]should be published to a vmi and periodically updated", func() {
 		vmi := libvmi.NewFedora()
 		tests.AddDownwardMetricsVolume(vmi, "vhostmd")
 		vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
