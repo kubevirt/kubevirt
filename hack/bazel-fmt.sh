@@ -32,7 +32,7 @@ bazel run \
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     //:goimports
-# allign BAZEL files to a single format
+# align BAZEL files to a single format
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     //:buildifier

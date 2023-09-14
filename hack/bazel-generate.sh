@@ -16,7 +16,7 @@ bazel run \
 bazel run \
     --config=${ARCHITECTURE} \
     -- @com_github_bazelbuild_buildtools//buildozer 'add cdeps //:libvirt-libs' //vendor/libvirt.org/go/libvirt:go_default_library
-# allign BAZEL files to a single format
+# align BAZEL files to a single format
 bazel run \
     --config=${ARCHITECTURE} \
     //:buildifier

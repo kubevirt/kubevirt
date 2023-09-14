@@ -94,7 +94,7 @@ deepcopy-gen --input-dirs ./pkg/virt-launcher/virtwrap/api \
 # Genearte validation with controller-gen and create go file for them
 (
     cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go &&
-        # supress -mod=vendor
+        # suppress -mod=vendor
         GOFLAGS= controller-gen crd:allowDangerousTypes=true paths=../api/core/v1/
     #include snapshot
     GOFLAGS= controller-gen crd paths=../api/snapshot/v1alpha1/
