@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "affinity.go",
         "cpu.go",
+        "memory.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/hotplug",
     visibility = ["//visibility:public"],
@@ -21,6 +22,7 @@ go_library(
         "//tests/libmigration:go_default_library",
         "//tests/libvmi:go_default_library",
         "//tests/libwait:go_default_library",
+        "//tests/migration:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
