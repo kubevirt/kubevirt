@@ -31,6 +31,7 @@ import (
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -48,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	v1 "kubevirt.io/api/core/v1"
@@ -55,7 +57,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 )
@@ -114,8 +115,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		*/
 
 		By("creating a VMI in a user defined namespace")
-		vmi := tests.NewRandomVMIWithEphemeralDisk(
-			cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+		vmi := libvmi.NewAlpine()
 		startVMI(vmi)
 
 		By("finding virt-operator pod")
@@ -200,35 +200,6 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		getKubevirtVMMetrics func(string) string
 	)
 
-	// start a VMI, wait for it to run and return the node it runs on
-	startVMI := func(vmi *v1.VirtualMachineInstance) string {
-		By("Starting a new VirtualMachineInstance")
-		obj, err := virtClient.
-			RestClient().
-			Post().
-			Resource("virtualmachineinstances").
-			Namespace(testsuite.GetTestNamespace(vmi)).
-			Body(vmi).
-			Do(context.Background()).Get()
-		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-		vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-
-		By("Waiting until the VM is ready")
-		return libwait.WaitForSuccessfulVMIStart(vmiObj).Status.NodeName
-	}
-
-	pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
-		if vmi == nil {
-			return nil
-		}
-		if vmi.Spec.NodeSelector == nil {
-			vmi.Spec.NodeSelector = make(map[string]string)
-		}
-		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = nodeName
-		return vmi
-	}
-
 	// collect metrics whose key contains the given string, expects non-empty result
 	collectMetrics := func(ip, metricSubstring string) map[string]float64 {
 		By("Scraping the Prometheus endpoint")
@@ -260,16 +231,14 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		// but if the default disk is not vda, the test will break
 		// TODO: introspect the VMI and get the device name of this
 		// block device?
-		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		tests.AppendEmptyDisk(vmi, "testdisk", v1.VirtIO, "1Gi")
+		vmi := libvmi.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")))
+		if preferredNodeName != "" {
+			vmi = libvmi.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
+				libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: preferredNodeName}}))
+		}
 
-		if preferredNodeName != "" {
-			pinVMIOnNode(vmi, preferredNodeName)
-		}
-		nodeName := startVMI(vmi)
-		if preferredNodeName != "" {
-			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
-		}
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+		nodeName := vmi.Status.NodeName
 
 		By("Expecting the VirtualMachineInstance console")
 		// This also serves as a sync point to make sure the VM completed the boot
