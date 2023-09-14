@@ -1236,6 +1236,15 @@ spec:
           - list
           - watch
         - apiGroups:
+          - instancetype.kubevirt.io
+          resources:
+          - virtualmachineclusterinstancetypes
+          - virtualmachineclusterpreferences
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - authentication.k8s.io
           resources:
           - tokenreviews
