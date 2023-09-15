@@ -127,24 +127,16 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with disk at /custom-disk/downloaded", func() {
 
 			It("[test_id:1466]should boot normally", func() {
-				const (
-					minimalVMIRequiredMemory = "256Mi"
-					volName                  = "disk0"
-					customPath               = "/custom-disk/downloaded"
-				)
-
-				vmi := libvmi.New(
-					libvmi.WithResourceMemory(minimalVMIRequiredMemory),
-					libvmi.WithContainerDisk(
-						"disk0",
-						cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation),
-					),
-					withVolumePath(volName, customPath),
-					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
-				)
+				overrideCustomLocation := func(vmi *v1.VirtualMachineInstance) {
+					vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)
+					vmi.Spec.Volumes[0].ContainerDisk.Path = "/custom-disk/downloaded"
+				}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(overrideCustomLocation), 60)
+
+				By("Verify VMI is booted")
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 			})
 		})
 
@@ -181,8 +173,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:4052][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), 60)
 
 				By("Ensuring VMI is running by logging in")
 				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
@@ -231,36 +222,3 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
-
-func getContainerDiskContainerOfPod(pod *k8sv1.Pod, volumeName string) *k8sv1.Container {
-	diskContainerName := fmt.Sprintf("volume%s", volumeName)
-	return libpod.LookupContainer(pod, diskContainerName)
-}
-
-func hasContainerDisk(pods []k8sv1.Pod) bool {
-	for _, pod := range pods {
-		if pod.ObjectMeta.DeletionTimestamp != nil {
-			continue
-		}
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			// only check readiness of containerdisk container
-			if strings.HasPrefix(containerStatus.Name, "volume") &&
-				containerStatus.Ready && containerStatus.State.Running != nil {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func withVolumePath(volName, path string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		for _, vol := range vmi.Spec.Volumes {
-			if vol.Name == volName && vol.ContainerDisk != nil {
-				vol.ContainerDisk.Path = path
-				break
-			}
-		}
-	}
-}
