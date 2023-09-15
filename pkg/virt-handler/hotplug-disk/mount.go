@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"syscall"
@@ -42,8 +43,9 @@ var (
 	nodeIsolationResult = func() isolation.IsolationResult {
 		return isolation.NodeIsolationResult()
 	}
-	deviceBasePath = func(podUID types.UID) (*safepath.Path, error) {
-		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", fmt.Sprintf("/var/lib/kubelet/pods/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
+
+	deviceBasePath = func(podUID types.UID, podsBaseDir string) (*safepath.Path, error) {
+		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", path.Join(podsBaseDir, string(podUID), "volumes/kubernetes.io~empty-dir/hotplug-disks"))
 	}
 
 	socketPath = func(podUID types.UID) string {
@@ -132,6 +134,7 @@ var (
 )
 
 type volumeMounter struct {
+	kubeletPodsDir     string
 	mountStateDir      string
 	mountRecords       map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock   sync.Mutex
@@ -165,6 +168,7 @@ type vmiMountTargetRecord struct {
 // NewVolumeMounter creates a new VolumeMounter
 func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter {
 	return &volumeMounter{
+		kubeletPodsDir:     kubeletPodsDir,
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 		mountStateDir:      mountStateDir,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
@@ -453,7 +457,7 @@ func (m *volumeMounter) volumeStatusReady(volumeName string, vmi *v1.VirtualMach
 }
 
 func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (uint64, os.FileMode, error) {
-	basePath, err := deviceBasePath(sourceUID)
+	basePath, err := deviceBasePath(sourceUID, m.kubeletPodsDir)
 	if err != nil {
 		return 0, 0, err
 	}

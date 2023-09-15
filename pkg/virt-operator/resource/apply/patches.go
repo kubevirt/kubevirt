@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -16,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	v1 "kubevirt.io/api/core/v1"
-
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 )
@@ -52,7 +53,8 @@ func flagsToPatches(flags *v1.Flags) []v1.CustomizeComponentsPatch {
 	patches = addFlagsPatch(components.VirtAPIName, "Deployment", flags.API, patches)
 	patches = addFlagsPatch(components.VirtControllerName, "Deployment", flags.Controller, patches)
 	patches = addFlagsPatch(components.VirtHandlerName, "DaemonSet", flags.Handler, patches)
-
+	// special treatment for kubelet data volumes
+	patches = addKubeletVolumesPatch(components.VirtHandlerName, "DaemonSet", flags.Handler, patches)
 	return patches
 }
 
@@ -67,6 +69,44 @@ func addFlagsPatch(name, resource string, flags map[string]string, patches []v1.
 		Patch:        fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"command":["%s","%s"]}]}}}}`, name, name, strings.Join(flagsToArray(flags), `","`)),
 		Type:         v1.StrategicMergePatchType,
 	})
+}
+
+func addKubeletVolumesPatch(name, resource string, flags map[string]string, patches []v1.CustomizeComponentsPatch) []v1.CustomizeComponentsPatch {
+	if len(flags) == 0 {
+		return patches
+	}
+
+	var (
+		kubeletDataPath, kubeletPodsPath, kubeletPluginsPath string
+		kubeletDataPathDefined, kubeletPodsPathDefined       bool
+	)
+
+	kubeletDataPath = flags["kubelet-root"]
+	kubeletPodsPath = flags["kubelet-pods-dir"]
+	kubeletDataPathDefined = strings.Compare(kubeletDataPath, "") != 0 && strings.Compare(util.KubeletRoot, "") != 0
+	kubeletPodsPathDefined = strings.Compare(kubeletPodsPath, "") != 0 && strings.Compare(util.KubeletPodsDir, "") != 0
+	// priority: kubelet-pods-dir > kubelet-root
+	switch {
+	case kubeletDataPathDefined && !kubeletPodsPathDefined:
+		kubeletPodsPath = path.Join(kubeletDataPath, "pods")
+		fallthrough
+	case kubeletDataPathDefined && kubeletPodsPathDefined:
+		kubeletPluginsPath = path.Join(kubeletDataPath, "device-plugins")
+	case !kubeletDataPathDefined && kubeletPodsPathDefined:
+		kubeletPluginsPath = path.Join(util.KubeletRoot, "device-plugins")
+	default:
+		return patches
+	}
+
+	patches = append(patches, v1.CustomizeComponentsPatch{
+		ResourceName: name,
+		ResourceType: resource,
+		Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"%s","volumeMounts":[{"mountPath":"%s","name":"device-plugin"},{"mountPath":"%s","mountPropagation":"Bidirectional","name":"kubelet-pods"}]}],"volumes":[{"hostPath":{"path":"%s"},"name":"device-plugin"},{"hostPath":{"path":"%s"},"name":"kubelet-pods-shortened"},{"hostPath":{"path":"%s"},"name":"kubelet-pods"}]}}}}`,
+			name, kubeletPluginsPath, kubeletPodsPath, kubeletPluginsPath, kubeletPodsPath, kubeletPodsPath),
+		Type: v1.StrategicMergePatchType,
+	})
+
+	return patches
 }
 
 func flagsToArray(flags map[string]string) []string {

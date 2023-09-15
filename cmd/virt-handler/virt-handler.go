@@ -365,6 +365,7 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
+		app.KubeletRoot,
 		vmiSourceInformer,
 		vmiTargetInformer,
 		domainSharedInformer,
