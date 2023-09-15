@@ -60,6 +60,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -417,8 +418,13 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			deadbeafVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine)
+			const unregisterSlipImageWarning = "no Slirp network binding plugin image is set in Kubevirt config, using " +
+				"'quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8' sidecar image for Slirp network binding configuration"
+			warnings := append(testsuite.TestRunConfiguration.WarningToIgnoreList, unregisterSlipImageWarning)
+			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine, libwait.WithWarningsIgnoreList(warnings))
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
+
+			events.ExpectEvent(deadbeafVMI, k8sv1.EventTypeWarning, services.UnregisteredNetworkBindingPluginReason)
 		})
 	})
 

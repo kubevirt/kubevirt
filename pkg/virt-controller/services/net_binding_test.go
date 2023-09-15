@@ -170,7 +170,7 @@ var _ = Describe("Network Binding", func() {
 			}))
 
 			Expect(fakeRecorder.Events).To(HaveLen(1))
-			event := fakeRecorder.Events
+			event := <-fakeRecorder.Events
 			Expect(event).To(Equal(
 				fmt.Sprintf("Warning %s no Slirp network binding plugin image is set in Kubevirt config, using '%s' sidecar image for Slirp network binding configuration",
 					services.UnregisteredNetworkBindingPluginReason, services.DefaultSlirpPluginImage),
