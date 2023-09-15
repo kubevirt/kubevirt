@@ -605,6 +605,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.exporterImage,
 		vca.resourceQuotaInformer.GetStore(),
 		vca.namespaceStore,
+		services.WithEventRecorder(vca.vmiRecorder),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)

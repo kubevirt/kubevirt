@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/record"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -160,6 +161,7 @@ type templateService struct {
 	launcherSubGid             int64
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
+	recorder                   record.EventRecorder
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -1142,6 +1144,8 @@ func getNamespaceAndNetworkName(namespace string, fullNetworkName string) (strin
 	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
 
+type templateServiceOption func(*templateService)
+
 func NewTemplateService(launcherImage string,
 	launcherQemuTimeout int,
 	virtShareDir string,
@@ -1156,7 +1160,9 @@ func NewTemplateService(launcherImage string,
 	launcherSubGid int64,
 	exporterImage string,
 	resourceQuotaStore cache.Store,
-	namespaceStore cache.Store) TemplateService {
+	namespaceStore cache.Store,
+	opts ...templateServiceOption,
+) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
@@ -1178,7 +1184,17 @@ func NewTemplateService(launcherImage string,
 		namespaceStore:             namespaceStore,
 	}
 
+	for _, opt := range opts {
+		opt(&svc)
+	}
+
 	return &svc
+}
+
+func WithEventRecorder(recorder record.EventRecorder) templateServiceOption {
+	return func(svc *templateService) {
+		svc.recorder = recorder
+	}
 }
 
 func copyProbe(probe *v1.Probe) *k8sv1.Probe {
