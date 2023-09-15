@@ -22,14 +22,15 @@ package services
 import (
 	"fmt"
 
-	v1 "kubevirt.io/api/core/v1"
+	k8scorev1 "k8s.io/api/core/v1"
+	k8srecord "k8s.io/client-go/tools/record"
 
-	"kubevirt.io/client-go/log"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 )
 
-func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) (hooks.HookSidecarList, error) {
 	var pluginSidecars hooks.HookSidecarList
 	bindingByName := map[string]v1.InterfaceBindingPlugin{}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -46,30 +47,58 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 			}
 		}
 	}
+
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Slirp != nil {
+			pluginSidecars = append(pluginSidecars, SlirpNetBindingPluginSidecar(vmi, config, recorder))
+		}
+	}
+
 	for _, pluginInfo := range bindingByName {
 		if pluginInfo.SidecarImage != "" {
-			pluginSidecars = append(pluginSidecars, hooks.HookSidecar{Image: pluginInfo.SidecarImage})
+			pluginSidecars = append(pluginSidecars, hooks.HookSidecar{
+				Image:           pluginInfo.SidecarImage,
+				ImagePullPolicy: config.ImagePullPolicy,
+			})
 		}
 	}
 	return pluginSidecars, nil
 }
 
-const SlirpNetworkBindingPluginName = "slirp"
+const (
+	SlirpNetworkBindingPluginName = "slirp"
+	DefaultSlirpPluginImage       = "quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"
 
-func ReadNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, pluginName string) *v1.InterfaceBindingPlugin {
+	// UnregisteredNetworkBindingPluginReason is added to event when a requested network binding plugin's image is not
+	// registered, i.e.: not specified in Kubevirt config network configuration.
+	UnregisteredNetworkBindingPluginReason = "UnregisteredNetworkBindingPlugin"
+)
+
+func SlirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) hooks.HookSidecar {
+	var slirpSidecarImage string
+	if plugin := readNetBindingPluginConfiguration(kvConfig, SlirpNetworkBindingPluginName); plugin == nil {
+		// In case no Slirp network binding plugin is registered (i.e.: specified in in Kubevirt config) use default image
+		// to prevent newly created Slirp VMs from hanging, and reduce friction for users who didn't register an image yet.
+		// TODO: remove this workaround by next Kubevirt release v1.2.0.
+		msg := fmt.Sprintf("no Slirp network binding plugin image is set in Kubevirt config, "+
+			"using '%s' sidecar image for Slirp network binding configuration", DefaultSlirpPluginImage)
+		recorder.Event(vmi, k8scorev1.EventTypeWarning, UnregisteredNetworkBindingPluginReason, msg)
+		slirpSidecarImage = DefaultSlirpPluginImage
+	} else {
+		slirpSidecarImage = plugin.SidecarImage
+	}
+
+	return hooks.HookSidecar{
+		Image:           slirpSidecarImage,
+		ImagePullPolicy: kvConfig.ImagePullPolicy,
+	}
+}
+
+func readNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, pluginName string) *v1.InterfaceBindingPlugin {
 	if kvConfig != nil && kvConfig.NetworkConfiguration != nil && kvConfig.NetworkConfiguration.Binding != nil {
 		if plugin, exist := kvConfig.NetworkConfiguration.Binding[pluginName]; exist {
 			return &plugin
 		}
-	}
-
-	// TODO: in case no Slirp network binding plugin is registered (i.e.: specified in in Kubevirt config) use the
-	// following default image to prevent newly created Slirp VMs from handing, and reduce friction for users who didnt
-	// registered and image yet. This workaround should be removed by the next Kubevirt release v1.2.0.
-	const defaulSlirpPluginImage = "quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"
-	if pluginName == SlirpNetworkBindingPluginName {
-		log.Log.Warningf("no Slirp network binding plugin image is set in Kubevirt config, using %q sidecar image for Slirp network binding configuration", defaulSlirpPluginImage)
-		return &v1.InterfaceBindingPlugin{SidecarImage: defaulSlirpPluginImage}
 	}
 
 	return nil
