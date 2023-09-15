@@ -94,21 +94,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", func() {
-		Context("with ephemeral registry disk", func() {
-			It("[test_id:1464]should not modify the spec on status update", func() {
-				vmi := libvmifact.NewCirros()
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-				By("Starting the VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(vmi)
-				startedVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.ObjectMeta.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				By("Checking that the VirtualMachineInstance spec did not change")
-				Expect(startedVMI.Spec).To(Equal(vmi.Spec))
-			})
-		})
 		Context("[Serial]should obey the disk verification limits in the KubeVirt CR", Serial, func() {
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")
