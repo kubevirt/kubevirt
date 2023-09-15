@@ -144,8 +144,31 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting with virtio-win", func() {
 		Context("with virtio-win as secondary disk", func() {
 			It("[test_id:1467]should boot and have the virtio as sata CDROM", func() {
-				vmi := libvmi.NewAlpine()
-				tests.AddEphemeralCdrom(vmi, "disk4", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskVirtio))
+				withCDRom := func(cdRomName string, bus v1.DiskBus, image string) libvmi.Option {
+					return func(vmi *v1.VirtualMachineInstance) {
+						vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
+							v1.Disk{
+								Name: cdRomName,
+								DiskDevice: v1.DiskDevice{
+									CDRom: &v1.CDRomTarget{
+										Bus: bus,
+									},
+								},
+							},
+						)
+						vmi.Spec.Volumes = append(vmi.Spec.Volumes,
+							v1.Volume{
+								Name: cdRomName,
+								VolumeSource: v1.VolumeSource{
+									ContainerDisk: &v1.ContainerDiskSource{
+										Image: image,
+									},
+								},
+							},
+						)
+					}
+				}
+				vmi := libvmi.NewAlpine(withCDRom("disk4", v1.DiskBusSATA, cd.ContainerDiskFor(cd.ContainerDiskVirtio)))
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("Checking whether the second disk really contains virtio drivers")
