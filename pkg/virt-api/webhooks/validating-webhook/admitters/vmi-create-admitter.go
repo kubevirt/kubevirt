@@ -43,6 +43,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -227,6 +228,22 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateVSOCK(field, spec, config)...)
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validatePersistentState(field, spec, config)...)
+	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
+
+	return causes
+}
+
+func validateDownwardMetrics(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	// Check if serial and feature gate is enabled
+	if downwardmetrics.HasDevice(spec) && !config.DownwardMetricsEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "downwardMetrics virtio serial is not allowed: DownwardMetrics feature gate is not enabled",
+			Field:   field.Child("domain", "devices", "downwardMetrics").String(),
+		})
+	}
 
 	return causes
 }

@@ -10,6 +10,7 @@ go_library(
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hotplug-disk:go_default_library",

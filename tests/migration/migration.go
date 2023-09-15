@@ -552,12 +552,12 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}, 20*time.Second, 1*time.Second).Should(Equal(v1.LiveMigration), "migration method is expected to be Live Migration")
 			})
 
-			It("[test_id:6971]should migrate with a downwardMetrics disk", func() {
+			DescribeTable("should migrate with a downwardMetrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 				vmi := libvmi.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					via,
 				)
-				tests.AddDownwardMetricsVolume(vmi, "vhostmd")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
@@ -569,14 +569,14 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				By("checking if the metrics are still updated after the migration")
 				Eventually(func() error {
-					_, err := libinfra.GetDownwardMetrics(vmi)
+					_, err := metricsGetter(vmi)
 					return err
 				}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				metrics, err := libinfra.GetDownwardMetrics(vmi)
+				metrics, err := metricsGetter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				timestamp := libinfra.GetTimeFromMetrics(metrics)
 				Eventually(func() int {
-					metrics, err := libinfra.GetDownwardMetrics(vmi)
+					metrics, err := metricsGetter(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					return libinfra.GetTimeFromMetrics(metrics)
 				}, 10*time.Second, 1*time.Second).ShouldNot(Equal(timestamp))
@@ -585,7 +585,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
-			})
+
+			},
+				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
+				Entry("channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
+			)
 
 			It("[test_id:6842]should migrate with TSC frequency set", decorators.Invtsc, decorators.TscFrequencies, func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))

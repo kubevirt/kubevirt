@@ -16463,6 +16463,10 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "downwardMetrics": {
+      "description": "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.",
+      "$ref": "#/definitions/v1.DownwardMetrics"
+     },
      "filesystems": {
       "description": "Filesystems describes filesystem which is connected to the vmi.",
       "type": "array",
@@ -16719,6 +16723,9 @@
       "type": "string"
      }
     }
+   },
+   "v1.DownwardMetrics": {
+    "type": "object"
    },
    "v1.DownwardMetricsVolumeSource": {
     "description": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",

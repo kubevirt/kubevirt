@@ -245,6 +245,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices.\nDefaults to false.\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
+		"downwardMetrics":            "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.\n+optional",
 		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
 		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
 		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
@@ -289,6 +290,10 @@ func (Filesystem) SwaggerDoc() map[string]string {
 }
 
 func (FilesystemVirtiofs) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (DownwardMetrics) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

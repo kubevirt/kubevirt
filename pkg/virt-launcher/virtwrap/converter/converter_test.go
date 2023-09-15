@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -876,6 +877,27 @@ var _ = Describe("Converter", func() {
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
 				Expect(domainSpec.CPU.Mode).To(Equal("host-model"))
+			})
+		})
+
+		Context("when downwardMetrics are exposed via virtio-serial", func() {
+			It("should set socket options", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
+				domain := vmiToDomain(vmi, c)
+
+				Expect(domain.Spec.Devices.Channels).To(ContainElement(
+					api.Channel{
+						Type: "unix",
+						Source: &api.ChannelSource{
+							Mode: "bind",
+							Path: downwardmetrics.DownwardMetricsChannelSocket,
+						},
+						Target: &api.ChannelTarget{
+							Type: v1.VirtIO,
+							Name: downwardmetrics.DownwardMetricsSerialDeviceName,
+						},
+					}))
 			})
 		})
 

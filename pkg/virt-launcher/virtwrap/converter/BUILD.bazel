@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "converter.go",
+        "downwardmetrics.go",
         "generated_mock_converter.go",
         "network.go",
         "pci-placement.go",
@@ -15,6 +16,7 @@ go_library(
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/emptydisk:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
@@ -55,6 +57,7 @@ go_test(
         "testdata/domain_x86_64_root.xml.tmpl",
     ],
     deps = [
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/pointer:go_default_library",

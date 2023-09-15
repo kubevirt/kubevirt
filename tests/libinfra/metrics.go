@@ -36,9 +36,21 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-func GetDownwardMetrics(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
+type MetricsGetter func(vmi *v1.VirtualMachineInstance) (*api.Metrics, error)
+
+func GetDownwardMetricsDisk(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
+	cmd := `sudo vm-dump-metrics 2> /dev/null`
+	return runAndCheckDumpMetrics(vmi, cmd)
+}
+
+func GetDownwardMetricsVirtio(vmi *v1.VirtualMachineInstance) (*api.Metrics, error) {
+	cmd := `sudo vm-dump-metrics --virtio 2> /dev/null`
+	return runAndCheckDumpMetrics(vmi, cmd)
+}
+
+func runAndCheckDumpMetrics(vmi *v1.VirtualMachineInstance, cmd string) (*api.Metrics, error) {
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-		&expect.BSnd{S: `sudo vm-dump-metrics 2> /dev/null` + "\n"},
+		&expect.BSnd{S: cmd + "\n"},
 		&expect.BExp{R: `(?s)(<metrics>.+</metrics>)`},
 	}, 5)
 	if err != nil {
