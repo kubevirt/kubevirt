@@ -125,14 +125,17 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
 			It("[test_id:1466]should boot normally", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation), "#!/bin/bash\necho 'hello'\n")
-				for ind, volume := range vmi.Spec.Volumes {
-					if volume.ContainerDisk != nil {
-						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/downloaded"
-					}
+				overrideCustomLocation := func(vmi *v1.VirtualMachineInstance) {
+					vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)
+					vmi.Spec.Volumes[0].ContainerDisk.Path = "/custom-disk/downloaded"
 				}
+				vmi := libvmi.NewCirros(overrideCustomLocation)
+
 				By("Starting the VirtualMachineInstance")
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+
+				By("Verify VMI is booted")
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
 			})
 		})
 
