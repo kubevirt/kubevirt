@@ -37,12 +37,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -60,23 +62,32 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463][Conformance] should success multiple times", func() {
-				vmi := libvmifact.NewCirros()
-				for range 2 {
-					By("Starting the VirtualMachineInstance")
-					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
+				By("Creating the VirtualMachine")
+				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				for range 5 {
+					By("Starting the VirtualMachine")
+					err := virtClient.VirtualMachine(vm.Namespace).Start(context.TODO(), vm.Name, &v1.StartOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-					Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-					libwait.WaitForSuccessfulVMIStart(vmiObj)
 
-					By("Stopping the VirtualMachineInstance")
-					_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmiObj.Namespace).Name(vmi.GetObjectMeta().GetName()).Do(context.Background()).Get()
+					By("Waiting for VMI to be running")
+					Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 2*time.Minute, 1*time.Second).Should(matcher.BeRunning())
+
+					By("Expecting to be able to login")
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
+					Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+					By("Stopping the VirtualMachine")
+					err = virtClient.VirtualMachine(vm.Namespace).Stop(context.TODO(), vm.Name, &v1.StopOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
 					By("Waiting until the VirtualMachineInstance is gone")
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiObj, 120)
+					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			})
 		})
