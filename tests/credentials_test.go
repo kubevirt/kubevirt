@@ -46,6 +46,12 @@ import (
 
 var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute, func() {
 
+	const (
+		fedoraRunningTimeout    = 120
+		guestAgentConnetTimeout = 2 * time.Minute
+		denyListTimeout         = 2 * time.Minute
+	)
+
 	Context("with qemu guest agent", func() {
 		withSSHPK := func(secretName string) libvmi.Option {
 			return func(vmi *v1.VirtualMachineInstance) {
@@ -95,14 +101,14 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
-			Eventually(matcher.ThisVMI(vmi), 45*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+			Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
 
 			By("Verifying all three pub ssh keys in secret are in VMI guest")
 			Expect(console.ExpectBatch(vmi,
@@ -120,7 +126,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 					&expect.BExp{R: "test-ssh-key2"},
 					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 					&expect.BExp{R: "test-ssh-key3"},
-				}, time.Second*180)).To(Succeed())
+				}, 3*time.Minute)).To(Succeed())
 		})
 
 		It("[test_id:6221]should propagate user password", func() {
@@ -134,16 +140,18 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				"fedora": []byte(customPassword),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Verifying signin with custom password works")
 
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
-			Eventually(matcher.ThisVMI(vmi), 45*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+			Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+
+			By("Verifying signin with custom password works")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BSnd{S: "\n"},
@@ -152,7 +160,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				&expect.BExp{R: "Password:"},
 				&expect.BSnd{S: customPassword + "\n"},
 				&expect.BExp{R: "\\$"},
-			}, time.Second*180)).To(Succeed())
+			}, 3*time.Minute)).To(Succeed())
 
 		})
 
@@ -170,13 +178,13 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
 			})
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
-			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
+			Eventually(matcher.ThisVMI(vmi), denyListTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 
 		It("[test_id:6223]should update guest agent for user password", func() {
@@ -192,13 +200,13 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			createNewSecret(secretID, map[string][]byte{
 				"fedora": []byte(customPassword),
 			})
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
-			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
+			Eventually(matcher.ThisVMI(vmi), denyListTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 	})
 	Context("with secret and cloudInit propagation", func() {
@@ -224,7 +232,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				&expect.BExp{R: "test-ssh-key2"},
 				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 				&expect.BExp{R: "test-ssh-key3"},
-			}, time.Second*180)).To(Succeed())
+			}, 3*time.Minute)).To(Succeed())
 		}
 
 		BeforeEach(func() {
@@ -261,7 +269,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				vmi := libvmi.NewFedora(
 					libvmi.WithCloudInitConfigDriveData(userData, false),
 					withSSHPK(secretID))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 				verifySSHKeys(vmi)
 			})
 		})
@@ -290,7 +298,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				vmi := libvmi.NewFedora(
 					libvmi.WithCloudInitNoCloudUserData(userData, false),
 					withSSHPK(secretID))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
 				verifySSHKeys(vmi)
 			})
 		})
