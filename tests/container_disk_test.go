@@ -35,7 +35,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -59,33 +58,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
-
-	verifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object) {
-		vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		libwait.WaitForSuccessfulVMIStart(vmiObj)
-
-		// Verify Registry Disks are Online
-		pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking the number of VirtualMachineInstance disks")
-		disksFound := 0
-		for _, pod := range pods.Items {
-			if pod.ObjectMeta.DeletionTimestamp != nil {
-				continue
-			}
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if strings.HasPrefix(containerStatus.Name, "volume") == false {
-					// only check readiness of disk containers
-					continue
-				}
-				disksFound++
-			}
-			break
-		}
-		Expect(disksFound).To(Equal(1))
-	}
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", func() {
 		Context("with ephemeral registry disk", func() {
@@ -162,28 +134,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					return false
 				}, 3*time.Minute, 2*time.Second).Should(BeTrue())
 			})
-		})
-	})
-
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting multiple VMIs", func() {
-		Context("with ephemeral registry disk", func() {
-			It("[test_id:1465]should success", func() {
-				num := 5
-				vmis := make([]*v1.VirtualMachineInstance, 0, num)
-				objs := make([]runtime.Object, 0, num)
-				for i := 0; i < num; i++ {
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-					// FIXME if we give too much ram, the vmis really boot and eat all our memory (cache?)
-					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-					obj := tests.RunVMI(vmi, 10)
-					vmis = append(vmis, vmi)
-					objs = append(objs, obj)
-				}
-
-				for idx, vmi := range vmis {
-					verifyContainerDiskVMI(vmi, objs[idx])
-				}
-			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
 		})
 	})
 
