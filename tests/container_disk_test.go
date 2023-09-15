@@ -191,6 +191,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
+	// TODO: Could we make this unit test?
+	// The main point is - we should not modify container disk - cow
+	// What is left is to check qcow - cow
 	Describe("[rfe_id:4052][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
