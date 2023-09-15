@@ -54,6 +54,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "container_disk_test.go",
         "multus_annotations_test.go",
         "net_binding_test.go",
         "nodeselectorrenderer_test.go",
