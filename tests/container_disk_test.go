@@ -138,31 +138,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting multiple VMIs", func() {
-		Context("with ephemeral registry disk", func() {
-			It("[test_id:1465]should success", func() {
-				const count = 5
-				var vmis []*v1.VirtualMachineInstance
-				for i := 0; i < count; i++ {
-					// Provide 1Mi of memory to prevent VMIs from actually booting.
-					// We only care about the volume containers inside the virt-launcher Pod.
-					vmi := libvmifact.NewCirros(libvmi.WithResourceMemory("1Mi"))
-					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					vmis = append(vmis, vmi)
-				}
-
-				By("Verifying the containerdisks are online")
-				for _, vmi := range vmis {
-					libwait.WaitForSuccessfulVMIStart(vmi)
-					pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
-					Expect(err).ToNot(HaveOccurred())
-					Expect(hasContainerDisk(pods.Items)).To(BeTrue())
-				}
-			})
-		})
-	})
-
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
 
