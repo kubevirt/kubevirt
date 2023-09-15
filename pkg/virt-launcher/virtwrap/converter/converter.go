@@ -1218,6 +1218,10 @@ func isUSBNeeded(c *ConverterContext, vmi *v1.VirtualMachineInstance) bool {
 		return true
 	}
 
+	if device.USBDevicesFound(vmi.Spec.Domain.Devices.HostDevices) {
+		return true
+	}
+
 	return false
 }
 
