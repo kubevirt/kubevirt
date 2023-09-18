@@ -7891,7 +7891,7 @@ var CRDsValidation map[string]string = map[string]string{
           additionalProperties:
             type: string
           description: Optionally defines the required Annotations to be used by the
-            instance type and applied to the VirtualMachineInstance
+            instance type and applied to the VirtualMachineInstance and VirtualMachine.
           type: object
         cpu:
           description: Required CPU related attributes of the instancetype.
@@ -16778,7 +16778,7 @@ var CRDsValidation map[string]string = map[string]string{
           additionalProperties:
             type: string
           description: Optionally defines the required Annotations to be used by the
-            instance type and applied to the VirtualMachineInstance
+            instance type and applied to the VirtualMachineInstance and VirtualMachine.
           type: object
         cpu:
           description: Required CPU related attributes of the instancetype.

@@ -1394,12 +1394,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 			})
 
-			It("should apply to VMI", func() {
+			It("should apply to VMI and VM", func() {
 				instancetypeSpec.Annotations = multipleAnnotations
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)
+				conflicts = append(conflicts, instancetype.ApplyInstanceTypeAnnotations(instancetypeSpec.Annotations, &vm.ObjectMeta)...)
 				Expect(conflicts).To(BeEmpty())
 				Expect(vmi.Annotations).To(Equal(instancetypeSpec.Annotations))
+				Expect(vm.Annotations).To(Equal(instancetypeSpec.Annotations))
 			})
 
 			It("should not detect conflict when annotation with the same value already exists", func() {
@@ -1438,12 +1440,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 				}
 			})
 
-			It("should apply to VMI", func() {
+			It("should apply to VMI and VM", func() {
 				preferenceSpec.Annotations = multipleAnnotations
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, nil, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+				instancetype.ApplyPreferenceAnnotations(preferenceSpec.Annotations, &vm.ObjectMeta)
 				Expect(conflicts).To(BeEmpty())
 				Expect(vmi.Annotations).To(Equal(preferenceSpec.Annotations))
+				Expect(vm.Annotations).To(Equal(preferenceSpec.Annotations))
 			})
 
 			It("should not overwrite already existing values", func() {
