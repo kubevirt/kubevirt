@@ -28257,7 +28257,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineInstancetypeSpec(r
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance",
+							Description: "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance and VirtualMachine.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,

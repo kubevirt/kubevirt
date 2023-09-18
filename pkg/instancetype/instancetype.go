@@ -434,7 +434,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 		conflicts = append(conflicts, applyLaunchSecurity(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyGPUs(field, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyHostDevices(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
+		conflicts = append(conflicts, ApplyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
 	}
 
 	if preferenceSpec != nil {
@@ -447,7 +447,7 @@ func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec 
 		applyClockPreferences(preferenceSpec, vmiSpec)
 		applySubdomain(preferenceSpec, vmiSpec)
 		applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
-		applyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
+		ApplyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
 	}
 
 	return conflicts
@@ -853,7 +853,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
 }
 
-func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
+func ApplyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}
@@ -872,7 +872,7 @@ func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.O
 	return conflicts
 }
 
-func applyPreferenceAnnotations(annotations map[string]string, target metav1.Object) {
+func ApplyPreferenceAnnotations(annotations map[string]string, target metav1.Object) {
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}

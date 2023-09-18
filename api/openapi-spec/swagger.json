@@ -22794,7 +22794,7 @@
     ],
     "properties": {
      "annotations": {
-      "description": "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance",
+      "description": "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance and VirtualMachine.",
       "type": "object",
       "additionalProperties": {
        "type": "string",
