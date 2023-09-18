@@ -126,6 +126,8 @@ const (
 	VirtlogdOverhead            = "20Mi"  // The `ps` RSS for virtlogd
 	VirtqemudOverhead           = "35Mi"  // The `ps` RSS for virtqemud
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
+	// Default: limits.memory = 2*requests.memory
+	DefaultMemoryLimitOverheadRatio = float64(2.0)
 )
 
 const customSELinuxType = "virt_launcher.process"
@@ -156,6 +158,8 @@ type templateService struct {
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
+	resourceQuotaStore         cache.Store
+	namespaceStore             cache.Store
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -1129,7 +1133,9 @@ func NewTemplateService(launcherImage string,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
-	exporterImage string) TemplateService {
+	exporterImage string,
+	resourceQuotaStore cache.Store,
+	namespaceStore cache.Store) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
@@ -1147,6 +1153,8 @@ func NewTemplateService(launcherImage string,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
 		exporterImage:              exporterImage,
+		resourceQuotaStore:         resourceQuotaStore,
+		namespaceStore:             namespaceStore,
 	}
 
 	return &svc
@@ -1358,6 +1366,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
+			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
 				return len(networkToResourceMap) > 0
 			}, WithNetworkResources(networkToResourceMap)),
@@ -1367,6 +1376,26 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}
+}
+
+func (t *templateService) doesVMIRequireAutoMemoryLimits(vmi *v1.VirtualMachineInstance) bool {
+	if !t.clusterConfig.AutoResourceLimitsEnabled() {
+		return false
+	}
+
+	if _, memLimitsExists := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; memLimitsExists {
+		return false
+	}
+
+	for _, obj := range t.resourceQuotaStore.List() {
+		if resourceQuota, ok := obj.(*k8sv1.ResourceQuota); ok {
+			if _, exists := resourceQuota.Spec.Hard[k8sv1.ResourceLimitsMemory]; exists && resourceQuota.Namespace == vmi.Namespace {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (p VMIResourcePredicates) Apply() []ResourceRendererOption {

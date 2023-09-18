@@ -92,6 +92,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
+	var rqInformer cache.SharedIndexInformer
+	var nsInformer cache.SharedIndexInformer
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -263,8 +265,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
+		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		controller, _ = NewVMIController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,
