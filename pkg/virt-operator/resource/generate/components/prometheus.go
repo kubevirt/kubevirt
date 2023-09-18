@@ -687,6 +687,14 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 			MType:       prometheusv1.MetricTypeCounter,
 			Description: "The total number of requests to deprecated KubeVirt APIs.",
 		},
+		{
+			Rule: v1.Rule{
+				Record: "kubevirt_migrate_vmi_disk_transfer_rate_bytes",
+				Expr:   intstr.FromString("irate(kubevirt_migrate_vmi_data_processed_bytes[5m])"),
+			},
+			MType:       prometheusv1.MetricTypeGauge,
+			Description: "The rate at which the disk is being transferred.",
+		},
 	}
 }
 
