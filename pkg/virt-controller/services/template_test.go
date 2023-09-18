@@ -72,6 +72,8 @@ var _ = Describe("Template", func() {
 	var config *virtconfig.ClusterConfig
 	var kvInformer cache.SharedIndexInformer
 	var nonRootUser int64
+	resourceQuotaStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	namespaceStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,6 +122,8 @@ var _ = Describe("Template", func() {
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -4456,6 +4460,230 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
 			Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
 			Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
+		})
+	})
+
+	Context("with auto Memory limits", func() {
+		const (
+			rqNamespace   = "rq-namespace"
+			noRqNamespace = "no-rq-namespace"
+		)
+		var guestMemory resource.Quantity
+
+		BeforeEach(func() {
+			config, kvInformer, svc = configFactory(defaultArch)
+			guestMemory = resource.MustParse("64M")
+
+			sampleQuantity := resource.MustParse("128M")
+			resourceQuotaWithMemoryLimits := kubev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: rqNamespace,
+				},
+				Spec: kubev1.ResourceQuotaSpec{
+					Hard: kubev1.ResourceList{
+						kubev1.ResourceLimitsMemory: sampleQuantity,
+					},
+				},
+			}
+			err := resourceQuotaStore.Add(&resourceQuotaWithMemoryLimits)
+			Expect(err).ToNot(HaveOccurred())
+
+			resourceQuotaWithoutMemoryLimits := kubev1.ResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: noRqNamespace,
+				},
+				Spec: kubev1.ResourceQuotaSpec{
+					Hard: kubev1.ResourceList{
+						kubev1.ResourceMemory: sampleQuantity,
+					},
+				},
+			}
+			err = resourceQuotaStore.Add(&resourceQuotaWithoutMemoryLimits)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			for _, ns := range resourceQuotaStore.List() {
+				err := resourceQuotaStore.Delete(ns)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		When("the auto memory limits feature gate is disabled", func() {
+
+			It("should not set memory limits", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: rqNamespace,
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{kubev1.ResourceMemory: guestMemory},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeZero())
+			})
+		})
+
+		When("the auto memory limits feature gate is enabled", func() {
+
+			BeforeEach(func() {
+				By("enabling the auto memory limits feature gate")
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			})
+
+			Context("when the creation namespace has a resource quota with memory limits associated to it", func() {
+
+				DescribeTable("should not override limits", func(withLimits, withDedicatedCPU bool) {
+					resources := v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{kubev1.ResourceMemory: guestMemory},
+					}
+					if withLimits {
+						resources.Limits = kubev1.ResourceList{kubev1.ResourceMemory: guestMemory}
+					}
+
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: rqNamespace,
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Resources: resources,
+								CPU:       &v1.CPU{DedicatedCPUPlacement: withDedicatedCPU},
+							},
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+					expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
+					expectedMemory.Add(GetMemoryOverhead(&vmi, defaultArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
+					expectedMemory.Add(guestMemory)
+					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedMemory.Value()))
+				},
+					Entry("if they are already set in the vmi", true, false),
+					Entry("if the vmi is requesting dedicated CPU", false, true),
+				)
+
+				When("vmi does not have memory limits set", func() {
+					It("should automatically set limits using the default ratio", func() {
+						vmi := v1.VirtualMachineInstance{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "testvmi",
+								Namespace: rqNamespace,
+								UID:       "1234",
+							},
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									Resources: v1.ResourceRequirements{
+										Requests: kubev1.ResourceList{kubev1.ResourceMemory: guestMemory},
+									},
+								},
+							},
+						}
+
+						pod, err := svc.RenderLaunchManifest(&vmi)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+						expectedValue := int64(float64(pod.Spec.Containers[0].Resources.Requests.Memory().Value()) * DefaultMemoryLimitOverheadRatio)
+						Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedValue))
+					})
+
+					When("there is the custom ratio label in the namespace", func() {
+						DescribeTable("should set limits", func(ratioLabelValue string, expectedUsedRatio float64) {
+							namespaceWithCustomMemoryRatio := kubev1.Namespace{
+								TypeMeta: metav1.TypeMeta{
+									Kind: "Namespace",
+								},
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "custom-memory-ratio-ns",
+									Labels: map[string]string{
+										v1.AutoMemoryLimitsRatioLabel: ratioLabelValue,
+									},
+								},
+							}
+							err := namespaceStore.Add(&namespaceWithCustomMemoryRatio)
+							Expect(err).ToNot(HaveOccurred())
+
+							sampleQuantity := resource.MustParse("128M")
+							resourceQuotaWithMemoryLimits := kubev1.ResourceQuota{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "custom-memory-ratio-ns",
+								},
+								Spec: kubev1.ResourceQuotaSpec{
+									Hard: kubev1.ResourceList{
+										kubev1.ResourceLimitsMemory: sampleQuantity,
+									},
+								},
+							}
+							err = resourceQuotaStore.Add(&resourceQuotaWithMemoryLimits)
+							Expect(err).ToNot(HaveOccurred())
+
+							vmi := v1.VirtualMachineInstance{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      "testvmi",
+									Namespace: "custom-memory-ratio-ns",
+									UID:       "1234",
+								},
+								Spec: v1.VirtualMachineInstanceSpec{
+									Domain: v1.DomainSpec{
+										Resources: v1.ResourceRequirements{
+											Requests: kubev1.ResourceList{kubev1.ResourceMemory: guestMemory},
+										},
+									},
+								},
+							}
+
+							pod, err := svc.RenderLaunchManifest(&vmi)
+							Expect(err).ToNot(HaveOccurred())
+							Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+							expectedValue := int64(float64(pod.Spec.Containers[0].Resources.Requests.Memory().Value()) * expectedUsedRatio)
+							Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedValue))
+						},
+							Entry("using default ratio value if the label value is not a float", "not_a_float", DefaultMemoryLimitOverheadRatio),
+							Entry("using custom ratio value if the label value is a float", "3.2", 3.2),
+						)
+					})
+				})
+			})
+
+			Context("when the creation namespace have a resource quota without memory limits associated to it", func() {
+				It("should not set memory limits", func() {
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: noRqNamespace,
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								Resources: v1.ResourceRequirements{
+									Requests: kubev1.ResourceList{kubev1.ResourceMemory: guestMemory},
+								},
+							},
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeZero())
+				})
+			})
 		})
 	})
 })
