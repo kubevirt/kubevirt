@@ -24,9 +24,6 @@ import (
 	"strconv"
 	"strings"
 
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
-
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/golang/mock/gomock"
@@ -4378,87 +4375,228 @@ var _ = Describe("Template", func() {
 	})
 
 	Context("with auto CPU limits", func() {
+		const (
+			rqNamespace   = "rq-namespace"
+			noRqNamespace = "no-rq-namespace"
+		)
+		var cpuRequests resource.Quantity
+
 		BeforeEach(func() {
-			By("setting the expected label only on the default namespace")
-			k8sClient := k8sfake.NewSimpleClientset()
-			k8sClient.Fake.PrependReactor("get", "namespaces", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-				var ns k8sv1.Namespace
-				update, ok := action.(testing.GetAction)
-				Expect(ok).To(BeTrue())
-				if update.GetName() == "default" {
-					ns = k8sv1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "default",
-							Labels: map[string]string{"testAutoLimits": "true"},
-						},
-					}
-				} else {
-					ns = k8sv1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: update.GetName(),
-						},
-					}
-				}
-				return true, &ns, nil
-			})
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-
-			By("enabling the auto CPU limit namespace selector")
 			config, kvInformer, svc = configFactory(defaultArch)
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
-				MatchLabels: map[string]string{"testAutoLimits": "true"},
-			}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-		})
-
-		It("should automatically set CPU limits when enabled on both the CR and the namespace", func() {
-			vmi := v1.VirtualMachineInstance{
+			cpuRequests = resource.MustParse("200m")
+			sampleQuantity := resource.MustParse("900m")
+			resourceQuotaWithCPULimits := kubev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
+					Namespace: rqNamespace,
 				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
-						CPU: &v1.CPU{
-							Cores: 2,
-						},
+				Spec: kubev1.ResourceQuotaSpec{
+					Hard: kubev1.ResourceList{
+						kubev1.ResourceLimitsCPU: sampleQuantity,
 					},
 				},
 			}
-
-			pod, err := svc.RenderLaunchManifest(&vmi)
+			err := resourceQuotaStore.Add(&resourceQuotaWithCPULimits)
 			Expect(err).ToNot(HaveOccurred())
-			cpuRequests := resource.MustParse("200m")
-			cpuLimit := resource.MustParse("2")
-			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
-			Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
-			Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpuLimit)).To(BeZero())
-		})
 
-		It("should not automatically set CPU limits when enabled on the CR but not on the namespace", func() {
-			vmi := v1.VirtualMachineInstance{
+			resourceQuotaWithoutCPULimits := kubev1.ResourceQuota{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "somethingelse",
-					UID:       "1234",
+					Namespace: noRqNamespace,
 				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
-						CPU: &v1.CPU{
-							Cores: 2,
-						},
+				Spec: kubev1.ResourceQuotaSpec{
+					Hard: kubev1.ResourceList{
+						kubev1.ResourceCPU: sampleQuantity,
 					},
 				},
 			}
-
-			pod, err := svc.RenderLaunchManifest(&vmi)
+			err = resourceQuotaStore.Add(&resourceQuotaWithoutCPULimits)
 			Expect(err).ToNot(HaveOccurred())
-			cpuRequests := resource.MustParse("200m")
-			Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
-			Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
-			Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
+		})
+
+		AfterEach(func() {
+			for _, ns := range resourceQuotaStore.List() {
+				err := resourceQuotaStore.Delete(ns)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		When("the auto resource limits feature gate is disabled", func() {
+			BeforeEach(func() {
+				By("enabling the auto CPU limit namespace selector")
+				config, kvInformer, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
+					MatchLabels: map[string]string{"testAutoLimits": "true"},
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			})
+
+			It("should not automatically set CPU limits when namespace labels does not match AutoCPULimitNamespaceLabelSelector", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "somethingelse",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores: 2,
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				cpuRequests := resource.MustParse("200m")
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
+				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
+			})
+
+			It("should automatically set CPU limits when namespace labels match AutoCPULimitNamespaceLabelSelector", func() {
+				namespaceWithMatchingLabels := kubev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "Namespace",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "matching-label-ns",
+						Labels: map[string]string{"testAutoLimits": "true"},
+					},
+				}
+				err := namespaceStore.Add(&namespaceWithMatchingLabels)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "matching-label-ns",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores: 2,
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				cpuLimit := resource.MustParse("2")
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
+				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpuLimit)).To(BeZero())
+			})
+		})
+
+		When("the auto resource limits feature gate is enabled", func() {
+			BeforeEach(func() {
+				By("enabling the auto resource limits feature gate")
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+			})
+
+			Context("when the creation namespace has a resource quota with CPU limits associated to it", func() {
+				When("vmi has CPU limits set", func() {
+					It("should not override limits", func() {
+						expectedCPU := resource.NewScaledQuantity(0, resource.Kilo)
+						expectedCPU.Add(resource.MustParse("150m"))
+						expectedCPU.Add(cpuRequests)
+						resources := v1.ResourceRequirements{
+							Requests: kubev1.ResourceList{kubev1.ResourceCPU: cpuRequests},
+							Limits:   kubev1.ResourceList{kubev1.ResourceCPU: *expectedCPU},
+						}
+
+						vmi := v1.VirtualMachineInstance{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "testvmi",
+								Namespace: rqNamespace,
+								UID:       "1234",
+							},
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									Resources: resources,
+									CPU: &v1.CPU{
+										Cores: 2,
+									},
+								},
+							},
+						}
+
+						pod, err := svc.RenderLaunchManifest(&vmi)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+						Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(BeEquivalentTo(expectedCPU.Value()))
+					})
+				})
+
+				When("vmi does not have CPU limits set", func() {
+					It("should automatically set limits", func() {
+						vmi := v1.VirtualMachineInstance{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "testvmi",
+								Namespace: rqNamespace,
+								UID:       "1234",
+							},
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores: 2,
+									},
+									Resources: v1.ResourceRequirements{
+										Requests: kubev1.ResourceList{kubev1.ResourceCPU: cpuRequests},
+									},
+								},
+							},
+						}
+
+						pod, err := svc.RenderLaunchManifest(&vmi)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+						Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Value()).To(BeEquivalentTo(2))
+					})
+				})
+			})
+
+			Context("when the creation namespace has a resource quota without CPU limits associated to it", func() {
+				BeforeEach(func() {
+					By("enabling the auto CPU limit namespace selector")
+					config, kvInformer, svc = configFactory(defaultArch)
+					kvConfig := kv.DeepCopy()
+					kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
+						MatchLabels: map[string]string{"testAutoLimits": "true"},
+					}
+					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
+					testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+				})
+
+				It("should not automatically set CPU limits when namespace labels does not match AutoCPULimitNamespaceLabelSelector", func() {
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "somethingelse",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Domain: v1.DomainSpec{
+								CPU: &v1.CPU{
+									Cores: 2,
+								},
+							},
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					cpuRequests := resource.MustParse("200m")
+					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+					Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Cmp(cpuRequests)).To(BeZero())
+					Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().IsZero()).To(BeTrue())
+				})
+			})
 		})
 	})
 
@@ -4508,7 +4646,7 @@ var _ = Describe("Template", func() {
 			}
 		})
 
-		When("the auto memory limits feature gate is disabled", func() {
+		When("the auto resource limits feature gate is disabled", func() {
 
 			It("should not set memory limits", func() {
 				vmi := v1.VirtualMachineInstance{
@@ -4533,10 +4671,10 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		When("the auto memory limits feature gate is enabled", func() {
+		When("the auto resource limits feature gate is enabled", func() {
 
 			BeforeEach(func() {
-				By("enabling the auto memory limits feature gate")
+				By("enabling the auto resource limits feature gate")
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.AutoResourceLimitsGate}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)

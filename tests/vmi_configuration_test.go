@@ -1985,26 +1985,29 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("with automatic resource limits FG enabled", decorators.AutoResourceLimitsGate, func() {
 
-		When("there is no ResourceQuota with memory limits associated with the creation namespace", func() {
+		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
 			It("should not automatically set memory limits in the virt-launcher pod", func() {
 				vmi := libvmi.NewCirros()
 				By("Creating a running VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-				By("Ensuring no memory limit is set")
+				By("Ensuring no memory and cpu limits are set")
 				readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
 				_, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
 				Expect(exists).To(BeFalse(), "Memory limits set on the compute container when none was expected")
+				_, exists = computeContainer.Resources.Limits[kubev1.ResourceCPU]
+				Expect(exists).To(BeFalse(), "CPU limits set on the compute container when none was expected")
 			})
 		})
 
-		When("a ResourceQuota with memory limits is associated to the creation namespace", func() {
+		When("a ResourceQuota with memory and cpu limits is associated to the creation namespace", func() {
 			var (
-				vmi                    *virtv1.VirtualMachineInstance
-				expectedLauncherLimits *resource.Quantity
-				vmiRequest             resource.Quantity
+				vmi                       *virtv1.VirtualMachineInstance
+				expectedLauncherMemLimits *resource.Quantity
+				expectedLauncherCPULimits resource.Quantity
+				vmiRequest                resource.Quantity
 			)
 
 			BeforeEach(func() {
@@ -2012,15 +2015,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				delta := resource.MustParse("100Mi")
 				vmi = libvmi.NewCirros(
 					libvmi.WithResourceMemory(vmiRequest.String()),
+					libvmi.WithCPUCount(1, 1, 1),
 				)
 				vmiPodRequest := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 				vmiPodRequest.Add(vmiRequest)
 				value := int64(float64(vmiPodRequest.Value()) * services.DefaultMemoryLimitOverheadRatio)
 
-				expectedLauncherLimits = resource.NewQuantity(value, vmiPodRequest.Format)
+				expectedLauncherMemLimits = resource.NewQuantity(value, vmiPodRequest.Format)
+				expectedLauncherCPULimits = resource.MustParse("1")
 
 				// Add a delta to not saturate the rq
-				rqLimit := expectedLauncherLimits.DeepCopy()
+				rqLimit := expectedLauncherMemLimits.DeepCopy()
 				rqLimit.Add(delta)
 				By("Creating a Resource Quota with memory limits")
 				rq := &kubev1.ResourceQuota{
@@ -2031,6 +2036,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					Spec: k8sv1.ResourceQuotaSpec{
 						Hard: kubev1.ResourceList{
 							k8sv1.ResourceLimitsMemory: resource.MustParse(rqLimit.String()),
+							k8sv1.ResourceLimitsCPU:    resource.MustParse("1500m"),
 						},
 					},
 				}
@@ -2042,13 +2048,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Starting the VMI")
 				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
-				By("Ensuring the memory limit is set to the correct value")
+				By("Ensuring the memory and cpu limits are set to the correct values")
 				readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
 				computeContainer := tests.GetComputeContainerOfPod(readyPod)
-				limits, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
-				Expect(exists).To(BeTrue(), "expected memory limits not set on the compute container")
-				Expect(limits.Value()).To(BeEquivalentTo(expectedLauncherLimits.Value()))
+				memLimits, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
+				Expect(exists).To(BeTrue(), "expected memory limits set on the compute container")
+				Expect(memLimits.Value()).To(BeEquivalentTo(expectedLauncherMemLimits.Value()))
+				cpuLimits, exists := computeContainer.Resources.Limits[kubev1.ResourceCPU]
+				Expect(exists).To(BeTrue(), "expected cpu limits set on the compute container")
+				Expect(cpuLimits.Value()).To(BeEquivalentTo(expectedLauncherCPULimits.Value()))
 			})
 		})
 	})

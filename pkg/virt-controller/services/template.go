@@ -20,7 +20,6 @@
 package services
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -1350,7 +1349,12 @@ func checkForKeepLauncherAfterFailure(vmi *v1.VirtualMachineInstance) bool {
 	return keepLauncherAfterFailure
 }
 
-func requiresCPULimits(virtClient kubecli.KubevirtClient, labelSelector *metav1.LabelSelector, vmi *v1.VirtualMachineInstance) bool {
+func (t *templateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInstance) bool {
+	if t.doesVMIRequireAutoResourceLimits(vmi, k8sv1.ResourceCPU) {
+		return true
+	}
+
+	labelSelector := t.clusterConfig.GetConfig().AutoCPULimitNamespaceLabelSelector
 	_, limitSet := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
 	if labelSelector == nil || limitSet {
 		return false
@@ -1360,13 +1364,28 @@ func requiresCPULimits(virtClient kubecli.KubevirtClient, labelSelector *metav1.
 		log.DefaultLogger().Reason(err).Warning("invalid CPULimitNamespaceLabelSelector set, assuming none")
 		return false
 	}
-	namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), vmi.Namespace, metav1.GetOptions{})
-	if err != nil {
-		log.DefaultLogger().Reason(err).Warningf("failed to get namespace %s", vmi.Namespace)
+
+	if t.namespaceStore == nil {
+		log.DefaultLogger().Reason(err).Warning("empty namespace informer")
 		return false
 	}
 
-	if selector.Matches(labels.Set(namespace.Labels)) {
+	obj, exists, err := t.namespaceStore.GetByKey(vmi.Namespace)
+	if err != nil {
+		log.Log.Warning("Error retrieving namespace from informer")
+		return false
+	} else if !exists {
+		log.Log.Warningf("namespace %s does not exist.", vmi.Namespace)
+		return false
+	}
+
+	ns, ok := obj.(*k8sv1.Namespace)
+	if !ok {
+		log.Log.Errorf("couldn't cast object to Namespace: %+v", obj)
+		return false
+	}
+
+	if selector.Matches(labels.Set(ns.Labels)) {
 		return true
 	}
 
@@ -1375,7 +1394,7 @@ func requiresCPULimits(virtClient kubecli.KubevirtClient, labelSelector *metav1.
 
 func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
 	memoryOverhead := GetMemoryOverhead(vmi, t.clusterConfig.GetClusterCPUArch(), t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
-	withCPULimits := requiresCPULimits(t.virtClient, t.clusterConfig.GetConfig().AutoCPULimitNamespaceLabelSelector, vmi)
+	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
@@ -1396,17 +1415,20 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 }
 
 func (t *templateService) doesVMIRequireAutoMemoryLimits(vmi *v1.VirtualMachineInstance) bool {
+	return t.doesVMIRequireAutoResourceLimits(vmi, k8sv1.ResourceMemory)
+}
+
+func (t *templateService) doesVMIRequireAutoResourceLimits(vmi *v1.VirtualMachineInstance, resource k8sv1.ResourceName) bool {
 	if !t.clusterConfig.AutoResourceLimitsEnabled() {
 		return false
 	}
-
-	if _, memLimitsExists := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; memLimitsExists {
+	if _, resourceLimitsExists := vmi.Spec.Domain.Resources.Limits[resource]; resourceLimitsExists {
 		return false
 	}
 
 	for _, obj := range t.resourceQuotaStore.List() {
 		if resourceQuota, ok := obj.(*k8sv1.ResourceQuota); ok {
-			if _, exists := resourceQuota.Spec.Hard[k8sv1.ResourceLimitsMemory]; exists && resourceQuota.Namespace == vmi.Namespace {
+			if _, exists := resourceQuota.Spec.Hard["limits."+resource]; exists && resourceQuota.Namespace == vmi.Namespace {
 				return true
 			}
 		}
