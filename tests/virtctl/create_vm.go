@@ -62,11 +62,15 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Running).To(BeNil())
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
 		})
 
 		It("Example with volume-import flag and PVC type", func() {
 			const runStrategy = v1.RunStrategyAlways
-			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), util.NamespaceTestDefault, size, nil)
+			instancetype := createInstancetype(virtClient)
+			preference := createPreference(virtClient)
+			pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
 				setFlag(RunStrategyFlag, string(runStrategy)),
@@ -79,6 +83,15 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
+			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
+			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
@@ -86,21 +99,26 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		})
 
 		It("Example with volume-import flag and Registry type", func() {
+			const volName = "registry-source"
 			const runStrategy = v1.RunStrategyAlways
 			cdSource := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
 				setFlag(RunStrategyFlag, string(runStrategy)),
-				setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,url:docker://%s,name:registry-source", size, cdSource)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:registry,size:%s,url:docker://%s,name:%s", size, cdSource, volName)),
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := createVMWithRWOVolume(out, virtClient)
 
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
-			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("registry-source"))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volName))
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Registry).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Registry.URL).To(HaveValue(Equal("docker://" + cdSource)))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
@@ -120,6 +138,10 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
 			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.Blank).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
 		})
@@ -164,14 +186,18 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
 
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
 
@@ -248,8 +274,8 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 				setFlag(NameFlag, vmName),
 				setFlag(RunStrategyFlag, string(runStrategy)),
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
-				setFlag(InferInstancetypeFlag, ""),
-				setFlag(InferPreferenceFlag, dvtDsName),
+				setFlag(InferInstancetypeFlag, "true"),
+				setFlag(InferPreferenceFromFlag, dvtDsName),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s", dataSource.Namespace, dataSource.Name)),
 				setFlag(ClonePvcVolumeFlag, fmt.Sprintf("src:%s/%s,bootorder:%d", pvc.Namespace, pvc.Name, pvcBootOrder)),
 				setFlag(BlankVolumeFlag, fmt.Sprintf("size:%s", blankSize)),
@@ -269,14 +295,18 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Template.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(terminationGracePeriod))
 
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
 
@@ -369,6 +399,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		Expect(vm.Spec.Preference).ToNot(BeNil())
 		Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 		Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+		Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 
 		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
 

@@ -56,19 +56,22 @@ const (
 	CloudInitUserDataFlag      = "cloud-init-user-data"
 	CloudInitNetworkDataFlag   = "cloud-init-network-data"
 	InferInstancetypeFlag      = "infer-instancetype"
+	InferInstancetypeFromFlag  = "infer-instancetype-from"
 	InferPreferenceFlag        = "infer-preference"
+	InferPreferenceFromFlag    = "infer-preference-from"
 	VolumeImportFlag           = "volume-import"
 
-	cloudInitDisk    = "cloudinitdisk"
-	inferNoOptDefVal = "inferNoOptDefVal"
-	blank            = "blank"
-	http             = "http"
-	imageIO          = "imageio"
-	pvc              = "pvc"
-	registry         = "registry"
-	s3               = "s3"
-	vddk             = "vddk"
-	snapshot         = "snapshot"
+	cloudInitDisk = "cloudinitdisk"
+	blank         = "blank"
+	http          = "http"
+	imageIO       = "imageio"
+	pvc           = "pvc"
+	registry      = "registry"
+	s3            = "s3"
+	vddk          = "vddk"
+	snapshot      = "snapshot"
+
+	InvalidInferenceVolumeError = "inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"
 )
 
 type createVM struct {
@@ -86,12 +89,18 @@ type createVM struct {
 	pvcVolumes             []string
 	cloudInitUserData      string
 	cloudInitNetworkData   string
-	inferInstancetype      string
-	inferPreference        string
+	inferInstancetype      bool
+	inferInstancetypeFrom  string
+	inferPreference        bool
+	inferPreferenceFrom    string
 	volumeImport           []string
 
 	clientConfig clientcmd.ClientConfig
 	bootOrders   map[uint]string
+
+	explicitInstancetypeInference bool
+	explicitPreferenceInference   bool
+	memoryChanged                 bool
 }
 
 type cloneVolume struct {
@@ -123,9 +132,7 @@ type optionFn func(*createVM, *v1.VirtualMachine) error
 var optFns = map[string]optionFn{
 	RunStrategyFlag:          withRunStrategy,
 	InstancetypeFlag:         withInstancetype,
-	InferInstancetypeFlag:    withInferredInstancetype,
 	PreferenceFlag:           withPreference,
-	InferPreferenceFlag:      withInferredPreference,
 	ContainerdiskVolumeFlag:  withContainerdiskVolume,
 	DataSourceVolumeFlag:     withDataSourceVolume,
 	ClonePvcVolumeFlag:       withClonePvcVolume,
@@ -152,8 +159,6 @@ var flags = []string{
 	VolumeImportFlag,
 	CloudInitUserDataFlag,
 	CloudInitNetworkDataFlag,
-	InferInstancetypeFlag,
-	InferPreferenceFlag,
 }
 
 type dataVolumeSourceBlank struct {
@@ -268,15 +273,15 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().Int64Var(&c.terminationGracePeriod, TerminationGracePeriodFlag, c.terminationGracePeriod, "Specify the termination grace period of the VM.")
 
 	cmd.Flags().StringVar(&c.memory, MemoryFlag, c.memory, "Specify the memory of the VM.")
-	cmd.Flags().StringVar(&c.instancetype, InstancetypeFlag, c.instancetype, "Specify the Instance Type of the VM.")
-	cmd.Flags().StringVar(&c.inferInstancetype, InferInstancetypeFlag, c.inferInstancetype, "Specify that the Instance Type of the VM should be inferred. Optionally specify the volume to infer from.")
-	cmd.Flags().Lookup(InferInstancetypeFlag).NoOptDefVal = inferNoOptDefVal
-	cmd.MarkFlagsMutuallyExclusive(MemoryFlag, InstancetypeFlag, InferInstancetypeFlag)
+	cmd.Flags().StringVar(&c.instancetype, InstancetypeFlag, c.instancetype, "Specify the Instance Type of the VM. Mutually exclusive with instancetype inference flags.")
+	cmd.Flags().BoolVar(&c.inferInstancetype, InferInstancetypeFlag, c.inferInstancetype, "Specify if the Instance Type of the VM should be inferred from the first boot disk. Mutually exclusive with --infer-instancetype-from.")
+	cmd.Flags().StringVar(&c.inferInstancetypeFrom, InferInstancetypeFromFlag, c.inferInstancetypeFrom, "Specify the volume to infer the Instance Type of the VM from. Mutually exclusive with --infer-instancetype.")
+	cmd.MarkFlagsMutuallyExclusive(MemoryFlag, InstancetypeFlag, InferInstancetypeFlag, InferInstancetypeFromFlag)
 
-	cmd.Flags().StringVar(&c.preference, PreferenceFlag, c.preference, "Specify the Preference of the VM.")
-	cmd.Flags().StringVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference, "Specify that the Preference of the VM should be inferred. Optionally specify the volume to infer from.")
-	cmd.Flags().Lookup(InferPreferenceFlag).NoOptDefVal = inferNoOptDefVal
-	cmd.MarkFlagsMutuallyExclusive(PreferenceFlag, InferPreferenceFlag)
+	cmd.Flags().StringVar(&c.preference, PreferenceFlag, c.preference, "Specify the Preference of the VM. Mutually exclusive with preference inference flags.")
+	cmd.Flags().BoolVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference, "Specify if the Preference of the VM should be inferred from the first boot disk. Mutually exclusive with --infer-preference-from.")
+	cmd.Flags().StringVar(&c.inferPreferenceFrom, InferPreferenceFromFlag, c.inferPreferenceFrom, "Specify the volume to infer the Preference of the VM from. Mutually exclusive with --infer-preference.")
+	cmd.MarkFlagsMutuallyExclusive(PreferenceFlag, InferPreferenceFlag, InferPreferenceFromFlag)
 
 	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(containerdiskVolume{})))
 	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
@@ -309,40 +314,71 @@ func defaultCreateVM(clientConfig clientcmd.ClientConfig) createVM {
 		terminationGracePeriod: 180,
 		runStrategy:            string(v1.RunStrategyAlways),
 		memory:                 "512Mi",
+		inferInstancetype:      true,
+		inferPreference:        true,
 		clientConfig:           clientConfig,
 		bootOrders:             map[uint]string{},
 	}
 }
 
-func volumeExists(vm *v1.VirtualMachine, name string) bool {
+func volumeExists(vm *v1.VirtualMachine, name string) *v1.Volume {
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
 		if vol.Name == name {
-			return true
+			return &vol
 		}
-	}
-
-	return false
-}
-
-func volumeShouldExist(flag string, vm *v1.VirtualMachine, name string) error {
-	if !volumeExists(vm, name) {
-		return params.FlagErr(flag, "there is no volume with name '%s'", name)
 	}
 
 	return nil
 }
 
+func volumeShouldExist(vm *v1.VirtualMachine, name string) (*v1.Volume, error) {
+	if vol := volumeExists(vm, name); vol != nil {
+		return vol, nil
+	}
+
+	return nil, fmt.Errorf("there is no volume with name '%s'", name)
+}
+
 func volumeShouldNotExist(flag string, vm *v1.VirtualMachine, name string) error {
-	if volumeExists(vm, name) {
+	if vol := volumeExists(vm, name); vol != nil {
 		return params.FlagErr(flag, "there is already a volume with name '%s'", name)
 	}
 
 	return nil
+}
 
+func volumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
+	if vol.DataVolume != nil {
+		return dataVolumeValidToInferFrom(vm, vol)
+	}
+
+	if vol.PersistentVolumeClaim != nil {
+		return nil
+	}
+
+	return fmt.Errorf(InvalidInferenceVolumeError)
+}
+
+func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, vol *v1.Volume) error {
+	for _, dvt := range vm.Spec.DataVolumeTemplates {
+		if dvt.Name == vol.DataVolume.Name {
+			if dvt.Spec.Source != nil && dvt.Spec.Source.PVC != nil {
+				return nil
+			}
+
+			if dvt.Spec.SourceRef != nil && dvt.Spec.SourceRef.Kind == "DataSource" {
+				return nil
+			}
+
+			return fmt.Errorf(InvalidInferenceVolumeError)
+		}
+	}
+
+	return nil
 }
 
 func (c *createVM) run(cmd *cobra.Command) error {
-	if err := c.setDefaults(); err != nil {
+	if err := c.setDefaults(cmd); err != nil {
 		return err
 	}
 
@@ -359,6 +395,10 @@ func (c *createVM) run(cmd *cobra.Command) error {
 		}
 	}
 
+	if err := c.inferFromVolume(vm); err != nil {
+		return err
+	}
+
 	out, err := yaml.Marshal(vm)
 	if err != nil {
 		return err
@@ -368,7 +408,7 @@ func (c *createVM) run(cmd *cobra.Command) error {
 	return nil
 }
 
-func (c *createVM) setDefaults() error {
+func (c *createVM) setDefaults(cmd *cobra.Command) error {
 	namespace, overridden, err := c.clientConfig.Namespace()
 	if err != nil {
 		return err
@@ -380,6 +420,14 @@ func (c *createVM) setDefaults() error {
 	if c.name == "" {
 		c.name = "vm-" + rand.String(5)
 	}
+
+	c.explicitInstancetypeInference = cmd.Flags().Changed(InferInstancetypeFlag) ||
+		cmd.Flags().Changed(InferInstancetypeFromFlag)
+
+	c.explicitPreferenceInference = cmd.Flags().Changed(InferPreferenceFlag) ||
+		cmd.Flags().Changed(InferPreferenceFromFlag)
+
+	c.memoryChanged = cmd.Flags().Changed(MemoryFlag)
 
 	return nil
 }
@@ -499,11 +547,78 @@ func (c *createVM) addDiskWithBootOrder(flag string, vm *v1.VirtualMachine, name
 	return nil
 }
 
+func (c *createVM) inferFromVolume(vm *v1.VirtualMachine) error {
+	if c.inferInstancetype && c.instancetype == "" && !c.memoryChanged {
+		if err := c.withInferredInstancetype(vm); err != nil && c.explicitInstancetypeInference {
+			return err
+		}
+	}
+
+	if c.inferPreference && c.preference == "" {
+		if err := c.withInferredPreference(vm); err != nil && c.explicitPreferenceInference {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *createVM) withInferredInstancetype(vm *v1.VirtualMachine) error {
+	if c.inferInstancetypeFrom == "" {
+		vol, err := c.getInferFromVolume(vm)
+		if err != nil {
+			return err
+		}
+		c.inferInstancetypeFrom = vol
+	}
+
+	vol, err := volumeShouldExist(vm, c.inferInstancetypeFrom)
+	if err != nil {
+		return err
+	}
+
+	if err := volumeValidToInferFrom(vm, vol); err != nil {
+		return err
+	}
+
+	vm.Spec.Template.Spec.Domain.Memory = nil
+	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+		InferFromVolume: c.inferInstancetypeFrom,
+	}
+
+	return nil
+}
+
+func (c *createVM) withInferredPreference(vm *v1.VirtualMachine) error {
+	if c.inferPreferenceFrom == "" {
+		vol, err := c.getInferFromVolume(vm)
+		if err != nil {
+			return err
+		}
+		c.inferPreferenceFrom = vol
+	}
+
+	vol, err := volumeShouldExist(vm, c.inferPreferenceFrom)
+	if err != nil {
+		return err
+	}
+
+	if err := volumeValidToInferFrom(vm, vol); err != nil {
+		return err
+	}
+
+	vm.Spec.Preference = &v1.PreferenceMatcher{
+		InferFromVolume: c.inferPreferenceFrom,
+	}
+
+	return nil
+}
+
 // getInferFromVolume returns the volume to infer the instancetype or preference from.
 // It returns either the disk with the lowest boot order or the first volume in the VM spec.
-func (c *createVM) getInferFromVolume(flag string, vm *v1.VirtualMachine) (string, error) {
+func (c *createVM) getInferFromVolume(vm *v1.VirtualMachine) (string, error) {
 	if len(vm.Spec.Template.Spec.Volumes) < 1 {
-		return "", params.FlagErr(flag, "at least one volume is needed to infer instancetype or preference")
+		return "", fmt.Errorf("at least one volume is needed to infer an instance type or preference")
 	}
 
 	// Find the lowest boot order and return associated disk name
@@ -552,27 +667,6 @@ func withInstancetype(c *createVM, vm *v1.VirtualMachine) error {
 	return nil
 }
 
-func withInferredInstancetype(c *createVM, vm *v1.VirtualMachine) (err error) {
-	inferFromVolume := c.inferInstancetype
-	if inferFromVolume == "" || inferFromVolume == inferNoOptDefVal {
-		inferFromVolume, err = c.getInferFromVolume(InferInstancetypeFlag, vm)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := volumeShouldExist(InferInstancetypeFlag, vm, inferFromVolume); err != nil {
-		return err
-	}
-
-	vm.Spec.Template.Spec.Domain.Memory = nil
-	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-		InferFromVolume: inferFromVolume,
-	}
-
-	return nil
-}
-
 func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	kind, name, err := params.SplitPrefixedName(c.preference)
 	if err != nil {
@@ -587,26 +681,6 @@ func withPreference(c *createVM, vm *v1.VirtualMachine) error {
 	vm.Spec.Preference = &v1.PreferenceMatcher{
 		Name: name,
 		Kind: kind,
-	}
-
-	return nil
-}
-
-func withInferredPreference(c *createVM, vm *v1.VirtualMachine) (err error) {
-	inferFromVolume := c.inferPreference
-	if inferFromVolume == "" || inferFromVolume == inferNoOptDefVal {
-		inferFromVolume, err = c.getInferFromVolume(InferPreferenceFlag, vm)
-		if err != nil {
-			return err
-		}
-	}
-
-	if err := volumeShouldExist(InferPreferenceFlag, vm, inferFromVolume); err != nil {
-		return err
-	}
-
-	vm.Spec.Preference = &v1.PreferenceMatcher{
-		InferFromVolume: inferFromVolume,
 	}
 
 	return nil
