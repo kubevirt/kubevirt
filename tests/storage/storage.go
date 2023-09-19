@@ -1273,15 +1273,11 @@ var _ = SIGDescribe("Storage", func() {
 			)
 
 			It("should run the VMI created with a DataVolume source and use the LUN disk", func() {
-				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-				if !foundSC {
-					Skip("Unable to find valid storage class")
-				}
-				pv, err = tests.CreatePVwithSCSIDisk(sc, "scsipv", nodeName, device)
+				pv, err = tests.CreatePVwithSCSIDisk("scsi-disks", "scsipv", nodeName, device)
 				Expect(err).ToNot(HaveOccurred())
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc),
+					libdv.WithPVC(libdv.PVCWithStorageClass(pv.Spec.StorageClassName),
 						libdv.PVCWithBlockVolumeMode(),
 						libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce),
 						libdv.PVCWithVolumeSize("8Mi"),
@@ -1302,9 +1298,22 @@ var _ = SIGDescribe("Storage", func() {
 				)
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
-				By(fmt.Sprintf("Checking that %s has a capacity of 8Mi", device))
+				lunDisk := "/dev/"
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, volStatus := range vmi.Status.VolumeStatus {
+						if volStatus.Name == "lun0" {
+							lunDisk += volStatus.Target
+							return true
+						}
+					}
+					return false
+				}, 30*time.Second, time.Second).Should(BeTrue())
+
+				By(fmt.Sprintf("Checking that %s has a capacity of 8Mi", lunDisk))
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("sudo blockdev --getsize64 %s\n", device)},
+					&expect.BSnd{S: fmt.Sprintf("sudo blockdev --getsize64 %s\n", lunDisk)},
 					&expect.BExp{R: "8388608"}, // 8Mi in bytes
 				}, 30)).To(Succeed())
 
