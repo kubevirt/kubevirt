@@ -3160,18 +3160,18 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}
 			migratableVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
-			By("creating a template for a pause pod with 2 dedicated CPU cores")
+			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = tests.RenderPod("pause-", nil, nil)
 			pausePod.Spec.Containers[0].Name = "compute"
 			pausePod.Spec.Containers[0].Command = []string{"sleep"}
 			pausePod.Spec.Containers[0].Args = []string{"3600"}
 			pausePod.Spec.Containers[0].Resources = k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("2"),
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("2"),
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}
