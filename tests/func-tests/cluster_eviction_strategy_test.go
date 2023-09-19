@@ -74,8 +74,6 @@ func isSingleWorkerCluster(cli kubecli.KubevirtClient) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if len(workerNodes.Items) == 1 {
-		return true, nil
-	}
-	return false, nil
+
+	return len(workerNodes.Items) == 1, nil
 }

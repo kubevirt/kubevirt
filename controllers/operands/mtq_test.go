@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +18,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 var _ = Describe("MTQ tests", func() {
@@ -49,11 +51,19 @@ var _ = Describe("MTQ tests", func() {
 			},
 		}
 	)
-	//var
+
+	getClusterInfo := hcoutil.GetClusterInfo
 
 	BeforeEach(func() {
 		hco = commontestutils.NewHco()
 		req = commontestutils.NewReq(hco)
+		hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+			return &commontestutils.ClusterInfoMock{}
+		}
+	})
+
+	AfterEach(func() {
+		hcoutil.GetClusterInfo = getClusterInfo
 	})
 
 	Context("test NewMTQ", func() {
@@ -180,6 +190,30 @@ var _ = Describe("MTQ tests", func() {
 
 			// example of field set by the handler
 			Expect(foundMTQ.Spec.PriorityClass).To(HaveValue(Equal(mtqv1alpha1.MTQPriorityClass(kvPriorityClass))))
+		})
+
+		It("should not create MTQ on a single node cluster, even if the FG is set", func() {
+			hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
+			cl = commontestutils.InitClient([]client.Object{hco})
+
+			hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+				return &commontestutils.ClusterInfoSNOMock{}
+			}
+
+			handler := newMtqHandler(cl, commontestutils.GetScheme())
+
+			res := handler.ensure(req)
+
+			Expect(res.Err).ShouldNot(HaveOccurred())
+			Expect(res.Name).Should(Equal("mtq-kubevirt-hyperconverged"))
+			Expect(res.Created).Should(BeFalse())
+			Expect(res.Updated).Should(BeFalse())
+			Expect(res.Deleted).Should(BeFalse())
+
+			foundMTQ := &mtqv1alpha1.MTQ{}
+			err := cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).Should(BeTrue())
 		})
 	})
 

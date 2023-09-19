@@ -24,7 +24,8 @@ type mtqOperand struct {
 }
 
 func (mtq mtqOperand) ensure(req *common.HcoRequest) *EnsureResult {
-	if req.Instance.Spec.FeatureGates.EnableManagedTenantQuota != nil && *req.Instance.Spec.FeatureGates.EnableManagedTenantQuota {
+	if hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable() && // MTQ is not supported at a single node cluster
+		req.Instance.Spec.FeatureGates.EnableManagedTenantQuota != nil && *req.Instance.Spec.FeatureGates.EnableManagedTenantQuota {
 		// if the FG is set, make sure the MTQ CR is in place and up-to-date
 		return mtq.operand.ensure(req)
 	}

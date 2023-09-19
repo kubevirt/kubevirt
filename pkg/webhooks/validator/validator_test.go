@@ -8,35 +8,34 @@ import (
 	"testing"
 	"time"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
-	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	networkaddonsv1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1"
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
 
 const (
@@ -456,6 +455,25 @@ var _ = Describe("webhooks validator", func() {
 				Expect(
 					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
 				).To(Succeed())
+			})
+		})
+
+		Context("validate feature gates", func() {
+			var getClusterInfo func() util.ClusterInfo
+			BeforeEach(func() {
+				getClusterInfo = util.GetClusterInfo
+			})
+
+			AfterEach(func() {
+				util.GetClusterInfo = getClusterInfo
+			})
+
+			It("should reject request with EnableManagedTenantQuota=true on SNO", func() {
+				util.GetClusterInfo = func() util.ClusterInfo {
+					return commontestutils.ClusterInfoSNOMock{}
+				}
+				cr.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
+				Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 			})
 		})
 	})
@@ -1071,6 +1089,25 @@ var _ = Describe("webhooks validator", func() {
 				Expect(
 					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
 				).To(Succeed())
+			})
+		})
+
+		Context("validate feature gates", func() {
+			var getClusterInfo func() util.ClusterInfo
+			BeforeEach(func() {
+				getClusterInfo = util.GetClusterInfo
+			})
+
+			AfterEach(func() {
+				util.GetClusterInfo = getClusterInfo
+			})
+
+			It("should reject request with EnableManagedTenantQuota=true on SNO", func() {
+				util.GetClusterInfo = func() util.ClusterInfo {
+					return commontestutils.ClusterInfoSNOMock{}
+				}
+				hco.Spec.FeatureGates.EnableManagedTenantQuota = ptr.To(true)
+				Expect(wh.ValidateCreate(ctx, dryRun, hco)).ToNot(Succeed())
 			})
 		})
 	})

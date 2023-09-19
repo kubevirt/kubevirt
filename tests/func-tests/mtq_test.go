@@ -30,8 +30,9 @@ const (
 var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 	tests.FlagParse()
 	var (
-		cli kubecli.KubevirtClient
-		ctx context.Context
+		cli                 kubecli.KubevirtClient
+		ctx                 context.Context
+		singleWorkerCluster bool
 	)
 
 	BeforeEach(func() {
@@ -39,6 +40,9 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 
 		cli, err = kubecli.GetKubevirtClient()
 		Expect(cli).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+
+		singleWorkerCluster, err = isSingleWorkerCluster(cli)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctx = context.Background()
@@ -52,6 +56,11 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 
 	When("set the EnableManagedTenantQuota FG", func() {
 		It("should create the MTQ CR and all the pods", func() {
+
+			if singleWorkerCluster {
+				Skip("Don't test MTQ on single node")
+			}
+
 			enableMTQFeatureGate(ctx, cli)
 
 			By("check the MTQ CR")
