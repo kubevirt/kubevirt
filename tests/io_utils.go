@@ -110,6 +110,7 @@ func CreateSCSIDisk(nodeName string, opts []string) (address string, device stri
 		if err != nil {
 			return err
 		}
+		fmt.Println("Printing stdout:", stdout)
 		device = "/dev/" + strings.TrimSpace(stdout)
 
 		return nil
