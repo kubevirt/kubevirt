@@ -82,6 +82,7 @@ var _ = Describe("Migration watcher", func() {
 	var pdbInformer cache.SharedIndexInformer
 	var migrationPolicyInformer cache.SharedIndexInformer
 	var resourceQuotaInformer cache.SharedIndexInformer
+	var resourceQuotaInformer2 cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -284,6 +285,7 @@ var _ = Describe("Migration watcher", func() {
 			nodeInformer.HasSynced,
 			pdbInformer.HasSynced,
 			resourceQuotaInformer.HasSynced,
+			resourceQuotaInformer2.HasSynced,
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
 
 	}
@@ -323,6 +325,7 @@ var _ = Describe("Migration watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		resourceQuotaInformer2, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
