@@ -516,7 +516,12 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
-		vmiprom.SetupVMICollector(vca.vmiInformer, vca.clusterConfig)
+		vmiprom.SetupVMICollector(
+			vca.vmiInformer,
+			vca.clusterInstancetypeInformer, vca.instancetypeInformer,
+			vca.clusterPreferenceInformer, vca.preferenceInformer,
+			vca.clusterConfig,
+		)
 		vmprom.SetupVMCollector(vca.vmInformer)
 		perfscale.RegisterPerfScaleMetrics(vca.vmiInformer)
 		if vca.migrationInformer == nil {
