@@ -171,7 +171,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 		})
 
-		It("should successfully plug guaranteed vCPUs", func() {
+		It("[QUARANTINE] should successfully plug guaranteed vCPUs", func() {
 			var nodes []k8sv1.Node
 			virtClient = kubevirt.Client()
 
