@@ -235,7 +235,7 @@ func (m MasqPod) skipForwardPorts(family nft.IPFamily, ports ...int) error {
 func formatPorts(ports []int) []string {
 	var formattedPorts []string
 	for _, p := range ports {
-		formattedPorts = append(formattedPorts, fmt.Sprintf("%d", p))
+		formattedPorts = append(formattedPorts, strconv.Itoa(p))
 	}
 	return formattedPorts
 }
