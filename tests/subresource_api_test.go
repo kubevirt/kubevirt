@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
@@ -432,8 +433,20 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				instancetype = newVirtualMachineInstancetype(nil)
-				instancetype.Spec.CPU.Guest = 2
+				instancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-instancetype-",
+						Namespace:    testsuite.GetTestNamespace(nil),
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(2),
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("128M"),
+						},
+					},
+				}
 				instancetype, err = virtCli.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 					Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -442,8 +455,19 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Kind: instancetypeapi.SingularResourceName,
 				}
 
-				clusterInstancetype = newVirtualMachineClusterInstancetype(nil)
-				clusterInstancetype.Spec.CPU.Guest = 2
+				clusterInstancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-instancetype-",
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(2),
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("128M"),
+						},
+					},
+				}
 				clusterInstancetype, err = virtCli.VirtualMachineClusterInstancetype().
 					Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -577,9 +601,16 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				preference = newVirtualMachinePreference()
-				preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
+				preference = &instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-preference-",
+						Namespace:    testsuite.GetTestNamespace(nil),
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredAutoattachGraphicsDevice: pointer.Bool(true),
+						},
+					},
 				}
 				preference, err = virtCli.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 					Create(context.Background(), preference, metav1.CreateOptions{})
@@ -589,7 +620,16 @@ var _ = Describe("[sig-compute]Subresource Api", decorators.SigCompute, func() {
 					Kind: instancetypeapi.SingularPreferenceResourceName,
 				}
 
-				clusterPreference = newVirtualMachineClusterPreference()
+				clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-cluster-preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredAutoattachGraphicsDevice: pointer.Bool(true),
+						},
+					},
+				}
 				clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
 					PreferredAutoattachGraphicsDevice: pointer.Bool(true),
 				}
