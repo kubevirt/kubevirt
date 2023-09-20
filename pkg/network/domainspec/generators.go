@@ -36,7 +36,6 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -92,11 +91,17 @@ func NewBridgeLibvirtSpecGenerator(
 	}
 }
 
-func NewPasstLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, vmi *v1.VirtualMachineInstance) *PasstLibvirtSpecGenerator {
+func NewPasstLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	podIfaceName string,
+	vmi *v1.VirtualMachineInstance,
+) *PasstLibvirtSpecGenerator {
 	return &PasstLibvirtSpecGenerator{
-		vmiSpecIface: iface,
-		domain:       domain,
-		vmi:          vmi,
+		vmiSpecIface:     iface,
+		domain:           domain,
+		podInterfaceName: podIfaceName,
+		vmi:              vmi,
 	}
 }
 
@@ -248,9 +253,10 @@ func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface,
 }
 
 type PasstLibvirtSpecGenerator struct {
-	vmiSpecIface *v1.Interface
-	domain       *api.Domain
-	vmi          *v1.VirtualMachineInstance
+	vmiSpecIface     *v1.Interface
+	domain           *api.Domain
+	podInterfaceName string
+	vmi              *v1.VirtualMachineInstance
 }
 
 const (
@@ -318,7 +324,7 @@ func (b *PasstLibvirtSpecGenerator) generateInterface(iface *api.Interface) *api
 	}
 
 	ifaceCopy.Type = ifaceTypeUser
-	ifaceCopy.Source = api.InterfaceSource{Device: namescheme.PrimaryPodInterfaceName}
+	ifaceCopy.Source = api.InterfaceSource{Device: b.podInterfaceName}
 	ifaceCopy.Backend = &api.InterfaceBackend{Type: ifaceBackendPasst, LogFile: passtLogFile}
 	ifaceCopy.PortForward = b.generatePortForward()
 	ifaceCopy.MAC = mac
