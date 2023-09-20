@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,13 +70,35 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 			}).WithTimeout(5 * time.Minute).WithPolling(time.Second).ShouldNot(BeTrue())
 
 			By("check MTQ pods")
-			Eventually(func(g Gomega) []corev1.Pod {
+			Eventually(func(g Gomega) {
+				deps, err := cli.AppsV1().Deployments(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=multi-tenant"})
+				g.Expect(err).ShouldNot(HaveOccurred())
+				g.Expect(deps.Items).To(HaveLen(3))
+
+				expectedPods := int32(0)
+				for _, dep := range deps.Items {
+					g.Expect(dep.Status.ReadyReplicas).Should(Equal(dep.Status.Replicas))
+					expectedPods += dep.Status.Replicas
+				}
+
 				pods, err := cli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=multi-tenant"})
 				g.Expect(err).ShouldNot(HaveOccurred())
-				return pods.Items
+				g.Expect(pods.Items).Should(HaveLen(int(expectedPods)))
 			}).WithTimeout(5 * time.Minute).
 				WithPolling(time.Second).
-				Should(HaveLen(3))
+				Should(Succeed())
+		})
+
+		It("should reject setting of the FG in SNO", func() {
+			if !singleWorkerCluster {
+				Skip("this test is not relevant for highly available clusters")
+			}
+
+			patch := []byte(fmt.Sprintf(setMTQFGPatchTemplate, true))
+			err := tests.PatchHCO(ctx, cli, patch)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("the EnableManagedTenantQuota feature gate"))
+
 		})
 	})
 })
