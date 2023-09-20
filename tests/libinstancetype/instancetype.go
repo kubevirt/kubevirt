@@ -52,13 +52,22 @@ func CheckForVMInstancetypeRevisionNames(vmName string, virtClient kubecli.Kubev
 }
 
 func WaitForVMInstanceTypeRevisionNames(vmName string, virtClient kubecli.KubevirtClient) {
-	Eventually(CheckForVMInstancetypeRevisionNames(vmName, virtClient), 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	const (
+		waitForRevisionNamesTimeout  = 300
+		waitForRevisionNamesInterval = 1
+	)
+	Eventually(
+		CheckForVMInstancetypeRevisionNames(vmName, virtClient),
+		waitForRevisionNamesTimeout*time.Second,
+		waitForRevisionNamesInterval*time.Second,
+	).ShouldNot(HaveOccurred())
 }
 
 func EnsureControllerRevisionObjectsEqual(crNameA, crNameB string, virtClient kubecli.KubevirtClient) bool {
-	crA, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameA, metav1.GetOptions{})
+	controllerRevisionClient := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil))
+	crA, err := controllerRevisionClient.Get(context.Background(), crNameA, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	crB, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameB, metav1.GetOptions{})
+	crB, err := controllerRevisionClient.Get(context.Background(), crNameB, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return equality.Semantic.DeepEqual(crA.Data.Object, crB.Data.Object)
 }
