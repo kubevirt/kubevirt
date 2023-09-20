@@ -638,7 +638,7 @@ func (t *vmRestoreTarget) getVirtualMachineSnapshot(namespace, name string) (*sn
 	return obj.(*snapshotv1.VirtualMachineSnapshot), nil
 }
 
-func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine, isPreference bool) (*appsv1.ControllerRevision, error) {
+func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
 	if err != nil {
 		return nil, err
@@ -661,7 +661,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 		}
 		if existingCR != nil {
 			// Ensure that the existing CR contains the expected data from the snapshot before returning it
-			equal, err := instancetype.CompareRevisions(snapshotCR, existingCR, isPreference)
+			equal, err := instancetype.CompareRevisions(snapshotCR, existingCR)
 			if err != nil {
 				return nil, err
 			}
@@ -689,7 +689,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 
 func (t *vmRestoreTarget) restoreInstancetypeControllerRevisions(vm *kubevirtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Instancetype.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm, false)
+		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Instancetype.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
 		if err != nil {
 			return err
 		}
@@ -697,7 +697,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevisions(vm *kubevirtv1.
 	}
 
 	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Preference.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm, true)
+		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Preference.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
 		if err != nil {
 			return err
 		}

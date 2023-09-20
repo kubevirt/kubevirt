@@ -16,7 +16,7 @@ import (
 )
 
 func getInstancetypeSpecFromControllerRevision(revision *appsv1.ControllerRevision) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-	if err := decodeControllerRevision(revision, false); err != nil {
+	if err := decodeControllerRevision(revision); err != nil {
 		return nil, err
 	}
 	switch obj := revision.Data.Object.(type) {
@@ -30,7 +30,7 @@ func getInstancetypeSpecFromControllerRevision(revision *appsv1.ControllerRevisi
 }
 
 func getPreferenceSpecFromControllerRevision(revision *appsv1.ControllerRevision) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-	if err := decodeControllerRevision(revision, true); err != nil {
+	if err := decodeControllerRevision(revision); err != nil {
 		return nil, err
 	}
 	switch obj := revision.Data.Object.(type) {
@@ -43,13 +43,13 @@ func getPreferenceSpecFromControllerRevision(revision *appsv1.ControllerRevision
 	}
 }
 
-func decodeControllerRevision(revision *appsv1.ControllerRevision, isPreference bool) error {
+func decodeControllerRevision(revision *appsv1.ControllerRevision) error {
 	if len(revision.Data.Raw) == 0 {
 		return nil
 	}
 
 	// Backward compatibility check. Try to decode ControllerRevision from v1alpha1 version.
-	oldObject, err := decodeSpecRevision(revision.Data.Raw, isPreference)
+	oldObject, err := decodeSpecRevision(revision.Data.Raw)
 	if err != nil {
 		return fmt.Errorf("failed to decode old ControllerRevision: %w", err)
 	}
@@ -123,7 +123,7 @@ func decodeControllerRevisionObject(revision *appsv1.ControllerRevision) error {
 	return nil
 }
 
-func decodeSpecRevision(data []byte, isPreference bool) (runtime.Object, error) {
+func decodeSpecRevision(data []byte) (runtime.Object, error) {
 	if oldPreferenceObject := decodeVirtualMachinePreferenceSpecRevision(data); oldPreferenceObject != nil {
 		newPreferenceObject := &instancetypev1beta1.VirtualMachinePreference{}
 		if err := instancetypev1alpha1.Convert_v1alpha1_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(oldPreferenceObject, newPreferenceObject, nil); err != nil {
