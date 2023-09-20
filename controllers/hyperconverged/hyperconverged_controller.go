@@ -61,8 +61,7 @@ var (
 const (
 	// We cannot set owner reference of cluster-wide resources to namespaced HyperConverged object. Therefore,
 	// use finalizers to manage the cleanup.
-	FinalizerName    = "kubevirt.io/hyperconverged"
-	badFinalizerName = "hyperconvergeds.hco.kubevirt.io"
+	FinalizerName = "kubevirt.io/hyperconverged"
 
 	// OpenshiftNamespace is for resources that belong in the openshift namespace
 
@@ -716,14 +715,6 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 	finDropped := false
 	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
-		req.Dirty = true
-		requeue = requeue || finDropped
-	}
-
-	// should never happen - we are dropping the wrong finalizer in checkFinalizers, that always called before this
-	// function
-	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
-		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
 		req.Dirty = true
 		requeue = requeue || finDropped
 	}
@@ -1529,19 +1520,12 @@ func init() {
 }
 
 func checkFinalizers(req *common.HcoRequest) bool {
-	finDropped := false
-
-	if hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, badFinalizerName) {
-		req.Logger.Info("removing a finalizer set in the past (without a fully qualified name)")
-		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, badFinalizerName)
-		req.Dirty = req.Dirty || finDropped
-	}
 	if req.Instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
 		if !hcoutil.ContainsString(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 			req.Logger.Info("setting a finalizer (with fully qualified name)")
 			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
-			req.Dirty = req.Dirty || finDropped
+			req.Dirty = true
 		}
 		return true
 	}

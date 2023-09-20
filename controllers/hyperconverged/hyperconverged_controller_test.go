@@ -961,26 +961,6 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 			})
 
-			It(`should replace a finalizer with a bad name if there`, func() {
-				expected := getBasicDeployment()
-				expected.hco.ObjectMeta.Finalizers = []string{badFinalizerName}
-				cl := expected.initClient()
-				r := initReconciler(cl, nil)
-				res, err := r.Reconcile(context.TODO(), request)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res.Requeue).To(BeFalse())
-
-				foundResource := &hcov1beta1.HyperConverged{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
-						foundResource),
-				).To(Succeed())
-
-				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
-			})
-
 			It("Should not be ready if one of the operands is returns error, on create", func() {
 				hco := commontestutils.NewHco()
 				cl := commontestutils.InitClient([]client.Object{hcoNamespace, hco})
