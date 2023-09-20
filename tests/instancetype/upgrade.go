@@ -2,6 +2,7 @@ package instancetype
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -288,6 +289,40 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			updateInstancetypeMatcher,
 			getInstancetypeRevisionName,
 		),
+		Entry("VirtualMachineInstancetypeSpecRevision v1alpha1 to latest",
+			func() (*appsv1.ControllerRevision, error) {
+				instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1alpha1.CPUInstancetype{
+						Guest: uint32(1),
+					},
+					Memory: instancetypev1alpha1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				}
+				specBytes, err := json.Marshal(&instancetypeSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+					APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+					Spec:       specBytes,
+				}
+				specRevisionBytes, err := json.Marshal(specRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				cr := &appsv1.ControllerRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName:    "specrevision-",
+						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+					},
+					Data: runtime.RawExtension{
+						Raw: specRevisionBytes,
+					},
+				}
+				return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			},
+			updateInstancetypeMatcher,
+			getInstancetypeRevisionName,
+		),
 		Entry("VirtualMachineClusterInstancetype from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
@@ -452,6 +487,38 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
+			},
+			updatePreferenceMatcher,
+			getPreferenceRevisionName,
+		),
+		Entry("VirtualMachinePreferenceSpecRevision v1alpha1 to latest",
+			func() (*appsv1.ControllerRevision, error) {
+				cpuPreference := instancetypev1alpha1.PreferSockets
+				preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1alpha1.CPUPreferences{
+						PreferredCPUTopology: cpuPreference,
+					},
+				}
+				specBytes, err := json.Marshal(&preferenceSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
+					APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+					Spec:       specBytes,
+				}
+				specRevisionBytes, err := json.Marshal(specRevision)
+				Expect(err).ToNot(HaveOccurred())
+
+				cr := &appsv1.ControllerRevision{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName:    "specrevision-",
+						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+					},
+					Data: runtime.RawExtension{
+						Raw: specRevisionBytes,
+					},
+				}
+				return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 			},
 			updatePreferenceMatcher,
 			getPreferenceRevisionName,
