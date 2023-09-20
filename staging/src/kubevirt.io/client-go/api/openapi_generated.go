@@ -28513,6 +28513,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 							},
 						},
 					},
+					"preferSpreadSocketToCoreRatio": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 			},
 		},

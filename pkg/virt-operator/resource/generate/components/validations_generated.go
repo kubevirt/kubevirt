@@ -8614,6 +8614,11 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        preferSpreadSocketToCoreRatio:
+          description: PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs
+            between cores and sockets, it defaults to 2.
+          format: int32
+          type: integer
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string
@@ -21744,6 +21749,11 @@ var CRDsValidation map[string]string = map[string]string{
                 type to use.
               type: string
           type: object
+        preferSpreadSocketToCoreRatio:
+          description: PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs
+            between cores and sockets, it defaults to 2.
+          format: int32
+          type: integer
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string

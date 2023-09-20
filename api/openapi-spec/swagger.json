@@ -22963,6 +22963,11 @@
       "description": "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1beta1.MachinePreferences"
      },
+     "preferSpreadSocketToCoreRatio": {
+      "description": "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.",
+      "type": "integer",
+      "format": "int64"
+     },
      "preferredSubdomain": {
       "description": "Subdomain of the VirtualMachineInstance",
       "type": "string"
