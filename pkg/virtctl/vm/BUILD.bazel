@@ -34,8 +34,18 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "add_volume_test.go",
+        "expand_test.go",
+        "fs_list_test.go",
+        "guestosinfo_test.go",
+        "migrate_cancel_test.go",
+        "migrate_test.go",
+        "remove_volume_test.go",
+        "restart_test.go",
+        "start_test.go",
+        "stop_test.go",
+        "user_list_test.go",
         "vm_suite_test.go",
-        "vm_test.go",
     ],
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -46,7 +56,6 @@ go_test(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
