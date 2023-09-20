@@ -104,6 +104,7 @@ var _ = Describe("Pod Network", func() {
 		})
 
 		Context("Passt plug", func() {
+			const podIfaceName = "eth0"
 			var specGenerator *PasstLibvirtSpecGenerator
 
 			createPasstInterface := func() *v1.Interface {
@@ -117,7 +118,7 @@ var _ = Describe("Pod Network", func() {
 
 			It("Should forward all ports if ports are not specified in spec.interfaces", func() {
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					createPasstInterface(), nil, api2.NewMinimalVMI("passtVmi"))
+					createPasstInterface(), nil, podIfaceName, api2.NewMinimalVMI("passtVmi"))
 				expectedPortFwd := []api.InterfacePortForward{
 					{Proto: "tcp"}, {Proto: "udp"},
 				}
@@ -128,7 +129,7 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				passtIface.Ports = []v1.Port{{Port: 1}, {Protocol: "UdP", Port: 2}, {Protocol: "UDP", Port: 3}, {Protocol: "tcp", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
+					passtIface, nil, podIfaceName, api2.NewMinimalVMI("passtVmi"))
 
 				expectedPortFwd := []api.InterfacePortForward{
 					{
@@ -151,7 +152,7 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				passtIface.Ports = []v1.Port{{Protocol: "TCP", Port: 1}, {Protocol: "TCP", Port: 4}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
+					passtIface, nil, podIfaceName, api2.NewMinimalVMI("passtVmi"))
 
 				expectedPortFwd := []api.InterfacePortForward{
 					{
@@ -169,7 +170,7 @@ var _ = Describe("Pod Network", func() {
 				passtIface := createPasstInterface()
 				passtIface.Ports = []v1.Port{{Protocol: "UDP", Port: 2}, {Protocol: "UDP", Port: 3}}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, api2.NewMinimalVMI("passtVmi"))
+					passtIface, nil, podIfaceName, api2.NewMinimalVMI("passtVmi"))
 
 				expectedPortFwd := []api.InterfacePortForward{
 					{
@@ -190,7 +191,7 @@ var _ = Describe("Pod Network", func() {
 					istio.ISTIO_INJECT_ANNOTATION: "true",
 				}
 				specGenerator = NewPasstLibvirtSpecGenerator(
-					passtIface, nil, istioVmi)
+					passtIface, nil, podIfaceName, istioVmi)
 
 				expectedPortFwd := []api.InterfacePortForward{
 					{
@@ -223,12 +224,12 @@ var _ = Describe("Pod Network", func() {
 					},
 				}
 
-				specGenerator = NewPasstLibvirtSpecGenerator(vmiSpecIface, testDom, istioVmi)
+				specGenerator = NewPasstLibvirtSpecGenerator(vmiSpecIface, testDom, podIfaceName, istioVmi)
 
 				expectedIface := &api.Interface{
 					Type:    "user",
 					Backend: &api.InterfaceBackend{Type: "passt", LogFile: passtLogFile},
-					Source:  api.InterfaceSource{Device: "eth0"},
+					Source:  api.InterfaceSource{Device: podIfaceName},
 					Alias:   testAlias,
 					Model:   testModel,
 					MAC:     &api.MAC{MAC: "02:02:02:02:02:02"},
