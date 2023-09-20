@@ -197,7 +197,7 @@ func (m *InstancetypeMethods) storeInstancetypeRevision(vm *virtv1.VirtualMachin
 		return nil, err
 	}
 
-	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset, false)
+	storedRevision, err := storeRevision(instancetypeRevision, m.Clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (m *InstancetypeMethods) storePreferenceRevision(vm *virtv1.VirtualMachine)
 		return nil, err
 	}
 
-	storedRevision, err := storeRevision(preferenceRevision, m.Clientset, true)
+	storedRevision, err := storeRevision(preferenceRevision, m.Clientset)
 	if err != nil {
 		return nil, err
 	}
@@ -303,12 +303,12 @@ func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine
 	return nil
 }
 
-func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision, isPreference bool) (bool, error) {
-	if err := decodeControllerRevision(revisionA, isPreference); err != nil {
+func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
+	if err := decodeControllerRevision(revisionA); err != nil {
 		return false, err
 	}
 
-	if err := decodeControllerRevision(revisionB, isPreference); err != nil {
+	if err := decodeControllerRevision(revisionB); err != nil {
 		return false, err
 	}
 
@@ -325,7 +325,7 @@ func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision, isPrefere
 	return equality.Semantic.DeepEqual(revisionASpec, revisionBSpec), nil
 }
 
-func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient, isPreference bool) (*appsv1.ControllerRevision, error) {
+func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient) (*appsv1.ControllerRevision, error) {
 	createdRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
@@ -338,7 +338,7 @@ func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.Kubevi
 			return nil, fmt.Errorf("failed to get ControllerRevision: %w", err)
 		}
 
-		equal, err := CompareRevisions(revision, existingRevision, isPreference)
+		equal, err := CompareRevisions(revision, existingRevision)
 		if err != nil {
 			return nil, err
 		}

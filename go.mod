@@ -82,6 +82,7 @@ require (
 	libvirt.org/go/libvirt v1.10000.0
 	libvirt.org/go/libvirtxml v1.10000.0
 	mvdan.cc/sh/v3 v3.1.1
+	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -155,7 +156,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 )
 
