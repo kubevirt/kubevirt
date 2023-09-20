@@ -87,7 +87,7 @@ func (u *Upgrader) Upgrade(original *appsv1.ControllerRevision) (*appsv1.Control
 
 func (u *Upgrader) upgradeControllerRevision(vm *virtv1.VirtualMachine, original *appsv1.ControllerRevision) (*appsv1.ControllerRevision, error) {
 	// Upgrade the stashed object to the latest version
-	if err := decodeControllerRevisionObject(original); err != nil {
+	if err := decodeControllerRevision(original); err != nil {
 		return nil, err
 	}
 

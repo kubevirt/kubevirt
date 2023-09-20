@@ -304,6 +304,39 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 				},
 				updateInstancetypeMatcher,
 			),
+			Entry("VirtualMachineInstancetypeSpecRevision v1alpha1",
+				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+					instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1alpha1.CPUInstancetype{
+							Guest: uint32(1),
+						},
+						Memory: instancetypev1alpha1.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					}
+					specBytes, err := json.Marshal(&instancetypeSpec)
+					Expect(err).ToNot(HaveOccurred())
+
+					specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
+						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+						Spec:       specBytes,
+					}
+					specRevisionBytes, err := json.Marshal(specRevision)
+					Expect(err).ToNot(HaveOccurred())
+
+					return &appsv1.ControllerRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            "VirtualMachineInstancetypeSpecRevision",
+							Namespace:       vm.Namespace,
+							OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+						},
+						Data: runtime.RawExtension{
+							Raw: specRevisionBytes,
+						},
+					}, nil
+				},
+				updateInstancetypeMatcher,
+			),
 			Entry("VirtualMachineClusterInstancetype v1beta1 without object version labels",
 				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 					cr, err := CreateControllerRevision(vm,
@@ -421,6 +454,36 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 							},
 						},
 					)
+				},
+				updatePreferenceMatcher,
+			),
+			Entry("VirtualMachinePreferenceSpecRevision v1alpha1",
+				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+					preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1alpha1.CPUPreferences{
+							PreferredCPUTopology: instancetypev1alpha1.PreferSockets,
+						},
+					}
+					specBytes, err := json.Marshal(&preferenceSpec)
+					Expect(err).ToNot(HaveOccurred())
+
+					specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
+						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
+						Spec:       specBytes,
+					}
+					specRevisionBytes, err := json.Marshal(specRevision)
+					Expect(err).ToNot(HaveOccurred())
+
+					return &appsv1.ControllerRevision{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            "VirtualMachinePreferenceSpecRevision",
+							Namespace:       vm.Namespace,
+							OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+						},
+						Data: runtime.RawExtension{
+							Raw: specRevisionBytes,
+						},
+					}, nil
 				},
 				updatePreferenceMatcher,
 			),
