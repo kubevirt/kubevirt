@@ -18342,6 +18342,13 @@ func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"inferFromVolumeFailurePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the instancetype. Allowed values are: \"RejectInferFromVolumeFailure\" and \"IgnoreInferFromVolumeFailure\". If not specified, \"RejectInferFromVolumeFailure\" is used by default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -20720,6 +20727,13 @@ func schema_kubevirtio_api_core_v1_PreferenceMatcher(ref common.ReferenceCallbac
 					"inferFromVolume": {
 						SchemaProps: spec.SchemaProps{
 							Description: "InferFromVolume lists the name of a volume that should be used to infer or discover the preference to be used through known annotations on the underlying resource. Once applied to the PreferenceMatcher this field is removed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"inferFromVolumeFailurePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferFromVolumeFailurePolicy controls what should happen on failure when preference the instancetype. Allowed values are: \"RejectInferFromVolumeFailure\" and \"IgnoreInferFromVolumeFailure\". If not specified, \"RejectInferFromVolumeFailure\" is used by default.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

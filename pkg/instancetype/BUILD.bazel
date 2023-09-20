@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "compatibility.go",
+        "errors.go",
         "instancetype.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype",
@@ -39,6 +40,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "compatibility_test.go",
+        "errors_test.go",
         "instancetype_suite_test.go",
         "instancetype_test.go",
     ],

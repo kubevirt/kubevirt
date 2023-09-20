@@ -3,6 +3,7 @@ package instancetype
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -323,7 +324,7 @@ func CompareRevisions(revisionA *appsv1.ControllerRevision, revisionB *appsv1.Co
 func storeRevision(revision *appsv1.ControllerRevision, clientset kubecli.KubevirtClient, isPreference bool) (*appsv1.ControllerRevision, error) {
 	createdRevision, err := clientset.AppsV1().ControllerRevisions(revision.Namespace).Create(context.Background(), revision, metav1.CreateOptions{})
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8serrors.IsAlreadyExists(err) {
 			return nil, fmt.Errorf("failed to create ControllerRevision: %w", err)
 		}
 
@@ -719,13 +720,29 @@ func (m *InstancetypeMethods) findClusterInstancetypeByClient(resourceName strin
 }
 
 func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error) {
-	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.InferFromVolume == "" {
+	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
+	// Return unchanged matcher when inference is disabled
+	if vm.Spec.Instancetype.InferFromVolume == "" {
+		return vm.Spec.Instancetype, nil
+	}
+
 	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Instancetype.InferFromVolume, apiinstancetype.DefaultInstancetypeLabel, apiinstancetype.DefaultInstancetypeKindLabel)
 	if err != nil {
+		var ignoreableInferenceErr *IgnoreableInferenceError
+		ignoreFailure := vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil &&
+			*vm.Spec.Instancetype.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
+
+		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
+			//nolint:gomnd
+			log.Log.Object(vm).V(3).Info("Ignored error during inference of instancetype, clearing matcher.")
+			return nil, nil
+		}
+
 		return nil, err
 	}
+
 	return &virtv1.InstancetypeMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
@@ -733,13 +750,29 @@ func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine
 }
 
 func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error) {
-	if vm.Spec.Preference == nil || vm.Spec.Preference.InferFromVolume == "" {
+	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
+	// Return unchanged matcher when inference is disabled
+	if vm.Spec.Preference.InferFromVolume == "" {
+		return vm.Spec.Preference, nil
+	}
+
 	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Preference.InferFromVolume, apiinstancetype.DefaultPreferenceLabel, apiinstancetype.DefaultPreferenceKindLabel)
 	if err != nil {
+		var ignoreableInferenceErr *IgnoreableInferenceError
+		ignoreFailure := vm.Spec.Preference.InferFromVolumeFailurePolicy != nil &&
+			*vm.Spec.Preference.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
+
+		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
+			//nolint:gomnd
+			log.Log.Object(vm).V(3).Info("Ignored error during inference of preference, clearing matcher.")
+			return nil, nil
+		}
+
 		return nil, err
 	}
+
 	return &virtv1.PreferenceMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
@@ -769,7 +802,7 @@ func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine
 		if volume.DataVolume != nil {
 			return m.inferDefaultsFromDataVolume(vm, volume.DataVolume.Name, defaultNameLabel, defaultKindLabel)
 		}
-		return "", "", fmt.Errorf("unable to infer defaults from volume %s as type is not supported", inferFromVolumeName)
+		return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from volume %s as type is not supported", inferFromVolumeName))
 	}
 	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
 }
@@ -777,7 +810,7 @@ func (m *InstancetypeMethods) inferDefaultsFromVolumes(vm *virtv1.VirtualMachine
 func inferDefaultsFromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	defaultName, hasLabel := labels[defaultNameLabel]
 	if !hasLabel {
-		return "", "", fmt.Errorf("unable to find required %s label on the volume", defaultNameLabel)
+		return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to find required %s label on the volume", defaultNameLabel))
 	}
 	return defaultName, labels[defaultKindLabel], nil
 }
@@ -802,7 +835,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolume(vm *virtv1.VirtualMach
 	dv, err := m.Clientset.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 	if err != nil {
 		// Handle garbage collected DataVolumes by attempting to lookup the PVC using the name of the DataVolume in the VM namespace
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return m.inferDefaultsFromPVC(dvName, vm.Namespace, defaultNameLabel, defaultKindLabel)
 		}
 		return "", "", err
@@ -822,7 +855,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSpec(dataVolumeSpec *v1
 	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
 		return m.inferDefaultsFromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace)
 	}
-	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported")
+	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported"))
 }
 
 func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSourceNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
@@ -838,7 +871,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataSource(dataSourceName, dataSo
 	if ds.Spec.Source.PVC != nil {
 		return m.inferDefaultsFromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
 	}
-	return "", "", fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")
+	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC"))
 }
 
 func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string) (defaultName, defaultKind string, err error) {
@@ -850,7 +883,7 @@ func (m *InstancetypeMethods) inferDefaultsFromDataVolumeSourceRef(sourceRef *v1
 		}
 		return m.inferDefaultsFromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
 	}
-	return "", "", fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind)
+	return "", "", NewIgnoreableInferenceError(fmt.Errorf("unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported", sourceRef.Kind))
 }
 
 func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
