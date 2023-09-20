@@ -25,6 +25,9 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	libinstancetypev1alpha1 "kubevirt.io/kubevirt/tests/libinstancetype/v1alpha1"
+	libinstancetypev1alpha2 "kubevirt.io/kubevirt/tests/libinstancetype/v1alpha2"
+	libinstancetypev1beta1 "kubevirt.io/kubevirt/tests/libinstancetype/v1beta1"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	"kubevirt.io/kubevirt/tests/util"
@@ -170,19 +173,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		},
 			Entry("VirtualMachineInstancetype from v1beta1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
-					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "instancetypev1beta1",
-						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
-								Guest: uint32(1),
-							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
+					instancetype := libinstancetypev1beta1.NewInstancetype(
+						libinstancetypev1beta1.WithInstancetypeSpec(
+							libinstancetypev1beta1.NewInstancetypeSpec(
+								libinstancetypev1beta1.WithCPUs(1),
+								libinstancetypev1beta1.WithMemory(resource.MustParse("128Mi")),
+							),
+						),
+					)
 					instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(instancetype)
@@ -192,19 +190,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachineInstancetype from v1alpha2 to latest",
 				func() (*appsv1.ControllerRevision, error) {
-					instancetype := &instancetypev1alpha2.VirtualMachineInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "instancetypev1alpha2",
-						},
-						Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha2.CPUInstancetype{
-								Guest: uint32(1),
-							},
-							Memory: instancetypev1alpha2.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
+					instancetype := libinstancetypev1alpha2.NewInstancetype(
+						libinstancetypev1alpha2.WithInstancetypeSpec(
+							libinstancetypev1alpha2.NewInstancetypeSpec(
+								libinstancetypev1alpha2.WithCPUs(1),
+								libinstancetypev1alpha2.WithMemory(resource.MustParse("128Mi")),
+							),
+						),
+					)
 					instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(instancetype)
@@ -214,19 +207,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachineInstancetype from v1alpha1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
-					instancetype := &instancetypev1alpha1.VirtualMachineInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "instancetypev1alpha1",
-						},
-						Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha1.CPUInstancetype{
-								Guest: uint32(1),
-							},
-							Memory: instancetypev1alpha1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
+					instancetype := libinstancetypev1alpha1.NewInstancetype(
+						libinstancetypev1alpha1.WithInstancetypeSpec(
+							libinstancetypev1alpha1.NewInstancetypeSpec(
+								libinstancetypev1alpha1.WithCPUs(1),
+								libinstancetypev1alpha1.WithMemory(resource.MustParse("128Mi")),
+							),
+						),
+					)
 					instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(instancetype)
@@ -236,19 +224,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachineClusterInstancetype from v1beta1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
-					instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "clusterinstancetypev1beta1",
-						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
-								Guest: uint32(1),
-							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
+					instancetype := libinstancetypev1beta1.NewClusterInstancetype(
+						libinstancetypev1beta1.WithClusterInstancetypeSpec(
+							libinstancetypev1beta1.NewInstancetypeSpec(
+								libinstancetypev1beta1.WithCPUs(1),
+								libinstancetypev1beta1.WithMemory(resource.MustParse("128Mi")),
+							),
+						),
+					)
 					instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(instancetype)
@@ -258,19 +241,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachineClusterInstancetype from v1alpha2 to latest",
 				func() (*appsv1.ControllerRevision, error) {
-					instancetype := &instancetypev1alpha2.VirtualMachineClusterInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "clusterinstancetypev1beta1",
-						},
-						Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha2.CPUInstancetype{
-								Guest: uint32(1),
-							},
-							Memory: instancetypev1alpha2.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
+					instancetype := libinstancetypev1alpha2.NewClusterInstancetype(
+						libinstancetypev1alpha2.WithClusterInstancetypeSpec(
+							libinstancetypev1alpha2.NewInstancetypeSpec(
+								libinstancetypev1alpha2.WithCPUs(1),
+								libinstancetypev1alpha2.WithMemory(resource.MustParse("128Mi")),
+							),
+						),
+					)
 					instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(instancetype)
@@ -280,19 +258,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachineClusterInstancetype from v1alpha1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
-					instancetype := &instancetypev1alpha1.VirtualMachineClusterInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "clusterinstancetypev1beta1",
-						},
-						Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha1.CPUInstancetype{
-								Guest: uint32(1),
-							},
-							Memory: instancetypev1alpha1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
+					instancetype := libinstancetypev1alpha1.NewClusterInstancetype(
+						libinstancetypev1alpha1.WithClusterInstancetypeSpec(
+							libinstancetypev1alpha1.NewInstancetypeSpec(
+								libinstancetypev1alpha1.WithCPUs(1),
+								libinstancetypev1alpha1.WithMemory(resource.MustParse("128Mi")),
+							),
+						),
+					)
 					instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(instancetype)
@@ -303,16 +276,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Entry("VirtualMachinePreference from v1beta1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1beta1.PreferSockets
-					preference := &instancetypev1beta1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "virtualmachinepreference",
-						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: &cpuPreference,
+					preference := libinstancetypev1beta1.NewPreference(
+						libinstancetypev1beta1.WithPreferenceSpec(
+							instancetypev1beta1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1beta1.CPUPreferences{
+									PreferredCPUTopology: &cpuPreference,
+								},
 							},
-						},
-					}
+						),
+					)
 					preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(preference)
@@ -323,16 +295,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Entry("VirtualMachinePreference from v1alpha2 to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1alpha2.PreferSockets
-					preference := &instancetypev1alpha2.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "virtualmachinepreference",
-						},
-						Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1alpha2.CPUPreferences{
-								PreferredCPUTopology: cpuPreference,
+					preference := libinstancetypev1alpha2.NewPreference(
+						libinstancetypev1alpha2.WithPreferenceSpec(
+							instancetypev1alpha2.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1alpha2.CPUPreferences{
+									PreferredCPUTopology: cpuPreference,
+								},
 							},
-						},
-					}
+						),
+					)
 					preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(preference)
@@ -343,16 +314,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Entry("VirtualMachinePreference from v1alpha1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1alpha1.PreferSockets
-					preference := &instancetypev1alpha1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "virtualmachinepreference",
-						},
-						Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1alpha1.CPUPreferences{
-								PreferredCPUTopology: cpuPreference,
+					preference := libinstancetypev1alpha1.NewPreference(
+						libinstancetypev1alpha1.WithPreferenceSpec(
+							instancetypev1alpha1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1alpha1.CPUPreferences{
+									PreferredCPUTopology: cpuPreference,
+								},
 							},
-						},
-					}
+						),
+					)
 					preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(preference)
@@ -363,16 +333,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Entry("VirtualMachineClusterPreference from v1beta1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1beta1.PreferSockets
-					preference := &instancetypev1beta1.VirtualMachineClusterPreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "virtualmachineclusterpreference",
-						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: &cpuPreference,
+					preference := libinstancetypev1beta1.NewClusterPreference(
+						libinstancetypev1beta1.WithClusterPreferenceSpec(
+							instancetypev1beta1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1beta1.CPUPreferences{
+									PreferredCPUTopology: &cpuPreference,
+								},
 							},
-						},
-					}
+						),
+					)
 					preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(preference)
@@ -383,16 +352,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Entry("VirtualMachineClusterPreference from v1alpha2 to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1alpha2.PreferSockets
-					preference := &instancetypev1alpha2.VirtualMachineClusterPreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "virtualmachineclusterpreference",
-						},
-						Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1alpha2.CPUPreferences{
-								PreferredCPUTopology: cpuPreference,
+					preference := libinstancetypev1alpha2.NewClusterPreference(
+						libinstancetypev1alpha2.WithClusterPreferenceSpec(
+							instancetypev1alpha2.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1alpha2.CPUPreferences{
+									PreferredCPUTopology: cpuPreference,
+								},
 							},
-						},
-					}
+						),
+					)
 					preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(preference)
@@ -403,16 +371,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Entry("VirtualMachineClusterPreference from v1alpha1 to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1alpha1.PreferSockets
-					preference := &instancetypev1alpha1.VirtualMachineClusterPreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "virtualmachineclusterpreference",
-						},
-						Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1alpha1.CPUPreferences{
-								PreferredCPUTopology: cpuPreference,
+					preference := libinstancetypev1alpha1.NewClusterPreference(
+						libinstancetypev1alpha1.WithClusterPreferenceSpec(
+							instancetypev1alpha1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1alpha1.CPUPreferences{
+									PreferredCPUTopology: cpuPreference,
+								},
 							},
-						},
-					}
+						),
+					)
 					preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Create(context.Background(), preference, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return createControllerRevision(preference)
