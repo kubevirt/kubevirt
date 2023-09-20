@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtsnapshot "kubevirt.io/api/snapshot"
@@ -43,7 +44,7 @@ const (
 
 type loginFunction func(*virtv1.VirtualMachineInstance) error
 
-var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decorators.SigCompute, func() {
+var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -274,7 +275,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 			return generateCloneFromVMWithParams(sourceVM, targetVMName)
 		}
 
-		Context("simple VM and cloning operations", func() {
+		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
 
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 				return expectVMRunnable(vm, console.LoginToCirros)
@@ -470,7 +471,7 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 
 		})
 
-		Context("[sig-storage]with more complicated VM", func() {
+		Context("[sig-storage]with more complicated VM", decorators.SigStorage, func() {
 
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 				return expectVMRunnable(vm, console.LoginToAlpine)
@@ -495,205 +496,202 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 				return vm
 			}
 
-			It("with a simple clone", func() {
-				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-
-				if snapshotStorageClass == "" {
-					Skip("Skipping test, no VolumeSnapshot support")
-				}
-
-				sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
-				vmClone = generateCloneFromVM()
-
-				createCloneAndWaitForFinish(vmClone)
-
-				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-
-				By("Making sure target is runnable")
-				targetVM = expectVMRunnable(targetVM)
-
-				expectEqualLabels(targetVM, sourceVM)
-				expectEqualAnnotations(targetVM, sourceVM)
-			})
-
-			Context("should reject source with non snapshotable volume", func() {
-				BeforeEach(func() {
-					sc := libstorage.GetNoVolumeSnapshotStorageClass("local")
-					if sc == "" {
-						Skip("Skipping test, no storage class without snapshot support")
-					}
-
-					// create running in case storage is WFFC (local storage)
-					By("Creating source VM")
-					sourceVM = createVMWithStorageClass(sc, true)
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, &v1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					sourceVM = StopVirtualMachine(sourceVM)
-				})
-
-				It("with VM source", func() {
-					vmClone = generateCloneFromVM()
-					vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).Should(ContainSubstring("does not support snapshots"))
-				})
-
-				It("with snapshot source", func() {
-					By("Snapshotting VM")
-					snapshot := createSnapshot(sourceVM)
-					snapshot = waitSnapshotReady(snapshot)
-
-					By("Deleting VM")
-					err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					By("Creating a clone and expecting error")
-					vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
-					vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-					Expect(err).Should(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("not backed up in snapshot"))
-				})
-			})
-
-			Context("with instancetype and preferences", func() {
+			Context("and no snapshot storage class", decorators.RequiresNoSnapshotStorageClass, func() {
 				var (
-					instancetype *instancetypev1beta1.VirtualMachineInstancetype
-					preference   *instancetypev1beta1.VirtualMachinePreference
+					noSnapshotStorageClass string
+				)
+
+				Context("should reject source with non snapshotable volume", func() {
+					BeforeEach(func() {
+						noSnapshotStorageClass = libstorage.GetNoVolumeSnapshotStorageClass("local")
+						Expect(noSnapshotStorageClass).ToNot(BeEmpty(), "no storage class without snapshot support")
+
+						// create running in case storage is WFFC (local storage)
+						By("Creating source VM")
+						sourceVM = createVMWithStorageClass(noSnapshotStorageClass, true)
+						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, &v1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						sourceVM = StopVirtualMachine(sourceVM)
+					})
+
+					It("with VM source", func() {
+						vmClone = generateCloneFromVM()
+						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).Should(ContainSubstring("does not support snapshots"))
+					})
+
+					It("with snapshot source", func() {
+						By("Snapshotting VM")
+						snapshot := createSnapshot(sourceVM)
+						snapshot = waitSnapshotReady(snapshot)
+
+						By("Deleting VM")
+						err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, &v1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						By("Creating a clone and expecting error")
+						vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
+						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
+						Expect(err).Should(HaveOccurred())
+						Expect(err.Error()).To(ContainSubstring("not backed up in snapshot"))
+					})
+				})
+			})
+
+			Context("and snapshot storage class", decorators.RequiresSnapshotStorageClass, func() {
+				var (
+					snapshotStorageClass string
 				)
 
 				BeforeEach(func() {
-					snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
+					snapshotStorageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
 					Expect(err).ToNot(HaveOccurred())
-
-					if snapshotStorageClass == "" {
-						Skip("Skiping test, no VolumeSnapshot support")
-					}
-
-					instancetype = &instancetypev1beta1.VirtualMachineInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "vm-instancetype-",
-							Namespace:    util.NamespaceTestDefault,
-						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
-								Guest: 1,
-							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}
-					instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					preferredCPUTopology := instancetypev1beta1.PreferSockets
-					preference = &instancetypev1beta1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "vm-preference-",
-							Namespace:    util.NamespaceTestDefault,
-						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: &preferredCPUTopology,
-							},
-						},
-					}
-					preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					sourceVM = NewRandomVMWithDataVolumeWithRegistryImport(
-						cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-						util.NamespaceTestDefault,
-						snapshotStorageClass,
-						k8sv1.ReadWriteOnce,
-					)
-
-					sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
-					sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-						Name: instancetype.Name,
-						Kind: "VirtualMachineInstanceType",
-					}
-					sourceVM.Spec.Preference = &virtv1.PreferenceMatcher{
-						Name: preference.Name,
-						Kind: "VirtualMachinePreference",
-					}
-
-					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM)
-					Expect(err).ToNot(HaveOccurred())
-
-					for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
-						libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
-					}
+					Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support")
 				})
 
-				It("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func() {
-					By("Waiting until the source VM has instancetype and preference RevisionNames")
-					libinstancetype.WaitForVMInstanceTypeRevisionNames(sourceVM.Name, virtClient)
-
+				It("with a simple clone", func() {
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
 					vmClone = generateCloneFromVM()
+
 					createCloneAndWaitForFinish(vmClone)
 
-					By("Waiting until the targetVM has instancetype and preference RevisionNames")
-					libinstancetype.WaitForVMInstanceTypeRevisionNames(targetVMName, virtClient)
+					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
 
-					By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
-					sourceVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), sourceVM.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					targetVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), targetVMName, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					By("Making sure target is runnable")
+					targetVM = expectVMRunnable(targetVM)
 
-					Expect(targetVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName), "source and target instancetype revision names should not be equal")
-					Expect(targetVM.Spec.Preference.RevisionName).ToNot(Equal(sourceVM.Spec.Preference.RevisionName), "source and target preference revision names should not be equal")
-
-					By("Asserting that the source and target ControllerRevisions contain the same Object")
-					Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
-					Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
+					expectEqualLabels(targetVM, sourceVM)
+					expectEqualAnnotations(targetVM, sourceVM)
 				})
-			})
 
-			It("double cloning: clone target as a clone source", func() {
-				addAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
-					filters := []string{"somekey/*"}
-					vmClone.Spec.LabelFilters = filters
-					vmClone.Spec.AnnotationFilters = filters
-				}
-				generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
-					vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
-					addAnnotationAndLabelFilters(vmclone)
-					return vmclone
-				}
+				Context("with instancetype and preferences", func() {
+					var (
+						instancetype *instancetypev1beta1.VirtualMachineInstancetype
+						preference   *instancetypev1beta1.VirtualMachinePreference
+					)
 
-				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				if snapshotStorageClass == "" {
-					Skip("Skipping test, no VolumeSnapshot support")
-				}
+					BeforeEach(func() {
+						instancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+							ObjectMeta: metav1.ObjectMeta{
+								GenerateName: "vm-instancetype-",
+								Namespace:    util.NamespaceTestDefault,
+							},
+							Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+								CPU: instancetypev1beta1.CPUInstancetype{
+									Guest: 1,
+								},
+								Memory: instancetypev1beta1.MemoryInstancetype{
+									Guest: resource.MustParse("128Mi"),
+								},
+							},
+						}
+						instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
 
-				sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
-				vmClone = generateCloneWithFilters(sourceVM, targetVMName)
+						preferredCPUTopology := instancetypev1beta1.PreferSockets
+						preference = &instancetypev1beta1.VirtualMachinePreference{
+							ObjectMeta: metav1.ObjectMeta{
+								GenerateName: "vm-preference-",
+								Namespace:    util.NamespaceTestDefault,
+							},
+							Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1beta1.CPUPreferences{
+									PreferredCPUTopology: &preferredCPUTopology,
+								},
+							},
+						}
+						preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
 
-				createCloneAndWaitForFinish(vmClone)
+						sourceVM = NewRandomVMWithDataVolumeWithRegistryImport(
+							cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
+							util.NamespaceTestDefault,
+							snapshotStorageClass,
+							k8sv1.ReadWriteOnce,
+						)
 
-				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
-				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
+						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
+						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+							Name: instancetype.Name,
+							Kind: "VirtualMachineInstanceType",
+						}
+						sourceVM.Spec.Preference = &virtv1.PreferenceMatcher{
+							Name: preference.Name,
+							Kind: "VirtualMachinePreference",
+						}
 
-				By("Creating another clone from the target VM")
-				const cloneFromCloneName = "vm-clone-from-clone"
-				vmCloneFromClone := generateCloneWithFilters(targetVM, cloneFromCloneName)
-				vmCloneFromClone.Name = "test-clone-from-clone"
-				createCloneAndWaitForFinish(vmCloneFromClone)
+						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM)
+						Expect(err).ToNot(HaveOccurred())
 
-				By(fmt.Sprintf("Getting the target VM %s", cloneFromCloneName))
-				targetVMCloneFromClone, err := virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), cloneFromCloneName, &v1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
+						for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
+							libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
+						}
+					})
 
-				expectVMRunnable(targetVMCloneFromClone)
-				expectEqualLabels(targetVMCloneFromClone, sourceVM)
-				expectEqualAnnotations(targetVMCloneFromClone, sourceVM)
+					It("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func() {
+						By("Waiting until the source VM has instancetype and preference RevisionNames")
+						libinstancetype.WaitForVMInstanceTypeRevisionNames(sourceVM.Name, virtClient)
+
+						vmClone = generateCloneFromVM()
+						createCloneAndWaitForFinish(vmClone)
+
+						By("Waiting until the targetVM has instancetype and preference RevisionNames")
+						libinstancetype.WaitForVMInstanceTypeRevisionNames(targetVMName, virtClient)
+
+						By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
+						sourceVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), sourceVM.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						targetVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), targetVMName, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(targetVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName), "source and target instancetype revision names should not be equal")
+						Expect(targetVM.Spec.Preference.RevisionName).ToNot(Equal(sourceVM.Spec.Preference.RevisionName), "source and target preference revision names should not be equal")
+
+						By("Asserting that the source and target ControllerRevisions contain the same Object")
+						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
+						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
+					})
+				})
+
+				It("double cloning: clone target as a clone source", func() {
+					addAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+						filters := []string{"somekey/*"}
+						vmClone.Spec.LabelFilters = filters
+						vmClone.Spec.AnnotationFilters = filters
+					}
+					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+						addAnnotationAndLabelFilters(vmclone)
+						return vmclone
+					}
+
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, false)
+					vmClone = generateCloneWithFilters(sourceVM, targetVMName)
+
+					createCloneAndWaitForFinish(vmClone)
+
+					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					By("Creating another clone from the target VM")
+					const cloneFromCloneName = "vm-clone-from-clone"
+					vmCloneFromClone := generateCloneWithFilters(targetVM, cloneFromCloneName)
+					vmCloneFromClone.Name = "test-clone-from-clone"
+					createCloneAndWaitForFinish(vmCloneFromClone)
+
+					By(fmt.Sprintf("Getting the target VM %s", cloneFromCloneName))
+					targetVMCloneFromClone, err := virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), cloneFromCloneName, &v1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					expectVMRunnable(targetVMCloneFromClone)
+					expectEqualLabels(targetVMCloneFromClone, sourceVM)
+					expectEqualAnnotations(targetVMCloneFromClone, sourceVM)
+				})
+
 			})
 		})
 	})
