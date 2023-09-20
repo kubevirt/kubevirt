@@ -7,7 +7,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/json"
+	"sigs.k8s.io/json"
 
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -124,47 +124,37 @@ func decodeControllerRevisionObject(revision *appsv1.ControllerRevision) error {
 }
 
 func decodeSpecRevision(data []byte, isPreference bool) (runtime.Object, error) {
-	if isPreference {
-		oldObject, err := decodeVirtualMachinePreferenceSpecRevision(data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode VirtualMachinePreferenceSpecRevision: %w", err)
-		}
-		if oldObject == nil {
-			return nil, nil
-		}
-		newObject := &instancetypev1beta1.VirtualMachinePreference{}
-		if err := instancetypev1alpha1.Convert_v1alpha1_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(oldObject, newObject, nil); err != nil {
+	if oldPreferenceObject := decodeVirtualMachinePreferenceSpecRevision(data); oldPreferenceObject != nil {
+		newPreferenceObject := &instancetypev1beta1.VirtualMachinePreference{}
+		if err := instancetypev1alpha1.Convert_v1alpha1_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(oldPreferenceObject, newPreferenceObject, nil); err != nil {
 			return nil, err
 		}
-		return newObject, nil
+		return newPreferenceObject, nil
 	}
 
-	oldObject, err := decodeVirtualMachineInstancetypeSpecRevision(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode VirtualMachineInstancetypeSpecRevision: %w", err)
+	if oldInstancetypeObject := decodeVirtualMachineInstancetypeSpecRevision(data); oldInstancetypeObject != nil {
+		newInstancetypeObject := &instancetypev1beta1.VirtualMachineInstancetype{}
+		if err := instancetypev1alpha1.Convert_v1alpha1_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(oldInstancetypeObject, newInstancetypeObject, nil); err != nil {
+			return nil, err
+		}
+		return newInstancetypeObject, nil
 	}
-	if oldObject == nil {
-		return nil, nil
-	}
-	newObject := &instancetypev1beta1.VirtualMachineInstancetype{}
-	if err := instancetypev1alpha1.Convert_v1alpha1_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(oldObject, newObject, nil); err != nil {
-		return nil, err
-	}
-	return newObject, nil
+
+	return nil, nil
 }
 
-func decodeVirtualMachineInstancetypeSpecRevision(data []byte) (*instancetypev1alpha1.VirtualMachineInstancetype, error) {
+func decodeVirtualMachineInstancetypeSpecRevision(data []byte) *instancetypev1alpha1.VirtualMachineInstancetype {
 	revision := &instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{}
-	err := json.Unmarshal(data, revision)
-	if err != nil {
+	strictErr, err := json.UnmarshalStrict(data, revision)
+	if err != nil || strictErr != nil {
 		// Failed to unmarshal, so the object is not the expected type
-		return nil, nil
+		return nil
 	}
 
 	instancetypeSpec := &instancetypev1alpha1.VirtualMachineInstancetypeSpec{}
-	err = json.Unmarshal(revision.Spec, instancetypeSpec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal json into v1alpha1.VirtualMachineInstancetypeSpec: %w", err)
+	strictErr, err = json.UnmarshalStrict(revision.Spec, instancetypeSpec)
+	if err != nil || strictErr != nil {
+		return nil
 	}
 
 	return &instancetypev1alpha1.VirtualMachineInstancetype{
@@ -176,21 +166,21 @@ func decodeVirtualMachineInstancetypeSpecRevision(data []byte) (*instancetypev1a
 			Name: "old-version-of-instancetype-object",
 		},
 		Spec: *instancetypeSpec,
-	}, nil
+	}
 }
 
-func decodeVirtualMachinePreferenceSpecRevision(data []byte) (*instancetypev1alpha1.VirtualMachinePreference, error) {
+func decodeVirtualMachinePreferenceSpecRevision(data []byte) *instancetypev1alpha1.VirtualMachinePreference {
 	revision := &instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{}
-	err := json.Unmarshal(data, revision)
-	if err != nil {
+	strictErr, err := json.UnmarshalStrict(data, revision)
+	if err != nil || strictErr != nil {
 		// Failed to unmarshall, so the object is not the expected type
-		return nil, nil
+		return nil
 	}
 
 	preferenceSpec := &instancetypev1alpha1.VirtualMachinePreferenceSpec{}
-	err = json.Unmarshal(revision.Spec, preferenceSpec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshall json into v1alpha1.VirtualMachinePreferenceSpec: %w", err)
+	strictErr, err = json.UnmarshalStrict(revision.Spec, preferenceSpec)
+	if err != nil || strictErr != nil {
+		return nil
 	}
 
 	return &instancetypev1alpha1.VirtualMachinePreference{
@@ -202,5 +192,5 @@ func decodeVirtualMachinePreferenceSpecRevision(data []byte) (*instancetypev1alp
 			Name: "old-version-of-preference-object",
 		},
 		Spec: *preferenceSpec,
-	}, nil
+	}
 }
