@@ -30,6 +30,7 @@ service Cmd {
   rpc VirtualMachineMemoryDump(MemoryDumpRequest) returns (Response) {}
   rpc GetQemuVersion(EmptyRequest) returns (QemuVersionResponse){}
   rpc SyncVirtualMachineCPUs(VMIRequest) returns (Response) {}
+  rpc SyncVirtualMachineMemory(VMIRequest) returns (Response) {}
   rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
   rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}

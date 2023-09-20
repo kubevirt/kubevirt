@@ -138,6 +138,7 @@ type DomainManager interface {
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
+	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -252,6 +253,48 @@ func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
 	}
 
 	return devices.Disks, nil
+}
+
+func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	const errMsgPrefix = "failed to update Guest Memory"
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+	defer dom.Free()
+
+	requestedHotPlugMemory := vmi.Spec.Domain.Memory.Guest.DeepCopy()
+	requestedHotPlugMemory.Sub(*vmi.Status.Memory.GuestAtBoot)
+	pluggableMemoryRequested, err := vcpu.QuantityToByte(requestedHotPlugMemory)
+	if err != nil {
+		return err
+	}
+
+	spec, err := getDomainSpec(dom)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, "Parsing domain XML failed.")
+	}
+
+	spec.Devices.Memory.Target.Requested = pluggableMemoryRequested
+	memoryDevice, err := xml.Marshal(spec.Devices.Memory)
+	if err != nil {
+		log.Log.Reason(err).Error("marshalling target virtio-mem failed")
+		return err
+	}
+
+	err = dom.UpdateDeviceFlags(strings.ToLower(string(memoryDevice)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE)
+	if err != nil {
+		log.Log.Reason(err).Error("updating device")
+		return err
+	}
+
+	log.Log.V(2).Infof("hotplugging guest memory to %v", vmi.Spec.Domain.Memory.Guest.Value())
+	return nil
 }
 
 func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) error {
@@ -1049,13 +1092,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		// Nothing to do
 	}
 
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-
-	var oldSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &oldSpec)
+	oldSpec, err := getDomainSpec(dom)
 	if err != nil {
 		logger.Reason(err).Error("Parsing domain XML failed.")
 		return nil, err
@@ -1125,16 +1162,16 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	if vmi.IsRunning() {
 		networkInterfaceManager := newVirtIOInterfaceManager(
 			dom, netsetup.NewVMNetworkConfigurator(vmi, cache.CacheCreator{}))
-		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: oldSpec}, domain); err != nil {
+		if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
 			return nil, err
 		}
-		if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: oldSpec}); err != nil {
+		if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
 			return nil, err
 		}
 	}
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
-	return &oldSpec, nil
+	return oldSpec, nil
 }
 
 func getSourceFile(disk api.Disk) string {

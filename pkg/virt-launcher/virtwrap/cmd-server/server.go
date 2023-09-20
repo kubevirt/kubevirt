@@ -721,6 +721,23 @@ func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLa
 	return response, nil
 }
 
+func (l *Launcher) SyncVirtualMachineMemory(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.UpdateGuestMemory(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI guest memory")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("guest memory has been updated")
+	return response, nil
+}
+
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit
