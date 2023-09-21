@@ -167,18 +167,11 @@ var _ = Describe("UpgradeController", func() {
 		expectUpgradePhase(instancetypev1beta1.UpgradeSucceeded)
 	}
 
-	assertExecutedWithoutReenqueue := func() {
+	assertExecuted := func() {
 		Expect(mockQueue.Len()).To(Equal(1))
 		Expect(controller.Execute()).To(BeTrue())
 		Expect(mockQueue.Len()).To(Equal(0))
 		Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
-	}
-
-	assertExecutedWithReenqueue := func() {
-		Expect(mockQueue.Len()).To(Equal(1))
-		Expect(controller.Execute()).To(BeTrue())
-		Expect(mockQueue.Len()).To(Equal(0))
-		Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 	}
 
 	Context("ControllerRevisionUpgrade", func() {
@@ -191,9 +184,9 @@ var _ = Describe("UpgradeController", func() {
 			})
 		})
 
-		It("should reenqueue on failure to find ControllerRevisionUpgrade", func() {
+		It("should not reenqueue on failure to find ControllerRevisionUpgrade", func() {
 			mockQueue.Add("non-existing-crUpgrade-key")
-			assertExecutedWithReenqueue()
+			assertExecuted()
 		})
 
 		It("should be ignored if phase already successful", func() {
@@ -210,19 +203,19 @@ var _ = Describe("UpgradeController", func() {
 					Phase: &succeeded,
 				},
 			})
-			assertExecutedWithoutReenqueue()
+			assertExecuted()
 		})
 
 		It("should update new upgrade phase to in-progress", func() {
 			addUnsetUpgrade()
 			expectUpdatePhaseToInProgress()
-			assertExecutedWithoutReenqueue()
+			assertExecuted()
 		})
 
 		It("mark completed upgrade as succeeded", func() {
 			addInProgressUpgrade()
 			expectUpdatePhaseToSucceeded()
-			assertExecutedWithoutReenqueue()
+			assertExecuted()
 		})
 
 		It("should mark upgrade as failed when unable to find target ControllerRevision", func() {
@@ -240,7 +233,7 @@ var _ = Describe("UpgradeController", func() {
 				},
 			})
 			expectUpdatePhaseToFailed()
-			assertExecutedWithReenqueue()
+			assertExecuted()
 		})
 
 		It("should mark failed upgrade as failed", func() {
@@ -251,7 +244,7 @@ var _ = Describe("UpgradeController", func() {
 			}
 			addInProgressUpgrade()
 			expectUpdatePhaseToFailed()
-			assertExecutedWithReenqueue()
+			assertExecuted()
 		})
 	})
 })

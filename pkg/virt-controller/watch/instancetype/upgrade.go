@@ -126,13 +126,13 @@ func (c *UpgradeController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
+
 	if err := c.execute(key); err != nil {
-		log.Log.Reason(err).Infof("failure to process ControllerRevisionUpgrade, reenqueuing %v", key)
-		c.Queue.AddRateLimited(key)
+		log.Log.Reason(err).Infof("failure to process ControllerRevisionUpgrade %v", key)
 	} else {
 		log.Log.V(4).Infof("successfully processed ControllerRevisionUpgrade %v", key)
-		c.Queue.Forget(key)
 	}
+
 	return true
 }
 
