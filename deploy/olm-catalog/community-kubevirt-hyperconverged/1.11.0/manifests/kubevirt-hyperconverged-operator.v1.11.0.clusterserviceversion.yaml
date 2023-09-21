@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2023-09-20 08:21:26"
+    createdAt: "2023-09-21 05:13:06"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -3643,7 +3643,7 @@ spec:
                 - name: NODE_DRIVER_REG_IMAGE
                   value: registry.k8s.io/sig-storage/csi-node-driver-registrar@sha256:f6717ce72a2615c7fbc746b4068f788e78579c54c43b8716e5ce650d97af2df1
                 - name: LIVENESS_PROBE_IMAGE
-                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:4dc0b87ccd69f9865b89234d8555d3a614ab0a16ed94a3016ffd27f8106132ce
+                  value: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
                 - name: CSI_SNAPSHOT_IMAGE
                   value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:becc53e25b96573f61f7469923a92fb3e9d3a3781732159954ce0d9da07233a2
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
@@ -4310,7 +4310,7 @@ spec:
     name: kubevirt-plugin
   - image: quay.io/kubevirt/libguestfs-tools@sha256:12cf13c034ef0e87c6d6a9e1e26fa0779348e26b1e20fa4cf5fe8074e1b5581b
     name: libguestfs-tools
-  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:4dc0b87ccd69f9865b89234d8555d3a614ab0a16ed94a3016ffd27f8106132ce
+  - image: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
     name: livenessprobe
   - image: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
     name: macvtap-cni
