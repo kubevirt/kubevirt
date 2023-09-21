@@ -1,4 +1,4 @@
-FROM fedora:37
+FROM fedora:38
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
@@ -7,7 +7,7 @@ RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install
 
 RUN pip3 install j2cli && pip3 install operator-courier
 
-ENV GO_VERSION=1.19.2 \
+ENV GO_VERSION=1.20.8 \
     KUBEBUILDER_VERSION="3.2.0" \
     ARCH="amd64" \
     GOPATH="/go" \
