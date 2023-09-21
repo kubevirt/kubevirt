@@ -1648,8 +1648,11 @@
 #  if !LIBVIR_CHECK_VERSION(1, 3, 3)
 #    define VIR_DOMAIN_PAUSED_POSTCOPY_FAILED 13
 #  endif
+#  if !LIBVIR_CHECK_VERSION(9, 2, 0)
+#    define VIR_DOMAIN_PAUSED_API_ERROR 14
+#  endif
 #  if !LIBVIR_CHECK_VERSION(0, 9, 10)
-#    define VIR_DOMAIN_PAUSED_LAST 14
+#    define VIR_DOMAIN_PAUSED_LAST 15
 #  endif
 
 /* enum virDomainProcessSignal */
