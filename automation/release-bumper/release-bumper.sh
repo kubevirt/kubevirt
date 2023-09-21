@@ -151,7 +151,7 @@ function get_latest_release() {
   major=$(echo $current_version | cut -d. -f1)
   minor=$(echo $current_version | cut -d. -f2)
 
-  RELEASES=$(curl -s -L "https://api.github.com/repos/$repo/releases" | jq -r '.[].tag_name')
+  RELEASES=$(curl -s -L "https://api.github.com/repos/$repo/releases" | jq -r '.[] | select(.tag_name | test("^v?[0-9].*")) | .tag_name')
   releases=(${RELEASES})
 
   semversort "${releases[*]}"

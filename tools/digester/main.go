@@ -183,7 +183,7 @@ func querySingleImage(ctx context.Context, imageToDigest string, digestOnly bool
 	}
 
 	imgRef, err := docker.ParseReference("//" + imageToDigest)
-	exitOnError(err, "failed to parse container reference")
+	exitOnError(err, fmt.Sprintf("failed to parse container reference: %q", imageToDigest))
 
 	digest, err := docker.GetDigest(ctx, nil, imgRef)
 	exitOnError(err, "failed to get digest from image")
@@ -275,7 +275,7 @@ func readOneDigest(ctx context.Context, image *Image, index int, wg *sync.WaitGr
 	fmt.Println("Reading digest for", fullName)
 
 	imgRef, err := docker.ParseReference(fullName)
-	exitOnError(err, "failed to parse container reference")
+	exitOnError(err, fmt.Sprintf("failed to parse container reference: %q", fullName))
 
 	digest, err := retryGetDigest(ctx, nil, imgRef, 5, 1*time.Second)
 
