@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	apiinstancetype "kubevirt.io/api/instancetype"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -64,20 +64,6 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop, vmInformer.HasSynced)).To(BeTrue())
-	}
-
-	assertObjectIsLatest := func(cr *appsv1.ControllerRevision) {
-		labelVersion, err := DiscoverObjectVersionByLabel(cr)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(labelVersion).To(Equal(apiinstancetype.LatestVersion))
-
-		// Make sure Data.Raw is populated before we try to decode anything
-		cr.Data.Raw, err = json.Marshal(cr.Data.Object)
-		Expect(err).ToNot(HaveOccurred())
-
-		decodeVersion, err := DiscoverObjectVersionByDecode(cr)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(decodeVersion).To(Equal(apiinstancetype.LatestVersion))
 	}
 
 	BeforeEach(func() {
@@ -107,13 +93,13 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 	})
 
 	Context("ControllerRevisionUpgrade should", func() {
-		DescribeTable("skip upgrade of ControllerRevision containing latest version of", func(createControllerRevision func() (*appsv1.ControllerRevision, error)) {
+		DescribeTable("skip upgrade of ControllerRevision labelled with latest object version of", func(createControllerRevision func() (*appsv1.ControllerRevision, error)) {
 			cr, err := createControllerRevision()
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the original is the latest just to ensure this test
 			// is updated when a new version is introduced
-			assertObjectIsLatest(cr)
+			Expect(IsObjectLatestVersion(cr)).To(BeTrue())
 
 			newCR, err := upgrader.Upgrade(cr)
 			Expect(err).ToNot(HaveOccurred())
@@ -202,7 +188,7 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 				createdCR, ok := createdObj.(*appsv1.ControllerRevision)
 				Expect(ok).To(BeTrue())
 
-				assertObjectIsLatest(createdCR)
+				Expect(IsObjectLatestVersion(createdCR)).To(BeTrue())
 
 				return true, createdObj, nil
 			})
@@ -252,8 +238,32 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 			newCR, err := upgrader.Upgrade(originalCR)
 			Expect(err).ToNot(HaveOccurred())
 
-			assertObjectIsLatest(newCR)
+			Expect(IsObjectLatestVersion(newCR)).To(BeTrue())
 		},
+			Entry("VirtualMachineInstancetype v1beta1 without object version labels",
+				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+					cr, err := CreateControllerRevision(vm,
+						&instancetypev1beta1.VirtualMachineInstancetype{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "instancetype",
+							},
+							Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+								CPU: instancetypev1beta1.CPUInstancetype{
+									Guest: uint32(1),
+								},
+								Memory: instancetypev1beta1.MemoryInstancetype{
+									Guest: resource.MustParse("128Mi"),
+								},
+							},
+						},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updateInstancetypeMatcher,
+			),
 			Entry("VirtualMachineInstancetype v1alpha2",
 				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 					return CreateControllerRevision(vm,
@@ -291,6 +301,30 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 							},
 						},
 					)
+				},
+				updateInstancetypeMatcher,
+			),
+			Entry("VirtualMachineClusterInstancetype v1beta1 without object version labels",
+				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+					cr, err := CreateControllerRevision(vm,
+						&instancetypev1beta1.VirtualMachineClusterInstancetype{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "clusterinstancetype",
+							},
+							Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+								CPU: instancetypev1beta1.CPUInstancetype{
+									Guest: uint32(1),
+								},
+								Memory: instancetypev1beta1.MemoryInstancetype{
+									Guest: resource.MustParse("128Mi"),
+								},
+							},
+						},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
 				},
 				updateInstancetypeMatcher,
 			),
@@ -334,6 +368,28 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 				},
 				updateInstancetypeMatcher,
 			),
+			Entry("VirtualMachinePreference v1beta1 without object version labels",
+				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+					cpuPreference := instancetypev1beta1.PreferSockets
+					cr, err := CreateControllerRevision(vm,
+						&instancetypev1beta1.VirtualMachinePreference{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "preference",
+							},
+							Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1beta1.CPUPreferences{
+									PreferredCPUTopology: &cpuPreference,
+								},
+							},
+						},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updateInstancetypeMatcher,
+			),
 			Entry("VirtualMachinePreference v1alpha2",
 				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 					return CreateControllerRevision(vm,
@@ -367,6 +423,28 @@ var _ = Describe("instancetype and preference Upgrades", func() {
 					)
 				},
 				updatePreferenceMatcher,
+			),
+			Entry("VirtualMachineClusterPreference v1beta1 without object version labels",
+				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+					cpuPreference := instancetypev1beta1.PreferSockets
+					cr, err := CreateControllerRevision(vm,
+						&instancetypev1beta1.VirtualMachineClusterPreference{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "preference",
+							},
+							Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+								CPU: &instancetypev1beta1.CPUPreferences{
+									PreferredCPUTopology: &cpuPreference,
+								},
+							},
+						},
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updateInstancetypeMatcher,
 			),
 			Entry("VirtualMachineClusterPreference v1alpha2",
 				func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {

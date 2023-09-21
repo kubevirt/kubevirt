@@ -25,16 +25,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -59,11 +54,9 @@ func NewUpgrader(client kubecli.KubevirtClient, vmInformer cache.SharedIndexInfo
 }
 
 func (u *Upgrader) Upgrade(original *appsv1.ControllerRevision) (*appsv1.ControllerRevision, error) {
-	alreadyLatest, err := isAlreadyLatestVersion(original)
-	if err != nil {
-		return nil, err
-	}
-	if alreadyLatest {
+	// If the CR already contains an object from the latest version of the
+	// instancetype.kubevirt.io API *and* has the label showing this then skip
+	if alreadyLatest := IsObjectLatestVersion(original); alreadyLatest {
 		return original, nil
 	}
 
@@ -162,48 +155,9 @@ func (u *Upgrader) discoverOwner(cr *appsv1.ControllerRevision) (*virtv1.Virtual
 	return vm, nil
 }
 
-func isAlreadyLatestVersion(cr *appsv1.ControllerRevision) (bool, error) {
-	originalObjectVersion, err := discoverObjectVersion(cr)
-	if err != nil {
-		return false, err
-	}
-	return originalObjectVersion == instancetypeapi.LatestVersion, nil
-}
-
-func DiscoverObjectVersionByLabel(cr *appsv1.ControllerRevision) (string, error) {
+func IsObjectLatestVersion(cr *appsv1.ControllerRevision) bool {
 	if version, ok := cr.GetLabels()[instancetypeapi.ControllerRevisionObjectVersionLabel]; ok {
-		return version, nil
+		return version == instancetypeapi.LatestVersion
 	}
-	return "", fmt.Errorf("unable to find object version label %s", instancetypeapi.ControllerRevisionObjectVersionLabel)
-}
-
-func DiscoverObjectVersionByDecode(cr *appsv1.ControllerRevision) (string, error) {
-	// TODO(lyarwood) We need to handle VirtualMachine{Instancetype,Preference}SpecRevision but this requires
-	// isPreference to be dropped from the compat code as we can't tell what we are dealing with here ahead of time
-
-	// FIXME(lyarwood) This can be removed eventually once all
-	// ControllerRevisions are labeled sometime after >=v1.2.0?
-	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), cr.Data.Raw)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode object in ControllerRevision: %w", err)
-	}
-	switch decodedObj.(type) {
-	case *instancetypev1beta1.VirtualMachineInstancetype, *instancetypev1beta1.VirtualMachineClusterInstancetype, *instancetypev1beta1.VirtualMachinePreference, *instancetypev1beta1.VirtualMachineClusterPreference:
-		return instancetypev1beta1.SchemeGroupVersion.Version, nil
-	case *instancetypev1alpha2.VirtualMachineInstancetype, *instancetypev1alpha2.VirtualMachineClusterInstancetype, *instancetypev1alpha2.VirtualMachinePreference, *instancetypev1alpha2.VirtualMachineClusterPreference:
-		return instancetypev1alpha2.SchemeGroupVersion.Version, nil
-	case *instancetypev1alpha1.VirtualMachineInstancetype, *instancetypev1alpha1.VirtualMachineClusterInstancetype, *instancetypev1alpha1.VirtualMachinePreference, *instancetypev1alpha1.VirtualMachineClusterPreference:
-		return instancetypev1alpha1.SchemeGroupVersion.Version, nil
-	}
-	return "", fmt.Errorf("unexpected object type in ControllerRevision")
-}
-
-func discoverObjectVersion(cr *appsv1.ControllerRevision) (string, error) {
-	// We started labeling instance type and preference ControllerRevisions in
-	// KubeVirt v1.0.0 but can't expect them to always be labeled yet
-	version, err := DiscoverObjectVersionByLabel(cr)
-	if err == nil {
-		return version, nil
-	}
-	return DiscoverObjectVersionByDecode(cr)
+	return false
 }

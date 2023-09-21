@@ -175,7 +175,33 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 			Expect(decodedObj.GetObjectKind().GroupVersionKind().Version).To(Equal(instancetypeapi.LatestVersion))
 		},
-			Entry("VirtualMachineInstancetype from v1beta1 to latest",
+			Entry("VirtualMachineInstancetype from v1beta1 without labels to latest",
+				func() (*appsv1.ControllerRevision, error) {
+					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "instancetype",
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					}
+					instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cr, err := createControllerRevision(instancetype)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updateInstancetypeMatcher,
+				getInstancetypeRevisionName,
+			),
+			Entry("VirtualMachineInstancetype from v1beta1 with labels to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
@@ -241,7 +267,33 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				updateInstancetypeMatcher,
 				getInstancetypeRevisionName,
 			),
-			Entry("VirtualMachineClusterInstancetype from v1beta1 to latest",
+			Entry("VirtualMachineClusterInstancetype from v1beta1 without labels to latest",
+				func() (*appsv1.ControllerRevision, error) {
+					instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "clusterinstancetype",
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					}
+					instancetype, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cr, err := createControllerRevision(instancetype)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updateInstancetypeMatcher,
+				getInstancetypeRevisionName,
+			),
+			Entry("VirtualMachineClusterInstancetype from v1beta1 with labels to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
@@ -307,7 +359,31 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				updateInstancetypeMatcher,
 				getInstancetypeRevisionName,
 			),
-			Entry("VirtualMachinePreference from v1beta1 to latest",
+			Entry("VirtualMachinePreference from v1beta1 without labels to latest",
+				func() (*appsv1.ControllerRevision, error) {
+					cpuPreference := instancetypev1beta1.PreferSockets
+					preference := &instancetypev1beta1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "virtualmachinepreference",
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: &cpuPreference,
+							},
+						},
+					}
+					preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cr, err := createControllerRevision(preference)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updatePreferenceMatcher,
+				getPreferenceRevisionName,
+			),
+			Entry("VirtualMachinePreference from v1beta1 with labels to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1beta1.PreferSockets
 					preference := &instancetypev1beta1.VirtualMachinePreference{
@@ -367,7 +443,31 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				updatePreferenceMatcher,
 				getPreferenceRevisionName,
 			),
-			Entry("VirtualMachineClusterPreference from v1beta1 to latest",
+			Entry("VirtualMachineClusterPreference from v1beta1 without labels to latest",
+				func() (*appsv1.ControllerRevision, error) {
+					cpuPreference := instancetypev1beta1.PreferSockets
+					preference := &instancetypev1beta1.VirtualMachineClusterPreference{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: "virtualmachineclusterpreference",
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: &cpuPreference,
+							},
+						},
+					}
+					preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					cr, err := createControllerRevision(preference)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(cr.Labels).To(HaveKey(instancetypeapi.ControllerRevisionObjectVersionLabel))
+					delete(cr.Labels, instancetypeapi.ControllerRevisionObjectVersionLabel)
+					return cr, nil
+				},
+				updatePreferenceMatcher,
+				getPreferenceRevisionName,
+			),
+			Entry("VirtualMachineClusterPreference from v1beta1 with labels to latest",
 				func() (*appsv1.ControllerRevision, error) {
 					cpuPreference := instancetypev1beta1.PreferSockets
 					preference := &instancetypev1beta1.VirtualMachineClusterPreference{
