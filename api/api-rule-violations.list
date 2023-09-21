@@ -156,6 +156,7 @@ API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha2,Virt
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1alpha2,VirtualMachinePreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,CPUPreferences,PreferredCPUFeatures
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,ControllerRevisionUpgradeList,Items
+API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,ControllerRevisionUpgradeStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,VirtualMachineClusterPreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/instancetype/v1beta1,VirtualMachinePreferenceList,Items
 API rule violation: list_type_missing,kubevirt.io/api/migrations/v1alpha1,MigrationPolicyList,Items

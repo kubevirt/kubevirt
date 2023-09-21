@@ -586,6 +586,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/instancetype/v1beta1.CPUPreferences":                                        schema_kubevirtio_api_instancetype_v1beta1_CPUPreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ClockPreferences":                                      schema_kubevirtio_api_instancetype_v1beta1_ClockPreferences(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgrade":                             schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgrade(ref),
+		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeCondition":                    schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeCondition(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeList":                         schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeList(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeResult":                       schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeResult(ref),
 		"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeSpec":                         schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeSpec(ref),
@@ -27589,6 +27590,45 @@ func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgrade(ref co
 	}
 }
 
+func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -27703,6 +27743,20 @@ func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeStatus(
 							Format:      "",
 						},
 					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions of the upgrade",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeCondition"),
+									},
+								},
+							},
+						},
+					},
 					"result": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Result of the upgrade",
@@ -27713,7 +27767,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_ControllerRevisionUpgradeStatus(
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeResult"},
+			"kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeCondition", "kubevirt.io/api/instancetype/v1beta1.ControllerRevisionUpgradeResult"},
 	}
 }
 

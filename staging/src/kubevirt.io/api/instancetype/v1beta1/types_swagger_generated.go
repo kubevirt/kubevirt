@@ -229,9 +229,14 @@ func (ControllerRevisionUpgradeResult) SwaggerDoc() map[string]string {
 
 func (ControllerRevisionUpgradeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"phase":  "Phase of the upgrade",
-		"result": "Result of the upgrade",
+		"phase":      "Phase of the upgrade",
+		"conditions": "Conditions of the upgrade",
+		"result":     "Result of the upgrade",
 	}
+}
+
+func (ControllerRevisionUpgradeCondition) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (ControllerRevisionUpgradeList) SwaggerDoc() map[string]string {

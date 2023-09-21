@@ -28,6 +28,23 @@ var CRDsValidation map[string]string = map[string]string{
     status:
       nullable: true
       properties:
+        conditions:
+          description: Conditions of the upgrade
+          items:
+            properties:
+              message:
+                type: string
+              reason:
+                type: string
+              status:
+                type: string
+              type:
+                type: string
+            required:
+            - status
+            - type
+            type: object
+          type: array
         phase:
           description: Phase of the upgrade
           type: string

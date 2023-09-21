@@ -20,6 +20,7 @@
 package v1beta1
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -585,9 +586,25 @@ type ControllerRevisionUpgradeStatus struct {
 	// Phase of the upgrade
 	Phase *ControllerRevisionUpgradePhase `json:"phase,omitempty"`
 
+	// Conditions of the upgrade
+	Conditions []ControllerRevisionUpgradeCondition `json:"conditions,omitempty"`
+
 	// Result of the upgrade
 	Result *ControllerRevisionUpgradeResult `json:"result,omitempty"`
 }
+
+type ControllerRevisionUpgradeCondition struct {
+	Type    ControllerRevisionUpgradeConditionType `json:"type"`
+	Status  k8sv1.ConditionStatus                  `json:"status"`
+	Reason  string                                 `json:"reason,omitempty"`
+	Message string                                 `json:"message,omitempty"`
+}
+
+type ControllerRevisionUpgradeConditionType string
+
+const (
+	ControllerRevisionUpgradeFailure ControllerRevisionUpgradeConditionType = "UpgradeFailure"
+)
 
 // ControllerRevisionUpgradeList is a list of ControllerRevisionUpgrade resources.
 //
