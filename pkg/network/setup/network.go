@@ -84,8 +84,8 @@ func (v VMNetworkConfigurator) getPhase1NICs(launcherPID *int, networks []v1.Net
 			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		// Binding plugin and SR-IOV devices are not part of the phases
-		if iface.Binding != nil || iface.SRIOV != nil {
+		// Some bindings are not participation in phase 1.
+		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
 			continue
 		}
 
