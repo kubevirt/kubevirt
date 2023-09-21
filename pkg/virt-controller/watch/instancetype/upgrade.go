@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -191,25 +192,27 @@ func (c *UpgradeController) execute(key interface{}) error {
 		return c.updateWithInProgress(crUpgrade)
 	}
 
-	if err := c.upgrade(crUpgrade); err != nil {
+	newCR, err := c.upgrade(crUpgrade)
+	if err != nil {
 		if updateErr := c.updateWithFailure(crUpgrade); updateErr != nil {
 			return updateErr
 		}
 		return err
 	}
 
-	return c.updateWithSuccess(crUpgrade)
+	return c.updateWithSuccess(crUpgrade, newCR)
 }
 
-func (c *UpgradeController) upgrade(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {
+func (c *UpgradeController) upgrade(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) (*appsv1.ControllerRevision, error) {
 	targetCR, err := c.findCR(fmt.Sprintf("%s/%s", crUpgrade.Namespace, crUpgrade.Spec.TargetName))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if _, err = c.upgrader.Upgrade(targetCR); err != nil {
-		return fmt.Errorf("failure to upgrade ControllerRevision: %v", err)
+	newCR, err := c.upgrader.Upgrade(targetCR)
+	if err != nil {
+		return nil, fmt.Errorf("failure to upgrade ControllerRevision: %v", err)
 	}
-	return nil
+	return newCR, nil
 }
 
 func upgradeUnknown(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) bool {
@@ -220,9 +223,19 @@ func upgradeSuccessful(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade)
 	return crUpgrade.Status != nil && crUpgrade.Status.Phase != nil && *crUpgrade.Status.Phase == instancetypev1beta1.UpgradeSucceeded
 }
 
-func (c *UpgradeController) updateWithSuccess(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {
+func (c *UpgradeController) updateWithSuccess(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade, newCR *appsv1.ControllerRevision) error {
 	success := instancetypev1beta1.UpgradeSucceeded
-	return c.updateWithPhase(crUpgrade, &success)
+	crUpgrade.Status = &instancetypev1beta1.ControllerRevisionUpgradeStatus{
+		Phase: &success,
+		Result: &instancetypev1beta1.ControllerRevisionUpgradeResult{
+			Name:    newCR.Name,
+			Version: newCR.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel],
+		},
+	}
+	if err := c.statusUpdater.UpdateStatus(crUpgrade); err != nil {
+		return fmt.Errorf("failure to update ControllerRevisionUpgrade with success: %v", err)
+	}
+	return nil
 }
 
 func (c *UpgradeController) updateWithFailure(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {
@@ -236,11 +249,9 @@ func (c *UpgradeController) updateWithInProgress(crUpgrade *instancetypev1beta1.
 }
 
 func (c *UpgradeController) updateWithPhase(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade, phase *instancetypev1beta1.ControllerRevisionUpgradePhase) error {
-	if crUpgrade.Status == nil {
-		crUpgrade.Status = &instancetypev1beta1.ControllerRevisionUpgradeStatus{}
+	crUpgrade.Status = &instancetypev1beta1.ControllerRevisionUpgradeStatus{
+		Phase: phase,
 	}
-	crUpgrade.Status.Phase = phase
-
 	if err := c.statusUpdater.UpdateStatus(crUpgrade); err != nil {
 		return fmt.Errorf("failure to update ControllerRevisionUpgrade with phase: %v", err)
 	}

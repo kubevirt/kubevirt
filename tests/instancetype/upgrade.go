@@ -153,6 +153,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			By("asserting that the ControllerRevision referenced by the VirtualMachine has been updated to the latest version")
 			vmRevisionName := getVMRevisionName()
 
+			crUpgrade, err = virtClient.ControllerRevisionUpgrade(vm.Namespace).Get(context.Background(), crUpgrade.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(crUpgrade.Status.Result.Name).To(Equal(vmRevisionName))
+			Expect(crUpgrade.Status.Result.Version).To(Equal(instancetypeapi.LatestVersion))
+
 			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmRevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

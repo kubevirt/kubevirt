@@ -26,6 +26,11 @@ import (
 	"kubevirt.io/kubevirt/tests/util"
 )
 
+const (
+	newCRName          = "newCR"
+	newCRObjectVersion = "v1beta1"
+)
+
 type MockUpgrader struct {
 	UpgradeFn func(*appsv1.ControllerRevision) (*appsv1.ControllerRevision, error)
 }
@@ -39,7 +44,14 @@ var _ instancetype.UpgraderInterface = &MockUpgrader{}
 func newMockUpgrader() *MockUpgrader {
 	return &MockUpgrader{
 		UpgradeFn: func(*appsv1.ControllerRevision) (*appsv1.ControllerRevision, error) {
-			return nil, nil
+			return &appsv1.ControllerRevision{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: newCRName,
+					Labels: map[string]string{
+						instancetypeapi.ControllerRevisionObjectVersionLabel: newCRObjectVersion,
+					},
+				},
+			}, nil
 		},
 	}
 }
@@ -150,6 +162,10 @@ var _ = Describe("UpgradeController", func() {
 
 			crUpgrade := update.GetObject().(*instancetypev1beta1.ControllerRevisionUpgrade)
 			Expect(*crUpgrade.Status.Phase).To(Equal(phase))
+			if phase == instancetypev1beta1.UpgradeSucceeded {
+				Expect(crUpgrade.Status.Result.Name).To(Equal(newCRName))
+				Expect(crUpgrade.Status.Result.Version).To(Equal(newCRObjectVersion))
+			}
 
 			return true, update.GetObject(), nil
 		})
