@@ -188,8 +188,8 @@ func (c *UpgradeController) execute(key interface{}) error {
 	}
 
 	if upgradeUnknown(crUpgrade) {
-		logger.V(4).Info("updating ControllerRevisionUpgrade to in-progress")
-		return c.updateWithInProgress(crUpgrade)
+		logger.V(4).Info("updating ControllerRevisionUpgrade to running")
+		return c.updateWithRunning(crUpgrade)
 	}
 
 	newCR, err := c.upgrade(crUpgrade)
@@ -243,9 +243,9 @@ func (c *UpgradeController) updateWithFailure(crUpgrade *instancetypev1beta1.Con
 	return c.updateWithPhase(crUpgrade, &failure)
 }
 
-func (c *UpgradeController) updateWithInProgress(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {
-	inprogress := instancetypev1beta1.UpgradeInProgress
-	return c.updateWithPhase(crUpgrade, &inprogress)
+func (c *UpgradeController) updateWithRunning(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {
+	running := instancetypev1beta1.UpgradeRunning
+	return c.updateWithPhase(crUpgrade, &running)
 }
 
 func (c *UpgradeController) updateWithPhase(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade, phase *instancetypev1beta1.ControllerRevisionUpgradePhase) error {

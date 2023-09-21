@@ -127,8 +127,8 @@ var _ = Describe("UpgradeController", func() {
 		mockQueue.Wait()
 	}
 
-	addInProgressUpgrade := func() {
-		inprogress := instancetypev1beta1.UpgradeInProgress
+	addRunningUpgrade := func() {
+		running := instancetypev1beta1.UpgradeRunning
 		addCRUpgrade(&instancetypev1beta1.ControllerRevisionUpgrade{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: util.NamespaceTestDefault,
@@ -138,7 +138,7 @@ var _ = Describe("UpgradeController", func() {
 				TargetName: crName,
 			},
 			Status: &instancetypev1beta1.ControllerRevisionUpgradeStatus{
-				Phase: &inprogress,
+				Phase: &running,
 			},
 		})
 	}
@@ -171,8 +171,8 @@ var _ = Describe("UpgradeController", func() {
 		})
 	}
 
-	expectUpdatePhaseToInProgress := func() {
-		expectUpgradePhase(instancetypev1beta1.UpgradeInProgress)
+	expectUpdatePhaseToRunning := func() {
+		expectUpgradePhase(instancetypev1beta1.UpgradeRunning)
 	}
 
 	expectUpdatePhaseToFailed := func() {
@@ -224,18 +224,18 @@ var _ = Describe("UpgradeController", func() {
 
 		It("should update new upgrade phase to in-progress", func() {
 			addUnsetUpgrade()
-			expectUpdatePhaseToInProgress()
+			expectUpdatePhaseToRunning()
 			assertExecuted()
 		})
 
 		It("mark completed upgrade as succeeded", func() {
-			addInProgressUpgrade()
+			addRunningUpgrade()
 			expectUpdatePhaseToSucceeded()
 			assertExecuted()
 		})
 
 		It("should mark upgrade as failed when unable to find target ControllerRevision", func() {
-			inprogress := instancetypev1beta1.UpgradeInProgress
+			running := instancetypev1beta1.UpgradeRunning
 			addCRUpgrade(&instancetypev1beta1.ControllerRevisionUpgrade{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: util.NamespaceTestDefault,
@@ -245,7 +245,7 @@ var _ = Describe("UpgradeController", func() {
 					TargetName: "non-existing-cr",
 				},
 				Status: &instancetypev1beta1.ControllerRevisionUpgradeStatus{
-					Phase: &inprogress,
+					Phase: &running,
 				},
 			})
 			expectUpdatePhaseToFailed()
@@ -258,7 +258,7 @@ var _ = Describe("UpgradeController", func() {
 					return nil, fmt.Errorf("failure")
 				},
 			}
-			addInProgressUpgrade()
+			addRunningUpgrade()
 			expectUpdatePhaseToFailed()
 			assertExecuted()
 		})

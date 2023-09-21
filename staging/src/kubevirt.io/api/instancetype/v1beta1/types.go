@@ -550,10 +550,9 @@ type MemoryPreferenceRequirement struct {
 type ControllerRevisionUpgradePhase string
 
 const (
-	UpgradeUnset      ControllerRevisionUpgradePhase = ""
-	UpgradeInProgress ControllerRevisionUpgradePhase = "InProgress"
-	UpgradeSucceeded  ControllerRevisionUpgradePhase = "Succeeded"
-	UpgradeFailed     ControllerRevisionUpgradePhase = "Failed"
+	UpgradeRunning   ControllerRevisionUpgradePhase = "Running"
+	UpgradeSucceeded ControllerRevisionUpgradePhase = "Succeeded"
+	UpgradeFailed    ControllerRevisionUpgradePhase = "Failed"
 )
 
 // ControllerRevisionUpgrade encapsulates a specific upgrade of a stashed ControllerRevision instance type object to the latest available version
