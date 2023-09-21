@@ -1,6 +1,7 @@
 package memorydump_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -409,6 +410,43 @@ var _ = Describe("MemoryDump", func() {
 			utils.HandleVMExportCreate(vmExportClient, vmexport)
 
 			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag}
+			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
+			Expect(cmd.Execute()).To(Succeed())
+		})
+
+		It("should call download memory dump and decompress succesfully", func() {
+			vmexport.HandleHTTPRequest = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+				resp := http.Response{
+					StatusCode: http.StatusOK,
+					Body: io.NopCloser(bytes.NewReader([]byte{
+						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+						0x00, 0x00,
+						0x1f, 0x8b, 0x08, 0x08, 0xc8, 0x58, 0x13, 0x4a,
+						0x00, 0x03, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2e,
+						0x74, 0x78, 0x74, 0x00, 0xcb, 0x48, 0xcd, 0xc9,
+						0xc9, 0x57, 0x28, 0xcf, 0x2f, 0xca, 0x49, 0xe1,
+						0x02, 0x00, 0x2d, 0x3b, 0x08, 0xaf, 0x0c, 0x00,
+						0x00, 0x00,
+					})),
+				}
+				return &resp, nil
+			}
+			memorydump.WaitMemoryDumpComplete = waitForMemoryDumpDefault
+			vmexport := utils.VMExportSpecPVC(vmexportName, k8smetav1.NamespaceDefault, claimName, secretName)
+			vmexport.Status = utils.GetVMEStatus([]exportv1.VirtualMachineExportVolume{
+				{
+					Name:    claimName,
+					Formats: utils.GetExportVolumeFormat(server.URL, exportv1.KubeVirtGz),
+				},
+			}, secretName)
+			utils.HandleSecretGet(coreClient, secretName)
+			utils.HandleVMExportCreate(vmExportClient, vmexport)
+
+			commandAndArgs := []string{"memory-dump", "download", "testvm", outputFileFlag, "--format", "raw"}
 			cmd := clientcmd.NewVirtctlCommand(commandAndArgs...)
 			Expect(cmd.Execute()).To(Succeed())
 		})

@@ -20,6 +20,7 @@
 package vmexport
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -70,6 +71,7 @@ const (
 	SNAPSHOT_FLAG       = "--snapshot"
 	INSECURE_FLAG       = "--insecure"
 	KEEP_FLAG           = "--keep-vme"
+	FORMAT_FLAG         = "--format"
 	PVC_FLAG            = "--pvc"
 	TTL_FLAG            = "--ttl"
 	MANIFEST_FLAG       = "--manifest"
@@ -82,6 +84,10 @@ const (
 	// Possible output format for manifests
 	OUTPUT_FORMAT_JSON = "json"
 	OUTPUT_FORMAT_YAML = "yaml"
+
+	// Possible output format for volumes
+	GZIP_FORMAT = "gzip"
+	RAW_FORMAT  = "raw"
 
 	ACCEPT           = "Accept"
 	APPLICATION_YAML = "application/yaml"
@@ -128,6 +134,7 @@ var (
 	includeSecret        bool
 	exportManifest       bool
 	portForward          bool
+	format               string
 	localPort            string
 	serviceUrl           string
 	volumeName           string
@@ -153,6 +160,7 @@ type VMExportInfo struct {
 	KeepVme        bool
 	IncludeSecret  bool
 	ExportManifest bool
+	Decompress     bool
 	PortForward    bool
 	LocalPort      string
 	OutputFile     string
@@ -252,6 +260,7 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 	cmd.MarkFlagsMutuallyExclusive("vm", "snapshot", "pvc")
 	cmd.Flags().StringVar(&outputFile, "output", "", "Specifies the output path of the volume to be downloaded.")
 	cmd.Flags().StringVar(&volumeName, "volume", "", "Specifies the volume to be downloaded.")
+	cmd.Flags().StringVar(&format, "format", "", "Used to specify the format of the downloaded image. There's two options: gzip (default) and raw.")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "When used with the 'download' option, specifies that the http request should be insecure.")
 	cmd.Flags().BoolVar(&keepVme, "keep-vme", false, "When used with the 'download' option, specifies that the vmexport object should not be deleted after the download finishes.")
 	cmd.Flags().StringVar(&ttl, "ttl", "", "The time after the export was created that it is eligible to be automatically deleted, defaults to 2 hours by the server side if not specified")
@@ -346,6 +355,10 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 		vmeInfo.OutputWriter = output
 	} else {
 		vmeInfo.OutputWriter = c.cmd.OutOrStdout()
+	}
+	// If raw format is specified, we'll attempt to download and decompress a gzipped volume
+	if format == RAW_FORMAT {
+		vmeInfo.Decompress = true
 	}
 	vmeInfo.ShouldCreate = shouldCreate
 	vmeInfo.Insecure = insecure
@@ -551,7 +564,7 @@ func downloadVolume(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMac
 	}
 
 	// Lastly, copy the file to the expected output
-	if err := copyFileWithProgressBar(vmeInfo.OutputWriter, resp); err != nil {
+	if err := copyFileWithProgressBar(vmeInfo.OutputWriter, resp, vmeInfo.Decompress); err != nil {
 		return err
 	}
 
@@ -579,6 +592,7 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 	var (
 		downloadUrl string
 		err         error
+		format      exportv1.VirtualMachineExportVolumeFormat
 		links       *exportv1.VirtualMachineExportLink
 	)
 
@@ -597,19 +611,25 @@ func GetUrlFromVirtualMachineExport(vmexport *exportv1.VirtualMachineExport, vme
 	for _, exportVolume := range links.Volumes {
 		// Access the requested volume
 		if volumeNumber == 1 || exportVolume.Name == vmeInfo.VolumeName {
-			for _, format := range exportVolume.Formats {
-				// We always attempt to find and get the compressed file URL, so we only break the loop when one is found
+			for _, format = range exportVolume.Formats {
 				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz || format.Format == exportv1.KubeVirtRaw {
 					downloadUrl, err = replaceUrlWithServiceUrl(format.Url, vmeInfo)
 					if err != nil {
 						return "", err
 					}
 				}
+				// By default, we always attempt to find and get the compressed file URL,
+				// so we only break the loop when one is found.
 				if format.Format == exportv1.KubeVirtGz || format.Format == exportv1.ArchiveGz {
 					break
 				}
 			}
 		}
+	}
+
+	// No need to decompress file if format is not gzip
+	if format.Format == exportv1.KubeVirtRaw {
+		vmeInfo.Decompress = false
 	}
 
 	if downloadUrl == "" {
@@ -739,14 +759,27 @@ func getHTTPClient(transport *http.Transport, insecure bool) *http.Client {
 }
 
 // copyFileWithProgressBar serves as a wrapper to copy the file with a progress bar
-func copyFileWithProgressBar(output io.Writer, resp *http.Response) error {
+func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress bool) error {
+	var rd io.Reader
 	barTemplate := fmt.Sprintf(`{{ "Downloading file:" }} {{counters . }} {{ cycle . %s }} {{speed . }}`, progressBarCycle)
 
 	// start bar based on our template
 	bar := pb.ProgressBarTemplate(barTemplate).Start(0)
 	defer bar.Finish()
-	rd := bar.NewProxyReader(resp.Body)
+	barRd := bar.NewProxyReader(resp.Body)
+	rd = barRd
 	bar.Start()
+
+	if decompress {
+		// Create a new gzip reader
+		gzipReader, err := gzip.NewReader(barRd)
+		if err != nil {
+			return err
+		}
+		defer gzipReader.Close()
+		rd = gzipReader
+		fmt.Println("Decompressing image:")
+	}
 
 	_, err := io.Copy(output, rd)
 	return err
@@ -854,6 +887,9 @@ func handleCreateFlags() error {
 	if localPort != "0" {
 		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, CREATE)
 	}
+	if format != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, FORMAT_FLAG, CREATE)
+	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, CREATE)
 	}
@@ -885,6 +921,9 @@ func handleDeleteFlags() error {
 	if localPort != "0" {
 		return fmt.Errorf(ErrIncompatibleFlag, LOCAL_PORT_FLAG, DELETE)
 	}
+	if format != "" {
+		return fmt.Errorf(ErrIncompatibleFlag, FORMAT_FLAG, DELETE)
+	}
 	if serviceUrl != "" {
 		return fmt.Errorf(ErrIncompatibleFlag, SERVICE_URL_FLAG, DELETE)
 	}
@@ -904,6 +943,10 @@ func handleDownloadFlags() error {
 		if err != nil || port < 0 || port > 65535 {
 			return fmt.Errorf(ErrInvalidValue, LOCAL_PORT_FLAG, "valid port numbers")
 		}
+	}
+
+	if format != "" && format != GZIP_FORMAT && format != RAW_FORMAT {
+		return fmt.Errorf(ErrInvalidValue, FORMAT_FLAG, "gzip/raw")
 	}
 
 	if exportManifest {
