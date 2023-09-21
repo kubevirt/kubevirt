@@ -23,6 +23,7 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -37,6 +38,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/util/status"
+)
+
+const (
+	upgradeFailureReason = "ControllerRevisionUpgrade failed"
 )
 
 type UpgradeController struct {
@@ -194,7 +199,7 @@ func (c *UpgradeController) execute(key interface{}) error {
 
 	newCR, err := c.upgrade(crUpgrade)
 	if err != nil {
-		if updateErr := c.updateWithFailure(crUpgrade); updateErr != nil {
+		if updateErr := c.updateWithFailure(crUpgrade, err); updateErr != nil {
 			return updateErr
 		}
 		return err
@@ -238,9 +243,21 @@ func (c *UpgradeController) updateWithSuccess(crUpgrade *instancetypev1beta1.Con
 	return nil
 }
 
-func (c *UpgradeController) updateWithFailure(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {
+func (c *UpgradeController) updateWithFailure(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade, updateErr error) error {
 	failure := instancetypev1beta1.UpgradeFailed
-	return c.updateWithPhase(crUpgrade, &failure)
+	crUpgrade.Status = &instancetypev1beta1.ControllerRevisionUpgradeStatus{
+		Phase: &failure,
+		Conditions: []instancetypev1beta1.ControllerRevisionUpgradeCondition{{
+			Type:    instancetypev1beta1.ControllerRevisionUpgradeFailure,
+			Status:  k8sv1.ConditionTrue,
+			Reason:  upgradeFailureReason,
+			Message: updateErr.Error(),
+		}},
+	}
+	if err := c.statusUpdater.UpdateStatus(crUpgrade); err != nil {
+		return fmt.Errorf("failure to update ControllerRevisionUpgrade with failure: %v", err)
+	}
+	return nil
 }
 
 func (c *UpgradeController) updateWithRunning(crUpgrade *instancetypev1beta1.ControllerRevisionUpgrade) error {

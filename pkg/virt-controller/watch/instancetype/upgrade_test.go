@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -162,9 +163,17 @@ var _ = Describe("UpgradeController", func() {
 
 			crUpgrade := update.GetObject().(*instancetypev1beta1.ControllerRevisionUpgrade)
 			Expect(*crUpgrade.Status.Phase).To(Equal(phase))
-			if phase == instancetypev1beta1.UpgradeSucceeded {
+
+			switch phase {
+			case instancetypev1beta1.UpgradeSucceeded:
+				Expect(crUpgrade.Status.Result).ToNot(BeNil())
 				Expect(crUpgrade.Status.Result.Name).To(Equal(newCRName))
 				Expect(crUpgrade.Status.Result.Version).To(Equal(newCRObjectVersion))
+			case instancetypev1beta1.UpgradeFailed:
+				Expect(crUpgrade.Status.Conditions).To(HaveLen(1))
+				Expect(crUpgrade.Status.Conditions[0].Type).To(Equal(instancetypev1beta1.ControllerRevisionUpgradeFailure))
+				Expect(crUpgrade.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(crUpgrade.Status.Conditions[0].Reason).To(Equal(upgradeFailureReason))
 			}
 
 			return true, update.GetObject(), nil
