@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "discover.go",
+        "discoverbridge.go",
         "netpod.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/setup/netpod",
