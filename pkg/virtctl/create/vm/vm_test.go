@@ -44,6 +44,8 @@ chpasswd: { expire: False }`
 )
 
 var _ = Describe("create vm", func() {
+	ignoreInferFromVolumeFailure := v1.IgnoreInferFromVolumeFailure
+
 	Context("Manifest is created successfully", func() {
 		It("VM with random name", func() {
 			out, err := runCmd()
@@ -137,6 +139,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype.Name).To(Equal(name))
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(kind))
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		},
 			Entry("Implicit cluster-wide", "my-instancetype", "my-instancetype", ""),
@@ -144,7 +147,7 @@ var _ = Describe("create vm", func() {
 			Entry("Explicit namespaced", "virtualmachineinstancetype/my-instancetype", "my-instancetype", instancetypeapi.SingularResourceName),
 		)
 
-		DescribeTable("VM with inferred instancetype", func(args []string, inferFromVolume string) {
+		DescribeTable("VM with inferred instancetype", func(args []string, inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy) {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -153,12 +156,18 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(inferFromVolume))
+			if inferFromVolumePolicy == nil {
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
+			} else {
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
+			}
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		},
-			Entry("PvcVolumeFlag and implicitly inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc"),
-			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc"),
-			Entry("VolumeImportFlag and implicitly inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc"),
-			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc"),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
 		)
 
 		DescribeTable("VM with boot order and inferred instancetype", func(explicit bool) {
@@ -179,6 +188,12 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+			if explicit {
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
+			} else {
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			}
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		},
 			Entry("implicit (inference enabled by default)", false),
@@ -197,6 +212,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal("my-ds-2"))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		})
 
@@ -226,6 +242,8 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal("my-ds"))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		})
 
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
@@ -237,13 +255,14 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Preference.Name).To(Equal(name))
 			Expect(vm.Spec.Preference.Kind).To(Equal(kind))
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 		},
 			Entry("Implicit cluster-wide", "my-preference", "my-preference", ""),
 			Entry("Explicit cluster-wide", "virtualmachineclusterpreference/my-clusterpreference", "my-clusterpreference", instancetypeapi.ClusterSingularPreferenceResourceName),
 			Entry("Explicit namespaced", "virtualmachinepreference/my-preference", "my-preference", instancetypeapi.SingularPreferenceResourceName),
 		)
 
-		DescribeTable("VM with inferred preference", func(args []string, inferFromVolume string) {
+		DescribeTable("VM with inferred preference", func(args []string, inferFromVolume string, inferFromVolumePolicy *v1.InferFromVolumeFailurePolicy) {
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -252,11 +271,17 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(inferFromVolume))
+			if inferFromVolumePolicy == nil {
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
+			} else {
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
+			}
 		},
-			Entry("PvcVolumeFlag and implicitly inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc"),
-			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc"),
-			Entry("VolumeImportFlag and implicitly inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc"),
-			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferPreferenceFlag, "true")}, "my-pvc"),
+			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
+			Entry("VolumeImportFlag and implicit inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc", &ignoreInferFromVolumeFailure),
+			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferPreferenceFlag, "true")}, "my-pvc", nil),
 		)
 
 		DescribeTable("VM with boot order and inferred preference", func(explicit bool) {
@@ -277,6 +302,12 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
+			if explicit {
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
+			} else {
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			}
 		},
 			Entry("implicit (inference enabled by default)", false),
 			Entry("explicit", true),
@@ -294,6 +325,7 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal("my-ds-2"))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 		})
 
 		It("VM with volume and without inferred preference", func() {
@@ -369,8 +401,12 @@ var _ = Describe("create vm", func() {
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
 			Entry("without namespace", "", "my-dv", "", "", 0, "src:my-dv"),
 			Entry("with namespace", "my-ns", "my-dv", "", "", 0, "src:my-ns/my-dv"),
@@ -403,8 +439,12 @@ var _ = Describe("create vm", func() {
 				// In this case inference should be possible
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
 				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(source.PVC.Name))
+				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 				Expect(vm.Spec.Preference).ToNot(BeNil())
 				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(source.PVC.Name))
+				Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+				Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			} else {
 				// In this case inference should be possible
 				Expect(vm.Spec.Instancetype).To(BeNil())
@@ -474,8 +514,12 @@ var _ = Describe("create vm", func() {
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
 			Entry("with src", "my-ns", "my-pvc", "", "", 0, "src:my-ns/my-pvc"),
 			Entry("with src and name", "my-ns", "my-pvc", "my-dvt", "", 0, "src:my-ns/my-pvc,name:my-dvt"),
@@ -508,8 +552,12 @@ var _ = Describe("create vm", func() {
 			// In this case inference should be possible
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(volName))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(volName))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 		},
 			Entry("with src", "my-pvc", "", 0, "src:my-pvc"),
 			Entry("with src and name", "my-pvc", "my-direct-pvc", 0, "src:my-pvc,name:my-direct-pvc"),
@@ -650,12 +698,14 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeKind))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeName))
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.Name).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(pvcName))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
 			dvtDsName := fmt.Sprintf("%s-ds-%s", vmName, dsName)
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))

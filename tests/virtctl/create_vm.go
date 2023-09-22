@@ -88,9 +88,11 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
@@ -192,12 +194,14 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
 
@@ -301,12 +305,14 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.SingularResourceName))
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 
 			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
 			Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(3))
 
@@ -356,6 +362,38 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtPvcName))
 			Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(pvcBootOrder)))
 		})
+
+		It("Failure of implicit inference does not fail the VM creation", func() {
+			By("Creating a PVC without annotation labels")
+			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.GetTestNamespace(nil), size, nil)
+
+			By("Creating a VM with implicit inference (inference enabled by default)")
+			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,name:%s,namespace:%s", size, pvc.Name, pvc.Namespace)),
+			)()
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			By("Asserting that implicit inference is enabled")
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(pvc.Name))
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(pvc.Name))
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
+			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
+
+			By("Creating the VM")
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Asserting that matchers were cleared")
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		})
 	})
 
 	It("Complex example with memory", func() {
@@ -400,6 +438,7 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.SingularPreferenceResourceName))
 		Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 		Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+		Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
 		Expect(vm.Spec.DataVolumeTemplates).To(HaveLen(1))
 
