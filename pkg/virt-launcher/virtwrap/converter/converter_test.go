@@ -1595,7 +1595,7 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.VCPUs).ToNot(BeNil(), "Expecting topology for hotplug")
 				Expect(domainSpec.VCPUs.VCPU).To(HaveLen(4), "Expecting topology for hotplug")
 				Expect(domainSpec.VCPUs.VCPU[0].Hotpluggable).To(Equal("no"), "Expecting 1st socket to be stable")
-				Expect(domainSpec.VCPUs.VCPU[1].Hotpluggable).To(Equal("yes"), "Expecting the 2nd socket to be Hotpluggable")
+				Expect(domainSpec.VCPUs.VCPU[1].Hotpluggable).To(Equal("no"), "Expecting 2nd socket to be stable")
 				Expect(domainSpec.VCPUs.VCPU[2].Hotpluggable).To(Equal("yes"), "Expecting the 3rd socket to be Hotpluggable")
 				Expect(domainSpec.VCPUs.VCPU[3].Hotpluggable).To(Equal("yes"), "Expecting the 4th socket to be Hotpluggable")
 			})
