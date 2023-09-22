@@ -721,6 +721,64 @@ var _ = Describe("Clone", func() {
 
 		})
 
+		Context("VirtualMachineTemplate Labels and annotations", func() {
+
+			type mapType string
+			const labels mapType = "labels"
+			const annotations mapType = "annotations"
+
+			expectTemplateLabelsOrAnnotations := func(m map[string]string, templateLabelOrAnnotation mapType) {
+				expectedVM := sourceVM.DeepCopy()
+
+				if templateLabelOrAnnotation == labels {
+					expectedVM.Spec.Template.ObjectMeta.Labels = m
+				} else {
+					expectedVM.Spec.Template.ObjectMeta.Annotations = m
+				}
+
+				expectVMCreationFromPatches(expectedVM)
+			}
+
+			DescribeTable("vmtemplate filters", func(templateLabelOrAnnotation mapType) {
+				const trueStr = "true"
+				m := map[string]string{
+					"prefix1/something1":    trueStr,
+					"prefix1/something2":    trueStr,
+					"prefix2/something1":    trueStr,
+					"prefix2/something2":    trueStr,
+					"somePrefix/something":  trueStr,
+					"somePrefix2/something": trueStr,
+				}
+
+				filters := []string{
+					"prefix*",
+					"!prefix1/something2",
+					"!prefix2/*",
+					"somePrefix2/something",
+				}
+
+				if templateLabelOrAnnotation == labels {
+					sourceVM.Spec.Template.ObjectMeta.Labels = m
+					vmClone.Spec.Template.LabelFilters = filters
+				} else {
+					sourceVM.Spec.Template.ObjectMeta.Annotations = m
+					vmClone.Spec.Template.AnnotationFilters = filters
+				}
+				addClone(vmClone)
+
+				expectTemplateLabelsOrAnnotations(map[string]string{
+					"prefix1/something1":    trueStr,
+					"somePrefix2/something": trueStr,
+				}, templateLabelOrAnnotation)
+
+				controller.Execute()
+			},
+				Entry("with labels", labels),
+				Entry("with annotations", annotations),
+			)
+
+		})
+
 		Context("Firmware UUID", func() {
 
 			const sourceFakeUUID = "source-fake-uuid"

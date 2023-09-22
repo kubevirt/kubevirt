@@ -359,6 +359,34 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		)
 	})
 
+	Context("VirtualMachineTemplate Annotations and labels filters", func() {
+		templateTestFilter := func(filter string, expectAllowed bool) {
+			vmClone.Spec.Template.LabelFilters = []string{filter}
+			vmClone.Spec.Template.AnnotationFilters = []string{filter}
+			admitter.admitAndExpect(vmClone, expectAllowed)
+		}
+
+		DescribeTable("Should reject", func(filter string) {
+			templateTestFilter(filter, false)
+
+		},
+			Entry("negation character alone", "!"),
+			Entry("negation in the middle", "mykey/!something"),
+			Entry("negation in the end", "mykey/something!"),
+			Entry("wildcard in the beginning", "*mykey/something"),
+			Entry("wildcard in the middle", "mykey/*something"),
+		)
+
+		DescribeTable("Should allow", func(filter string) {
+			templateTestFilter(filter, true)
+		},
+			Entry("regular filter", "mykey/something"),
+			Entry("wildcard only", "*"),
+			Entry("wildcard in the end", "mykey/something*"),
+			Entry("negation in the beginning", "!mykey/something"),
+		)
+	})
+
 })
 
 func createCloneAdmissionReview(vmClone *clonev1lpha1.VirtualMachineClone) *admissionv1.AdmissionReview {

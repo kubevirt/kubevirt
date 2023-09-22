@@ -37,31 +37,35 @@ import (
 const (
 	Clone = "clone"
 
-	NameFlag             = "name"
-	SourceNameFlag       = "source-name"
-	TargetNameFlag       = "target-name"
-	SourceTypeFlag       = "source-type"
-	TargetTypeFlag       = "target-type"
-	LabelFilterFlag      = "label-filter"
-	AnnotationFilterFlag = "annotation-filter"
-	NewMacAddressesFlag  = "new-mac-address"
-	NewSMBiosSerialFlag  = "new-smbios-serial"
+	NameFlag                     = "name"
+	SourceNameFlag               = "source-name"
+	TargetNameFlag               = "target-name"
+	SourceTypeFlag               = "source-type"
+	TargetTypeFlag               = "target-type"
+	LabelFilterFlag              = "label-filter"
+	AnnotationFilterFlag         = "annotation-filter"
+	TemplateLabelFilterFlag      = "template-label-filter"
+	TemplateAnnotationFilterFlag = "template-annotation-filter"
+	NewMacAddressesFlag          = "new-mac-address"
+	NewSMBiosSerialFlag          = "new-smbios-serial"
 
 	supportedSourceTypes = "vm, vmsnapshot"
 	supportedTargetTypes = "vm"
 )
 
 type createClone struct {
-	namespace         string
-	name              string
-	sourceName        string
-	targetName        string
-	sourceType        string
-	targetType        string
-	labelFilters      []string
-	annotationFilters []string
-	newMacAddresses   []string
-	newSmbiosSerial   string
+	namespace                 string
+	name                      string
+	sourceName                string
+	targetName                string
+	sourceType                string
+	targetType                string
+	labelFilters              []string
+	annotationFilters         []string
+	templateLabelFilters      []string
+	templateAnnotationFilters []string
+	newMacAddresses           []string
+	newSmbiosSerial           string
 
 	clientConfig clientcmd.ClientConfig
 }
@@ -97,6 +101,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&c.targetType, TargetTypeFlag, emptyValue, "Specify the clone's target type. Default type is VM. Supported types: "+supportedTargetTypes)
 	cmd.Flags().StringArrayVar(&c.labelFilters, LabelFilterFlag, nil, "Specify clone's label filters. "+supportsMultipleFlags)
 	cmd.Flags().StringArrayVar(&c.annotationFilters, AnnotationFilterFlag, nil, "Specify clone's annotation filters. "+supportsMultipleFlags)
+	cmd.Flags().StringArrayVar(&c.templateLabelFilters, TemplateLabelFilterFlag, nil, "Specify clone's template label filters. "+supportsMultipleFlags)
+	cmd.Flags().StringArrayVar(&c.templateAnnotationFilters, TemplateAnnotationFilterFlag, nil, "Specify clone's template annotation filters. "+supportsMultipleFlags)
 	cmd.Flags().StringArrayVar(&c.newMacAddresses, NewMacAddressesFlag, nil, "Specify clone's new mac addresses. For example: 'interfaceName0:newAddress0'")
 	cmd.Flags().StringVar(&c.newSmbiosSerial, NewSMBiosSerialFlag, emptyValue, "Specify the clone's new smbios serial")
 
@@ -157,6 +163,12 @@ func (c *createClone) usage() string {
   # Create a manifest for a clone with annotation filters:
   {{ProgramName}} create clone --source-name sourceVM --annotation-filter '*' --annotation-filter '!some/key'
 
+  # Create a manifest for a clone with template label filters:
+  {{ProgramName}} create clone --source-name sourceVM --template-label-filter '*' --template-label-filter '!some/key'
+
+  # Create a manifest for a clone with template annotation filters:
+  {{ProgramName}} create clone --source-name sourceVM --template-annotation-filter '*' --template-annotation-filter '!some/key'
+
   # Create a manifest for a clone with new MAC addresses:
   {{ProgramName}} create clone --source-name sourceVM --new-mac-address interface1:00-11-22 --new-mac-address interface2:00-11-33
 
@@ -188,6 +200,10 @@ func (c *createClone) newClone() (*clonev1alpha1.VirtualMachineClone, error) {
 		Target:            target,
 		AnnotationFilters: c.annotationFilters,
 		LabelFilters:      c.labelFilters,
+		Template: clonev1alpha1.VirtualMachineCloneSpecTemplate{
+			AnnotationFilters: c.templateAnnotationFilters,
+			LabelFilters:      c.templateLabelFilters,
+		},
 	}
 
 	if c.newSmbiosSerial != "" {

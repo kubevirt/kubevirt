@@ -37,6 +37,15 @@ type VirtualMachineClone struct {
 	Status VirtualMachineCloneStatus `json:"status,omitempty"`
 }
 
+type VirtualMachineCloneSpecTemplate struct {
+	// +optional
+	// +listType=atomic
+	AnnotationFilters []string `json:"annotationFilters,omitempty"`
+	// +optional
+	// +listType=atomic
+	LabelFilters []string `json:"labelFilters,omitempty"`
+}
+
 type VirtualMachineCloneSpec struct {
 	Source *corev1.TypedLocalObjectReference `json:"source"`
 
@@ -51,7 +60,8 @@ type VirtualMachineCloneSpec struct {
 	// +optional
 	// +listType=atomic
 	LabelFilters []string `json:"labelFilters,omitempty"`
-
+	// +optional
+	Template VirtualMachineCloneSpecTemplate `json:"template,omitempty"`
 	// NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the
 	// value is the new mac address. If this field is not specified, a new MAC address will
 	// be generated automatically, as for any interface that is not included in this map.

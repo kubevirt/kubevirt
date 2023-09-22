@@ -85,6 +85,13 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 		causes = append(causes, newCauses...)
 	}
 
+	if newCauses := validateTemplateFilters(vmClone.Spec.Template.AnnotationFilters, "Annotations"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := validateTemplateFilters(vmClone.Spec.Template.LabelFilters, "Labels"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
 	if newCauses := validateSourceAndTargetKind(vmClone); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
@@ -113,6 +120,43 @@ func validateFilters(filters []string, fieldName string) (causes []metav1.Status
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: message,
 			Field:   k8sfield.NewPath("spec").Child(fieldName).String(),
+		})
+	}
+	const negationChar = "!"
+	const wildcardChar = "*"
+
+	for _, filter := range filters {
+		if len(filter) == 1 {
+			if filter == negationChar {
+				addCause("a negation character is not a valid filter")
+			}
+			continue
+		}
+
+		const errPattern = "filter %s is invalid: cannot contain a %s character (%s) at any place that is not the beginning"
+
+		if filterWithoutFirstChar := filter[1:]; strings.Contains(filterWithoutFirstChar, negationChar) {
+			addCause(fmt.Sprintf(errPattern, filter, "negation", negationChar))
+		}
+
+		if filterWithoutLastChar := filter[:len(filter)-1]; strings.Contains(filterWithoutLastChar, wildcardChar) {
+			addCause(fmt.Sprintf(errPattern, filter, "wildcard", wildcardChar))
+		}
+	}
+
+	return causes
+}
+
+func validateTemplateFilters(filters []string, fieldName string) (causes []metav1.StatusCause) {
+	if filters == nil {
+		return nil
+	}
+	templateField := k8sfield.NewPath("spec")
+	addCause := func(message string) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: message,
+			Field:   templateField.Child("template").Child(fieldName).String(),
 		})
 	}
 	const negationChar = "!"
