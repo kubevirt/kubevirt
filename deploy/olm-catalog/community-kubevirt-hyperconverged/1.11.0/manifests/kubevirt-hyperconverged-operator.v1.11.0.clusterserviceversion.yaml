@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2023-09-22 05:13:12"
+    createdAt: "2023-09-23 05:12:00"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
@@ -3645,7 +3645,7 @@ spec:
                 - name: LIVENESS_PROBE_IMAGE
                   value: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
                 - name: CSI_SNAPSHOT_IMAGE
-                  value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:becc53e25b96573f61f7469923a92fb3e9d3a3781732159954ce0d9da07233a2
+                  value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:93fbf54dd67f586428ea339743160e1a5110c058afde3c2e824f11fbc6efae53
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
                   value: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
                 - name: VERBOSITY
@@ -4288,7 +4288,7 @@ spec:
     name: csi-node-driver-registrar
   - image: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
     name: csi-provisioner
-  - image: registry.k8s.io/sig-storage/csi-snapshotter@sha256:becc53e25b96573f61f7469923a92fb3e9d3a3781732159954ce0d9da07233a2
+  - image: registry.k8s.io/sig-storage/csi-snapshotter@sha256:93fbf54dd67f586428ea339743160e1a5110c058afde3c2e824f11fbc6efae53
     name: csi-snapshotter
   - image: quay.io/kubevirt/hostpath-csi-driver@sha256:0ca8b50b0adb20afd4e20da9974200f3290b6d51aa7c1129de6e1b953bf26594
     name: hostpath-csi-driver

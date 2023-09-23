@@ -703,7 +703,7 @@ spec:
         - name: LIVENESS_PROBE_IMAGE
           value: registry.k8s.io/sig-storage/livenessprobe@sha256:82adbebdf5d5a1f40f246aef8ddbee7f89dea190652aefe83336008e69f9a89f
         - name: CSI_SNAPSHOT_IMAGE
-          value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:becc53e25b96573f61f7469923a92fb3e9d3a3781732159954ce0d9da07233a2
+          value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:93fbf54dd67f586428ea339743160e1a5110c058afde3c2e824f11fbc6efae53
         - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
           value: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
         - name: VERBOSITY
