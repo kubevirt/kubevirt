@@ -3273,6 +3273,12 @@ rules:
   - watch
   - get
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
