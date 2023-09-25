@@ -1350,6 +1350,7 @@ type AccessCredentialSecretSource struct {
 }
 
 type ConfigDriveSSHPublicKeyAccessCredentialPropagation struct{}
+type NoCloudSSHPublicKeyAccessCredentialPropagation struct{}
 
 // AuthorizedKeysFile represents a path within the guest
 // that ssh public keys should be propagated to
@@ -1386,6 +1387,11 @@ type SSHPublicKeyAccessCredentialPropagationMethod struct {
 	// into the VM using metadata using the configDrive cloud-init provider
 	// +optional
 	ConfigDrive *ConfigDriveSSHPublicKeyAccessCredentialPropagation `json:"configDrive,omitempty"`
+
+	// NoCloudPropagation means that the ssh public keys are injected
+	// into the VM using metadata using the noCloud cloud-init provider
+	// +optional
+	NoCloud *NoCloudSSHPublicKeyAccessCredentialPropagation `json:"noCloud,omitempty"`
 
 	// QemuGuestAgentAccessCredentailPropagation means ssh public keys are
 	// dynamically injected into the vm at runtime via the qemu guest agent.

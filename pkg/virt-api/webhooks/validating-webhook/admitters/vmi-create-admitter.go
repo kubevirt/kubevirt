@@ -1925,6 +1925,13 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 		return causes
 	}
 
+	hasNoCloudVolume := false
+	for _, volume := range volumes {
+		if volume.CloudInitNoCloud != nil {
+			hasNoCloudVolume = true
+			break
+		}
+	}
 	hasConfigDriveVolume := false
 	for _, volume := range volumes {
 		if volume.CloudInitConfigDrive != nil {
@@ -1946,6 +1953,18 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 				sourceCount++
 			}
 
+			if accessCred.SSHPublicKey.PropagationMethod.NoCloud != nil {
+				methodCount++
+				if !hasNoCloudVolume {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s requires a noCloud volume to exist when the noCloud propagationMethod is in use.", field.Index(idx).String()),
+						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
+					})
+
+				}
+			}
+
 			if accessCred.SSHPublicKey.PropagationMethod.ConfigDrive != nil {
 				methodCount++
 				if !hasConfigDriveVolume {
@@ -1957,6 +1976,7 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 
 				}
 			}
+
 			if accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent != nil {
 
 				if len(accessCred.SSHPublicKey.PropagationMethod.QemuGuestAgent.Users) == 0 {

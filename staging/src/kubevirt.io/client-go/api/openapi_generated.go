@@ -426,6 +426,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Network":                                                            schema_kubevirtio_api_core_v1_Network(ref),
 		"kubevirt.io/api/core/v1.NetworkConfiguration":                                               schema_kubevirtio_api_core_v1_NetworkConfiguration(ref),
 		"kubevirt.io/api/core/v1.NetworkSource":                                                      schema_kubevirtio_api_core_v1_NetworkSource(ref),
+		"kubevirt.io/api/core/v1.NoCloudSSHPublicKeyAccessCredentialPropagation":                     schema_kubevirtio_api_core_v1_NoCloudSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/api/core/v1.NodeMediatedDeviceTypesConfig":                                      schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref),
 		"kubevirt.io/api/core/v1.NodePlacement":                                                      schema_kubevirtio_api_core_v1_NodePlacement(ref),
 		"kubevirt.io/api/core/v1.PITTimer":                                                           schema_kubevirtio_api_core_v1_PITTimer(ref),
@@ -20189,6 +20190,16 @@ func schema_kubevirtio_api_core_v1_NetworkSource(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_api_core_v1_NoCloudSSHPublicKeyAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_NodeMediatedDeviceTypesConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21452,6 +21463,12 @@ func schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod
 							Ref:         ref("kubevirt.io/api/core/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation"),
 						},
 					},
+					"noCloud": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NoCloudPropagation means that the ssh public keys are injected into the VM using metadata using the noCloud cloud-init provider",
+							Ref:         ref("kubevirt.io/api/core/v1.NoCloudSSHPublicKeyAccessCredentialPropagation"),
+						},
+					},
 					"qemuGuestAgent": {
 						SchemaProps: spec.SchemaProps{
 							Description: "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
@@ -21462,7 +21479,7 @@ func schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation", "kubevirt.io/api/core/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation"},
+			"kubevirt.io/api/core/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation", "kubevirt.io/api/core/v1.NoCloudSSHPublicKeyAccessCredentialPropagation", "kubevirt.io/api/core/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation"},
 	}
 }
 

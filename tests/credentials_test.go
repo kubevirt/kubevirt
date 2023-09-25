@@ -292,33 +292,40 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 	})
-	Context("with secret and configDrive propagation", func() {
-		It("[test_id:6224]should have ssh-key under authorized keys", func() {
-			secretID := "my-pub-key"
-			userData := fmt.Sprintf(
-				"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
-				fedoraPassword,
-			)
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling), userData)
-			vmi.Namespace = util.NamespaceTestDefault
-			vmi.Spec.AccessCredentials = []v1.AccessCredential{
-				{
-					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-						Source: v1.SSHPublicKeyAccessCredentialSource{
-							Secret: &v1.AccessCredentialSecretSource{
-								SecretName: secretID,
-							},
-						},
-						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
-						},
-					},
-				},
-			}
+	Context("with secret and cloudInit propagation", func() {
+		var vmi *v1.VirtualMachineInstance
+		secretID := "my-pub-key"
+		userData := fmt.Sprintf(
+			"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
+			fedoraPassword,
+		)
 
-			key1 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"
-			key2 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"
-			key3 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"
+		key1 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"
+		key2 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"
+		key3 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"
+
+		verifySSHKeys := func(vmi *v1.VirtualMachineInstance) {
+			By("Verifying all three pub ssh keys in secret are in VMI guest")
+			ExecutingBatchCmd(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "login:"},
+				&expect.BSnd{S: "fedora\n"},
+				&expect.BExp{R: "Password:"},
+				&expect.BSnd{S: fedoraPassword + "\n"},
+				&expect.BExp{R: "\\$"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key1"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key2"},
+				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+				&expect.BExp{R: "test-ssh-key3"},
+			}, time.Second*180)
+		}
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling))
+			vmi.Namespace = util.NamespaceTestDefault
 
 			By("Creating a secret with three ssh keys")
 			secret := kubev1.Secret{
@@ -338,25 +345,45 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 			}
 			_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(context.Background(), &secret, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+		})
 
+		It("[test_id:TODO]should have ssh-key under authorized keys added by NoCloud", func() {
+			tests.AddCloudInitNoCloudData(vmi, "disk1", userData, "", false)
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
 			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-			By("Verifying all three pub ssh keys in secret are in VMI guest")
-			ExecutingBatchCmd(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "login:"},
-				&expect.BSnd{S: "fedora\n"},
-				&expect.BExp{R: "Password:"},
-				&expect.BSnd{S: fedoraPassword + "\n"},
-				&expect.BExp{R: "\\$"},
-				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-				&expect.BExp{R: "test-ssh-key1"},
-				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-				&expect.BExp{R: "test-ssh-key2"},
-				&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-				&expect.BExp{R: "test-ssh-key3"},
-			}, time.Second*180)
+			verifySSHKeys(vmi)
+		})
+		It("[test_id:6224]should have ssh-key under authorized keys added by configDrive", func() {
+			tests.AddCloudInitConfigDriveData(vmi, "disk1", userData, "", false)
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: secretID,
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+			tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			verifySSHKeys(vmi)
 		})
 	})
 })

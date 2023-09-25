@@ -18223,6 +18223,9 @@
      }
     }
    },
+   "v1.NoCloudSSHPublicKeyAccessCredentialPropagation": {
+    "type": "object"
+   },
    "v1.NodeMediatedDeviceTypesConfig": {
     "description": "NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.",
     "type": "object",
@@ -18873,6 +18876,10 @@
      "configDrive": {
       "description": "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
       "$ref": "#/definitions/v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation"
+     },
+     "noCloud": {
+      "description": "NoCloudPropagation means that the ssh public keys are injected into the VM using metadata using the noCloud cloud-init provider",
+      "$ref": "#/definitions/v1.NoCloudSSHPublicKeyAccessCredentialPropagation"
      },
      "qemuGuestAgent": {
       "description": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",

@@ -2694,6 +2694,37 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject a noCloud ssh access credential when no noCloud volume exists", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+			})
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{UserData: " "},
+				},
+			})
+
+			vmi.Spec.AccessCredentials = []v1.AccessCredential{
+				{
+					SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+						Source: v1.SSHPublicKeyAccessCredentialSource{
+							Secret: &v1.AccessCredentialSecretSource{
+								SecretName: "my-pkey",
+							},
+						},
+						PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+						},
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("requires a noCloud volume to exist"))
+		})
 		It("should reject a configDrive ssh access credential when no configDrive volume exists", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -2723,6 +2754,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("requires a configDrive volume to exist"))
 		})
 		It("should reject a ssh access credential without a source", func() {
 			vmi := api.NewMinimalVMI("testvmi")

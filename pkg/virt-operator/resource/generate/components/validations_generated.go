@@ -4341,6 +4341,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   ssh public keys are injected into the VM using metadata
                                   using the configDrive cloud-init provider
                                 type: object
+                              noCloud:
+                                description: NoCloudPropagation means that the ssh
+                                  public keys are injected into the VM using metadata
+                                  using the noCloud cloud-init provider
+                                type: object
                               qemuGuestAgent:
                                 description: QemuGuestAgentAccessCredentailPropagation
                                   means ssh public keys are dynamically injected into
@@ -8938,6 +8943,11 @@ var CRDsValidation map[string]string = map[string]string{
                       configDrive:
                         description: ConfigDrivePropagation means that the ssh public
                           keys are injected into the VM using metadata using the configDrive
+                          cloud-init provider
+                        type: object
+                      noCloud:
+                        description: NoCloudPropagation means that the ssh public
+                          keys are injected into the VM using metadata using the noCloud
                           cloud-init provider
                         type: object
                       qemuGuestAgent:
@@ -13686,6 +13696,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   ssh public keys are injected into the VM using metadata
                                   using the configDrive cloud-init provider
                                 type: object
+                              noCloud:
+                                description: NoCloudPropagation means that the ssh
+                                  public keys are injected into the VM using metadata
+                                  using the noCloud cloud-init provider
+                                type: object
                               qemuGuestAgent:
                                 description: QemuGuestAgentAccessCredentailPropagation
                                   means ssh public keys are dynamically injected into
@@ -17885,6 +17900,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           that the ssh public keys are injected into
                                           the VM using metadata using the configDrive
                                           cloud-init provider
+                                        type: object
+                                      noCloud:
+                                        description: NoCloudPropagation means that
+                                          the ssh public keys are injected into the
+                                          VM using metadata using the noCloud cloud-init
+                                          provider
                                         type: object
                                       qemuGuestAgent:
                                         description: QemuGuestAgentAccessCredentailPropagation
@@ -22905,6 +22926,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               that the ssh public keys are injected
                                               into the VM using metadata using the
                                               configDrive cloud-init provider
+                                            type: object
+                                          noCloud:
+                                            description: NoCloudPropagation means
+                                              that the ssh public keys are injected
+                                              into the VM using metadata using the
+                                              noCloud cloud-init provider
                                             type: object
                                           qemuGuestAgent:
                                             description: QemuGuestAgentAccessCredentailPropagation

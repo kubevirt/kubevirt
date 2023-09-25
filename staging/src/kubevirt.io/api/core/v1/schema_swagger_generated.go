@@ -743,6 +743,10 @@ func (ConfigDriveSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[strin
 	return map[string]string{}
 }
 
+func (NoCloudSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (AuthorizedKeysFile) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "AuthorizedKeysFile represents a path within the guest\nthat ssh public keys should be propagated to",
@@ -771,6 +775,7 @@ func (SSHPublicKeyAccessCredentialPropagationMethod) SwaggerDoc() map[string]str
 	return map[string]string{
 		"":               "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to\ninject a ssh public key into the vm guest.\nOnly one of its members may be specified.",
 		"configDrive":    "ConfigDrivePropagation means that the ssh public keys are injected\ninto the VM using metadata using the configDrive cloud-init provider\n+optional",
+		"noCloud":        "NoCloudPropagation means that the ssh public keys are injected\ninto the VM using metadata using the noCloud cloud-init provider\n+optional",
 		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
 	}
 }
