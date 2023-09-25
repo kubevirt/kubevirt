@@ -3247,7 +3247,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"interface":"pod7e0055a6880","name":"net1","namespace":"default"}]`)),
+						`[{"name":"net1","namespace":"default","interface":"pod7e0055a6880"}]`)),
 				Entry("multiple interfaces",
 					[]v1.Network{{
 						Name:          "iface1",
@@ -3265,7 +3265,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}},
 					HaveKeyWithValue(
 						networkv1.NetworkAttachmentAnnot,
-						`[{"interface":"pod7e0055a6880","mac":"mac1","name":"net1","namespace":"default"},{"interface":"pod48802102d24","mac":"mac2","name":"net1","namespace":"default"}]`)),
+						`[{"name":"net1","namespace":"default","mac":"mac1","interface":"pod7e0055a6880"},{"name":"net1","namespace":"default","mac":"mac2","interface":"pod48802102d24"}]`)),
 			)
 			DescribeTable("the subject interface name, in the pod networks annotation, should be in similar form as other interfaces",
 				func(testPodNetworkStatus []networkv1.NetworkStatus, expectedMultusNetworksAnnotation string) {
