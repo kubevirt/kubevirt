@@ -282,7 +282,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
 	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, fmt.Sprintf("Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(cloneVolume{})))
 	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(pvcVolume{})))
-	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.dataSourceVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
+	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, fmt.Sprintf("Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(blankVolume{})))
 	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
 		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
 		blank, params.Supported(dataVolumeSourceBlank{}),
@@ -419,10 +419,10 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --volume-datasource=src:my-annotated-ds --volume-pvc=my-annotated-pvc --infer-instancetype=my-annotated-ds --infer-preference=my-annotated-pvc
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and cloned PVC
-  {{ProgramName}} create vm --volume-clone-pvc=my-ns/my-pvc
+  {{ProgramName}} create vm --volume-clone-pvc=src:my-ns/my-pvc
 
   # Create a manifest for a VirtualMachine with a specified VirtualMachineCluster{Instancetype,Preference} and directly used PVC
-  {{ProgramName}} create vm --volume-pvc=my-pvc
+  {{ProgramName}} create vm --volume-pvc=src:my-pvc
 
   # Create a manifest for a VirtualMachine with a clone DataSource and a blank volume
   {{ProgramName}} create vm --volume-datasource=src:my-ns/my-ds --volume-blank=size:50Gi

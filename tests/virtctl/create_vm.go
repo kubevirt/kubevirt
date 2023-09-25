@@ -406,6 +406,8 @@ func setFlag(flag, parameter string) string {
 func unmarshalVM(bytes []byte) *v1.VirtualMachine {
 	vm := &v1.VirtualMachine{}
 	Expect(yaml.Unmarshal(bytes, vm)).To(Succeed())
+	Expect(vm.Kind).To(Equal("VirtualMachine"))
+	Expect(vm.APIVersion).To(Equal("kubevirt.io/v1"))
 	return vm
 }
 
