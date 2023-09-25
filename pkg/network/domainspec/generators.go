@@ -20,13 +20,9 @@
 package domainspec
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/vishvananda/netlink"
 
@@ -260,7 +256,7 @@ type PasstLibvirtSpecGenerator struct {
 }
 
 const (
-	passtLogFile      = "/var/run/kubevirt/passt.log" // #nosec G101
+	PasstLogFile      = "/var/run/kubevirt/passt.log" // #nosec G101
 	ifaceTypeUser     = "user"
 	ifaceBackendPasst = "passt"
 )
@@ -273,39 +269,6 @@ func (b *PasstLibvirtSpecGenerator) Generate() error {
 
 	generatedIface := b.generateInterface(domainIface)
 	*domainIface = *generatedIface
-
-	go func() {
-		var logFile *os.File
-		for {
-			var err error
-			if logFile, err = os.Open(passtLogFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-				log.Log.Reason(err).Errorf("failed to open file %s", passtLogFile)
-				return
-			} else if errors.Is(err, os.ErrNotExist) {
-				time.Sleep(time.Second)
-			} else if err == nil {
-				break
-			}
-		}
-		defer func() {
-			if closeErr := logFile.Close(); closeErr != nil {
-				log.Log.Reason(closeErr).Errorf("failed to close file: %s", passtLogFile)
-			}
-		}()
-
-		time.Sleep(time.Second)
-
-		const bufferSize = 1024
-		const maxBufferSize = 512 * bufferSize
-		scanner := bufio.NewScanner(logFile)
-		scanner.Buffer(make([]byte, bufferSize), maxBufferSize)
-		for scanner.Scan() {
-			log.Log.Info(fmt.Sprintf("passt: %s", scanner.Text()))
-		}
-		if err := scanner.Err(); err != nil {
-			log.Log.Reason(err).Error("failed to read passt logs")
-		}
-	}()
 
 	return nil
 }
@@ -325,7 +288,7 @@ func (b *PasstLibvirtSpecGenerator) generateInterface(iface *api.Interface) *api
 
 	ifaceCopy.Type = ifaceTypeUser
 	ifaceCopy.Source = api.InterfaceSource{Device: b.podInterfaceName}
-	ifaceCopy.Backend = &api.InterfaceBackend{Type: ifaceBackendPasst, LogFile: passtLogFile}
+	ifaceCopy.Backend = &api.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFile}
 	ifaceCopy.PortForward = b.generatePortForward()
 	ifaceCopy.MAC = mac
 

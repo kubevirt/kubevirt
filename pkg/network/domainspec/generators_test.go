@@ -228,7 +228,7 @@ var _ = Describe("Pod Network", func() {
 
 				expectedIface := &api.Interface{
 					Type:    "user",
-					Backend: &api.InterfaceBackend{Type: "passt", LogFile: passtLogFile},
+					Backend: &api.InterfaceBackend{Type: "passt", LogFile: PasstLogFile},
 					Source:  api.InterfaceSource{Device: podIfaceName},
 					Alias:   testAlias,
 					Model:   testModel,
