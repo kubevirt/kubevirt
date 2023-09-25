@@ -54,18 +54,18 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network) (string, error) {
-	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
+func GenerateMultusCNIAnnotation(namespace string, vmName string, interfaces []v1.Interface, networks []v1.Network) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(namespace, vmName, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
 }
 
-func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
+func GenerateMultusCNIAnnotationFromNameScheme(namespace string, vmName string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.add(
-				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName))
+				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName, vmName))
 		}
 	}
 
@@ -75,7 +75,7 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 	return "", nil
 }
 
-func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
+func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string, vmName string) networkv1.NetworkSelectionElement {
 	multusIface := vmispec.LookupInterfaceByName(interfaces, network.Name)
 	namespace, networkName := getNamespaceAndNetworkName(namespace, network.Multus.NetworkName)
 	var multusIfaceMac string
@@ -87,6 +87,7 @@ func newMultusAnnotationData(namespace string, interfaces []v1.Interface, networ
 		MacRequest:       multusIfaceMac,
 		Namespace:        namespace,
 		Name:             networkName,
+		CNIArgs:          &map[string]interface{}{"ipamClaim": fmt.Sprintf("%s.%s", vmName, network.Name)},
 	}
 }
 
