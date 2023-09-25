@@ -36,7 +36,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
@@ -283,11 +282,10 @@ func GetNodesWithKVM() []*k8sv1.Node {
 	return nodes
 }
 
-// GetAllSchedulableNodes returns list of Nodes which are both Kubernetes and KubeVirt schedulable.
+// GetAllSchedulableNodes returns list of Nodes which are "KubeVirt" schedulable.
 func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
 		LabelSelector: v1.NodeSchedulable + "=" + "true",
-		FieldSelector: fields.OneTermEqualSelector("spec.unschedulable", "false").String(),
 	})
 	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
 	return nodes
