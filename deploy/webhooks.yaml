@@ -135,7 +135,7 @@ webhooks:
     service:
       name: ssp-operator-service
       namespace: kubevirt-hyperconverged
-      path: /validate-ssp-kubevirt-io-v1beta1-ssp
+      path: /validate-ssp-kubevirt-io-v1beta2-ssp
       port: 9443
   failurePolicy: Fail
   matchPolicy: Equivalent
