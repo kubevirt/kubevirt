@@ -1227,13 +1227,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	vmiCPU := vmi.Spec.Domain.CPU
 	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
 		// Always allow to hotplug to minimum of 1 socket
-		enabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
+		minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
+		// Total vCPU count
+		enabledCpuCount := cpuCount
 		cpuTopology.Sockets = vmiCPU.MaxSockets
 		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
 		VCPUs := &api.VCPUs{}
 		for id := uint32(0); id < cpuCount; id++ {
+			// Enable all requestd vCPUs
 			isEnabled := id < enabledCpuCount
-			isHotpluggable := !isEnabled
+			// There should not be fewer vCPU than cores and threads within a single socket
+			isHotpluggable := id >= minEnabledCpuCount
 			vcpu := api.VCPUsVCPU{
 				ID:           uint32(id),
 				Enabled:      boolToYesNo(&isEnabled, true),
