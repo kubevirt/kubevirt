@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "contextual.go",
         "exit.go",
+        "format.go",
         "imports.go",
         "k8s_references.go",
         "klog.go",

@@ -9,14 +9,14 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.38.3
 	github.com/emicklei/go-restful/v3 v3.9.0
-	github.com/evanphx/json-patch v4.12.0+incompatible
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-kit/kit v0.10.0
 	github.com/go-openapi/spec v0.20.3
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/go-openapi/validate v0.20.2
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/glog v1.0.0
+	github.com/golang/glog v1.1.2
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/go-github/v32 v32.0.0
@@ -32,6 +32,7 @@ require (
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230627123556-81a891d4462a
+	github.com/maiqueb/persistentips v0.2.0-alpha
 	github.com/machadovilaca/operator-observability v0.0.6
 	github.com/mdlayher/vsock v1.1.1
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
@@ -39,8 +40,8 @@ require (
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/nunnatsa/ginkgolinter v0.14.0
 	github.com/nxadm/tail v1.4.8
-	github.com/onsi/ginkgo/v2 v2.9.4
-	github.com/onsi/gomega v1.27.6
+	github.com/onsi/ginkgo/v2 v2.11.0
+	github.com/onsi/gomega v1.27.10
 	github.com/opencontainers/runc v1.1.4
 	github.com/opencontainers/selinux v1.10.2
 	github.com/openshift/api v0.0.0
@@ -67,15 +68,15 @@ require (
 	google.golang.org/grpc v1.49.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.27.1
+	k8s.io/api v0.28.1
 	k8s.io/apiextensions-apiserver v0.26.4
-	k8s.io/apimachinery v0.27.1
+	k8s.io/apimachinery v0.28.1
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/klog/v2 v2.90.1
+	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-aggregator v0.26.4
-	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+	k8s.io/kube-openapi v0.0.0-20230816210353-14e408962443
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
-	k8s.io/utils v0.0.0-20230505201702-9f6742963106
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
@@ -102,7 +103,7 @@ require (
 	github.com/go-openapi/analysis v0.20.0 // indirect
 	github.com/go-openapi/errors v0.19.9 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
-	github.com/go-openapi/jsonreference v0.20.1 // indirect
+	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/loads v0.20.2 // indirect
 	github.com/go-openapi/runtime v0.19.24 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
@@ -143,7 +144,7 @@ require (
 	go.mongodb.org/mongo-driver v1.8.4 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
+	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
@@ -153,7 +154,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	mvdan.cc/editorconfig v0.1.1-0.20200121172147-e40951bde157 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 )
 
 require (
