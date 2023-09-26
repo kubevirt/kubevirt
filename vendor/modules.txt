@@ -235,6 +235,12 @@ github.com/machadovilaca/operator-observability/pkg/operatormetrics
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
+# github.com/maiqueb/persistentips v0.2.0-alpha
+## explicit; go 1.20
+github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1
+github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1/apis/clientset/versioned
+github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1/apis/clientset/versioned/scheme
+github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1/apis/clientset/versioned/typed/persistentip/v1alpha1
 # github.com/mattn/go-colorable v0.1.8
 ## explicit; go 1.13
 github.com/mattn/go-colorable

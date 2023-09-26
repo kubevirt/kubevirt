@@ -662,6 +662,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - k8s.cni.cncf.io
+  resources:
+  - ipamleases
+  verbs:
+  - create
+- apiGroups:
   - route.openshift.io
   resources:
   - routes

@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	ipamclaimsinterface "github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1/apis/clientset/versioned"
 	v1 "kubevirt.io/api/core/v1"
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
@@ -94,6 +95,7 @@ type KubevirtClient interface {
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	DynamicClient() dynamic.Interface
 	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
+	IPAMClaimsClient() ipamclaimsinterface.Interface
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -115,6 +117,7 @@ type kubevirt struct {
 	dynamicClient           dynamic.Interface
 	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
 	cloneClient             *clonev1alpha1.CloneV1alpha1Client
+	ipamClaimsClient        *ipamclaimsinterface.Clientset
 	*kubernetes.Clientset
 }
 
@@ -216,6 +219,10 @@ func (k kubevirt) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMac
 
 func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
+}
+
+func (k kubevirt) IPAMClaimsClient() ipamclaimsinterface.Interface {
+	return k.ipamClaimsClient
 }
 
 type StreamOptions struct {

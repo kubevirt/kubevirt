@@ -61,6 +61,8 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	persistentipsapi "github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -114,6 +116,7 @@ const (
 	HotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 	AffinityChangeErrorReason          = "AffinityChangeError"
 	HotPlugMemoryErrorReason           = "HotPlugMemoryError"
+	FailedCreateIPAMClaim              = "FailedCreateIPAMClaim"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -2769,6 +2772,36 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}
 	}
 
+	if syncErr == nil && vmi != nil {
+		// create IPAMClaims
+		for _, network := range vmi.Spec.Networks {
+			if network.Pod != nil {
+				log.Log.Object(vm).V(5).Infof("skipped pod network IPAM claim creation")
+				continue
+			} else if network.Multus != nil && network.Multus.Default {
+				log.Log.Object(vm).V(5).Infof("skipped multus default network IPAM claim creation")
+				continue
+			}
+
+			claimName := fmt.Sprintf("%s.%s", vm.Name, network.Name)
+			log.Log.Object(vm).Infof("about to create ipam Claim for %q", claimName)
+			_, err = c.clientset.IPAMClaimsClient().K8sV1alpha1().IPAMLeases(vmi.Namespace).Create(
+				context.Background(),
+				createIPAMClaim(vm, claimName, network),
+				v1.CreateOptions{},
+			)
+			if err != nil && !apiErrors.IsAlreadyExists(err) {
+				syncErr = &syncErrorImpl{
+					err:    fmt.Errorf("failed to create an IPAM Claim for %q: %v", claimName, err),
+					reason: FailedCreateIPAMClaim,
+				}
+			}
+			if err == nil {
+				log.Log.Object(vm).Infof("WOOP !!! created ipam Claim for %q", claimName)
+			}
+		}
+	}
+
 	if syncErr == nil {
 		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 		if err != nil {
@@ -2852,6 +2885,21 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	return vm, syncErr, nil
+}
+
+func createIPAMClaim(vm *virtv1.VirtualMachine, claimName string, network virtv1.Network) *persistentipsapi.IPAMLease {
+	return &persistentipsapi.IPAMLease{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      claimName,
+			Namespace: vm.Namespace,
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+			},
+		},
+		Spec: persistentipsapi.IPAMLeaseSpec{
+			Network: network.Multus.NetworkName,
+		},
+	}
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
