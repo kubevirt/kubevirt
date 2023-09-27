@@ -769,9 +769,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
+				var err error
 				vmi = libvmi.NewCirros(overcommitGuestOverhead())
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -1987,11 +1987,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		var dataVolume *cdiv1.DataVolume
 
 		BeforeEach(func() {
+			var err error
 			if !checks.HasFeature(virtconfig.HostDiskGate) {
 				Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 			}
 
-			dataVolume, err := createBlockDataVolume(virtClient)
+			dataVolume, err = createBlockDataVolume(virtClient)
 			Expect(err).ToNot(HaveOccurred())
 			if dataVolume == nil {
 				Skip("Skip test when Block storage is not present")
@@ -2342,8 +2343,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 
 		BeforeEach(func() {
+			var err error
 			checks.SkipTestIfNoCPUManager()
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
