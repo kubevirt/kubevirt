@@ -3158,7 +3158,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("Starting a VirtualMachineInstance")
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
-			Expect(err).NotTo(HaveOccurred())
 
 			By("Ensuring that pod has expected topologySpreadConstraints")
 			pod := tests.GetPodByVirtualMachineInstance(vmi)
