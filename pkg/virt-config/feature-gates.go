@@ -74,6 +74,8 @@ const (
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
 	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
+	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
+	AutoResourceLimitsGate = "AutoResourceLimitsGate"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -244,4 +246,8 @@ func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
 
 func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
 	return config.isFeatureGateEnabled(NetworkBindingPlugingsGate)
+}
+
+func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
+	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
 }

@@ -1,8 +1,12 @@
 package services
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -116,6 +120,50 @@ var _ = Describe("Resource pod spec renderer", func() {
 					kubev1.ResourceMemory,
 					addResources(baseMemory, memOverhead)))
 			})
+		})
+	})
+
+	Context("WithAutoMemoryLimits option", func() {
+		const customRatioNamespace = "custom-memory-ratio-ns"
+		const customRatioValue = 3.2
+		var (
+			baseMemory          resource.Quantity
+			userSpecifiedMemory kubev1.ResourceList
+			namespaceStore      cache.Store
+		)
+
+		BeforeEach(func() {
+			baseMemory = resource.MustParse("64M")
+			namespaceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+
+			userSpecifiedMemory = kubev1.ResourceList{kubev1.ResourceMemory: baseMemory}
+			namespaceWithCustomMemoryRatio := kubev1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Namespace",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: customRatioNamespace,
+					Labels: map[string]string{
+						v1.AutoMemoryLimitsRatioLabel: fmt.Sprintf("%f", customRatioValue),
+					},
+				},
+			}
+			err := namespaceStore.Add(&namespaceWithCustomMemoryRatio)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		DescribeTable("should set limits accordingly with the ratio if vmi.limits are not set", func(namespace string, expectedRatioUsed float64) {
+			rr = NewResourceRenderer(nil, userSpecifiedMemory, WithAutoMemoryLimits(namespace, namespaceStore))
+			value := int64(float64(baseMemory.Value()) * expectedRatioUsed)
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, addResources(*resource.NewQuantity(value, baseMemory.Format))))
+		},
+			Entry("with default limit overhead ratio", "default", DefaultMemoryLimitOverheadRatio),
+			Entry("with custom limit overhead ratio", customRatioNamespace, customRatioValue),
+		)
+
+		It("should not override limits if vmi.limits are set", func() {
+			rr = NewResourceRenderer(userSpecifiedMemory, userSpecifiedMemory, WithAutoMemoryLimits(customRatioNamespace, namespaceStore))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, addResources(baseMemory)))
 		})
 	})
 

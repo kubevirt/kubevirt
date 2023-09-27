@@ -153,7 +153,8 @@ type VirtControllerApp struct {
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
-	namespaceStore cache.Store
+	namespaceInformer cache.SharedIndexInformer
+	namespaceStore    cache.Store
 
 	kubeVirtInformer cache.SharedIndexInformer
 
@@ -360,6 +361,7 @@ func Execute() {
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
 	app.namespaceStore = app.informerFactory.Namespace().GetStore()
+	app.namespaceInformer = app.informerFactory.Namespace()
 	app.vmiCache = app.vmiInformer.GetStore()
 	app.vmiRecorder = app.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
@@ -567,7 +569,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			}
 		}()
 
-		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
+		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced, vca.namespaceInformer.HasSynced, vca.resourceQuotaInformer.HasSynced)
 		close(vca.readyChan)
 		leaderGauge.Set(1)
 	}
@@ -601,6 +603,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		vca.launcherSubGid,
 		vca.exporterImage,
+		vca.resourceQuotaInformer.GetStore(),
+		vca.namespaceStore,
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)

@@ -967,6 +967,10 @@ const (
 
 	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
 	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
+
+	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
+	// Must be a float >= 1.
+	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
