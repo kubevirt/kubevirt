@@ -274,7 +274,17 @@ var Testdataexpected = `{
    ],
    "CPUMapSet": false,
    "CPUMap": null,
-   "NrVirtCpu": 0
+   "NrVirtCpu": 0,
+   "DirtyRate": {
+     "CalcStatusSet": false, 
+     "CalcStatus": 0, 
+     "CalcStartTimeSet": false, 
+     "CalcStartTime": 0, 
+     "CalcPeriodSet": false, 
+     "CalcPeriod": 0,
+     "MegabytesPerSecondSet": false,
+     "MegabytesPerSecond": 0
+   }
  }`
 
 func LoadStats() ([]libvirt.DomainStats, error) {

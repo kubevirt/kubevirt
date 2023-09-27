@@ -342,3 +342,14 @@ func (_m *MockLauncherClient) InjectLaunchSecret(_param0 *v1.VirtualMachineInsta
 func (_mr *_MockLauncherClientRecorder) InjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) GetGuestStats() (v1.GuestStats, error) {
+	ret := _m.ctrl.Call(_m, "GetGuestStats")
+	ret0, _ := ret[0].(v1.GuestStats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLauncherClientRecorder) GetGuestStats() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestStats")
+}

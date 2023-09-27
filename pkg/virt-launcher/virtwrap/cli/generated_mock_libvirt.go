@@ -178,15 +178,15 @@ func (_mr *_MockConnectionRecorder) GetAllDomainStats(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllDomainStats", arg0, arg1)
 }
 
-func (_m *MockConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
-	ret := _m.ctrl.Call(_m, "GetDomainStats", statsTypes, l, flags)
+func (_m *MockConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags, addDirtyRateCalc bool) ([]*stats.DomainStats, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainStats", statsTypes, l, flags, addDirtyRateCalc)
 	ret0, _ := ret[0].([]*stats.DomainStats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2)
+func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockConnection) GetQemuVersion() (string, error) {

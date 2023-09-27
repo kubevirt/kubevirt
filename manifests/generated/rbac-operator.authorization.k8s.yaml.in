@@ -707,6 +707,7 @@ rules:
   - update
   - list
   - watch
+  - patch
 - apiGroups:
   - ""
   resources:

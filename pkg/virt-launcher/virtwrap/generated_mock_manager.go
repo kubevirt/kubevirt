@@ -164,9 +164,9 @@ func (_mr *_MockDomainManagerRecorder) PrepareMigrationTarget(arg0, arg1, arg2 i
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMigrationTarget", arg0, arg1, arg2)
 }
 
-func (_m *MockDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
+func (_m *MockDomainManager) GetDomainStats() (*stats.DomainStats, error) {
 	ret := _m.ctrl.Call(_m, "GetDomainStats")
-	ret0, _ := ret[0].([]*stats.DomainStats)
+	ret0, _ := ret[0].(*stats.DomainStats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -337,4 +337,22 @@ func (_m *MockDomainManager) InjectLaunchSecret(_param0 *v1.VirtualMachineInstan
 
 func (_mr *_MockDomainManagerRecorder) InjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", arg0, arg1)
+}
+
+func (_m *MockDomainManager) StartDirtyRateMeasurement(stopCh chan struct{}) {
+	_m.ctrl.Call(_m, "StartDirtyRateMeasurement", stopCh)
+}
+
+func (_mr *_MockDomainManagerRecorder) StartDirtyRateMeasurement(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDirtyRateMeasurement", arg0)
+}
+
+func (_m *MockDomainManager) GetGuestStats() v1.GuestStats {
+	ret := _m.ctrl.Call(_m, "GetGuestStats")
+	ret0, _ := ret[0].(v1.GuestStats)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) GetGuestStats() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestStats")
 }

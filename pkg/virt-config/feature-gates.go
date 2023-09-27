@@ -74,6 +74,8 @@ const (
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 	// NetworkBindingPlugingsGate enables using a plugin to bind the pod and the VM network
 	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
+	// DirtyRateStatsGate enables automatic VMI dirty-rate statistic tracking
+	DirtyRateStatsGate = "DirtyRateStats"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -244,4 +246,8 @@ func (config *ClusterConfig) BochsDisplayForEFIGuestsEnabled() bool {
 
 func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
 	return config.isFeatureGateEnabled(NetworkBindingPlugingsGate)
+}
+
+func (config *ClusterConfig) DirtyRateStatsGateEnabled() bool {
+	return config.isFeatureGateEnabled(DirtyRateStatsGate)
 }

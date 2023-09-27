@@ -456,22 +456,24 @@ func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 		},
 	}
 
-	list, err := l.domainManager.GetDomainStats()
+	stats, err := l.domainManager.GetDomainStats()
 	if err != nil {
 		response.Response.Success = false
 		response.Response.Message = getErrorMessage(err)
 		return response, nil
+	} else if stats == nil {
+		response.Response.Success = false
+		response.Response.Message = "No stats available"
+		return response, nil
 	}
 
-	if len(list) > 0 {
-		if domainStats, err := json.Marshal(list[0]); err != nil {
-			log.Log.Reason(err).Errorf("Failed to marshal domain stats")
-			response.Response.Success = false
-			response.Response.Message = getErrorMessage(err)
-			return response, nil
-		} else {
-			response.DomainStats = string(domainStats)
-		}
+	if domainStats, err := json.Marshal(stats); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal domain stats")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	} else {
+		response.DomainStats = string(domainStats)
 	}
 
 	return response, nil
@@ -719,6 +721,21 @@ func (l *Launcher) InjectLaunchSecret(_ context.Context, request *cmdv1.InjectLa
 	}
 
 	return response, nil
+}
+
+func (l *Launcher) GetGuestStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestStatsResponse, error) {
+	guestStats := l.domainManager.GetGuestStats()
+	success := &cmdv1.Response{Success: true}
+
+	return &cmdv1.GuestStatsResponse{
+		Response: success,
+		DirtyRate: &cmdv1.DirtyRateResponse{
+			Response: success,
+			Samples:  uint64(guestStats.DirtyRate.SampleCount),
+			Average:  float32(guestStats.DirtyRate.Average),
+			Variance: float32(guestStats.DirtyRate.Variance),
+		},
+	}, nil
 }
 
 func ReceivedEarlyExitSignal() bool {
