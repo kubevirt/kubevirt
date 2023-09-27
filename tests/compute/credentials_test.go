@@ -17,39 +17,38 @@
  *
  */
 
-package tests_test
+package compute
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmi"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/util"
 
 	expect "github.com/google/goexpect"
+
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/console"
 )
 
-var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute, func() {
+var _ = SIGDescribe("Guest Access Credentials", func() {
 
 	const (
 		fedoraRunningTimeout    = 120
 		guestAgentConnetTimeout = 2 * time.Minute
 		denyListTimeout         = 2 * time.Minute
+		fedoraPassword          = "fedora"
 	)
 
 	Context("with qemu guest agent", func() {
@@ -265,7 +264,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				}
 			}
 
-			It("[test_id:6224]should have ssh-key under authorized keys added by configDrive", func() {
+			It("[test_id:6224]should have ssh-key under authorized keys added ", func() {
 				vmi := libvmi.NewFedora(
 					libvmi.WithCloudInitConfigDriveData(userData, false),
 					withSSHPK(secretID))
@@ -294,7 +293,7 @@ var _ = Describe("[sig-compute]Guest Access Credentials", decorators.SigCompute,
 				}
 			}
 
-			It("[test_id:TODO]should have ssh-key under authorized keys added by NoCloud", func() {
+			It("[test_id:TODO]should have ssh-key under authorized keys added", func() {
 				vmi := libvmi.NewFedora(
 					libvmi.WithCloudInitNoCloudUserData(userData, false),
 					withSSHPK(secretID))
