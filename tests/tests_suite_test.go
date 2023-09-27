@@ -41,6 +41,7 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	_ "kubevirt.io/kubevirt/tests/compute"
 	_ "kubevirt.io/kubevirt/tests/guestlog"
 	_ "kubevirt.io/kubevirt/tests/hotplug"
 	_ "kubevirt.io/kubevirt/tests/infrastructure"
