@@ -3,6 +3,9 @@ package decorators
 import . "github.com/onsi/ginkgo/v2"
 
 var (
+	//
+	Quarantine = []interface{}{Label("QUARANTINE")}
+
 	// SIGs
 	SigCompute           = []interface{}{Label("sig-compute")}
 	SigOperator          = []interface{}{Label("sig-operator")}
