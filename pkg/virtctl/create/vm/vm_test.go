@@ -133,8 +133,10 @@ var _ = Describe("create vm", func() {
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(Equal(name))
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(kind))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		},
 			Entry("Implicit cluster-wide", "my-instancetype", "my-instancetype", ""),
@@ -142,38 +144,88 @@ var _ = Describe("create vm", func() {
 			Entry("Explicit namespaced", "virtualmachineinstancetype/my-instancetype", "my-instancetype", instancetypeapi.SingularResourceName),
 		)
 
-		It("VM with inferred instancetype", func() {
-			out, err := runCmd(
-				setFlag(DataSourceVolumeFlag, "src:my-ds"),
-				setFlag(InferInstancetypeFlag, ""))
+		DescribeTable("VM with inferred instancetype", func(args []string, inferFromVolume string) {
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(inferFromVolume))
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
-		})
+		},
+			Entry("PvcVolumeFlag and implicitly inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc"),
+			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc"),
+			Entry("VolumeImportFlag and implicitly inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc"),
+			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc"),
+		)
 
-		It("VM with boot order and inferred instancetype", func() {
-			out, err := runCmd(
+		DescribeTable("VM with boot order and inferred instancetype", func(explicit bool) {
+			args := []string{
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
 				// This DS with bootorder 1 should be used to infer the instancetype, although it is defined second
 				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
-				setFlag(InferInstancetypeFlag, ""))
+			}
+			if explicit {
+				args = append(args, setFlag(InferInstancetypeFlag, "true"))
+			}
+
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
-		})
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+		},
+			Entry("implicit (inference enabled by default)", false),
+			Entry("explicit", true),
+		)
 
 		It("VM with inferred instancetype from specified volume", func() {
 			out, err := runCmd(
 				setFlag(DataSourceVolumeFlag, "src:my-ds-1,name:my-ds-1"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
-				setFlag(InferInstancetypeFlag, "my-ds-2"))
+				setFlag(InferInstancetypeFromFlag, "my-ds-2"))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.Name).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.Kind).To(BeEmpty())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal("my-ds-2"))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+		})
+
+		It("VM with volume and without inferred instancetype", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds"),
+				setFlag(InferInstancetypeFlag, "false"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype).To(BeNil())
+		})
+
+		It("VM with specified memory and volume and without implicitly inferred instancetype", func() {
+			const memory = "1Gi"
+			out, err := runCmd(
+				setFlag(MemoryFlag, memory),
+				setFlag(DataSourceVolumeFlag, "src:my-ds,name:my-ds"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse(memory)))
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Name).To(BeEmpty())
+			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal("my-ds"))
 		})
 
 		DescribeTable("VM with specified preference", func(flag, name, kind string) {
@@ -181,45 +233,77 @@ var _ = Describe("create vm", func() {
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
+			Expect(vm.Spec.Preference).ToNot(BeNil())
 			Expect(vm.Spec.Preference.Name).To(Equal(name))
 			Expect(vm.Spec.Preference.Kind).To(Equal(kind))
+			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
 		},
 			Entry("Implicit cluster-wide", "my-preference", "my-preference", ""),
 			Entry("Explicit cluster-wide", "virtualmachineclusterpreference/my-clusterpreference", "my-clusterpreference", instancetypeapi.ClusterSingularPreferenceResourceName),
 			Entry("Explicit namespaced", "virtualmachinepreference/my-preference", "my-preference", instancetypeapi.SingularPreferenceResourceName),
 		)
 
-		It("VM with inferred preference", func() {
-			out, err := runCmd(
-				setFlag(DataSourceVolumeFlag, "src:my-ds"),
-				setFlag(InferPreferenceFlag, ""))
+		DescribeTable("VM with inferred preference", func(args []string, inferFromVolume string) {
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
-			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds")))
-		})
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Name).To(BeEmpty())
+			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(inferFromVolume))
+		},
+			Entry("PvcVolumeFlag and implicitly inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc"),
+			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferPreferenceFlag, "true")}, "my-pvc"),
+			Entry("VolumeImportFlag and implicitly inference (enabled by default)", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns")}, "my-pvc"),
+			Entry("VolumeImportFlag and explicit inference", []string{setFlag(VolumeImportFlag, "type:pvc,size:1Gi,name:my-pvc,namespace:my-ns"), setFlag(InferPreferenceFlag, "true")}, "my-pvc"),
+		)
 
-		It("VM with boot order and inferred preference", func() {
-			out, err := runCmd(
+		DescribeTable("VM with boot order and inferred preference", func(explicit bool) {
+			args := []string{
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,bootorder:2"),
 				// This DS with bootorder 1 should be used to infer the preference, although it is defined second
 				setFlag(DataSourceVolumeFlag, "src:my-ds-1,bootorder:1"),
-				setFlag(InferPreferenceFlag, ""))
+			}
+			if explicit {
+				args = append(args, setFlag(InferPreferenceFlag, "true"))
+			}
+
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Name).To(BeEmpty())
+			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(fmt.Sprintf("%s-ds-%s", vm.Name, "my-ds-1")))
-		})
+		},
+			Entry("implicit (inference enabled by default)", false),
+			Entry("explicit", true),
+		)
 
 		It("VM with inferred preference from specified volume", func() {
 			out, err := runCmd(
 				setFlag(DataSourceVolumeFlag, "src:my-ds-1,name:my-ds-1"),
 				setFlag(DataSourceVolumeFlag, "src:my-ds-2,name:my-ds-2"),
-				setFlag(InferPreferenceFlag, "my-ds-2"))
+				setFlag(InferPreferenceFromFlag, "my-ds-2"))
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
 
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.Name).To(BeEmpty())
+			Expect(vm.Spec.Preference.Kind).To(BeEmpty())
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal("my-ds-2"))
+		})
+
+		It("VM with volume and without inferred preference", func() {
+			out, err := runCmd(
+				setFlag(DataSourceVolumeFlag, "src:my-ds"),
+				setFlag(InferPreferenceFlag, "false"))
+			Expect(err).ToNot(HaveOccurred())
+			vm := unmarshalVM(out)
+
+			Expect(vm.Spec.Preference).To(BeNil())
 		})
 
 		DescribeTable("VM with specified containerdisk", func(containerdisk, volName string, bootOrder int, params string) {
@@ -239,6 +323,10 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volName))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with src", "my.registry/my-image:my-tag", "", 0, "src:my.registry/my-image:my-tag"),
 			Entry("with src and name", "my.registry/my-image:my-tag", "my-cd", 0, "src:my.registry/my-image:my-tag,name:my-cd"),
@@ -277,6 +365,12 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
+
+			// In this case inference should be possible
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
 		},
 			Entry("without namespace", "", "my-dv", "", "", 0, "src:my-dv"),
 			Entry("with namespace", "my-ns", "my-dv", "", "", 0, "src:my-ns/my-dv"),
@@ -304,6 +398,18 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(source))
+
+			if source.PVC != nil {
+				// In this case inference should be possible
+				Expect(vm.Spec.Instancetype).ToNot(BeNil())
+				Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(source.PVC.Name))
+				Expect(vm.Spec.Preference).ToNot(BeNil())
+				Expect(vm.Spec.Preference.InferFromVolume).To(Equal(source.PVC.Name))
+			} else {
+				// In this case inference should be possible
+				Expect(vm.Spec.Instancetype).To(BeNil())
+				Expect(vm.Spec.Preference).To(BeNil())
+			}
 		},
 			Entry("with blank source", fmt.Sprintf("type:blank,size:%s", size), &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}),
 			Entry("with http source", fmt.Sprintf("type:http,size:%s,url:%s", size, url), &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: url}}),
@@ -329,6 +435,10 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(size)))
 			Expect(vm.Spec.DataVolumeTemplates[1].Spec.Source).To(Equal(source2))
 			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal("volume-source2"))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with blank source", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:volume-source1", size)), setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:volume-source2", size))),
 			Entry("with blank source and http source", &cdiv1.DataVolumeSource{Blank: &cdiv1.DataVolumeBlankImage{}}, &cdiv1.DataVolumeSource{HTTP: &cdiv1.DataVolumeSourceHTTP{URL: url}}, setFlag(VolumeImportFlag, fmt.Sprintf("type:blank,size:%s,name:volume-source1", size)), setFlag(VolumeImportFlag, fmt.Sprintf("type:http,size:%s,url:%s,name:volume-source2", size, url))),
@@ -360,6 +470,12 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(dvtName))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
+
+			// In this case inference should be possible
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(dvtName))
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(dvtName))
 		},
 			Entry("with src", "my-ns", "my-pvc", "", "", 0, "src:my-ns/my-pvc"),
 			Entry("with src and name", "my-ns", "my-pvc", "my-dvt", "", 0, "src:my-ns/my-pvc,name:my-dvt"),
@@ -388,6 +504,12 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Template.Spec.Domain.Devices.Disks[0].Name).To(Equal(volName))
 				Expect(*vm.Spec.Template.Spec.Domain.Devices.Disks[0].BootOrder).To(Equal(uint(bootOrder)))
 			}
+
+			// In this case inference should be possible
+			Expect(vm.Spec.Instancetype).ToNot(BeNil())
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(volName))
+			Expect(vm.Spec.Preference).ToNot(BeNil())
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(volName))
 		},
 			Entry("with src", "my-pvc", "", 0, "src:my-pvc"),
 			Entry("with src and name", "my-pvc", "my-direct-pvc", 0, "src:my-pvc,name:my-direct-pvc"),
@@ -412,6 +534,10 @@ var _ = Describe("create vm", func() {
 			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(blankName))
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume).ToNot(BeNil())
 			Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.DataVolume.Name).To(Equal(blankName))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 		},
 			Entry("with size", "", "10Gi", "size:10Gi"),
 			Entry("with size and name", "my-blank", "10Gi", "size:10Gi,name:my-blank"),
@@ -431,6 +557,10 @@ var _ = Describe("create vm", func() {
 			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitUserData))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 		})
 
 		It("VM with specified cloud-init network data", func() {
@@ -447,6 +577,10 @@ var _ = Describe("create vm", func() {
 			decoded, err := base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 		})
 
 		It("VM with specified cloud-init user and network data", func() {
@@ -471,6 +605,10 @@ var _ = Describe("create vm", func() {
 			decoded, err = base64.StdEncoding.DecodeString(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(decoded)).To(Equal(cloudInitNetworkData))
+
+			// No inference possible in this case
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
 		})
 
 		It("Complex example", func() {
@@ -491,7 +629,7 @@ var _ = Describe("create vm", func() {
 				setFlag(RunStrategyFlag, string(runStrategy)),
 				setFlag(TerminationGracePeriodFlag, fmt.Sprint(terminationGracePeriod)),
 				setFlag(InstancetypeFlag, fmt.Sprintf("%s/%s", instancetypeKind, instancetypeName)),
-				setFlag(InferPreferenceFlag, pvcName),
+				setFlag(InferPreferenceFromFlag, pvcName),
 				setFlag(DataSourceVolumeFlag, fmt.Sprintf("src:%s/%s,size:%s", dsNamespace, dsName, dvtSize)),
 				setFlag(PvcVolumeFlag, fmt.Sprintf("src:%s,bootorder:%d", pvcName, pvcBootOrder)),
 				setFlag(CloudInitUserDataFlag, userDataB64),
@@ -593,29 +731,42 @@ var _ = Describe("create vm", func() {
 			Entry("Empty name", "virtualmachineinstancetype/", "failed to parse \"--instancetype\" flag: name cannot be empty"),
 		)
 
+		It("Invalid argument to InferInstancetypeFlag", func() {
+			out, err := runCmd(setFlag(InferInstancetypeFlag, "not-a-bool"))
+
+			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-instancetype\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
+			Expect(out).To(BeEmpty())
+		})
+
 		It("InferInstancetypeFlag needs at least one volume", func() {
-			out, err := runCmd(setFlag(InferInstancetypeFlag, ""))
+			out, err := runCmd(setFlag(InferInstancetypeFlag, "true"))
 
-			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: at least one volume is needed to infer instancetype or preference"))
+			Expect(err).To(MatchError("at least one volume is needed to infer an instance type or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
-		It("Volume specified in InferInstancetypeFlag should exist", func() {
-			out, err := runCmd(setFlag(InferInstancetypeFlag, "does-not-exist"))
+		It("Volume specified in InferInstancetypeFromFlag should exist", func() {
+			args := []string{
+				setFlag(InferInstancetypeFromFlag, "does-not-exist"),
+			}
+			out, err := runCmd(args...)
 
-			Expect(err).To(MatchError("failed to parse \"--infer-instancetype\" flag: there is no volume with name 'does-not-exist'"))
+			Expect(err).To(MatchError("there is no volume with name 'does-not-exist'"))
 			Expect(out).To(BeEmpty())
 		})
 
-		DescribeTable("MemoryFlag, InstancetypeFlag and InferInstancetypeFlag are mutually exclusive", func(flags []string, setFlags string) {
+		DescribeTable("MemoryFlag, InstancetypeFlag, InferInstancetypeFlag and InferInstancetypeFromFlag are mutually exclusive", func(flags []string, setFlags string) {
 			out, err := runCmd(flags...)
-			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [memory instancetype infer-instancetype] are set none of the others can be; [%s] were all set", setFlags)))
+			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [memory instancetype infer-instancetype infer-instancetype-from] are set none of the others can be; [%s] were all set", setFlags)))
 			Expect(out).To(BeEmpty())
 		},
 			Entry("MemoryFlag and InstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype")}, "instancetype memory"),
 			Entry("MemoryFlag and InferInstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype memory"),
+			Entry("MemoryFlag and InferInstancetypeFromFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InferInstancetypeFromFlag, "my-vol")}, "infer-instancetype-from memory"),
 			Entry("InstancetypeFlag and InferInstancetypeFlag", []string{setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype instancetype"),
-			Entry("MemoryFlag, InstancetypeFlag and InferInstancetypeFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true")}, "infer-instancetype instancetype memory"),
+			Entry("InstancetypeFlag and InferInstancetypeFromFlag", []string{setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFromFlag, "my-vol")}, "infer-instancetype-from instancetype"),
+			Entry("InferInstancetypeFlag and InferInstancetypeFromFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(InferInstancetypeFromFlag, "my-vol")}, "infer-instancetype infer-instancetype-from"),
+			Entry("MemoryFlag, InstancetypeFlag, InferInstancetypeFlag and InferInstancetypeFromFlag", []string{setFlag(MemoryFlag, "1Gi"), setFlag(InstancetypeFlag, "my-instancetype"), setFlag(InferInstancetypeFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-instancetype instancetype memory"),
 		)
 
 		DescribeTable("Invalid arguments to PreferenceFlag", func(flag, errMsg string) {
@@ -629,29 +780,56 @@ var _ = Describe("create vm", func() {
 			Entry("Empty name", "virtualmachinepreference/", "failed to parse \"--preference\" flag: name cannot be empty"),
 		)
 
+		It("Invalid argument to InferPreferenceFlag", func() {
+			out, err := runCmd(setFlag(InferPreferenceFlag, "not-a-bool"))
+
+			Expect(err).To(MatchError("invalid argument \"not-a-bool\" for \"--infer-preference\" flag: strconv.ParseBool: parsing \"not-a-bool\": invalid syntax"))
+			Expect(out).To(BeEmpty())
+		})
+
 		It("InferPreferenceFlag needs at least one volume", func() {
-			out, err := runCmd(setFlag(InferPreferenceFlag, ""))
+			out, err := runCmd(setFlag(InferPreferenceFlag, "true"))
 
-			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: at least one volume is needed to infer instancetype or preference"))
+			Expect(err).To(MatchError("at least one volume is needed to infer an instance type or preference"))
 			Expect(out).To(BeEmpty())
 		})
 
-		It("Volume specified in InferPreferenceFlag should exist", func() {
-			out, err := runCmd(setFlag(InferPreferenceFlag, "does-not-exist"))
+		It("Volume specified in InferPreferenceFromFlag should exist", func() {
+			args := []string{
+				setFlag(InferPreferenceFromFlag, "does-not-exist"),
+			}
+			out, err := runCmd(args...)
 
-			Expect(err).To(MatchError("failed to parse \"--infer-preference\" flag: there is no volume with name 'does-not-exist'"))
+			Expect(err).To(MatchError("there is no volume with name 'does-not-exist'"))
 			Expect(out).To(BeEmpty())
 		})
 
-		It("PreferenceFlag and InferPreferenceFlag are mutually exclusive", func() {
-			out, err := runCmd(
-				setFlag(PreferenceFlag, "my-preference"),
-				setFlag(InferPreferenceFlag, ""),
-			)
-
-			Expect(err).To(MatchError("if any flags in the group [preference infer-preference] are set none of the others can be; [infer-preference preference] were all set"))
+		DescribeTable("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag are mutually exclusive", func(flags []string, setFlags string) {
+			out, err := runCmd(flags...)
+			Expect(err).To(MatchError(fmt.Sprintf("if any flags in the group [preference infer-preference infer-preference-from] are set none of the others can be; [%s] were all set", setFlags)))
 			Expect(out).To(BeEmpty())
-		})
+		},
+			Entry("PreferenceFlag and InferPreferenceFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true")}, "infer-preference preference"),
+			Entry("PreferenceFlag and InferPreferenceFromFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference-from preference"),
+			Entry("InferPreference and InferPreferenceFromFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference infer-preference-from"),
+			Entry("PreferenceFlag, InferPreferenceFlag and InferPreferenceFromFlag", []string{setFlag(PreferenceFlag, "my-preference"), setFlag(InferPreferenceFlag, "true"), setFlag(InferPreferenceFromFlag, "my-vol")}, "infer-preference infer-preference-from preference"),
+		)
+
+		DescribeTable("Volume to explicitly infer from needs to be valid", func(args []string) {
+			out, err := runCmd(args...)
+
+			Expect(err).To(MatchError("inference of instancetype or preference works only with DataSources, DataVolumes or PersistentVolumeClaims"))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("explicit inference of instancetype with ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}),
+			Entry("inference of instancetype from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}),
+			Entry("explicit inference of preference with ContainerdiskVolumeFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag")}),
+			Entry("inference of preference from ContainerdiskVolumeFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(ContainerdiskVolumeFlag, "name:my-vol,src:my.registry/my-image:my-tag")}),
+			Entry("explicit inference of instancetype with VolumeImportFlag", []string{setFlag(InferInstancetypeFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}),
+			Entry("inference of instancetype from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}),
+			Entry("explicit inference of preference with VolumeImportFlag", []string{setFlag(InferPreferenceFlag, "true"), setFlag(VolumeImportFlag, "type:http,size:256Mi,url:http://url.com")}),
+			Entry("inference of preference from VolumeImportFlag", []string{setFlag(InferInstancetypeFromFlag, "my-vol"), setFlag(VolumeImportFlag, "name:my-vol,type:http,size:256Mi,url:http://url.com")}),
+		)
 
 		DescribeTable("Invalid arguments to DataSourceVolumeFlag", func(flag, errMsg string) {
 			out, err := runCmd(setFlag(DataSourceVolumeFlag, flag))
