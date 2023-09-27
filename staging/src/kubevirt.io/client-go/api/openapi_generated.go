@@ -28306,6 +28306,22 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachineInstancetypeSpec(r
 							Ref:         ref("kubevirt.io/api/core/v1.LaunchSecurity"),
 						},
 					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"cpu", "memory"},
 			},
@@ -28479,6 +28495,22 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 						SchemaProps: spec.SchemaProps{
 							Description: "Requirements defines the minium amount of instance type defined resources required by a set of preferences",
 							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements"),
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optionally defines preferred Annotations to be applied to the VirtualMachineInstance",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

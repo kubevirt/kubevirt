@@ -101,7 +101,7 @@ func expandSpecResponse(vm *v1.VirtualMachine, instancetypeMethods instancetype.
 		return
 	}
 
-	conflicts := instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec)
+	conflicts := instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
 	if len(conflicts) > 0 {
 		writeError(errorFunc(fmt.Errorf("cannot expand instancetype to VM")), response)
 		return

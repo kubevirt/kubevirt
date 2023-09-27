@@ -7897,6 +7897,12 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: Required spec describing the instancetype
       properties:
+        annotations:
+          additionalProperties:
+            type: string
+          description: Optionally defines the required Annotations to be used by the
+            instance type and applied to the VirtualMachineInstance
+          type: object
         cpu:
           description: Required CPU related attributes of the instancetype.
           properties:
@@ -8106,6 +8112,12 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: Required spec describing the preferences
       properties:
+        annotations:
+          additionalProperties:
+            type: string
+          description: Optionally defines preferred Annotations to be applied to the
+            VirtualMachineInstance
+          type: object
         clock:
           description: Clock optionally defines preferences associated with the Clock
             attribute of a VirtualMachineInstance DomainSpec
@@ -16795,6 +16807,12 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: Required spec describing the instancetype
       properties:
+        annotations:
+          additionalProperties:
+            type: string
+          description: Optionally defines the required Annotations to be used by the
+            instance type and applied to the VirtualMachineInstance
+          type: object
         cpu:
           description: Required CPU related attributes of the instancetype.
           properties:
@@ -21224,6 +21242,12 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       description: Required spec describing the preferences
       properties:
+        annotations:
+          additionalProperties:
+            type: string
+          description: Optionally defines preferred Annotations to be applied to the
+            VirtualMachineInstance
+          type: object
         clock:
           description: Clock optionally defines preferences associated with the Clock
             attribute of a VirtualMachineInstance DomainSpec

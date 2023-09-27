@@ -293,6 +293,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi := libvmi.NewCirros()
 
 			instancetype := newVirtualMachineInstancetype(vmi)
+			instancetype.Spec.Annotations = map[string]string{
+				"required-annotation-1": "1",
+				"required-annotation-2": "2",
+			}
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -320,6 +324,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}
 			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.Int64(15)
 			preference.Spec.PreferredSubdomain = pointer.String("non-existent-subdomain")
+			preference.Spec.Annotations = map[string]string{
+				"preferred-annotation-1": "1",
+				"preferred-annotation-2": "use-vm-value",
+				"required-annotation-1":  "use-instancetype-value",
+			}
 
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -329,6 +338,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			removeResourcesAndPreferencesFromVMI(vmi)
 
 			vm := tests.NewRandomVirtualMachine(vmi, false)
+
+			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+				"preferred-annotation-2": "2",
+			}
 
 			// Add the instancetype and preference matchers to the VM spec
 			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
@@ -376,6 +389,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(""))
 			Expect(vmi.Annotations[v1.PreferenceAnnotation]).To(Equal(preference.Name))
 			Expect(vmi.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
+			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-1", "1"))
+			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-2", "2"))
+			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
+			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
 		It("should apply memory overcommit instancetype to VMI", func() {
 			vmi := libvmi.NewCirros()

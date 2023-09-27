@@ -603,6 +603,13 @@ func (in *VirtualMachineInstancetypeSpec) DeepCopyInto(out *VirtualMachineInstan
 		*out = new(v1.LaunchSecurity)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
@@ -728,6 +735,13 @@ func (in *VirtualMachinePreferenceSpec) DeepCopyInto(out *VirtualMachinePreferen
 		in, out := &in.Requirements, &out.Requirements
 		*out = new(PreferenceRequirements)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	return
 }

@@ -116,6 +116,11 @@ type VirtualMachineInstancetypeSpec struct {
 	//
 	// +optional
 	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
+
+	// Optionally defines the required Annotations to be used by the instance type and applied to the VirtualMachineInstance
+	//
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.
@@ -274,6 +279,11 @@ type VirtualMachinePreferenceSpec struct {
 	//
 	//+optional
 	Requirements *PreferenceRequirements `json:"requirements,omitempty"`
+
+	// Optionally defines preferred Annotations to be applied to the VirtualMachineInstance
+	//
+	//+optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type VolumePreferences struct {

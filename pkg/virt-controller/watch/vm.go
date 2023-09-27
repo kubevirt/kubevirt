@@ -1607,8 +1607,7 @@ func (c *VMController) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *vi
 	instancetype.AddInstancetypeNameAnnotations(vm, vmi)
 	instancetype.AddPreferenceNameAnnotations(vm, vmi)
 
-	conflicts := c.instancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec)
-	if len(conflicts) > 0 {
+	if conflicts := c.instancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
 		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
 	}
 
