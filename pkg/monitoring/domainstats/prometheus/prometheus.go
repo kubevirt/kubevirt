@@ -43,11 +43,11 @@ import (
 
 const (
 	PrometheusCollectionTimeout            = vms.CollectionTimeout
-	MigrateVmiDataRemainingMetricName      = "kubevirt_migrate_vmi_data_remaining_bytes"
-	MigrateVmiDataProcessedMetricName      = "kubevirt_migrate_vmi_data_processed_bytes"
-	MigrateVmiDirtyMemoryRateMetricName    = "kubevirt_migrate_vmi_dirty_memory_rate_bytes"
-	MigrateVmiMemoryTransferRateMetricName = "kubevirt_migrate_vmi_memory_transfer_rate_bytes"
-	MigrateVmiDiskTransferRateMetricName   = "kubevirt_migrate_vmi_disk_transfer_rate_bytes"
+	MigrateVmiDataRemainingMetricName      = "kubevirt_vmi_migration_data_remaining_bytes"
+	MigrateVmiDataProcessedMetricName      = "kubevirt_vmi_migration_data_processed_bytes"
+	MigrateVmiDirtyMemoryRateMetricName    = "kubevirt_vmi_migration_dirty_memory_rate_bytes"
+	MigrateVmiMemoryTransferRateMetricName = "kubevirt_vmi_migration_disk_transfer_rate_bytes"
+	MigrateVmiDiskTransferRateMetricName   = "kubevirt_vmi_migration_memory_transfer_rate_bytes"
 )
 
 var (
