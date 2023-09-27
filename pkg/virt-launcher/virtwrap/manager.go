@@ -1877,9 +1877,9 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 
 	hostDevices := devices.HostDevices
 	for _, dev := range hostDevices {
-		devAliasNoPrefix := strings.Replace(dev.Alias.GetName(), netsriov.AliasPrefix, "", -1)
-		hostDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), generic.AliasPrefix, "", -1)
-		gpuDevAliasNoPrefix := strings.Replace(dev.Alias.GetName(), gpu.AliasPrefix, "", -1)
+		devAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), netsriov.AliasPrefix)
+		hostDevAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), generic.AliasPrefix)
+		gpuDevAliasNoPrefix := strings.TrimPrefix(dev.Alias.GetName(), gpu.AliasPrefix)
 		if data, exist := taggedInterfaces[devAliasNoPrefix]; exist {
 			deviceNumaNode, deviceAlignedCPUs := getDeviceNUMACPUAffinity(dev, vmi, domainSpec)
 			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
