@@ -635,8 +635,6 @@ spec:
           - network-attachment-definitions
           verbs:
           - get
-          - list
-          - watch
         - apiGroups:
           - apiextensions.k8s.io
           resources:

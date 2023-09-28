@@ -398,9 +398,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"network-attachment-definitions",
 				},
-				Verbs: []string{
-					"get", "list", "watch",
-				},
+				Verbs: []string{"get"},
 			},
 			{
 				APIGroups: []string{
