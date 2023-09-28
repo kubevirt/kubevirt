@@ -65,6 +65,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -3075,6 +3076,269 @@ spec:
 				},
 					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: pointer.String("kubevirt/kubevirt.json")}),
 			)
+		})
+	})
+
+	Context("[Serial] Deployment of common-instancetypes", Serial, func() {
+		var labelSelector string
+
+		BeforeEach(func() {
+			labelSelector = labels.Set{
+				v1.AppComponentLabel: v1.AppComponent,
+				v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+			}.String()
+		})
+
+		AfterEach(func() {
+			tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			testsuite.EnsureKubevirtReady()
+		})
+
+		expectResourcesToNotExist := func() {
+			instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(instancetypes.Items).To(BeEmpty())
+
+			preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preferences.Items).To(BeEmpty())
+		}
+
+		expectResourcesToExist := func() {
+			instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(instancetypes.Items).ToNot(BeEmpty())
+
+			preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preferences.Items).ToNot(BeEmpty())
+		}
+
+		It("Should not deploy common-instancetypes when feature gate is disabled", func() {
+			expectResourcesToNotExist()
+		})
+
+		It("Should deploy common-instancetypes when feature gate is enabled", func() {
+			tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			testsuite.EnsureKubevirtReady()
+			expectResourcesToExist()
+		})
+
+		It("Should remove common-instancetypes when feature gate is disabled", func() {
+			expectResourcesToNotExist()
+
+			tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			testsuite.EnsureKubevirtReady()
+
+			expectResourcesToExist()
+
+			tests.DisableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+			testsuite.EnsureKubevirtReady()
+
+			expectResourcesToNotExist()
+		})
+
+		Context("Should take ownership", func() {
+			const appComponent = "something"
+			const managedBy = "someone"
+
+			It("of instancetypes", func() {
+				By("Getting instancetypes to be deployed by virt-operator")
+				instancetypes, err := components.NewClusterInstancetypes()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(instancetypes).ToNot(BeEmpty())
+
+				By("Picking the first instancetype and changing its labels")
+				instancetype := instancetypes[0]
+				instancetype.Labels = map[string]string{
+					v1.AppComponentLabel: appComponent,
+					v1.ManagedByLabel:    managedBy,
+				}
+
+				By("Creating the instancetype")
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponent))
+				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedBy))
+
+				By("Enabling the feature gate and waiting for KubeVirt to be ready")
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+
+				By("Verifying virt-operator took ownership of the instancetype")
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetype.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, v1.AppComponent))
+				Expect(instancetype.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+			})
+
+			It("of preferences", func() {
+				By("Getting preferences to be deployed by virt-operator")
+				preferences, err := components.NewClusterPreferences()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(preferences).ToNot(BeEmpty())
+
+				By("Picking the first preference and changing its labels")
+				preference := preferences[0]
+				preference.Labels = map[string]string{
+					v1.AppComponentLabel: appComponent,
+					v1.ManagedByLabel:    managedBy,
+				}
+
+				By("Creating the preference")
+				preference, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(preference.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, appComponent))
+				Expect(preference.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, managedBy))
+
+				By("Enabling the feature gate and waiting for KubeVirt to be ready")
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+
+				By("Verifying virt-operator took ownership of the preference")
+				preference, err = virtClient.VirtualMachineClusterPreference().Get(context.Background(), preference.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(preference.Labels).To(HaveKeyWithValue(v1.AppComponentLabel, v1.AppComponent))
+				Expect(preference.Labels).To(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+			})
+		})
+
+		Context("Should delete resources not in install strategy", func() {
+			BeforeEach(func() {
+				By("Enabling the feature gate and waiting for KubeVirt to be ready")
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+			})
+
+			It("with instancetypes", func() {
+				instancetype := &v1beta1.VirtualMachineClusterInstancetype{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "clusterinstancetype-",
+						Labels: map[string]string{
+							v1.AppComponentLabel: v1.AppComponent,
+							v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+						},
+					},
+				}
+
+				By("Creating the instancetype")
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying virt-operator deleted the instancetype")
+				Eventually(func(g Gomega) {
+					_, err = virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetype.Name, metav1.GetOptions{})
+					g.Expect(err).Should(HaveOccurred())
+					g.Expect(errors.ReasonForError(err)).Should(Equal(metav1.StatusReasonNotFound))
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+			})
+
+			It("with preferences", func() {
+				preference := &v1beta1.VirtualMachineClusterPreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "clusterpreference-",
+						Labels: map[string]string{
+							v1.AppComponentLabel: v1.AppComponent,
+							v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+						},
+					},
+				}
+
+				By("Creating the preference")
+				preference, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying virt-operator deleted the preference")
+				Eventually(func(g Gomega) {
+					_, err = virtClient.VirtualMachineClusterPreference().Get(context.Background(), preference.Name, metav1.GetOptions{})
+					g.Expect(err).Should(HaveOccurred())
+					g.Expect(errors.ReasonForError(err)).Should(Equal(metav1.StatusReasonNotFound))
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+			})
+		})
+
+		Context("Should revert changes", func() {
+			const keyTest = "test"
+			const valModified = "modified"
+			const cpu = uint32(1024)
+
+			var preferredTopology = v1beta1.PreferThreads
+
+			It("to instancetypes", func() {
+				By("Enabling the feature gate and waiting for KubeVirt to be ready")
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+
+				By("Getting the deployed instancetypes")
+				instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(instancetypes.Items).ToNot(BeEmpty())
+
+				By("Modifying an instancetype")
+				originalInstancetype := instancetypes.Items[0].DeepCopy()
+				instancetype := originalInstancetype.DeepCopy()
+				instancetype.Annotations[keyTest] = valModified
+				instancetype.Labels[keyTest] = valModified
+				instancetype.Spec = v1beta1.VirtualMachineInstancetypeSpec{
+					CPU: v1beta1.CPUInstancetype{
+						Guest: cpu,
+					},
+				}
+
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(instancetype.Annotations).To(HaveKeyWithValue(keyTest, valModified))
+				Expect(instancetype.Labels).To(HaveKeyWithValue(keyTest, valModified))
+				Expect(instancetype.Spec.CPU.Guest).To(Equal(cpu))
+
+				By("Verifying virt-operator reverts the changes")
+				Eventually(func(g Gomega) {
+					instancetype, err := virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), instancetype.Name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(instancetype.Annotations).To(Equal(originalInstancetype.Annotations))
+					g.Expect(instancetype.Labels).To(Equal(originalInstancetype.Labels))
+					g.Expect(instancetype.Spec).To(Equal(originalInstancetype.Spec))
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+			})
+
+			It("to preferences", func() {
+				By("Enabling the feature gate and waiting for KubeVirt to be ready")
+				tests.EnableFeatureGate(virtconfig.CommonInstancetypesDeploymentGate)
+				testsuite.EnsureKubevirtReady()
+
+				By("Getting the deployed preferencess")
+				preferences, err := virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(preferences.Items).ToNot(BeEmpty())
+
+				By("Modifying a preference")
+				originalPreference := preferences.Items[0].DeepCopy()
+				preference := originalPreference.DeepCopy()
+				preference.Annotations[keyTest] = valModified
+				preference.Labels[keyTest] = valModified
+				preference.Spec = v1beta1.VirtualMachinePreferenceSpec{
+					CPU: &v1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferredTopology,
+					},
+				}
+
+				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(preference.Annotations).To(HaveKeyWithValue(keyTest, valModified))
+				Expect(preference.Labels).To(HaveKeyWithValue(keyTest, valModified))
+				Expect(preference.Spec.CPU).ToNot(BeNil())
+				Expect(preference.Spec.CPU.PreferredCPUTopology).ToNot(BeNil())
+				Expect(*preference.Spec.CPU.PreferredCPUTopology).To(Equal(preferredTopology))
+
+				By("Verifying virt-operator reverts the changes")
+				Eventually(func(g Gomega) {
+					preference, err := virtClient.VirtualMachineClusterPreference().Get(context.Background(), preference.Name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(preference.Annotations).To(Equal(originalPreference.Annotations))
+					g.Expect(preference.Labels).To(Equal(originalPreference.Labels))
+					g.Expect(preference.Spec).To(Equal(originalPreference.Spec))
+				}, 1*time.Minute, 5*time.Second).Should(Succeed())
+			})
 		})
 	})
 })
