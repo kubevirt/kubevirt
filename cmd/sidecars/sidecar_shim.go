@@ -93,6 +93,7 @@ func (s v1Alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	log.Log.Info(onDefineDomainLoggingMessage)
 	newDomainXML, err := runOnDefineDomain(params.GetVmi(), params.GetDomainXML())
 	if err != nil {
+		log.Log.Reason(err).Error("Failed OnDefineDomain")
 		return nil, err
 	}
 	return &hooksV1alpha2.OnDefineDomainResult{
@@ -116,6 +117,7 @@ func (s v1Alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	log.Log.Info(onDefineDomainLoggingMessage)
 	newDomainXML, err := runOnDefineDomain(params.GetVmi(), params.GetDomainXML())
 	if err != nil {
+		log.Log.Reason(err).Error("Failed OnDefineDomain")
 		return nil, err
 	}
 	return &hooksV1alpha1.OnDefineDomainResult{
@@ -152,13 +154,12 @@ func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error
 
 func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	if _, err := exec.LookPath(onDefineDomainBin); err != nil {
-		return nil, fmt.Errorf("Failed in finding %s in $PATH: %s", onDefineDomainBin, err.Error())
+		return nil, fmt.Errorf("Failed in finding %s in $PATH due %v", onDefineDomainBin, err)
 	}
 
 	vmiSpec := virtv1.VirtualMachineInstance{}
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given VMI spec: %s", vmiJSON)
-		panic(err)
+		return nil, fmt.Errorf("Failed to unmarshal given VMI spec: %s due %v", vmiJSON, err)
 	}
 
 	args := append([]string{},
