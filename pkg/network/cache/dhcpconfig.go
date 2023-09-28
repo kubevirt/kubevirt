@@ -103,7 +103,7 @@ type DHCPConfig struct {
 
 func (d DHCPConfig) String() string {
 	return fmt.Sprintf(
-		"DHCPConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t}",
+		"DHCPConfig: { Name: %s, IPv4: %s, IPv6: %s, MAC: %s, AdvertisingIPAddr: %s, MTU: %d, Gateway: %s, IPAMDisabled: %t, Routes: %v}",
 		d.Name,
 		d.IP,
 		d.IPv6,
@@ -112,5 +112,6 @@ func (d DHCPConfig) String() string {
 		d.Mtu,
 		d.Gateway,
 		d.IPAMDisabled,
+		d.Routes,
 	)
 }

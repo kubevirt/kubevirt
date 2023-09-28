@@ -13,22 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright 2023 Red Hat, Inc.
  *
  */
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
-package infraconfigurators
+package netpod_test
 
 import (
-	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
-type PodNetworkInfraConfigurator interface {
-	DiscoverPodNetworkInterface(podIfaceName string) error
-	GenerateNonRecoverableDomainIfaceSpec() *api.Interface
-	// The method should return dhcp configuration that cannot be calculated in virt-launcher's phase2
-	GenerateNonRecoverableDHCPConfig() *cache.DHCPConfig
+func TestNetPod(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }

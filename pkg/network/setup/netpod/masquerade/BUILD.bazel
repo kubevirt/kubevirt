@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["masquerade.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/network/setup/masquerade",
+    importpath = "kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/driver/nft:go_default_library",

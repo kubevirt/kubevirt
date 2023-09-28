@@ -39,7 +39,8 @@ import (
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/netns"
-	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 )
 
 type cacheCreator interface {
@@ -48,7 +49,7 @@ type cacheCreator interface {
 
 type ConfigStateExecutor interface {
 	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
-	Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func() error) error
+	Run(networkNames []string, setupFunc func(func() error) error) error
 }
 
 type NetConf struct {
@@ -91,13 +92,15 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		ownerID = util.NonRootUID
 	}
 	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
-	netpod := NewNetPod(
+	netpod := netpod.NewNetPod(
 		vmi.Spec.Networks,
 		vmi.Spec.Domain.Devices.Interfaces,
+		string(vmi.UID),
 		launcherPid,
 		ownerID,
 		queuesCapacity,
-		WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+		netpod.WithCacheCreator(c.cacheCreator),
 	)
 	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
 
@@ -118,8 +121,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		c.configStateMutex.Unlock()
 	}
 
-	// Absent networks are passed as well since, Absent network with ordinary name has to be plugged
-	err := netConfigurator.SetupPodNetworkPhase1(launcherPid, networks, configState)
+	err := netConfigurator.SetupPodNetworkPhase1(networks, configState)
 
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)

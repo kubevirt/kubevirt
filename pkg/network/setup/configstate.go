@@ -26,8 +26,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/errors"
 
-	"kubevirt.io/client-go/log"
-
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 )
@@ -54,67 +52,51 @@ func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigS
 //
 // The discovery step can be executed repeatedly with no limitation.
 // The configuration step is allowed to run only once. Any attempt to run it again will cause a critical error.
-func (c *ConfigState) Run(nics []podNIC, preRunFunc func([]podNIC) ([]podNIC, error), discoverFunc func(*podNIC) error, configFunc func() error) error {
-	var pendingNICs []podNIC
-	for _, nic := range nics {
-		state, err := c.cache.Read(nic.vmiSpecNetwork.Name)
+func (c *ConfigState) Run(networkNames []string, setupFunc func(func() error) error) error {
+	var pendingNets []string
+	for _, netName := range networkNames {
+		state, err := c.cache.Read(netName)
 		if err != nil {
 			return err
 		}
 
 		switch state {
 		case cache.PodIfaceNetworkPreparationPending:
-			pendingNICs = append(pendingNICs, nic)
+			pendingNets = append(pendingNets, netName)
 		case cache.PodIfaceNetworkPreparationStarted:
 			return neterrors.CreateCriticalNetworkError(
-				fmt.Errorf("network %s preparation cannot be restarted", nic.vmiSpecNetwork.Name),
+				fmt.Errorf("network %s preparation cannot be restarted", netName),
 			)
 		}
 	}
-	nics = pendingNICs
 
-	if len(pendingNICs) == 0 {
+	if len(pendingNets) == 0 {
 		return nil
 	}
 
 	err := c.ns.Do(func() error {
-		var preErr error
-		nics, preErr = preRunFunc(nics)
-		if preErr != nil {
-			return preErr
-		}
-		if len(nics) == 0 {
-			return nil
-		}
-		return c.plug(nics, discoverFunc, configFunc)
+		return c.plug(networkNames, setupFunc)
 	})
 	return err
 }
 
-func (c *ConfigState) plug(nics []podNIC, discoverFunc func(*podNIC) error, configFunc func() error) error {
-	for i := range nics {
-		if ferr := discoverFunc(&nics[i]); ferr != nil {
-			return ferr
+func (c *ConfigState) plug(networkNames []string, setupFunc func(func() error) error) error {
+	ferr := setupFunc(func() error {
+		for _, networkName := range networkNames {
+			if werr := c.cache.Write(networkName, cache.PodIfaceNetworkPreparationStarted); werr != nil {
+				return fmt.Errorf("failed to mark configuration as started for %s: %v", networkName, werr)
+			}
 		}
+		return nil
+	})
+	if ferr != nil {
+		return ferr
 	}
 
-	for _, nic := range nics {
-		if werr := c.cache.Write(nic.vmiSpecNetwork.Name, cache.PodIfaceNetworkPreparationStarted); werr != nil {
-			return fmt.Errorf("failed to mark configuration as started for %s: %w", nic.vmiSpecNetwork.Name, werr)
-		}
-	}
-
-	// The discovery step must be called *before* the configuration step, allowing it to persist/cache the
-	// original pod network status. The configuration step mutates the pod network.
-	if ferr := configFunc(); ferr != nil {
-		log.Log.Reason(ferr).Errorf("failed to configure pod network")
-		return neterrors.CreateCriticalNetworkError(ferr)
-	}
-
-	for _, nic := range nics {
-		if werr := c.cache.Write(nic.vmiSpecNetwork.Name, cache.PodIfaceNetworkPreparationFinished); werr != nil {
+	for _, networkName := range networkNames {
+		if werr := c.cache.Write(networkName, cache.PodIfaceNetworkPreparationFinished); werr != nil {
 			return neterrors.CreateCriticalNetworkError(
-				fmt.Errorf("failed to mark configuration as finished for %s: %w", nic.vmiSpecNetwork.Name, werr),
+				fmt.Errorf("failed to mark configuration as finished for %s: %w", networkName, werr),
 			)
 		}
 	}

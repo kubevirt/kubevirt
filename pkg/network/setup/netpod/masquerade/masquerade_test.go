@@ -30,7 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/driver/nft"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
-	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 

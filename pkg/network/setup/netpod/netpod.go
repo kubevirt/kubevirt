@@ -17,7 +17,7 @@
  *
  */
 
-package network
+package netpod
 
 import (
 	"encoding/json"
@@ -27,12 +27,14 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/netmachinery"
-	"kubevirt.io/kubevirt/pkg/network/setup/masquerade"
+	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -51,29 +53,39 @@ type masqueradeAdapter interface {
 	Setup(bridgeIfaceSpec, podIfaceSpec *nmstate.Interface, vmiIface v1.Interface) error
 }
 
+type cacheCreator interface {
+	New(filePath string) *cache.Cache
+}
+
 type NetPod struct {
 	vmiSpecIfaces []v1.Interface
 	vmiSpecNets   []v1.Network
+	vmiUID        string
 	podPID        int
 	ownerID       int
 	queuesCap     int
 
 	nmstateAdapter    nmstateAdapter
 	masqueradeAdapter masqueradeAdapter
+
+	cacheCreator cacheCreator
 }
 
 type option func(*NetPod)
 
-func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, podPID, ownerID, queuesCapacity int, opts ...option) NetPod {
+func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string, podPID, ownerID, queuesCapacity int, opts ...option) NetPod {
 	n := NetPod{
 		vmiSpecIfaces: vmiIfaces,
 		vmiSpecNets:   vmiNetworks,
+		vmiUID:        vmiUID,
 		podPID:        podPID,
 		ownerID:       ownerID,
 		queuesCap:     queuesCapacity,
 
 		nmstateAdapter:    nmstate.New(),
 		masqueradeAdapter: masquerade.New(),
+
+		cacheCreator: cache.CacheCreator{},
 	}
 	for _, opt := range opts {
 		opt(&n)
@@ -93,7 +105,13 @@ func WithMasqueradeAdapter(h masqueradeAdapter) option {
 	}
 }
 
-func (n NetPod) Setup() error {
+func WithCacheCreator(c cacheCreator) option {
+	return func(n *NetPod) {
+		n.cacheCreator = c
+	}
+}
+
+func (n NetPod) Setup(postDiscoveryHook func() error) error {
 	currentStatus, err := n.nmstateAdapter.Read()
 	if err != nil {
 		return err
@@ -105,6 +123,22 @@ func (n NetPod) Setup() error {
 	}
 	log.Log.Infof("Current pod network: %s", currentStatusBytes)
 
+	if derr := n.discover(currentStatus); derr != nil {
+		return derr
+	}
+
+	if err = postDiscoveryHook(); err != nil {
+		return err
+	}
+
+	if err = n.config(currentStatus); err != nil {
+		log.Log.Reason(err).Errorf("failed to configure pod network")
+		return neterrors.CreateCriticalNetworkError(err)
+	}
+	return nil
+}
+
+func (n NetPod) config(currentStatus *nmstate.Status) error {
 	desiredSpec, err := n.composeDesiredSpec(currentStatus)
 	if err != nil {
 		return err
@@ -398,14 +432,19 @@ func hasIP6GlobalUnicast(iface nmstate.Interface) bool {
 }
 
 func hasIPGlobalUnicast(ip nmstate.IP) bool {
+	return firstIPGlobalUnicast(ip) != nil
+}
+
+func firstIPGlobalUnicast(ip nmstate.IP) *nmstate.IPAddress {
 	if ip.Enabled != nil && *ip.Enabled {
 		for _, addr := range ip.Address {
 			if net.ParseIP(addr.IP).IsGlobalUnicast() {
-				return true
+				address := addr
+				return &address
 			}
 		}
 	}
-	return false
+	return nil
 }
 
 func createNetworkNameScheme(networks []v1.Network, currentIfaces []nmstate.Interface) map[string]string {
