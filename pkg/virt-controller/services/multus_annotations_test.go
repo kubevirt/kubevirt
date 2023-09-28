@@ -25,6 +25,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -69,7 +71,7 @@ var _ = Describe("Multus annotations", func() {
 	Context("a multus annotation pool with elements", func() {
 		BeforeEach(func() {
 			multusAnnotationPool = multusNetworkAnnotationPool{
-				pool: []multusNetworkAnnotation{
+				pool: []networkv1.NetworkSelectionElement{
 					newMultusAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"),
 				},
 			}
@@ -80,7 +82,7 @@ var _ = Describe("Multus annotations", func() {
 		})
 
 		It("generates a json serialized string representing the annotation", func() {
-			expectedString := `[{"interface":"net1","name":"test1","namespace":"namespace1"}]`
+			expectedString := `[{"name":"test1","namespace":"namespace1","interface":"net1"}]`
 			Expect(multusAnnotationPool.toString()).To(BeIdenticalTo(expectedString))
 		})
 	})
