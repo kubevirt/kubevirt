@@ -450,11 +450,7 @@ fi
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
 # set the whole suite (quarantined and stable) will be run.
 if [ -z "$KUBEVIRT_QUARANTINE" ]; then
-    if [ -n "$KUBEVIRT_E2E_SKIP" ]; then
-        export KUBEVIRT_E2E_SKIP="${KUBEVIRT_E2E_SKIP}|QUARANTINE"
-    else
-        export KUBEVIRT_E2E_SKIP="QUARANTINE"
-    fi
+  add_to_label_filter '(!QUARANTINE)' '&&'
 fi
 
 # Prepare RHEL PV for Template testing

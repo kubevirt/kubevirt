@@ -195,7 +195,7 @@ export KUBEVIRT_DEPLOY_PROMETHEUS=true
 
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
-ginko_params="$ginko_params -no-color -succinct -skip=QUARANTINE -randomize-all"
+ginko_params="$ginko_params -no-color -succinct --label-filter=!QUARANTINE -randomize-all"
 for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
     ginko_params+=" -focus-file=${test_file}"
 done

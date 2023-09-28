@@ -2428,7 +2428,7 @@ spec:
 			}
 		})
 
-		It("[test_id:3153][QUARANTINE] Ensure infra can handle dynamically detecting DataVolume Support", func() {
+		It("[test_id:3153][QUARANTINE] Ensure infra can handle dynamically detecting DataVolume Support", decorators.Quarantine, func() {
 			if !libstorage.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}

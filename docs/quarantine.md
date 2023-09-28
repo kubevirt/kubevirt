@@ -55,9 +55,10 @@ A test must be put in quarantine when any of these conditions is met:
 
 A PR will be proposed on Mondays every two weeks with a batch of the tests that
 met the first condition. A PR can be proposed at any time for the tests that meet
-the second condition. In both cases the PR will add the text `[QUARANTINE]` to
-each test's description in the code. An email will be sent to the owners of the
-suspected tests.
+the second condition. In both cases the PR will add the text `[QUARANTINE]` and
+the `decorators.Quarantine` [labelDecorator](https://github.com/kubevirt/kubevirt/blob/9a3799f7a0b97b70033e119c0b401778c51dee14/tests/decorators/decorators.go#L5)
+to each test's description in the code.
+An email will be sent to the owners of the suspected tests.
 
 After the PR with the quarantine candidates is proposed there is a grace period
 of 2 days to prepare and land a fix for a test in the batch. If at least 5
@@ -66,7 +67,8 @@ consecutive executions with the fix pass the test can be removed from the batch.
 #### Quarantined test owners
 
 Each quarantined test must have a team owner. The PR will add the text
-`[sig-{compute,network,storage,operator}]` to each test's description.
+`[sig-{compute,network,storage,operator}]` to each test's description and
+the proper label decorator.
 
 #### Quarantining release blockers
 
@@ -92,9 +94,9 @@ indicated by the team assigned to bring the test back to the stable suite.
 
 After two weeks with successful executions has passed, a quarantined tests will
 be ready to join the stable suite again. A member of the team assigned to each
-quarantined tests will propose a PR to remove the text `[QUARANTINE]` from the
-test description in the code. After merging this PR the test will be out of
-quarantine.
+quarantined tests will propose a PR to remove the text `[QUARANTINE]` and the
+label decorator from the test description in the code.
+After merging this PR the test will be out of quarantine.
 
 [1]: https://martinfowler.com/articles/nonDeterminism.html#Quarantine
 [2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
