@@ -70,6 +70,7 @@ go_test(
         "components_suite_test.go",
         "crds_test.go",
         "deployments_test.go",
+        "instancetypes_test.go",
         "prometheus_test.go",
         "scc_test.go",
         "secrets_test.go",
