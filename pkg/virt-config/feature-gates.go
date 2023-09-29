@@ -76,6 +76,12 @@ const (
 	NetworkBindingPlugingsGate = "NetworkBindingPlugins"
 	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
 	AutoResourceLimitsGate = "AutoResourceLimitsGate"
+
+	// Owner: @lyarwood
+	// Alpha: v1.1.0
+	//
+	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
+	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -250,4 +256,8 @@ func (config *ClusterConfig) NetworkBindingPlugingsEnabled() bool {
 
 func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
+}
+
+func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
+	return config.isFeatureGateEnabled(CommonInstancetypesDeploymentGate)
 }

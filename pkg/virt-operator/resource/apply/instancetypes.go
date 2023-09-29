@@ -7,6 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 )
@@ -56,6 +58,21 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	return nil
 }
 
+func (r *Reconciler) deleteInstancetypes() error {
+	ls := labels.Set{
+		v1.AppComponentLabel: v1.AppComponent,
+		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+	}
+
+	if err := r.clientset.VirtualMachineClusterInstancetype().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: ls.String(),
+	}); err != nil {
+		return fmt.Errorf("unable to delete preferences: %v", err)
+	}
+
+	return nil
+}
+
 func (r *Reconciler) createOrUpdatePreferences() error {
 	for _, preference := range r.targetStrategy.Preferences() {
 		if err := r.createOrUpdatePreference(preference.DeepCopy()); err != nil {
@@ -97,6 +114,21 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 		return fmt.Errorf("unable to update preference %+v: %v", preference, err)
 	}
 	log.Log.V(2).Infof("preference %v updated", preference.GetName())
+
+	return nil
+}
+
+func (r *Reconciler) deletePreferences() error {
+	ls := labels.Set{
+		v1.AppComponentLabel: v1.AppComponent,
+		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+	}
+
+	if err := r.clientset.VirtualMachineClusterPreference().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+		LabelSelector: ls.String(),
+	}); err != nil {
+		return fmt.Errorf("unable to delete preferences: %v", err)
+	}
 
 	return nil
 }

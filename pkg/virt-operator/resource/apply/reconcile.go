@@ -634,11 +634,20 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
-	if err := r.createOrUpdateInstancetypes(); err != nil {
-		return false, err
-	}
-	if err := r.createOrUpdatePreferences(); err != nil {
-		return false, err
+	if r.commonInstancetypesDeploymentEnabled() {
+		if err := r.createOrUpdateInstancetypes(); err != nil {
+			return false, err
+		}
+		if err := r.createOrUpdatePreferences(); err != nil {
+			return false, err
+		}
+	} else {
+		if err := r.deleteInstancetypes(); err != nil {
+			return false, err
+		}
+		if err := r.deletePreferences(); err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil
@@ -1236,18 +1245,26 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	return nil
 }
 
-func (r *Reconciler) exportProxyEnabled() bool {
+func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false
 	}
 
 	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		if fg == virtconfig.VMExportGate {
+		if fg == featureGate {
 			return true
 		}
 	}
 
 	return false
+}
+
+func (r *Reconciler) exportProxyEnabled() bool {
+	return r.isFeatureGateEnabled(virtconfig.VMExportGate)
+}
+
+func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
+	return r.isFeatureGateEnabled(virtconfig.CommonInstancetypesDeploymentGate)
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
