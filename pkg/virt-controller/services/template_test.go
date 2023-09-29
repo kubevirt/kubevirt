@@ -26,6 +26,7 @@ import (
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/record"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
@@ -124,6 +125,7 @@ var _ = Describe("Template", func() {
 				"kubevirt/vmexport",
 				resourceQuotaStore,
 				namespaceStore,
+				WithEventRecorder(record.NewFakeRecorder(1)),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()

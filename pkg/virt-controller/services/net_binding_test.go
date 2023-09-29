@@ -20,8 +20,14 @@
 package services_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	k8scorev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -49,7 +55,7 @@ var _ = Describe("Network Binding", func() {
 					Binding: bindings,
 				},
 			}
-			sidecars, err := services.NetBindingPluginSidecarList(vmi, config)
+			sidecars, err := services.NetBindingPluginSidecarList(vmi, config, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sidecars).To(ConsistOf(expectedSidecars))
 		},
@@ -98,33 +104,39 @@ var _ = Describe("Network Binding", func() {
 			config := &v1.KubeVirtConfiguration{
 				NetworkConfiguration: &v1.NetworkConfiguration{},
 			}
-			_, err := services.NetBindingPluginSidecarList(vmi, config)
+			_, err := services.NetBindingPluginSidecarList(vmi, config, record.NewFakeRecorder(1))
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
-	Context("binding plugin configuration", func() {
-		It("should read registered network binding plugins successfully", func() {
-			const testPluginName = "test"
-			testPlugin := v1.InterfaceBindingPlugin{SidecarImage: "kubevirt/network-slirp-binding"}
-
+	Context("network binding plugin configuration", func() {
+		It("should create Slirp hook sidecar with registered image (specified in Kubevirt config)", func() {
+			fakeRecorder := record.NewFakeRecorder(1)
+			vmi := v1.NewVMI("test", "1234")
 			config := &v1.KubeVirtConfiguration{
+				ImagePullPolicy: k8scorev1.PullIfNotPresent,
 				NetworkConfiguration: &v1.NetworkConfiguration{
 					Binding: map[string]v1.InterfaceBindingPlugin{
-						"plugin1":      {SidecarImage: "org1/plugin1"},
-						testPluginName: testPlugin,
-						"plugin2":      {SidecarImage: "org2/plugin2"},
+						"slirp": {SidecarImage: "kubevirt/network-slirp-plugin"},
 					},
 				},
 			}
 
-			Expect(services.ReadNetBindingPluginConfiguration(config, testPluginName)).To(Equal(&testPlugin))
+			Expect(services.SlirpNetBindingPluginSidecar(vmi, config, fakeRecorder)).To(Equal(hooks.HookSidecar{
+				ImagePullPolicy: k8scorev1.PullIfNotPresent,
+				Image:           "kubevirt/network-slirp-plugin",
+			}))
 		})
 
-		DescribeTable("should return no network binding plugins configuration, when config", func(config *v1.KubeVirtConfiguration) {
-			Expect(services.ReadNetBindingPluginConfiguration(config, "myplugin")).To(BeNil())
-		},
-			Entry("is nil", nil),
+		DescribeTable("should create Slirp hook sidecar with default image, when Kubevirt config",
+			func(config *v1.KubeVirtConfiguration) {
+				fakeRecorder := record.NewFakeRecorder(1)
+				vmi := v1.NewVMI("test", "1234")
+
+				Expect(services.SlirpNetBindingPluginSidecar(vmi, config, fakeRecorder)).To(Equal(hooks.HookSidecar{
+					Image: services.DefaultSlirpPluginImage,
+				}))
+			},
 			Entry("has no network configuration set", &v1.KubeVirtConfiguration{}),
 			Entry("has no network binding plugin set",
 				&v1.KubeVirtConfiguration{
@@ -149,9 +161,20 @@ var _ = Describe("Network Binding", func() {
 			),
 		)
 
-		It("should return default image when no Slirp network binding plugin image is registered", func() {
-			expectedIfaceBindingPlugin := &v1.InterfaceBindingPlugin{SidecarImage: "quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"}
-			Expect(services.ReadNetBindingPluginConfiguration(&v1.KubeVirtConfiguration{}, "slirp")).To(Equal(expectedIfaceBindingPlugin))
+		It("should raise UnregisteredNetworkBindingPlugin warning event when no slirp binding plugin image is registered (specified in Kubevirt config)", func() {
+			fakeRecorder := record.NewFakeRecorder(1)
+			vmi := v1.NewVMI("test", "1234")
+
+			Expect(services.SlirpNetBindingPluginSidecar(vmi, &v1.KubeVirtConfiguration{}, fakeRecorder)).To(Equal(hooks.HookSidecar{
+				Image: services.DefaultSlirpPluginImage,
+			}))
+
+			Expect(fakeRecorder.Events).To(HaveLen(1))
+			event := <-fakeRecorder.Events
+			Expect(event).To(Equal(
+				fmt.Sprintf("Warning %s no Slirp network binding plugin image is set in Kubevirt config, using '%s' sidecar image for Slirp network binding configuration",
+					services.UnregisteredNetworkBindingPluginReason, services.DefaultSlirpPluginImage),
+			))
 		})
 	})
 })

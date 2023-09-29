@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/record"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -160,6 +161,7 @@ type templateService struct {
 	launcherSubGid             int64
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
+	recorder                   record.EventRecorder
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -363,26 +365,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	bindingSidecars, err := NetBindingPluginSidecarList(vmi, t.clusterConfig.GetConfig())
+	bindingSidecars, err := NetBindingPluginSidecarList(vmi, t.clusterConfig.GetConfig(), t.recorder)
 	if err != nil {
 		return nil, err
 	}
 	requestedHookSidecarList = append(requestedHookSidecarList, bindingSidecars...)
-
-	// Read requested hookSidecars from VMI spec
-	slirpIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
-		return i.Slirp != nil
-	})
-	if len(slirpIfaces) > 0 {
-		if plugin := ReadNetBindingPluginConfiguration(t.clusterConfig.GetConfig(), SlirpNetworkBindingPluginName); plugin == nil {
-			return nil, fmt.Errorf("couldn't find %s network binding plugin configuration, make sure its specified in Kubevirt config", SlirpNetworkBindingPluginName)
-		} else {
-			requestedHookSidecarList = append(requestedHookSidecarList, hooks.HookSidecar{
-				Image:           plugin.SidecarImage,
-				ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
-			})
-		}
-	}
 
 	var command []string
 	if tempPod {
@@ -1142,6 +1129,8 @@ func getNamespaceAndNetworkName(namespace string, fullNetworkName string) (strin
 	return precond.MustNotBeEmpty(namespace), fullNetworkName
 }
 
+type templateServiceOption func(*templateService)
+
 func NewTemplateService(launcherImage string,
 	launcherQemuTimeout int,
 	virtShareDir string,
@@ -1156,7 +1145,9 @@ func NewTemplateService(launcherImage string,
 	launcherSubGid int64,
 	exporterImage string,
 	resourceQuotaStore cache.Store,
-	namespaceStore cache.Store) TemplateService {
+	namespaceStore cache.Store,
+	opts ...templateServiceOption,
+) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
@@ -1178,7 +1169,17 @@ func NewTemplateService(launcherImage string,
 		namespaceStore:             namespaceStore,
 	}
 
+	for _, opt := range opts {
+		opt(&svc)
+	}
+
 	return &svc
+}
+
+func WithEventRecorder(recorder record.EventRecorder) templateServiceOption {
+	return func(svc *templateService) {
+		svc.recorder = recorder
+	}
 }
 
 func copyProbe(probe *v1.Probe) *k8sv1.Probe {
