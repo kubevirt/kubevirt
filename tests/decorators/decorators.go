@@ -48,4 +48,5 @@ var (
 	VMLiveUpdateFeaturesGate     = []interface{}{Label("VMLiveUpdateFeaturesGate")}
 	RequiresRWXFilesystemStorage = []interface{}{Label("rwxfs")}
 	USB                          = []interface{}{Label("USB")}
+	AutoResourceLimitsGate       = []interface{}{Label("AutoResourceLimitsGate")}
 )
