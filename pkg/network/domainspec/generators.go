@@ -20,17 +20,11 @@
 package domainspec
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-
-	"os/exec"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -93,11 +87,17 @@ func NewBridgeLibvirtSpecGenerator(
 	}
 }
 
-func NewPasstLibvirtSpecGenerator(iface *v1.Interface, domain *api.Domain, vmi *v1.VirtualMachineInstance) *PasstLibvirtSpecGenerator {
+func NewPasstLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	podIfaceName string,
+	vmi *v1.VirtualMachineInstance,
+) *PasstLibvirtSpecGenerator {
 	return &PasstLibvirtSpecGenerator{
-		vmiSpecIface: iface,
-		domain:       domain,
-		vmi:          vmi,
+		vmiSpecIface:     iface,
+		domain:           domain,
+		podInterfaceName: podIfaceName,
+		vmi:              vmi,
 	}
 }
 
@@ -249,101 +249,84 @@ func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface,
 }
 
 type PasstLibvirtSpecGenerator struct {
-	vmiSpecIface *v1.Interface
-	domain       *api.Domain
-	vmi          *v1.VirtualMachineInstance
+	vmiSpecIface     *v1.Interface
+	domain           *api.Domain
+	podInterfaceName string
+	vmi              *v1.VirtualMachineInstance
 }
 
+const (
+	PasstLogFile      = "/var/run/kubevirt/passt.log" // #nosec G101
+	ifaceTypeUser     = "user"
+	ifaceBackendPasst = "passt"
+)
+
 func (b *PasstLibvirtSpecGenerator) Generate() error {
-	err := exec.Command("pgrep", "passt").Run()
-	if err == nil {
-		return fmt.Errorf("passt process is already running")
-	}
-	// remove passt interface from domain spec devices interfaces
-	foundDomainInterface := false
-	for i, iface := range b.domain.Spec.Devices.Interfaces {
-		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			b.domain.Spec.Devices.Interfaces = append(b.domain.Spec.Devices.Interfaces[:i], b.domain.Spec.Devices.Interfaces[i+1:]...)
-			foundDomainInterface = true
-			break
-		}
-	}
-	if !foundDomainInterface {
-		return fmt.Errorf("failed to find interface %s in vmi spec", b.vmiSpecIface.Name)
+	domainIface := LookupIfaceByAliasName(b.domain.Spec.Devices.Interfaces, b.vmiSpecIface.Name)
+	if domainIface == nil {
+		return fmt.Errorf("failed to find interface %s in domain spec", b.vmiSpecIface.Name)
 	}
 
-	ports := b.generatePorts()
-	args := append([]string{"--runas", "107", "-e"}, ports...)
-	cmd := exec.Command("/usr/bin/passt", args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps: []uintptr{unix.CAP_NET_BIND_SERVICE},
-	}
-
-	// connect passt's stderr to our own stdout in order to see the logs in the container logs
-	var reader io.ReadCloser
-	reader, err = cmd.StderrPipe()
-	if err != nil {
-		log.Log.Reason(err).Error("failed to get passt stderr")
-		return err
-	}
-	go func() {
-		const bufferSize = 1024
-		const maxBufferSize = 512 * bufferSize
-		scanner := bufio.NewScanner(reader)
-		scanner.Buffer(make([]byte, bufferSize), maxBufferSize)
-		for scanner.Scan() {
-			log.Log.Info(fmt.Sprintf("passt: %s", scanner.Text()))
-		}
-		if err = scanner.Err(); err != nil {
-			log.Log.Reason(err).Error("failed to read passt logs")
-		}
-	}()
-
-	err = cmd.Start()
-	if err != nil {
-		log.Log.Reason(err).Error("failed to start passt")
-		return err
-	}
-
-	err = cmd.Wait()
-	if err != nil {
-		log.Log.Reason(err).Error("failed waiting for passt going to background")
-		return err
-	}
+	generatedIface := b.generateInterface(domainIface)
+	*domainIface = *generatedIface
 
 	return nil
 }
 
-func (b *PasstLibvirtSpecGenerator) generatePorts() []string {
-	tcpPorts := []string{}
-	udpPorts := []string{}
+const (
+	protoTCP = "tcp"
+	protoUDP = "udp"
+)
 
-	if len(b.vmiSpecIface.Ports) == 0 {
-		if istio.ProxyInjectionEnabled(b.vmi) {
-			for _, port := range istio.ReservedPorts() {
-				tcpPorts = append(tcpPorts, fmt.Sprintf("~%s", port))
-			}
-		} else {
-			tcpPorts = append(tcpPorts, "all")
-		}
-		udpPorts = append(udpPorts, "all")
+func (b *PasstLibvirtSpecGenerator) generateInterface(iface *api.Interface) *api.Interface {
+	ifaceCopy := iface.DeepCopy()
+
+	var mac *api.MAC
+	if b.vmiSpecIface.MacAddress != "" {
+		mac = &api.MAC{MAC: b.vmiSpecIface.MacAddress}
 	}
+
+	ifaceCopy.Type = ifaceTypeUser
+	ifaceCopy.Source = api.InterfaceSource{Device: b.podInterfaceName}
+	ifaceCopy.Backend = &api.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFile}
+	ifaceCopy.PortForward = b.generatePortForward()
+	ifaceCopy.MAC = mac
+
+	return ifaceCopy
+}
+
+func (b *PasstLibvirtSpecGenerator) generatePortForward() []api.InterfacePortForward {
+	var tcpPortsRange, udpPortsRange []api.InterfacePortForwardRange
+
+	if istio.ProxyInjectionEnabled(b.vmi) {
+		for _, port := range istio.ReservedPorts() {
+			tcpPortsRange = append(tcpPortsRange, api.InterfacePortForwardRange{Start: uint(port), Exclude: "yes"})
+		}
+	}
+
 	for _, port := range b.vmiSpecIface.Ports {
-		if strings.EqualFold(port.Protocol, "TCP") || port.Protocol == "" {
-			tcpPorts = append(tcpPorts, fmt.Sprintf("%d", port.Port))
-		} else if strings.EqualFold(port.Protocol, "UDP") {
-			udpPorts = append(udpPorts, fmt.Sprintf("%d", port.Port))
+		if strings.EqualFold(port.Protocol, protoTCP) || port.Protocol == "" {
+			tcpPortsRange = append(tcpPortsRange, api.InterfacePortForwardRange{Start: uint(port.Port)})
+		} else if strings.EqualFold(port.Protocol, protoUDP) {
+			udpPortsRange = append(udpPortsRange, api.InterfacePortForwardRange{Start: uint(port.Port)})
 		} else {
 			log.Log.Errorf("protocol %s is not supported by passt", port.Protocol)
 		}
 	}
 
-	if len(tcpPorts) != 0 {
-		tcpPorts = append([]string{"-t"}, strings.Join(tcpPorts, ","))
+	var portsFwd []api.InterfacePortForward
+	if len(udpPortsRange) == 0 && len(tcpPortsRange) == 0 {
+		portsFwd = append(portsFwd,
+			api.InterfacePortForward{Proto: protoTCP},
+			api.InterfacePortForward{Proto: protoUDP},
+		)
+	}
+	if len(tcpPortsRange) > 0 {
+		portsFwd = append(portsFwd, api.InterfacePortForward{Proto: protoTCP, Ranges: tcpPortsRange})
+	}
+	if len(udpPortsRange) > 0 {
+		portsFwd = append(portsFwd, api.InterfacePortForward{Proto: protoUDP, Ranges: udpPortsRange})
 	}
 
-	if len(udpPorts) != 0 {
-		udpPorts = append([]string{"-u"}, strings.Join(udpPorts, ","))
-	}
-	return append(tcpPorts, udpPorts...)
+	return portsFwd
 }

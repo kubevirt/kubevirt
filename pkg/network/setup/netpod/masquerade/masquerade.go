@@ -43,7 +43,7 @@ type nftable interface {
 type MasqPod struct {
 	nftable        nftable
 	istioEnabled   bool
-	migrationPorts []string
+	migrationPorts []int
 }
 
 const (
@@ -85,7 +85,7 @@ func WithLegacyMigrationPorts() option {
 	const LibvirtDirectMigrationPort = 49152
 	const LibvirtBlockMigrationPort = 49153
 	return func(m *MasqPod) {
-		m.migrationPorts = []string{strconv.Itoa(LibvirtDirectMigrationPort), strconv.Itoa(LibvirtBlockMigrationPort)}
+		m.migrationPorts = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
 	}
 }
 
@@ -219,16 +219,25 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 	return nil
 }
 
-func (m MasqPod) skipForwardPorts(family nft.IPFamily, ports ...string) error {
+func (m MasqPod) skipForwardPorts(family nft.IPFamily, ports ...int) error {
 	loopback := ipLoopback(family)
-	portsSpec := fmt.Sprintf("{ %s }", strings.Join(ports, ", "))
+	fmtPorts := formatPorts(ports)
+	portsSpec := fmt.Sprintf("{ %s }", strings.Join(fmtPorts, ", "))
 	if err := m.nftable.AddRule(family, natTable, outputChain, "tcp", "dport", portsSpec, string(family), "saddr", loopback, "counter", "return"); err != nil {
-		return fmt.Errorf("failed to define skip forwarding for: %s/%s, err: %v", family, ports, err)
+		return fmt.Errorf("failed to define skip forwarding for: %s/%s, err: %v", family, fmtPorts, err)
 	}
 	if err := m.nftable.AddRule(family, natTable, kubevirtPostInboundChain, "tcp", "dport", portsSpec, string(family), "saddr", loopback, "counter", "return"); err != nil {
-		return fmt.Errorf("failed to define skip forwarding for: %s/%s, err: %v", family, ports, err)
+		return fmt.Errorf("failed to define skip forwarding for: %s/%s, err: %v", family, fmtPorts, err)
 	}
 	return nil
+}
+
+func formatPorts(ports []int) []string {
+	var formattedPorts []string
+	for _, p := range ports {
+		formattedPorts = append(formattedPorts, strconv.Itoa(p))
+	}
+	return formattedPorts
 }
 
 func (m MasqPod) forwardPorts(family nft.IPFamily, toIP string, protocol string, ports ...int) error {

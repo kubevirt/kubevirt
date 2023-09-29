@@ -20,6 +20,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	goflag "flag"
 	"fmt"
@@ -43,6 +44,8 @@ const (
 	envoyMergedPrometheusTelemetryPort = 15020
 	envoyHealthCheckPort               = 15021
 	httpRequestTimeout                 = 2 * time.Second
+
+	passtLogFile = "/var/run/kubevirt/passt.log" // #nosec G101
 )
 
 func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
@@ -142,6 +145,8 @@ func RunAndMonitor(containerDiskDir string) (int, error) {
 	if exitCode != 0 {
 		log.Log.Errorf("dirty virt-launcher shutdown: exit-code %d", exitCode)
 	}
+
+	dumpLogFile(passtLogFile)
 
 	// give qemu some time to shut down in case it survived virt-handler
 	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
@@ -344,4 +349,29 @@ func removeArg(args []string, arg string) []string {
 	args = args[:i]
 
 	return args
+}
+
+func dumpLogFile(filePath string) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to open file %s", filePath)
+		return
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Log.Reason(err).Errorf("failed to close file: %s", filePath)
+		}
+	}()
+
+	log.Log.Infof("dump log file: %s", filePath)
+	const bufferSize = 1024
+	const maxBufferSize = 512 * bufferSize
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, bufferSize), maxBufferSize)
+	for scanner.Scan() {
+		log.Log.Info(scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		log.Log.Reason(err).Errorf("failed to read file %s", filePath)
+	}
 }
