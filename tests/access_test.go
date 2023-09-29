@@ -438,6 +438,8 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
 				testAction(resource, action, "no")
 			},
+				Entry("[test_id:????]given expand-vm-spec non-resource", "expand-vm-spec", "update"),
+				Entry("[test_id:????]given a vm (expand-spec)", "virtualmachines/expand-spec", "get"),
 				Entry("[test_id:2921]given a vmi (pause)", "virtualmachineinstances/pause", "update"),
 				Entry("[test_id:2921]given a vmi (unpause)", "virtualmachineinstances/unpause", "update"),
 				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
@@ -480,6 +482,8 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			DescribeTable("should verify permissions on resources are correct for subresources", func(resource string, action string) {
 				testAction(resource, action, "yes")
 			},
+				Entry("[test_id:????]given expand-vm-spec non-resource", "expand-vm-spec", "update"),
+				Entry("[test_id:????]given a vm (expand-spec)", "virtualmachines/expand-spec", "get"),
 				Entry("[test_id:2921]given a vmi (pause)", "virtualmachineinstances/pause", "update"),
 				Entry("[test_id:2921]given a vmi (unpause)", "virtualmachineinstances/unpause", "update"),
 				Entry("[test_id:2921]given a vmi (softreboot)", "virtualmachineinstances/softreboot", "update"),
