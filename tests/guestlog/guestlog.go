@@ -164,10 +164,10 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 				_, _, err = clientcmd.RunCommandWithNS(virtlauncherPod.Namespace, k8sClient, "logs", virtlauncherPod.Name, "-c", "guest-console-log")
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Ensuring that we have 4 rotated log files")
+				By("Ensuring that we have 4 rotated log files (+term one)")
 				outputString, _, err := clientcmd.RunCommandWithNS(virtlauncherPod.Namespace, k8sClient, "exec", virtlauncherPod.Name, "-c", "guest-console-log", "--", "/bin/ls", "-l", fmt.Sprintf("/var/run/kubevirt-private/%v", vmi.UID))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4))
+				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4 + 1))
 			})
 
 			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", func() {

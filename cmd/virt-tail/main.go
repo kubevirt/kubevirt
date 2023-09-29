@@ -96,6 +96,7 @@ func (v *VirtTail) tailLogs() error {
 func (v *VirtTail) watchFS() error {
 	socketFile := strings.TrimSuffix(v.logFile, "-log")
 	termFile := v.logFile + "-sigTerm"
+	termFileDone := termFile + "-done"
 	socketExists := v.checkFile(socketFile)
 
 	watcher, err := fsnotify.NewWatcher()
@@ -134,6 +135,11 @@ func (v *VirtTail) watchFS() error {
 		socketCheckCh <- 1
 	})
 
+	if v.checkFile(termFileDone) {
+		log.Log.V(3).Infof("watchFS error: termFileDone was already there")
+		return &TermFileError{}
+	}
+
 	// Start listening for events.
 	for {
 		select {
@@ -145,18 +151,13 @@ func (v *VirtTail) watchFS() error {
 					return rerr
 				}
 			}
-			if v.checkFile(termFile) {
-				log.Log.V(3).Infof("watchFS error: termFile was already there")
+			if v.checkFile(termFileDone) {
+				log.Log.V(3).Infof("watchFS error: termFileDone was already there")
 				return &TermFileError{}
 			}
 		case event := <-watcher.Events:
 			if event.Has(fsnotify.Create) {
-				if event.Name == termFile {
-					// termination file got created, we should quickly terminate
-					terr := &TermFileError{}
-					log.Log.V(3).Infof("watchFS error: %v", terr)
-					return terr
-				} else if event.Name == socketFile {
+				if event.Name == socketFile {
 					// socket file got created
 					socketExists = true
 				}
@@ -166,6 +167,11 @@ func (v *VirtTail) watchFS() error {
 					rerr := errors.New("socketFile got removed")
 					log.Log.V(3).Infof("watchFS error: %v", rerr)
 					return rerr
+				} else if event.Name == termFile {
+					// termination file got deleted, we should quickly terminate
+					terr := &TermFileError{}
+					log.Log.V(3).Infof("watchFS error: %v", terr)
+					return terr
 				}
 			}
 		case werr := <-watcher.Errors:
