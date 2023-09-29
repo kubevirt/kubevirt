@@ -73,6 +73,14 @@ To run without outside connectivity tests add the argument:
 SKIP_OUTSIDE_CONN_TESTS=true make conformance
 ```
 
+The following argument is only used for running the conformance tests on the Arm64 test infrastructure in KubeVirtCI.
+This is necessary because some specific setups, such as IPv6, are not enabled on the Arm64 test infrastructure.
+By adding the argument, we can skip the unsupported tests.
+
+```bash
+RUN_ON_ARM64_INFRA=true make conformance
+```
+
 To focus on specific tests pass KUBEVIRT_E2E_FOCUS argument:
 
 ```bash
