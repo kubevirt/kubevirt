@@ -154,11 +154,11 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 
 	// With the defaults now set we can check that the VM meets the requirements of any provided preference
 	if preferenceSpec != nil {
-		if path, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
+		if conflicts, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotFound,
 				Message: fmt.Sprintf("failure checking preference requirements: %v", err),
-				Field:   path.String(),
+				Field:   conflicts.String(),
 			}})
 		}
 	}
@@ -262,6 +262,21 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 
 	if instancetypeSpec == nil && preferenceSpec == nil {
 		return nil, nil, nil
+	}
+
+	if topology := instancetype.GetPreferredTopology(preferenceSpec); topology == instancetypev1beta1.PreferSpread {
+		ratio := preferenceSpec.PreferSpreadSocketToCoreRatio
+		if ratio == 0 {
+			ratio = instancetype.DefaultSpreadRatio
+		}
+
+		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
+			return nil, nil, []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Instancetype CPU Guest is not divisible by PreferSpreadSocketToCoreRatio",
+				Field:   k8sfield.NewPath("instancetype.spec.cpu.guest").String(),
+			}}
+		}
 	}
 
 	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)

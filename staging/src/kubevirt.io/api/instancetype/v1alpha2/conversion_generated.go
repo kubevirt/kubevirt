@@ -796,6 +796,7 @@ func autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1alpha2_VirtualMachine
 	// WARNING: in.PreferredTerminationGracePeriodSeconds requires manual conversion: does not exist in peer-type
 	// WARNING: in.Requirements requires manual conversion: does not exist in peer-type
 	// WARNING: in.Annotations requires manual conversion: does not exist in peer-type
+	// WARNING: in.PreferSpreadSocketToCoreRatio requires manual conversion: does not exist in peer-type
 	return nil
 }
 
