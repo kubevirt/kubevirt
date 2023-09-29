@@ -322,6 +322,10 @@ func admitHotplug(
 		return response
 	}
 
+	if response := admitHotplugMemory(oldVMI.Spec.Domain.Memory, newVMI.Spec.Domain.Memory); response != nil {
+		return response
+	}
+
 	return admitHotplugStorage(
 		newVMI.Spec.Volumes,
 		oldVMI.Spec.Volumes,
@@ -340,6 +344,26 @@ func admitHotplugCPU(oldCPUTopology, newCPUTopology *v1.CPU) *admissionv1.Admiss
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("CPU topology maxSockets changed"),
+			},
+		})
+	}
+
+	return nil
+}
+
+func admitHotplugMemory(oldMemory, newMemory *v1.Memory) *admissionv1.AdmissionResponse {
+	if oldMemory == nil ||
+		oldMemory.MaxGuest == nil ||
+		newMemory == nil ||
+		newMemory.MaxGuest == nil {
+		return nil
+	}
+
+	if !oldMemory.MaxGuest.Equal(*newMemory.MaxGuest) {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Memory maxGuest changed"),
 			},
 		})
 	}

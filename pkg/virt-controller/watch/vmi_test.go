@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/utils/pointer"
 
@@ -92,6 +93,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var pvcInformer cache.SharedIndexInformer
 	var rqInformer cache.SharedIndexInformer
 	var nsInformer cache.SharedIndexInformer
+	var kvInformer cache.SharedIndexInformer
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -259,7 +261,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				MinimumClusterTSCFrequency: pointer.Int64(12345),
 			},
 		}
-		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
+
+		var config *virtconfig.ClusterConfig
+		config, _, kvInformer = testutils.NewFakeClusterConfigUsingKVConfig(kubevirtFakeConfig)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		cdiInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, _ = testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
@@ -2033,6 +2037,75 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("when VirtualMachineUnpaused=True", k8sv1.ConditionTrue),
 			Entry("when VirtualMachineUnpaused condition is unset", k8sv1.ConditionUnknown),
 		)
+
+		Context("with memory hotplug enabled", func() {
+			It("should add MemoryChange conditon when guest memory changes", func() {
+				currentGuestMemory := resource.MustParse("128Mi")
+				requestedGuestMemory := resource.MustParse("512Mi")
+
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.Memory = &virtv1.MemoryStatus{
+					GuestAtBoot:    &currentGuestMemory,
+					GuestCurrent:   &currentGuestMemory,
+					GuestRequested: &currentGuestMemory,
+				}
+				vmi.Spec.Domain.Memory = &virtv1.Memory{
+					Guest:    &requestedGuestMemory,
+					MaxGuest: &requestedGuestMemory,
+				}
+
+				pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+				addVirtualMachine(vmi)
+				podFeeder.Add(pod)
+				addActivePods(vmi, pod.UID, "")
+
+				vmiInterface.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), &metav1.PatchOptions{}).Do(func(ctx context.Context, name, patchType, patch, opts interface{}, subs ...interface{}) {
+					originalVMIBytes, err := json.Marshal(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					patchBytes := patch.([]byte)
+
+					patchJSON, err := jsonpatch.DecodePatch(patchBytes)
+					Expect(err).ToNot(HaveOccurred())
+					newVMIBytes, err := patchJSON.Apply(originalVMIBytes)
+					Expect(err).ToNot(HaveOccurred())
+
+					var newVMI *virtv1.VirtualMachineInstance
+					err = json.Unmarshal(newVMIBytes, &newVMI)
+					Expect(err).ToNot(HaveOccurred())
+
+					memoryChange := kvcontroller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(newVMI, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue)
+					Expect(memoryChange).To(BeTrue())
+
+				})
+
+				controller.Execute()
+			})
+
+			It("should store guestMemoryOverheadRatio if used during memory hotplug", func() {
+				currentGuestMemory := resource.MustParse("128Mi")
+				requestedGuestMemory := resource.MustParse("512Mi")
+
+				vmi := NewPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				vmi.Status.Memory = &virtv1.MemoryStatus{
+					GuestCurrent: &currentGuestMemory,
+				}
+				vmi.Spec.Domain.Memory = &virtv1.Memory{
+					Guest:    &requestedGuestMemory,
+					MaxGuest: &requestedGuestMemory,
+				}
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvInformer)
+				overheadRatio := "2"
+				kvCR.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = &overheadRatio
+				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvCR)
+
+				controller.syncMemoryHotplug(vmi)
+
+				Expect(vmi.Labels).To(HaveKeyWithValue(virtv1.MemoryHotplugOverheadRatioLabel, overheadRatio))
+			})
+		})
 	})
 
 	Context("hotplug volume", func() {

@@ -44,6 +44,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -112,6 +113,7 @@ const (
 	VMIFailedDeleteReason              = "FailedDelete"
 	HotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 	AffinityChangeErrorReason          = "AffinityChangeError"
+	HotPlugMemoryErrorReason           = "HotPlugMemoryError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -634,7 +636,7 @@ func (c *VMController) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *vi
 		return nil
 	}
 
-	if vm.Spec.LiveUpdateFeatures == nil {
+	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.CPU == nil {
 		return nil
 	}
 
@@ -1669,6 +1671,50 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	}
 
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
+}
+
+func (c *VMController) setupCPUHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, VMIDefaults *virtv1.VirtualMachineInstance, maxRatio uint32) {
+	if vm.Spec.LiveUpdateFeatures.CPU == nil {
+		return
+	}
+
+	if vmi.Spec.Domain.CPU == nil {
+		vmi.Spec.Domain.CPU = &virtv1.CPU{}
+	}
+
+	if vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
+		vmi.Spec.Domain.CPU.MaxSockets = *vm.Spec.LiveUpdateFeatures.CPU.MaxSockets
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = c.clusterConfig.GetMaximumCpuSockets()
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * maxRatio
+	}
+
+	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		vmi.Spec.Domain.CPU.MaxSockets = VMIDefaults.Spec.Domain.CPU.Sockets * maxRatio
+	}
+}
+
+func (c *VMController) setupMemoryHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, maxRatio uint32) {
+	if vm.Spec.LiveUpdateFeatures.Memory == nil {
+		return
+	}
+
+	if vm.Spec.LiveUpdateFeatures.Memory.MaxGuest != nil {
+		vmi.Spec.Domain.Memory.MaxGuest = vm.Spec.LiveUpdateFeatures.Memory.MaxGuest
+	}
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+		vmi.Spec.Domain.Memory.MaxGuest = c.clusterConfig.GetMaximumGuestMemory()
+	}
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+		vmi.Spec.Domain.Memory.MaxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(maxRatio), resource.BinarySI)
+	}
 }
 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
@@ -2787,6 +2833,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 			syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while handling node affinity change request: %v", err), AffinityChangeErrorReason}
 		}
 
+		if err := c.handleMemoryHotplugRequest(vmCopy, vmi); err != nil {
+			syncErr = &syncErrorImpl{
+				err:    fmt.Errorf("error encountered while handling memory hotplug requests: %v", err),
+				reason: HotPlugMemoryErrorReason,
+			}
+		}
+
 		if syncErr == nil {
 			if !equality.Semantic.DeepEqual(vm, vmCopy) {
 				vm, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy)
@@ -2869,6 +2922,59 @@ func (c *VMController) hasOrdinalNetworkInterfaces(vmi *virtv1.VirtualMachineIns
 	return hasOrdinalIfaces, nil
 }
 
+func (c *VMController) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		return nil
+	}
+
+	if vm.Spec.LiveUpdateFeatures == nil || vm.Spec.LiveUpdateFeatures.Memory == nil {
+		return nil
+	}
+
+	if vm.Spec.Template.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory == nil {
+		return nil
+	}
+
+	guestMemory := vmi.Spec.Domain.Memory.Guest
+
+	if vmi.Status.Memory == nil ||
+		vmi.Status.Memory.GuestCurrent == nil ||
+		vm.Spec.Template.Spec.Domain.Memory.Guest.Equal(*guestMemory) {
+		return nil
+
+	}
+
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+
+	if conditionManager.HasConditionWithStatus(vmi,
+		virtv1.VirtualMachineInstanceMemoryChange, k8score.ConditionTrue) {
+		return fmt.Errorf("another memory hotplug is in progress")
+	}
+
+	if migrations.IsMigrating(vmi) {
+		return fmt.Errorf("memory hotplug is not allowed while VMI is migrating")
+	}
+
+	newMemoryReq := vm.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy()
+	newMemoryReq.Sub(*vmi.Status.Memory.GuestCurrent)
+	newMemoryReq.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+
+	guestTest := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/memory/guest", "value": "%s"}`, vmi.Spec.Domain.Memory.Guest.String())
+	updateGuest := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/memory/guest", "value": "%s"}`, vm.Spec.Template.Spec.Domain.Memory.Guest.String())
+	MemoryReqTest := fmt.Sprintf(`{ "op": "test", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, vmi.Spec.Domain.Resources.Requests.Memory().String())
+	updateMemoryReq := fmt.Sprintf(`{ "op": "replace", "path": "/spec/domain/resources/requests/memory", "value": "%s"}`, newMemoryReq.String())
+	patch := fmt.Sprintf(`[%s, %s, %s, %s]`, guestTest, updateGuest, MemoryReqTest, updateMemoryReq)
+
+	_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	log.Log.Object(vmi).V(4).Infof("hotplugging memory to %s", vm.Spec.Template.Spec.Domain.Memory.Guest.String())
+
+	return nil
+}
+
 func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInstanceSpec, vmi *virtv1.VirtualMachineInstance) error {
 	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) {
 		return nil
@@ -2911,31 +3017,13 @@ func (c *VMController) vmiInterfacesPatch(newVmiSpec *virtv1.VirtualMachineInsta
 func (c *VMController) setupLiveFeatures(
 	vm *virtv1.VirtualMachine,
 	vmi, VMIDefaults *virtv1.VirtualMachineInstance) {
-	const (
-		maxSocketsRatio = 4
-	)
+
+	maxRatio := c.clusterConfig.GetMaxHotplugRatio()
 
 	if vm.Spec.LiveUpdateFeatures == nil {
 		return
 	}
 
-	if vmi.Spec.Domain.CPU == nil {
-		vmi.Spec.Domain.CPU = &virtv1.CPU{}
-	}
-
-	if vm.Spec.LiveUpdateFeatures.CPU != nil && vm.Spec.LiveUpdateFeatures.CPU.MaxSockets != nil {
-		vmi.Spec.Domain.CPU.MaxSockets = *vm.Spec.LiveUpdateFeatures.CPU.MaxSockets
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = c.clusterConfig.GetMaximumCpuSockets()
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * maxSocketsRatio
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		vmi.Spec.Domain.CPU.MaxSockets = VMIDefaults.Spec.Domain.CPU.Sockets * maxSocketsRatio
-	}
+	c.setupCPUHotplug(vm, vmi, VMIDefaults, maxRatio)
+	c.setupMemoryHotplug(vm, vmi, maxRatio)
 }

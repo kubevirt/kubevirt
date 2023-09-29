@@ -298,6 +298,18 @@ var _ = Describe("test configuration", func() {
 		),
 	)
 
+	DescribeTable(" when maxHotplugRatio", func(value int, expected int) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			LiveUpdateConfiguration: &v1.LiveUpdateConfiguration{
+				MaxHotplugRatio: uint32(value),
+			},
+		})
+		Expect(clusterConfig.GetMaxHotplugRatio()).To(Equal(uint32(expected)))
+	},
+		Entry("is set, GetMaxHotplugRatio should return the set value", 100, 100),
+		Entry("is unset, GetMaxHotplugRatio should return the default", 0, virtconfig.DefaultMaxHotplugRatio),
+	)
+
 	// deprecated
 	DescribeTable(" when supportedGuestAgentVersions", func(value []string, result []string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{

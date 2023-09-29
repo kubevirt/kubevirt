@@ -80,6 +80,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"selinuxContext":                "SELinuxContext is the actual SELinux context of the virt-launcher pod\n+optional",
 		"machine":                       "Machine shows the final resulting qemu machine type. This can be different\nthan the machine type selected in the spec, due to qemus machine type alias mechanism.\n+optional",
 		"currentCPUTopology":            "CurrentCPUTopology specifies the current CPU topology used by the VM workload.\nCurrent topology may differ from the desired topology in the spec while CPU hotplug\ntakes place.",
+		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 	}
 }
 
@@ -906,6 +907,7 @@ func (LiveUpdateFeatures) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"cpu":      "LiveUpdateCPU holds hotplug configuration for the CPU resource.\nEmpty struct indicates that default will be used for maxSockets.\nDefault is specified on cluster level.\nAbsence of the struct means opt-out from CPU hotplug functionality.",
 		"affinity": "Affinity allows live updating the virtual machines node affinity",
+		"memory":   "MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine\n+optional",
 	}
 }
 
@@ -921,7 +923,15 @@ func (LiveUpdateCPU) SwaggerDoc() map[string]string {
 
 func (LiveUpdateConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"maxCpuSockets": "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
+		"maxHotplugRatio": "MaxHotplugRatio is the ratio used to define the max amount\nof a hotplug resource that can be made available to a VM\nwhen the specific Max* setting is not defined (MaxCpuSockets, MaxGuest)\nExample: VM is configured with 512Mi of guest memory, if MaxGuest is not\ndefined and MaxHotplugRatio is 2 then MaxGuest = 1Gi\ndefaults to 4",
+		"maxCpuSockets":   "MaxCpuSockets holds the maximum amount of sockets that can be hotplugged",
+		"maxGuest":        "MaxGuest defines the maximum amount memory that can be allocated\nto the guest using hotplug.",
+	}
+}
+
+func (LiveUpdateMemory) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"maxGuest": "MaxGuest defines the maximum amount memory that can be allocated for the VM.\n+optional",
 	}
 }
 

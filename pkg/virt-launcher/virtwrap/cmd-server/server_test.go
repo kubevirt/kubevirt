@@ -320,6 +320,12 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should call UpdateGuestMemory", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().UpdateGuestMemory(vmi).Return(nil)
+			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+		})
+
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"

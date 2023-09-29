@@ -116,6 +116,16 @@ func (_mr *_MockConnectionRecorder) VolatileDomainEventDeviceRemovedRegister(arg
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VolatileDomainEventDeviceRemovedRegister", arg0, arg1)
 }
 
+func (_m *MockConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
+	ret := _m.ctrl.Call(_m, "DomainEventMemoryDeviceSizeChangeRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DomainEventMemoryDeviceSizeChangeRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventMemoryDeviceSizeChangeRegister", arg0)
+}
+
 func (_m *MockConnection) DomainEventDeregister(registrationID int) error {
 	ret := _m.ctrl.Call(_m, "DomainEventDeregister", registrationID)
 	ret0, _ := ret[0].(error)
@@ -386,6 +396,16 @@ func (_m *MockVirDomain) AttachDeviceFlags(xml string, flags libvirt.DomainDevic
 
 func (_mr *_MockVirDomainRecorder) AttachDeviceFlags(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachDeviceFlags", arg0, arg1)
+}
+
+func (_m *MockVirDomain) UpdateDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
+	ret := _m.ctrl.Call(_m, "UpdateDeviceFlags", xml, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) UpdateDeviceFlags(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateDeviceFlags", arg0, arg1)
 }
 
 func (_m *MockVirDomain) DetachDevice(xml string) error {

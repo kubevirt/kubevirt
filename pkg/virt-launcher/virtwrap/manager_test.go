@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1307,7 +1306,7 @@ var _ = Describe("Manager", func() {
 			ovmfDir, err := os.MkdirTemp("", "ovmfdir")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(ovmfDir)
-			err = ioutil.WriteFile(filepath.Join(ovmfDir, efi.EFICodeSEV), loaderBytes, 0644)
+			err = os.WriteFile(filepath.Join(ovmfDir, efi.EFICodeSEV), loaderBytes, 0644)
 			Expect(err).ToNot(HaveOccurred())
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, ovmfDir, ephemeralDiskCreatorMock, metadataCache)
@@ -1342,6 +1341,74 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache)
 			err := manager.InjectLaunchSecret(vmi, sevSecretOptions)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Context("Memory hotplug", func() {
+			var vmi *v1.VirtualMachineInstance
+			var manager *LibvirtDomainManager
+			var domainSpec *api.DomainSpec
+			var pluggableMemorySize api.Memory
+
+			BeforeEach(func() {
+				vmi = newVMI(testNamespace, testVmName)
+
+				guestMemory := resource.MustParse("32Mi")
+				maxGuestMemory := resource.MustParse("128Mi")
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest:    &maxGuestMemory,
+					MaxGuest: &maxGuestMemory,
+				}
+				vmi.Status.Memory = &v1.MemoryStatus{
+					GuestCurrent:   &guestMemory,
+					GuestAtBoot:    &guestMemory,
+					GuestRequested: &guestMemory,
+				}
+
+				manager = &LibvirtDomainManager{
+					virConn:       mockConn,
+					virtShareDir:  testVirtShareDir,
+					metadataCache: metadataCache,
+				}
+
+				pluggableMemorySize = api.Memory{
+					Unit:  "b",
+					Value: uint64(maxGuestMemory.Value() - guestMemory.Value()),
+				}
+
+				domainSpec = &api.DomainSpec{
+					Devices: api.Devices{
+						Memory: &api.MemoryDevice{
+							Model: "virtio-mem",
+							Target: &api.MemoryTarget{
+								Size: pluggableMemorySize,
+								Node: "0",
+								Block: api.Memory{
+									Unit:  "b",
+									Value: 2048,
+								},
+							},
+						},
+					},
+				}
+			})
+
+			It("should hotplug memory when requested", func() {
+				mockConn.EXPECT().LookupDomainByName(api.VMINamespaceKeyFunc(vmi)).Return(mockDomain, nil)
+
+				domainSpecXML, err := xml.Marshal(domainSpec)
+				Expect(err).ToNot(HaveOccurred())
+				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(domainSpecXML), nil)
+
+				domainSpec.Devices.Memory.Target.Requested = pluggableMemorySize
+				updateXML, err := xml.Marshal(domainSpec.Devices.Memory)
+				Expect(err).ToNot(HaveOccurred())
+				mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(updateXML)), libvirt.DOMAIN_DEVICE_MODIFY_LIVE).Return(nil)
+
+				mockDomain.EXPECT().Free()
+
+				err = manager.UpdateGuestMemory(vmi)
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 	})
 	Context("test marking graceful shutdown", func() {

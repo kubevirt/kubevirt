@@ -446,6 +446,22 @@ func (_mr *_MockCmdClientRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", _s...)
 }
 
+func (_m *MockCmdClient) SyncVirtualMachineMemory(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineMemory", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", _s...)
+}
+
 func (_m *MockCmdClient) GetSEVInfo(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*SEVInfoResponse, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
@@ -799,6 +815,17 @@ func (_m *MockCmdServer) SyncVirtualMachineCPUs(_param0 context.Context, _param1
 
 func (_mr *_MockCmdServerRecorder) SyncVirtualMachineCPUs(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineCPUs", arg0, arg1)
+}
+
+func (_m *MockCmdServer) SyncVirtualMachineMemory(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineMemory", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", arg0, arg1)
 }
 
 func (_m *MockCmdServer) GetSEVInfo(_param0 context.Context, _param1 *EmptyRequest) (*SEVInfoResponse, error) {

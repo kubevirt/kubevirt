@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -54,6 +55,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1284,6 +1286,9 @@ func (d *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	d.updateVolumeStatusesFromDomain(vmi, domain)
 	d.updateFSFreezeStatus(vmi, domain)
 	d.updateMachineType(vmi, domain)
+	if err = d.updateMemoryInfo(vmi, domain); err != nil {
+		return err
+	}
 	err = d.netStat.UpdateStatus(vmi, domain)
 	return err
 }
@@ -3311,6 +3316,11 @@ func (d *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
 	}
 
+	if err := d.hotplugMemory(vmi, client); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(errorMessage)
+		d.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
+	}
+
 	if err := client.FinalizeVirtualMachineMigration(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
@@ -3472,5 +3482,79 @@ func (d *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 	vmi.Status.CurrentCPUTopology.Cores = vmi.Spec.Domain.CPU.Cores
 	vmi.Status.CurrentCPUTopology.Threads = vmi.Spec.Domain.CPU.Threads
 
+	return nil
+}
+
+func (d *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+
+	removeVMIMemoryChangeConditionAndLabel := func() {
+		delete(vmi.Labels, v1.VirtualMachinePodMemoryRequestsLabel)
+		delete(vmi.Labels, v1.MemoryHotplugOverheadRatioLabel)
+		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
+	}
+	defer removeVMIMemoryChangeConditionAndLabel()
+
+	if !vmiConditions.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange) {
+		return nil
+	}
+
+	podMemReqStr := vmi.Labels[v1.VirtualMachinePodMemoryRequestsLabel]
+	podMemReq, err := resource.ParseQuantity(podMemReqStr)
+	if err != nil {
+		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
+	}
+
+	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
+	requiredMemory := services.GetMemoryOverhead(vmi, d.clusterConfig.GetClusterCPUArch(), &overheadRatio)
+	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+
+	if podMemReq.Cmp(requiredMemory) < 0 {
+		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
+	}
+
+	options := virtualMachineOptions(nil, 0, nil, d.capabilities, nil, d.clusterConfig)
+
+	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
+		return err
+	}
+
+	vmi.Status.Memory.GuestRequested = vmi.Spec.Domain.Memory.Guest
+	return nil
+}
+
+func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
+	switch unit {
+	case "b", "bytes":
+		return resource.NewQuantity(value, resource.BinarySI)
+	case "KB":
+		return resource.NewQuantity(value*1000, resource.DecimalSI)
+	case "MB":
+		return resource.NewQuantity(value*1000*1000, resource.DecimalSI)
+	case "GB":
+		return resource.NewQuantity(value*1000*1000*1000, resource.DecimalSI)
+	case "TB":
+		return resource.NewQuantity(value*1000*1000*1000*1000, resource.DecimalSI)
+	case "k", "KiB":
+		return resource.NewQuantity(value*1024, resource.BinarySI)
+	case "M", "MiB":
+		return resource.NewQuantity(value*1024*1024, resource.BinarySI)
+	case "G", "GiB":
+		return resource.NewQuantity(value*1024*1024*1024, resource.BinarySI)
+	case "T", "TiB":
+		return resource.NewQuantity(value*1024*1024*1024*1024, resource.BinarySI)
+	}
+	return nil
+}
+
+func (d *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if domain == nil || vmi == nil || domain.Spec.CurrentMemory == nil {
+		return nil
+	}
+	if vmi.Status.Memory == nil {
+		vmi.Status.Memory = &v1.MemoryStatus{}
+	}
+	currentGuest := parseLibvirtQuantity(int64(domain.Spec.CurrentMemory.Value), domain.Spec.CurrentMemory.Unit)
+	vmi.Status.Memory.GuestCurrent = currentGuest
 	return nil
 }

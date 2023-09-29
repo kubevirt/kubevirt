@@ -2375,83 +2375,176 @@ var _ = Describe("Converter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
 
-		type ConverterFunc = func(name string, disk *api.Disk, c *ConverterContext) error
+		Context("disk", func() {
 
-		BeforeEach(func() {
-			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
-			}
+			type ConverterFunc = func(name string, disk *api.Disk, c *ConverterContext) error
 
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			BeforeEach(func() {
+				vmi = &v1.VirtualMachineInstance{
+					ObjectMeta: k8smeta.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "mynamespace",
+					},
+				}
 
-			c = &ConverterContext{
-				VirtualMachine: vmi,
-				AllowEmulation: true,
-				IsBlockPVC: map[string]bool{
-					"test-block-pvc": true,
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+				c = &ConverterContext{
+					VirtualMachine: vmi,
+					AllowEmulation: true,
+					IsBlockPVC: map[string]bool{
+						"test-block-pvc": true,
+					},
+					IsBlockDV: map[string]bool{
+						"test-block-dv": true,
+					},
+					VolumesDiscardIgnore: []string{
+						"test-discard-ignore",
+					},
+				}
+			})
+
+			It("should automatically add virtio-scsi controller", func() {
+				domain := vmiToDomain(vmi, c)
+				Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
+				foundScsiController := false
+				for _, controller := range domain.Spec.Devices.Controllers {
+					if controller.Type == "scsi" {
+						foundScsiController = true
+						Expect(controller.Model).To(Equal("virtio-non-transitional"))
+
+					}
+				}
+				Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
+			})
+
+			It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
+				vmi.Spec.Domain.Devices.DisableHotplug = true
+				domain := vmiToDomain(vmi, c)
+				Expect(domain.Spec.Devices.Controllers).To(HaveLen(2))
+			})
+
+			DescribeTable("should convert",
+				func(converterFunc ConverterFunc, volumeName string, isBlockMode bool, ignoreDiscard bool) {
+					expectedDisk := &api.Disk{}
+					expectedDisk.Driver = &api.DiskDriver{}
+					expectedDisk.Driver.Type = "raw"
+					expectedDisk.Driver.ErrorPolicy = "stop"
+					if isBlockMode {
+						expectedDisk.Type = "block"
+						expectedDisk.Source.Dev = filepath.Join(v1.HotplugDiskDir, volumeName)
+					} else {
+						expectedDisk.Type = "file"
+						expectedDisk.Source.File = fmt.Sprintf("%s.img", filepath.Join(v1.HotplugDiskDir, volumeName))
+					}
+					if !ignoreDiscard {
+						expectedDisk.Driver.Discard = "unmap"
+					}
+
+					disk := &api.Disk{
+						Driver: &api.DiskDriver{},
+					}
+					Expect(converterFunc(volumeName, disk, c)).To(Succeed())
+					Expect(disk).To(Equal(expectedDisk))
 				},
-				IsBlockDV: map[string]bool{
-					"test-block-dv": true,
-				},
-				VolumesDiscardIgnore: []string{
-					"test-discard-ignore",
-				},
-			}
+				Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
+				Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
+				Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
+				Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
+				Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
+				Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
+			)
 		})
 
-		It("should automatically add virtio-scsi controller", func() {
-			domain := vmiToDomain(vmi, c)
-			Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
-			foundScsiController := false
-			for _, controller := range domain.Spec.Devices.Controllers {
-				if controller.Type == "scsi" {
-					foundScsiController = true
-					Expect(controller.Model).To(Equal("virtio-non-transitional"))
+		Context("memory", func() {
+			var domain *api.Domain
+			var guestMemory resource.Quantity
+			var maxGuestMemory resource.Quantity
 
+			BeforeEach(func() {
+				guestMemory = resource.MustParse("32Mi")
+				maxGuestMemory = resource.MustParse("128Mi")
+
+				vmi = &v1.VirtualMachineInstance{
+					ObjectMeta: k8smeta.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "mynamespace",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Memory: &v1.Memory{
+								Guest:    &guestMemory,
+								MaxGuest: &maxGuestMemory,
+							},
+						},
+					},
+					Status: v1.VirtualMachineInstanceStatus{
+						Memory: &v1.MemoryStatus{
+							GuestAtBoot:  &guestMemory,
+							GuestCurrent: &guestMemory,
+						},
+					},
 				}
-			}
-			Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
+
+				domain = &api.Domain{
+					Spec: api.DomainSpec{
+						VCPU: &api.VCPU{
+							CPUs: 2,
+						},
+					},
+				}
+
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+				c = &ConverterContext{
+					VirtualMachine: vmi,
+					AllowEmulation: true,
+				}
+			})
+
+			It("should not setup hotplug when maxGuest is missing", func() {
+				vmi.Spec.Domain.Memory.MaxGuest = nil
+				err := setupDomainMemory(vmi, domain)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domain.Spec.MaxMemory).To(BeNil())
+			})
+
+			It("should not setup hotplug when maxGuest equals guest memory", func() {
+				vmi.Spec.Domain.Memory.MaxGuest = &guestMemory
+				err := setupDomainMemory(vmi, domain)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domain.Spec.MaxMemory).To(BeNil())
+			})
+
+			It("should setup hotplug when maxGuest is set", func() {
+				err := setupDomainMemory(vmi, domain)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(domain.Spec.MaxMemory).ToNot(BeNil())
+				Expect(domain.Spec.MaxMemory.Unit).To(Equal("b"))
+				Expect(domain.Spec.MaxMemory.Value).To(Equal(uint64(maxGuestMemory.Value())))
+
+				Expect(domain.Spec.Memory).ToNot(BeNil())
+				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
+				Expect(domain.Spec.Memory.Value).To(Equal(uint64(maxGuestMemory.Value())))
+
+				Expect(domain.Spec.CPU.NUMA).ToNot(BeNil())
+				Expect(domain.Spec.CPU.NUMA.Cells).To(HaveLen(1))
+				Expect(domain.Spec.CPU.NUMA.Cells[0].Unit).To(Equal("b"))
+				Expect(domain.Spec.CPU.NUMA.Cells[0].Memory).To(Equal(uint64(guestMemory.Value())))
+
+				pluggableMemory := uint64(maxGuestMemory.Value() - guestMemory.Value())
+
+				Expect(domain.Spec.Devices.Memory).ToNot(BeNil())
+				Expect(domain.Spec.Devices.Memory.Model).To(Equal("virtio-mem"))
+				Expect(domain.Spec.Devices.Memory.Target).ToNot(BeNil())
+				Expect(domain.Spec.Devices.Memory.Target.Node).To(Equal("0"))
+				Expect(domain.Spec.Devices.Memory.Target.Size.Value).To(Equal(pluggableMemory))
+				Expect(domain.Spec.Devices.Memory.Target.Size.Unit).To(Equal("b"))
+				Expect(domain.Spec.Devices.Memory.Target.Block.Value).To(Equal(uint64(MemoryHotplugBlockAlignmentBytes)))
+				Expect(domain.Spec.Devices.Memory.Target.Block.Unit).To(Equal("b"))
+			})
 		})
-
-		It("should not automatically add virtio-scsi controller, if hotplug disabled", func() {
-			vmi.Spec.Domain.Devices.DisableHotplug = true
-			domain := vmiToDomain(vmi, c)
-			Expect(domain.Spec.Devices.Controllers).To(HaveLen(2))
-		})
-
-		DescribeTable("should convert",
-			func(converterFunc ConverterFunc, volumeName string, isBlockMode bool, ignoreDiscard bool) {
-				expectedDisk := &api.Disk{}
-				expectedDisk.Driver = &api.DiskDriver{}
-				expectedDisk.Driver.Type = "raw"
-				expectedDisk.Driver.ErrorPolicy = "stop"
-				if isBlockMode {
-					expectedDisk.Type = "block"
-					expectedDisk.Source.Dev = filepath.Join(v1.HotplugDiskDir, volumeName)
-				} else {
-					expectedDisk.Type = "file"
-					expectedDisk.Source.File = fmt.Sprintf("%s.img", filepath.Join(v1.HotplugDiskDir, volumeName))
-				}
-				if !ignoreDiscard {
-					expectedDisk.Driver.Discard = "unmap"
-				}
-
-				disk := &api.Disk{
-					Driver: &api.DiskDriver{},
-				}
-				Expect(converterFunc(volumeName, disk, c)).To(Succeed())
-				Expect(disk).To(Equal(expectedDisk))
-			},
-			Entry("filesystem PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-fs-pvc", false, false),
-			Entry("block mode PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-block-pvc", true, false),
-			Entry("'discard ignore' PVC", Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk, "test-discard-ignore", false, true),
-			Entry("filesystem DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-fs-dv", false, false),
-			Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
-			Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
-		)
 	})
 
 	Context("with AMD SEV LaunchSecurity", func() {

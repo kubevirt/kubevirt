@@ -342,3 +342,13 @@ func (_m *MockLauncherClient) InjectLaunchSecret(_param0 *v1.VirtualMachineInsta
 func (_mr *_MockLauncherClientRecorder) InjectLaunchSecret(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "InjectLaunchSecret", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachineMemory", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", arg0, arg1)
+}

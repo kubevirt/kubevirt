@@ -214,12 +214,11 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 		return
 	}
 
-	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	if vmi.IsFinal() {
 		return
 	}
 
-	if !condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) || migrationutils.IsMigrating(vmi) {
+	if !isHotplugInProgress(vmi) || migrationutils.IsMigrating(vmi) {
 		return
 	}
 
@@ -317,17 +316,24 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	return false
 }
 
-func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
+func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
-	if vmi.IsFinal() {
+	return condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) ||
+		condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
+}
+
+func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi.IsFinal() || migrationutils.IsMigrating(vmi) {
 		return false
 	}
-	if condManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) && !migrationutils.IsMigrating(vmi) {
+
+	if isHotplugInProgress(vmi) {
 		return true
 	}
 
 	return false
 }
+
 func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateData {
 	data := &updateData{}
 

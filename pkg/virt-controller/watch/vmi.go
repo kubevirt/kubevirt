@@ -721,7 +721,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 
 		if c.requireCPUHotplug(vmiCopy) {
-			c.syncCPUHotplug(vmiCopy)
+			c.syncHotplugCondition(vmiCopy, virtv1.VirtualMachineInstanceVCPUChange)
+		}
+
+		if c.requireMemoryHotplug(vmiCopy) {
+			c.syncMemoryHotplug(vmiCopy)
 		}
 
 	case vmi.IsScheduled():
@@ -2344,15 +2348,15 @@ func generateInterfaceStatusPatchRequest(oldInterfaceStatus []byte, newInterface
 	}
 }
 
-func (c *VMIController) syncCPUHotplug(vmi *virtv1.VirtualMachineInstance) {
+func (c *VMIController) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	condition := virtv1.VirtualMachineInstanceCondition{
-		Type:   virtv1.VirtualMachineInstanceVCPUChange,
+		Type:   conditionType,
 		Status: k8sv1.ConditionTrue,
 	}
 	if !vmiConditions.HasCondition(vmi, condition.Type) {
 		vmiConditions.UpdateCondition(vmi, &condition)
-		log.Log.Object(vmi).V(4).Infof("hot plug cpu vmi %s", vmi.Name)
+		log.Log.Object(vmi).V(4).Infof("adding hotplug condition %s", conditionType)
 	}
 
 }
@@ -2371,4 +2375,27 @@ func (c *VMIController) requireCPUHotplug(vmi *virtv1.VirtualMachineInstance) bo
 	}
 
 	return hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU) != hardware.GetNumberOfVCPUs(cpuTopoLogyFromStatus)
+}
+
+func (c *VMIController) requireMemoryHotplug(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi.Status.Memory == nil ||
+		vmi.Spec.Domain.Memory == nil ||
+		vmi.Spec.Domain.Memory.Guest == nil ||
+		vmi.Spec.Domain.Memory.MaxGuest == nil {
+		return false
+	}
+
+	return vmi.Spec.Domain.Memory.Guest.Value() != vmi.Status.Memory.GuestRequested.Value()
+}
+
+func (c *VMIController) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
+	c.syncHotplugCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
+	// store additionalGuestMemoryOverheadRatio
+	overheadRatio := c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio
+	if overheadRatio != nil {
+		if vmi.Labels == nil {
+			vmi.Labels = map[string]string{}
+		}
+		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
+	}
 }

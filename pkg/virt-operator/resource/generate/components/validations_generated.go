@@ -1062,6 +1062,23 @@ var CRDsValidation map[string]string = map[string]string{
                     can be hotplugged
                   format: int32
                   type: integer
+                maxGuest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: MaxGuest defines the maximum amount memory that can
+                    be allocated to the guest using hotplug.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                maxHotplugRatio:
+                  description: 'MaxHotplugRatio is the ratio used to define the max
+                    amount of a hotplug resource that can be made available to a VM
+                    when the specific Max* setting is not defined (MaxCpuSockets,
+                    MaxGuest) Example: VM is configured with 512Mi of guest memory,
+                    if MaxGuest is not defined and MaxHotplugRatio is 2 then MaxGuest
+                    = 1Gi defaults to 4'
+                  format: int32
+                  type: integer
               type: object
             machineType:
               description: Deprecated. Use architectureConfiguration instead.
@@ -4275,6 +4292,19 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int32
                   type: integer
               type: object
+            memory:
+              description: MemoryLiveUpdateConfiguration defines the live update memory
+                features for the VirtualMachine
+              properties:
+                maxGuest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: MaxGuest defines the maximum amount memory that can
+                    be allocated for the VM.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              type: object
           type: object
         preference:
           description: PreferenceMatcher references a set of preference that is used
@@ -6370,6 +6400,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 x86_64 architecture valid values are 1Gi and 2Mi.
                               type: string
                           type: object
+                        maxGuest:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: MaxGuest allows to specify the maximum amount
+                            of memory which is visible inside the Guest OS. The delta
+                            between MaxGuest and Guest is the amount of memory that
+                            can be hot(un)plugged.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                       type: object
                     resources:
                       description: Resources describes the Compute Resources required
@@ -10844,6 +10884,15 @@ var CRDsValidation map[string]string = map[string]string{
                         architecture valid values are 1Gi and 2Mi.
                       type: string
                   type: object
+                maxGuest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: MaxGuest allows to specify the maximum amount of memory
+                    which is visible inside the Guest OS. The delta between MaxGuest
+                    and Guest is the amount of memory that can be hot(un)plugged.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
               type: object
             resources:
               description: Resources describes the Compute Resources required by this
@@ -11935,6 +11984,35 @@ var CRDsValidation map[string]string = map[string]string{
             type:
               description: QEMU machine type is the actual chipset of the VirtualMachineInstance.
               type: string
+          type: object
+        memory:
+          description: Memory shows various informations about the VirtualMachine
+            memory.
+          properties:
+            guestAtBoot:
+              anyOf:
+              - type: integer
+              - type: string
+              description: GuestAtBoot specifies with how much memory the VirtualMachine
+                intiallly booted with.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            guestCurrent:
+              anyOf:
+              - type: integer
+              - type: string
+              description: GuestCurrent specifies how much memory is currently available
+                for the VirtualMachine.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
+            guestRequested:
+              anyOf:
+              - type: integer
+              - type: string
+              description: GuestRequested specifies how much memory was requested
+                (hotplug) for the VirtualMachine.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
           type: object
         migrationMethod:
           description: 'Represents the method using which the vmi can be migrated:
@@ -13529,6 +13607,15 @@ var CRDsValidation map[string]string = map[string]string{
                         architecture valid values are 1Gi and 2Mi.
                       type: string
                   type: object
+                maxGuest:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  description: MaxGuest allows to specify the maximum amount of memory
+                    which is visible inside the Guest OS. The delta between MaxGuest
+                    and Guest is the amount of memory that can be hot(un)plugged.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
               type: object
             resources:
               description: Resources describes the Compute Resources required by this
@@ -15737,6 +15824,16 @@ var CRDsValidation map[string]string = map[string]string{
                                 x86_64 architecture valid values are 1Gi and 2Mi.
                               type: string
                           type: object
+                        maxGuest:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: MaxGuest allows to specify the maximum amount
+                            of memory which is visible inside the Guest OS. The delta
+                            between MaxGuest and Guest is the amount of memory that
+                            can be hot(un)plugged.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                       type: object
                     resources:
                       description: Resources describes the Compute Resources required
@@ -17848,6 +17945,19 @@ var CRDsValidation map[string]string = map[string]string{
                             to the Virtual Machine
                           format: int32
                           type: integer
+                      type: object
+                    memory:
+                      description: MemoryLiveUpdateConfiguration defines the live
+                        update memory features for the VirtualMachine
+                      properties:
+                        maxGuest:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: MaxGuest defines the maximum amount memory
+                            that can be allocated for the VM.
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                       type: object
                   type: object
                 preference:
@@ -20108,6 +20218,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         are 1Gi and 2Mi.
                                       type: string
                                   type: object
+                                maxGuest:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  description: MaxGuest allows to specify the maximum
+                                    amount of memory which is visible inside the Guest
+                                    OS. The delta between MaxGuest and Guest is the
+                                    amount of memory that can be hot(un)plugged.
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
                               type: object
                             resources:
                               description: Resources describes the Compute Resources
@@ -22878,6 +22998,19 @@ var CRDsValidation map[string]string = map[string]string{
                               format: int32
                               type: integer
                           type: object
+                        memory:
+                          description: MemoryLiveUpdateConfiguration defines the live
+                            update memory features for the VirtualMachine
+                          properties:
+                            maxGuest:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: MaxGuest defines the maximum amount memory
+                                that can be allocated for the VM.
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                          type: object
                       type: object
                     preference:
                       description: PreferenceMatcher references a set of preference
@@ -25248,6 +25381,17 @@ var CRDsValidation map[string]string = map[string]string{
                                             are 1Gi and 2Mi.
                                           type: string
                                       type: object
+                                    maxGuest:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: MaxGuest allows to specify the
+                                        maximum amount of memory which is visible
+                                        inside the Guest OS. The delta between MaxGuest
+                                        and Guest is the amount of memory that can
+                                        be hot(un)plugged.
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
                                   type: object
                                 resources:
                                   description: Resources describes the Compute Resources

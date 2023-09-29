@@ -459,6 +459,23 @@ spec:
                           that can be hotplugged
                         format: int32
                         type: integer
+                      maxGuest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: MaxGuest defines the maximum amount memory that
+                          can be allocated to the guest using hotplug.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      maxHotplugRatio:
+                        description: 'MaxHotplugRatio is the ratio used to define
+                          the max amount of a hotplug resource that can be made available
+                          to a VM when the specific Max* setting is not defined (MaxCpuSockets,
+                          MaxGuest) Example: VM is configured with 512Mi of guest
+                          memory, if MaxGuest is not defined and MaxHotplugRatio is
+                          2 then MaxGuest = 1Gi defaults to 4'
+                        format: int32
+                        type: integer
                     type: object
                   machineType:
                     description: Deprecated. Use architectureConfiguration instead.
@@ -3464,6 +3481,23 @@ spec:
                       maxCpuSockets:
                         description: MaxCpuSockets holds the maximum amount of sockets
                           that can be hotplugged
+                        format: int32
+                        type: integer
+                      maxGuest:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: MaxGuest defines the maximum amount memory that
+                          can be allocated to the guest using hotplug.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      maxHotplugRatio:
+                        description: 'MaxHotplugRatio is the ratio used to define
+                          the max amount of a hotplug resource that can be made available
+                          to a VM when the specific Max* setting is not defined (MaxCpuSockets,
+                          MaxGuest) Example: VM is configured with 512Mi of guest
+                          memory, if MaxGuest is not defined and MaxHotplugRatio is
+                          2 then MaxGuest = 1Gi defaults to 4'
                         format: int32
                         type: integer
                     type: object

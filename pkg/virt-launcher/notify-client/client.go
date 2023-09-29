@@ -505,6 +505,20 @@ func (n *Notifier) StartDomainNotifier(
 		}
 	}
 
+	domainEventMemoryDeviceSizeChange := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventMemoryDeviceSizeChange) {
+		log.Log.Infof("Domain Memory Device size-change event received")
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
+		}
+
+		select {
+		case eventChan <- libvirtEvent{Domain: name}:
+		default:
+			log.Log.Infof(libvirtEventChannelFull)
+		}
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
@@ -519,6 +533,11 @@ func (n *Notifier) StartDomainNotifier(
 	err = domainConn.DomainEventDeviceRemovedRegister(domainEventDeviceRemovedCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register device removed event callback with libvirt")
+		return err
+	}
+	err = domainConn.DomainEventMemoryDeviceSizeChangeRegister(domainEventMemoryDeviceSizeChange)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register memory device size change event callback with libvirt")
 		return err
 	}
 

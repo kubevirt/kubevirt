@@ -49,7 +49,19 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	setDefaultHypervFeatureDependencies(&vmi.Spec)
 	setDefaultCPUArch(clusterConfig, &vmi.Spec)
+	setGuestMemoryStatus(vmi)
 	return nil
+}
+
+func setGuestMemoryStatus(vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.Memory != nil &&
+		vmi.Spec.Domain.Memory.Guest != nil {
+		vmi.Status.Memory = &v1.MemoryStatus{
+			GuestAtBoot:    vmi.Spec.Domain.Memory.Guest,
+			GuestCurrent:   vmi.Spec.Domain.Memory.Guest,
+			GuestRequested: vmi.Spec.Domain.Memory.Guest,
+		}
+	}
 }
 
 func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {

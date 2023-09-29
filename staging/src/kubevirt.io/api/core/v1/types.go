@@ -280,6 +280,10 @@ type VirtualMachineInstanceStatus struct {
 	// Current topology may differ from the desired topology in the spec while CPU hotplug
 	// takes place.
 	CurrentCPUTopology *CPUTopology `json:"currentCPUTopology,omitempty"`
+
+	// Memory shows various informations about the VirtualMachine memory.
+	// +optional
+	Memory *MemoryStatus `json:"memory,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC
@@ -517,6 +521,8 @@ const (
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Indicates that the VMI is in progress of Hot vCPU Plug/UnPlug
 	VirtualMachineInstanceVCPUChange = "HotVCPUChange"
+	// Indicates that the VMI is hot(un)plugging memory
+	VirtualMachineInstanceMemoryChange = "HotMemoryChange"
 )
 
 const (
@@ -967,6 +973,14 @@ const (
 
 	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
 	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
+	// VirtualMachinePodMemoryRequestsLabel indicates VMI pod Memory resource requests
+	VirtualMachinePodMemoryRequestsLabel string = "kubevirt.io/vmi-pod-memory-resource-requests"
+	// MemoryHotplugOverheadRatioLabel indicates the guest memory overhead ratio required
+	// to correctly compute the target pod memory requests when doing memory hotplug.
+	// The label is used to store this value when memory hotplug is requested as it may change
+	// between the creation of the target pod and when the evaluation of `MemoryHotplugReadyLabel`
+	// happens.
+	MemoryHotplugOverheadRatioLabel string = "kubevirt.io/memory-hotplug-overhead-ratio"
 
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.
@@ -2735,6 +2749,9 @@ type LiveUpdateFeatures struct {
 	CPU *LiveUpdateCPU `json:"cpu,omitempty" optional:"true"`
 	// Affinity allows live updating the virtual machines node affinity
 	Affinity *LiveUpdateAffinity `json:"affinity,omitempty" optional:"true"`
+	// MemoryLiveUpdateConfiguration defines the live update memory features for the VirtualMachine
+	// +optional
+	Memory *LiveUpdateMemory `json:"memory,omitempty"`
 }
 
 type LiveUpdateAffinity struct{}
@@ -2745,8 +2762,24 @@ type LiveUpdateCPU struct {
 }
 
 type LiveUpdateConfiguration struct {
+	// MaxHotplugRatio is the ratio used to define the max amount
+	// of a hotplug resource that can be made available to a VM
+	// when the specific Max* setting is not defined (MaxCpuSockets, MaxGuest)
+	// Example: VM is configured with 512Mi of guest memory, if MaxGuest is not
+	// defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi
+	// defaults to 4
+	MaxHotplugRatio uint32 `json:"maxHotplugRatio,omitempty"`
 	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
+	// MaxGuest defines the maximum amount memory that can be allocated
+	// to the guest using hotplug.
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
+}
+
+type LiveUpdateMemory struct {
+	// MaxGuest defines the maximum amount memory that can be allocated for the VM.
+	// +optional
+	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
 }
 
 // SEVPlatformInfo contains information about the AMD SEV features for the node.

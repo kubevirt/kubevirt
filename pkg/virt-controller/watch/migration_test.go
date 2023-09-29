@@ -498,7 +498,7 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 
-	Context("Migration with hotplug cpu", func() {
+	Context("Migration with hotplug", func() {
 		var (
 			vmi       *virtv1.VirtualMachineInstance
 			migration *virtv1.VirtualMachineInstanceMigration
@@ -513,51 +513,97 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.NodeName = "node02"
 		})
 
-		It("should annotate VMI with dedicated CPU limits", func() {
+		Context("CPU", func() {
+			It("should annotate VMI with dedicated CPU limits", func() {
 
-			vmi.Spec.Domain = virtv1.DomainSpec{
-				CPU: &v1.CPU{
-					DedicatedCPUPlacement: true,
-					Cores:                 2,
-					Sockets:               1,
-					Threads:               1,
-				},
-			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions,
-				virtv1.VirtualMachineInstanceCondition{
-					Type:   virtv1.VirtualMachineInstanceVCPUChange,
-					Status: k8sv1.ConditionTrue,
+				vmi.Spec.Domain = virtv1.DomainSpec{
+					CPU: &v1.CPU{
+						DedicatedCPUPlacement: true,
+						Cores:                 2,
+						Sockets:               1,
+						Threads:               1,
+					},
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceVCPUChange,
+						Status: k8sv1.ConditionTrue,
+					})
+
+				targetPod.Spec.Containers = append(targetPod.Spec.Containers, k8sv1.Container{
+					Name: "compute",
+					Resources: k8sv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("4"),
+						},
+						Limits: k8sv1.ResourceList{
+							k8sv1.ResourceCPU: resource.MustParse("4"),
+						},
+					},
 				})
+				targetPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				}}
 
-			targetPod.Spec.Containers = append(targetPod.Spec.Containers, k8sv1.Container{
-				Name: "compute",
-				Resources: k8sv1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceCPU: resource.MustParse("4"),
-					},
-					Limits: k8sv1.ResourceList{
-						k8sv1.ResourceCPU: resource.MustParse("4"),
-					},
-				},
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				podFeeder.Add(targetPod)
+
+				patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, v1.VirtualMachinePodCPULimitsLabel)
+				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
+					`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
+					`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
+					`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
+					targetPod.Name, getMigrationConfigPatch(), patchCPULimitsLabelValue)
+
+				shouldExpectVirtualMachineInstancePatch(vmi, patch)
+				controller.Execute()
+				testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 			})
-			targetPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
-				Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
-			}}
+		})
 
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			podFeeder.Add(targetPod)
+		Context("Memory", func() {
+			It("should label VMI with target pod memory requests", func() {
+				guestMemory := resource.MustParse("128Mi")
+				vmi.Spec.Domain = virtv1.DomainSpec{
+					Memory: &v1.Memory{
+						Guest: &guestMemory,
+					},
+				}
 
-			patchCPULimitsLabelValue := fmt.Sprintf(`"%s":"4"`, v1.VirtualMachinePodCPULimitsLabel)
-			patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
-				`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
-				`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
-				`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
-				targetPod.Name, getMigrationConfigPatch(), patchCPULimitsLabelValue)
+				vmi.Status.Conditions = append(vmi.Status.Conditions,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceMemoryChange,
+						Status: k8sv1.ConditionTrue,
+					})
 
-			shouldExpectVirtualMachineInstancePatch(vmi, patch)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+				targetPod.Spec.Containers = append(targetPod.Spec.Containers, k8sv1.Container{
+					Name: "compute",
+					Resources: k8sv1.ResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("150Mi"),
+						},
+					},
+				})
+				targetPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				}}
+
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+				podFeeder.Add(targetPod)
+
+				patchMemoryRequestLabelValue := fmt.Sprintf(`"%s":"150Mi"`, v1.VirtualMachinePodMemoryRequestsLabel)
+				patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/migrationState", `+
+					`"value": {"targetNode":"node01","targetPod":"%s","sourceNode":"node02","migrationUid":"testmigration",%s} }, `+
+					`{ "op": "test", "path": "/metadata/labels", "value": {} }, `+
+					`{ "op": "replace", "path": "/metadata/labels", "value": {"kubevirt.io/migrationTargetNodeName":"node01",%s} }]`,
+					targetPod.Name, getMigrationConfigPatch(), patchMemoryRequestLabelValue)
+
+				shouldExpectVirtualMachineInstancePatch(vmi, patch)
+				controller.Execute()
+				testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+			})
 		})
 	})
 
@@ -1305,19 +1351,21 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
 		})
 
-		It("should not transit to succeeded phase when VMI status has CPU change condition", func() {
+		DescribeTable("should not transit to succeeded phase when VMI status has", func(conditions []virtv1.VirtualMachineInstanceConditionType) {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmi.Status.NodeName = "node02"
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationRunning)
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			pod.Spec.NodeName = "node01"
 
-			vmi.Status.Conditions = append(vmi.Status.Conditions,
-				virtv1.VirtualMachineInstanceCondition{
-					Type:          virtv1.VirtualMachineInstanceVCPUChange,
-					Status:        k8sv1.ConditionTrue,
-					LastProbeTime: *now(),
-				})
+			for _, c := range conditions {
+				vmi.Status.Conditions = append(vmi.Status.Conditions,
+					virtv1.VirtualMachineInstanceCondition{
+						Type:          c,
+						Status:        k8sv1.ConditionTrue,
+						LastProbeTime: *now(),
+					})
+			}
 
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 				MigrationUID:                   migration.UID,
@@ -1336,7 +1384,11 @@ var _ = Describe("Migration watcher", func() {
 
 			shouldExpectPodAnnotationTimestamp(vmi)
 			controller.Execute()
-		})
+		},
+			Entry("CPU change condition", []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceVCPUChange}),
+			Entry("Memory change condition", []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceMemoryChange}),
+			Entry("CPU and Memory change condition", []virtv1.VirtualMachineInstanceConditionType{virtv1.VirtualMachineInstanceMemoryChange, virtv1.VirtualMachineInstanceVCPUChange}),
+		)
 
 		It("should expect MigrationState to be updated on a completed migration", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
