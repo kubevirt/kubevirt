@@ -59,6 +59,10 @@ func CreateMDEVHostDevices(hostDevicesData []HostDeviceMetaData, mdevAddrPool Ad
 	return createHostDevices(hostDevicesData, mdevAddrPool, createMDEVHostDevice)
 }
 
+func CreateUSBHostDevices(hostDevicesData []HostDeviceMetaData, usbAddrPool AddressPooler) ([]api.HostDevice, error) {
+	return createHostDevices(hostDevicesData, usbAddrPool, createUSBHostDevice)
+}
+
 func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPooler, createHostDev createHostDevice) ([]api.HostDevice, error) {
 	var (
 		hostDevices          []api.HostDevice
@@ -146,4 +150,24 @@ func createMDEVHostDevice(hostDeviceData HostDeviceMetaData, mdevUUID string) (*
 		Model: "vfio-pci",
 	}
 	return domainHostDevice, nil
+}
+
+func createUSBHostDevice(device HostDeviceMetaData, usbAddress string) (*api.HostDevice, error) {
+	strs := strings.Split(usbAddress, ":")
+	if len(strs) != 2 {
+		return nil, fmt.Errorf("Bad value: %s", usbAddress)
+	}
+	bus, deviceNumber := strs[0], strs[1]
+
+	return &api.HostDevice{
+		Type:  "usb",
+		Mode:  "subsystem",
+		Alias: api.NewUserDefinedAlias("usb-host-" + device.Name),
+		Source: api.HostDeviceSource{
+			Address: &api.Address{
+				Bus:    bus,
+				Device: deviceNumber,
+			},
+		},
+	}, nil
 }

@@ -161,10 +161,6 @@ func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	return err
 }
 
-func (dpi *MediatedDevicePlugin) GetDevicePath() string {
-	return dpi.devicePath
-}
-
 func (dpi *MediatedDevicePlugin) GetDeviceName() string {
 	return dpi.resourceName
 }

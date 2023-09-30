@@ -18408,6 +18408,14 @@
        "$ref": "#/definitions/v1.PciHostDevice"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "usb": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.USBHostDevice"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -19174,6 +19182,44 @@
      "tscFrequency": {
       "type": "integer",
       "format": "int64"
+     }
+    }
+   },
+   "v1.USBHostDevice": {
+    "type": "object",
+    "required": [
+     "resourceName"
+    ],
+    "properties": {
+     "resourceName": {
+      "description": "Identifies the list of USB host devices. e.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc",
+      "type": "string",
+      "default": ""
+     },
+     "selectors": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.USBSelector"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.USBSelector": {
+    "type": "object",
+    "required": [
+     "vendor",
+     "product"
+    ],
+    "properties": {
+     "product": {
+      "type": "string",
+      "default": ""
+     },
+     "vendor": {
+      "type": "string",
+      "default": ""
      }
     }
    },

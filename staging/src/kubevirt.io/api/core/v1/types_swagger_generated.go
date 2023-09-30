@@ -810,7 +810,19 @@ func (PermittedHostDevices) SwaggerDoc() map[string]string {
 		"":                "PermittedHostDevices holds information about devices allowed for passthrough",
 		"pciHostDevices":  "+listType=atomic",
 		"mediatedDevices": "+listType=atomic",
+		"usb":             "+listType=atomic",
 	}
+}
+
+func (USBHostDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"resourceName": "Identifies the list of USB host devices.\ne.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc",
+		"selectors":    "+listType=atomic",
+	}
+}
+
+func (USBSelector) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (PciHostDevice) SwaggerDoc() map[string]string {

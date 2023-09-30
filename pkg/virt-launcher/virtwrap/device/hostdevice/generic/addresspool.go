@@ -37,6 +37,12 @@ func NewMDEVAddressPool(hostDevices []v1.HostDevice) *hostdevice.AddressPool {
 	return hostdevice.NewAddressPool(v1.MDevResourcePrefix, extractResources(hostDevices))
 }
 
+// NewUSBAddressPool creates a USB address pool based on the environment variable that describes
+// the resource
+func NewUSBAddressPool(hostDevices []v1.HostDevice) *hostdevice.AddressPool {
+	return hostdevice.NewAddressPool(v1.USBResourcePrefix, extractResources(hostDevices))
+}
+
 func extractResources(hostDevices []v1.HostDevice) []string {
 	var resourceSet = make(map[string]struct{})
 	for _, hostDevice := range hostDevices {

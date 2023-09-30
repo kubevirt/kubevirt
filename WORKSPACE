@@ -1783,20 +1783,18 @@ rpm(
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-362.el9.aarch64",
-    sha256 = "a5b1e12e2518cb492357278fe9d560c4daa8a2feefe9a04a74745bee61da4049",
+    name = "kernel-headers-0__5.14.0-364.el9.aarch64",
+    sha256 = "80896565b489078aa16387cc15fc3e33124da317df32ca760a18246a73527bed",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-362.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/a5b1e12e2518cb492357278fe9d560c4daa8a2feefe9a04a74745bee61da4049",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-364.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "kernel-headers-0__5.14.0-362.el9.x86_64",
-    sha256 = "58d39770426f835b72ad12500be4ff71d270a5f44310cc547bc2f4115f64b443",
+    name = "kernel-headers-0__5.14.0-364.el9.x86_64",
+    sha256 = "30795c050f07f3d6168f90cccf32968cfdc20e008f299df3355b8619fbddc804",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-362.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/58d39770426f835b72ad12500be4ff71d270a5f44310cc547bc2f4115f64b443",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-364.el9.x86_64.rpm",
     ],
 )
 
@@ -4407,6 +4405,22 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-8.0.0-13.el9.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/a5c1663351101ed443925e05150d8e91cda71a4a73deeb0b6abc6ea17726b2d5",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-device-usb-host-17__8.0.0-13.el9.aarch64",
+    sha256 = "6766a8164e99c82cd985bd96f2653381564dada2ecb373ff8fc462733ce75ee8",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-host-8.0.0-13.el9.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-device-usb-host-17__8.0.0-13.el9.x86_64",
+    sha256 = "b42fbf8706a056377b87bd82c298d81261a89200e2768e90be84b3773491e59e",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-host-8.0.0-13.el9.x86_64.rpm",
     ],
 )
 

@@ -2559,6 +2559,7 @@ type LogVerbosity struct {
 const (
 	PCIResourcePrefix  = "PCI_RESOURCE"
 	MDevResourcePrefix = "MDEV_PCI_RESOURCE"
+	USBResourcePrefix  = "USB_RESOURCE"
 )
 
 // PermittedHostDevices holds information about devices allowed for passthrough
@@ -2567,6 +2568,21 @@ type PermittedHostDevices struct {
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
 	// +listType=atomic
 	MediatedDevices []MediatedHostDevice `json:"mediatedDevices,omitempty"`
+	// +listType=atomic
+	USB []USBHostDevice `json:"usb,omitempty"`
+}
+
+type USBHostDevice struct {
+	// Identifies the list of USB host devices.
+	// e.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc
+	ResourceName string `json:"resourceName"`
+	// +listType=atomic
+	Selectors []USBSelector `json:"selectors,omitempty"`
+}
+
+type USBSelector struct {
+	Vendor  string `json:"vendor"`
+	Product string `json:"product"`
 }
 
 // PciHostDevice represents a host PCI device allowed for passthrough

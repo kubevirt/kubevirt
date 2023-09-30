@@ -80,10 +80,6 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int)
 	return dpi
 }
 
-func (dpi *SocketDevicePlugin) GetDevicePath() string {
-	return dpi.socketDir
-}
-
 func (dpi *SocketDevicePlugin) GetDeviceName() string {
 	return dpi.socketName
 }

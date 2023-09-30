@@ -298,10 +298,6 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 	}
 }
 
-func (dpi *PCIDevicePlugin) GetDevicePath() string {
-	return dpi.devicePath
-}
-
 func (dpi *PCIDevicePlugin) GetDeviceName() string {
 	return dpi.resourceName
 }

@@ -1092,6 +1092,7 @@ type Address struct {
 	Target     string `xml:"target,attr,omitempty"`
 	Unit       string `xml:"unit,attr,omitempty"`
 	UUID       string `xml:"uuid,attr,omitempty"`
+	Device     string `xml:"device,attr,omitempty"`
 }
 
 //END Video -------------------
