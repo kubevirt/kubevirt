@@ -1094,15 +1094,10 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
 		return nil
 	}
+	vmCopy := vm.DeepCopy()
 
 	// start it
 	vmi := c.setupVMIFromVM(vm)
-	vmRevisionName, err := c.createVMRevision(vm)
-	if err != nil {
-		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
-		return err
-	}
-	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
 	setGenerationAnnotationOnVmi(vm.Generation, vmi)
 
@@ -1145,6 +1140,13 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+
+	vmRevisionName, err := c.createVMRevision(vmCopy)
+	if err != nil {
+		log.Log.Object(vmCopy).Reason(err).Error(failedCreateCRforVmErrMsg)
+		return err
+	}
+	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
 	return nil
 }
