@@ -1977,6 +1977,76 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
+	Context("with automatic resource limits FG enabled", decorators.AutoResourceLimitsGate, func() {
+
+		When("there is no ResourceQuota with memory limits associated with the creation namespace", func() {
+			It("should not automatically set memory limits in the virt-launcher pod", func() {
+				vmi := libvmi.NewCirros()
+				By("Creating a running VMI")
+				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+				By("Ensuring no memory limit is set")
+				readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
+				computeContainer := tests.GetComputeContainerOfPod(readyPod)
+				_, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
+				Expect(exists).To(BeFalse(), "Memory limits set on the compute container when none was expected")
+			})
+		})
+
+		When("a ResourceQuota with memory limits is associated to the creation namespace", func() {
+			var (
+				vmi                    *virtv1.VirtualMachineInstance
+				expectedLauncherLimits *resource.Quantity
+				vmiRequest             resource.Quantity
+			)
+
+			BeforeEach(func() {
+				vmiRequest = resource.MustParse("256Mi")
+				delta := resource.MustParse("100Mi")
+				vmi = libvmi.NewCirros(
+					libvmi.WithResourceMemory(vmiRequest.String()),
+				)
+				vmiPodRequest := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+				vmiPodRequest.Add(vmiRequest)
+				value := int64(float64(vmiPodRequest.Value()) * services.DefaultMemoryLimitOverheadRatio)
+
+				expectedLauncherLimits = resource.NewQuantity(value, vmiPodRequest.Format)
+
+				// Add a delta to not saturate the rq
+				rqLimit := expectedLauncherLimits.DeepCopy()
+				rqLimit.Add(delta)
+				By("Creating a Resource Quota with memory limits")
+				rq := &kubev1.ResourceQuota{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:    testsuite.GetTestNamespace(nil),
+						GenerateName: "test-quota",
+					},
+					Spec: k8sv1.ResourceQuotaSpec{
+						Hard: kubev1.ResourceList{
+							k8sv1.ResourceLimitsMemory: resource.MustParse(rqLimit.String()),
+						},
+					},
+				}
+				_, err := virtClient.CoreV1().ResourceQuotas(testsuite.GetTestNamespace(nil)).Create(context.Background(), rq, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should set a memory limit in the virt-launcher pod", func() {
+				By("Starting the VMI")
+				runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+				By("Ensuring the memory limit is set to the correct value")
+				readyPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
+				computeContainer := tests.GetComputeContainerOfPod(readyPod)
+				limits, exists := computeContainer.Resources.Limits[kubev1.ResourceMemory]
+				Expect(exists).To(BeTrue(), "expected memory limits not set on the compute container")
+				Expect(limits.Value()).To(BeEquivalentTo(expectedLauncherLimits.Value()))
+			})
+		})
+	})
+
 	Context("[Serial][rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component][storage-req]with driver cache and io settings and PVC", Serial, decorators.StorageReq, func() {
 		var dataVolume *cdiv1.DataVolume
 

@@ -83,6 +83,7 @@ var _ = Describe("Migration watcher", func() {
 	var pdbInformer cache.SharedIndexInformer
 	var migrationPolicyInformer cache.SharedIndexInformer
 	var resourceQuotaInformer cache.SharedIndexInformer
+	var namespaceInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -277,6 +278,7 @@ var _ = Describe("Migration watcher", func() {
 		go pdbInformer.Run(stop)
 		go migrationPolicyInformer.Run(stop)
 		go resourceQuotaInformer.Run(stop)
+		go namespaceInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
@@ -285,6 +287,7 @@ var _ = Describe("Migration watcher", func() {
 			nodeInformer.HasSynced,
 			pdbInformer.HasSynced,
 			resourceQuotaInformer.HasSynced,
+			namespaceInformer.HasSynced,
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
 
 	}
@@ -293,7 +296,7 @@ var _ = Describe("Migration watcher", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
 		controller, _ = NewMigrationController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -324,6 +327,7 @@ var _ = Describe("Migration watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true

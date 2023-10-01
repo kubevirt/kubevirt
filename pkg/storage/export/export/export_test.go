@@ -116,6 +116,8 @@ var _ = Describe("Export controller", func() {
 		preferenceInformer          cache.SharedIndexInformer
 		clusterPreferenceInformer   cache.SharedIndexInformer
 		controllerRevisionInformer  cache.SharedIndexInformer
+		rqInformer                  cache.SharedIndexInformer
+		nsInformer                  cache.SharedIndexInformer
 		k8sClient                   *k8sfake.Clientset
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
@@ -148,6 +150,8 @@ var _ = Describe("Export controller", func() {
 		go preferenceInformer.Run(stop)
 		go clusterPreferenceInformer.Run(stop)
 		go controllerRevisionInformer.Run(stop)
+		go rqInformer.Run(stop)
+		go nsInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(
 			stop,
 			vmExportInformer.HasSynced,
@@ -168,6 +172,8 @@ var _ = Describe("Export controller", func() {
 			preferenceInformer.HasSynced,
 			clusterPreferenceInformer.HasSynced,
 			controllerRevisionInformer.HasSynced,
+			rqInformer.HasSynced,
+			nsInformer.HasSynced,
 		)).To(BeTrue())
 	}
 
@@ -203,6 +209,8 @@ var _ = Describe("Export controller", func() {
 		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
@@ -226,7 +234,7 @@ var _ = Describe("Export controller", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h"),
+			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,

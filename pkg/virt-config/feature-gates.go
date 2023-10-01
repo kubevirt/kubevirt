@@ -70,6 +70,8 @@ const (
 	Multiarchitecture = "MultiArchitecture"
 	// VMLiveUpdateFeaturesGate allows updating ceratin VM fields, such as CPU sockets to enable hot-plug functionality.
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
+	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
+	AutoResourceLimitsGate = "AutoResourceLimitsGate"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -229,4 +231,8 @@ func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 }
 func (config *ClusterConfig) VMLiveUpdateFeaturesEnabled() bool {
 	return config.isFeatureGateEnabled(VMLiveUpdateFeaturesGate)
+}
+
+func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
+	return config.isFeatureGateEnabled(AutoResourceLimitsGate)
 }
