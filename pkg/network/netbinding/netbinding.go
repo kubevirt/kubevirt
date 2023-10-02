@@ -22,6 +22,8 @@ package netbinding
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	k8scorev1 "k8s.io/api/core/v1"
 	k8srecord "k8s.io/client-go/tools/record"
 
@@ -48,10 +50,8 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 		}
 	}
 
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Slirp != nil {
-			pluginSidecars = append(pluginSidecars, SlirpNetBindingPluginSidecar(vmi, config, recorder))
-		}
+	if slirpSidecar := SlirpNetBindingPluginSidecar(vmi, config, recorder); slirpSidecar != nil {
+		pluginSidecars = append(pluginSidecars, *slirpSidecar)
 	}
 
 	for _, pluginInfo := range bindingByName {
@@ -74,7 +74,14 @@ const (
 	UnregisteredNetworkBindingPluginReason = "UnregisteredNetworkBindingPlugin"
 )
 
-func SlirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) hooks.HookSidecar {
+func SlirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) *hooks.HookSidecar {
+	slirpIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
+		return i.Slirp != nil
+	})
+	if len(slirpIfaces) == 0 {
+		return nil
+	}
+
 	var slirpSidecarImage string
 	if plugin := readNetBindingPluginConfiguration(kvConfig, SlirpNetworkBindingPluginName); plugin == nil {
 		// In case no Slirp network binding plugin is registered (i.e.: specified in in Kubevirt config) use default image
@@ -88,7 +95,7 @@ func SlirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.K
 		slirpSidecarImage = plugin.SidecarImage
 	}
 
-	return hooks.HookSidecar{
+	return &hooks.HookSidecar{
 		Image:           slirpSidecarImage,
 		ImagePullPolicy: kvConfig.ImagePullPolicy,
 	}

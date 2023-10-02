@@ -108,10 +108,19 @@ var _ = Describe("Network Binding", func() {
 		})
 	})
 
-	Context("network binding plugin configuration", func() {
+	Context("slirp binding", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = v1.NewVMI("test", "1234")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name:                   "testnet",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}},
+			}}
+		})
+
 		It("should create Slirp hook sidecar with registered image (specified in Kubevirt config)", func() {
 			fakeRecorder := record.NewFakeRecorder(1)
-			vmi := v1.NewVMI("test", "1234")
 			config := &v1.KubeVirtConfiguration{
 				ImagePullPolicy: k8scorev1.PullIfNotPresent,
 				NetworkConfiguration: &v1.NetworkConfiguration{
@@ -121,18 +130,18 @@ var _ = Describe("Network Binding", func() {
 				},
 			}
 
-			Expect(netbinding.SlirpNetBindingPluginSidecar(vmi, config, fakeRecorder)).To(Equal(hooks.HookSidecar{
+			Expect(netbinding.SlirpNetBindingPluginSidecar(vmi, config, fakeRecorder)).To(Equal(&hooks.HookSidecar{
 				ImagePullPolicy: k8scorev1.PullIfNotPresent,
 				Image:           "kubevirt/network-slirp-plugin",
-			}))
+			},
+			))
 		})
 
 		DescribeTable("should create Slirp hook sidecar with default image, when Kubevirt config",
 			func(config *v1.KubeVirtConfiguration) {
 				fakeRecorder := record.NewFakeRecorder(1)
-				vmi := v1.NewVMI("test", "1234")
 
-				Expect(netbinding.SlirpNetBindingPluginSidecar(vmi, config, fakeRecorder)).To(Equal(hooks.HookSidecar{
+				Expect(netbinding.SlirpNetBindingPluginSidecar(vmi, config, fakeRecorder)).To(Equal(&hooks.HookSidecar{
 					Image: netbinding.DefaultSlirpPluginImage,
 				}))
 			},
@@ -162,9 +171,8 @@ var _ = Describe("Network Binding", func() {
 
 		It("should raise UnregisteredNetworkBindingPlugin warning event when no slirp binding plugin image is registered (specified in Kubevirt config)", func() {
 			fakeRecorder := record.NewFakeRecorder(1)
-			vmi := v1.NewVMI("test", "1234")
 
-			Expect(netbinding.SlirpNetBindingPluginSidecar(vmi, &v1.KubeVirtConfiguration{}, fakeRecorder)).To(Equal(hooks.HookSidecar{
+			Expect(netbinding.SlirpNetBindingPluginSidecar(vmi, &v1.KubeVirtConfiguration{}, fakeRecorder)).To(Equal(&hooks.HookSidecar{
 				Image: netbinding.DefaultSlirpPluginImage,
 			}))
 
