@@ -34,6 +34,22 @@ import (
 
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) (hooks.HookSidecarList, error) {
 	var pluginSidecars hooks.HookSidecarList
+
+	if slirpSidecar := SlirpNetBindingPluginSidecar(vmi, config, recorder); slirpSidecar != nil {
+		pluginSidecars = append(pluginSidecars, *slirpSidecar)
+	}
+
+	netbindingPluginSidecars, err := netBindingPluginSidecar(vmi, config)
+	if err != nil {
+		return nil, err
+	}
+	pluginSidecars = append(pluginSidecars, netbindingPluginSidecars...)
+
+	return pluginSidecars, nil
+}
+
+func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+	var pluginSidecars hooks.HookSidecarList
 	bindingByName := map[string]v1.InterfaceBindingPlugin{}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.Binding != nil {
@@ -50,10 +66,6 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 		}
 	}
 
-	if slirpSidecar := SlirpNetBindingPluginSidecar(vmi, config, recorder); slirpSidecar != nil {
-		pluginSidecars = append(pluginSidecars, *slirpSidecar)
-	}
-
 	for _, pluginInfo := range bindingByName {
 		if pluginInfo.SidecarImage != "" {
 			pluginSidecars = append(pluginSidecars, hooks.HookSidecar{
@@ -62,6 +74,7 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 			})
 		}
 	}
+
 	return pluginSidecars, nil
 }
 
