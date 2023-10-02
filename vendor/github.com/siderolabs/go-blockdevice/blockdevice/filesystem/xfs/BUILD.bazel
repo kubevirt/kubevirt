@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "options.go",
+        "superblock.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/xfs",
+    importpath = "github.com/siderolabs/go-blockdevice/blockdevice/filesystem/xfs",
+    visibility = ["//visibility:public"],
+)

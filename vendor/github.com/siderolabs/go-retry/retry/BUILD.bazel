@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "constant.go",
+        "exponential.go",
+        "linear.go",
+        "options.go",
+        "retry.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/siderolabs/go-retry/retry",
+    importpath = "github.com/siderolabs/go-retry/retry",
+    visibility = ["//visibility:public"],
+)

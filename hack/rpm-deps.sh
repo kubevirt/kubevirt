@@ -105,6 +105,7 @@ launcherbase_aarch64="
   qemu-kvm-device-display-virtio-gpu-pci-${QEMU_VERSION}
 "
 launcherbase_extra="
+  e2fsprogs
   ethtool
   findutils
   nftables
@@ -121,6 +122,7 @@ handlerbase_main="
   qemu-img-${QEMU_VERSION}
 "
 handlerbase_extra="
+  e2fsprogs
   findutils
   iproute
   nftables
