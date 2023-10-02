@@ -1620,8 +1620,17 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             vmStateStorageClass:
               description: |-
-                VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                The storage class must support RWX in filesystem mode.
+                VMStateStorageClass is the name of the storage class to use for the PVCs
+                created to preserve VM state, like TPM. The storage class must support
+                RWX in the volume mode specified by the VMStateVolumeMode below. If not
+                specified, for each VM, Kubevirt will use the one from this VM's main
+                DV/PVC disk to create the PVC.
+              type: string
+            vmStateVolumeMode:
+              description: |-
+                VMStateVolumeMode is the volume mode used to create the PVCs to preserve
+                VM state. If not specified, for each VM, Kubevirt will use the one from
+                this VM's main DV/PVC disk to create the PVC.
               type: string
             webhookConfiguration:
               description: |-

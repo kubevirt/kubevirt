@@ -616,6 +616,9 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.exporterImage,
 		vca.resourceQuotaInformer.GetStore(),
 		vca.namespaceStore,
+		vca.storageClassInformer.GetStore(),
+		vca.persistentVolumeClaimInformer.GetIndexer(),
+		vca.storageProfileInformer.GetStore(),
 		services.WithSidecarCreator(
 			func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 				return hooks.UnmarshalHookSidecarList(vmi)

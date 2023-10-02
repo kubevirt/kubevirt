@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/storage/backend-storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/storage/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -25,6 +26,8 @@ go_test(
     srcs = [
         "backend-storage_suite_test.go",
         "backend-storage_test.go",
+        "backend_storage_suite_test.go",
+        "backend_storage_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -32,15 +35,20 @@ go_test(
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//tests:go_default_library",
+        "//tests/libstorage:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/storage/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

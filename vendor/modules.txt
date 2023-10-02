@@ -451,6 +451,18 @@ github.com/rivo/uniseg
 # github.com/seccomp/libseccomp-golang v0.10.0
 ## explicit; go 1.14
 github.com/seccomp/libseccomp-golang
+# github.com/siderolabs/go-blockdevice v0.4.6
+## explicit; go 1.20
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem/ext4
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem/iso9660
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem/luks
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem/msdos
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem/vfat
+github.com/siderolabs/go-blockdevice/blockdevice/filesystem/xfs
+# github.com/siderolabs/go-retry v0.3.2
+## explicit; go 1.19
+github.com/siderolabs/go-retry/retry
 # github.com/sirupsen/logrus v1.9.0
 ## explicit; go 1.13
 github.com/sirupsen/logrus

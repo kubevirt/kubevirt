@@ -362,7 +362,7 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	return nvramPath
 }
 
-func withBackendStorage(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
+func withBackendStorage(vmi *v1.VirtualMachineInstance, volumeMode *k8sv1.PersistentVolumeMode) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 			return nil
@@ -379,6 +379,18 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 				},
 			},
 		})
+
+		// If the backend storage is a block storage, the block storage PVC is
+		// mounted to the virt-launcher Pod as a device (with K8s
+		// "volumeDevices").
+		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
+			renderer.volumeDevices = append(renderer.volumeDevices, k8sv1.VolumeDevice{
+				Name:       volumeName,
+				DevicePath: backendstorage.BlockVolumeDevicePath,
+			})
+
+			return nil
+		}
 
 		if util.IsNonRootVMI(vmi) {
 			// For non-root VMIs, the TPM state lives under /var/run/kubevirt-private/libvirt/qemu/swtpm

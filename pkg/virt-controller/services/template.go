@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -158,6 +160,9 @@ type templateService struct {
 	launcherSubGid             int64
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
+	storageClassStore          cache.Store
+	pvcIndexer                 cache.Indexer
+	storageProfileStore        cache.Store
 
 	sidecarCreators                  []SidecarCreatorFunc
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
@@ -758,11 +763,16 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList) (*VolumeRenderer, error) {
+	bs := backendstorage.NewBackendStorage(t.virtClient, t.clusterConfig, t.storageClassStore, t.storageClassStore, t.pvcIndexer)
+	_, backendStorageVolumeMode, err := bs.DetermineStorageClassAndVolumeMode(vmi)
+	if err != nil {
+		return nil, err
+	}
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
-		withBackendStorage(vmi),
+		withBackendStorage(vmi, backendStorageVolumeMode),
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
@@ -1215,6 +1225,9 @@ func NewTemplateService(launcherImage string,
 	exporterImage string,
 	resourceQuotaStore cache.Store,
 	namespaceStore cache.Store,
+	storageClassStore cache.Store,
+	pvcIndexer cache.Indexer,
+	storageProfileStore cache.Store,
 	opts ...templateServiceOption,
 ) TemplateService {
 
@@ -1236,6 +1249,9 @@ func NewTemplateService(launcherImage string,
 		exporterImage:              exporterImage,
 		resourceQuotaStore:         resourceQuotaStore,
 		namespaceStore:             namespaceStore,
+		storageClassStore:          storageClassStore,
+		pvcIndexer:                 pvcIndexer,
+		storageProfileStore:        storageProfileStore,
 	}
 
 	for _, opt := range opts {

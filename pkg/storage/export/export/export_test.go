@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -119,6 +121,8 @@ var _ = Describe("Export controller", func() {
 		controllerRevisionInformer  cache.SharedIndexInformer
 		rqInformer                  cache.SharedIndexInformer
 		nsInformer                  cache.SharedIndexInformer
+		storageClassInformer        cache.SharedIndexInformer
+		storageProfileInformer      cache.SharedIndexInformer
 		k8sClient                   *k8sfake.Clientset
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
@@ -212,6 +216,8 @@ var _ = Describe("Export controller", func() {
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		storageProfileInformer, _ = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
@@ -235,7 +241,7 @@ var _ = Describe("Export controller", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore(), storageClassInformer.GetStore(), pvcInformer.GetIndexer(), storageProfileInformer.GetStore()),
 			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,

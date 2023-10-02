@@ -2089,6 +2089,14 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
 		newStatus = append(newStatus, status)
 	}
 
+	backendVolumeStatus, err := c.generateBackendVolumeStatus(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to generate backend volume status for VMI %s: %w", vmi.Name, err)
+	}
+	if backendVolumeStatus != nil {
+		newStatus = append(newStatus, *backendVolumeStatus)
+	}
+
 	// We have updated the status of current volumes, but if a volume was removed, we want to keep that status, until there is no
 	// associated pod, then remove it. Any statuses left in the map are statuses without a matching volume in the spec.
 	for k, v := range oldStatusMap {
@@ -2350,4 +2358,33 @@ func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.Condit
 		}
 	}
 	return k8sv1.ConditionUnknown
+}
+
+func (c *VMIController) generateBackendVolumeStatus(vmi *virtv1.VirtualMachineInstance) (*virtv1.VolumeStatus, error) {
+	if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		return nil, nil
+	}
+	pvcName := backendstorage.PVCForVMI(vmi)
+	pvcInterface, pvcExists, err := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, pvcName))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the backend storage PVC for VMI %s: %w", vmi.Name, err)
+	}
+	if !pvcExists {
+		return nil, fmt.Errorf("could not find the backend storage PVC for VMI %s: %s", vmi.Name, pvcName)
+	}
+	pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+	if len(pvc.Spec.VolumeName) == 0 {
+		return nil, fmt.Errorf("backend PVC %s is not bound", pvc.Name)
+	}
+
+	return &virtv1.VolumeStatus{
+		Name: backendstorage.PodVolumeName(vmi.Name),
+		PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+			AccessModes:  pvc.Spec.AccessModes,
+			VolumeMode:   pvc.Spec.VolumeMode,
+			Capacity:     pvc.Status.Capacity,
+			Requests:     pvc.Spec.Resources.Requests,
+			Preallocated: storagetypes.IsPreallocated(pvc.ObjectMeta.Annotations),
+		},
+	}, nil
 }

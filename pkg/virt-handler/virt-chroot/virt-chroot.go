@@ -48,6 +48,19 @@ func MountChroot(sourcePath, targetPath *safepath.Path, ro bool) *exec.Cmd {
 	return UnsafeMountChroot(trimProcPrefix(sourcePath), trimProcPrefix(targetPath), ro)
 }
 
+// MountWithMountNamespaceAndRawPath mounts the device using the device's raw
+// path instead of its file descriptor. It executes virt-chroot mount in the
+// given namespace.
+func MountWithMountNamespaceAndRawPath(namespace, source, target, fstype string, options ...string) *exec.Cmd {
+	args := []string{"--mount", namespace, "mount", "--type", fstype, "--raw-path"}
+	optionArg := strings.Join(options, ",")
+	if len(optionArg) > 0 {
+		args = append(args, "--options", optionArg)
+	}
+	args = append(args, source, target)
+	return exec.Command(binaryPath, args...)
+}
+
 // Deprecated: UnsafeMountChroot is used to connect to code which needs to be refactored
 // to handle mounts securely.
 func UnsafeMountChroot(sourcePath, targetPath string, ro bool) *exec.Cmd {
@@ -88,6 +101,13 @@ func RemoveMDEVType(mdevUUID string) *exec.Cmd {
 // For general purposes
 func ExecChroot(args ...string) *exec.Cmd {
 	return exec.Command(binaryPath, args...)
+}
+
+// ExecWithMountNamespace execute virt-chroot exec in the given mount namespace.
+func ExecWithMountNamespace(namespace string, args ...string) *exec.Cmd {
+	allArgs := []string{"--mount", namespace, "exec", "--"}
+	allArgs = append(allArgs, args...)
+	return exec.Command(binaryPath, allArgs...)
 }
 
 func trimProcPrefix(path *safepath.Path) string {

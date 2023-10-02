@@ -2472,9 +2472,17 @@ type KubeVirtConfiguration struct {
 	TLSConfiguration               *TLSConfiguration                 `json:"tlsConfiguration,omitempty"`
 	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
 
-	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-	// The storage class must support RWX in filesystem mode.
-	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
+	// VMStateStorageClass is the name of the storage class to use for the PVCs
+	// created to preserve VM state, like TPM. The storage class must support
+	// RWX in the volume mode specified by the VMStateVolumeMode below. If not
+	// specified, for each VM, Kubevirt will use the one from this VM's main
+	// DV/PVC disk to create the PVC.
+	VMStateStorageClass string `json:"vmStateStorageClass,omitempty"`
+	// VMStateVolumeMode is the volume mode used to create the PVCs to preserve
+	// VM state. If not specified, for each VM, Kubevirt will use the one from
+	// this VM's main DV/PVC disk to create the PVC.
+	VMStateVolumeMode *k8sv1.PersistentVolumeMode `json:"vmStateVolumeMode,omitempty"`
+
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 
 	// KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).

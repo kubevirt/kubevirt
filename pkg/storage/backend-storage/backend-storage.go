@@ -22,27 +22,36 @@ package backendstorage
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"k8s.io/client-go/tools/cache"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+
+	"kubevirt.io/kubevirt/pkg/storage/types"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	corev1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
 	PVCPrefix = "persistent-state-for-"
 	PVCSize   = "10Mi"
+
+	BlockVolumeDevicePath = "/dev/vm-state"
+	PodVMStatePath        = "/var/lib/libvirt/vm-state"
+	PodNVRAMPath          = "/var/lib/libvirt/qemu/nvram"
+	PodSwtpmPath          = "/var/lib/libvirt/swtpm"
+	PodSwtpmLocalcaPath   = "/var/lib/swtpm-localca"
 )
 
 func PVCForVMI(vmi *corev1.VirtualMachineInstance) string {
@@ -187,18 +196,19 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 	if err != nil {
 		return err
 	}
+
 	if exists {
 		pvc := obj.(*v1.PersistentVolumeClaim)
 		updateVolumeStatus(vmi, pvc.Spec.AccessModes[0])
 		return nil
 	}
 
-	storageClass, err := bs.getStorageClass()
+	storageClass, volumeMode, err := bs.DetermineStorageClassAndVolumeMode(vmi)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to determine the backend storage class and volume mode: %w", err)
 	}
-	mode := v1.PersistentVolumeFilesystem
-	accessMode := bs.getAccessMode(storageClass, mode)
+
+	accessMode := bs.getAccessMode(*storageClass, *volumeMode)
 	ownerReferences := vmi.OwnerReferences
 	if len(vmi.OwnerReferences) == 0 {
 		// If the VMI has no owner, then it did not originate from a VM.
@@ -219,8 +229,8 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			Resources: v1.VolumeResourceRequirements{
 				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
 			},
-			StorageClassName: &storageClass,
-			VolumeMode:       &mode,
+			StorageClassName: storageClass,
+			VolumeMode:       volumeMode,
 		},
 	}
 
@@ -271,4 +281,86 @@ func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance) (bool, 
 	}
 
 	return false, nil
+}
+
+func PodVolumeName(vmiName string) string {
+	return vmiName + "-state"
+}
+
+func (bs *BackendStorage) DetermineStorageClassAndVolumeMode(vmi *corev1.VirtualMachineInstance) (*string, *v1.PersistentVolumeMode, error) {
+	storageClass, err := bs.getStorageClass()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	volumeMode := bs.clusterConfig.GetVMStateVolumeMode()
+	if len(storageClass) != 0 && volumeMode != nil {
+		return &storageClass, volumeMode, nil
+	}
+	disksCopy := make([]corev1.Disk, len(vmi.Spec.Domain.Devices.Disks))
+	for i, d := range vmi.Spec.Domain.Devices.Disks {
+		d.DeepCopyInto(&disksCopy[i])
+	}
+	sort.Slice(disksCopy, func(i, j int) bool {
+		a, b := disksCopy[i], disksCopy[j]
+		if a.BootOrder != nil && b.BootOrder != nil {
+			return *a.BootOrder < *b.BootOrder
+		}
+		return a.BootOrder != nil
+	})
+	for _, d := range disksCopy {
+		if d.Disk == nil {
+			continue
+		}
+		for _, v := range vmi.Spec.Volumes {
+			if v.Name != d.Name {
+				continue
+			}
+			var pvcName string
+			if v.DataVolume != nil {
+				pvcName = v.DataVolume.Name
+			} else if v.PersistentVolumeClaim != nil {
+				pvcName = v.PersistentVolumeClaim.ClaimName
+			}
+			if len(pvcName) > 0 {
+				pvc, exists, _, err := types.IsPVCBlockFromIndexer(bs.pvcIndexer, vmi.Namespace, pvcName)
+				if err != nil {
+					return nil, nil, err
+				}
+				if !exists {
+					return nil, nil, fmt.Errorf("could not find the PVC %s", pvcName)
+				}
+				s, v := determineStorageClassAndVolumeModeFromPVC(storageClass, volumeMode, pvc)
+				return s, v, nil
+			}
+		}
+	}
+	// If we cannot detect the storage class and volume mode, we will just
+	// return NILs, and Kubernetes will use the default configuration in the
+	// cluster to create the backend PVC.
+	return nil, nil, nil
+}
+
+// determineStorageClassAndVolumeModeFromPVC returns the final storage class and
+// the volume mode to be used, based on the provided default configuration and
+// the configuration of the VM main disk PVC.
+//
+// The webhook will block the case where volume mode is provided but the
+// storage class is not. Therefore, in the following we only care about the
+// case where 1) storage class is provided but volume mode is not, and 2) both
+// storage class and volume mode are not provided.
+func determineStorageClassAndVolumeModeFromPVC(defaultStorageClass string, defaultVolumeMode *v1.PersistentVolumeMode, pvc *v1.PersistentVolumeClaim) (*string, *v1.PersistentVolumeMode) {
+	// If no default storage class was provided, we use the storage class and the
+	// volume mode from the PVC.
+	if len(defaultStorageClass) == 0 {
+		return pvc.Spec.StorageClassName, pvc.Spec.VolumeMode
+	}
+	// If no default volume mode was provided, we use the volume mode from the PVC,
+	// ONLY when the PVC storage class matches the default storage class.
+	if defaultVolumeMode == nil && (pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName == defaultStorageClass) {
+		return &defaultStorageClass, pvc.Spec.VolumeMode
+	}
+	// In all the other cases, we just use the default configuration provided by
+	// the user.
+	return &defaultStorageClass, defaultVolumeMode
 }

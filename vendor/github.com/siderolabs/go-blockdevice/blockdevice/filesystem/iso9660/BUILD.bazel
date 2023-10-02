@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "iso9660.go",
+        "options.go",
+        "superblock.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem/iso9660",
+    importpath = "github.com/siderolabs/go-blockdevice/blockdevice/filesystem/iso9660",
+    visibility = ["//visibility:public"],
+)

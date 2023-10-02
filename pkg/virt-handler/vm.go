@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	handlerbs "kubevirt.io/kubevirt/pkg/virt-handler/backendstorage"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 
@@ -248,6 +249,7 @@ func NewController(
 		podIsolationDetector:             podIsolationDetector,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		backendStorageMounter:            handlerbs.NewVolumeMounter(podIsolationDetector),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 		capabilities:                     capabilities,
@@ -343,6 +345,7 @@ type VirtualMachineController struct {
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
+	backendStorageMounter    handlerbs.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
@@ -2817,6 +2820,9 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 			return fmt.Errorf("failed to mount hotplug volumes: %v", err)
 		}
 	}
+	if err := d.backendStorageMounter.Mount(vmi); err != nil {
+		return err
+	}
 
 	// configure network inside virt-launcher compute container
 	if err := d.setupNetwork(vmi, vmi.Spec.Networks); err != nil {
@@ -3051,6 +3057,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		virtLauncherRootMount, err := isolationRes.MountRoot()
 		if err != nil {
 			return err
+		}
+
+		// Handle VM block backend storage mounting.
+		if err := d.backendStorageMounter.Mount(vmi); err != nil {
+			return fmt.Errorf("failed to mount block backend storage for VMI %s: %w", vmi.Name, err)
 		}
 
 		err = d.claimDeviceOwnership(virtLauncherRootMount, "kvm")

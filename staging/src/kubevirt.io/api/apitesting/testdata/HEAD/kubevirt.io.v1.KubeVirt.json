@@ -326,6 +326,7 @@
         }
       },
       "vmStateStorageClass": "vmStateStorageClassValue",
+      "vmStateVolumeMode": "vmStateVolumeModeValue",
       "virtualMachineOptions": {
         "disableFreePageReporting": {},
         "disableSerialConsoleLog": {}

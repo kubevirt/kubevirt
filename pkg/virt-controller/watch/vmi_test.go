@@ -278,7 +278,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		controller, _ = NewVMIController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore(), storageClassInformer.GetStore(), pvcInformer.GetIndexer(), storageProfileInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,

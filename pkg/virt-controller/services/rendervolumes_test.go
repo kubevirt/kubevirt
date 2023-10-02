@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -334,6 +337,87 @@ var _ = Describe("Container spec renderer", func() {
 			Expect(vsr.VolumeDevices()).To(BeEmpty())
 		})
 	})
+})
+
+var _ = Describe("Backend storage render", func() {
+	const (
+		containerDisk = "cdisk1"
+		ephemeralDisk = "disk1"
+		namespace     = "ns1"
+		virtShareDir  = "dir1"
+
+		vmiName           = "vm1"
+		vmStateVolumeName = "vm-state"
+	)
+
+	var (
+		filesystemVolumeMode = k8sv1.PersistentVolumeFilesystem
+		blockVolumeMode      = k8sv1.PersistentVolumeBlock
+
+		baseVMI = v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: vmiName,
+			},
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{},
+				},
+			},
+		}
+		vmStateVolumes = []k8sv1.Volume{
+			{
+				Name: vmStateVolumeName,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "persistent-state-for-" + vmiName,
+					},
+				},
+			},
+		}
+		vmStateVolumeDevices = []k8sv1.VolumeDevice{
+			{
+				Name:       vmStateVolumeName,
+				DevicePath: "/dev/vm-state",
+			},
+		}
+		tpmStateVolumeMounts = []k8sv1.VolumeMount{
+			{Name: vmStateVolumeName, MountPath: "/var/lib/libvirt/swtpm", SubPath: "swtpm"},
+			{Name: vmStateVolumeName, MountPath: "/var/lib/swtpm-localca", SubPath: "swtpm-localca"},
+		}
+		nvramStateVolumeMounts = []k8sv1.VolumeMount{
+			{Name: vmStateVolumeName, MountPath: "/var/lib/libvirt/qemu/nvram", SubPath: "nvram"},
+		}
+	)
+
+	DescribeTable("Should generate correct volumes",
+		func(persistTPM, persistEFI *bool, volumeMode *k8sv1.PersistentVolumeMode, expectedVolumes []k8sv1.Volume, expectedVolumeMounts []k8sv1.VolumeMount, expectedVolumeDevices []k8sv1.VolumeDevice) {
+			vmi := baseVMI.DeepCopy()
+			if persistTPM != nil && *persistTPM {
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.Bool(true)}
+			}
+			if persistEFI != nil && *persistEFI {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{Persistent: pointer.Bool(true)},
+					},
+				}
+			}
+
+			var err error
+			r, err := NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, volumeMode))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.Volumes()).To(ConsistOf(append(defaultVolumes(), expectedVolumes...)))
+			Expect(r.Mounts()).To(ConsistOf(append(defaultVolumeMounts(), expectedVolumeMounts...)))
+			Expect(r.VolumeDevices()).To(ConsistOf(expectedVolumeDevices))
+		},
+
+		Entry("No TPM or EFI devices", nil, nil, &filesystemVolumeMode, []k8sv1.Volume{}, []k8sv1.VolumeMount{}, []k8sv1.VolumeDevice{}),
+		Entry("Non-persistent TPM and EFI", pointer.Bool(false), pointer.Bool(false), &blockVolumeMode, []k8sv1.Volume{}, []k8sv1.VolumeMount{}, []k8sv1.VolumeDevice{}),
+		Entry("Persistent TPM only, filesystem storage", pointer.Bool(true), pointer.Bool(false), &filesystemVolumeMode, vmStateVolumes, tpmStateVolumeMounts, []k8sv1.VolumeDevice{}),
+		Entry("Persistent EFI only, default volume mode", pointer.Bool(false), pointer.Bool(true), nil, vmStateVolumes, nvramStateVolumeMounts, []k8sv1.VolumeDevice{}),
+		Entry("Persistent EFI only, block storage", pointer.Bool(false), pointer.Bool(true), &blockVolumeMode, vmStateVolumes, []k8sv1.VolumeMount{}, vmStateVolumeDevices),
+		Entry("Persistent TPM and EFI, block storage", pointer.Bool(true), pointer.Bool(true), &blockVolumeMode, vmStateVolumes, []k8sv1.VolumeMount{}, vmStateVolumeDevices),
+	)
 })
 
 func vmiDiskPath(volumeName string) string {

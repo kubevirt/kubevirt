@@ -55,6 +55,17 @@ func IsDataVolumeGarbageCollected(pvc *k8sv1.PersistentVolumeClaim) bool {
 	return pvc != nil && pvc.Annotations[dataVolumeGarbageCollectionAnnotation] == "true"
 }
 
+func IsPVCBlockFromIndexer(indexer cache.Indexer, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
+	obj, exists, err := indexer.GetByKey(namespace + "/" + claimName)
+	if err != nil || !exists {
+		return nil, exists, false, err
+	}
+	if pvc, ok := obj.(*k8sv1.PersistentVolumeClaim); ok {
+		return obj.(*k8sv1.PersistentVolumeClaim), true, IsPVCBlock(pvc.Spec.VolumeMode), nil
+	}
+	return nil, false, false, fmt.Errorf("this is not a PVC! %v", obj)
+}
+
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
 	obj, exists, err := store.GetByKey(namespace + "/" + claimName)
 	if err != nil || !exists {

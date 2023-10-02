@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -51,6 +53,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -73,6 +76,8 @@ var _ = Describe("Migration watcher", func() {
 	var migrationPolicyInformer cache.SharedIndexInformer
 	var resourceQuotaInformer cache.SharedIndexInformer
 	var namespaceInformer cache.SharedIndexInformer
+	var storageClassInformer cache.SharedIndexInformer
+	var storageProfileInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
@@ -246,6 +251,8 @@ var _ = Describe("Migration watcher", func() {
 		go migrationPolicyInformer.Run(stop)
 		go resourceQuotaInformer.Run(stop)
 		go namespaceInformer.Run(stop)
+		go storageClassInformer.Run(stop)
+		go storageProfileInformer.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
@@ -255,6 +262,8 @@ var _ = Describe("Migration watcher", func() {
 			pdbInformer.HasSynced,
 			resourceQuotaInformer.HasSynced,
 			namespaceInformer.HasSynced,
+			storageClassInformer.HasSynced,
+			storageProfileInformer.HasSynced,
 			migrationPolicyInformer.HasSynced)).To(BeTrue())
 	}
 
@@ -262,7 +271,7 @@ var _ = Describe("Migration watcher", func() {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
 
 		controller, _ = NewMigrationController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore(), storageClassInformer.GetStore(), pvcInformer.GetIndexer(), storageProfileInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -292,6 +301,8 @@ var _ = Describe("Migration watcher", func() {
 		pdbInformer, _ = testutils.NewFakeInformerFor(&policyv1.PodDisruptionBudget{})
 		resourceQuotaInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+		storageClassInformer, _ = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+		storageProfileInformer, _ = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		migrationPolicyInformer, _ = testutils.NewFakeInformerFor(&migrationsv1.MigrationPolicy{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
