@@ -115,11 +115,6 @@ api_coverage_local_env:
     # upstream+forks: that's all folks
     - when: never
 
-# an old version without modules
-go_1_9:
-  <<: *go_build
-  image: golang:1.9
-
 # first version declared in go.mod
 go_1_11:
   <<: *go_build
@@ -131,6 +126,6 @@ go_1_16:
   image: golang:1.16
 
 # a quite new version
-go_1_19:
+go_1_20:
   <<: *go_build
-  image: golang:1.19
+  image: golang:1.20

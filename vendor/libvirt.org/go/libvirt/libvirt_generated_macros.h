@@ -29,7 +29,7 @@
 #pragma once
 
 #if !LIBVIR_CHECK_VERSION(0, 0, 1)
-#  define LIBVIR_VERSION_NUMBER 9000000
+#  define LIBVIR_VERSION_NUMBER 9004000
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 8, 0)
@@ -738,6 +738,14 @@
 
 #if !LIBVIR_CHECK_VERSION(1, 3, 4)
 #  define VIR_MIGRATE_PARAM_COMPRESSION_XBZRLE_CACHE "compression.xbzrle.cache"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(9, 4, 0)
+#  define VIR_MIGRATE_PARAM_COMPRESSION_ZLIB_LEVEL "compression.zlib.level"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(9, 4, 0)
+#  define VIR_MIGRATE_PARAM_COMPRESSION_ZSTD_LEVEL "compression.zstd.level"
 #endif
 
 #if !LIBVIR_CHECK_VERSION(1, 1, 0)
