@@ -2905,6 +2905,7 @@ var _ = Describe("Template", func() {
 				vmi.Spec.Networks = append(vmi.Spec.Networks, *v1.DefaultPodNetwork())
 				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *v1.DefaultSlirpNetworkInterface())
 
+				config, kvInformer, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2916,7 +2917,7 @@ var _ = Describe("Template", func() {
 				const slirpPluginSidecarImage = "kubevirt/network-slirp-binding:v1"
 				testBindingPluginNetConf := &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{"slirp": {SidecarImage: slirpPluginSidecarImage}}}
 
-				config, kvInformer, _ = configFactory(defaultArch)
+				config, kvInformer, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.NetworkConfiguration = testBindingPluginNetConf
 				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
