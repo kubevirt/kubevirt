@@ -1,0 +1,48 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "device.go",
+        "mount.go",
+        "pod.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/backendstorage",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/safepath:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
+        "//pkg/unsafepath:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/virt-controller/services:go_default_library",
+        "//pkg/virt-handler/isolation:go_default_library",
+        "//pkg/virt-handler/selinux:go_default_library",
+        "//pkg/virt-handler/virt-chroot:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/siderolabs/go-blockdevice/blockdevice/filesystem:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "backendstorage_suite_test.go",
+        "device_test.go",
+        "pod_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/safepath:go_default_library",
+        "//pkg/storage/backend-storage:go_default_library",
+        "//pkg/unsafepath:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/utils/pointer:go_default_library",
+    ],
+)

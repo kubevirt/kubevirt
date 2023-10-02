@@ -5,40 +5,70 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libmigration"
-
-	"kubevirt.io/kubevirt/tests/testsuite"
-
-	"kubevirt.io/kubevirt/tests/libnet"
-
-	"kubevirt.io/kubevirt/tests/libvmi"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/util"
 )
 
-var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.RequiresRWXFilesystemStorage, func() {
+type vmStatePersistenceOption struct {
+	WithTPM           bool
+	WithEFI           bool
+	BlockStorageClass *bool
+	VMDisk            *string
+	OrderedOperations []string
+}
+
+var (
+	vmStateBlockDVDisk       = "dv-block-order-1"
+	vmStateFilesystemPVCDisk = "pvc-fs-order"
+)
+
+var _ = Describe("[sig-storage]VM state", decorators.SigStorage, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
+	var dv *cdiv1.DataVolume
+	var pvc *k8sv1.PersistentVolumeClaim
 
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
+
+		// We create an empty DV and PVC which will be added to the VMs later.
+		// This is to test the auto creation of the persistent state PVC with
+		// proper storage class and volume mode.
+		dv, pvc, err = prepareVMStateDVAndPVC(virtClient, util.NamespaceTestDefault)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("with persistent TPM VM option enabled", func() {
+	AfterEach(func() {
+		err := cleanupVMStateEnv(virtClient, util.NamespaceTestDefault, dv, pvc)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	Context("with persistent VM state enabled", func() {
 		stopVM := func(vm *v1.VirtualMachine) {
 			By("Stopping the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
@@ -70,6 +100,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 
 		migrateVMI := func(vmi *v1.VirtualMachineInstance) {
 			By("Migrating the VMI")
+			checks.SkipIfMigrationIsNotPossible()
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
@@ -116,7 +147,29 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			}, 10)).To(Succeed(), "expected efivar is missing")
 		}
 
-		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI bool, ops ...string) {
+		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, Serial, func(option vmStatePersistenceOption) {
+			blockStorageClass, filesystemStorageClass, skip := getVMStateStorageClasses(&option)
+			if skip {
+				Skip(fmt.Sprintf("No storage class available. Block: %s, Filesystem: %s", blockStorageClass, filesystemStorageClass))
+			}
+
+			if option.BlockStorageClass != nil {
+				var storageClass string
+				var volumeMode k8sv1.PersistentVolumeMode
+				if *option.BlockStorageClass {
+					storageClass = blockStorageClass
+					volumeMode = k8sv1.PersistentVolumeBlock
+				} else {
+					storageClass = filesystemStorageClass
+					volumeMode = k8sv1.PersistentVolumeFilesystem
+				}
+				By(fmt.Sprintf("Using the storage class %s", storageClass))
+				kv := util.GetCurrentKv(virtClient)
+				kv.Spec.Configuration.VMStateStorageClass = storageClass
+				kv.Spec.Configuration.VMStateVolumeMode = &volumeMode
+				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+			}
+
 			By("Creating a migratable Fedora VM with UEFI")
 			vmi := libvmi.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -125,13 +178,17 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				libvmi.WithUefi(false),
 				libvmi.WithResourceMemory("1Gi"),
 			)
-			if withTPM {
+			vmi.Namespace = util.NamespaceTestDefault
+			err := addDiskFromVMStatePersistenceOption(vmi, &option, dv, pvc)
+			Expect(err).ToNot(HaveOccurred())
+
+			if option.WithTPM {
 				By("with persistent TPM enabled")
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.BoolPtr(true),
 				}
 			}
-			if withEFI {
+			if option.WithEFI {
 				By("with persistent EFI enabled")
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
@@ -140,20 +197,19 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 			}
 			vm := tests.NewRandomVirtualMachine(vmi, false)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm)
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
-			vmi.Namespace = vm.Namespace
 
 			startVM(vm)
 
-			if withTPM {
+			if option.WithTPM {
 				addDataToTPM(vmi)
 			}
-			if withEFI {
+			if option.WithEFI {
 				addDataToEFI(vmi)
 			}
 
-			for _, op := range ops {
+			for _, op := range option.OrderedOperations {
 				switch op {
 				case "migrate":
 					migrateVMI(vmi)
@@ -161,10 +217,10 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 					stopVM(vm)
 					startVM(vm)
 				}
-				if withTPM {
+				if option.WithTPM {
 					checkTPM(vmi)
 				}
-				if withEFI {
+				if option.WithEFI {
 					checkEFI(vmi)
 				}
 			}
@@ -172,21 +228,43 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			By("Stopping and removing the VM")
 			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachine(util.NamespaceTestDefault).Delete(context.Background(), vm.Name, &k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("TPM across migration and restart", true, false, "migrate", "restart"),
-			Entry("TPM across restart and migration", true, false, "restart", "migrate"),
-			Entry("EFI across migration and restart", false, true, "migrate", "restart"),
-			Entry("TPM+EFI across migration and restart", true, true, "migrate", "restart"),
+			Entry("TPM across migration and restart with filesystem backend determined from disk config", vmStatePersistenceOption{WithTPM: true, WithEFI: false, BlockStorageClass: nil, VMDisk: &vmStateFilesystemPVCDisk, OrderedOperations: []string{"migrate", "restart"}}),
+			Entry("TPM across restart and migration with filesystem backend determined from kubevirt config", vmStatePersistenceOption{WithTPM: true, WithEFI: false, BlockStorageClass: pointer.Bool(false), OrderedOperations: []string{"restart", "migrate"}}),
+			Entry("EFI across migration and restart with filesystem backend determined from kubevirt config", vmStatePersistenceOption{WithTPM: false, WithEFI: true, BlockStorageClass: pointer.Bool(false), OrderedOperations: []string{"migrate", "restart"}}),
+			Entry("TPM+EFI across migration and restart with filesystem backend determined from kubevirt config", vmStatePersistenceOption{WithTPM: true, WithEFI: true, BlockStorageClass: pointer.Bool(false), OrderedOperations: []string{"migrate", "restart"}}),
+			FEntry("TPM across migration and restart with block backend determined from kubevirt config", vmStatePersistenceOption{WithTPM: true, WithEFI: false, BlockStorageClass: pointer.Bool(true), OrderedOperations: []string{"migrate", "restart"}}),
+			FEntry("TPM across restart and migration with block backend determined from kubevirt config", vmStatePersistenceOption{WithTPM: true, WithEFI: false, BlockStorageClass: pointer.Bool(true), VMDisk: &vmStateFilesystemPVCDisk, OrderedOperations: []string{"restart", "migrate"}}),
+			FEntry("EFI across migration and restart with block backend determined from kubevirt config", vmStatePersistenceOption{WithTPM: true, WithEFI: true, BlockStorageClass: pointer.Bool(true), OrderedOperations: []string{"migrate", "restart"}}),
+			FEntry("TPM+EFI across migration and restart with block backend determined from disk config", vmStatePersistenceOption{WithTPM: true, WithEFI: true, BlockStorageClass: nil, VMDisk: &vmStateBlockDVDisk, OrderedOperations: []string{"migrate", "restart"}}),
 		)
-		It("should remove persistent storage PVC if VMI is not owned by a VM", func() {
+		DescribeTable("should remove persistent storage PVC if VMI is not owned by a VM", Serial, func(storageVolumeMode k8sv1.PersistentVolumeMode) {
+			By("Setting the backend storage class to the default for RWX FS")
+			var storageClass string
+			var exists bool
+			if storageVolumeMode == k8sv1.PersistentVolumeBlock {
+				storageClass, exists = libstorage.GetRWXBlockStorageClass()
+			} else {
+				storageClass, exists = libstorage.GetRWXFileSystemStorageClass()
+			}
+			if !exists {
+				Skip(fmt.Sprintf("No storage class available for %s mode", storageVolumeMode))
+			}
+			By(fmt.Sprintf("Using the storage class %s", storageClass))
+			kv := util.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.VMStateStorageClass = storageClass
+			kv.Spec.Configuration.VMStateVolumeMode = &storageVolumeMode
+			tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+
 			By("Creating a VMI with persistent TPM enabled")
 			vmi := tests.NewRandomFedoraVMI()
+			vmi.Namespace = util.NamespaceTestDefault
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 				Persistent: pointer.BoolPtr(true),
 			}
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the VMI to start")
@@ -197,7 +275,7 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Removing the VMI")
-			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{})
+			err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.Name, &k8smetav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the PVC gets deleted")
@@ -212,6 +290,115 @@ var _ = Describe("[sig-storage]VM state", decorators.SigStorage, decorators.Requ
 				}
 				return nil
 			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		})
+		},
+			Entry("with block storage", k8sv1.PersistentVolumeBlock),
+			Entry("with filesystem storage", k8sv1.PersistentVolumeFilesystem),
+		)
 	})
 })
+
+func getVMStateStorageClasses(o *vmStatePersistenceOption) (blockStorageClass string, filesystemStorageClass string, skip bool) {
+	var exist bool
+	if (o.BlockStorageClass != nil && *o.BlockStorageClass) || (o.VMDisk != nil && *o.VMDisk == vmStateBlockDVDisk) {
+		blockStorageClass, exist = libstorage.GetRWXBlockStorageClass()
+		skip = skip || !exist
+	} else {
+		filesystemStorageClass, exist = libstorage.GetRWXFileSystemStorageClass()
+		skip = skip || !exist
+	}
+	return
+}
+
+func addDiskFromVMStatePersistenceOption(vmi *v1.VirtualMachineInstance, o *vmStatePersistenceOption, dv *cdiv1.DataVolume, pvc *k8sv1.PersistentVolumeClaim) error {
+	if o.VMDisk == nil {
+		return nil
+	}
+	if *o.VMDisk == vmStateBlockDVDisk {
+		if dv == nil {
+			return fmt.Errorf("VMI uses block storage DV but this DV does not exists")
+		}
+		libstorage.AddDataVolumeDisk(vmi, "empty-disk", dv.Name)
+		tests.AddBootOrderToDisk(vmi, "disk0", pointer.Uint(1))
+		tests.AddBootOrderToDisk(vmi, "empty-disk", pointer.Uint(2))
+	} else if *o.VMDisk == vmStateFilesystemPVCDisk {
+		if pvc == nil {
+			return fmt.Errorf("VMI uses filesystem storage PVC but this PVC does not exists")
+		}
+		tests.AddPVCDisk(vmi, "empty-disk", v1.DiskBusVirtio, pvc.Name)
+	}
+	return nil
+}
+
+// prepareVMStateDVAndPVC creates an empty block mode DV and a filesystem mode
+// PVC.
+func prepareVMStateDVAndPVC(virtClient kubecli.KubevirtClient, namespace string) (*cdiv1.DataVolume, *k8sv1.PersistentVolumeClaim, error) {
+	var dv *cdiv1.DataVolume
+	var pvc *k8sv1.PersistentVolumeClaim
+	var err error
+
+	blockStorageClass, exists := libstorage.GetRWXBlockStorageClass()
+	if exists {
+		dv = libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithPVC(
+				libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
+				libdv.PVCWithBlockVolumeMode(),
+				libdv.PVCWithStorageClass(blockStorageClass),
+				libdv.PVCWithVolumeSize("16Mi"),
+			))
+		dv.Namespace = namespace
+		dv.Annotations = map[string]string{"cdi.kubevirt.io/storage.deleteAfterCompletion": "false"}
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, k8smetav1.CreateOptions{})
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	filesystemStorageClass, exists := libstorage.GetRWXFileSystemStorageClass()
+	if exists {
+		m := k8sv1.PersistentVolumeFilesystem
+		quantity, err := resource.ParseQuantity("12Mi")
+		if err != nil {
+			return nil, nil, err
+		}
+		pvc = &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      "test-pvc-" + rand.String(5),
+				Namespace: namespace,
+			},
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				StorageClassName: &filesystemStorageClass,
+				VolumeMode:       &m,
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+			},
+		}
+		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, k8smetav1.CreateOptions{})
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return dv, pvc, nil
+}
+
+func cleanupVMStateEnv(virtClient kubecli.KubevirtClient, namespace string, dv *cdiv1.DataVolume, pvc *k8sv1.PersistentVolumeClaim) error {
+	if dv != nil {
+		if err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Delete(context.Background(), dv.Name, k8smetav1.DeleteOptions{}); err != nil {
+			return err
+		}
+	}
+	if pvc != nil {
+		if err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), pvc.Name, k8smetav1.DeleteOptions{}); err != nil {
+			return err
+		}
+	}
+	kv := util.GetCurrentKv(virtClient)
+	kv.Spec.Configuration.VMStateStorageClass = ""
+	kv.Spec.Configuration.VMStateVolumeMode = nil
+	tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+	return nil
+}

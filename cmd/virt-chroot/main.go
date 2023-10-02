@@ -139,6 +139,10 @@ func main() {
 
 			fsType := cmd.Flag("type").Value.String()
 			mntOptions := cmd.Flag("options").Value.String()
+			rawPath, err := cmd.Flags().GetBool("raw-path")
+			if err != nil {
+				return err
+			}
 			for _, opt := range strings.Split(mntOptions, ",") {
 				opt = strings.TrimSpace(opt)
 				switch opt {
@@ -146,6 +150,12 @@ func main() {
 					mntOpts = mntOpts | syscall.MS_RDONLY
 				case "bind":
 					mntOpts = mntOpts | syscall.MS_BIND
+				case "sync":
+					mntOpts = mntOpts | syscall.MS_SYNC
+				case "":
+					if !rawPath {
+						return fmt.Errorf("empty option is only supported when --raw-path is used")
+					}
 				default:
 					return fmt.Errorf("mount option %s is not supported", opt)
 				}
@@ -169,11 +179,15 @@ func main() {
 			}
 			defer targetFile.Close()
 
+			if rawPath {
+				return syscall.Mount(args[0], args[1], fsType, uintptr(mntOpts), "")
+			}
 			return syscall.Mount(sourceFile.SafePath(), targetFile.SafePath(), fsType, uintptr(mntOpts), "")
 		},
 	}
 	mntCmd.Flags().StringP("options", "o", "", "comma separated list of mount options")
 	mntCmd.Flags().StringP("type", "t", "", "fstype")
+	mntCmd.Flags().BoolP("raw-path", "p", false, "using raw path")
 
 	umntCmd := &cobra.Command{
 		Use:   "umount",

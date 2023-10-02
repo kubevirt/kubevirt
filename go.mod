@@ -53,6 +53,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.37.0
+	github.com/siderolabs/go-blockdevice v0.4.6
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
@@ -136,6 +137,7 @@ require (
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/seccomp/libseccomp-golang v0.10.0 // indirect
+	github.com/siderolabs/go-retry v0.3.2 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/u-root/u-root v7.0.0+incompatible // indirect
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
