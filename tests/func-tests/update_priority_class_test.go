@@ -69,7 +69,7 @@ var _ = Describe("check update priorityClass", Ordered, Serial, func() {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			newUID = pc.UID
-			g.Expect(string(newUID)).ShouldNot(Or(Equal(""), Equal(oldPriorityClassUID)))
+			g.Expect(newUID).ShouldNot(Or(Equal(types.UID("")), Equal(oldPriorityClassUID)))
 			g.Expect(pc.GetLabels()).ShouldNot(HaveKey("test"))
 		}).WithTimeout(30 * time.Second).
 			WithPolling(100 * time.Millisecond).

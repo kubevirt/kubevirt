@@ -595,7 +595,7 @@ Version: 1.2.3`)
 				Expect(mdevConf).ToNot(BeNil())
 				Expect(mdevConf.MediatedDeviceTypes).To(HaveLen(2))
 				Expect(mdevConf.MediatedDeviceTypes).To(ContainElements("nvidia-222", "nvidia-230"))
-				Expect(mdevConf.MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 
 			})
 
@@ -626,7 +626,7 @@ Version: 1.2.3`)
 				Expect(mdevConf).ToNot(BeNil())
 				Expect(mdevConf.MediatedDeviceTypes).To(HaveLen(2))
 				Expect(mdevConf.MediatedDeviceTypes).To(ContainElements("nvidia-222", "nvidia-230"))
-				Expect(mdevConf.MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 
 			})
 
@@ -675,14 +675,14 @@ Version: 1.2.3`)
 				Expect(mdevConf).ToNot(BeNil())
 				Expect(mdevConf.MediatedDeviceTypes).To(HaveLen(2))
 				Expect(mdevConf.MediatedDeviceTypes).To(ContainElements("nvidia-222", "nvidia-230"))
-				Expect(mdevConf.MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 				Expect(mdevConf.NodeMediatedDeviceTypes).To(HaveLen(2))
 				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDeviceTypes).To(ContainElements("nvidia-223"))
 				Expect(mdevConf.NodeMediatedDeviceTypes[0].NodeSelector).To(HaveKeyWithValue("testLabel1", "true"))
-				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDeviceTypes).To(ContainElements("nvidia-229"))
 				Expect(mdevConf.NodeMediatedDeviceTypes[1].NodeSelector).To(HaveKeyWithValue("testLabel2", "true"))
-				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 
 			})
 			It("should propagate the mediated devices configuration from the HC with node selectors - mediatedDeviceTypes", func() {
@@ -730,14 +730,14 @@ Version: 1.2.3`)
 				Expect(mdevConf).ToNot(BeNil())
 				Expect(mdevConf.MediatedDeviceTypes).To(HaveLen(2))
 				Expect(mdevConf.MediatedDeviceTypes).To(ContainElements("nvidia-222", "nvidia-230"))
-				Expect(mdevConf.MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 				Expect(mdevConf.NodeMediatedDeviceTypes).To(HaveLen(2))
 				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDeviceTypes).To(ContainElements("nvidia-223"))
 				Expect(mdevConf.NodeMediatedDeviceTypes[0].NodeSelector).To(HaveKeyWithValue("testLabel1", "true"))
-				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.NodeMediatedDeviceTypes[0].MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDeviceTypes).To(ContainElements("nvidia-229"))
 				Expect(mdevConf.NodeMediatedDeviceTypes[1].NodeSelector).To(HaveKeyWithValue("testLabel2", "true"))
-				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDevicesTypes).To(HaveLen(0)) //nolint SA1019
+				Expect(mdevConf.NodeMediatedDeviceTypes[1].MediatedDevicesTypes).To(BeEmpty()) //nolint SA1019
 
 			})
 			It("should update the permitted host devices configuration from the HC - mediatedDeviceTypes", func() {
