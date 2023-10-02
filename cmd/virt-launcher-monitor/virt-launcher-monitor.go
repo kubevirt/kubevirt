@@ -38,6 +38,8 @@ import (
 
 	"golang.org/x/sys/unix"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -56,10 +58,59 @@ func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 	}
 }
 
+func createSerialConsoleTermFile(uid, suffix string) (bool, error) {
+	// Create a file that it will be removed to quickly signal the
+	// shutdown to the guest-console-log container in the case the sigterm signal got
+	// missed and some client process is still connected to the serial console socket
+	const serialPort = 0
+	if len(uid) > 0 {
+		logSigPath := fmt.Sprintf("%s/%s/virt-serial%d-log-sigTerm%s", util.VirtPrivateDir, uid, serialPort, suffix)
+
+		if _, err := os.Stat(logSigPath); os.IsNotExist(err) {
+			file, err := os.Create(logSigPath)
+			if err != nil {
+				log.Log.Reason(err).Errorf("could not create up serial console term file: %s", logSigPath)
+				return false, err
+			}
+			if err = file.Close(); err != nil {
+				log.Log.Reason(err).Errorf("could not create up serial console term file: %s", logSigPath)
+				return false, err
+			}
+			log.Log.V(3).Infof("serial console term file created: %s", logSigPath)
+			return true, nil
+		}
+	}
+	return false, nil
+
+}
+
+func removeSerialConsoleTermFile(uid string) {
+	// Delete a file (if there) to quickly signal the shutdown to the guest-console-log container in the case the sigterm signal got
+	// missed and some client process is still connected to the serial console socket
+	const serialPort = 0
+	if len(uid) > 0 {
+		logSigPath := fmt.Sprintf("%s/%s/virt-serial%d-log-sigTerm", util.VirtPrivateDir, uid, serialPort)
+
+		if _, err := os.Stat(logSigPath); err == nil {
+			rerr := os.Remove(logSigPath)
+			if rerr != nil {
+				log.Log.Reason(err).Errorf("could not delete serial console term file: %s", logSigPath)
+				return
+			}
+			log.Log.V(3).Infof("serial console term file deleted: %s", logSigPath)
+		}
+	}
+	// Create a second termination file for the unlikely case where virt-launcher-monitor
+	// has enough time to create and remove the termination file before virt-tail (asynchronously started)
+	// notices it.
+	createSerialConsoleTermFile(uid, "-done")
+}
+
 func main() {
 
 	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
 	keepAfterFailure := pflag.Bool("keep-after-failure", false, "virt-launcher will be kept alive after failure for debugging if set to true")
+	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
@@ -79,7 +130,7 @@ func main() {
 		}
 	}
 
-	exitCode, err := RunAndMonitor(*containerDiskDir)
+	exitCode, err := RunAndMonitor(*containerDiskDir, *uid)
 	if *keepAfterFailure && (exitCode != 0 || err != nil) {
 		log.Log.Infof("keeping virt-launcher container alive since --keep-after-failure is set to true")
 		<-make(chan struct{})
@@ -95,10 +146,23 @@ func main() {
 
 // RunAndMonitor run virt-launcher process and monitor it to give qemu an extra grace period to properly terminate
 // in case of crashes
-func RunAndMonitor(containerDiskDir string) (int, error) {
+func RunAndMonitor(containerDiskDir, uid string) (int, error) {
+	defer removeSerialConsoleTermFile(uid)
 	defer cleanupContainerDiskDirectory(containerDiskDir)
 	defer terminateIstioProxy()
 	args := removeArg(os.Args[1:], "--keep-after-failure")
+
+	go func() {
+		created := false
+		i := 0
+		for i < 100 && !created {
+			i = i + 1
+			created, err := createSerialConsoleTermFile(uid, "")
+			if err != nil || !created {
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}()
 
 	cmd := exec.Command("/usr/bin/virt-launcher", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{

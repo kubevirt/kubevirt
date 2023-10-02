@@ -745,10 +745,15 @@ func (VirtualMachineOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "VirtualMachineOptions holds the cluster level information regarding the virtual machine.",
 		"disableFreePageReporting": "DisableFreePageReporting disable the free page reporting of\nmemory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.\nThis will have effect only if AutoattachMemBalloon is not false and the vmi is not\nrequesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.",
+		"disableSerialConsoleLog":  "DisableSerialConsoleLog disables logging the auto-attached default serial console.\nIf not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.\nThe value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
 	}
 }
 
 func (DisableFreePageReporting) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (DisableSerialConsoleLog) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

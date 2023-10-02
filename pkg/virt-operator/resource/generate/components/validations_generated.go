@@ -1458,6 +1458,13 @@ var CRDsValidation map[string]string = map[string]string{
                     and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages),
                     in which free page reporting is always disabled.
                   type: object
+                disableSerialConsoleLog:
+                  description: DisableSerialConsoleLog disables logging the auto-attached
+                    default serial console. If not set, serial console logs will be
+                    written to a file and then streamed from a container named 'guest-console-log'.
+                    The value can be individually overridden for each VM, not relevant
+                    if AutoattachSerialConsole is disabled.
+                  type: object
               type: object
             vmStateStorageClass:
               description: VMStateStorageClass is the name of the storage class to
@@ -6001,6 +6008,13 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                        logSerialConsole:
+                          description: Whether to log the auto-attached default serial
+                            console or not. Serial console logs will be collect to
+                            a file and then streamed from a named 'guest-console-log'.
+                            Not relevant if autoattachSerialConsole is disabled. Defaults
+                            to cluster wide setting on VirtualMachineOptions.
+                          type: boolean
                         networkInterfaceMultiqueue:
                           description: If specified, virtual network interfaces configured
                             with a virtio bus will also enable the vhost multiqueue
@@ -10525,6 +10539,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                logSerialConsole:
+                  description: Whether to log the auto-attached default serial console
+                    or not. Serial console logs will be collect to a file and then
+                    streamed from a named 'guest-console-log'. Not relevant if autoattachSerialConsole
+                    is disabled. Defaults to cluster wide setting on VirtualMachineOptions.
+                  type: boolean
                 networkInterfaceMultiqueue:
                   description: If specified, virtual network interfaces configured
                     with a virtio bus will also enable the vhost multiqueue feature
@@ -13248,6 +13268,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - name
                     type: object
                   type: array
+                logSerialConsole:
+                  description: Whether to log the auto-attached default serial console
+                    or not. Serial console logs will be collect to a file and then
+                    streamed from a named 'guest-console-log'. Not relevant if autoattachSerialConsole
+                    is disabled. Defaults to cluster wide setting on VirtualMachineOptions.
+                  type: boolean
                 networkInterfaceMultiqueue:
                   description: If specified, virtual network interfaces configured
                     with a virtio bus will also enable the vhost multiqueue feature
@@ -15430,6 +15456,13 @@ var CRDsValidation map[string]string = map[string]string{
                             - name
                             type: object
                           type: array
+                        logSerialConsole:
+                          description: Whether to log the auto-attached default serial
+                            console or not. Serial console logs will be collect to
+                            a file and then streamed from a named 'guest-console-log'.
+                            Not relevant if autoattachSerialConsole is disabled. Defaults
+                            to cluster wide setting on VirtualMachineOptions.
+                          type: boolean
                         networkInterfaceMultiqueue:
                           description: If specified, virtual network interfaces configured
                             with a virtio bus will also enable the vhost multiqueue
@@ -19801,6 +19834,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     - name
                                     type: object
                                   type: array
+                                logSerialConsole:
+                                  description: Whether to log the auto-attached default
+                                    serial console or not. Serial console logs will
+                                    be collect to a file and then streamed from a
+                                    named 'guest-console-log'. Not relevant if autoattachSerialConsole
+                                    is disabled. Defaults to cluster wide setting
+                                    on VirtualMachineOptions.
+                                  type: boolean
                                 networkInterfaceMultiqueue:
                                   description: If specified, virtual network interfaces
                                     configured with a virtio bus will also enable
@@ -24956,6 +24997,14 @@ var CRDsValidation map[string]string = map[string]string{
                                         - name
                                         type: object
                                       type: array
+                                    logSerialConsole:
+                                      description: Whether to log the auto-attached
+                                        default serial console or not. Serial console
+                                        logs will be collect to a file and then streamed
+                                        from a named 'guest-console-log'. Not relevant
+                                        if autoattachSerialConsole is disabled. Defaults
+                                        to cluster wide setting on VirtualMachineOptions.
+                                      type: boolean
                                     networkInterfaceMultiqueue:
                                       description: If specified, virtual network interfaces
                                         configured with a virtio bus will also enable

@@ -34,6 +34,7 @@ import (
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -84,6 +85,9 @@ var _ = Describe("Template", func() {
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{},
+				VirtualMachineOptions: &v1.VirtualMachineOptions{
+					DisableSerialConsoleLog: &v1.DisableSerialConsoleLog{},
+				},
 			},
 		},
 		Status: v1.KubeVirtStatus{
@@ -4688,6 +4692,33 @@ var _ = Describe("Template", func() {
 			})
 		})
 	})
+
+	Context("with serial console", func() {
+		DescribeTable("check for guest-console-log container", func(autoattachSerialConsole, logSerialConsole, expected bool) {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
+			vmi.Spec.Domain.Devices.LogSerialConsole = &logSerialConsole
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pod).ToNot(BeNil())
+			containCGL := ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Name": Equal("guest-console-log"),
+			}))
+			if expected {
+				Expect(pod.Spec.Containers).To(containCGL)
+			} else {
+				Expect(pod.Spec.Containers).ToNot(containCGL)
+			}
+
+		},
+			Entry("with AutoattachSerialConsole and LogSerialConsole", true, true, true),
+			Entry("with AutoattachSerialConsole but not LogSerialConsole", true, false, false),
+			Entry("without AutoattachSerialConsole but with LogSerialConsole", false, true, false),
+			Entry("without AutoattachSerialConsole and without LogSerialConsole", false, false, false),
+		)
+	})
+
 })
 
 var _ = Describe("getResourceNameForNetwork", func() {

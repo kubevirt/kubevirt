@@ -621,6 +621,7 @@ var _ = Describe("Converter", func() {
 				MemBalloonStatsPeriod: 10,
 				EphemeraldiskCreator:  EphemeralDiskImageCreator,
 				FreePageReporting:     true,
+				SerialConsoleLog:      true,
 			}
 		})
 

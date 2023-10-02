@@ -452,6 +452,11 @@ type Devices struct {
 	// Whether to attach the default virtio-serial console or not.
 	// Serial console access will not be available if set to false. Defaults to true.
 	AutoattachSerialConsole *bool `json:"autoattachSerialConsole,omitempty"`
+	// Whether to log the auto-attached default serial console or not.
+	// Serial console logs will be collect to a file and then streamed from a named `guest-console-log`.
+	// Not relevant if autoattachSerialConsole is disabled.
+	// Defaults to cluster wide setting on VirtualMachineOptions.
+	LogSerialConsole *bool `json:"logSerialConsole,omitempty"`
 	// Whether to attach the Memory balloon device with default period.
 	// Period can be adjusted in virt-config.
 	// Defaults to true.

@@ -16510,6 +16510,10 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
+     "logSerialConsole": {
+      "description": "Whether to log the auto-attached default serial console or not. Serial console logs will be collect to a file and then streamed from a named `guest-console-log`. Not relevant if autoattachSerialConsole is disabled. Defaults to cluster wide setting on VirtualMachineOptions.",
+      "type": "boolean"
+     },
      "networkInterfaceMultiqueue": {
       "description": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
       "type": "boolean"
@@ -16537,6 +16541,9 @@
     }
    },
    "v1.DisableFreePageReporting": {
+    "type": "object"
+   },
+   "v1.DisableSerialConsoleLog": {
     "type": "object"
    },
    "v1.Disk": {
@@ -20567,6 +20574,10 @@
      "disableFreePageReporting": {
       "description": "DisableFreePageReporting disable the free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device. This will have effect only if AutoattachMemBalloon is not false and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.",
       "$ref": "#/definitions/v1.DisableFreePageReporting"
+     },
+     "disableSerialConsoleLog": {
+      "description": "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
+      "$ref": "#/definitions/v1.DisableSerialConsoleLog"
      }
     }
    },

@@ -2889,7 +2889,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		By("Verifying that all relevant images are without the digest on the source")
 		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
-			if container.Name == "container-disk-binary" || container.Name == "compute" {
+			if container.Name == "container-disk-binary" || container.Name == "compute" || container.Name == "guest-console-log" {
 				continue
 			}
 			Expect(container.Image).ToNot(ContainSubstring("@sha256:"), "image:%s should not contain the container digest for container %s", container.Image, container.Name)
@@ -2900,7 +2900,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		By("Collecting digest information from the container statuses")
 		imageIDs := map[string]string{}
 		for _, status := range append(pod.Status.ContainerStatuses, pod.Status.InitContainerStatuses...) {
-			if status.Name == "container-disk-binary" || status.Name == "compute" {
+			if status.Name == "container-disk-binary" || status.Name == "compute" || status.Name == "guest-console-log" {
 				continue
 			}
 			digest := digestRegex.FindString(status.ImageID)
@@ -2916,7 +2916,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		pod = tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 
 		for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
-			if container.Name == "container-disk-binary" || container.Name == "compute" {
+			if container.Name == "container-disk-binary" || container.Name == "compute" || container.Name == "guest-console-log" {
 				continue
 			}
 			digest := digestRegex.FindString(container.Image)
@@ -3160,18 +3160,18 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			}
 			migratableVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
-			By("creating a template for a pause pod with 2 dedicated CPU cores")
+			By("creating a template for a pause pod with 1 dedicated CPU core")
 			pausePod = tests.RenderPod("pause-", nil, nil)
 			pausePod.Spec.Containers[0].Name = "compute"
 			pausePod.Spec.Containers[0].Command = []string{"sleep"}
 			pausePod.Spec.Containers[0].Args = []string{"3600"}
 			pausePod.Spec.Containers[0].Resources = k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("2"),
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 				Limits: k8sv1.ResourceList{
-					k8sv1.ResourceCPU:    resource.MustParse("2"),
+					k8sv1.ResourceCPU:    resource.MustParse("1"),
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
 			}
