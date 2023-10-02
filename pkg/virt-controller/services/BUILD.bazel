@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "multus_annotations.go",
-        "net_binding.go",
         "nodeselectorrenderer.go",
         "rendercontainer.go",
         "renderresources.go",
@@ -58,7 +57,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "multus_annotations_test.go",
-        "net_binding_test.go",
         "nodeselectorrenderer_test.go",
         "rendercontainer_test.go",
         "renderresources_test.go",
@@ -81,7 +79,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//tests/libvmi:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",

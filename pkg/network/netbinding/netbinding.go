@@ -17,7 +17,7 @@
  *
  */
 
-package services
+package netbinding
 
 import (
 	"fmt"

@@ -90,6 +90,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
+
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 )
 
 const (
@@ -600,7 +602,7 @@ func (vca *VirtControllerApp) initCommon() {
 			}),
 		services.WithSidecarCreator(
 			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
-				return services.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
+				return netbinding.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
 			}),
 		services.WithEventRecorder(vca.vmiRecorder),
 	)
