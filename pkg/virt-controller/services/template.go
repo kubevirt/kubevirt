@@ -162,6 +162,8 @@ type templateService struct {
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
 	recorder                   record.EventRecorder
+
+	sidecarCreators []SidecarCreatorFunc
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -359,17 +361,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	ovmfPath := t.clusterConfig.GetOVMFPath(vmi.Spec.Architecture)
 
-	// Read requested hookSidecars from VMI meta
-	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
-	if err != nil {
-		return nil, err
+	var requestedHookSidecarList hooks.HookSidecarList
+	for _, sidecarCreator := range t.sidecarCreators {
+		sidecars, err := sidecarCreator(vmi, t.clusterConfig.GetConfig())
+		if err != nil {
+			return nil, err
+		}
+		requestedHookSidecarList = append(requestedHookSidecarList, sidecars...)
 	}
-
-	bindingSidecars, err := NetBindingPluginSidecarList(vmi, t.clusterConfig.GetConfig(), t.recorder)
-	if err != nil {
-		return nil, err
-	}
-	requestedHookSidecarList = append(requestedHookSidecarList, bindingSidecars...)
 
 	var command []string
 	if tempPod {

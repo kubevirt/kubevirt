@@ -27,6 +27,10 @@ import (
 	"path/filepath"
 	"time"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/hooks"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -590,6 +594,14 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.exporterImage,
 		vca.resourceQuotaInformer.GetStore(),
 		vca.namespaceStore,
+		services.WithSidecarCreator(
+			func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+				return hooks.UnmarshalHookSidecarList(vmi)
+			}),
+		services.WithSidecarCreator(
+			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+				return services.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
+			}),
 		services.WithEventRecorder(vca.vmiRecorder),
 	)
 

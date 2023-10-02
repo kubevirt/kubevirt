@@ -10,6 +10,7 @@ go_library(
         "renderresources.go",
         "rendervolumes.go",
         "serialconsolelog.go",
+        "sidecar.go",
         "template.go",
         "virtiofs.go",
     ],

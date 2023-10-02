@@ -61,6 +61,8 @@ import (
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
+var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
+
 var _ = Describe("Template", func() {
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, TemplateService)
 	var qemuGid int64 = 107
@@ -130,6 +132,14 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithEventRecorder(record.NewFakeRecorder(1)),
+				WithSidecarCreator(
+					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+						return hooks.UnmarshalHookSidecarList(vmi)
+					}),
+				WithSidecarCreator(
+					func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+						return NetBindingPluginSidecarList(vmi, kvc, record.NewFakeRecorder(1))
+					}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -2897,6 +2907,37 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		It("should call sidecar creators", func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, defaultArch)
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithEventRecorder(record.NewFakeRecorder(1)),
+				WithSidecarCreator(testSidecarCreator),
+			)
+			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
+				Name: "testvmi", Namespace: "default", UID: "1234",
+			}}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers).To(HaveLen(2))
+			Expect(pod.Spec.Containers[1].Image).To(Equal(testHookSidecar.Image))
+			Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(testHookSidecar.ImagePullPolicy))
+		})
+
 		Context("with slirp interface", func() {
 			It("should add slirp network binding hook sidecar container with default image when no image is registered", func() {
 				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
@@ -4721,6 +4762,10 @@ var _ = Describe("Template", func() {
 	})
 
 })
+
+func testSidecarCreator(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+	return []hooks.HookSidecar{testHookSidecar}, nil
+}
 
 var _ = Describe("getResourceNameForNetwork", func() {
 	It("should return empty string when resource name is not specified", func() {
