@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
+	"fmt"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -31,6 +32,8 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -468,18 +471,21 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			cause0 := apiStatus.Status().Details.Causes[0]
 			Expect(cause0.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause0.Message).To(Equal("VM field conflicts with selected Instancetype"))
-			Expect(cause0.Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+			cpuSocketsField := "spec.template.spec.domain.cpu.sockets"
+			Expect(cause0.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuSocketsField)))
+			Expect(cause0.Field).To(Equal(cpuSocketsField))
 
 			cause1 := apiStatus.Status().Details.Causes[1]
 			Expect(cause1.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause1.Message).To(Equal("VM field conflicts with selected Instancetype"))
-			Expect(cause1.Field).To(Equal("spec.template.spec.domain.cpu.cores"))
+			cpuCoresField := "spec.template.spec.domain.cpu.cores"
+			Expect(cause1.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuCoresField)))
+			Expect(cause1.Field).To(Equal(cpuCoresField))
 
 			cause2 := apiStatus.Status().Details.Causes[2]
 			Expect(cause2.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause2.Message).To(Equal("VM field conflicts with selected Instancetype"))
-			Expect(cause2.Field).To(Equal("spec.template.spec.domain.cpu.threads"))
+			cpuThreadsField := "spec.template.spec.domain.cpu.threads"
+			Expect(cause2.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuThreadsField)))
+			Expect(cause2.Field).To(Equal(cpuThreadsField))
 		})
 
 		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
@@ -506,7 +512,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			cause := apiStatus.Status().Details.Causes[0]
 
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause.Message).To(Equal("VM field conflicts with selected Instancetype"))
+			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
 			Expect(cause.Field).To(Equal(expectedField))
 		},
 			Entry("CPU resource requests", virtv1.ResourceRequirements{

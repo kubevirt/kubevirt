@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	VMFieldConflictErrorFmt                         = "VM field %s conflicts with selected instance type"
 	InsufficientInstanceTypeCPUResourcesErrorFmt    = "insufficient CPU resources of %d vCPU provided by instance type, preference requires %d vCPU"
 	InsufficientVMCPUResourcesErrorFmt              = "insufficient CPU resources of %d vCPU provided by VirtualMachine, preference requires %d vCPU provided as %s"
 	InsufficientInstanceTypeMemoryResourcesErrorFmt = "insufficient Memory resources of %s provided by instance type, preference requires %s"

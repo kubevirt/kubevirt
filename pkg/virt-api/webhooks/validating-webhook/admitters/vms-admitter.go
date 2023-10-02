@@ -289,7 +289,7 @@ func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*inst
 	for _, conflict := range conflicts {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "VM field conflicts with selected Instancetype",
+			Message: fmt.Sprintf(instancetype.VMFieldConflictErrorFmt, conflict.String()),
 			Field:   conflict.String(),
 		})
 	}
