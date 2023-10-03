@@ -137,6 +137,30 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *admissi
 					},
 				},
 			},
+			{
+				Name:                    "kubevirt-create-validator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{core.GroupName},
+						APIVersions: virtv1.ApiSupportedWebhookVersions,
+						Resources:   []string{"kubevirts"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: operatorNamespace,
+						Name:      VirtOperatorServiceName,
+						Path:      pointer.String(KubeVirtCreateValidatePath),
+					},
+				},
+			},
 		},
 	}
 }
@@ -802,6 +826,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 }
 
 const KubeVirtUpdateValidatePath = "/kubevirt-validate-update"
+
+const KubeVirtCreateValidatePath = "/kubevirt-validate-create"
 
 const VMICreateValidatePath = "/virtualmachineinstances-validate-create"
 

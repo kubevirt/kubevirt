@@ -2240,37 +2240,15 @@ spec:
 			allPodsAreReady(kv)
 		})
 
+		// TODO: not Serial
 		It("[test_id:3152]should fail if KV object already exists", func() {
 
 			newKv := copyOriginalKv()
 			newKv.Name = "someother-kubevirt"
 
 			By("Creating another KubeVirt object")
-			createKv(newKv)
-			By("Waiting for duplicate KubeVirt object to fail")
-			Eventually(func() error {
-				kv, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Get(newKv.Name, &metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-
-				failed := false
-				for _, condition := range kv.Status.Conditions {
-					if condition.Type == v1.KubeVirtConditionSynchronized &&
-						condition.Status == k8sv1.ConditionFalse &&
-						condition.Reason == "ExistingDeployment" {
-						failed = true
-					}
-				}
-
-				if !failed {
-					return fmt.Errorf("Waiting for sync failed condition")
-				}
-				return nil
-			}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-			By("Deleting duplicate KubeVirt Object")
-			deleteAllKvAndWait(true)
+			_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
+			Expect(err).To(MatchError(ContainSubstring("Kubevirt is already created")))
 		})
 
 		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
