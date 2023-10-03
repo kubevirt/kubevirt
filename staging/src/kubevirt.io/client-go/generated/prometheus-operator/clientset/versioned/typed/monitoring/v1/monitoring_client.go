@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	rest "k8s.io/client-go/rest"
 	"kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme"
 )
