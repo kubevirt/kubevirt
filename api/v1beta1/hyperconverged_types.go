@@ -458,7 +458,9 @@ type MediatedHostDevice struct {
 
 // MediatedDevicesConfiguration holds information about MDEV types to be defined, if available
 // +k8s:openapi-gen=true
+// +kubebuilder:validation:XValidation:rule="(has(self.mediatedDeviceTypes) && size(self.mediatedDeviceTypes)>0) || (has(self.mediatedDevicesTypes) && size(self.mediatedDevicesTypes)>0)",message="for mediatedDevicesConfiguration a non-empty mediatedDeviceTypes or mediatedDevicesTypes(deprecated) is required"
 type MediatedDevicesConfiguration struct {
+	// +optional
 	// +listType=atomic
 	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
 
@@ -474,18 +476,21 @@ type MediatedDevicesConfiguration struct {
 
 // NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.
 // +k8s:openapi-gen=true
+// +kubebuilder:validation:XValidation:rule="(has(self.mediatedDeviceTypes) && size(self.mediatedDeviceTypes)>0) || (has(self.mediatedDevicesTypes) && size(self.mediatedDevicesTypes)>0)",message="for nodeMediatedDeviceTypes a non-empty mediatedDeviceTypes or mediatedDevicesTypes(deprecated) is required"
 type NodeMediatedDeviceTypesConfig struct {
+
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
 	// Selector which must match a node's labels for the vmi to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 	NodeSelector map[string]string `json:"nodeSelector"`
 
 	// +listType=atomic
+	// +optional
 	MediatedDeviceTypes []string `json:"mediatedDeviceTypes"`
 
 	// Deprecated: please use mediatedDeviceTypes instead.
-	// +optional
 	// +listType=atomic
+	// +optional
 	MediatedDevicesTypes []string `json:"mediatedDevicesTypes"`
 }
 

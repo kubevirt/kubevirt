@@ -857,7 +857,6 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_MediatedDevices
 						},
 					},
 				},
-				Required: []string{"mediatedDeviceTypes"},
 			},
 		},
 		Dependencies: []string{
@@ -972,7 +971,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_NodeMediatedDev
 						},
 					},
 				},
-				Required: []string{"nodeSelector", "mediatedDeviceTypes"},
+				Required: []string{"nodeSelector"},
 			},
 		},
 	}

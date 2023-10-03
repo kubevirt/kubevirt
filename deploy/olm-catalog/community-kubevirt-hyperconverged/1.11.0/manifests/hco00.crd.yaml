@@ -2260,14 +2260,21 @@ spec:
                             More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                           type: object
                       required:
-                      - mediatedDeviceTypes
                       - nodeSelector
                       type: object
+                      x-kubernetes-validations:
+                      - message: for nodeMediatedDeviceTypes a non-empty mediatedDeviceTypes
+                          or mediatedDevicesTypes(deprecated) is required
+                        rule: (has(self.mediatedDeviceTypes) && size(self.mediatedDeviceTypes)>0)
+                          || (has(self.mediatedDevicesTypes) && size(self.mediatedDevicesTypes)>0)
                     type: array
                     x-kubernetes-list-type: atomic
-                required:
-                - mediatedDeviceTypes
                 type: object
+                x-kubernetes-validations:
+                - message: for mediatedDevicesConfiguration a non-empty mediatedDeviceTypes
+                    or mediatedDevicesTypes(deprecated) is required
+                  rule: (has(self.mediatedDeviceTypes) && size(self.mediatedDeviceTypes)>0)
+                    || (has(self.mediatedDevicesTypes) && size(self.mediatedDevicesTypes)>0)
               obsoleteCPUs:
                 description: ObsoleteCPUs allows avoiding scheduling of VMs for obsolete
                   CPU models
