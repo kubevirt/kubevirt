@@ -87,23 +87,6 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
 	}
 
-	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
-	if util.IsNonRootVMI(vmi) {
-		ownerID = util.NonRootUID
-	}
-	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
-	netpod := netpod.NewNetPod(
-		vmi.Spec.Networks,
-		vmi.Spec.Domain.Devices.Interfaces,
-		string(vmi.UID),
-		launcherPid,
-		ownerID,
-		queuesCapacity,
-		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
-		netpod.WithCacheCreator(c.cacheCreator),
-	)
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
-
 	c.configStateMutex.RLock()
 	configState, ok := c.configState[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
@@ -121,8 +104,23 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		c.configStateMutex.Unlock()
 	}
 
+	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
+	if util.IsNonRootVMI(vmi) {
+		ownerID = util.NonRootUID
+	}
+	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
+	netpod := netpod.NewNetPod(
+		vmi.Spec.Networks,
+		vmi.Spec.Domain.Devices.Interfaces,
+		string(vmi.UID),
+		launcherPid,
+		ownerID,
+		queuesCapacity,
+		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
+		netpod.WithCacheCreator(c.cacheCreator),
+	)
+	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
 	err := netConfigurator.SetupPodNetworkPhase1(networks, configState)
-
 	if err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
