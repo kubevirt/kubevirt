@@ -20,11 +20,7 @@
 package network
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	"github.com/golang/mock/gomock"
 
@@ -56,7 +52,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Name:          "default",
 				NetworkSource: v1.NetworkSource{},
 			}}
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(0))
+			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithLauncherPid(0))
 			var domain *api.Domain
 			err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
 			Expect(err).To(MatchError("Network not implemented"))
@@ -77,7 +73,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				}}
 
 				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil, WithNetSetup(netpodStub{}), WithLauncherPid(launcherPID))
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil, WithLauncherPid(launcherPID))
 
 				nics, err := vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
@@ -86,34 +82,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		})
 	})
 
-	Context("pod network phase1", func() {
-		var (
-			vmi         *v1.VirtualMachineInstance
-			configState ConfigState
-		)
-
-		BeforeEach(func() {
-			dutils.MockDefaultOwnershipManager()
-
-			vmi = newVMIBridgeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			stateCache := NewConfigStateCache(string(vmi.UID), &baseCacheCreator)
-			configState = NewConfigState(&stateCache, nsExecutorStub{})
-		})
-
-		It("fails setup during network setup", func() {
-			netPodWithError := netpodStub{errSetup: fmt.Errorf("config error")}
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netPodWithError))
-			err := vmNetworkConfigurator.SetupPodNetworkPhase1(vmi.Spec.Networks, &configState)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("is passing setup successfully", func() {
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithLauncherPid(0))
-			Expect(vmNetworkConfigurator.SetupPodNetworkPhase1(vmi.Spec.Networks, &configState)).To(Succeed())
-		})
-	})
 	Context("UnplugPodNetworksPhase1", func() {
 		var (
 			vmi                   *v1.VirtualMachineInstance
@@ -124,7 +92,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
 			vmi.Spec.Networks = []v1.Network{}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil, WithNetSetup(netpodStub{}), WithLauncherPid(0))
+			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil, WithLauncherPid(0))
 		})
 		It("should succeed on successful Unplug", func() {
 			configState = &ConfigStateStub{}
@@ -157,7 +125,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					Multus: &v1.MultusNetwork{},
 				},
 			}}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetSetup(netpodStub{}), WithNetUtilsHandler(mockNetworkH), WithLauncherPid(0))
+			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetUtilsHandler(mockNetworkH), WithLauncherPid(0))
 		})
 		It("shouldn't filter the network, it has non-ordinal name", func() {
 			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: hashPodIfaceName}}, nil)

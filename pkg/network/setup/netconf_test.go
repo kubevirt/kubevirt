@@ -38,10 +38,15 @@ import (
 )
 
 var _ = Describe("netconf", func() {
+	const (
+		testNetworkName = "default"
+	)
 	var (
 		netConf   *netsetup.NetConf
 		vmi       *v1.VirtualMachineInstance
 		configMap map[string]netsetup.ConfigStateExecutor
+
+		configState netsetup.ConfigStateStub
 	)
 
 	const launcherPid = 0
@@ -50,11 +55,51 @@ var _ = Describe("netconf", func() {
 		configMap = map[string]netsetup.ConfigStateExecutor{}
 		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, configMap)
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
+
+		configState = netsetup.ConfigStateStub{}
 	})
 
-	It("runs setup successfully", func() {
+	It("runs setup successfully without networks", func() {
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 	})
+
+	It("runs setup successfully with networks", func() {
+		configMap[string(vmi.UID)] = &configState
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+		}}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(configState.Networks).To(Equal([]string{testNetworkName}))
+	})
+
+	DescribeTable("setup ignores specific network bindings", func(binding v1.InterfaceBindingMethod) {
+		configMap[string(vmi.UID)] = &configState
+
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: binding,
+		}}
+		emptyBindingMethod := v1.InterfaceBindingMethod{}
+		if binding == emptyBindingMethod {
+			vmi.Spec.Domain.Devices.Interfaces[0].Binding = &v1.PluginBinding{}
+		}
+		vmi.Spec.Networks = []v1.Network{{
+			Name:          testNetworkName,
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+		}}
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(configState.Networks).To(BeEmpty())
+	},
+		Entry("binding", v1.InterfaceBindingMethod{}),
+		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
+		Entry("macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}),
+	)
 
 	It("fails the pre-setup run", func() {
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)).NotTo(Succeed())
@@ -63,10 +108,11 @@ var _ = Describe("netconf", func() {
 	It("fails the setup run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, configMap)
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name: "default",
+			Name:                   testNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 		}}
 		vmi.Spec.Networks = []v1.Network{{
-			Name:          "default",
+			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
@@ -83,10 +129,7 @@ var _ = Describe("netconf", func() {
 			nadName = "blue"
 		)
 
-		var configState netsetup.ConfigStateStub
-
 		BeforeEach(func() {
-			configState = netsetup.ConfigStateStub{}
 			configMap[string(vmi.UID)] = &configState
 
 			vmi.Spec.Networks = []v1.Network{{
@@ -106,13 +149,13 @@ var _ = Describe("netconf", func() {
 
 			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 			Expect(configState.UnplugWasExecuted).To(BeTrue())
-			Expect(configState.RunWasExecuted).To(BeTrue())
+			Expect(configState.Networks).To(Equal([]string{netName}))
 		})
 
 		It("runs setup successfully when there are no absent interfaces", func() {
 			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
 			Expect(configState.UnplugWasExecuted).To(BeFalse())
-			Expect(configState.RunWasExecuted).To(BeTrue())
+			Expect(configState.Networks).To(Equal([]string{netName}))
 		})
 	})
 })

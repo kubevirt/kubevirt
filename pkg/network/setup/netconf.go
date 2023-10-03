@@ -119,9 +119,12 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 		netpod.WithCacheCreator(c.cacheCreator),
 	)
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithNetSetup(netpod), WithLauncherPid(launcherPid))
-	err := netConfigurator.SetupPodNetworkPhase1(networks, configState)
+
+	networkNames, err := networkNamesToSetup(networks, vmi.Spec.Domain.Devices.Interfaces)
 	if err != nil {
+		return err
+	}
+	if err := configState.Run(networkNames, netpod.Setup); err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
 
@@ -190,4 +193,23 @@ func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
 			masquerade.WithLegacyMigrationPorts(),
 		)
 	}
+}
+
+func networkNamesToSetup(specNetworks []v1.Network, specInterfaces []v1.Interface) ([]string, error) {
+	var networkNames []string
+	for _, network := range specNetworks {
+		iface := netvmispec.LookupInterfaceByName(specInterfaces, network.Name)
+		if iface == nil {
+			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
+		}
+
+		// Some bindings are not participating in phase 1.
+		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
+			continue
+		}
+
+		networkNames = append(networkNames, network.Name)
+	}
+
+	return networkNames, nil
 }
