@@ -102,16 +102,15 @@ import (
 )
 
 const (
-	BinBash                     = "/bin/bash"
-	StartingVMInstance          = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart      = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue         = "echo $?\n"
-	CustomHostPath              = "custom-host-path"
-	DiskAlpineHostPath          = "disk-alpine-host-path"
-	DiskWindowsSysprep          = "disk-windows-sysprep"
-	DiskCustomHostPath          = "disk-custom-host-path"
-	defaultDiskSize             = "1Gi"
-	ContainerCompletionWaitTime = 60
+	BinBash                = "/bin/bash"
+	StartingVMInstance     = "Starting a VirtualMachineInstance"
+	WaitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue    = "echo $?\n"
+	CustomHostPath         = "custom-host-path"
+	DiskAlpineHostPath     = "disk-alpine-host-path"
+	DiskWindowsSysprep     = "disk-windows-sysprep"
+	DiskCustomHostPath     = "disk-custom-host-path"
+	defaultDiskSize        = "1Gi"
 )
 
 func TestCleanup() {
