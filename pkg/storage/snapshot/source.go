@@ -268,16 +268,8 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		}
 		vmCpy.ObjectMeta = metaObj
 
-		vmi, exists, err := s.controller.getVMI(s.vm)
-		if err != nil {
-			return snapshotv1.SourceSpec{}, err
-		}
-		if !exists {
-			return snapshotv1.SourceSpec{}, fmt.Errorf("can't get online snapshot spec, vmi doesn't exist")
-		}
-		vmi.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
-		vmi.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
-		vmCpy.Spec.Template.Spec = vmi.Spec
+		vmCpy.Spec.Template.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
+		vmCpy.Spec.Template.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
 	} else {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
