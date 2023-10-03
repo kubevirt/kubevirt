@@ -6,6 +6,7 @@ go_library(
         "discover.go",
         "discoverbridge.go",
         "netpod.go",
+        "state.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/setup/netpod",
     visibility = ["//visibility:public"],
@@ -33,6 +34,7 @@ go_test(
     srcs = [
         "netpod_suite_test.go",
         "netpod_test.go",
+        "state_test.go",
     ],
     deps = [
         ":go_default_library",

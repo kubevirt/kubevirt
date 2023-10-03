@@ -49,13 +49,13 @@ type cacheCreator interface {
 
 type ConfigStateExecutor interface {
 	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
-	Run(networkNames []string, setupFunc func(func() error) error) error
 }
 
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
 	configState      map[string]ConfigStateExecutor
+	state            map[string]*netpod.State
 	configStateMutex *sync.RWMutex
 }
 
@@ -69,12 +69,13 @@ func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
 	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory, map[string]ConfigStateExecutor{})
+	}, cacheFactory, map[string]ConfigStateExecutor{}, map[string]*netpod.State{})
 }
 
-func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]ConfigStateExecutor) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]ConfigStateExecutor, state map[string]*netpod.State) *NetConf {
 	return &NetConf{
 		configState:      configState,
+		state:            state,
 		configStateMutex: &sync.RWMutex{},
 		cacheCreator:     cacheCreator,
 		nsFactory:        nsFactory,
@@ -89,6 +90,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 	c.configStateMutex.RLock()
 	configState, ok := c.configState[string(vmi.UID)]
+	state := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
 		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
@@ -99,8 +101,10 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		ns := c.nsFactory(launcherPid)
 		newConfigState := NewConfigState(configStateCache, ns)
 		configState = &newConfigState
+		state = netpod.NewState(configStateCache, ns)
 		c.configStateMutex.Lock()
 		c.configState[string(vmi.UID)] = configState
+		c.state[string(vmi.UID)] = state
 		c.configStateMutex.Unlock()
 	}
 
@@ -116,15 +120,12 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		launcherPid,
 		ownerID,
 		queuesCapacity,
+		state,
 		netpod.WithMasqueradeAdapter(newMasqueradeAdapter(vmi)),
 		netpod.WithCacheCreator(c.cacheCreator),
 	)
 
-	networkNames, err := networkNamesToSetup(networks, vmi.Spec.Domain.Devices.Interfaces)
-	if err != nil {
-		return err
-	}
-	if err := configState.Run(networkNames, netpod.Setup); err != nil {
+	if err := netpod.Setup(); err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
 
@@ -133,11 +134,9 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	})
 	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
 	if len(absentIfaces) != 0 {
-		err = c.hotUnplugInterfaces(vmi, absentNets, configState, launcherPid)
-	}
-
-	if err != nil {
-		return err
+		if err := c.hotUnplugInterfaces(vmi, absentNets, configState, launcherPid); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -193,23 +192,4 @@ func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
 			masquerade.WithLegacyMigrationPorts(),
 		)
 	}
-}
-
-func networkNamesToSetup(specNetworks []v1.Network, specInterfaces []v1.Interface) ([]string, error) {
-	var networkNames []string
-	for _, network := range specNetworks {
-		iface := netvmispec.LookupInterfaceByName(specInterfaces, network.Name)
-		if iface == nil {
-			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
-		}
-
-		// Some bindings are not participating in phase 1.
-		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
-			continue
-		}
-
-		networkNames = append(networkNames, network.Name)
-	}
-
-	return networkNames, nil
 }

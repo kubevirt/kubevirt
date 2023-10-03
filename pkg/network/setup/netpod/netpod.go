@@ -57,6 +57,10 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type NSExecutor interface {
+	Do(func() error) error
+}
+
 type NetPod struct {
 	vmiSpecIfaces []v1.Interface
 	vmiSpecNets   []v1.Network
@@ -69,11 +73,12 @@ type NetPod struct {
 	masqueradeAdapter masqueradeAdapter
 
 	cacheCreator cacheCreator
+	state        *State
 }
 
 type option func(*NetPod)
 
-func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string, podPID, ownerID, queuesCapacity int, opts ...option) NetPod {
+func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string, podPID, ownerID, queuesCapacity int, state *State, opts ...option) NetPod {
 	n := NetPod{
 		vmiSpecIfaces: vmiIfaces,
 		vmiSpecNets:   vmiNetworks,
@@ -81,6 +86,7 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 		podPID:        podPID,
 		ownerID:       ownerID,
 		queuesCap:     queuesCapacity,
+		state:         state,
 
 		nmstateAdapter:    nmstate.New(),
 		masqueradeAdapter: masquerade.New(),
@@ -111,30 +117,61 @@ func WithCacheCreator(c cacheCreator) option {
 	}
 }
 
-func (n NetPod) Setup(postDiscoveryHook func() error) error {
-	currentStatus, err := n.nmstateAdapter.Read()
+func (n NetPod) Setup() error {
+	// Not all network bindings are processed in the network setup.
+	filteredNets, err := filterSupportedBindingNetworks(n.vmiSpecNets, n.vmiSpecIfaces)
 	if err != nil {
 		return err
 	}
 
-	currentStatusBytes, err := json.Marshal(currentStatus)
+	pendingNets, startedNets, err := n.state.PendingAndStarted(filteredNets)
 	if err != nil {
 		return err
 	}
-	log.Log.Infof("Current pod network: %s", currentStatusBytes)
-
-	if derr := n.discover(currentStatus); derr != nil {
-		return derr
+	if len(startedNets) > 0 {
+		return neterrors.CreateCriticalNetworkError(
+			fmt.Errorf("preparation for networks %v cannot be restarted", startedNets),
+		)
+	}
+	if len(pendingNets) == 0 {
+		return nil
 	}
 
-	if err = postDiscoveryHook(); err != nil {
+	err = n.state.NSExec.Do(func() error {
+		currentStatus, err := n.nmstateAdapter.Read()
+		if err != nil {
+			return err
+		}
+
+		currentStatusBytes, err := json.Marshal(currentStatus)
+		if err != nil {
+			return err
+		}
+		log.Log.Infof("Current pod network: %s", currentStatusBytes)
+
+		if derr := n.discover(currentStatus); derr != nil {
+			return derr
+		}
+
+		if serr := n.state.SetStarted(pendingNets); serr != nil {
+			return serr
+		}
+
+		if err = n.config(currentStatus); err != nil {
+			log.Log.Reason(err).Errorf("failed to configure pod network")
+			return neterrors.CreateCriticalNetworkError(err)
+		}
+
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 
-	if err = n.config(currentStatus); err != nil {
-		log.Log.Reason(err).Errorf("failed to configure pod network")
-		return neterrors.CreateCriticalNetworkError(err)
+	if serr := n.state.SetFinished(pendingNets); serr != nil {
+		return serr
 	}
+
 	return nil
 }
 
@@ -464,4 +501,22 @@ func includesOrdinalNames(ifaces []nmstate.Interface) bool {
 		}
 	}
 	return false
+}
+
+func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []v1.Interface) ([]v1.Network, error) {
+	var networks []v1.Network
+	for _, network := range specNetworks {
+		iface := vmispec.LookupInterfaceByName(specInterfaces, network.Name)
+		if iface == nil {
+			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
+		}
+
+		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
+			continue
+		}
+
+		networks = append(networks, network)
+	}
+
+	return networks, nil
 }

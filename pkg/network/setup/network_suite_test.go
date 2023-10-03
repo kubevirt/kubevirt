@@ -112,7 +112,6 @@ func (n nsExecutorStub) Do(f func() error) error {
 type ConfigStateStub struct {
 	UnplugShouldFail  bool
 	UnplugWasExecuted bool
-	Networks          []string
 }
 
 func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func([]v1.Network) ([]string, error), _ func(string) error) error {
@@ -120,10 +119,5 @@ func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func([]v1.Network) ([]string,
 	if c.UnplugShouldFail {
 		return fmt.Errorf("Unplug failure")
 	}
-	return nil
-}
-
-func (c *ConfigStateStub) Run(nets []string, _ func(func() error) error) error {
-	c.Networks = nets
 	return nil
 }

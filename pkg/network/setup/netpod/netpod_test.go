@@ -21,6 +21,7 @@ package netpod_test
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"sync"
@@ -62,6 +63,7 @@ var _ = Describe("netpod", func() {
 
 	var (
 		baseCacheCreator tempCacheCreator
+		state            *netpod.State
 	)
 
 	BeforeEach(dutils.MockDefaultOwnershipManager)
@@ -75,22 +77,49 @@ var _ = Describe("netpod", func() {
 		Expect(os.Setenv("MY_POD_IP", "10.10.10.10")).To(Succeed())
 	})
 
+	BeforeEach(func() {
+		cache := newConfigStateCacheStub()
+		state = netpod.NewState(cache, netnsStub{})
+	})
+
 	It("fails setup when reading nmstate status fails", func() {
 		netPod := netpod.NewNetPod(
-			nil, nil, vmiUID, 0, 0, 0,
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{{
+				Name:                   defaultPodNetworkName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			}},
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{readErr: errNMStateRead}),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(MatchError(errNMStateRead))
+		Expect(netPod.Setup()).To(MatchError(errNMStateRead))
 	})
 
 	It("fails setup when applying nmstate status fails", func() {
 		netPod := netpod.NewNetPod(
-			nil, nil, vmiUID, 0, 0, 0,
-			netpod.WithNMStateAdapter(&nmstateStub{applyErr: errNMStateApply}),
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{{
+				Name:                   defaultPodNetworkName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			}},
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(&nmstateStub{
+				applyErr: errNMStateApply,
+				status: nmstate.Status{
+					Interfaces: []nmstate.Interface{{
+						Name:       "eth0",
+						Index:      0,
+						TypeName:   nmstate.TypeVETH,
+						State:      nmstate.IfaceStateUp,
+						MacAddress: "12:34:56:78:90:ab",
+						MTU:        1500,
+					}},
+				},
+			}),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		err := netPod.Setup(noopPostDiscoveryHook)
+		err := netPod.Setup()
 		Expect(err).To(MatchError(errNMStateApply))
 
 		var criticalNetErr *neterrors.CriticalNetworkError
@@ -101,7 +130,7 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName}},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
 					Name:       "eth0",
@@ -114,7 +143,7 @@ var _ = Describe("netpod", func() {
 			}}),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		err := netPod.Setup(noopPostDiscoveryHook)
+		err := netPod.Setup()
 		Expect(err.Error()).To(HavePrefix("undefined binding method"))
 	})
 
@@ -125,7 +154,7 @@ var _ = Describe("netpod", func() {
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 			}},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{
 					Name:       "eth0",
@@ -139,20 +168,20 @@ var _ = Describe("netpod", func() {
 			netpod.WithMasqueradeAdapter(&masqueradeStub{setupErr: errMasqueradeSetup}),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(MatchError(errMasqueradeSetup))
+		Expect(netPod.Setup()).To(MatchError(errMasqueradeSetup))
 	})
 
 	DescribeTable("fails setup discovery when pod interface is missing", func(binding v1.InterfaceBindingMethod) {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{Name: defaultPodNetworkName, InterfaceBindingMethod: binding}},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
 				Interfaces: []nmstate.Interface{{Name: "other0"}},
 			}}),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		err := netPod.Setup(noopPostDiscoveryHook)
+		err := netPod.Setup()
 		Expect(err.Error()).To(HavePrefix("pod link (eth0) is missing"))
 	},
 		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
@@ -195,12 +224,12 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithMasqueradeAdapter(&masqstub),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
@@ -309,11 +338,11 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
@@ -420,11 +449,11 @@ var _ = Describe("netpod", func() {
 				Name:                   defaultPodNetworkName,
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
 			}},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{
@@ -569,12 +598,12 @@ var _ = Describe("netpod", func() {
 			netPod := netpod.NewNetPod(
 				initialNetworksToPlug,
 				initialInterfacesToPlug,
-				vmiUID, 0, 0, 0,
+				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
 			)
-			Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+			Expect(netPod.Setup()).To(Succeed())
 
 			expectedPrimaryNetIfaces := []nmstate.Interface{
 				{
@@ -620,12 +649,12 @@ var _ = Describe("netpod", func() {
 			netPod = netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
-				vmiUID, 0, 0, 0,
+				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
 			)
-			Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+			Expect(netPod.Setup()).To(Succeed())
 
 			Expect(nmstatestub.spec).To(Equal(
 				nmstate.Spec{
@@ -695,12 +724,12 @@ var _ = Describe("netpod", func() {
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
-				vmiUID, 0, 0, 0,
+				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
 			)
-			Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
 				nmstate.Spec{
 					Interfaces: []nmstate.Interface{
@@ -750,12 +779,12 @@ var _ = Describe("netpod", func() {
 			netPod := netpod.NewNetPod(
 				specNetworks,
 				specInterfaces,
-				vmiUID, 0, 0, 0,
+				vmiUID, 0, 0, 0, state,
 				netpod.WithNMStateAdapter(&nmstatestub),
 				netpod.WithMasqueradeAdapter(&masqstub),
 				netpod.WithCacheCreator(&baseCacheCreator),
 			)
-			Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+			Expect(netPod.Setup()).To(Succeed())
 			Expect(nmstatestub.spec).To(Equal(
 				nmstate.Spec{
 					Interfaces: []nmstate.Interface{
@@ -868,11 +897,11 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{vmiIface},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
+		Expect(netPod.Setup()).To(Succeed())
 		Expect(nmstatestub.spec).To(Equal(
 			nmstate.Spec{
 				Interfaces: []nmstate.Interface{},
@@ -889,7 +918,7 @@ var _ = Describe("netpod", func() {
 		}))
 	})
 
-	DescribeTable("setup unhandled bindings", func(binding v1.InterfaceBindingMethod) {
+	DescribeTable("setup unhandled bindings", func(binding v1.InterfaceBindingMethod, expNmstateSpec nmstate.Spec) {
 		nmstatestub := nmstateStub{status: nmstate.Status{
 			Interfaces: []nmstate.Interface{
 				{
@@ -907,20 +936,23 @@ var _ = Describe("netpod", func() {
 				{
 					Name:          "somenet",
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-					//NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "somenad"}},
 				},
 			},
 			[]v1.Interface{{Name: "somenet", InterfaceBindingMethod: binding}},
-			vmiUID, 0, 0, 0,
+			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
 			netpod.WithCacheCreator(&baseCacheCreator),
 		)
-		Expect(netPod.Setup(noopPostDiscoveryHook)).To(Succeed())
-		Expect(nmstatestub.spec).To(Equal(nmstate.Spec{Interfaces: []nmstate.Interface{}}))
+		Expect(netPod.Setup()).To(Succeed())
+		Expect(nmstatestub.spec).To(Equal(expNmstateSpec))
 	},
-		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
-		Entry("Slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}),
-		Entry("Macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}),
+		// Not processed by the discovery & config steps.
+		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}, nmstate.Spec{}),
+		Entry("Macvtap", v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, nmstate.Spec{}),
+		// Processed by the discovery but not by the config step.
+		// When processed by the config step, the nmstate structure will be initialized (e.g. to an empty interface list).
+		// Interfaces will not get populated because the specific binding (slirp) is not treated there.
+		Entry("Slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}, nmstate.Spec{Interfaces: []nmstate.Interface{}}),
 	)
 })
 
@@ -1010,6 +1042,40 @@ func expectedDHCPConfig(podIfaceCIDR, podIfaceMAC, defaultGW, staticRouteDst str
 	}, nil
 }
 
-func noopPostDiscoveryHook() error {
+type netnsStub struct {
+	shouldFail bool
+}
+
+func (n netnsStub) Do(f func() error) error {
+	if n.shouldFail {
+		return fmt.Errorf("do-netns failure")
+	}
+	return f()
+}
+
+type configStateCacheStub struct {
+	stateCache map[string]cache.PodIfaceState
+	readErr    error
+	writeErr   error
+}
+
+func newConfigStateCacheStub() configStateCacheStub {
+	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil}
+}
+
+func (c configStateCacheStub) Read(key string) (cache.PodIfaceState, error) {
+	return c.stateCache[key], c.readErr
+}
+
+func (c configStateCacheStub) Write(key string, state cache.PodIfaceState) error {
+	if c.writeErr != nil {
+		return c.writeErr
+	}
+	c.stateCache[key] = state
+	return nil
+}
+
+func (c configStateCacheStub) Delete(key string) error {
+	delete(c.stateCache, key)
 	return nil
 }
