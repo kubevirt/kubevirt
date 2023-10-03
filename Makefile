@@ -110,7 +110,7 @@ container-build-artifacts-server:
 container-push: quay-login container-push-operator container-push-webhook container-push-functest container-push-artifacts-server
 
 quay-login:
-	podman login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p $(QUAY_PASSWORD)
+	podman login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p "$(QUAY_PASSWORD)"
 
 container-push-operator:
 	. "hack/cri-bin.sh" && $$CRI_BIN push $$CRI_INSECURE $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)

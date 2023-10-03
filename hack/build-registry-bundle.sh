@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-IMAGE_REGISTRY="${IMAGE_REGISTRY:-docker.io}"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-quay.io}"
 REGISTRY_NAMESPACE="${REGISTRY_NAMESPACE:-}"
 CONTAINER_TAG="${CONTAINER_TAG:-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)}"
 CONTAINER_BUILD_CMD="${CONTAINER_BUILD_CMD:-docker}"

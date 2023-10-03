@@ -78,7 +78,7 @@ ${CMD} get subscription -n ${HCO_NAMESPACE} -o yaml
 ${CMD} get pods -n ${HCO_NAMESPACE}
 
 Msg "Images before upgrade"
-${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
+${CMD} get deployments -n ${HCO_NAMESPACE} -o jsonpath="{.items[*].spec.template.spec.containers[*].image}" | tr -s '[[:space:]]' '\n'
 
 Msg "Get virtctl"
 KV_VERSION=$( ${CMD} get kubevirt.kubevirt.io/kubevirt-kubevirt-hyperconverged -n ${HCO_NAMESPACE} -o=jsonpath="{.status.observedKubeVirtVersion}")

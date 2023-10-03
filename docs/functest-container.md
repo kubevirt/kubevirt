@@ -26,13 +26,28 @@ The up-to-date image is pushed to `quay.io/kubevirt/hyperconverged-cluster-funct
     ```
 
 ### In cluster
+#### Kubernetes
 ```shell
 kubectl create clusterrolebinding func-cluster-admin --clusterrole=cluster-admin --serviceaccount=kubevirt-hyperconverged:functest
 kubectl create serviceaccount functest
 kubectl run functest --image=quay.io/kubevirt/hyperconverged-cluster-functest:1.11.0-unstable --serviceaccount=functest
 ```
+#### OpenShift
+```shell
+$ echo KUBEVIRT_PROVIDER=external
+$ export IMAGE_REGISTRY=quay.io
+$ export REGISTRY_NAMESPACE=<your-quay-username>
+```
+
+Create two repositories for below images, and make sure to set them up for public access from the repository settings:
+- hyperconverged-cluster-operator:latest
+- hyperconverged-cluster-webhook:latest
 
 
+```shell
+$ make cluster-sync
+$ make functest
+```
 ## Requirements
 - If you are running locally, you have to set `KUBECONFIG` variable and mount kubeconfig into that path.
 - If your systems are running in a namespace different from `kubevirt-hypercongerged`, you have to set the environment variable `INSTALLED_NAMESPACE` 
