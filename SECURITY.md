@@ -37,3 +37,7 @@ supported by security teams of involved vendors.
 List of involved vendor security teams:
 - Red Hat <secalert@redhat.com>
 - SUSE <security@suse.de>
+
+## Alternate Reporting Mechanism
+
+If you are unable to report the vulnerability to the dedicated email address, you can use the [GitHub vulnerability report mechanism](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability#privately-reporting-a-security-vulnerability). 
