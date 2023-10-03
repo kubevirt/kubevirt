@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/api/core"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	pool "kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot/v1alpha1"
 )
@@ -164,12 +165,13 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	var k8sClient string
 	var authClient *authClientV1.AuthorizationV1Client
 
-	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected bool) {
+	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected, clusterWide bool) {
 		roleToUser := map[string]string{
-			"view":    testsuite.ViewServiceAccountName,
-			"edit":    testsuite.EditServiceAccountName,
-			"admin":   testsuite.AdminServiceAccountName,
-			"default": "default",
+			"view":              testsuite.ViewServiceAccountName,
+			"instancetype:view": testsuite.ViewInstancetypeServiceAccountName,
+			"edit":              testsuite.EditServiceAccountName,
+			"admin":             testsuite.AdminServiceAccountName,
+			"default":           "default",
 		}
 		userName, exists := roleToUser[role]
 		Expect(exists).To(BeTrue(), fmt.Sprintf("role %s is not defined", role))
@@ -178,7 +180,6 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		sar.Spec = authv1.SubjectAccessReviewSpec{
 			User: user,
 			ResourceAttributes: &authv1.ResourceAttributes{
-				Namespace:   namespace,
 				Verb:        verb,
 				Group:       group,
 				Version:     v1.GroupVersion.Version,
@@ -186,14 +187,19 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Subresource: subresource,
 			},
 		}
+		if !clusterWide {
+			sar.Spec.ResourceAttributes.Namespace = namespace
+		}
+
 		result, err := authClient.SubjectAccessReviews().Create(context.Background(), sar, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(result.Status.Allowed).To(Equal(expected), fmt.Sprintf("access check for user '%v' on resource '%v' with subresource '%v' for verb '%v' should have returned '%v'.",
+		Expect(result.Status.Allowed).To(Equal(expected), fmt.Sprintf("access check for user '%v' on resource '%v' with subresource '%v' for verb '%v' should have returned '%v'. Gave reason %s.",
 			user,
 			resource,
 			subresource,
 			verb,
 			expected,
+			result.Status.Reason,
 		))
 	}
 
@@ -207,84 +213,142 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Describe("With default kubevirt service accounts", func() {
-		DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(group string, resource string, accessRights ...rights) {
+		DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(group string, resource string, clusterWide bool, accessRights ...rights) {
 			namespace := testsuite.GetTestNamespace(nil)
 			for _, accessRight := range accessRights {
 				for _, entry := range accessRight.list() {
 					By(fmt.Sprintf("verifying sa %s for verb %s on resource %s", entry.role, entry.verb, resource))
-					doSarRequest(group, resource, "", namespace, entry.role, entry.verb, entry.allowed)
+					doSarRequest(group, resource, "", namespace, entry.role, entry.verb, entry.allowed, clusterWide)
 				}
 			}
 		},
 			Entry("[test_id:526]given a vmi",
 				core.GroupName,
 				"virtualmachineinstances",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("[test_id:527]given a vm",
 				core.GroupName,
 				"virtualmachines",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("given a vmpool",
 				pool.GroupName,
 				"virtualmachinepools",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("[test_id:528]given a vmi preset",
 				core.GroupName,
 				"virtualmachineinstancepresets",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("[test_id:529][crit:low]given a vmi replica set",
 				core.GroupName,
 				"virtualmachineinstancereplicasets",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("[test_id:3230]given a vmi migration",
 				core.GroupName,
 				"virtualmachineinstancemigrations",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("[test_id:5243]given a vmsnapshot",
 				v1alpha1.SchemeGroupVersion.Group,
 				"virtualmachinesnapshots",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
 			Entry("[test_id:5244]given a vmsnapshotcontent",
 				v1alpha1.SchemeGroupVersion.Group,
 				"virtualmachinesnapshotcontents",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 			Entry("[test_id:5245]given a vmsrestore",
 				v1alpha1.SchemeGroupVersion.Group,
 				"virtualmachinerestores",
+				false,
 				allowAllFor("admin"),
 				denyDeleteCollectionFor("edit"),
 				denyModificationsFor("view"),
+				denyAllFor("instancetype:view"),
+				denyAllFor("default")),
+			Entry("[test_id:TODO]given a virtualmachineinstancetype",
+				instancetypeapi.GroupName,
+				instancetypeapi.PluralResourceName,
+				false,
+				allowAllFor("admin"),
+				denyDeleteCollectionFor("edit"),
+				denyModificationsFor("view"),
+				// instancetype:view only provides access to the cluster-scoped resources
+				denyAllFor("instancetype:view"),
+				denyAllFor("default")),
+			Entry("[test_id:TODO]given a virtualmachinepreference",
+				instancetypeapi.GroupName,
+				instancetypeapi.PluralPreferenceResourceName,
+				false,
+				allowAllFor("admin"),
+				denyDeleteCollectionFor("edit"),
+				denyModificationsFor("view"),
+				// instancetype:view only provides access to the cluster-scoped resources
+				denyAllFor("instancetype:view"),
+				denyAllFor("default")),
+			Entry("[test_id:TODO]given a virtualmachineclusterinstancetype",
+				instancetypeapi.GroupName,
+				instancetypeapi.ClusterPluralResourceName,
+				// only ClusterRoles bound with a ClusterRoleBinding should have access
+				true,
+				denyAllFor("admin"),
+				denyAllFor("edit"),
+				denyAllFor("view"),
+				denyModificationsFor("instancetype:view"),
+				denyAllFor("default")),
+			Entry("[test_id:TODO]given a virtualmachineclusterpreference",
+				instancetypeapi.GroupName,
+				instancetypeapi.ClusterPluralResourceName,
+				// only ClusterRoles bound with a ClusterRoleBinding should have access
+				true,
+				denyAllFor("admin"),
+				denyAllFor("edit"),
+				denyAllFor("view"),
+				denyModificationsFor("instancetype:view"),
 				denyAllFor("default")),
 		)
 
@@ -293,7 +357,7 @@ var _ = Describe("[rfe_id:500][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			for _, accessRight := range accessRights {
 				for _, entry := range accessRight.list() {
 					By(fmt.Sprintf("verifying sa %s for verb %s on resource %s on subresource %s", entry.role, entry.verb, resource, subresource))
-					doSarRequest(v1.SubresourceGroupName, resource, subresource, namespace, entry.role, entry.verb, entry.allowed)
+					doSarRequest(v1.SubresourceGroupName, resource, subresource, namespace, entry.role, entry.verb, entry.allowed, false)
 				}
 			}
 		},
