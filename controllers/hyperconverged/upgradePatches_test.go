@@ -95,6 +95,45 @@ var _ = Describe("upgradePatches", func() {
 				),
 			)
 
+			DescribeTable(
+				"should handle MissingPathOnRemove according to jsonPatchApplyOptions",
+				func(filename string, expectedErr bool, message string) {
+					Expect(copyTestFile(filename)).To(Succeed())
+
+					err := validateUpgradePatches(req)
+					if expectedErr {
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).Should(HavePrefix(message))
+					} else {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				},
+				Entry(
+					"without jsonPatchApplyOptions",
+					"badPatches4.json",
+					true,
+					"remove operation does not apply: doc is missing path: ",
+				),
+				Entry(
+					"with AllowMissingPathOnRemove on jsonPatchApplyOptions",
+					"badPatches5.json",
+					false,
+					"",
+				),
+				Entry(
+					"without jsonPatchApplyOptions",
+					"badPatches6.json",
+					true,
+					"add operation does not apply: doc is missing path: ",
+				),
+				Entry(
+					"with EnsurePathExistsOnAdd on jsonPatchApplyOptions",
+					"badPatches7.json",
+					false,
+					"",
+				),
+			)
+
 		})
 
 		Context("objectsToBeRemoved", func() {

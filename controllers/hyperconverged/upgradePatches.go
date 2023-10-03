@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/blang/semver/v4"
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 )
@@ -26,6 +26,10 @@ type hcoCRPatch struct {
 	// JSONPatch contains a sequence of operations to apply to the HCO CR during upgrades
 	// (see: https://datatracker.ietf.org/doc/html/rfc6902 as the format reference).
 	JSONPatch jsonpatch.Patch `json:"jsonPatch"`
+
+	// jsonPatchApplyOptions specifies options for calls to ApplyWithOptions.
+	// jsonpatch.NewApplyOptions defaults are applied if empty.
+	JSONPatchApplyOptions *jsonpatch.ApplyOptions `json:"jsonPatchApplyOptions,omitempty"`
 }
 
 type objectToBeRemoved struct {
@@ -116,9 +120,13 @@ func validateUpgradePatch(req *common.HcoRequest, p hcoCRPatch) error {
 	if err != nil {
 		return err
 	}
-	_, err = p.JSONPatch.Apply(specBytes)
+	if p.JSONPatchApplyOptions != nil {
+		_, err = p.JSONPatch.ApplyWithOptions(specBytes, p.JSONPatchApplyOptions)
+	} else {
+		_, err = p.JSONPatch.Apply(specBytes)
+	}
 	// tolerate jsonpatch test failures
-	if err != nil && !errors.Is(err, jsonpatch.ErrTestFailed) {
+	if err != nil && !errors.Is(errors.Unwrap(err), jsonpatch.ErrTestFailed) {
 		return err
 	}
 	return nil

@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	"github.com/blang/semver/v4"
-	jsonpatch "github.com/evanphx/json-patch"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -1263,10 +1263,16 @@ func (r *ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJ
 		return hcoJSON, err
 	}
 	if affectedRange(knownHcoSV) {
-		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", p.SemverRange, "patches", p.JSONPatch)
-		patchedBytes, err := p.JSONPatch.Apply(hcoJSON)
+		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", p.SemverRange, "patches", p.JSONPatch, "applyOptions", p.JSONPatchApplyOptions)
+		var patchedBytes []byte
+		if p.JSONPatchApplyOptions != nil {
+			patchedBytes, err = p.JSONPatch.ApplyWithOptions(hcoJSON, p.JSONPatchApplyOptions)
+		} else {
+			patchedBytes, err = p.JSONPatch.Apply(hcoJSON)
+		}
 		if err != nil {
-			if errors.Cause(err) == jsonpatch.ErrTestFailed {
+			// tolerate jsonpatch test failures
+			if errors.Is(err, jsonpatch.ErrTestFailed) {
 				return hcoJSON, nil
 			}
 

@@ -1,0 +1,17 @@
+{
+  "hcoCRPatchList": [
+    {
+      "semverRange": ">=1.4.0 <=1.5.0",
+      "jsonPatch": [
+        {
+          "op": "add",
+          "path": "/spec/mediatedDevicesConfiguration/mediatedDeviceTypes",
+          "value": ["nvidia-222"]
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "ensurePathExistsOnAdd": true
+      }
+    }
+  ]
+}

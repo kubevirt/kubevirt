@@ -1,0 +1,16 @@
+{
+  "hcoCRPatchList": [
+    {
+      "semverRange": ">=1.4.0 <=1.5.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/badUnexistingKey1/badUnexistingKey2"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+	   "allowMissingPathOnRemove": true
+      }
+    }
+  ]
+}
