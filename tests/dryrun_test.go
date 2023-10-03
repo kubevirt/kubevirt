@@ -473,27 +473,6 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			kv = util.GetCurrentKv(virtClient)
 		})
 
-		copyKV := func(kv *v1.KubeVirt) *v1.KubeVirt {
-			var kvCopy v1.KubeVirt
-
-			kvCopy.ObjectMeta = *kv.ObjectMeta.DeepCopy()
-			kvCopy.Spec = *kv.Spec.DeepCopy()
-			return &kvCopy
-		}
-
-		It("[test_id:7647]create a KubeVirt CR", func() {
-			kvCopy := copyKV(kv)
-			kvCopy.Name = "test-kubevirt-cr"
-
-			By("Make a Dry-Run request to create a KubeVirt CR")
-			err = tests.DryRunCreate(restClient, resource, kvCopy.Namespace, kvCopy, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Check that no KubeVirt CR was actually created")
-			_, err = virtClient.KubeVirt(kvCopy.Namespace).Get(kvCopy.Name, &metav1.GetOptions{})
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-		})
-
 		It("[Serial][test_id:7648]delete a KubeVirt CR", Serial, func() {
 			By("Make a Dry-Run request to delete a KubeVirt CR")
 			deletePolicy := metav1.DeletePropagationForeground
