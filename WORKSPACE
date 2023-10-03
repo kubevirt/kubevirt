@@ -1787,6 +1787,7 @@ rpm(
     sha256 = "80896565b489078aa16387cc15fc3e33124da317df32ca760a18246a73527bed",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-364.el9.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/80896565b489078aa16387cc15fc3e33124da317df32ca760a18246a73527bed",
     ],
 )
 
@@ -1795,6 +1796,7 @@ rpm(
     sha256 = "30795c050f07f3d6168f90cccf32968cfdc20e008f299df3355b8619fbddc804",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-364.el9.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/30795c050f07f3d6168f90cccf32968cfdc20e008f299df3355b8619fbddc804",
     ],
 )
 
@@ -4413,6 +4415,7 @@ rpm(
     sha256 = "6766a8164e99c82cd985bd96f2653381564dada2ecb373ff8fc462733ce75ee8",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-host-8.0.0-13.el9.aarch64.rpm",
+        "https://storage.googleapis.com/builddeps/6766a8164e99c82cd985bd96f2653381564dada2ecb373ff8fc462733ce75ee8",
     ],
 )
 
@@ -4421,6 +4424,7 @@ rpm(
     sha256 = "b42fbf8706a056377b87bd82c298d81261a89200e2768e90be84b3773491e59e",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-host-8.0.0-13.el9.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/b42fbf8706a056377b87bd82c298d81261a89200e2768e90be84b3773491e59e",
     ],
 )
 
