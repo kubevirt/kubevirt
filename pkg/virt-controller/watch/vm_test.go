@@ -941,7 +941,7 @@ var _ = Describe("VirtualMachine", func() {
 				vmInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any()).Times(1).Do(func(ctx context.Context, arg interface{}) {
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure).ToNot(BeNil())
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
-					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp).ToNot(Equal(oldRetry))
+					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.RetryAfterTimestamp.Time).ToNot(Equal(oldRetry))
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
 					Expect(arg.(*virtv1.VirtualMachine).Status.StartFailure.ConsecutiveFailCount).To(Equal(2))
 				}).Return(nil, nil)
