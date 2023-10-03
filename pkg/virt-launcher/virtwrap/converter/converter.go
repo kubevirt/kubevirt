@@ -196,9 +196,23 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			}
 		}
 	} else if diskDevice.LUN != nil {
+		var unit int
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
-		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		if diskDevice.LUN.Bus == "scsi" {
+			// Ensure we assign this disk to the correct scsi controller
+			if disk.Address == nil {
+				disk.Address = &api.Address{}
+			}
+			disk.Address.Type = "drive"
+			// This should be the index of the virtio-scsi controller, which is hard coded to 0
+			disk.Address.Controller = "0"
+			disk.Address.Bus = "0"
+		}
+		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		if diskDevice.LUN.Bus == "scsi" {
+			disk.Address.Unit = strconv.Itoa(unit)
+		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
 		if diskDevice.LUN.Reservation {
 			setReservation(disk)

@@ -120,6 +120,7 @@ var _ = Describe("Add volume command", func() {
 		Entry("addvolume no args", "addvolume", "argument validation failed"),
 		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", "testvmi"),
 		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
+		Entry("addvolume name, invalid disk type", "addvolume", "Invalid disk type", "testvmi", "--volume-name=blah", "--disk-type=test")
 	)
 
 	DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {

@@ -175,7 +175,7 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 					})
 				}
 				disk := newDisks[k]
-				if disk.Disk == nil || disk.Disk.Bus != "scsi" {
+				if (disk.Disk == nil || disk.Disk.Bus != "scsi") && (disk.LUN == nil || disk.LUN.Bus != "scsi") {
 					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 						{
 							Type:    metav1.CauseTypeFieldValueInvalid,
