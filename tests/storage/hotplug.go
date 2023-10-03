@@ -111,19 +111,20 @@ var _ = SIGDescribe("Hotplug", func() {
 		return virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Delete(context.Background(), vm.Name, &metav1.DeleteOptions{})
 	}
 
-	getAddVolumeOptions := func(volumeName string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun bool, cache v1.DriverCache) *v1.AddVolumeOptions {
+	getAddVolumeOptions := func(volumeName string, bus v1.DiskBus, volumeSource *v1.HotplugVolumeSource, dryRun, useLUN bool, cache v1.DriverCache) *v1.AddVolumeOptions {
 		opts := &v1.AddVolumeOptions{
 			Name: volumeName,
 			Disk: &v1.Disk{
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: bus,
-					},
-				},
-				Serial: volumeName,
+				DiskDevice: v1.DiskDevice{},
+				Serial:     volumeName,
 			},
 			VolumeSource: volumeSource,
 			DryRun:       getDryRunOption(dryRun),
+		}
+		if useLUN {
+			opts.Disk.DiskDevice.LUN = &v1.LunTarget{Bus: bus}
+		} else {
+			opts.Disk.DiskDevice.Disk = &v1.DiskTarget{Bus: bus}
 		}
 		if cache == v1.CacheNone ||
 			cache == v1.CacheWriteThrough ||
@@ -143,7 +144,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			DataVolume: &v1.DataVolumeSource{
 				Name: claimName,
 			},
-		}, dryRun, cache))
+		}, dryRun, false, cache))
 	}
 
 	addPVCVolumeVMI := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
@@ -151,7 +152,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}},
-		}, dryRun, cache))
+		}, dryRun, false, cache))
 	}
 
 	addVolumeVMWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
@@ -165,7 +166,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			DataVolume: &v1.DataVolumeSource{
 				Name: claimName,
 			},
-		}, dryRun, cache))
+		}, dryRun, false, cache))
 	}
 
 	addPVCVolumeVM := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
@@ -173,7 +174,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}},
-		}, dryRun, cache))
+		}, dryRun, false, cache))
 	}
 
 	addVolumeVirtctl := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
@@ -1011,7 +1012,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					DataVolume: &v1.DataVolumeSource{
 						Name: dvBlock.Name,
 					},
-				}, false, ""))
+				}, false, false, ""))
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Unable to add volume [disk0] because volume with that name already exists"))
 			})
@@ -1038,7 +1039,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					DataVolume: &v1.DataVolumeSource{
 						Name: dvBlock.Name,
 					},
-				}, false, ""))
+				}, false, false, ""))
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Unable to add volume source [%s] because it already exists", dvBlock.Name)))
 			})
@@ -1879,6 +1880,101 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifySingleAttachmentPod(vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVMI(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeNolongerAccessible(vmi, targets[0])
+		})
+	})
+
+	// Some of the functions used here don't behave well in paralel
+	Context("[Serial]Hotplug LUN disk", Serial, func() {
+		const randLen = 8
+		var (
+			nodeName, address, device string
+			pvc                       *corev1.PersistentVolumeClaim
+			pv                        *corev1.PersistentVolume
+			vm                        *v1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			nodeName = tests.NodeNameWithHandler()
+			address, device = tests.CreateSCSIDisk(nodeName, []string{})
+			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
+			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, util.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			// Delete the scsi disk
+			tests.RemoveSCSIDisk(nodeName, address)
+			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+			err := deleteVirtualMachine(vm)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("on an offline VM", func() {
+			By("Creating VirtualMachine")
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVirtualMachine(libvmi.NewCirros(), false))
+			Expect(err).ToNot(HaveOccurred())
+			By("Adding test volumes")
+			pv2, pvc2, err := tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks-test2", "scsipv2", "scsipvc2")
+			Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
+
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions(testNewVolume1, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.Name,
+				}},
+			}, false, true, ""))
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions(testNewVolume2, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc2.Name,
+				}},
+			}, false, true, ""))
+
+			By("Verifying the volumes have been added to the template spec")
+			verifyVolumeAndDiskVMAdded(virtClient, vm, testNewVolume1, testNewVolume2)
+
+			By("Removing new volumes from VM")
+			removeVolumeVM(vm.Name, vm.Namespace, testNewVolume1, false)
+			removeVolumeVM(vm.Name, vm.Namespace, testNewVolume2, false)
+
+			verifyVolumeAndDiskVMRemoved(vm, testNewVolume1, testNewVolume2)
+			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv2.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+		})
+
+		It("on an online VM", func() {
+			opts := []libvmi.Option{}
+			opts = append(opts, libvmi.WithNodeSelectorFor(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}))
+			vmi := libvmi.NewCirros(opts...)
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), tests.NewRandomVirtualMachine(vmi, true))
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Ready
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By(addingVolumeRunningVM)
+			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions("testvolume", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvc.Name,
+				}},
+			}, false, true, ""))
+			By(verifyingVolumeDiskInVM)
+			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
+
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
+			verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
+			getVmiConsoleAndLogin(vmi)
+			targets := verifyHotplugAttachedAndUseable(vmi, []string{"testvolume"})
+			verifySingleAttachmentPod(vmi)
+			By(removingVolumeFromVM)
+			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			By(verifyingVolumeNotExist)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
 	})

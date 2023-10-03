@@ -743,6 +743,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(vm *v1.VirtualMachine) ([]me
 }
 
 func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause {
+	var bus v1.DiskBus
 	// Validate the disk is configured properly
 	if disk == nil {
 		return []metav1.StatusCause{{
@@ -750,16 +751,23 @@ func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause 
 			Message: fmt.Sprintf("AddVolume request for [%s] requires the disk field to be set.", name),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
-	} else if disk.DiskDevice.Disk == nil {
+	}
+	if disk.DiskDevice.Disk == nil && disk.DiskDevice.LUN == nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' to be used.", name),
+			Message: fmt.Sprintf("AddVolume request for [%s] requires diskDevice of type 'disk' or 'lun' to be used.", name),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
-	} else if disk.DiskDevice.Disk.Bus != "scsi" {
+	}
+	if disk.DiskDevice.Disk != nil {
+		bus = disk.DiskDevice.Disk.Bus
+	} else {
+		bus = disk.DiskDevice.LUN.Bus
+	}
+	if bus != "scsi" {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, disk.DiskDevice.Disk.Bus),
+			Message: fmt.Sprintf("AddVolume request for [%s] requires disk bus to be 'scsi'. [%s] is not permitted", name, bus),
 			Field:   k8sfield.NewPath("Status", "volumeRequests").String(),
 		}}
 	}
