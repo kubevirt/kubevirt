@@ -84,11 +84,11 @@ var _ = Describe("Migration Stats Collector", func() {
 
 		Expect(containsMetric).To(BeTrue())
 	},
-		Entry("Failed migration", k6tv1.MigrationFailed, FailedMigrations),
+		Entry("Failed migration", k6tv1.MigrationFailed, FailedMigration),
 		Entry("Pending migration", k6tv1.MigrationPending, PendingMigrations),
 		Entry("Running migration", k6tv1.MigrationRunning, RunningMigrations),
 		Entry("Scheduling migration", k6tv1.MigrationScheduling, SchedulingMigrations),
-		Entry("Succeeded migration", k6tv1.MigrationSucceeded, SucceededMigrations),
+		Entry("Succeeded migration", k6tv1.MigrationSucceeded, SucceededMigration),
 	)
 
 	It("should set succeeded and pending to 1 and others to 0 with 1 successful and 1 pending", func() {

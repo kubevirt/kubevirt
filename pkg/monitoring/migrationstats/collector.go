@@ -28,11 +28,11 @@ import (
 )
 
 const (
-	PendingMigrations    = "kubevirt_vmi_migrations_pending"
-	SchedulingMigrations = "kubevirt_vmi_migrations_scheduling"
-	RunningMigrations    = "kubevirt_vmi_migrations_running"
-	SucceededMigrations  = "kubevirt_vmi_migrations_succeeded"
-	FailedMigrations     = "kubevirt_vmi_migrations_failed"
+	PendingMigrations    = "kubevirt_vmi_migrations_in_pending_phase"
+	SchedulingMigrations = "kubevirt_vmi_migrations_in_scheduling_phase"
+	RunningMigrations    = "kubevirt_vmi_migrations_in_running_phase"
+	SucceededMigration   = "kubevirt_vmi_migration_succeeded"
+	FailedMigration      = "kubevirt_vmi_migration_failed"
 )
 
 var (
@@ -55,15 +55,15 @@ var (
 			nil,
 			nil,
 		),
-		SucceededMigrations: prometheus.NewDesc(
-			SucceededMigrations,
-			"Number of migrations successfully executed.",
+		SucceededMigration: prometheus.NewDesc(
+			SucceededMigration,
+			"Indicates if the VMI migration succeeded.",
 			[]string{"vmi", "vmim"},
 			nil,
 		),
-		FailedMigrations: prometheus.NewDesc(
-			FailedMigrations,
-			"Number of failed migrations.",
+		FailedMigration: prometheus.NewDesc(
+			FailedMigration,
+			"Indicates if the VMI migration failed.",
 			[]string{"vmi", "vmim"},
 			nil,
 		),
@@ -125,9 +125,9 @@ func (ps *prometheusScraper) Report(vmims []*k6tv1.VirtualMachineInstanceMigrati
 		case k6tv1.MigrationRunning, k6tv1.MigrationScheduled, k6tv1.MigrationPreparingTarget, k6tv1.MigrationTargetReady:
 			runningCount++
 		case k6tv1.MigrationSucceeded:
-			ps.pushMetric(migrationMetrics[SucceededMigrations], 1, vmim.Spec.VMIName, vmim.Name)
+			ps.pushMetric(migrationMetrics[SucceededMigration], 1, vmim.Spec.VMIName, vmim.Name)
 		default:
-			ps.pushMetric(migrationMetrics[FailedMigrations], 1, vmim.Spec.VMIName, vmim.Name)
+			ps.pushMetric(migrationMetrics[FailedMigration], 1, vmim.Spec.VMIName, vmim.Name)
 		}
 	}
 

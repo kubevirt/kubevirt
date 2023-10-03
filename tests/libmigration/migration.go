@@ -494,6 +494,13 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	virtClient := kubevirt.Client()
 	var pod *k8sv1.Pod
 	var metricsIPs []string
+	var migrationMetrics = []string{
+		"kubevirt_vmi_migration_data_remaining_bytes",
+		"kubevirt_vmi_migration_data_processed_bytes",
+		"kubevirt_vmi_migration_dirty_memory_rate_bytes",
+		"kubevirt_vmi_migration_disk_transfer_rate_bytes",
+		"kubevirt_vmi_migration_memory_transfer_rate_bytes",
+	}
 	const family = k8sv1.IPv4Protocol
 
 	By("Finding the prometheus endpoint")
@@ -525,16 +532,14 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	getKubevirtVMMetricsFunc := tests.GetKubevirtVMMetricsFunc(&virtClient, pod)
 	Eventually(func() error {
 		out := getKubevirtVMMetricsFunc(ip)
-		lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt_migrate_vmi")
-		metrics, err := libinfra.ParseMetricsToMap(lines)
-		Expect(err).ToNot(HaveOccurred())
+		for _, metricName := range migrationMetrics {
+			lines := libinfra.TakeMetricsWithPrefix(out, metricName)
+			metrics, err := libinfra.ParseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
 
-		if len(metrics) == 0 {
-			return fmt.Errorf("no metrics with kubevirt_migrate_vmi prefix are found")
-		}
-
-		if err := validateNoZeroMetrics(metrics); err != nil {
-			return err
+			if err := validateNoZeroMetrics(metrics); err != nil {
+				return err
+			}
 		}
 
 		return nil

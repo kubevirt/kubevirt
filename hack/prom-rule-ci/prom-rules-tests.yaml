@@ -725,7 +725,7 @@ tests:
   # Excessive VMI Migrations in a period of time
   - interval: 1h
     input_series:
-      - series: 'kubevirt_vmi_migrations_succeeded{vmi="vmi-example-1"}'
+      - series: 'kubevirt_vmi_migration_succeeded{vmi="vmi-example-1"}'
         # time:  0 1 2 3 4 5
         values: "_ _ _ 1 7 13"
 

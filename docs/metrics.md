@@ -21,21 +21,6 @@ The total number of requests to deprecated KubeVirt APIs. Type: Counter.
 ### kubevirt_configuration_emulation_enabled
 Indicates whether the Software Emulation is enabled in the configuration. Type: Gauge.
 
-### kubevirt_migrate_vmi_data_processed_bytes
-The total Guest OS data processed and migrated to the new VM. Type: Gauge.
-
-### kubevirt_migrate_vmi_data_remaining_bytes
-The remaining guest OS data to be migrated to the new VM. Type: Gauge.
-
-### kubevirt_migrate_vmi_dirty_memory_rate_bytes
-The rate of memory being dirty in the Guest OS. Type: Gauge.
-
-### kubevirt_migrate_vmi_disk_transfer_rate_bytes
-The rate at which the disk is being transferred. Type: Gauge.
-
-### kubevirt_migrate_vmi_memory_transfer_rate_bytes
-The rate at which the memory is being transferred. Type: Gauge.
-
 ### kubevirt_nodes_with_kvm
 The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available. Type: Gauge.
 
@@ -147,23 +132,38 @@ The amount of memory which can be reclaimed by balloon without pushing the guest
 ### kubevirt_vmi_memory_used_bytes
 Amount of `used` memory as seen by the domain. Type: Gauge.
 
+### kubevirt_vmi_migration_data_processed_bytes
+The total Guest OS data processed and migrated to the new VM. Type: Gauge.
+
+### kubevirt_vmi_migration_data_remaining_bytes
+The remaining guest OS data to be migrated to the new VM. Type: Gauge.
+
+### kubevirt_vmi_migration_dirty_memory_rate_bytes
+The rate of memory being dirty in the Guest OS. Type: Gauge.
+
+### kubevirt_vmi_migration_disk_transfer_rate_bytes
+The rate at which the memory is being transferred. Type: Gauge.
+
+### kubevirt_vmi_migration_failed
+Indicates if the VMI migration failed. Type: Gauge.
+
+### kubevirt_vmi_migration_memory_transfer_rate_bytes
+The rate at which the disk is being transferred. Type: Gauge.
+
 ### kubevirt_vmi_migration_phase_transition_time_from_creation_seconds
 Histogram of VM migration phase transitions duration from creation time in seconds. Type: Histogram.
 
-### kubevirt_vmi_migrations_failed
-Number of failed migrations. Type: Gauge.
+### kubevirt_vmi_migration_succeeded
+Indicates if the VMI migration succeeded. Type: Gauge.
 
-### kubevirt_vmi_migrations_pending
+### kubevirt_vmi_migrations_in_pending_phase
 Number of current pending migrations. Type: Gauge.
 
-### kubevirt_vmi_migrations_running
+### kubevirt_vmi_migrations_in_running_phase
 Number of current running migrations. Type: Gauge.
 
-### kubevirt_vmi_migrations_scheduling
+### kubevirt_vmi_migrations_in_scheduling_phase
 Number of current scheduling migrations. Type: Gauge.
-
-### kubevirt_vmi_migrations_succeeded
-Number of migrations successfully executed. Type: Gauge.
 
 ### kubevirt_vmi_network_receive_bytes_total
 Total network traffic received in bytes. Type: Counter.
