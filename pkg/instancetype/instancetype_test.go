@@ -1030,6 +1030,17 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.CPU.Realtime).To(Equal(*instancetypeSpec.CPU.Realtime))
 			})
 
+			It("should default to Sockets, when instancetype is used with PreferAny", func() {
+				preferredCPUTopology := instancetypev1beta1.PreferAny
+				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
+
+				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+				Expect(conflicts).To(BeEmpty())
+				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
+				Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
+				Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(uint32(1)))
+			})
+
 			It("should apply in full with PreferCores selected", func() {
 				preferredCPUTopology := instancetypev1beta1.PreferCores
 				preferenceSpec.CPU.PreferredCPUTopology = &preferredCPUTopology
@@ -1942,6 +1953,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			preferSockets = instancetypev1beta1.PreferSockets
 			preferThreads = instancetypev1beta1.PreferThreads
 			preferSpread  = instancetypev1beta1.PreferSpread
+			preferAny     = instancetypev1beta1.PreferAny
 		)
 
 		DescribeTable("should pass when sufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
@@ -2056,6 +2068,28 @@ var _ = Describe("Instancetype and Preferences", func() {
 						CPU: &v1.CPU{
 							Cores:   uint32(2),
 							Sockets: uint32(3),
+						},
+					},
+				},
+			),
+			Entry("by a VM for vCPUs using PreferAny",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferAny,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(4),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Cores:   uint32(2),
+							Sockets: uint32(2),
+							Threads: uint32(1),
 						},
 					},
 				},
@@ -2207,6 +2241,34 @@ var _ = Describe("Instancetype and Preferences", func() {
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets")},
 				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), "cores and sockets"),
+			),
+			Entry("by a VM for vCPUs using PreferAny",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: &preferAny,
+					},
+					Requirements: &instancetypev1beta1.PreferenceRequirements{
+						CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+							Guest: uint32(4),
+						},
+					},
+				},
+				&v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{
+							Sockets: uint32(2),
+							Cores:   uint32(1),
+							Threads: uint32(1),
+						},
+					},
+				},
+				instancetype.Conflicts{
+					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"),
+					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"),
+					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads"),
+				},
+				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(2), uint32(4), "cores, sockets and threads"),
 			),
 			Entry("by a VM for Memory",
 				nil,

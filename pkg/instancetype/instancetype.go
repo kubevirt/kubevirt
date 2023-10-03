@@ -394,6 +394,11 @@ func checkCPUPreferenceRequirements(instancetypeSpec *instancetypev1beta1.Virtua
 		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
 			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores and sockets")
 		}
+	case instancetypev1beta1.PreferAny:
+		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
+		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
+			return Conflicts{cpuField.Child("cores"), cpuField.Child("sockets"), cpuField.Child("threads")}, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores, sockets and threads")
+		}
 	}
 
 	return nil, nil
@@ -964,7 +969,7 @@ func applyCPU(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.Virtua
 	switch GetPreferredTopology(preferenceSpec) {
 	case instancetypev1beta1.PreferCores:
 		vmiSpec.Domain.CPU.Cores = instancetypeSpec.CPU.Guest
-	case instancetypev1beta1.PreferSockets:
+	case instancetypev1beta1.PreferSockets, instancetypev1beta1.PreferAny:
 		vmiSpec.Domain.CPU.Sockets = instancetypeSpec.CPU.Guest
 	case instancetypev1beta1.PreferThreads:
 		vmiSpec.Domain.CPU.Threads = instancetypeSpec.CPU.Guest

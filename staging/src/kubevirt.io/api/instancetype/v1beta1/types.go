@@ -315,6 +315,11 @@ const (
 
 	// Prefer vCPUs to be spread evenly between cores and sockets with any remaining vCPUs being presented as cores
 	PreferSpread PreferredCPUTopology = "preferSpread"
+
+	// Prefer vCPUs to be spread according to VirtualMachineInstanceTemplateSpec
+	//
+	// If used with VirtualMachineInstanceType it will use sockets as default
+	PreferAny PreferredCPUTopology = "preferAny"
 )
 
 // CPUPreferences contains various optional CPU preferences.
