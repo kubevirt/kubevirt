@@ -64,6 +64,14 @@ http_archive(
     ],
 )
 
+http_file(
+    name = "novnc",
+    sha256 = "a2a3ebf0fda920339aebde719e9945e81524d46e00bdd59fdce32df9ceb9ac49",
+    urls = [
+        "https://github.com/novnc/noVNC/archive/refs/tags/v1.4.0.zip",
+    ],
+)
+
 http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",

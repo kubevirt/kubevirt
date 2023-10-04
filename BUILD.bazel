@@ -84,11 +84,14 @@ nogo(
 )
 
 # gazelle:prefix kubevirt.io/kubevirt
-# gazelle:build_tags selinux
+# gazelle:build_tags selinux,includenovnc
 # gazelle:resolve go golang.org/x/tools/go/analysis @org_golang_x_tools//go/analysis:go_default_library
 gazelle(
     name = "gazelle",
-    build_tags = ["selinux"],
+    build_tags = [
+        "selinux",
+        "includenovnc",
+    ],
 )
 
 bazeldnf(name = "bazeldnf")

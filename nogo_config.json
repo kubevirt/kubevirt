@@ -50,7 +50,8 @@
   "copylocks": {
     "exclude_files": {
       "vendor/": "vendor doesn't pass vet",
-      "external/": "externaldoesn't pass vet"
+      "external/": "externaldoesn't pass vet",
+      "pkg/virtctl/novnc/": "stdlib issue to work around"
     }
   },
   "httpresponse": {

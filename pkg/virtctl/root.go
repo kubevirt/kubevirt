@@ -36,6 +36,10 @@ import (
 
 var programName string
 
+// CommandRegistrationCollback allows dynamic registration of virtctl commands based on
+// golang build tags.
+var CommandRegistrationCollback []func(clientConfig clientcmd.ClientConfig) *cobra.Command
+
 func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 
 	programName := GetProgramName(filepath.Base(os.Args[0]))
@@ -111,6 +115,9 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		credentials.NewCommand(clientConfig),
 		optionsCmd,
 	)
+	for _, cmd := range CommandRegistrationCollback {
+		rootCmd.AddCommand(cmd(clientConfig))
+	}
 	return rootCmd, clientConfig
 }
 

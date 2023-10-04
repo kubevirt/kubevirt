@@ -25,6 +25,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"kubevirt.io/kubevirt/pkg/virtctl" // Import to initialize client auth plugins.
+
+	// conditional commands
+	_ "kubevirt.io/kubevirt/pkg/virtctl/novnc" // build tag: "includenovnc"
 )
 
 func main() {
