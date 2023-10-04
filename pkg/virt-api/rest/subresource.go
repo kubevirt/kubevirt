@@ -676,7 +676,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		if err != nil {
 			return
 		}
-	case v1.RunStrategyManual:
+	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
 		if !hasVMI || vmi.IsFinal() {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(vmNotRunning)), response)
 			return
@@ -687,7 +687,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		if err != nil {
 			return
 		}
-	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways, v1.RunStrategyOnce:
+	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		bodyString := getRunningJson(vm, false)
 		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
 		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
