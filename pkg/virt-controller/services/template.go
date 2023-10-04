@@ -26,13 +26,11 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/record"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
@@ -161,7 +159,6 @@ type templateService struct {
 	launcherSubGid             int64
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
-	recorder                   record.EventRecorder
 
 	sidecarCreators []SidecarCreatorFunc
 }
@@ -1178,12 +1175,6 @@ func NewTemplateService(launcherImage string,
 	}
 
 	return &svc
-}
-
-func WithEventRecorder(recorder record.EventRecorder) templateServiceOption {
-	return func(svc *templateService) {
-		svc.recorder = recorder
-	}
 }
 
 func copyProbe(probe *v1.Probe) *k8sv1.Probe {

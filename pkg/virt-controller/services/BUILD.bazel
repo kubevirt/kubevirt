@@ -47,7 +47,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/kubectl/pkg/cmd/util/podcmd:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
@@ -97,7 +96,6 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
     ],
 )

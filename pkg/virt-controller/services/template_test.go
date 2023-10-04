@@ -26,7 +26,6 @@ import (
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/record"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
@@ -131,7 +130,6 @@ var _ = Describe("Template", func() {
 				"kubevirt/vmexport",
 				resourceQuotaStore,
 				namespaceStore,
-				WithEventRecorder(record.NewFakeRecorder(1)),
 				WithSidecarCreator(
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
@@ -2920,7 +2918,6 @@ var _ = Describe("Template", func() {
 				"kubevirt/vmexport",
 				resourceQuotaStore,
 				namespaceStore,
-				WithEventRecorder(record.NewFakeRecorder(1)),
 				WithSidecarCreator(testSidecarCreator),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{

@@ -604,7 +604,6 @@ func (vca *VirtControllerApp) initCommon() {
 			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 				return netbinding.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
 			}),
-		services.WithEventRecorder(vca.vmiRecorder),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
