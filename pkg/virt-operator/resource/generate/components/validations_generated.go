@@ -7845,11 +7845,15 @@ var CRDsValidation map[string]string = map[string]string{
     spec:
       properties:
         annotationFilters:
+          description: 'Example use: "!some/key*". For a detailed description, please
+            refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.'
           items:
             type: string
           type: array
           x-kubernetes-list-type: atomic
         labelFilters:
+          description: 'Example use: "!some/key*". For a detailed description, please
+            refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.'
           items:
             type: string
           type: array
@@ -7867,8 +7871,9 @@ var CRDsValidation map[string]string = map[string]string{
             If this field is not specified, a new serial will be generated automatically.
           type: string
         source:
-          description: TypedLocalObjectReference contains enough information to let
-            you locate the typed referenced object inside the same namespace.
+          description: 'Source is the object that would be cloned. Currently supported
+            source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot
+            of snapshot.kubevirt.io API group'
           properties:
             apiGroup:
               description: APIGroup is the group for the resource being referenced.
@@ -7886,9 +7891,11 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
         target:
-          description: If the target is not provided, a random name would be generated
-            for the target. The target's name can be viewed by inspecting status "TargetName"
-            field below.
+          description: 'Target is the outcome of the cloning process. Currently supported
+            source types are: - VirtualMachine of kubevirt.io API group - Empty (nil).
+            If the target is not provided, the target type would default to VirtualMachine
+            and a random name would be generated for the target. The target''s name
+            can be viewed by inspecting status "TargetName" field below.'
           properties:
             apiGroup:
               description: APIGroup is the group for the resource being referenced.

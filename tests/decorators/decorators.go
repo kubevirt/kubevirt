@@ -49,4 +49,9 @@ var (
 	RequiresRWXFilesystemStorage = []interface{}{Label("rwxfs")}
 	USB                          = []interface{}{Label("USB")}
 	AutoResourceLimitsGate       = []interface{}{Label("AutoResourceLimitsGate")}
+
+	// Storage classes
+	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
+	// Requires a storage class without support for snapshots
+	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
 )

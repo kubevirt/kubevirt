@@ -144,13 +144,19 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 		return
 	}
 
-	keys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("snapshotSource", snapshotKey)
+	snapshotSourceKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("snapshotSource", snapshotKey)
 	if err != nil {
-		log.Log.Object(snapshot).Reason(err).Error("cannot get clone keys from snapshotSource indexer")
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotSourceKeys from snapshotSource indexer")
 		return
 	}
 
-	for _, key := range keys {
+	snapshotWaitingKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys(string(clonev1alpha1.SnapshotInProgress), snapshotKey)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotWaitingKeys from " + string(clonev1alpha1.SnapshotInProgress) + " indexer")
+		return
+	}
+
+	for _, key := range append(snapshotSourceKeys, snapshotWaitingKeys...) {
 		ctrl.vmCloneQueue.AddRateLimited(key)
 	}
 }
@@ -167,6 +173,22 @@ func (ctrl *VMCloneController) handleRestore(obj interface{}) {
 	}
 
 	if ownedByClone, key := isOwnedByClone(restore); ownedByClone {
+		ctrl.vmCloneQueue.AddRateLimited(key)
+	}
+
+	restoreKey, err := cache.MetaNamespaceKeyFunc(restore)
+	if err != nil {
+		log.Log.Object(restore).Reason(err).Error("cannot get snapshot key")
+		return
+	}
+
+	restoreWaitingKeys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys(string(clonev1alpha1.RestoreInProgress), restoreKey)
+	if err != nil {
+		log.Log.Object(restore).Reason(err).Error("cannot get clone restoreWaitingKeys from " + string(clonev1alpha1.RestoreInProgress) + " indexer")
+		return
+	}
+
+	for _, key := range restoreWaitingKeys {
 		ctrl.vmCloneQueue.AddRateLimited(key)
 	}
 }
