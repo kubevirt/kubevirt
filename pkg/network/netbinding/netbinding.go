@@ -35,7 +35,7 @@ import (
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) (hooks.HookSidecarList, error) {
 	var pluginSidecars hooks.HookSidecarList
 
-	if slirpSidecar := SlirpNetBindingPluginSidecar(vmi, config, recorder); slirpSidecar != nil {
+	if slirpSidecar := slirpNetBindingPluginSidecar(vmi, config, recorder); slirpSidecar != nil {
 		pluginSidecars = append(pluginSidecars, *slirpSidecar)
 	}
 
@@ -87,7 +87,7 @@ const (
 	UnregisteredNetworkBindingPluginReason = "UnregisteredNetworkBindingPlugin"
 )
 
-func SlirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) *hooks.HookSidecar {
+func slirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) *hooks.HookSidecar {
 	slirpIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
 		return i.Slirp != nil
 	})
