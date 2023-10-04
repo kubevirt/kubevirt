@@ -7,7 +7,7 @@ go_library(
     importpath = "k8s.io/apimachinery/pkg/util/diff",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/davecgh/go-spew/spew:go_default_library",
         "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/dump:go_default_library",
     ],
 )

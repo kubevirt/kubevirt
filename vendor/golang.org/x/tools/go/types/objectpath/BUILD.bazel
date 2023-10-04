@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["objectpath.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/go/types/objectpath",
+    importpath = "golang.org/x/tools/go/types/objectpath",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/golang.org/x/tools/internal/typeparams:go_default_library",
+        "//vendor/golang.org/x/tools/internal/typesinternal:go_default_library",
+    ],
+)

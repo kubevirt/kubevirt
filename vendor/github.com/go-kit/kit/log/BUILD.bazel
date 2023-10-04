@@ -15,5 +15,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-kit/kit/log",
     importpath = "github.com/go-kit/kit/log",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/go-logfmt/logfmt:go_default_library"],
+    deps = ["//vendor/github.com/go-kit/log:go_default_library"],
 )

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "errorcode.go",
         "errorcode_string.go",
+        "objectpath.go",
         "types.go",
         "types_118.go",
     ],
