@@ -157,6 +157,34 @@ var _ = Describe("Network Binding", func() {
 			}}))
 		})
 
+		It("should create a slirp and a custom hook sidecar", func() {
+			fakeRecorder := record.NewFakeRecorder(1)
+			config := &v1.KubeVirtConfiguration{
+				ImagePullPolicy: k8scorev1.PullIfNotPresent,
+				NetworkConfiguration: &v1.NetworkConfiguration{
+					Binding: map[string]v1.InterfaceBindingPlugin{
+						testBindingName1: {SidecarImage: testSidecarImage1},
+						"slirp":          {SidecarImage: "kubevirt/network-slirp-plugin"},
+					},
+				},
+			}
+
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name:    testNetworkName1,
+				Binding: &v1.PluginBinding{Name: testBindingName1},
+			})
+			Expect(netbinding.NetBindingPluginSidecarList(vmi, config, fakeRecorder)).To(ConsistOf(hooks.HookSidecarList{
+				{
+					ImagePullPolicy: k8scorev1.PullIfNotPresent,
+					Image:           "kubevirt/network-slirp-plugin",
+				},
+				{
+					ImagePullPolicy: k8scorev1.PullIfNotPresent,
+					Image:           testSidecarImage1,
+				},
+			}))
+		})
+
 		DescribeTable("should create Slirp hook sidecar with default image, when Kubevirt config",
 			func(config *v1.KubeVirtConfiguration) {
 				fakeRecorder := record.NewFakeRecorder(1)
