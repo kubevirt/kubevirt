@@ -205,8 +205,6 @@ type HyperConvergedSpec struct {
 	VMStateStorageClass *string `json:"vmStateStorageClass,omitempty"`
 
 	// VirtualMachineOptions holds the cluster level information regarding the virtual machine.
-	// +kubebuilder:default={"disableFreePageReporting": true}
-	// +default={"disableFreePageReporting": true}
 	// +optional
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 }
@@ -336,8 +334,6 @@ type VirtualMachineOptions struct {
 	// This will have effect only if AutoattachMemBalloon is not false and the vmi is not
 	// requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled.
 	// +optional
-	// +kubebuilder:default=true
-	// +default=true
 	DisableFreePageReporting bool `json:"disableFreePageReporting,omitempty"`
 }
 
@@ -705,7 +701,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "virtualMachineOptions": {"disableFreePageReporting": true}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

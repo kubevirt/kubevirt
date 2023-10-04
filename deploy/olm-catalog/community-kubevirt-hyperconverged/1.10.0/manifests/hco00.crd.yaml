@@ -68,7 +68,7 @@ spec:
                 vmiCPUAllocationRatio: 10
               uninstallStrategy: BlockUninstallIfWorkloadsExist
               virtualMachineOptions:
-                disableFreePageReporting: true
+                disableFreePageReporting: false
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               certConfig:
@@ -2572,7 +2572,7 @@ spec:
                 type: string
               virtualMachineOptions:
                 default:
-                  disableFreePageReporting: true
+                  disableFreePageReporting: false
                 description: VirtualMachineOptions holds the cluster level information
                   regarding the virtual machine.
                 properties:

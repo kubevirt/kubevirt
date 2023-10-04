@@ -524,7 +524,6 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					"virtualMachineOptions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineOptions holds the cluster level information regarding the virtual machine.",
-							Default:     map[string]interface{}{"disableFreePageReporting": true},
 							Ref:         ref("github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1.VirtualMachineOptions"),
 						},
 					},

@@ -67,8 +67,6 @@ spec:
               resourceRequirements:
                 vmiCPUAllocationRatio: 10
               uninstallStrategy: BlockUninstallIfWorkloadsExist
-              virtualMachineOptions:
-                disableFreePageReporting: true
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
               certConfig:
@@ -2639,13 +2637,10 @@ spec:
                   providers
                 type: string
               virtualMachineOptions:
-                default:
-                  disableFreePageReporting: true
                 description: VirtualMachineOptions holds the cluster level information
                   regarding the virtual machine.
                 properties:
                   disableFreePageReporting:
-                    default: true
                     description: DisableFreePageReporting disable the free page reporting
                       of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device.
                       This will have effect only if AutoattachMemBalloon is not false

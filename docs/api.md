@@ -95,7 +95,7 @@ HyperConverged is the Schema for the hyperconvergeds API
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta) |  | false |
-| spec |  | [HyperConvergedSpec](#hyperconvergedspec) | {"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}}, "virtualMachineOptions": {"disableFreePageReporting": true}, "featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"} | false |
+| spec |  | [HyperConvergedSpec](#hyperconvergedspec) | {"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"withHostPassthroughCPU": false, "enableCommonBootImageImport": true, "deployTektonTaskResources": false, "deployKubeSecondaryDNS": false, "nonRoot": true}, "liveMigrationConfig": {"completionTimeoutPerGiB": 800, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist"} | false |
 | status |  | [HyperConvergedStatus](#hyperconvergedstatus) |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -195,7 +195,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | kubeSecondaryDNSNameServerIP | KubeSecondaryDNSNameServerIP defines name server IP used by KubeSecondaryDNS | *string |  | false |
 | evictionStrategy | EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one. Allowed values: - `None` no eviction strategy at cluster level. - `LiveMigrate` migrate the VM on eviction; a not live migratable VM with no specific strategy will block the drain of the node util manually evicted. - `LiveMigrateIfPossible` migrate the VM on eviction if live migration is possible, otherwise directly evict. - `External` block the drain, track eviction and notify an external controller. Defaults to LiveMigrate with multiple worker nodes, None on single worker clusters. | *v1.EvictionStrategy |  | false |
 | vmStateStorageClass | VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode. | *string |  | false |
-| virtualMachineOptions | VirtualMachineOptions holds the cluster level information regarding the virtual machine. | *[VirtualMachineOptions](#virtualmachineoptions) | {"disableFreePageReporting": true} | false |
+| virtualMachineOptions | VirtualMachineOptions holds the cluster level information regarding the virtual machine. | *[VirtualMachineOptions](#virtualmachineoptions) |  | false |
 
 [Back to TOC](#table-of-contents)
 
@@ -354,6 +354,6 @@ VirtualMachineOptions holds the cluster level information regarding the virtual 
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| disableFreePageReporting | DisableFreePageReporting disable the free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device. This will have effect only if AutoattachMemBalloon is not false and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled. | bool | true | false |
+| disableFreePageReporting | DisableFreePageReporting disable the free page reporting of memory balloon device https://libvirt.org/formatdomain.html#memory-balloon-device. This will have effect only if AutoattachMemBalloon is not false and the vmi is not requesting any high performance feature (dedicatedCPU/realtime/hugePages), in which free page reporting is always disabled. | bool |  | false |
 
 [Back to TOC](#table-of-contents)

@@ -27,6 +27,18 @@
           }
         }
       ]
+    },
+    {
+      "semverRange": "<1.11.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/virtualMachineOptions/disableFreePageReporting"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
     }
   ],
   "objectsToBeRemoved": [

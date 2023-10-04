@@ -209,26 +209,4 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			Entry("when removing /spec", "/spec"),
 		)
 	})
-
-	Context("virtualMachineOptions defaults", func() {
-		defaultVirtualMachineOptions := v1beta1.VirtualMachineOptions{
-			DisableFreePageReporting: true,
-		}
-
-		DescribeTable("Check that virtualMachineOptions default is behaving as expected", func(path string) {
-			patch := []byte(fmt.Sprintf(removePathPatchTmplt, path))
-			Eventually(func() error {
-				return tests.PatchHCO(ctx, cli, patch)
-			}).WithTimeout(2 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				hc := tests.GetHCO(ctx, cli)
-				g.Expect(*hc.Spec.VirtualMachineOptions).Should(Equal(defaultVirtualMachineOptions), "virtualMachineOptions should be equal to default")
-			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
-		},
-			Entry("when removing /spec/virtualMachineOptions/disableFreePageReporting", "/spec/virtualMachineOptions/disableFreePageReporting"),
-			Entry("when removing /spec/virtualMachineOptions", "/spec/virtualMachineOptions"),
-			Entry("when removing /spec", "/spec"),
-		)
-	})
 })

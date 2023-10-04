@@ -960,7 +960,7 @@ metadata:
   name: kubevirt-hyperconverged
 spec:
   virtualMachineOptions:
-    disableFreePageReporting: true
+    disableFreePageReporting: false
 ```
 ## Hyperconverged Kubevirt cluster-wide Crypto Policy API
 

@@ -143,16 +143,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 	if in.Spec.UninstallStrategy == "" {
 		in.Spec.UninstallStrategy = "BlockUninstallIfWorkloadsExist"
 	}
-	if in.Spec.VirtualMachineOptions == nil {
-		if err := json.Unmarshal([]byte(`{"disableFreePageReporting": true}`), &in.Spec.VirtualMachineOptions); err != nil {
-			panic(err)
-		}
-	}
-	if in.Spec.VirtualMachineOptions != nil {
-		if in.Spec.VirtualMachineOptions.DisableFreePageReporting == false {
-			in.Spec.VirtualMachineOptions.DisableFreePageReporting = true
-		}
-	}
 }
 
 func SetObjectDefaults_HyperConvergedList(in *HyperConvergedList) {

@@ -2840,45 +2840,12 @@ Version: 1.2.3`)
 		})
 
 		Context("Virtual machine options", func() {
-			It("should set disableFreePageReporting by default", func() {
+			It("should not set disableFreePageReporting by default", func() {
 				kv, err := NewKubeVirt(hco)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(kv.Spec.Configuration).To(Not(BeNil()))
-				Expect(kv.Spec.Configuration.VirtualMachineOptions).To(Not(BeNil()))
-				Expect(kv.Spec.Configuration.VirtualMachineOptions.DisableFreePageReporting).To(Not(BeNil()))
+				Expect(kv.Spec.Configuration.VirtualMachineOptions).To(BeNil())
 			})
-
-			DescribeTable("should modify disableFreePageReporting according to HCO CR", func(virtualMachineOptions *hcov1beta1.VirtualMachineOptions) {
-				existingResource, err := NewKubeVirt(hco)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Modify HCO's virtual machine options configuration")
-				hco.Spec.VirtualMachineOptions = virtualMachineOptions
-
-				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
-				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
-				res := handler.ensure(req)
-				Expect(res.UpgradeDone).To(BeFalse())
-				Expect(res.Updated).To(BeTrue())
-				Expect(res.Err).ToNot(HaveOccurred())
-
-				foundResource := &kubevirtcorev1.KubeVirt{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
-						foundResource),
-				).ToNot(HaveOccurred())
-
-				Expect(existingResource.Spec.Configuration.VirtualMachineOptions).ToNot(BeNil())
-				Expect(existingResource.Spec.Configuration.VirtualMachineOptions.DisableFreePageReporting).ToNot(BeNil())
-
-				Expect(foundResource.Spec.Configuration.VirtualMachineOptions).To(BeNil())
-
-				Expect(req.Conditions).To(BeEmpty())
-			},
-				Entry("with virtualMachineOptions containing disableFreePageReporting false", &hcov1beta1.VirtualMachineOptions{DisableFreePageReporting: false}),
-				Entry("with empty virtualMachineOptions", &hcov1beta1.VirtualMachineOptions{}),
-			)
 		})
 
 		Context("VmiCPUAllocationRatio", func() {
