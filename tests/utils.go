@@ -103,7 +103,6 @@ import (
 
 const (
 	BinBash                = "/bin/bash"
-	StartingVMInstance     = "Starting a VirtualMachineInstance"
 	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
 	EchoLastReturnValue    = "echo $?\n"
 	CustomHostPath         = "custom-host-path"
@@ -244,7 +243,7 @@ func DeleteSecret(name, namespace string) {
 	}
 }
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	By(StartingVMInstance)
+	By("Starting a VirtualMachineInstance")
 	virtCli := kubevirt.Client()
 
 	var obj *v1.VirtualMachineInstance
