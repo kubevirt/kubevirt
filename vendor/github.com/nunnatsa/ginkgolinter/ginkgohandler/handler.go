@@ -4,16 +4,24 @@ import (
 	"go/ast"
 )
 
+const (
+	importPath   = `"github.com/onsi/ginkgo"`
+	importPathV2 = `"github.com/onsi/ginkgo/v2"`
+
+	focusSpec = "Focus"
+)
+
 // Handler provide different handling, depend on the way ginkgo was imported, whether
 // in imported with "." name, custom name or without any name.
 type Handler interface {
 	GetFocusContainerName(*ast.CallExpr) (bool, *ast.Ident)
+	IsFocusSpec(ident ast.Expr) bool
 }
 
 // GetGinkgoHandler returns a ginkgor handler according to the way ginkgo was imported in the specific file
 func GetGinkgoHandler(file *ast.File) Handler {
 	for _, imp := range file.Imports {
-		if imp.Path.Value != `"github.com/onsi/ginkgo"` && imp.Path.Value != `"github.com/onsi/ginkgo/v2"` {
+		if imp.Path.Value != importPath && imp.Path.Value != importPathV2 {
 			continue
 		}
 
@@ -41,6 +49,11 @@ func (h dotHandler) GetFocusContainerName(exp *ast.CallExpr) (bool, *ast.Ident) 
 	return false, nil
 }
 
+func (h dotHandler) IsFocusSpec(exp ast.Expr) bool {
+	id, ok := exp.(*ast.Ident)
+	return ok && id.Name == focusSpec
+}
+
 // nameHandler is used when importing ginkgo without name; i.e.
 // import "github.com/onsi/ginkgo"
 //
@@ -57,10 +70,28 @@ func (h nameHandler) GetFocusContainerName(exp *ast.CallExpr) (bool, *ast.Ident)
 	return false, nil
 }
 
+func (h nameHandler) IsFocusSpec(exp ast.Expr) bool {
+	if selExp, ok := exp.(*ast.SelectorExpr); ok {
+		if x, ok := selExp.X.(*ast.Ident); ok && x.Name == string(h) {
+			return selExp.Sel.Name == focusSpec
+		}
+	}
+
+	return false
+}
+
 func isFocusContainer(name string) bool {
 	switch name {
-	case "FDescribe", "FContext", "FWhen", "FIt":
+	case "FDescribe", "FContext", "FWhen", "FIt", "FDescribeTable", "FEntry":
 		return true
 	}
 	return false
+}
+
+func IsContainer(id *ast.Ident) bool {
+	switch id.Name {
+	case "It", "When", "Context", "Describe", "DescribeTable", "Entry":
+		return true
+	}
+	return isFocusContainer(id.Name)
 }

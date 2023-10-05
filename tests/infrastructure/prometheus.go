@@ -121,7 +121,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		By("finding virt-operator pod")
 		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
 		Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
-		Expect(ops.Size).ToNot(Equal(0), "no virt-operators found")
+		Expect(ops.Size()).ToNot(Equal(0), "no virt-operators found")
 		op := ops.Items[0]
 		Expect(op).ToNot(BeNil(), "virt-operator pod should not be nil")
 
@@ -138,14 +138,14 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}, 10*time.Second, time.Second).Should(BeTrue())
 
 		promIP := ep.Subsets[0].Addresses[0].IP
-		Expect(promIP).ToNot(Equal(0), "could not get Prometheus IP from endpoint")
+		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint")
 		var promPort int32
 		for _, port := range ep.Subsets[0].Ports {
 			if port.Name == "web" {
 				promPort = port.Port
 			}
 		}
-		Expect(promPort).ToNot(Equal(0), "could not get Prometheus port from endpoint")
+		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
 
 		// We need a token from a service account that can view all namespaces in the cluster
 		By("extracting virt-operator sa token")

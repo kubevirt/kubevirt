@@ -2615,7 +2615,7 @@ var _ = Describe("Manager helper functions", func() {
 			quantity := getVMIEphemeralDisksTotalSize(ephemeralDiskDir)
 
 			Expect(quantity).ToNot(BeNil())
-			Expect(quantity).ToNot(Equal(zeroQuantity))
+			Expect(quantity).ToNot(HaveValue(Equal(zeroQuantity)))
 			quantityValue := quantity.Value()
 			Expect(quantityValue).To(BeNumerically(">", 0))
 		}
