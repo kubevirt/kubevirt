@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	storage_util "kubevirt.io/kubevirt/tests/util/storage-util"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	expect "github.com/google/goexpect"
@@ -672,9 +674,9 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := storage_util.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := storage_util.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 				By("Create Snapshot")
 				snapshot = newSnapshot()
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -1471,51 +1473,3 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 	})
 })
-
-func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
-	dv := libdv.NewDataVolume(
-		libdv.WithBlankImageSource(),
-		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
-	)
-
-	var err error
-	dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
-	volumeSource := &v1.HotplugVolumeSource{
-		DataVolume: &v1.DataVolumeSource{
-			Name: dv.Name,
-		},
-	}
-	addVolumeName := "test-volume-" + rand.String(12)
-	addVolumeOptions := &v1.AddVolumeOptions{
-		Name: addVolumeName,
-		Disk: &v1.Disk{
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusSCSI,
-				},
-			},
-			Serial: addVolumeName,
-		},
-		VolumeSource: volumeSource,
-	}
-
-	if addVMIOnly {
-		Eventually(func() error {
-			return virtClient.VirtualMachineInstance(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	} else {
-		Eventually(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		verifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
-	}
-
-	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	verifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
-
-	return addVolumeName
-}

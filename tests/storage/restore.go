@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	storage_util "kubevirt.io/kubevirt/tests/util/storage-util"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1598,9 +1600,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
+				persistVolName := storage_util.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
 				By("Add temporary hotplug disk")
-				tempVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
+				tempVolName := storage_util.AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
 
 				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(2))

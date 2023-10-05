@@ -62,6 +62,7 @@ go_library(
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",
+        "//tests/util/storage-util:go_default_library",
         "//tests/watcher:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1:go_default_library",
