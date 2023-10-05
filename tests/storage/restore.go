@@ -625,12 +625,22 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 			})
 
-			It("should use existing ControllerRevisions for an existing VM restore", Label("instancetype", "preference", "restore"), func() {
+			DescribeTable("should use existing ControllerRevisions for an existing VM restore", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
 				originalVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				if toRunSourceVM {
+					By("Starting the VM and expecting it to run")
+					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+				}
+
 				By("Creating a VirtualMachineSnapshot")
 				snapshot = createSnapshot(vm)
+
+				if toRunSourceVM {
+					By("Stopping the VM")
+					vm = tests.StopVirtualMachine(vm)
+				}
 
 				By("Creating a VirtualMachineRestore")
 				restore = createRestoreDef(vm.Name, snapshot.Name)
@@ -647,11 +657,24 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalVM.Spec.Instancetype.RevisionName))
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(originalVM.Spec.Preference.RevisionName))
-			})
+			},
+				Entry("with a running VM", true),
+				Entry("with a stopped VM", false),
+			)
 
-			It("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func() {
+			DescribeTable("should create new ControllerRevisions for newly restored VM", Label("instancetype", "preference", "restore"), func(toRunSourceVM bool) {
+				if toRunSourceVM {
+					By("Starting the VM and expecting it to run")
+					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+				}
+
 				By("Creating a VirtualMachineSnapshot")
 				snapshot = createSnapshot(vm)
+
+				if toRunSourceVM {
+					By("Stopping the VM")
+					vm = tests.StopVirtualMachine(vm)
+				}
 
 				By("Creating a VirtualMachineRestore")
 				restoreVMName := vm.Name + "-new"
@@ -678,7 +701,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				By("Asserting that the source and target ControllerRevisions contain the same Object")
 				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, restoreVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
 				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, restoreVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
-			})
+			},
+				Entry("with a running VM", true),
+				Entry("with a stopped VM", false),
+			)
 		})
 	})
 
