@@ -276,4 +276,38 @@ var _ = Describe("[Serial][sig-compute]VMIDefaults", Serial, decorators.SigCompu
 		})
 
 	})
+
+	Context("Memory defaults", func() {
+		var kvConfiguration v1.KubeVirtConfiguration
+
+		BeforeEach(func() {
+			// create VMI with missing disk target
+			vmi = tests.NewRandomVMI()
+
+			kv := util.GetCurrentKv(virtClient)
+			kvConfiguration = kv.Spec.Configuration
+		})
+
+		DescribeTable("Should set default guest memory if VMI has no memory settings", func(expectedMemory resource.Quantity, modifyConfig bool) {
+			if modifyConfig {
+				By("Setting default guest memory")
+				kvConfiguration.DefaultGuestMemory = &expectedMemory
+				tests.UpdateKubeVirtConfigValueAndWait(kvConfiguration)
+			}
+
+			By("Creating a VMI without memory settings")
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+			vmi.Spec.Domain.Memory = nil
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Validating defaults for guest memory were set")
+			Expect(vmi.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(vmi.Spec.Domain.Memory.Guest).ToNot(BeNil())
+			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(expectedMemory))
+		},
+			Entry("with default value (do not modify KV CR)", resource.MustParse("512Mi"), false),
+			Entry("with custom value (modify KV CR)", resource.MustParse("128Mi"), true),
+		)
+	})
 })

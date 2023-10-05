@@ -535,11 +535,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", func() {
-			It("[test_id:3113]should failed to the VMI creation", func() {
+			It("[test_id:????]should not fail the VMI creation", func() {
 				vmi := libvmi.New()
 				By("Starting a VirtualMachineInstance")
-				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
-				Expect(err).To(HaveOccurred())
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Domain.Memory).ToNot(BeNil())
+				Expect(vmi.Spec.Domain.Memory.Guest).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
 			})
 		})
 

@@ -94,6 +94,7 @@ func setDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
 	SetDefaultGuestCPUTopology(clusterConfig, spec)
+	setDefaultGuestMemory(clusterConfig, spec)
 	setDefaultPullPoliciesOnContainerDisks(clusterConfig, spec)
 	setDefaultEvictionStrategy(clusterConfig, spec)
 	if err := clusterConfig.SetVMISpecDefaultNetworkInterface(spec); err != nil {
@@ -234,5 +235,20 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Architecture == "" {
 		spec.Architecture = clusterConfig.GetDefaultArchitecture()
+	}
+}
+
+func setDefaultGuestMemory(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Resources.Requests.Memory().Value() == 0 &&
+		(spec.Domain.Memory == nil || spec.Domain.Memory.Guest == nil && spec.Domain.Memory.Hugepages == nil) {
+		defaultGuestMemory := clusterConfig.GetConfig().DefaultGuestMemory
+		if defaultGuestMemory == nil {
+			parsedMemory := resource.MustParse("512Mi")
+			defaultGuestMemory = &parsedMemory
+		}
+
+		spec.Domain.Memory = &v1.Memory{
+			Guest: defaultGuestMemory,
+		}
 	}
 }

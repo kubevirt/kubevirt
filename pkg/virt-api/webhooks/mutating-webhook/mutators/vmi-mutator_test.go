@@ -61,6 +61,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	cpuModelFromConfig := "Haswell"
 	machineTypeFromConfig := "pc-q35-3.0"
 	cpuReq := resource.MustParse("800m")
+	defaultGuestMemory := resource.MustParse("512Mi")
+	guestMemory := resource.MustParse("128Mi")
 
 	admitVMI := func(arch string) *admissionv1.AdmissionResponse {
 		vmi.Spec.Architecture = arch
@@ -208,6 +210,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
+		Expect(*vmiSpec.Domain.Memory.Guest).To(Equal(defaultGuestMemory))
 	},
 		Entry("when architecture is amd64", "amd64", v1.DefaultCPUModel),
 		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough),
@@ -223,8 +226,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					CPUModel:   cpuModelFromConfig,
-					CPURequest: &cpuReq,
+					CPUModel:           cpuModelFromConfig,
+					CPURequest:         &cpuReq,
+					DefaultGuestMemory: &guestMemory,
 					ArchitectureConfiguration: &v1.ArchConfiguration{
 						Amd64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
 						Arm64:   &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
@@ -238,6 +242,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
+		Expect(*vmiSpec.Domain.Memory.Guest).To(Equal(guestMemory))
 	},
 		Entry("on amd64", "amd64", cpuModelFromConfig),
 		// Currently only Host-Passthrough is supported on Arm64, so you can only

@@ -2195,11 +2195,12 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with guest mapping passthrough",
 				}),
 				Entry("guest memory is not set", func(vm *v1.VirtualMachine) {
+					// Guest memory will be defaulted to 512Mi, which is greater than maxGuest
 					vm.Spec.Template.Spec.Domain.Memory.Guest = nil
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Field:   "spec.template.spec.domain.memory.guest",
-					Message: "Guest memory must be configured when memory hotplug is enabled",
+					Message: "Guest memory is greater than the configured maxGuest memory",
 				}),
 				Entry("guest memory is greater than maxGuest", func(vm *v1.VirtualMachine) {
 					moreThanMax := maxGuest.DeepCopy()
