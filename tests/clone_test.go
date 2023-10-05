@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	storage_util "kubevirt.io/kubevirt/tests/util/storage-util"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -692,6 +694,25 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					expectEqualAnnotations(targetVMCloneFromClone, sourceVM)
 				})
 
+				It("VM with a hotplug disk", func() {
+					sourceVM = createVMWithStorageClass("rook-ceph-block-wffc", true)
+					sourceVM = StartVMAndExpectRunning(virtClient, sourceVM)
+
+					By("Add persistent hotplug disk")
+					_ = storage_util.AddVolumeAndVerify(virtClient, "rook-ceph-block-wffc", sourceVM, true)
+					StopVirtualMachine(sourceVM)
+
+					By("Cloning VM")
+					vmClone = generateCloneFromVM()
+					createCloneAndWaitForFinish(vmClone)
+
+					By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+					targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+
+					By("Making sure target is runnable")
+					targetVM = expectVMRunnable(targetVM)
+				})
 			})
 		})
 	})
