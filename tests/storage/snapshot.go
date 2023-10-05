@@ -200,11 +200,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vmi.Spec.Volumes = vm.Spec.Template.Spec.Volumes
-		vmi.Spec.Domain.Devices.Disks = vm.Spec.Template.Spec.Domain.Devices.Disks
-		vm.Spec.Template.Spec = vmi.Spec
+		vm.Spec.Template.Spec.Volumes = content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes
+		vm.Spec.Template.Spec.Domain.Devices.Disks = content.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.Disks
 
 		Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
 		Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
