@@ -58,32 +58,33 @@ const (
 )
 
 const (
-	VmiEphemeral         = "vmi-ephemeral"
-	VmiMigratable        = "vmi-migratable"
-	VmiInstancetypeSmall = "vmi-instancetype-small"
-	VmiSata              = "vmi-sata"
-	VmiFedora            = "vmi-fedora"
-	VmiFedoraIsolated    = "vmi-fedora-isolated"
-	VmiSecureBoot        = "vmi-secureboot"
-	VmiAlpineEFI         = "vmi-alpine-efi"
-	VmiNoCloud           = "vmi-nocloud"
-	VmiPVC               = "vmi-pvc"
-	VmiWindows           = "vmi-windows"
-	VmiKernelBoot        = "vmi-kernel-boot"
-	VmiSlirp             = "vmi-slirp"
-	VmiMasquerade        = "vmi-masquerade"
-	VmiSRIOV             = "vmi-sriov"
-	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
-	VmiMultusPtp         = "vmi-multus-ptp"
-	VmiMultusMultipleNet = "vmi-multus-multiple-net"
-	VmiHostDisk          = "vmi-host-disk"
-	VmiGPU               = "vmi-gpu"
-	VmiARM               = "vmi-arm"
-	VmiMacvtap           = "vmi-macvtap"
-	VmiUSB               = "vmi-usb"
-	VmTemplateFedora     = "vm-template-fedora"
-	VmTemplateRHEL7      = "vm-template-rhel7"
-	VmTemplateWindows    = "vm-template-windows2012r2"
+	VmiEphemeral                = "vmi-ephemeral"
+	VmiMigratable               = "vmi-migratable"
+	VmiInstancetypeSmall        = "vmi-instancetype-small"
+	VmiSata                     = "vmi-sata"
+	VmiFedora                   = "vmi-fedora"
+	VmiFedoraIsolated           = "vmi-fedora-isolated"
+	VmiSecureBoot               = "vmi-secureboot"
+	VmiAlpineEFI                = "vmi-alpine-efi"
+	VmiNoCloud                  = "vmi-nocloud"
+	VmiPVC                      = "vmi-pvc"
+	VmiWindows                  = "vmi-windows"
+	VmiKernelBoot               = "vmi-kernel-boot"
+	VmiSlirp                    = "vmi-slirp"
+	VmiMasquerade               = "vmi-masquerade"
+	VmiSRIOV                    = "vmi-sriov"
+	VmiWithHookSidecar          = "vmi-with-sidecar-hook"
+	VmiWithHookSidecarConfigMap = "vmi-with-sidecar-hook-configmap"
+	VmiMultusPtp                = "vmi-multus-ptp"
+	VmiMultusMultipleNet        = "vmi-multus-multiple-net"
+	VmiHostDisk                 = "vmi-host-disk"
+	VmiGPU                      = "vmi-gpu"
+	VmiARM                      = "vmi-arm"
+	VmiMacvtap                  = "vmi-macvtap"
+	VmiUSB                      = "vmi-usb"
+	VmTemplateFedora            = "vm-template-fedora"
+	VmTemplateRHEL7             = "vm-template-rhel7"
+	VmTemplateWindows           = "vm-template-windows2012r2"
 )
 
 const (
@@ -1192,6 +1193,20 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
+	return vmi
+}
+
+func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiWithHookSidecarConfigMap)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
+
+	vmi.ObjectMeta.Annotations = map[string]string{
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/sidecar-shim:%s\", \"configMap\": {\"name\": \"my-config-map\", \"key\": \"my_script.sh\"}}]", DockerPrefix, DockerTag),
+	}
+	// TODO: also add the ConfigMap in generated example. Refer https://github.com/kubevirt/kubevirt/pull/10479#discussion_r1362021721
 	return vmi
 }
 
