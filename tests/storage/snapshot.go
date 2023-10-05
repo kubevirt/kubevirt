@@ -1462,12 +1462,21 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
-			It("Bug #8435 - should create a snapshot successfully", func() {
+			DescribeTable("Bug #8435 - should create a snapshot successfully", func(toRunSourceVM bool) {
+				if toRunSourceVM {
+					By("Starting the VM and expecting it to run")
+					vm = tests.StartVMAndExpectRunning(virtClient, vm)
+				}
+
 				snapshot = newSnapshot()
 				snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
 				waitSnapshotReady()
-			})
+			},
+				Entry("with running source VM", true),
+				Entry("with stopped source VM", false),
+			)
 		})
 	})
 })
