@@ -1558,6 +1558,16 @@ type VirtualMachineStatus struct {
 	// updated through an Update() before ObservedGeneration in Status.
 	// +optional
 	DesiredGeneration int64 `json:"desiredGeneration,omitempty" optional:"true"`
+
+	// InstancetypeStatus tracks the state of the associated instance type and captured ControllerRevision
+	// +nullable
+	// +optional
+	InstancetypeStatus *InstancetypeStatus `json:"instancetypeStatus,omitempty" optional:"true"`
+
+	// PreferenceStatus tracks the state of the associated preference and captured ControllerRevision
+	// +nullable
+	// +optional
+	PreferenceStatus *PreferenceStatus `json:"preferenceStatus,omitempty" optional:"true"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -2715,6 +2725,8 @@ type InstancetypeMatcher struct {
 	// +optional
 	Kind string `json:"kind,omitempty"`
 
+	// Deprecated: Use vm.status.instancetypeStatus.revisionName instead.
+	//
 	// RevisionName specifies a ControllerRevision containing a specific copy of the
 	// VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially
 	// captured the first time the instancetype is applied to the VirtualMachineInstance.
@@ -2738,6 +2750,15 @@ func (i InstancetypeMatcher) GetRevisionName() string {
 	return i.RevisionName
 }
 
+type InstancetypeStatus struct {
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially
+	// captured the first time the VirtualMachine is seen using the instance type.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
+}
+
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
 type PreferenceMatcher struct {
 	// Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
@@ -2752,6 +2773,8 @@ type PreferenceMatcher struct {
 	// +optional
 	Kind string `json:"kind,omitempty"`
 
+	// Deprecated: Use vm.Status.PreferenceStatus.RevisionName instead.
+	//
 	// RevisionName specifies a ControllerRevision containing a specific copy of the
 	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
 	// initially captured the first time the instancetype is applied to the VirtualMachineInstance.
@@ -2773,6 +2796,15 @@ func (p PreferenceMatcher) GetName() string {
 
 func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
+}
+
+type PreferenceStatus struct {
+	// RevisionName specifies a ControllerRevision containing a specific copy of the
+	// VirtualMachinePreference or VirtualMachineClusterPreference to be used. This is
+	// initially captured the first time VirtualMachine is seen using the preference.
+	//
+	// +optional
+	RevisionName string `json:"revisionName,omitempty"`
 }
 
 type LiveUpdateFeatures struct {

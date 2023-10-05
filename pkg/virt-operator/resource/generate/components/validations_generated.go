@@ -4298,10 +4298,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
               type: string
             revisionName:
-              description: RevisionName specifies a ControllerRevision containing
+              description: "Deprecated: Use vm.status.instancetypeStatus.revisionName
+                instead. \n RevisionName specifies a ControllerRevision containing
                 a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
                 to be used. This is initially captured the first time the instancetype
-                is applied to the VirtualMachineInstance.
+                is applied to the VirtualMachineInstance."
               type: string
           type: object
         liveUpdateFeatures:
@@ -4357,10 +4358,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: Name is the name of the VirtualMachinePreference or VirtualMachineClusterPreference
               type: string
             revisionName:
-              description: RevisionName specifies a ControllerRevision containing
+              description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName
+                instead. \n RevisionName specifies a ControllerRevision containing
                 a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
                 to be used. This is initially captured the first time the instancetype
-                is applied to the VirtualMachineInstance.
+                is applied to the VirtualMachineInstance."
               type: string
           type: object
         runStrategy:
@@ -7493,6 +7495,18 @@ var CRDsValidation map[string]string = map[string]string{
             updated through an Update() before ObservedGeneration in Status.
           format: int64
           type: integer
+        instancetypeStatus:
+          description: InstancetypeStatus tracks the state of the associated instance
+            type and captured ControllerRevision
+          nullable: true
+          properties:
+            revisionName:
+              description: RevisionName specifies a ControllerRevision containing
+                a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
+                to be used. This is initially captured the first time the VirtualMachine
+                is seen using the instance type.
+              type: string
+          type: object
         memoryDumpRequest:
           description: MemoryDumpRequest tracks memory dump request phase and info
             of getting a memory dump to the given pvc
@@ -7533,6 +7547,18 @@ var CRDsValidation map[string]string = map[string]string{
             started.
           format: int64
           type: integer
+        preferenceStatus:
+          description: PreferenceStatus tracks the state of the associated preference
+            and captured ControllerRevision
+          nullable: true
+          properties:
+            revisionName:
+              description: RevisionName specifies a ControllerRevision containing
+                a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
+                to be used. This is initially captured the first time VirtualMachine
+                is seen using the preference.
+              type: string
+          type: object
         printableStatus:
           description: PrintableStatus is a human readable, high-level representation
             of the status of the virtual machine
@@ -17990,10 +18016,11 @@ var CRDsValidation map[string]string = map[string]string{
                         or VirtualMachineClusterInstancetype
                       type: string
                     revisionName:
-                      description: RevisionName specifies a ControllerRevision containing
+                      description: "Deprecated: Use vm.status.instancetypeStatus.revisionName
+                        instead. \n RevisionName specifies a ControllerRevision containing
                         a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
                         to be used. This is initially captured the first time the
-                        instancetype is applied to the VirtualMachineInstance.
+                        instancetype is applied to the VirtualMachineInstance."
                       type: string
                   type: object
                 liveUpdateFeatures:
@@ -18051,10 +18078,11 @@ var CRDsValidation map[string]string = map[string]string{
                         or VirtualMachineClusterPreference
                       type: string
                     revisionName:
-                      description: RevisionName specifies a ControllerRevision containing
+                      description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName
+                        instead. \n RevisionName specifies a ControllerRevision containing
                         a specific copy of the VirtualMachinePreference or VirtualMachineClusterPreference
                         to be used. This is initially captured the first time the
-                        instancetype is applied to the VirtualMachineInstance.
+                        instancetype is applied to the VirtualMachineInstance."
                       type: string
                   type: object
                 runStrategy:
@@ -23053,11 +23081,12 @@ var CRDsValidation map[string]string = map[string]string{
                             or VirtualMachineClusterInstancetype
                           type: string
                         revisionName:
-                          description: RevisionName specifies a ControllerRevision
+                          description: "Deprecated: Use vm.status.instancetypeStatus.revisionName
+                            instead. \n RevisionName specifies a ControllerRevision
                             containing a specific copy of the VirtualMachineInstancetype
                             or VirtualMachineClusterInstancetype to be used. This
                             is initially captured the first time the instancetype
-                            is applied to the VirtualMachineInstance.
+                            is applied to the VirtualMachineInstance."
                           type: string
                       type: object
                     liveUpdateFeatures:
@@ -23117,11 +23146,12 @@ var CRDsValidation map[string]string = map[string]string{
                             or VirtualMachineClusterPreference
                           type: string
                         revisionName:
-                          description: RevisionName specifies a ControllerRevision
+                          description: "Deprecated: Use vm.Status.PreferenceStatus.RevisionName
+                            instead. \n RevisionName specifies a ControllerRevision
                             containing a specific copy of the VirtualMachinePreference
                             or VirtualMachineClusterPreference to be used. This is
                             initially captured the first time the instancetype is
-                            applied to the VirtualMachineInstance.
+                            applied to the VirtualMachineInstance."
                           type: string
                       type: object
                     runStrategy:
@@ -26639,6 +26669,19 @@ var CRDsValidation map[string]string = map[string]string{
                         ObservedGeneration in Status.
                       format: int64
                       type: integer
+                    instancetypeStatus:
+                      description: InstancetypeStatus tracks the state of the associated
+                        instance type and captured ControllerRevision
+                      nullable: true
+                      properties:
+                        revisionName:
+                          description: RevisionName specifies a ControllerRevision
+                            containing a specific copy of the VirtualMachineInstancetype
+                            or VirtualMachineClusterInstancetype to be used. This
+                            is initially captured the first time the VirtualMachine
+                            is seen using the instance type.
+                          type: string
+                      type: object
                     memoryDumpRequest:
                       description: MemoryDumpRequest tracks memory dump request phase
                         and info of getting a memory dump to the given pvc
@@ -26682,6 +26725,19 @@ var CRDsValidation map[string]string = map[string]string{
                         the vmi when started.
                       format: int64
                       type: integer
+                    preferenceStatus:
+                      description: PreferenceStatus tracks the state of the associated
+                        preference and captured ControllerRevision
+                      nullable: true
+                      properties:
+                        revisionName:
+                          description: RevisionName specifies a ControllerRevision
+                            containing a specific copy of the VirtualMachinePreference
+                            or VirtualMachineClusterPreference to be used. This is
+                            initially captured the first time VirtualMachine is seen
+                            using the preference.
+                          type: string
+                      type: object
                     printableStatus:
                       description: PrintableStatus is a human readable, high-level
                         representation of the status of the virtual machine
