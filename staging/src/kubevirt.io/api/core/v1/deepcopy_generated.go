@@ -2341,6 +2341,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(NetworkConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.DefaultGuestMemory != nil {
+		in, out := &in.DefaultGuestMemory, &out.DefaultGuestMemory
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	if in.SMBIOSConfig != nil {
 		in, out := &in.SMBIOSConfig, &out.SMBIOSConfig
 		*out = new(SMBiosConfiguration)

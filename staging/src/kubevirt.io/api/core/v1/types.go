@@ -2313,6 +2313,7 @@ type KubeVirtConfiguration struct {
 	OVMFPath                  string                `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType       string                `json:"selinuxLauncherType,omitempty"`
 	DefaultRuntimeClass       string                `json:"defaultRuntimeClass,omitempty"`
+	DefaultGuestMemory        *resource.Quantity    `json:"defaultGuestMemory,omitempty"`
 	SMBIOSConfig              *SMBiosConfiguration  `json:"smbios,omitempty"`
 	ArchitectureConfiguration *ArchConfiguration    `json:"architectureConfiguration,omitempty"`
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be

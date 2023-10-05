@@ -17539,6 +17539,9 @@
      "cpuRequest": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
+     "defaultGuestMemory": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
      "defaultRuntimeClass": {
       "type": "string"
      },
