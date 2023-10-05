@@ -22,14 +22,13 @@ package netbinding
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-
 	k8scorev1 "k8s.io/api/core/v1"
 	k8srecord "k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration, recorder k8srecord.EventRecorder) (hooks.HookSidecarList, error) {
@@ -37,6 +36,10 @@ func NetBindingPluginSidecarList(vmi *v1.VirtualMachineInstance, config *v1.Kube
 
 	if slirpSidecar := slirpNetBindingPluginSidecar(vmi, config, recorder); slirpSidecar != nil {
 		pluginSidecars = append(pluginSidecars, *slirpSidecar)
+	}
+
+	if passtSidecar := passtNetBindingPluginSidecar(vmi, config); passtSidecar != nil {
+		pluginSidecars = append(pluginSidecars, *passtSidecar)
 	}
 
 	netbindingPluginSidecars, err := netBindingPluginSidecar(vmi, config)
@@ -122,4 +125,18 @@ func readNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, plugi
 	}
 
 	return nil
+}
+
+func passtNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.KubeVirtConfiguration) *hooks.HookSidecar {
+	passtIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(i v1.Interface) bool {
+		return i.Passt != nil
+	})
+	if len(passtIfaces) == 0 {
+		return nil
+	}
+
+	return &hooks.HookSidecar{
+		Image:           "registry:5000/kubevirt/network-passt-binding:devel",
+		ImagePullPolicy: kvConfig.ImagePullPolicy,
+	}
 }
