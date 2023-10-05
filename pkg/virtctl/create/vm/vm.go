@@ -586,6 +586,13 @@ func (c *createVM) withInferredInstancetype(vm *v1.VirtualMachine) error {
 		InferFromVolume: c.inferInstancetypeFrom,
 	}
 
+	// If inferring implicitly possible errors during inference should be ignored
+	// on the backend because the executed command possibly still was valid.
+	if !c.explicitInstancetypeInference {
+		failurePolicy := v1.IgnoreInferFromVolumeFailure
+		vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
+	}
+
 	return nil
 }
 
@@ -609,6 +616,13 @@ func (c *createVM) withInferredPreference(vm *v1.VirtualMachine) error {
 
 	vm.Spec.Preference = &v1.PreferenceMatcher{
 		InferFromVolume: c.inferPreferenceFrom,
+	}
+
+	// If inferring implicitly possible errors during inference should be ignored
+	// on the backend because the executed command possibly still was valid.
+	if !c.explicitPreferenceInference {
+		failurePolicy := v1.IgnoreInferFromVolumeFailure
+		vm.Spec.Preference.InferFromVolumeFailurePolicy = &failurePolicy
 	}
 
 	return nil

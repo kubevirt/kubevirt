@@ -4289,6 +4289,12 @@ var CRDsValidation map[string]string = map[string]string{
                 annotations on the underlying resource. Once applied to the InstancetypeMatcher
                 this field is removed.
               type: string
+            inferFromVolumeFailurePolicy:
+              description: 'InferFromVolumeFailurePolicy controls what should happen
+                on failure when inferring the instancetype. Allowed values are: "RejectInferFromVolumeFailure"
+                and "IgnoreInferFromVolumeFailure". If not specified, "RejectInferFromVolumeFailure"
+                is used by default.'
+              type: string
             kind:
               description: 'Kind specifies which instancetype resource is referenced.
                 Allowed values are: "VirtualMachineInstancetype" and "VirtualMachineClusterInstancetype".
@@ -4347,6 +4353,12 @@ var CRDsValidation map[string]string = map[string]string{
                 be used to infer or discover the preference to be used through known
                 annotations on the underlying resource. Once applied to the PreferenceMatcher
                 this field is removed.
+              type: string
+            inferFromVolumeFailurePolicy:
+              description: 'InferFromVolumeFailurePolicy controls what should happen
+                on failure when preference the instancetype. Allowed values are: "RejectInferFromVolumeFailure"
+                and "IgnoreInferFromVolumeFailure". If not specified, "RejectInferFromVolumeFailure"
+                is used by default.'
               type: string
             kind:
               description: 'Kind specifies which preference resource is referenced.
@@ -17979,6 +17991,13 @@ var CRDsValidation map[string]string = map[string]string{
                         used through known annotations on the underlying resource.
                         Once applied to the InstancetypeMatcher this field is removed.
                       type: string
+                    inferFromVolumeFailurePolicy:
+                      description: 'InferFromVolumeFailurePolicy controls what should
+                        happen on failure when inferring the instancetype. Allowed
+                        values are: "RejectInferFromVolumeFailure" and "IgnoreInferFromVolumeFailure".
+                        If not specified, "RejectInferFromVolumeFailure" is used by
+                        default.'
+                      type: string
                     kind:
                       description: 'Kind specifies which instancetype resource is
                         referenced. Allowed values are: "VirtualMachineInstancetype"
@@ -18039,6 +18058,13 @@ var CRDsValidation map[string]string = map[string]string{
                         should be used to infer or discover the preference to be used
                         through known annotations on the underlying resource. Once
                         applied to the PreferenceMatcher this field is removed.
+                      type: string
+                    inferFromVolumeFailurePolicy:
+                      description: 'InferFromVolumeFailurePolicy controls what should
+                        happen on failure when preference the instancetype. Allowed
+                        values are: "RejectInferFromVolumeFailure" and "IgnoreInferFromVolumeFailure".
+                        If not specified, "RejectInferFromVolumeFailure" is used by
+                        default.'
                       type: string
                     kind:
                       description: 'Kind specifies which preference resource is referenced.
@@ -23042,6 +23068,13 @@ var CRDsValidation map[string]string = map[string]string{
                             resource. Once applied to the InstancetypeMatcher this
                             field is removed.
                           type: string
+                        inferFromVolumeFailurePolicy:
+                          description: 'InferFromVolumeFailurePolicy controls what
+                            should happen on failure when inferring the instancetype.
+                            Allowed values are: "RejectInferFromVolumeFailure" and
+                            "IgnoreInferFromVolumeFailure". If not specified, "RejectInferFromVolumeFailure"
+                            is used by default.'
+                          type: string
                         kind:
                           description: 'Kind specifies which instancetype resource
                             is referenced. Allowed values are: "VirtualMachineInstancetype"
@@ -23105,6 +23138,13 @@ var CRDsValidation map[string]string = map[string]string{
                             to be used through known annotations on the underlying
                             resource. Once applied to the PreferenceMatcher this field
                             is removed.
+                          type: string
+                        inferFromVolumeFailurePolicy:
+                          description: 'InferFromVolumeFailurePolicy controls what
+                            should happen on failure when preference the instancetype.
+                            Allowed values are: "RejectInferFromVolumeFailure" and
+                            "IgnoreInferFromVolumeFailure". If not specified, "RejectInferFromVolumeFailure"
+                            is used by default.'
                           type: string
                         kind:
                           description: 'Kind specifies which preference resource is

@@ -2701,6 +2701,13 @@ type Matcher interface {
 	GetRevisionName() string
 }
 
+type InferFromVolumeFailurePolicy string
+
+const (
+	RejectInferFromVolumeFailure InferFromVolumeFailurePolicy = "Reject"
+	IgnoreInferFromVolumeFailure InferFromVolumeFailurePolicy = "Ignore"
+)
+
 // InstancetypeMatcher references a instancetype that is used to fill fields in the VMI template.
 type InstancetypeMatcher struct {
 	// Name is the name of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype
@@ -2728,6 +2735,13 @@ type InstancetypeMatcher struct {
 	//
 	// +optional
 	InferFromVolume string `json:"inferFromVolume,omitempty"`
+
+	// InferFromVolumeFailurePolicy controls what should happen on failure when inferring the instancetype.
+	// Allowed values are: "RejectInferFromVolumeFailure" and "IgnoreInferFromVolumeFailure".
+	// If not specified, "RejectInferFromVolumeFailure" is used by default.
+	//
+	// +optional
+	InferFromVolumeFailurePolicy *InferFromVolumeFailurePolicy `json:"inferFromVolumeFailurePolicy,omitempty"`
 }
 
 func (i InstancetypeMatcher) GetName() string {
@@ -2765,6 +2779,13 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	InferFromVolume string `json:"inferFromVolume,omitempty"`
+
+	// InferFromVolumeFailurePolicy controls what should happen on failure when preference the instancetype.
+	// Allowed values are: "RejectInferFromVolumeFailure" and "IgnoreInferFromVolumeFailure".
+	// If not specified, "RejectInferFromVolumeFailure" is used by default.
+	//
+	// +optional
+	InferFromVolumeFailurePolicy *InferFromVolumeFailurePolicy `json:"inferFromVolumeFailurePolicy,omitempty"`
 }
 
 func (p PreferenceMatcher) GetName() string {

@@ -1099,9 +1099,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
 			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeapi.SingularResourceName))
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 			Expect(vm.Spec.Preference.Kind).To(Equal(instancetypeapi.SingularPreferenceResourceName))
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 
 			vm = tests.StartVMAndExpectRunning(virtClient, vm)
 
@@ -1117,6 +1119,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					Name: dataVolumeTemplateName,
 				},
 				Spec: dataVolume.Spec,
+			}}
+		}
+
+		generateVolumesForDataVolumeTemplates := func() []v1.Volume {
+			return []v1.Volume{{
+				Name: inferFromVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dataVolumeTemplateName,
+					},
+				},
 			}}
 		}
 
@@ -1160,6 +1173,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 			libstorage.EventuallyDV(sourceDV, 180, HaveSucceeded())
 
+			// This is the default but it should still be cleared
+			failurePolicy := v1.RejectInferFromVolumeFailure
+
 			vm = &v1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "vm-",
@@ -1167,10 +1183,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				Spec: v1.VirtualMachineSpec{
 					Instancetype: &v1.InstancetypeMatcher{
-						InferFromVolume: inferFromVolumeName,
+						InferFromVolume:              inferFromVolumeName,
+						InferFromVolumeFailurePolicy: &failurePolicy,
 					},
 					Preference: &v1.PreferenceMatcher{
-						InferFromVolume: inferFromVolumeName,
+						InferFromVolume:              inferFromVolumeName,
+						InferFromVolumeFailurePolicy: &failurePolicy,
 					},
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: v1.VirtualMachineInstanceSpec{
@@ -1210,14 +1228,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		DescribeTable("should infer defaults from DataVolumeTemplates", func(generateDataVolumeTemplatesFunc func() []v1.DataVolumeTemplateSpec) {
 			vm.Spec.DataVolumeTemplates = generateDataVolumeTemplatesFunc()
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
-				Name: inferFromVolumeName,
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: dataVolumeTemplateName,
-					},
-				},
-			}}
+			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()
 			createAndValidateVirtualMachine()
 		},
 			Entry("and DataVolumeSourcePVC",
@@ -1328,6 +1339,30 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			),
 		)
+
+		It("should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", func() {
+			// Inference from blank image source is not supported
+			dv := libdv.NewDataVolume(
+				libdv.WithNamespace(namespace),
+				libdv.WithForceBindAnnotation(),
+				libdv.WithBlankImageSource(),
+				libdv.WithPVC(libdv.PVCWithAccessMode(k8sv1.ReadWriteOnce), libdv.PVCWithVolumeSize("1Gi")),
+			)
+			vm.Spec.DataVolumeTemplates = generateDataVolumeTemplatesFromDataVolume(dv)
+			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()
+
+			failurePolicy := v1.IgnoreInferFromVolumeFailure
+			vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
+			vm.Spec.Preference.InferFromVolumeFailurePolicy = &failurePolicy
+
+			By("Creating the VirtualMachine")
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Validating the VirtualMachine")
+			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+		})
 	})
 
 	Context("instance type with dedicatedCPUPlacement enabled", func() {
