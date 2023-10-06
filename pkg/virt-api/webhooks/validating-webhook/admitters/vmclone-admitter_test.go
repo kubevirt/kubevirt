@@ -275,6 +275,22 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter.admitAndExpect(vmClone, false)
 	})
 
+	DescribeTable("Should reject if source and target names are equal", func(areSameKind bool) {
+		vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
+
+		if areSameKind {
+			vmClone.Spec.Source.Kind = vmClone.Spec.Target.Kind
+		} else {
+			vmClone.Spec.Source.Kind = "VirtualMachineSnapshot"
+			vmClone.Spec.Target.Kind = "VirtualMachine"
+		}
+
+		admitter.admitAndExpect(vmClone, !areSameKind)
+	},
+		Entry("with same kinds", true),
+		Entry("with different kinds", false),
+	)
+
 	DescribeTable("Should reject a source volume not Snapshot-able", func(index int) {
 		vm.Status.VolumeSnapshotStatuses[index].Enabled = false
 		admitter.admitAndExpect(vmClone, false)
