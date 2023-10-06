@@ -275,9 +275,18 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		if !exists {
 			return snapshotv1.SourceSpec{}, fmt.Errorf("can't get online snapshot spec, vmi doesn't exist")
 		}
+
 		vmi.Spec.Volumes = s.vm.Spec.Template.Spec.Volumes
 		vmi.Spec.Domain.Devices.Disks = s.vm.Spec.Template.Spec.Domain.Devices.Disks
 		vmCpy.Spec.Template.Spec = vmi.Spec
+
+		if vmCpy.Spec.LiveUpdateFeatures != nil &&
+			vmCpy.Spec.LiveUpdateFeatures.CPU != nil {
+			vmCpy.Spec.Template.Spec.Domain.CPU = nil
+			if s.vm.Spec.Template.Spec.Domain.CPU != nil {
+				vmCpy.Spec.Template.Spec.Domain.CPU = s.vm.Spec.Template.Spec.Domain.CPU.DeepCopy()
+			}
+		}
 	} else {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
