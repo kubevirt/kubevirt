@@ -573,7 +573,7 @@ var _ = Describe("ImageUpload", func() {
 			validateDataVolume()
 		})
 
-		It("Create a VolumeMode=Block PVC", func() {
+		DescribeTable("Create a VolumeMode=Block PVC", func(flag string) {
 			testInit(http.StatusOK)
 			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
 				"--insecure", "--image-path", imagePath, "--block-volume")
@@ -581,6 +581,19 @@ var _ = Describe("ImageUpload", func() {
 			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
 			validateBlockPVC()
 			validateBlockDataVolume()
+		},
+			Entry("using deprecated flag", "--block-volume"),
+			Entry("using VolumeMode flag", "-volume-mode=block"),
+		)
+
+		It("Create a VolumeMode=Filesystem PVC using volume-mode flag", func() {
+			testInit(http.StatusOK)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--insecure", "--image-path", imagePath, "--volume-mode", "filesystem")
+			Expect(cmd()).To(Succeed())
+			Expect(dvCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+			validateDataVolume()
 		})
 
 		It("Create a non-default storage class PVC", func() {
@@ -855,6 +868,10 @@ var _ = Describe("ImageUpload", func() {
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null", "--archive-path", "/dev/null.tar"}),
 			Entry("Archive path and block volume true provided", "In archive upload the volume mode should always be filesystem",
 				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume"}),
+			Entry("BlockVolume true provided with different volume-mode", "incompatible --volume-mode 'filesystem' and --block-volume",
+				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--block-volume", "--volume-mode", "filesystem"}),
+			Entry("Invalid volume-mode specified", "Invalid volume mode 'foo'. Valid values are 'block' and 'filesystem'.",
+				[]string{"dv", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--archive-path", "/dev/null.tar", "--volume-mode", "foo"}),
 			Entry("PVC name and args", "cannot use --pvc-name and args",
 				[]string{"foo", "--pvc-name", targetName, "--size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", "/dev/null"}),
 			Entry("Unexpected resource type", "invalid resource type foo",

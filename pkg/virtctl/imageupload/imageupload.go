@@ -101,6 +101,7 @@ var (
 	pvcSize                 string
 	storageClass            string
 	imagePath               string
+	volumeMode              string
 	archivePath             string
 	accessMode              string
 	defaultInstancetype     string
@@ -161,6 +162,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&storageClass, "storage-class", "", "The storage class for the PVC.")
 	cmd.Flags().StringVar(&accessMode, "access-mode", "", "The access mode for the PVC.")
 	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default is the storageProfile default. for archive upload default is filesystem).")
+	cmd.Flags().StringVar(&volumeMode, "volume-mode", "", "Specify the VolumeMode (block/filesystem) used to create the PVC. Default is the storageProfile default. For archive upload default is filesystem.")
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
 	cmd.Flags().StringVar(&archivePath, "archive-path", "", "Path to the local archive.")
 	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
@@ -173,6 +175,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().MarkDeprecated("pvc-name", "specify the name as the second argument instead.")
 	cmd.Flags().MarkDeprecated("pvc-size", "use --size instead.")
+	cmd.Flags().MarkDeprecated("block-volume", "specify volume mode (filesystem/block) with --volume-mode instead.")
 	return cmd
 }
 
@@ -224,6 +227,18 @@ func parseArgs(args []string) error {
 		return nil
 	}
 
+	// check deprecated blockVolume flag
+	if blockVolume {
+		if volumeMode == "" {
+			volumeMode = "block"
+		} else if volumeMode != "block" {
+			return fmt.Errorf("incompatible --volume-mode '%s' and --block-volume", volumeMode)
+		}
+	}
+	if volumeMode != "block" && volumeMode != "filesystem" && volumeMode != "" {
+		return fmt.Errorf("Invalid volume mode '%s'. Valid values are 'block' and 'filesystem'.", volumeMode)
+	}
+
 	archiveUpload = false
 	if imagePath == "" && archivePath == "" {
 		return fmt.Errorf("either image-path or archive-path must be provided")
@@ -232,7 +247,7 @@ func parseArgs(args []string) error {
 	} else if archivePath != "" {
 		archiveUpload = true
 		imagePath = archivePath
-		if blockVolume {
+		if volumeMode == "block" {
 			return fmt.Errorf("In archive upload the volume mode should always be filesystem")
 		}
 	}
@@ -308,12 +323,12 @@ func (c *command) run(args []string) error {
 		var obj metav1.Object
 
 		if createPVC {
-			obj, err = createUploadPVC(virtClient, namespace, name, size, storageClass, accessMode, blockVolume, archiveUpload)
+			obj, err = createUploadPVC(virtClient, namespace, name, size, storageClass, accessMode, volumeMode, archiveUpload)
 			if err != nil {
 				return err
 			}
 		} else {
-			obj, err = createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, blockVolume, archiveUpload)
+			obj, err = createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, volumeMode, archiveUpload)
 			if err != nil {
 				return err
 			}
@@ -611,8 +626,8 @@ func setDefaultInstancetypeLabels(labels map[string]string) {
 	}
 }
 
-func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*cdiv1.DataVolume, error) {
-	pvcSpec, err := createStorageSpec(client, size, storageClass, accessMode, blockVolume)
+func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode, volumeMode string, archiveUpload bool) (*cdiv1.DataVolume, error) {
+	pvcSpec, err := createStorageSpec(client, size, storageClass, accessMode, volumeMode)
 	if err != nil {
 		return nil, err
 	}
@@ -662,7 +677,7 @@ func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size
 	return dv, nil
 }
 
-func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, accessMode string, blockVolume bool) (*cdiv1.StorageSpec, error) {
+func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, accessMode, volumeMode string) (*cdiv1.StorageSpec, error) {
 	quantity, err := resource.ParseQuantity(size)
 	if err != nil {
 		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
@@ -687,15 +702,19 @@ func createStorageSpec(client kubecli.KubevirtClient, size, storageClass, access
 		spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.PersistentVolumeAccessMode(accessMode)}
 	}
 
-	if blockVolume {
+	switch volumeMode {
+	case "block":
 		volMode := v1.PersistentVolumeBlock
+		spec.VolumeMode = &volMode
+	case "filesystem":
+		volMode := v1.PersistentVolumeFilesystem
 		spec.VolumeMode = &volMode
 	}
 
 	return spec, nil
 }
 
-func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
+func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode, volumeMode string, archiveUpload bool) (*v1.PersistentVolumeClaim, error) {
 	if accessMode == string(v1.ReadOnlyMany) {
 		return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
 	}
@@ -712,7 +731,11 @@ func createUploadPVC(client kubecli.KubevirtClient, namespace, name, size, stora
 	if err != nil {
 		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
 	}
-	pvc := storagetypes.RenderPVC(&quantity, name, namespace, storageClass, accessMode, blockVolume)
+	pvc := storagetypes.RenderPVC(&quantity, name, namespace, storageClass, accessMode, volumeMode == "block")
+	if volumeMode == "filesystem" {
+		volMode := v1.PersistentVolumeFilesystem
+		pvc.Spec.VolumeMode = &volMode
+	}
 
 	contentType := string(cdiv1.DataVolumeKubeVirt)
 	if archiveUpload {
