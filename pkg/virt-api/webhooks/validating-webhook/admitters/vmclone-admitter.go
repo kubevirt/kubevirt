@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"strings"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/api/snapshot/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
@@ -90,6 +92,10 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 	}
 
 	if newCauses := validateSource(admitter.Client, vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := validateTargetName(vmClone.Spec.Source, vmClone.Spec.Target); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -374,4 +380,22 @@ func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *v1alp
 	}
 
 	return result
+}
+
+func validateTargetName(source, target *k8sv1.TypedLocalObjectReference) []metav1.StatusCause {
+	if target == nil {
+		return nil
+	}
+
+	if target.Kind == source.Kind && target.Name == source.Name {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("target name %s cannot be the same as source name %s if they are of the same kind", target.Name, source.Name),
+				Field:   k8sfield.NewPath("spec").Child("Target").Child("Name").String(),
+			},
+		}
+	}
+
+	return nil
 }
