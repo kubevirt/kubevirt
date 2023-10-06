@@ -562,6 +562,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 	}
 
+	c.aggregateDataVolumesConditions(vmiCopy, dataVolumes)
+
 	switch {
 	case vmi.IsUnprocessed():
 		if vmiPodExists {
@@ -2451,4 +2453,45 @@ func (c *VMIController) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 		}
 		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
 	}
+}
+
+func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
+	if len(dvs) == 0 {
+		return
+	}
+
+	dvsReadyCondition := virtv1.VirtualMachineInstanceCondition{
+		Status:  k8sv1.ConditionTrue,
+		Type:    virtv1.VirtualMachineInstanceDataVolumesReady,
+		Reason:  virtv1.VirtualMachineInstanceReasonAllDVsReady,
+		Message: "All of the VMI's DVs are bound and not running",
+	}
+
+	for _, dv := range dvs {
+		cStatus := statusOfReadyCondition(dv.Status.Conditions)
+		if cStatus != k8sv1.ConditionTrue {
+			dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonNotAllDVsReady
+			if cStatus == k8sv1.ConditionFalse {
+				dvsReadyCondition.Status = cStatus
+			} else if dvsReadyCondition.Status == k8sv1.ConditionTrue {
+				dvsReadyCondition.Status = cStatus
+			}
+		}
+	}
+
+	if dvsReadyCondition.Status != k8sv1.ConditionTrue {
+		dvsReadyCondition.Message = "Not all of the VMI's DVs are ready"
+	}
+
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+}
+
+func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.ConditionStatus {
+	for _, condition := range conditions {
+		if condition.Type == cdiv1.DataVolumeReady {
+			return condition.Status
+		}
+	}
+	return k8sv1.ConditionUnknown
 }
