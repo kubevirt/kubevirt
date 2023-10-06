@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	gomegatypes "github.com/onsi/gomega/types"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -34,6 +36,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -380,6 +383,62 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Expect(err).ToNot(HaveOccurred())
 					return vm.Status.PrintableStatus
 				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
+			})
+
+			It("should accurately aggregate DataVolume conditions from many DVs", func() {
+
+				sc, exist := libstorage.GetRWOFileSystemStorageClass()
+				if !exist {
+					sc, exist = libstorage.GetRWXFileSystemStorageClass()
+					if !exist {
+						Skip("Skip test when FileSystem storage is not present")
+					}
+				}
+
+				dataVolume1 := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+				)
+				dataVolume2 := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+				)
+
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume1.Name)
+
+				By("requiring an additional DataVolume")
+				diskName := "disk1"
+				vmi = libstorage.AddDataVolumeDisk(vmi, diskName, dataVolume2.Name)
+
+				vmSpec := tests.NewRandomVirtualMachine(vmi, true)
+
+				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(havePrintableStatus(v1.VirtualMachineStatusPvcNotFound))
+
+				By("creating the first DataVolume")
+				dataVolume1, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume1, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				defer libstorage.DeleteDataVolume(&dataVolume1)
+
+				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=False")
+				Eventually(ThisVMI(vmi), 180*time.Second, 2*time.Second).Should(haveDataVolumesReadyConditionStatus(k8sv1.ConditionFalse))
+				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(haveDataVolumesReadyConditionStatus(k8sv1.ConditionFalse))
+
+				By("creating the second DataVolume")
+				dataVolume2, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume2, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				defer libstorage.DeleteDataVolume(&dataVolume2)
+
+				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=Unknown")
+				Eventually(ThisVMI(vmi), 180*time.Second, 2*time.Second).Should(haveDataVolumesReadyConditionStatus(k8sv1.ConditionUnknown))
+				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(haveDataVolumesReadyConditionStatus(k8sv1.ConditionUnknown))
+
+				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=True")
+				Eventually(ThisVMI(vmi), 180*time.Second, 2*time.Second).Should(haveDataVolumesReadyConditionStatus(k8sv1.ConditionTrue))
+				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(haveDataVolumesReadyConditionStatus(k8sv1.ConditionTrue))
+
 			})
 		})
 
@@ -1415,4 +1474,23 @@ func newRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace
 
 	libstorage.AddDataVolumeTemplate(vm, dataVolume)
 	return vm
+}
+
+func havePrintableStatus(status v1.VirtualMachinePrintableStatus) gomegatypes.GomegaMatcher {
+	return PointTo(MatchFields(IgnoreExtras, Fields{
+		"Status": MatchFields(IgnoreExtras, Fields{
+			"PrintableStatus": Equal(status),
+		}),
+	}))
+}
+
+func haveDataVolumesReadyConditionStatus(status k8sv1.ConditionStatus) gomegatypes.GomegaMatcher {
+	return PointTo(MatchFields(IgnoreExtras, Fields{
+		"Status": MatchFields(IgnoreExtras, Fields{
+			"Conditions": ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Type":   BeEquivalentTo(v1.VirtualMachineInstanceDataVolumesReady),
+				"Status": BeEquivalentTo(status),
+			})),
+		}),
+	}))
 }

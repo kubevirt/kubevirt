@@ -562,6 +562,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 	}
 
+	c.aggregateDataVolumesConditions(vmiCopy, dataVolumes)
+
 	switch {
 	case vmi.IsUnprocessed():
 		if vmiPodExists {
@@ -2397,5 +2399,99 @@ func (c *VMIController) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 			vmi.Labels = map[string]string{}
 		}
 		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
+	}
+}
+
+type aggregateDataVolumeCondition struct {
+	Status  k8sv1.ConditionStatus
+	Reason  []string
+	Message []string
+}
+
+func (c *VMIController) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
+	if len(dvs) == 0 {
+		return
+	}
+
+	allDVConditions := map[cdiv1.DataVolumeConditionType]aggregateDataVolumeCondition{}
+
+	for _, dv := range dvs {
+		for _, condition := range dv.Status.Conditions {
+			if _, ok := allDVConditions[condition.Type]; !ok {
+				allDVConditions[condition.Type] = aggregateDataVolumeCondition{
+					Status:  condition.Status,
+					Reason:  []string{condition.Reason},
+					Message: []string{condition.Message},
+				}
+			} else {
+				if condition.Type == cdiv1.DataVolumeRunning {
+					aggregateCondsTrueWins(condition, allDVConditions)
+				} else {
+					aggregateCondsFalseWins(condition, allDVConditions)
+				}
+			}
+		}
+	}
+
+	dvsReadyCondition := virtv1.VirtualMachineInstanceCondition{
+		Type:   virtv1.VirtualMachineInstanceDataVolumesReady,
+		Status: k8sv1.ConditionUnknown,
+	}
+
+	if allDVConditions[cdiv1.DataVolumeBound].Status == k8sv1.ConditionFalse {
+		dvsReadyCondition.Status = k8sv1.ConditionFalse
+		dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonNotAllDVsBound
+		dvsReadyCondition.Message = "Not all of the VMI's DVs are bound: " + strings.Join(allDVConditions[cdiv1.DataVolumeBound].Message, ",")
+	} else if allDVConditions[cdiv1.DataVolumeBound].Status == k8sv1.ConditionUnknown {
+		dvsReadyCondition.Status = k8sv1.ConditionUnknown
+		dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonNotAllDVsBound
+		dvsReadyCondition.Message = "Not all of the VMI's DVs are bound (unknown): " + strings.Join(allDVConditions[cdiv1.DataVolumeBound].Message, ",")
+	} else if allDVConditions[cdiv1.DataVolumeRunning].Status == k8sv1.ConditionTrue {
+		dvsReadyCondition.Status = k8sv1.ConditionFalse
+		dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonDVRunning
+		dvsReadyCondition.Message = "At least one of the VMI's DVs is still running (import/upload/clone): " + strings.Join(allDVConditions[cdiv1.DataVolumeRunning].Message, ",")
+	} else if allDVConditions[cdiv1.DataVolumeRunning].Status == k8sv1.ConditionUnknown {
+		dvsReadyCondition.Status = k8sv1.ConditionUnknown
+		dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonDVRunning
+		dvsReadyCondition.Message = "At least one of the VMI's DVs is still in unknown running (import/upload/clone) status: " + strings.Join(allDVConditions[cdiv1.DataVolumeRunning].Message, ",")
+	} else if allDVConditions[cdiv1.DataVolumeReady].Status == k8sv1.ConditionUnknown {
+		dvsReadyCondition.Status = k8sv1.ConditionUnknown
+		dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonAllDVsReady
+		dvsReadyCondition.Message = "Not all of the VMI's DVs are bound and not running (unknown)"
+	} else if allDVConditions[cdiv1.DataVolumeReady].Status == k8sv1.ConditionTrue {
+		dvsReadyCondition.Status = k8sv1.ConditionTrue
+		dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonAllDVsReady
+		dvsReadyCondition.Message = "All of the VMI's DVs are bound and not running"
+	}
+
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+}
+
+func aggregateCondsFalseWins(condition cdiv1.DataVolumeCondition, allDVConditions map[cdiv1.DataVolumeConditionType]aggregateDataVolumeCondition) {
+	if condition.Status == k8sv1.ConditionFalse || condition.Status == k8sv1.ConditionUnknown {
+		status := condition.Status
+		if allDVConditions[condition.Type].Status == k8sv1.ConditionFalse {
+			status = k8sv1.ConditionFalse
+		}
+		allDVConditions[condition.Type] = aggregateDataVolumeCondition{
+			Status:  status,
+			Reason:  append(allDVConditions[condition.Type].Reason, condition.Reason),
+			Message: append(allDVConditions[condition.Type].Reason, condition.Message),
+		}
+	}
+}
+
+func aggregateCondsTrueWins(condition cdiv1.DataVolumeCondition, allDVConditions map[cdiv1.DataVolumeConditionType]aggregateDataVolumeCondition) {
+	if condition.Status == k8sv1.ConditionTrue || condition.Status == k8sv1.ConditionUnknown {
+		status := condition.Status
+		if allDVConditions[condition.Type].Status == k8sv1.ConditionTrue {
+			status = k8sv1.ConditionTrue
+		}
+		allDVConditions[condition.Type] = aggregateDataVolumeCondition{
+			Status:  status,
+			Reason:  append(allDVConditions[condition.Type].Reason, condition.Reason),
+			Message: append(allDVConditions[condition.Type].Reason, condition.Message),
+		}
 	}
 }

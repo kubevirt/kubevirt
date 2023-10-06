@@ -192,7 +192,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineSchedulingState := func(vmi *virtv1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduling))
-			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
@@ -202,7 +202,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineScheduledState := func(vmi *virtv1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Scheduled))
-			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
@@ -212,10 +212,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	shouldExpectVirtualMachineFailedState := func(vmi *virtv1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Phase).To(Equal(virtv1.Failed))
-			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ConsistOf(MatchFields(IgnoreExtras,
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
 				Fields{"Type": Equal(virtv1.VirtualMachineInstanceReady)})))
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(BeEmpty())
 			Expect(arg.(*virtv1.VirtualMachineInstance).Status.PhaseTransitionTimestamps).ToNot(HaveLen(len(vmi.Status.PhaseTransitionTimestamps)))
+		}).Return(vmi, nil)
+	}
+
+	shouldExpectVirtualMachineDataVolumesReadyCondition := func(vmi *virtv1.VirtualMachineInstance, expectedStatus k8sv1.ConditionStatus) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+				Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady), "Status": BeEquivalentTo(expectedStatus)})))
+		}).Return(vmi, nil)
+	}
+
+	shouldExpectVirtualMachineDataVolumesReadyConditionWithMessagePrefix := func(vmi *virtv1.VirtualMachineInstance, expectedStatus k8sv1.ConditionStatus, expectedMessagePrefix string) {
+		vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
+			Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
+				Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady), "Status": BeEquivalentTo(expectedStatus), "Message": HavePrefix(expectedMessagePrefix)})))
 		}).Return(vmi, nil)
 	}
 
@@ -339,6 +353,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionTrue)
 			shouldExpectPodCreation(vmi.UID)
 
 			controller.Execute()
@@ -364,8 +379,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
 			vmiInterface.EXPECT().Update(context.Background(), gomock.Any()).Do(func(ctx context.Context, arg interface{}) {
-				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
-					Fields{"Type": Equal(virtv1.VirtualMachineInstanceProvisioning)})))
+				Expect(arg.(*virtv1.VirtualMachineInstance).Status.Conditions).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceProvisioning)}),
+					MatchFields(IgnoreExtras, Fields{"Type": BeEquivalentTo(virtv1.VirtualMachineInstanceDataVolumesReady), "Status": BeEquivalentTo(k8sv1.ConditionFalse)}),
+				))
 			}).Return(vmi, nil)
 
 			IsPodWithoutVmPayload := WithTransform(
@@ -453,6 +470,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podFeeder.Add(pod)
 			addActivePods(vmi, pod.UID, "")
 			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionTrue)
 			shouldExpectPodDeletion(pod)
 
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
@@ -550,7 +568,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
-
+			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionFalse)
 			controller.Execute()
 		})
 	})
@@ -579,6 +597,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionTrue)
 			shouldExpectPodCreation(vmi.UID)
 
 			controller.Execute()
@@ -689,6 +708,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			dataVolumeFeeder.Add(dataVolume)
 			shouldExpectPodDeletion(pod)
+			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionTrue)
 			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, dvPVC, nil
 			})
@@ -715,6 +735,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectVirtualMachineDataVolumesReadyCondition(vmi, k8sv1.ConditionFalse)
 
 			controller.Execute()
 		})
@@ -3470,10 +3491,251 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 		})
 	})
+
+	Context("Aggregating DataVolume conditions", func() {
+
+		dvVolumeSource1 := virtv1.VolumeSource{
+			DataVolume: &virtv1.DataVolumeSource{
+				Name: "test1",
+			},
+		}
+		dvVolumeSource2 := virtv1.VolumeSource{
+			DataVolume: &virtv1.DataVolumeSource{
+				Name: "test2",
+			},
+		}
+		dvVolumeSource3 := virtv1.VolumeSource{
+			DataVolume: &virtv1.DataVolumeSource{
+				Name: "test3",
+			},
+		}
+		DescribeTable("Should aggregate conditions from 3 DataVolumes on VMI status",
+			func(dvConds1, dvConds2, dvConds3 []cdiv1.DataVolumeCondition, expectedStatus k8sv1.ConditionStatus, expectedMessagePrefix string) {
+				vmi := NewPendingVirtualMachine("testvmi")
+
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name:         "test1",
+					VolumeSource: dvVolumeSource1,
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name:         "test2",
+					VolumeSource: dvVolumeSource2,
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name:         "test3",
+					VolumeSource: dvVolumeSource3,
+				})
+
+				dvPVC1 := NewPvc(vmi.Namespace, "test1")
+				dvPVC2 := NewPvc(vmi.Namespace, "test2")
+				dvPVC3 := NewPvc(vmi.Namespace, "test3")
+				// we are mocking a successful DataVolume. we expect the PVC to
+				// be available in the store if DV is successful.
+				Expect(pvcInformer.GetIndexer().Add(dvPVC1)).To(Succeed())
+				Expect(pvcInformer.GetIndexer().Add(dvPVC2)).To(Succeed())
+				Expect(pvcInformer.GetIndexer().Add(dvPVC3)).To(Succeed())
+
+				dataVolume1 := NewDv(vmi.Namespace, "test1", cdiv1.Unknown)
+				dataVolume2 := NewDv(vmi.Namespace, "test2", cdiv1.Unknown)
+				dataVolume3 := NewDv(vmi.Namespace, "test3", cdiv1.Unknown)
+				for _, c := range dvConds1 {
+					setDataVolumeCondition(dataVolume1, c)
+				}
+				for _, c := range dvConds2 {
+					setDataVolumeCondition(dataVolume2, c)
+				}
+				for _, c := range dvConds3 {
+					setDataVolumeCondition(dataVolume3, c)
+				}
+
+				addVirtualMachine(vmi)
+				dataVolumeFeeder.Add(dataVolume1)
+				dataVolumeFeeder.Add(dataVolume2)
+				dataVolumeFeeder.Add(dataVolume3)
+				shouldExpectVirtualMachineDataVolumesReadyConditionWithMessagePrefix(vmi, expectedStatus, expectedMessagePrefix)
+				shouldExpectPodCreation(vmi.UID)
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+			},
+			Entry("3 ready DataVolumes",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionTrue,
+				"All of the VMI's DVs are bound and not running",
+			),
+			Entry("2 ready DataVolumes, 1 not bound",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionFalse},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionFalse,
+				"Not all of the VMI's DVs are bound:",
+			),
+			Entry("3 Unknown DataVolumes",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionUnknown},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionUnknown},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionUnknown},
+				},
+				k8sv1.ConditionUnknown,
+				"Not all of the VMI's DVs are bound (unknown):",
+			),
+			Entry("1 running, 2 ready",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionFalse},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionFalse,
+				"At least one of the VMI's DVs is still running (import/upload/clone):",
+			),
+			Entry("2 ready, 1 unknown",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionUnknown},
+				},
+				k8sv1.ConditionUnknown,
+				"Not all of the VMI's DVs are bound and not running (unknown)",
+			),
+			Entry("2 bound, not running and ready, 1 with unknown running although ready",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionUnknown,
+				"At least one of the VMI's DVs is still in unknown running (import/upload/clone) status:",
+			),
+			Entry("2 bound, not running and ready, 1 with unknown bound although not running and ready",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionUnknown,
+				"Not all of the VMI's DVs are bound (unknown):",
+			),
+			Entry("first bound, not running and ready, second with unknown bound although not running and ready, third not bound although not running and ready",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionFalse,
+				"Not all of the VMI's DVs are bound:",
+			),
+			Entry("first bound, not running and ready, second with unknown running although bound and ready, third running, bound and ready",
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionFalse},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionUnknown},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				[]cdiv1.DataVolumeCondition{
+					{Type: cdiv1.DataVolumeBound, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeRunning, Status: k8sv1.ConditionTrue},
+					{Type: cdiv1.DataVolumeReady, Status: k8sv1.ConditionTrue},
+				},
+				k8sv1.ConditionFalse,
+				"At least one of the VMI's DVs is still running (import/upload/clone):",
+			),
+		)
+
+	})
 })
 
 func NewDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
-	return &cdiv1.DataVolume{
+	dv := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -3482,6 +3744,114 @@ func NewDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.Da
 			Phase: phase,
 		},
 	}
+
+	// mock phase coherent conditions
+	switch phase {
+	case cdiv1.Pending,
+		cdiv1.WaitForFirstConsumer,
+		cdiv1.PendingPopulation:
+		dv.Status.Conditions = []cdiv1.DataVolumeCondition{{
+			Type:   cdiv1.DataVolumeBound,
+			Status: k8sv1.ConditionFalse,
+		},
+			{
+				Type:   cdiv1.DataVolumeRunning,
+				Status: k8sv1.ConditionFalse,
+			},
+			{
+				Type:   cdiv1.DataVolumeReady,
+				Status: k8sv1.ConditionFalse,
+			},
+		}
+	case cdiv1.PVCBound:
+		dv.Status.Conditions = []cdiv1.DataVolumeCondition{{
+			Type:   cdiv1.DataVolumeBound,
+			Status: k8sv1.ConditionTrue,
+		},
+			{
+				Type:   cdiv1.DataVolumeRunning,
+				Status: k8sv1.ConditionFalse,
+			},
+			{
+				Type:   cdiv1.DataVolumeReady,
+				Status: k8sv1.ConditionFalse,
+			},
+		}
+	case cdiv1.ImportScheduled,
+		cdiv1.ImportInProgress,
+		cdiv1.CloneScheduled,
+		cdiv1.CloneInProgress,
+		cdiv1.SnapshotForSmartCloneInProgress,
+		cdiv1.CloneFromSnapshotSourceInProgress,
+		cdiv1.SmartClonePVCInProgress,
+		cdiv1.CSICloneInProgress,
+		cdiv1.ExpansionInProgress,
+		cdiv1.NamespaceTransferInProgress,
+		cdiv1.UploadScheduled,
+		cdiv1.UploadReady:
+		dv.Status.Conditions = []cdiv1.DataVolumeCondition{
+			{
+				Type:   cdiv1.DataVolumeBound,
+				Status: k8sv1.ConditionTrue,
+			},
+			{
+				Type:   cdiv1.DataVolumeRunning,
+				Status: k8sv1.ConditionTrue,
+			},
+			{
+				Type:   cdiv1.DataVolumeReady,
+				Status: k8sv1.ConditionFalse,
+			},
+		}
+	case cdiv1.Succeeded:
+		dv.Status.Conditions = []cdiv1.DataVolumeCondition{
+			{
+				Type:   cdiv1.DataVolumeBound,
+				Status: k8sv1.ConditionTrue,
+			},
+			{
+				Type:   cdiv1.DataVolumeRunning,
+				Status: k8sv1.ConditionFalse,
+			},
+			{
+				Type:   cdiv1.DataVolumeReady,
+				Status: k8sv1.ConditionTrue,
+			},
+		}
+	case cdiv1.Failed, cdiv1.Paused:
+		dv.Status.Conditions = []cdiv1.DataVolumeCondition{
+			{
+				Type:   cdiv1.DataVolumeBound,
+				Status: k8sv1.ConditionTrue,
+			},
+			{
+				Type:   cdiv1.DataVolumeRunning,
+				Status: k8sv1.ConditionFalse,
+			},
+			{
+				Type:   cdiv1.DataVolumeReady,
+				Status: k8sv1.ConditionFalse,
+			},
+		}
+	case cdiv1.Unknown:
+	default:
+		dv.Status.Conditions = []cdiv1.DataVolumeCondition{
+			{
+				Type:   cdiv1.DataVolumeBound,
+				Status: k8sv1.ConditionUnknown,
+			},
+			{
+				Type:   cdiv1.DataVolumeRunning,
+				Status: k8sv1.ConditionUnknown,
+			},
+			{
+				Type:   cdiv1.DataVolumeReady,
+				Status: k8sv1.ConditionUnknown,
+			},
+		}
+	}
+
+	return dv
 }
 
 func NewPvc(namespace string, name string) *k8sv1.PersistentVolumeClaim {
@@ -3533,6 +3903,18 @@ func setReadyCondition(vmi *virtv1.VirtualMachineInstance, status k8sv1.Conditio
 		Status: status,
 		Reason: reason,
 	})
+}
+
+func setDataVolumeCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeCondition) {
+	for _, c := range dv.Status.Conditions {
+		if c.Type == cond.Type {
+			c.Status = cond.Status
+			c.Message = cond.Message
+			c.Reason = cond.Reason
+			return
+		}
+	}
+	dv.Status.Conditions = append(dv.Status.Conditions, cond)
 }
 
 func NewPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
