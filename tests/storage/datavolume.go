@@ -381,6 +381,49 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					return vm.Status.PrintableStatus
 				}, 180*time.Second, 2*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 			})
+
+			It("should accurately aggregate DataVolume conditions from many DVs", func() {
+				dataVolume1 := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithPVC(),
+				)
+				dataVolume2 := libdv.NewDataVolume(
+					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+					libdv.WithPVC(),
+				)
+
+				By("requiring a VM with 2 DataVolumes")
+				vmi := libvmi.New(
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithDataVolume(dataVolume1.Name, dataVolume1.Name),
+					libvmi.WithDataVolume(dataVolume2.Name, dataVolume2.Name),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				)
+				vmSpec := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+
+				vm, err := virtClient.VirtualMachine(vmSpec.Namespace).Create(context.Background(), vmSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusPvcNotFound))
+
+				By("creating the first DataVolume")
+				dataVolume1, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume1, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=False")
+				Eventually(ThisVMI(vmi), 180*time.Second, 2*time.Second).Should(HaveConditionFalse(v1.VirtualMachineInstanceDataVolumesReady))
+				Eventually(ThisVM(vm), 180*time.Second, 2*time.Second).Should(HaveConditionFalse(v1.VirtualMachineInstanceDataVolumesReady))
+
+				By("creating the second DataVolume")
+				dataVolume2, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vmSpec.Namespace).Create(context.Background(), dataVolume2, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("ensuring that VMI and VM are reporting VirtualMachineInstanceDataVolumesReady=True")
+				Eventually(ThisVMI(vmi), 240*time.Second, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceDataVolumesReady))
+				Eventually(ThisVM(vm), 240*time.Second, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceDataVolumesReady))
+			})
 		})
 
 		Context("with a PVC from a Datavolume", func() {
