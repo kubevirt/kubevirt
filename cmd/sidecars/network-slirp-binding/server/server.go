@@ -31,8 +31,8 @@ import (
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 
-	"kubevirt.io/kubevirt/cmd/network-slirp-binding/callback"
-	"kubevirt.io/kubevirt/cmd/network-slirp-binding/domain"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/callback"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/domain"
 )
 
 type InfoServer struct {

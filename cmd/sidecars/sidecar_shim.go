@@ -36,6 +36,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
@@ -43,9 +44,11 @@ import (
 )
 
 const (
-	onDefineDomainLoggingMessage = "OnDefineDomain method has been called"
+	onDefineDomainLoggingMessage  = "OnDefineDomain method has been called"
+	preCloudInitIsoLoggingMessage = "PreCloudInitIso method has been called"
 
-	onDefineDomainBin = "onDefineDomain"
+	onDefineDomainBin  = "onDefineDomain"
+	preCloudInitIsoBin = "preCloudInitIso"
 )
 
 type infoServer struct {
@@ -54,17 +57,32 @@ type infoServer struct {
 
 func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
 	log.Log.Info("Info method has been called")
+	supportedHookPoints := map[string]string{
+		hooksInfo.OnDefineDomainHookPointName:  onDefineDomainBin,
+		hooksInfo.PreCloudInitIsoHookPointName: preCloudInitIsoBin,
+	}
+	var hookPoints = []*hooksInfo.HookPoint{}
+
+	for hookPointName, binName := range supportedHookPoints {
+		if _, err := exec.LookPath(binName); err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				log.Log.Infof("Info: %s has not been found", binName)
+			}
+			continue
+		}
+
+		hookPoints = append(hookPoints, &hooksInfo.HookPoint{
+			Name:     hookPointName,
+			Priority: 0,
+		})
+	}
+
 	return &hooksInfo.InfoResult{
 		Name: "shim",
 		Versions: []string{
 			s.Version,
 		},
-		HookPoints: []*hooksInfo.HookPoint{
-			{
-				Name:     hooksInfo.OnDefineDomainHookPointName,
-				Priority: 0,
-			},
-		},
+		HookPoints: hookPoints,
 	}, nil
 }
 
@@ -75,16 +93,23 @@ func (s v1Alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	log.Log.Info(onDefineDomainLoggingMessage)
 	newDomainXML, err := runOnDefineDomain(params.GetVmi(), params.GetDomainXML())
 	if err != nil {
+		log.Log.Reason(err).Error("Failed OnDefineDomain")
 		return nil, err
 	}
 	return &hooksV1alpha2.OnDefineDomainResult{
 		DomainXML: newDomainXML,
 	}, nil
 }
+
 func (s v1Alpha2Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha2.PreCloudInitIsoParams) (*hooksV1alpha2.PreCloudInitIsoResult, error) {
-	log.Log.Info("PreCloudInitIso method has been called")
+	log.Log.Info(preCloudInitIsoLoggingMessage)
+	cloudInitData, err := runPreCloudInitIso(params.GetVmi(), params.GetCloudInitData())
+	if err != nil {
+		log.Log.Reason(err).Error("Failed ProCloudInitIso")
+		return nil, err
+	}
 	return &hooksV1alpha2.PreCloudInitIsoResult{
-		CloudInitData: params.GetCloudInitData(),
+		CloudInitData: cloudInitData,
 	}, nil
 }
 
@@ -92,6 +117,7 @@ func (s v1Alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	log.Log.Info(onDefineDomainLoggingMessage)
 	newDomainXML, err := runOnDefineDomain(params.GetVmi(), params.GetDomainXML())
 	if err != nil {
+		log.Log.Reason(err).Error("Failed OnDefineDomain")
 		return nil, err
 	}
 	return &hooksV1alpha1.OnDefineDomainResult{
@@ -99,15 +125,41 @@ func (s v1Alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 	}, nil
 }
 
+func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error) {
+	// Check binary exists
+	if _, err := exec.LookPath(preCloudInitIsoBin); err != nil {
+		return nil, fmt.Errorf("Failed in finding %s in $PATH: %v", preCloudInitIsoBin, err)
+	}
+
+	// Validate params before calling hook script
+	vmiSpec := virtv1.VirtualMachineInstance{}
+	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
+		return nil, fmt.Errorf("Failed to unmarshal given VMI spec: %s due %v", vmiJSON, err)
+	}
+
+	cloudInitData := cloudinit.CloudInitData{}
+	err := json.Unmarshal(cloudInitDataJSON, &cloudInitData)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to unmarshal given CloudInitData: %s due %v", cloudInitDataJSON, err)
+	}
+
+	args := append([]string{},
+		"--vmi", string(vmiJSON),
+		"--cloud-init", string(cloudInitDataJSON))
+
+	log.Log.Infof("Executing %s", preCloudInitIsoBin)
+	command := exec.Command(preCloudInitIsoBin, args...)
+	return command.Output()
+}
+
 func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	if _, err := exec.LookPath(onDefineDomainBin); err != nil {
-		return nil, fmt.Errorf("Failed in finding %s in $PATH: %s", onDefineDomainBin, err.Error())
+		return nil, fmt.Errorf("Failed in finding %s in $PATH due %v", onDefineDomainBin, err)
 	}
 
 	vmiSpec := virtv1.VirtualMachineInstance{}
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given VMI spec: %s", vmiJSON)
-		panic(err)
+		return nil, fmt.Errorf("Failed to unmarshal given VMI spec: %s due %v", vmiJSON, err)
 	}
 
 	args := append([]string{},

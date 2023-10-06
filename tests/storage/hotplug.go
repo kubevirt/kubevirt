@@ -1121,8 +1121,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			)
 
 			renderSidecar := func() map[string]string {
+				annotation := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+					flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag)
 				return map[string]string{
-					"hooks.kubevirt.io/hookSidecars":         fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
+					"hooks.kubevirt.io/hookSidecars":         annotation,
 					"diskimage.vm.kubevirt.io/bootImageName": newDiskImgName,
 				}
 			}

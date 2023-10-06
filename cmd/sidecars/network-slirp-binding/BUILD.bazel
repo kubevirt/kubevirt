@@ -3,11 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/network-slirp-binding",
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding",
     visibility = ["//visibility:private"],
     deps = [
-        "//cmd/network-slirp-binding/dns:go_default_library",
-        "//cmd/network-slirp-binding/server:go_default_library",
+        "//cmd/sidecars/network-slirp-binding/dns:go_default_library",
+        "//cmd/sidecars/network-slirp-binding/server:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha2:go_default_library",

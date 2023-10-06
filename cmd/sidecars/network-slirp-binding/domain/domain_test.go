@@ -27,7 +27,7 @@ import (
 
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	"kubevirt.io/kubevirt/cmd/network-slirp-binding/domain"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/domain"
 )
 
 var _ = Describe("QEMU slirp networking", func() {

@@ -28,7 +28,7 @@ import (
 
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	"kubevirt.io/kubevirt/cmd/network-slirp-binding/callback"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-slirp-binding/callback"
 )
 
 var _ = Describe("hook callback handler", func() {
