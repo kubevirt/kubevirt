@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -25,6 +27,13 @@ const (
 )
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
+	addVolumeName := AddVolume(virtClient, storageClass, vm, addVMIOnly)
+	VerifyVolume(virtClient, addVolumeName, vm, addVMIOnly)
+
+	return addVolumeName
+}
+
+func AddVolume(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
 	dv := libdv.NewDataVolume(
 		libdv.WithBlankImageSource(),
 		libdv.WithPVC(libdv.PVCWithStorageClass(storageClass), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
@@ -34,7 +43,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 	dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
+	libstorage.EventuallyDV(dv, 240, Or(matcher.HaveSucceeded(), matcher.BeInPhase(v1beta1.PendingPopulation)))
 	volumeSource := &v1.HotplugVolumeSource{
 		DataVolume: &v1.DataVolumeSource{
 			Name: dv.Name,
@@ -62,14 +71,19 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 		Eventually(func() error {
 			return virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		VerifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
+	}
+
+	return addVolumeName
+}
+
+func VerifyVolume(virtClient kubecli.KubevirtClient, volumeName string, vm *v1.VirtualMachine, addVMIOnly bool) {
+	if !addVMIOnly {
+		VerifyVolumeAndDiskVMAdded(virtClient, vm, volumeName)
 	}
 
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	VerifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
-
-	return addVolumeName
+	VerifyVolumeAndDiskVMIAdded(virtClient, vmi, volumeName)
 }
 
 func VerifyVolumeAndDiskVMAdded(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeNames ...string) {
