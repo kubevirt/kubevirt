@@ -768,30 +768,9 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 	}
 
 	if !createPVC {
-		dv, err := client.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		pvc, err = validateUploadDataVolume(client, pvc)
 		if err != nil {
-			// When the PVC exists but the DV doesn't, there are two possible outcomes:
-			if k8serrors.IsNotFound(err) {
-				// 1. The DV was already garbage-collected. The PVC was created and populated by CDI as expected.
-				if dvGarbageCollected := pvc.Annotations[deleteAfterCompletionAnnotation] == "true" &&
-					pvc.Annotations[PodPhaseAnnotation] == string(v1.PodSucceeded); dvGarbageCollected {
-					return nil, fmt.Errorf("DataVolume already garbage-collected: Assuming PVC %s/%s is successfully populated", namespace, name)
-				}
-				// 2. The PVC was created independently of a DV.
-				return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", namespace, name)
-			}
 			return nil, err
-		}
-		// When using populators, the upload happens on the PVC Prime. We need to check it instead.
-		if dv.Annotations[UsePopulatorAnnotation] == "true" {
-			pvcPrimeName, ok := pvc.Annotations[PVCPrimeNameAnnotation]
-			if !ok {
-				return nil, fmt.Errorf("Unable to get PVC Prime name from PVC %s/%s", namespace, name)
-			}
-			pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
-			if err != nil {
-				return nil, fmt.Errorf("Unable to get PVC Prime %s/%s", namespace, name)
-			}
 		}
 	}
 
@@ -820,6 +799,40 @@ func getAndValidateUploadPVC(client kubecli.KubevirtClient, namespace, name stri
 		}
 	}
 
+	return pvc, nil
+}
+
+func validateUploadDataVolume(client kubecli.KubevirtClient, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
+	dv, err := client.CdiClient().CdiV1beta1().DataVolumes(pvc.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		// When the PVC exists but the DV doesn't, there are two possible outcomes:
+		if k8serrors.IsNotFound(err) {
+			// 1. The DV was already garbage-collected. The PVC was created and populated by CDI as expected.
+			if dvGarbageCollected := pvc.Annotations[deleteAfterCompletionAnnotation] == "true" &&
+				pvc.Annotations[PodPhaseAnnotation] == string(v1.PodSucceeded); dvGarbageCollected {
+				return nil, fmt.Errorf("DataVolume already garbage-collected: Assuming PVC %s/%s is successfully populated", pvc.Namespace, name)
+			}
+			// 2. The PVC was created independently of a DV.
+			return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", pvc.Namespace, name)
+		}
+		return nil, err
+	}
+	// When using populators, the upload happens on the PVC Prime. We need to check it instead.
+	if dv.Annotations[UsePopulatorAnnotation] == "true" {
+		pvcPrimeName, ok := pvc.Annotations[PVCPrimeNameAnnotation]
+		if !ok {
+			// The PVC Prime name annotation is removed once the population succeeds.
+			// If the annotation is not there AND the pod is succeeded, we can safely assume the PVC was populated.
+			if pvc.Annotations[PodPhaseAnnotation] == string(v1.PodSucceeded) {
+				return nil, fmt.Errorf("PVC %s already successfully populated", name)
+			}
+			return nil, fmt.Errorf("Unable to get PVC Prime name from PVC %s/%s", pvc.Namespace, name)
+		}
+		pvc, err = client.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("Unable to get PVC Prime %s/%s", dv.Namespace, name)
+		}
+	}
 	return pvc, nil
 }
 
