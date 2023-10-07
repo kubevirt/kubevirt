@@ -50,6 +50,7 @@ func GetAllCluster() []runtime.Object {
 		newAdminClusterRole(),
 		newEditClusterRole(),
 		newViewClusterRole(),
+		newInstancetypeViewClusterRole(),
 	}
 }
 
@@ -610,6 +611,31 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+		},
+	}
+}
+func newInstancetypeViewClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: VersionNamev1,
+			Kind:       "ClusterRole",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "instancetype.kubevirt.io:view",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					GroupNameInstancetype,
+				},
+				Resources: []string{
+					instancetype.ClusterPluralResourceName,
+					instancetype.ClusterPluralPreferenceResourceName,
 				},
 				Verbs: []string{
 					"get", "list", "watch",
