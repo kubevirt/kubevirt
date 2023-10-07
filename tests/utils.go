@@ -104,16 +104,14 @@ import (
 )
 
 const (
-	BinBash                     = "/bin/bash"
-	StartingVMInstance          = "Starting a VirtualMachineInstance"
-	WaitingVMInstanceStart      = "Waiting until the VirtualMachineInstance will start"
-	EchoLastReturnValue         = "echo $?\n"
-	CustomHostPath              = "custom-host-path"
-	DiskAlpineHostPath          = "disk-alpine-host-path"
-	DiskWindowsSysprep          = "disk-windows-sysprep"
-	DiskCustomHostPath          = "disk-custom-host-path"
-	defaultDiskSize             = "1Gi"
-	ContainerCompletionWaitTime = 60
+	BinBash                = "/bin/bash"
+	waitingVMInstanceStart = "Waiting until the VirtualMachineInstance will start"
+	EchoLastReturnValue    = "echo $?\n"
+	CustomHostPath         = "custom-host-path"
+	DiskAlpineHostPath     = "disk-alpine-host-path"
+	DiskWindowsSysprep     = "disk-windows-sysprep"
+	DiskCustomHostPath     = "disk-custom-host-path"
+	defaultDiskSize        = "1Gi"
 )
 
 func TestCleanup() {
@@ -247,7 +245,7 @@ func DeleteSecret(name, namespace string) {
 	}
 }
 func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-	By(StartingVMInstance)
+	By("Starting a VirtualMachineInstance")
 	virtCli := kubevirt.Client()
 
 	var obj *v1.VirtualMachineInstance
@@ -261,7 +259,7 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 
 func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	vmi = RunVMI(vmi, timeout)
-	By(WaitingVMInstanceStart)
+	By(waitingVMInstanceStart)
 	return libwait.WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
 		libwait.WithTimeout(timeout),
@@ -272,7 +270,7 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 	vmi = RunVMI(vmi, timeout)
 	By("Waiting until the DataVolume is ready")
 	libstorage.EventuallyDV(dv, timeout, HaveSucceeded())
-	By(WaitingVMInstanceStart)
+	By(waitingVMInstanceStart)
 	warningsIgnoreList := []string{"didn't find PVC", "unable to find datavolume"}
 	return libwait.WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
@@ -283,7 +281,7 @@ func RunVMIAndExpectLaunchWithDataVolume(vmi *v1.VirtualMachineInstance, dv *cdi
 
 func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
-	By(WaitingVMInstanceStart)
+	By(waitingVMInstanceStart)
 	return libwait.WaitForSuccessfulVMIStart(obj,
 		libwait.WithFailOnWarnings(false),
 		libwait.WithTimeout(timeout),

@@ -261,13 +261,14 @@ var _ = SIGDescribe("Macvtap", decorators.Macvtap, func() {
 			})
 
 			It("should keep connectivity after a migration", func() {
+				const containerCompletionWaitTime = 60
 				migration := tests.NewRandomMigration(serverVMI.Name, serverVMI.GetNamespace())
 				_ = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 				// In case of clientVMI and serverVMI running on the same node before migration, the serverVMI
 				// will be reachable only when the original launcher pod terminates.
 				Eventually(func() error {
 					return waitForPodCompleted(serverVMI.Namespace, serverVMIPodName)
-				}, tests.ContainerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMIPodName))
+				}, containerCompletionWaitTime, time.Second).Should(Succeed(), fmt.Sprintf("all containers should complete in source virt-launcher pod: %s", serverVMIPodName))
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *after* migrating the VMI")
 			})
 		})
