@@ -26,13 +26,11 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/record"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
@@ -161,7 +159,8 @@ type templateService struct {
 	launcherSubGid             int64
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
-	recorder                   record.EventRecorder
+
+	sidecarCreators []SidecarCreatorFunc
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -359,17 +358,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	ovmfPath := t.clusterConfig.GetOVMFPath(vmi.Spec.Architecture)
 
-	// Read requested hookSidecars from VMI meta
-	requestedHookSidecarList, err := hooks.UnmarshalHookSidecarList(vmi)
-	if err != nil {
-		return nil, err
+	var requestedHookSidecarList hooks.HookSidecarList
+	for _, sidecarCreator := range t.sidecarCreators {
+		sidecars, err := sidecarCreator(vmi, t.clusterConfig.GetConfig())
+		if err != nil {
+			return nil, err
+		}
+		requestedHookSidecarList = append(requestedHookSidecarList, sidecars...)
 	}
-
-	bindingSidecars, err := NetBindingPluginSidecarList(vmi, t.clusterConfig.GetConfig(), t.recorder)
-	if err != nil {
-		return nil, err
-	}
-	requestedHookSidecarList = append(requestedHookSidecarList, bindingSidecars...)
 
 	var command []string
 	if tempPod {
@@ -1179,12 +1175,6 @@ func NewTemplateService(launcherImage string,
 	}
 
 	return &svc
-}
-
-func WithEventRecorder(recorder record.EventRecorder) templateServiceOption {
-	return func(svc *templateService) {
-		svc.recorder = recorder
-	}
 }
 
 func copyProbe(probe *v1.Probe) *k8sv1.Probe {

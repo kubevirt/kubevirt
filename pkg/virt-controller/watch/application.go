@@ -27,6 +27,10 @@ import (
 	"path/filepath"
 	"time"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/hooks"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -86,6 +90,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
+
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 )
 
 const (
@@ -590,7 +596,14 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.exporterImage,
 		vca.resourceQuotaInformer.GetStore(),
 		vca.namespaceStore,
-		services.WithEventRecorder(vca.vmiRecorder),
+		services.WithSidecarCreator(
+			func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+				return hooks.UnmarshalHookSidecarList(vmi)
+			}),
+		services.WithSidecarCreator(
+			func(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+				return netbinding.NetBindingPluginSidecarList(vmi, kvc, vca.vmiRecorder)
+			}),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)

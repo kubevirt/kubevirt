@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -424,7 +425,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			libwait.WaitUntilVMIReady(deadbeafVMI, console.LoginToAlpine, libwait.WithWarningsIgnoreList(warnings))
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress)
 
-			events.ExpectEvent(deadbeafVMI, k8sv1.EventTypeWarning, services.UnregisteredNetworkBindingPluginReason)
+			events.ExpectEvent(deadbeafVMI, k8sv1.EventTypeWarning, netbinding.UnregisteredNetworkBindingPluginReason)
 		})
 	})
 

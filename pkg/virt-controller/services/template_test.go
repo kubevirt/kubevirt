@@ -26,7 +26,6 @@ import (
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/record"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
@@ -60,6 +59,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
+
+var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
 
 var _ = Describe("Template", func() {
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, TemplateService)
@@ -129,7 +130,10 @@ var _ = Describe("Template", func() {
 				"kubevirt/vmexport",
 				resourceQuotaStore,
 				namespaceStore,
-				WithEventRecorder(record.NewFakeRecorder(1)),
+				WithSidecarCreator(
+					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+						return hooks.UnmarshalHookSidecarList(vmi)
+					}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -2897,45 +2901,34 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		Context("with slirp interface", func() {
-			It("should add slirp network binding hook sidecar container with default image when no image is registered", func() {
-				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				}}
-				vmi.Spec.Networks = append(vmi.Spec.Networks, *v1.DefaultPodNetwork())
-				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *v1.DefaultSlirpNetworkInterface())
+		It("should call sidecar creators", func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, defaultArch)
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/lib/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+				WithSidecarCreator(testSidecarCreator),
+			)
+			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
+				Name: "testvmi", Namespace: "default", UID: "1234",
+			}}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pod.Spec.Containers).To(HaveLen(2))
-				Expect(pod.Spec.Containers[1].Image).To(Equal("quay.io/kubevirt/network-slirp-binding:20230830_638c60fc8"))
-				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
-			})
-			It("should add slirp network binding hook sidecar container using registered image", func() {
-				const slirpPluginSidecarImage = "kubevirt/network-slirp-binding:v1"
-				testBindingPluginNetConf := &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{"slirp": {SidecarImage: slirpPluginSidecarImage}}}
-
-				config, kvInformer, _ = configFactory(defaultArch)
-				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.NetworkConfiguration = testBindingPluginNetConf
-				testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
-
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
-				}
-				vmi.Spec.Networks = append(vmi.Spec.Networks, *v1.DefaultPodNetwork())
-				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *v1.DefaultSlirpNetworkInterface())
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(pod.Spec.Containers).To(HaveLen(2))
-				Expect(pod.Spec.Containers[1].Image).To(Equal(slirpPluginSidecarImage))
-				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
-			})
+			Expect(pod.Spec.Containers).To(HaveLen(2))
+			Expect(pod.Spec.Containers[1].Image).To(Equal(testHookSidecar.Image))
+			Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(testHookSidecar.ImagePullPolicy))
 		})
 
 		Context("with pod networking", func() {
@@ -4720,6 +4713,10 @@ var _ = Describe("Template", func() {
 	})
 
 })
+
+func testSidecarCreator(vmi *v1.VirtualMachineInstance, kvc *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
+	return []hooks.HookSidecar{testHookSidecar}, nil
+}
 
 var _ = Describe("getResourceNameForNetwork", func() {
 	It("should return empty string when resource name is not specified", func() {
