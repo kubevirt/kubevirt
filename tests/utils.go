@@ -46,6 +46,8 @@ import (
 
 	v12 "k8s.io/api/apps/v1"
 
+	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1562,11 +1564,12 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
-	running := false
+
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = &running
+		updatedVM.Spec.Running = k6tpointer.P(false)
+		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
@@ -1596,11 +1599,12 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachineInstance")
 	virtClient := kubevirt.Client()
-	running := true
+
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = &running
+		updatedVM.Spec.Running = k6tpointer.P(true)
+		updatedVM.Spec.RunStrategy = nil
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(context.Background(), updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

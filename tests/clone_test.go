@@ -631,9 +631,14 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						}
 					})
 
-					It("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func() {
+					DescribeTable("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func(toRunSourceVM bool) {
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
 						libinstancetype.WaitForVMInstanceTypeRevisionNames(sourceVM.Name, virtClient)
+
+						if toRunSourceVM {
+							By("Starting the VM and expecting it to run")
+							sourceVM = StartVMAndExpectRunning(virtClient, sourceVM)
+						}
 
 						vmClone = generateCloneFromVM()
 						createCloneAndWaitForFinish(vmClone)
@@ -653,7 +658,10 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						By("Asserting that the source and target ControllerRevisions contain the same Object")
 						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
 						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
-					})
+					},
+						Entry("with a running VM", true),
+						Entry("with a stopped VM", false),
+					)
 				})
 
 				It("double cloning: clone target as a clone source", func() {
