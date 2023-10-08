@@ -30,8 +30,8 @@ import (
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 
-	"kubevirt.io/kubevirt/cmd/network-passt-binding/callback"
-	"kubevirt.io/kubevirt/cmd/network-passt-binding/domain"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/callback"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/domain"
 )
 
 type InfoServer struct {

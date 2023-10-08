@@ -24,9 +24,9 @@ import (
 	. "github.com/onsi/gomega"
 	vmschema "kubevirt.io/api/core/v1"
 
-	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/domain"
 
-	"kubevirt.io/kubevirt/cmd/network-passt-binding/domain"
+	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("pod network configurator", func() {

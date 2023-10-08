@@ -23,12 +23,12 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	"kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/callback"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
-	"kubevirt.io/kubevirt/cmd/network-passt-binding/callback"
 )
 
 var _ = Describe("passt hook callback handler", func() {

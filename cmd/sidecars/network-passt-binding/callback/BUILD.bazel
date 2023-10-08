@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["callback.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/network-passt-binding/callback",
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/callback",
     visibility = ["//visibility:public"],
     deps = ["//pkg/virt-launcher/virtwrap/api:go_default_library"],
 )

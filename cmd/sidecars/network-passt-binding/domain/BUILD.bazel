@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = ["configurator.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/network-passt-binding/domain",
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/domain",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/istio:go_default_library",
