@@ -114,7 +114,7 @@ type ConfigStateStub struct {
 	UnplugWasExecuted bool
 }
 
-func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func([]v1.Network) ([]string, error), _ func(string) error) error {
+func (c *ConfigStateStub) Unplug(_ []v1.Network, _ func(string) error) error {
 	c.UnplugWasExecuted = true
 	if c.UnplugShouldFail {
 		return fmt.Errorf("Unplug failure")

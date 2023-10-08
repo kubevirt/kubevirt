@@ -22,17 +22,12 @@ package network
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/golang/mock/gomock"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 
-	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -103,49 +98,4 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).ToNot(Succeed())
 		})
 	})
-
-	Context("filter out ordinal interfaces", func() {
-		var (
-			vmi                   *v1.VirtualMachineInstance
-			vmNetworkConfigurator *VMNetworkConfigurator
-			mockNetworkH          *netdriver.MockNetworkHandler
-		)
-		const (
-			ordinalPodIfaceName = "net0"
-			hashPodIfaceName    = "pod123"
-		)
-
-		BeforeEach(func() {
-			ctrl := gomock.NewController(GinkgoT())
-			mockNetworkH = netdriver.NewMockNetworkHandler(ctrl)
-			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
-			vmi.Spec.Networks = []v1.Network{{
-				Name: testNet0,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{},
-				},
-			}}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetUtilsHandler(mockNetworkH), WithLauncherPid(0))
-		})
-		It("shouldn't filter the network, it has non-ordinal name", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: hashPodIfaceName}}, nil)
-			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(ConsistOf([]string{testNet0}))
-		})
-		It("shouldn't filter the ordinal network", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: ordinalPodIfaceName}}, nil)
-			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(BeEmpty())
-		})
-		It("shouldn't filter a network with no link", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(nil, netlink.LinkNotFoundError{}).AnyTimes()
-			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(ConsistOf([]string{testNet0}))
-		})
-	})
 })
-
-type netpodStub struct {
-	errSetup error
-}
-
-func (n netpodStub) Setup(_ func() error) error {
-	return n.errSetup
-}
