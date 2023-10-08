@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 
+	srv "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/server"
+
 	"google.golang.org/grpc"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -31,8 +33,6 @@ import (
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 
 	"kubevirt.io/client-go/log"
-
-	srv "kubevirt.io/kubevirt/cmd/network-passt-binding/server"
 )
 
 const hookSocket = "passt.sock"
