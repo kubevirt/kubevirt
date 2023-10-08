@@ -46,10 +46,6 @@ var _ = Describe("config state", func() {
 	)
 
 	Context("Unplug", func() {
-		var (
-			filterFunc *filterFuncStub
-		)
-
 		BeforeEach(func() {
 			configStateCache = newConfigStateCacheStub()
 			configState = NewConfigState(&configStateCache, nsExecutorStub{})
@@ -60,63 +56,42 @@ var _ = Describe("config state", func() {
 		})
 		It("There are no networks to unplug", func() {
 			specNetworks := []v1.Network{}
-			filterFunc = &filterFuncStub{[]string{}}
 			unplugFunc := &unplugFuncStub{}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
-		})
-		It("There are no networks to unplug since they are filtered out", func() {
-			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
-			filterFunc = &filterFuncStub{[]string{}}
-			unplugFunc := &unplugFuncStub{}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
 		})
 		It("There is one network to unplug", func() {
 			specNetworks := []v1.Network{{Name: testNet0}}
-			filterFunc = &filterFuncStub{nil}
 
 			unplugFunc := &unplugFuncStub{}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0}))
 		})
 		It("There is one network to unplug but it is Pending", func() {
 			specNetworks := []v1.Network{{Name: testNet0}}
 			ns.shouldNotBeExecuted = true
-			filterFunc = &filterFuncStub{nil}
 			Expect(configStateCache.Write(testNet0, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 			unplugFunc := &unplugFuncStub{}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(BeEmpty(), "the unplug step shouldn't execute")
 		})
 		It("There are multiple networks to unplug but one is Pending", func() {
 			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
-			filterFunc = &filterFuncStub{nil}
 			Expect(configStateCache.Write(testNet2, cache.PodIfaceNetworkPreparationPending)).To(Succeed())
 			unplugFunc := &unplugFuncStub{}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1}))
-		})
-		It("There are multiple networks to unplug but one is filtered out", func() {
-			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
-			filterFunc = &filterFuncStub{[]string{testNet0, testNet1}}
-			unplugFunc := &unplugFuncStub{}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, unplugFunc.f)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1}))
 		})
 		It("There are multiple networks to unplug and some have errors on cleanup", func() {
 			specNetworks := []v1.Network{{Name: testNet0}, {Name: testNet1}, {Name: testNet2}}
-			filterFunc = &filterFuncStub{nil}
 			injectedErr := fmt.Errorf("fails unplug")
 			injectedErr2 := fmt.Errorf("fails unplug2")
 			unplugFunc := &unplugFuncStub{errRunForPodIfaces: map[string]error{testNet0: injectedErr, testNet2: injectedErr2}}
-			err := configState.Unplug(specNetworks, filterFunc.f, unplugFunc.f)
+			err := configState.Unplug(specNetworks, unplugFunc.f)
 			Expect(err.Error()).To(ContainSubstring(injectedErr.Error()))
 			Expect(err.Error()).To(ContainSubstring(injectedErr2.Error()))
 			Expect(unplugFunc.executedNetworks).To(ConsistOf([]string{testNet0, testNet1, testNet2}))

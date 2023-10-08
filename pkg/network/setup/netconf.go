@@ -48,7 +48,7 @@ type cacheCreator interface {
 }
 
 type ConfigStateExecutor interface {
-	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
+	Unplug(networks []v1.Network, cleanupFunc func(string) error) error
 }
 
 type NetConf struct {

@@ -42,7 +42,7 @@ func NewConfigState(configStateCache configStateCacheRUD, ns NSExecutor) ConfigS
 	return ConfigState{cache: configStateCache, ns: ns}
 }
 
-func (c *ConfigState) Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error {
+func (c *ConfigState) Unplug(networks []v1.Network, cleanupFunc func(string) error) error {
 	var nonPendingNetworks []v1.Network
 	var err error
 	if nonPendingNetworks, err = c.nonPendingNetworks(networks); err != nil {
@@ -53,16 +53,11 @@ func (c *ConfigState) Unplug(networks []v1.Network, filterFunc func([]v1.Network
 		return nil
 	}
 	err = c.ns.Do(func() error {
-		networksToUnplug, doErr := filterFunc(nonPendingNetworks)
-		if doErr != nil {
-			return doErr
-		}
-
 		var cleanupErrors []error
-		for _, net := range networksToUnplug {
-			if cleanupErr := cleanupFunc(net); cleanupErr != nil {
+		for _, net := range nonPendingNetworks {
+			if cleanupErr := cleanupFunc(net.Name); cleanupErr != nil {
 				cleanupErrors = append(cleanupErrors, cleanupErr)
-			} else if cleanupErr := c.cache.Delete(net); cleanupErr != nil {
+			} else if cleanupErr := c.cache.Delete(net.Name); cleanupErr != nil {
 				cleanupErrors = append(cleanupErrors, cleanupErr)
 			}
 		}
