@@ -134,7 +134,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	})
 	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
 	if len(absentIfaces) != 0 {
-		if err := c.hotUnplugInterfaces(vmi, absentNets, configState, launcherPid); err != nil {
+		netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
+		if err := netConfigurator.UnplugPodNetworksPhase1(vmi, absentNets, configState); err != nil {
 			return err
 		}
 	}
@@ -176,11 +177,6 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return nil
-}
-
-func (c *NetConf) hotUnplugInterfaces(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor, launcherPid int) error {
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
-	return netConfigurator.UnplugPodNetworksPhase1(vmi, networks, configState)
 }
 
 func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
