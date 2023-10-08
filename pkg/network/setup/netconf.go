@@ -134,8 +134,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	})
 	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
 	if len(absentIfaces) != 0 {
-		netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
-		if err := netConfigurator.UnplugPodNetworksPhase1(vmi, absentNets, configState); err != nil {
+		if err := unplugPodNetworks(vmi, absentNets, c.cacheCreator, launcherPid, configState); err != nil {
 			return err
 		}
 	}
@@ -188,4 +187,20 @@ func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
 			masquerade.WithLegacyMigrationPorts(),
 		)
 	}
+}
+
+func unplugPodNetworks(vmi *v1.VirtualMachineInstance, networks []v1.Network, cacheCreator cacheCreator, launcherPid int, configState ConfigStateExecutor) error {
+	networkByName := netvmispec.IndexNetworkSpecByName(networks)
+	err := configState.Unplug(
+		networks,
+		func(network string) error {
+			unpluggedPodNic := NewUnpluggedpodnic(
+				string(vmi.UID), networkByName[network], &netdriver.NetworkUtilsHandler{}, launcherPid, cacheCreator,
+			)
+			return unpluggedPodNic.UnplugPhase1()
+		})
+	if err != nil {
+		return fmt.Errorf("failed unplug pod networks phase1: %w", err)
+	}
+	return nil
 }

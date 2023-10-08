@@ -20,8 +20,6 @@
 package network
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -47,7 +45,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Name:          "default",
 				NetworkSource: v1.NetworkSource{},
 			}}
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithLauncherPid(0))
+			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 			var domain *api.Domain
 			err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
 			Expect(err).To(MatchError("Network not implemented"))
@@ -67,35 +65,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 				}}
 
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil, WithLauncherPid(launcherPID))
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
 
 				nics, err := vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nics).To(BeEmpty())
 			})
-		})
-	})
-
-	Context("UnplugPodNetworksPhase1", func() {
-		var (
-			vmi                   *v1.VirtualMachineInstance
-			vmNetworkConfigurator *VMNetworkConfigurator
-			configState           ConfigStateExecutor
-		)
-
-		BeforeEach(func() {
-			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
-			vmi.Spec.Networks = []v1.Network{}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil, WithLauncherPid(0))
-		})
-		It("should succeed on successful Unplug", func() {
-			configState = &ConfigStateStub{}
-			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).To(Succeed())
-		})
-		It("should fail on failing Unplug", func() {
-			configState = &ConfigStateStub{UnplugShouldFail: true}
-			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).ToNot(Succeed())
 		})
 	})
 })

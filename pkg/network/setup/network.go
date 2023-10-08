@@ -33,7 +33,6 @@ type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheCreator cacheCreator
-	launcherPid  *int
 }
 
 type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
@@ -48,18 +47,6 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 		opt(v)
 	}
 	return v
-}
-
-func WithNetUtilsHandler(h netdriver.NetworkHandler) vmNetConfiguratorOption {
-	return func(v *VMNetworkConfigurator) {
-		v.handler = h
-	}
-}
-
-func WithLauncherPid(pid int) vmNetConfiguratorOption {
-	return func(v *VMNetworkConfigurator) {
-		v.launcherPid = &pid
-	}
 }
 
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.Network) ([]podNIC, error) {
@@ -94,20 +81,6 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 		if err := nic.PlugPhase2(domain); err != nil {
 			return fmt.Errorf("failed plugging phase2 at nic '%s': %w", nic.podInterfaceName, err)
 		}
-	}
-	return nil
-}
-
-func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor) error {
-	networkByName := vmispec.IndexNetworkSpecByName(networks)
-	err := configState.Unplug(
-		networks,
-		func(network string) error {
-			unpluggedPodNic := NewUnpluggedpodnic(string(vmi.UID), networkByName[network], n.handler, *n.launcherPid, n.cacheCreator)
-			return unpluggedPodNic.UnplugPhase1()
-		})
-	if err != nil {
-		return fmt.Errorf("failed unplug pod networks phase1: %w", err)
 	}
 	return nil
 }
