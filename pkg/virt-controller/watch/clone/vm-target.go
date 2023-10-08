@@ -44,6 +44,12 @@ func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.Virt
 	annotationPatches := generateAnnotationPatches(source.Annotations, cloneSpec.AnnotationFilters)
 	patches = append(patches, annotationPatches...)
 
+	templateLabelsPatches := generateTemplateLabelPatches(source.Spec.Template.ObjectMeta.Labels, cloneSpec.Template.LabelFilters)
+	patches = append(patches, templateLabelsPatches...)
+
+	templateAnnotationPatches := generateTemplateAnnotationPatches(source.Spec.Template.ObjectMeta.Annotations, cloneSpec.Template.AnnotationFilters)
+	patches = append(patches, templateAnnotationPatches...)
+
 	firmwareUUIDPatches := generateFirmwareUUIDPatches(source.Spec.Template.Spec.Domain.Firmware)
 	patches = append(patches, firmwareUUIDPatches...)
 
@@ -86,8 +92,18 @@ func generateLabelPatches(labels map[string]string, filters []string) (patches [
 	return generateStrStrMapPatches(labels, filters, basePath)
 }
 
+func generateTemplateLabelPatches(labels map[string]string, filters []string) (patches []string) {
+	const basePath = "/spec/template/metadata/labels"
+	return generateStrStrMapPatches(labels, filters, basePath)
+}
+
 func generateAnnotationPatches(annotations map[string]string, filters []string) (patches []string) {
 	const basePath = "/metadata/annotations"
+	return generateStrStrMapPatches(annotations, filters, basePath)
+}
+
+func generateTemplateAnnotationPatches(annotations map[string]string, filters []string) (patches []string) {
+	const basePath = "/spec/template/metadata/annotations"
 	return generateStrStrMapPatches(annotations, filters, basePath)
 }
 

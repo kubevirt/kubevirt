@@ -122,11 +122,13 @@ var _ = Describe("create clone", func() {
 
 	Context("label and annotation filters", func() {
 		const (
-			withLabelFilters, withoutLabelFilters           = true, false
-			withAnnotationFilters, withoutAnnotationFilters = true, false
+			withLabelFilters, withoutLabelFilters                           = true, false
+			withAnnotationFilters, withoutAnnotationFilters                 = true, false
+			withTemplateLabelFilters, withoutTemplateLabelFilters           = true, false
+			withTemplateAnnotationFilters, withoutTemplateAnnotationFilters = true, false
 		)
 
-		DescribeTable("with", func(addLabelFilter, addAnnotationFilter bool) {
+		DescribeTable("with", func(addLabelFilter, addAnnotationFilter, addTemplateLabelFilter, addTemplateAnnotationFilter bool) {
 			flags := getSourceNameFlags()
 
 			if addLabelFilter {
@@ -136,6 +138,15 @@ var _ = Describe("create clone", func() {
 			if addAnnotationFilter {
 				flags = addFlag(flags, clone.AnnotationFilterFlag, "*")
 				flags = addFlag(flags, clone.AnnotationFilterFlag, `"!some/key"`)
+			}
+
+			if addTemplateLabelFilter {
+				flags = addFlag(flags, clone.TemplateLabelFilterFlag, "*")
+				flags = addFlag(flags, clone.TemplateLabelFilterFlag, `"!some/key"`)
+			}
+			if addTemplateAnnotationFilter {
+				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, "*")
+				flags = addFlag(flags, clone.TemplateAnnotationFilterFlag, `"!some/key"`)
 			}
 
 			cloneObj, err := newCommand(flags...)
@@ -148,10 +159,16 @@ var _ = Describe("create clone", func() {
 			if addAnnotationFilter {
 				Expect(cloneObj.Spec.AnnotationFilters).To(HaveLen(expectedLen))
 			}
+			if addTemplateLabelFilter {
+				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
+			}
+			if addTemplateAnnotationFilter {
+				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
+			}
 		},
-			Entry("label filters", withLabelFilters, withoutAnnotationFilters),
-			Entry("annotation filters", withoutLabelFilters, withAnnotationFilters),
-			Entry("label and annotation filters", withLabelFilters, withAnnotationFilters),
+			Entry("label filters", withLabelFilters, withoutAnnotationFilters, withTemplateLabelFilters, withoutTemplateAnnotationFilters),
+			Entry("annotation filters", withoutLabelFilters, withAnnotationFilters, withoutTemplateLabelFilters, withTemplateAnnotationFilters),
+			Entry("label and annotation filters", withLabelFilters, withAnnotationFilters, withTemplateLabelFilters, withTemplateAnnotationFilters),
 		)
 	})
 

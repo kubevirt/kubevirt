@@ -7924,6 +7924,19 @@ var CRDsValidation map[string]string = map[string]string{
           - kind
           - name
           type: object
+        template:
+          properties:
+            annotationFilters:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+            labelFilters:
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
       required:
       - source
       type: object

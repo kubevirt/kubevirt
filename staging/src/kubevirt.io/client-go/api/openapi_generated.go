@@ -305,6 +305,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineClone":                                         schema_kubevirtio_api_clone_v1alpha1_VirtualMachineClone(ref),
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneList":                                     schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneList(ref),
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneSpec":                                     schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref),
+		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneSpecTemplate":                             schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpecTemplate(ref),
 		"kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneStatus":                                   schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneStatus(ref),
 		"kubevirt.io/api/core/v1.AccessCredential":                                                   schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		"kubevirt.io/api/core/v1.AccessCredentialSecretSource":                                       schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
@@ -15371,6 +15372,12 @@ func schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref common.Ref
 							},
 						},
 					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneSpecTemplate"),
+						},
+					},
 					"newMacAddresses": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the value is the new mac address. If this field is not specified, a new MAC address will be generated automatically, as for any interface that is not included in this map.",
@@ -15399,7 +15406,57 @@ func schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+			"k8s.io/api/core/v1.TypedLocalObjectReference", "kubevirt.io/api/clone/v1alpha1.VirtualMachineCloneSpecTemplate"},
+	}
+}
+
+func schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpecTemplate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"annotationFilters": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"labelFilters": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

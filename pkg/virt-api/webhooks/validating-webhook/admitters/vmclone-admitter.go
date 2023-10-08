@@ -78,10 +78,17 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 
 	var causes []metav1.StatusCause
 
-	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "Annotations"); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "Annotations", false); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
-	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "Labels"); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "Labels", false); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := validateFilters(vmClone.Spec.Template.AnnotationFilters, "templateAnnotations", true); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := validateFilters(vmClone.Spec.Template.LabelFilters, "templateLabels", true); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -103,21 +110,28 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 	return &reviewResponse
 }
 
-func validateFilters(filters []string, fieldName string) (causes []metav1.StatusCause) {
+func validateFilters(filters []string, fieldName string, templateFiled bool) (causes []metav1.StatusCause) {
 	if filters == nil {
 		return nil
+	}
+
+	fieldString := k8sfield.NewPath("spec").Child(fieldName).String()
+	errPattern := "%s filter %s is invalid: cannot contain a %s character (%s); FilterRules: %s"
+	if templateFiled {
+		fieldString = k8sfield.NewPath("spec").Child("template").Child(strings.Trim(fieldName, "template")).String()
+		errPattern = "template" + " " + "%s filter %s is invalid: cannot contain a %s character (%s); FilterRules: %s"
 	}
 
 	addCause := func(message string) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: message,
-			Field:   k8sfield.NewPath("spec").Child(fieldName).String(),
+			Field:   fieldString,
 		})
 	}
+
 	const negationChar = "!"
 	const wildcardChar = "*"
-
 	for _, filter := range filters {
 		if len(filter) == 1 {
 			if filter == negationChar {
@@ -126,14 +140,11 @@ func validateFilters(filters []string, fieldName string) (causes []metav1.Status
 			continue
 		}
 
-		const errPattern = "filter %s is invalid: cannot contain a %s character (%s) at any place that is not the beginning"
-
 		if filterWithoutFirstChar := filter[1:]; strings.Contains(filterWithoutFirstChar, negationChar) {
-			addCause(fmt.Sprintf(errPattern, filter, "negation", negationChar))
+			addCause(fmt.Sprintf(errPattern, fieldName, filter, "negation", negationChar, "NegationChar can be only used at the beginning of the filter"))
 		}
-
 		if filterWithoutLastChar := filter[:len(filter)-1]; strings.Contains(filterWithoutLastChar, wildcardChar) {
-			addCause(fmt.Sprintf(errPattern, filter, "wildcard", wildcardChar))
+			addCause(fmt.Sprintf(errPattern, fieldName, filter, "wildcard", wildcardChar, "WildcardChar can be only at the end of the filter"))
 		}
 	}
 

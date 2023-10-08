@@ -21247,6 +21247,31 @@
      "target": {
       "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "template": {
+      "default": {},
+      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneSpecTemplate"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineCloneSpecTemplate": {
+    "type": "object",
+    "properties": {
+     "annotationFilters": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelFilters": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
