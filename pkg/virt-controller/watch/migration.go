@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 	"kubevirt.io/kubevirt/pkg/util/status"
@@ -593,7 +595,8 @@ func (c *MigrationController) processMigrationPhase(
 
 		if vmi.Status.MigrationState.Completed &&
 			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
-			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) {
+			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange) &&
+			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange) {
 			migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
 			log.Log.Object(migration).Infof("VMI reported migration succeeded.")
@@ -631,6 +634,70 @@ func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {
 	}
 
 	return nil
+}
+
+func addPVCToContainer(c *k8sv1.Container, volumeName string, claimName string, isBlock bool) {
+	if isBlock {
+		devicePath := filepath.Join(string(filepath.Separator), "dev", volumeName)
+		device := k8sv1.VolumeDevice{
+			Name:       volumeName,
+			DevicePath: devicePath,
+		}
+		c.VolumeDevices = append(c.VolumeDevices, device)
+		return
+	}
+
+	volumeMount := k8sv1.VolumeMount{
+		Name:      volumeName,
+		MountPath: hostdisk.GetMountedHostDiskDir(volumeName),
+	}
+	c.VolumeMounts = append(c.VolumeMounts, volumeMount)
+}
+
+func removePVCToContainer(c *k8sv1.Container, volumeName string, isBlock bool) {
+	if isBlock {
+		for i, v := range c.VolumeDevices {
+			if v.Name == volumeName {
+				c.VolumeDevices[i] = c.VolumeDevices[len(c.VolumeDevices)-1]
+				c.VolumeDevices = c.VolumeDevices[:len(c.VolumeDevices)-1]
+			}
+		}
+		return
+	}
+	for i, v := range c.VolumeMounts {
+		if v.Name == volumeName {
+			c.VolumeMounts[i] = c.VolumeMounts[len(c.VolumeMounts)-1]
+			c.VolumeMounts = c.VolumeMounts[:len(c.VolumeMounts)-1]
+		}
+	}
+}
+
+func renderVolumeMode(mode *k8sv1.PersistentVolumeMode) k8sv1.PersistentVolumeMode {
+	if mode == nil {
+		return k8sv1.PersistentVolumeFilesystem
+	}
+	return *mode
+}
+
+type volInfo struct {
+	destPVC string
+	srcMode k8sv1.PersistentVolumeMode
+	dstMode k8sv1.PersistentVolumeMode
+}
+
+func adjustContainerVolume(c *k8sv1.Container, volName, src string, info *volInfo) {
+	if info.srcMode == info.dstMode {
+		// Nothing to do
+		return
+	}
+	switch info.srcMode {
+	case k8sv1.PersistentVolumeFilesystem:
+		addPVCToContainer(c, volName, info.destPVC, true)
+		removePVCToContainer(c, volName, false)
+	case k8sv1.PersistentVolumeBlock:
+		addPVCToContainer(c, volName, info.destPVC, false)
+		removePVCToContainer(c, volName, true)
+	}
 }
 
 func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
