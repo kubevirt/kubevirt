@@ -33,6 +33,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/api/migrations"
+	virtstorage "kubevirt.io/api/storage"
 )
 
 const (
@@ -349,6 +350,17 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					virtstorage.GroupName,
+				},
+				Resources: []string{
+					"volumemigrations",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
@@ -542,6 +554,17 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					virtstorage.GroupName,
+				},
+				Resources: []string{
+					"volumemigrations",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }
@@ -679,6 +702,17 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					migrations.ResourceMigrationPolicies,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					virtstorage.GroupName,
+				},
+				Resources: []string{
+					"volumemigrations",
 				},
 				Verbs: []string{
 					"get", "list", "watch",

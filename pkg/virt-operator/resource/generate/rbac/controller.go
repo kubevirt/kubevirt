@@ -32,6 +32,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations"
+	virtstorage "kubevirt.io/api/storage"
 )
 
 func GetAllController(namespace string) []runtime.Object {
@@ -525,6 +526,18 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Verbs: []string{
 					"list",
 					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					virtstorage.GroupName,
+				},
+				Resources: []string{
+					"volumemigrations",
+					"volumemigrations/status",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "update", "patch",
 				},
 			},
 		},

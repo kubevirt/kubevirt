@@ -313,6 +313,18 @@ rules:
   - watch
   - patch
 - apiGroups:
+  - storage.kubevirt.io
+  resources:
+  - volumemigrations
+  - volumemigrations/status
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+  - update
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstancepresets
@@ -662,6 +674,17 @@ rules:
   - list
   - watch
 - apiGroups:
+  - storage.kubevirt.io
+  resources:
+  - volumemigrations
+  - volumemigrations/status
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
   - route.openshift.io
   resources:
   - routes
@@ -950,6 +973,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - storage.kubevirt.io
+  resources:
+  - volumemigrations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - virtualmachineinstances/console
@@ -1099,6 +1130,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - storage.kubevirt.io
+  resources:
+  - volumemigrations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - kubevirt.io
   resources:
   - kubevirts
@@ -1183,6 +1222,14 @@ rules:
   - migrations.kubevirt.io
   resources:
   - migrationpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - storage.kubevirt.io
+  resources:
+  - volumemigrations
   verbs:
   - get
   - list
