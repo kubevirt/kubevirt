@@ -20,6 +20,7 @@
 package virtlauncher
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,6 +62,27 @@ func InitializePrivateDirectories(baseDir string) error {
 		return err
 	}
 	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(baseDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func InitializeConsoleLogFile(baseDir string) error {
+	logPath := filepath.Join(baseDir, "virt-serial0-log")
+
+	_, err := os.Stat(logPath)
+	if errors.Is(err, os.ErrNotExist) {
+		file, err := os.Create(logPath)
+		if err != nil {
+			return err
+		}
+		if err = file.Close(); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	if err = diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(logPath); err != nil {
 		return err
 	}
 	return nil

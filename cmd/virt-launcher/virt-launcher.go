@@ -377,6 +377,13 @@ func main() {
 	// Initialize local and shared directories
 	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
 
+	if !*runWithNonRoot {
+		err := virtlauncher.InitializeConsoleLogFile(filepath.Join("/var/run/kubevirt-private", *uid))
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	if *simulateCrash {
 		panic(fmt.Errorf("Simulated virt-launcher crash"))
 	}
