@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/clientcmd"
@@ -71,6 +73,7 @@ func (w *Workload) LoadObjTemplate() {
 			panic(fmt.Errorf("unexpected error opening file %s: %v", templateFilePath, err))
 		}
 		objectTemplate, err := io.ReadAll(f)
+		defer util.CloseIOAndCheckErr(f, nil)
 		if err != nil {
 			panic(fmt.Errorf("unexpected error reading file %s: %v", templateFilePath, err))
 		}
