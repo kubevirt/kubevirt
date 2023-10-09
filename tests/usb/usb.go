@@ -30,11 +30,9 @@ const (
 )
 
 var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-		config     v1.KubeVirtConfiguration
-		vmi        *v1.VirtualMachineInstance
-	)
+	var virtClient kubecli.KubevirtClient
+	var config v1.KubeVirtConfiguration
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
