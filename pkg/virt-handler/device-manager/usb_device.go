@@ -605,6 +605,11 @@ func discoverAllowedUSBDevices(usbs []v1.USBHostDevice) map[string][]*PluginDevi
 	localDevices := discoverLocalUSBDevicesFunc()
 	for _, usbConfig := range usbs {
 		resourceName := usbConfig.ResourceName
+		if usbConfig.ExternalResourceProvider {
+			log.Log.V(6).Infof("Skipping discovery of %s. To be handled by external device-plugin",
+				resourceName)
+			continue
+		}
 		index := 0
 		usbdevs, foundAll := localDevices.fetch(usbConfig.Selectors)
 		for foundAll {
