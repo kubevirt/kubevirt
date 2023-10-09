@@ -121,7 +121,12 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance) error {
 func LoginToFedora(vmi *v1.VirtualMachineInstance) error {
 	virtClient := kubevirt.Client()
 
-	expecter, _, err := NewExpecter(virtClient, vmi, connectionTimeout)
+	// TODO: This is temporary workaround for issue seen in CI
+	// We see that 10seconds for an initial boot is not enough
+	// At the same time it seems the OS is booted within 10sec
+	// We need to have a look on Running -> Booting time
+	const double = 2
+	expecter, _, err := NewExpecter(virtClient, vmi, double*connectionTimeout)
 	if err != nil {
 		return err
 	}
