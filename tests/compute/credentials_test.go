@@ -52,23 +52,10 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 	)
 
 	Context("with qemu guest agent", func() {
-		withSSHPK := func(secretName string) libvmi.Option {
-			return func(vmi *v1.VirtualMachineInstance) {
-				vmi.Spec.AccessCredentials = append(vmi.Spec.AccessCredentials,
-					v1.AccessCredential{
-						SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-							Source: v1.SSHPublicKeyAccessCredentialSource{
-								Secret: &v1.AccessCredentialSecretSource{
-									SecretName: secretName,
-								},
-							},
-							PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-								QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
-									Users: []string{"fedora"},
-								},
-							},
-						}})
-			}
+		withQuestAgentPropagationMethod := v1.SSHPublicKeyAccessCredentialPropagationMethod{
+			QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+				Users: []string{"fedora"},
+			},
 		}
 
 		withPassword := func(secretName string) libvmi.Option {
@@ -91,7 +78,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 
 		It("[test_id:6220]should propagate public ssh keys", func() {
 			const secretID = "my-pub-key"
-			vmi := libvmi.NewFedora(withSSHPK(secretID))
+			vmi := libvmi.NewFedora(withSSHPK(secretID, withQuestAgentPropagationMethod))
 
 			By("Creating a secret with three ssh keys")
 			createNewSecret(secretID, map[string][]byte{
@@ -144,8 +131,6 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi), guestAgentConnetTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			By("Verifying signin with custom password works")
-
 			By("Waiting on access credentials to sync")
 			// this ensures the keys have propagated before we attempt to read
 			Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
@@ -166,7 +151,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 		It("[test_id:6222]should update guest agent for public ssh keys", func() {
 			const secretID = "my-pub-key"
 			vmi := libvmi.NewFedora(
-				withSSHPK(secretID),
+				withSSHPK(secretID, withQuestAgentPropagationMethod),
 				libvmi.WithCloudInitNoCloudUserData(
 					tests.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec"), false,
 				),
@@ -234,7 +219,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 			}, 3*time.Minute)).To(Succeed())
 		}
 
-		BeforeEach(func() {
+		DescribeTable("should have ssh-key under authorized keys added ", func(propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) {
 			By("Creating a secret with three ssh keys")
 			createNewSecret(secretID, map[string][]byte{
 				"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
@@ -242,65 +227,19 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
 			})
 
-		})
-
-		When("using configdrive", func() {
-			withSSHPK := func(secretName string) libvmi.Option {
-				return func(vmi *v1.VirtualMachineInstance) {
-					vmi.Spec.AccessCredentials = append(vmi.Spec.AccessCredentials,
-						v1.AccessCredential{
-							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-								Source: v1.SSHPublicKeyAccessCredentialSource{
-									Secret: &v1.AccessCredentialSecretSource{
-										SecretName: secretName,
-									},
-								},
-								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-									ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
-								},
-							},
-						},
-					)
-				}
-			}
-
-			It("[test_id:6224]should have ssh-key under authorized keys added ", func() {
-				vmi := libvmi.NewFedora(
-					libvmi.WithCloudInitConfigDriveData(userData, false),
-					withSSHPK(secretID))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
-				verifySSHKeys(vmi)
-			})
-		})
-
-		When("using nocloud", func() {
-			withSSHPK := func(name string) libvmi.Option {
-				return func(vmi *v1.VirtualMachineInstance) {
-					vmi.Spec.AccessCredentials = []v1.AccessCredential{
-						{
-							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-								Source: v1.SSHPublicKeyAccessCredentialSource{
-									Secret: &v1.AccessCredentialSecretSource{
-										SecretName: name,
-									},
-								},
-								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-									NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
-								},
-							},
-						},
-					}
-				}
-			}
-
-			It("[test_id:TODO]should have ssh-key under authorized keys added", func() {
-				vmi := libvmi.NewFedora(
-					libvmi.WithCloudInitNoCloudUserData(userData, false),
-					withSSHPK(secretID))
-				vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
-				verifySSHKeys(vmi)
-			})
-		})
+			vmi := libvmi.NewFedora(
+				libvmi.WithCloudInitConfigDriveData(userData, false),
+				withSSHPK(secretID, propagationMethod))
+			vmi = tests.RunVMIAndExpectLaunch(vmi, fedoraRunningTimeout)
+			verifySSHKeys(vmi)
+		},
+			Entry("[test_id:6224]using configdrive", v1.SSHPublicKeyAccessCredentialPropagationMethod{
+				ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
+			}),
+			Entry("using nocloud", v1.SSHPublicKeyAccessCredentialPropagationMethod{
+				NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+			}),
+		)
 	})
 })
 
@@ -317,4 +256,21 @@ func createNewSecret(secretID string, data map[string][]byte) {
 	}
 	_, err := kubevirt.Client().CoreV1().Secrets(util.NamespaceTestDefault).Create(context.Background(), secret, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+}
+
+func withSSHPK(secretName string, propagationMethod v1.SSHPublicKeyAccessCredentialPropagationMethod) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.AccessCredentials = []v1.AccessCredential{
+			{
+				SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+					Source: v1.SSHPublicKeyAccessCredentialSource{
+						Secret: &v1.AccessCredentialSecretSource{
+							SecretName: secretName,
+						},
+					},
+					PropagationMethod: propagationMethod,
+				},
+			},
+		}
+	}
 }
