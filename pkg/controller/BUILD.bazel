@@ -28,6 +28,7 @@ go_library(
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/storage/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1:go_default_library",

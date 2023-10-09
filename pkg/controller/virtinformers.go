@@ -53,6 +53,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	virtstoragev1alpha1 "kubevirt.io/api/storage/v1alpha1"
 
 	"kubevirt.io/api/core"
 	kubev1 "kubevirt.io/api/core/v1"
@@ -300,6 +301,9 @@ type KubeInformerFactory interface {
 	ResourceQuota() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
+
+	// VolumeMigration
+	VolumeMigration() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -516,6 +520,13 @@ func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
 	return f.getInformer("kubeVirtNodeInformer", func() cache.SharedIndexInformer {
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.Everything(), labels.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Node{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VolumeMigration() cache.SharedIndexInformer {
+	return f.getInformer("storageMigrationInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().StorageV1alpha1().RESTClient(), "volumemigrations", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &virtstoragev1alpha1.VolumeMigration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

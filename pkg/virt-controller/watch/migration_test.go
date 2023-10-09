@@ -2040,6 +2040,88 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvents(recorder, SuccessfulCreatePodReason)
 		})
 	})
+
+	Context("Replacing migrated volumes in the target pod", func() {
+
+		fsMode := k8sv1.PersistentVolumeFilesystem
+		blockMode := k8sv1.PersistentVolumeBlock
+
+		createPodWithVolume := func(volName, claimName, path string, isBlock bool) *k8sv1.Pod {
+			pod := k8sv1.Pod{
+				Spec: k8sv1.PodSpec{
+					Volumes: []k8sv1.Volume{
+						{
+							Name: volName,
+							VolumeSource: k8sv1.VolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: claimName,
+								},
+							},
+						},
+					},
+				},
+			}
+			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{
+				VolumeDevices: []k8sv1.VolumeDevice{},
+				VolumeMounts:  []k8sv1.VolumeMount{},
+			})
+			if isBlock {
+				pod.Spec.Containers[0].VolumeDevices = append(pod.Spec.Containers[0].VolumeDevices,
+					k8sv1.VolumeDevice{Name: volName, DevicePath: path})
+			} else {
+				pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts,
+					k8sv1.VolumeMount{Name: volName, MountPath: path})
+			}
+			return &pod
+		}
+
+		DescribeTable("replaceSourcePVCswithDestinationPVCsPod", func(isSrcBlock, isDstBlock bool) {
+			var (
+				pod         *k8sv1.Pod
+				expectedPod *k8sv1.Pod
+			)
+			const (
+				devPath = "/dev/test"
+				fsPath  = "/var/run/kubevirt-private/vmi-disks/test"
+				testvol = "test"
+				src     = "src"
+				dst     = "dst"
+			)
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigratedVolumes: []virtv1.StorageMigratedVolumeInfo{
+						{
+							SourcePVCInfo:      &virtv1.PersistentVolumeClaimInfo{ClaimName: src},
+							DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: dst},
+						},
+					},
+				},
+			}
+			if isSrcBlock {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo.VolumeMode = &blockMode
+				pod = createPodWithVolume(testvol, src, devPath, true)
+			} else {
+				vmi.Status.MigratedVolumes[0].SourcePVCInfo.VolumeMode = &fsMode
+				pod = createPodWithVolume(testvol, src, fsPath, false)
+			}
+			if isDstBlock {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo.VolumeMode = &blockMode
+				expectedPod = createPodWithVolume(testvol, dst, devPath, true)
+			} else {
+				vmi.Status.MigratedVolumes[0].DestinationPVCInfo.VolumeMode = &fsMode
+				expectedPod = createPodWithVolume(testvol, dst, fsPath, false)
+			}
+
+			err := replaceSourcePVCswithDestinationPVCsPod(vmi, pod)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(pod).To(Equal(expectedPod))
+		},
+			Entry("with filesystem source and destination volumes", false, false),
+			Entry("with block source and destination volumes", true, true),
+			Entry("with filesystem source and block destination volumes", false, true),
+			Entry("with block source and filesystem destination volumes", true, false),
+		)
+	})
 })
 
 func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *policyv1.PodDisruptionBudget {

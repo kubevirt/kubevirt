@@ -77,6 +77,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	storageMig "kubevirt.io/kubevirt/pkg/storage/migration"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -170,8 +171,9 @@ type VirtControllerApp struct {
 	cdiInformer        cache.SharedIndexInformer
 	cdiConfigInformer  cache.SharedIndexInformer
 
-	migrationController *MigrationController
-	migrationInformer   cache.SharedIndexInformer
+	migrationController        *MigrationController
+	storageMigrationController *storageMig.VolumeMigrationController
+	migrationInformer          cache.SharedIndexInformer
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
@@ -203,6 +205,8 @@ type VirtControllerApp struct {
 	clusterInstancetypeInformer cache.SharedIndexInformer
 	preferenceInformer          cache.SharedIndexInformer
 	clusterPreferenceInformer   cache.SharedIndexInformer
+
+	storageMigrationInformer cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -243,6 +247,7 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	storageMigrationControllerThreads int
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -376,6 +381,7 @@ func Execute() {
 	app.allPodInformer = app.informerFactory.Pod()
 	app.exportServiceInformer = app.informerFactory.ExportService()
 	app.resourceQuotaInformer = app.informerFactory.ResourceQuota()
+	app.storageMigrationInformer = app.informerFactory.VolumeMigration()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -569,6 +575,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the clone controller: %v", err)
 			}
 		}()
+		go vca.storageMigrationController.Run(vca.storageMigrationControllerThreads, stop)
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced, vca.namespaceInformer.HasSynced, vca.resourceQuotaInformer.HasSynced)
 		close(vca.readyChan)
@@ -658,6 +665,20 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		clientSet,
 		vca.clusterConfig,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	vca.storageMigrationController, err = storageMig.NewVolumeMigrationController(
+		vca.clientSet,
+		vca.storageMigrationInformer,
+		vca.migrationInformer,
+		vca.vmiInformer,
+		vca.vmInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.cdiInformer,
+		vca.cdiConfigInformer,
 	)
 	if err != nil {
 		panic(err)
@@ -954,6 +975,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.exportControllerThreads, "export-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for virtual machine export controller")
+
+	flag.IntVar(&vca.storageMigrationControllerThreads, "volume-migration-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for storage migration controller")
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")
