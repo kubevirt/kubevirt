@@ -118,6 +118,7 @@ type ConverterContext struct {
 	IsBlockDV                       map[string]bool
 	HotplugVolumes                  map[string]v1.VolumeStatus
 	PermanentVolumes                map[string]v1.VolumeStatus
+	MigratedVolumes                 map[string]string
 	DisksInfo                       map[string]*cmdv1.DiskInfo
 	SMBios                          *cmdv1.SMBios
 	SRIOVDevices                    []api.HostDevice

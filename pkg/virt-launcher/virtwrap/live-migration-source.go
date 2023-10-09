@@ -23,15 +23,18 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"libvirt.org/go/libvirtxml"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
@@ -44,6 +47,8 @@ import (
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+
+	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -64,8 +69,9 @@ const (
 )
 
 type migrationDisks struct {
-	shared    map[string]bool
-	generated map[string]bool
+	shared         map[string]bool
+	generated      map[string]bool
+	localToMigrate map[string]bool
 }
 
 type migrationMonitor struct {
@@ -217,7 +223,11 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		if err = convertCPUDedicatedFields(domain, domcfg); err != nil {
 			return "", err
 		}
-
+	}
+	// set slice size for local disks to migrate
+	if err := configureLocalDiskToMigrate(domcfg, vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to set size for local disk.")
+		return "", err
 	}
 
 	return domcfg.Marshal()
@@ -233,29 +243,70 @@ func (d *migrationDisks) isGeneratedVolume(name string) bool {
 	return generated
 }
 
+func (d *migrationDisks) isLocalVolumeToMigrate(name string) bool {
+	_, migrate := d.localToMigrate[name]
+	return migrate
+}
+
+func getClaimNameFromVMIStatus(name string, vmiStatus v1.VirtualMachineInstanceStatus) (string, error) {
+	for _, vStatus := range vmiStatus.VolumeStatus {
+		if vStatus.PersistentVolumeClaimInfo != nil && name == vStatus.Name {
+			return vStatus.PersistentVolumeClaimInfo.ClaimName, nil
+		}
+	}
+	return "", fmt.Errorf("claim name for volume %s not found", name)
+}
+
 func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks {
 	// This method collects all VMI volumes that should not be copied during
 	// live migration. It also collects all generated disks suck as cloudinit, secrets, ServiceAccount and ConfigMaps
 	// to make sure that these are being copied during migration.
-	// Persistent volume claims without ReadWriteMany access mode
-	// should be filtered out earlier in the process
 
 	disks := &migrationDisks{
-		shared:    make(map[string]bool),
-		generated: make(map[string]bool),
+		shared:         make(map[string]bool),
+		generated:      make(map[string]bool),
+		localToMigrate: make(map[string]bool),
+	}
+	migrateDisks := make(map[string]bool)
+	for _, v := range vmi.Status.MigratedVolumes {
+		migrateDisks[v.SourcePVCInfo.ClaimName] = true
 	}
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
-		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil ||
-			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
-			disks.shared[volume.Name] = true
-		}
-		if volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
+		switch {
+		case volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil:
+			var name string
+			if volSrc.PersistentVolumeClaim != nil {
+				name = volSrc.PersistentVolumeClaim.PersistentVolumeClaimVolumeSource.ClaimName
+			} else {
+				name = volSrc.DataVolume.Name
+			}
+			if _, ok := migrateDisks[name]; ok {
+				disks.localToMigrate[volume.Name] = true
+			} else {
+				disks.shared[volume.Name] = true
+			}
+		case volSrc.HostDisk != nil:
+			if volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared {
+				disks.shared[volume.Name] = true
+			} else {
+				// Filesystem DVs and PVCs are replaced by hostdisk in virt-launcher
+				name, err := getClaimNameFromVMIStatus(volume.Name, vmi.Status)
+				if err != nil {
+					continue
+				}
+				if _, ok := migrateDisks[name]; ok {
+					disks.localToMigrate[volume.Name] = true
+				}
+
+			}
+		case volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
-			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil {
+			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil:
 			disks.generated[volume.Name] = true
 		}
 	}
+
 	return disks
 }
 
@@ -744,6 +795,133 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	return params, nil
 }
 
+type getDiskVirtualSizeFuncType func(disk *libvirtxml.DomainDisk) (int64, error)
+
+var getDiskVirtualSizeFunc getDiskVirtualSizeFuncType
+
+func init() {
+	getDiskVirtualSizeFunc = getDiskVirtualSize
+}
+
+// calculateStorageMigrateDiskSize return the size of a local volume to migrate.
+// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
+func getDiskVirtualSize(disk *libvirtxml.DomainDisk) (int64, error) {
+	var path string
+	if disk.Source == nil {
+		return -1, fmt.Errorf("empty source for the disk")
+	}
+	switch {
+	case disk.Source.File != nil:
+		path = disk.Source.File.File
+	case disk.Source.Block != nil:
+		path = disk.Source.Block.Dev
+	default:
+		return -1, fmt.Errorf("not path set")
+	}
+	info, err := converter.GetImageInfo(path)
+	if err != nil {
+		return -1, err
+	}
+	return info.VirtualSize, nil
+}
+
+func getDiskName(disk *libvirtxml.DomainDisk) string {
+	if disk == nil {
+		return ""
+	}
+	n := disk.Alias.Name
+	if len(n) < 3 {
+		return n
+	}
+	// Trim the ua- prefix
+	if string(n[0]) == "u" && string(n[1]) == "a" && string(n[2]) == "-" {
+		return n[3:]
+	}
+	return n
+}
+
+func getMigrateVolumeForCondition(vmi *v1.VirtualMachineInstance, condition func(info *v1.StorageMigratedVolumeInfo) bool) map[string]bool {
+	res := make(map[string]bool)
+
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.SourcePVCInfo == nil || v.DestinationPVCInfo == nil {
+			continue
+		}
+		if v.SourcePVCInfo.VolumeMode == nil || v.DestinationPVCInfo.VolumeMode == nil {
+			continue
+		}
+		if condition(&v) {
+			res[v.VolumeName] = true
+		}
+	}
+	return res
+}
+
+func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineInstance) error {
+	if dom.Devices == nil {
+		return nil
+	}
+
+	migDisks := classifyVolumesForMigration(vmi)
+	fsSrcBlockDstVols := getMigrateVolumeForCondition(vmi, func(v *v1.StorageMigratedVolumeInfo) bool {
+		if *v.SourcePVCInfo.VolumeMode == k8sv1.PersistentVolumeFilesystem &&
+			*v.DestinationPVCInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+			return true
+		}
+		return false
+	})
+	blockSrcFsDstVols := getMigrateVolumeForCondition(vmi, func(v *v1.StorageMigratedVolumeInfo) bool {
+		if *v.SourcePVCInfo.VolumeMode == k8sv1.PersistentVolumeBlock &&
+			*v.DestinationPVCInfo.VolumeMode == k8sv1.PersistentVolumeFilesystem {
+			return true
+		}
+		return false
+	})
+
+	for i, d := range dom.Devices.Disks {
+		if d.Alias == nil {
+			return fmt.Errorf("empty alias")
+		}
+		name := getDiskName(&d)
+		if !migDisks.isLocalVolumeToMigrate(name) {
+			continue
+		}
+		size, err := getDiskVirtualSizeFunc(&d)
+		if err != nil {
+			return err
+		}
+		if dom.Devices.Disks[i].Source.Slices == nil {
+			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{}
+		}
+		slice := libvirtxml.DomainDiskSlice{
+			Type:   "storage",
+			Offset: 0,
+			Size:   uint(size),
+		}
+		if len(dom.Devices.Disks[i].Source.Slices.Slices) > 0 {
+			dom.Devices.Disks[i].Source.Slices.Slices[0] = slice
+		} else {
+			dom.Devices.Disks[i].Source.Slices.Slices = append(dom.Devices.Disks[i].Source.Slices.Slices, slice)
+		}
+		if _, ok := fsSrcBlockDstVols[name]; ok {
+			log.Log.V(2).Infof("Replace filesystem source with block destination for volume %s", name)
+			dom.Devices.Disks[i].Source.Block = &libvirtxml.DomainDiskSourceBlock{
+				Dev: filepath.Join(string(filepath.Separator), "dev", name),
+			}
+			dom.Devices.Disks[i].Source.File = nil
+		}
+		if _, ok := blockSrcFsDstVols[name]; ok {
+			log.Log.V(2).Infof("Replace block source with source destination for volume %s", name)
+			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
+				File: hostdisk.GetMountedHostDiskDir(name),
+			}
+			dom.Devices.Disks[i].Source.Block = nil
+		}
+	}
+
+	return nil
+}
+
 func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
 
 	var err error
@@ -782,7 +960,6 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 		return nil
 	}
-
 	err = critSection()
 	if err != nil {
 		return err
