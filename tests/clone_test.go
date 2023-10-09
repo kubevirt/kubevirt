@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -19,7 +20,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -58,7 +57,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 	createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
 		vmi := libvmi.NewCirros(options...)
-		vmi.Namespace = util.NamespaceTestDefault
+		vmi.Namespace = testsuite.GetTestNamespace(nil)
 		vm = NewRandomVirtualMachine(vmi, false)
 		vm.Annotations = vmi.Annotations
 		vm.Labels = vmi.Labels
@@ -132,7 +131,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 	}
 
 	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.String(vmAPIGroup),
@@ -150,7 +149,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 	}
 
 	generateCloneFromSnapshot := func(snapshot *v1alpha1.VirtualMachineSnapshot, targetVMName string) *clonev1alpha1.VirtualMachineClone {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", util.NamespaceTestDefault)
+		vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.String(virtsnapshot.GroupName),
@@ -480,7 +479,7 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 			createVMWithStorageClass := func(storageClass string, running bool) *virtv1.VirtualMachine {
 				vm := NewRandomVMWithDataVolumeWithRegistryImport(
 					cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-					util.NamespaceTestDefault,
+					testsuite.GetTestNamespace(nil),
 					storageClass,
 					k8sv1.ReadWriteOnce,
 				)
@@ -574,10 +573,11 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 					)
 
 					BeforeEach(func() {
+						ns := testsuite.GetTestNamespace(nil)
 						instancetype = &instancetypev1beta1.VirtualMachineInstancetype{
-							ObjectMeta: metav1.ObjectMeta{
+							ObjectMeta: v1.ObjectMeta{
 								GenerateName: "vm-instancetype-",
-								Namespace:    util.NamespaceTestDefault,
+								Namespace:    ns,
 							},
 							Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 								CPU: instancetypev1beta1.CPUInstancetype{
@@ -588,14 +588,14 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 								},
 							},
 						}
-						instancetype, err := virtClient.VirtualMachineInstancetype(util.NamespaceTestDefault).Create(context.Background(), instancetype, metav1.CreateOptions{})
+						instancetype, err := virtClient.VirtualMachineInstancetype(ns).Create(context.Background(), instancetype, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						preferredCPUTopology := instancetypev1beta1.PreferSockets
 						preference = &instancetypev1beta1.VirtualMachinePreference{
-							ObjectMeta: metav1.ObjectMeta{
+							ObjectMeta: v1.ObjectMeta{
 								GenerateName: "vm-preference-",
-								Namespace:    util.NamespaceTestDefault,
+								Namespace:    ns,
 							},
 							Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 								CPU: &instancetypev1beta1.CPUPreferences{
@@ -603,12 +603,12 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 								},
 							},
 						}
-						preference, err := virtClient.VirtualMachinePreference(util.NamespaceTestDefault).Create(context.Background(), preference, metav1.CreateOptions{})
+						preference, err := virtClient.VirtualMachinePreference(ns).Create(context.Background(), preference, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						sourceVM = NewRandomVMWithDataVolumeWithRegistryImport(
 							cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine),
-							util.NamespaceTestDefault,
+							ns,
 							snapshotStorageClass,
 							k8sv1.ReadWriteOnce,
 						)
@@ -647,9 +647,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						libinstancetype.WaitForVMInstanceTypeRevisionNames(targetVMName, virtClient)
 
 						By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
-						sourceVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), sourceVM.Name, &metav1.GetOptions{})
+						sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(sourceVM)).Get(context.Background(), sourceVM.Name, &v1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
-						targetVM, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), targetVMName, &metav1.GetOptions{})
+						targetVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(sourceVM)).Get(context.Background(), targetVMName, &v1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(targetVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName), "source and target instancetype revision names should not be equal")
