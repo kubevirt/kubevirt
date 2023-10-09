@@ -821,8 +821,9 @@ func (PermittedHostDevices) SwaggerDoc() map[string]string {
 
 func (USBHostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"resourceName": "Identifies the list of USB host devices.\ne.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc",
-		"selectors":    "+listType=atomic",
+		"resourceName":             "Identifies the list of USB host devices.\ne.g: kubevirt.io/storage, kubevirt.io/bootable-usb, etc",
+		"selectors":                "+listType=atomic",
+		"externalResourceProvider": "If true, KubeVirt will leave the allocation and monitoring to an\nexternal device plugin",
 	}
 }
 

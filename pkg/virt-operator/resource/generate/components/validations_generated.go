@@ -1291,6 +1291,10 @@ var CRDsValidation map[string]string = map[string]string{
                 usb:
                   items:
                     properties:
+                      externalResourceProvider:
+                        description: If true, KubeVirt will leave the allocation and
+                          monitoring to an external device plugin
+                        type: boolean
                       resourceName:
                         description: 'Identifies the list of USB host devices. e.g:
                           kubevirt.io/storage, kubevirt.io/bootable-usb, etc'
