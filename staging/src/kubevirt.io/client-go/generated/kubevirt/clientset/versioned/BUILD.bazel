@@ -17,6 +17,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/storage/v1alpha1:go_default_library",
         "//vendor/k8s.io/client-go/discovery:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",

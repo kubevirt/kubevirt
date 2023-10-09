@@ -85,6 +85,10 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	}
 }
 
+func (StorageMigratedVolumeInfo) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (PersistentVolumeClaimInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC",

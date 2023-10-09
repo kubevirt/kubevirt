@@ -32,6 +32,7 @@ import (
 	migrationsv1alpha1 "kubevirt.io/api/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	storagev1alpha1 "kubevirt.io/api/storage/v1alpha1"
 )
 
 var scheme = runtime.NewScheme()
@@ -46,6 +47,7 @@ var localSchemeBuilder = runtime.SchemeBuilder{
 	migrationsv1alpha1.AddToScheme,
 	poolv1alpha1.AddToScheme,
 	snapshotv1alpha1.AddToScheme,
+	storagev1alpha1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

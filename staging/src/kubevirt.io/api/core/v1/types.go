@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	virtstorage "kubevirt.io/api/storage/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -227,6 +228,7 @@ type VirtualMachineInstanceStatus struct {
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
 	// This represents the migration transport
 	MigrationTransport VirtualMachineInstanceMigrationTransport `json:"migrationTransport,omitempty"`
+
 	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
@@ -290,7 +292,15 @@ type VirtualMachineInstanceStatus struct {
 
 	// Memory shows various informations about the VirtualMachine memory.
 	// +optional
-	Memory *MemoryStatus `json:"memory,omitempty"`
+	Memory          *MemoryStatus               `json:"memory,omitempty"`
+	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
+}
+
+type StorageMigratedVolumeInfo struct {
+	VolumeName         string                            `json:"volumeName,omitempty" valid:"required"`
+	SourcePVCInfo      *PersistentVolumeClaimInfo        `json:"sourcePVCInfo,omitempty" valid:"required"`
+	DestinationPVCInfo *PersistentVolumeClaimInfo        `json:"destinationPVCInfo,omitempty" valid:"required"`
+	MigrationPhase     *virtstorage.VolumeMigrationPhase `json:"migrationPhase,omitempty"`
 }
 
 // PersistentVolumeClaimInfo contains the relavant information virt-handler needs cached about a PVC

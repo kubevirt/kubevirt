@@ -38,6 +38,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/storage/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

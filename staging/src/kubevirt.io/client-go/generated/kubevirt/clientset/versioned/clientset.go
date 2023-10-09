@@ -32,6 +32,7 @@ import (
 	migrationsv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
 	poolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	storagev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/storage/v1alpha1"
 )
 
 type Interface interface {
@@ -44,6 +45,7 @@ type Interface interface {
 	MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1Interface
 	PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface
 	SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface
+	StorageV1alpha1() storagev1alpha1.StorageV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -58,6 +60,7 @@ type Clientset struct {
 	migrationsV1alpha1   *migrationsv1alpha1.MigrationsV1alpha1Client
 	poolV1alpha1         *poolv1alpha1.PoolV1alpha1Client
 	snapshotV1alpha1     *snapshotv1alpha1.SnapshotV1alpha1Client
+	storageV1alpha1      *storagev1alpha1.StorageV1alpha1Client
 }
 
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
@@ -98,6 +101,11 @@ func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
 func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
 	return c.snapshotV1alpha1
+}
+
+// StorageV1alpha1 retrieves the StorageV1alpha1Client
+func (c *Clientset) StorageV1alpha1() storagev1alpha1.StorageV1alpha1Interface {
+	return c.storageV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -153,6 +161,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.storageV1alpha1, err = storagev1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -173,6 +185,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.migrationsV1alpha1 = migrationsv1alpha1.NewForConfigOrDie(c)
 	cs.poolV1alpha1 = poolv1alpha1.NewForConfigOrDie(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.NewForConfigOrDie(c)
+	cs.storageV1alpha1 = storagev1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -189,6 +202,7 @@ func New(c rest.Interface) *Clientset {
 	cs.migrationsV1alpha1 = migrationsv1alpha1.New(c)
 	cs.poolV1alpha1 = poolv1alpha1.New(c)
 	cs.snapshotV1alpha1 = snapshotv1alpha1.New(c)
+	cs.storageV1alpha1 = storagev1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

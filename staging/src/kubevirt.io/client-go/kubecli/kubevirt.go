@@ -34,6 +34,7 @@ import (
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
 	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+	virtstoragev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/storage/v1alpha1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
@@ -94,6 +95,7 @@ type KubevirtClient interface {
 	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	DynamicClient() dynamic.Interface
 	MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client
+	VolumeMigration(namespace string) virtstoragev1alpha1.VolumeMigrationInterface
 	kubernetes.Interface
 	Config() *rest.Config
 	SetRestTimeout(timeout time.Duration) (KubevirtClient, error)
@@ -231,6 +233,10 @@ func (k kubevirt) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMac
 
 func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
+}
+
+func (k kubevirt) VolumeMigration(namespace string) virtstoragev1alpha1.VolumeMigrationInterface {
+	return k.generatedKubeVirtClient.StorageV1alpha1().VolumeMigrations(namespace)
 }
 
 type StreamOptions struct {

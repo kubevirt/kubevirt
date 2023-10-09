@@ -41,6 +41,8 @@ import (
 	fakepoolv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1/fake"
 	snapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	fakesnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1/fake"
+	storagev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/storage/v1alpha1"
+	fakestoragev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/storage/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -128,4 +130,9 @@ func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client
 func (c *Clientset) SnapshotV1alpha1() snapshotv1alpha1.SnapshotV1alpha1Interface {
 	return &fakesnapshotv1alpha1.FakeSnapshotV1alpha1{Fake: &c.Fake}
+}
+
+// StorageV1alpha1 retrieves the StorageV1alpha1Client
+func (c *Clientset) StorageV1alpha1() storagev1alpha1.StorageV1alpha1Interface {
+	return &fakestoragev1alpha1.FakeStorageV1alpha1{Fake: &c.Fake}
 }
