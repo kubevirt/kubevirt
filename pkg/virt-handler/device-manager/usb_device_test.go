@@ -156,6 +156,34 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 		),
+		Entry("1 resource external-provider, 1 resource matching 1 USB device total",
+			[]v1.USBHostDevice{
+				{
+					ResourceName: resourceName1,
+					Selectors: []v1.USBSelector{
+						{
+							Vendor:  fmt.Sprintf("%x", usbs[0].Vendor),
+							Product: fmt.Sprintf("%x", usbs[0].Product),
+						},
+					},
+				},
+				{
+					ResourceName:             resourceName2,
+					ExternalResourceProvider: true,
+					Selectors: []v1.USBSelector{
+						{
+							Vendor:  fmt.Sprintf("%x", usbs[1].Vendor),
+							Product: fmt.Sprintf("%x", usbs[1].Product),
+						},
+					},
+				},
+			},
+			map[string][]*PluginDevices{
+				resourceName1: []*PluginDevices{
+					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0]}),
+				},
+			},
+		),
 		Entry("Should ignore a config with same USB selector",
 			[]v1.USBHostDevice{
 				{
