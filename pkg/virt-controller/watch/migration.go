@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -48,6 +49,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 	"kubevirt.io/kubevirt/pkg/util/status"
@@ -647,6 +649,107 @@ func setTargetPodSELinuxLevel(pod *k8sv1.Pod, vmiSeContext string) error {
 	return nil
 }
 
+func addPVCToContainer(c *k8sv1.Container, volumeName string, claimName string, isBlock bool) {
+	if isBlock {
+		devicePath := filepath.Join(string(filepath.Separator), "dev", volumeName)
+		device := k8sv1.VolumeDevice{
+			Name:       volumeName,
+			DevicePath: devicePath,
+		}
+		c.VolumeDevices = append(c.VolumeDevices, device)
+		return
+	}
+
+	volumeMount := k8sv1.VolumeMount{
+		Name:      volumeName,
+		MountPath: hostdisk.GetMountedHostDiskDir(volumeName),
+	}
+	c.VolumeMounts = append(c.VolumeMounts, volumeMount)
+}
+
+func removePVCToContainer(c *k8sv1.Container, volumeName string, isBlock bool) {
+	if isBlock {
+		for i, v := range c.VolumeDevices {
+			if v.Name == volumeName {
+				c.VolumeDevices[i] = c.VolumeDevices[len(c.VolumeDevices)-1]
+				c.VolumeDevices = c.VolumeDevices[:len(c.VolumeDevices)-1]
+			}
+		}
+		return
+	}
+	for i, v := range c.VolumeMounts {
+		if v.Name == volumeName {
+			c.VolumeMounts[i] = c.VolumeMounts[len(c.VolumeMounts)-1]
+			c.VolumeMounts = c.VolumeMounts[:len(c.VolumeMounts)-1]
+		}
+	}
+}
+
+func renderVolumeMode(mode *k8sv1.PersistentVolumeMode) k8sv1.PersistentVolumeMode {
+	if mode == nil {
+		return k8sv1.PersistentVolumeFilesystem
+	}
+	return *mode
+}
+
+type volInfo struct {
+	destPVC string
+	srcMode k8sv1.PersistentVolumeMode
+	dstMode k8sv1.PersistentVolumeMode
+}
+
+func adjustContainerVolume(c *k8sv1.Container, volName, src string, info *volInfo) {
+	if info.srcMode == info.dstMode {
+		// Nothing to do
+		return
+	}
+	switch info.srcMode {
+	case k8sv1.PersistentVolumeFilesystem:
+		addPVCToContainer(c, volName, info.destPVC, true)
+		removePVCToContainer(c, volName, false)
+	case k8sv1.PersistentVolumeBlock:
+		addPVCToContainer(c, volName, info.destPVC, false)
+		removePVCToContainer(c, volName, true)
+	}
+}
+
+func replaceSourcePVCswithDestinationPVCsPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+	if vmi == nil {
+		return nil
+	}
+	replaceVol := make(map[string]volInfo)
+	for _, v := range vmi.Status.MigratedVolumes {
+		replaceVol[v.SourcePVCInfo.ClaimName] = volInfo{
+			destPVC: v.DestinationPVCInfo.ClaimName,
+			srcMode: renderVolumeMode(v.SourcePVCInfo.VolumeMode),
+			dstMode: renderVolumeMode(v.DestinationPVCInfo.VolumeMode),
+		}
+	}
+
+	// Replace source PVCs with the destination PVCs in the target pod
+	for _, v := range pod.Spec.Volumes {
+		// For now, we only replace PVCs with PVCs
+		if v.VolumeSource.PersistentVolumeClaim == nil {
+			continue
+		}
+		claim := v.VolumeSource.PersistentVolumeClaim.ClaimName
+		if info, ok := replaceVol[claim]; ok {
+			v.VolumeSource.PersistentVolumeClaim.ClaimName = info.destPVC
+
+			// if the source and destination PVCs don't have the
+			// same volume mode, then we need to change the volume
+			// mount/device in the containe spec.
+			adjustContainerVolume(&pod.Spec.Containers[0], v.Name, claim, &info)
+
+			delete(replaceVol, claim)
+		}
+	}
+	if len(replaceVol) != 0 {
+		return fmt.Errorf("failed to replace all local volumes to migrate with the destination volumes in the target pod")
+	}
+	return nil
+}
+
 func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) error {
 	templatePod, err := c.templateService.RenderMigrationManifest(vmi, sourcePod)
 	if err != nil {
@@ -710,6 +813,11 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 				break
 			}
 		}
+	}
+	// If we migrate local disks, then replace the source PVCs with the
+	// destination PVCs
+	if err := replaceSourcePVCswithDestinationPVCsPod(vmi, templatePod); err != nil {
+		return err
 	}
 
 	key := controller.MigrationKey(migration)
