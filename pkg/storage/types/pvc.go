@@ -342,3 +342,13 @@ func GetFilesystemsFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*v
 
 	return fs
 }
+
+func IsMigratedVolume(name string, vmi *virtv1.VirtualMachineInstance) bool {
+	for _, v := range vmi.Status.MigratedVolumes {
+		if v.VolumeName == name {
+			return true
+		}
+	}
+	return false
+
+}
