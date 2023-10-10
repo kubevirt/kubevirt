@@ -1347,6 +1347,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 
 		It("should ignore failure when trying to infer defaults from DataVolumeSpec with unsupported DataVolumeSource when policy is set", func() {
+			guestMemory := resource.MustParse("512Mi")
+			vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+				Guest: &guestMemory,
+			}
+
 			// Inference from blank image source is not supported
 			dv := libdv.NewDataVolume(
 				libdv.WithNamespace(namespace),
@@ -1368,7 +1373,40 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			By("Validating the VirtualMachine")
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(guestMemory))
 		})
+
+		DescribeTable("should reject VM creation when inference was successful but memory and RejectInferFromVolumeFailure were set", func(explicit bool) {
+			guestMemory := resource.MustParse("512Mi")
+			vm.Spec.Template.Spec.Domain.Memory = &virtv1.Memory{
+				Guest: &guestMemory,
+			}
+
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferFromVolumeName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: sourceDV.Name,
+						},
+					},
+				},
+			}}
+
+			if explicit {
+				failurePolicy := v1.RejectInferFromVolumeFailure
+				vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
+			}
+
+			By("Creating the VirtualMachine")
+			vm, err = virtClient.VirtualMachine(namespace).Create(context.Background(), vm)
+			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field spec.template.spec.domain.memory conflicts with selected instance type"))
+		},
+			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
+			Entry("with implicitly setting RejectInferFromVolumeFailure (default)", false),
+		)
 	})
 
 	Context("instance type with dedicatedCPUPlacement enabled", func() {

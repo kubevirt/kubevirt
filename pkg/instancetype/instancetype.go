@@ -735,12 +735,12 @@ func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine
 		return nil
 	}
 
+	ignoreFailure := vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil &&
+		*vm.Spec.Instancetype.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
+
 	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Instancetype.InferFromVolume, apiinstancetype.DefaultInstancetypeLabel, apiinstancetype.DefaultInstancetypeKindLabel)
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
-		ignoreFailure := vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil &&
-			*vm.Spec.Instancetype.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
-
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
 			//nolint:gomnd
 			log.Log.Object(vm).V(3).Info("Ignored error during inference of instancetype, clearing matcher.")
@@ -749,6 +749,10 @@ func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine
 		}
 
 		return err
+	}
+
+	if ignoreFailure {
+		vm.Spec.Template.Spec.Domain.Memory = nil
 	}
 
 	vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
