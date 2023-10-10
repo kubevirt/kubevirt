@@ -3123,6 +3123,13 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		syncErr = &syncErrorImpl{fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}
 	}
 
+	// Once we have ControllerRevisions make sure they are fully up to date before proceeding
+	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
+		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
+		syncErr = &syncErrorImpl{fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), FailedCreateVirtualMachineReason}
+	}
+
 	if syncErr == nil {
 		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 		if err != nil {
