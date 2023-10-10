@@ -15,8 +15,8 @@ type MockInstancetypeMethods struct {
 	ApplyToVmiFunc                  func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts
 	FindPreferenceSpecFunc          func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisionsFunc    func(vm *v1.VirtualMachine) error
-	InferDefaultInstancetypeFunc    func(vm *v1.VirtualMachine) (*v1.InstancetypeMatcher, error)
-	InferDefaultPreferenceFunc      func(vm *v1.VirtualMachine) (*v1.PreferenceMatcher, error)
+	InferDefaultInstancetypeFunc    func(vm *v1.VirtualMachine) error
+	InferDefaultPreferenceFunc      func(vm *v1.VirtualMachine) error
 	CheckPreferenceRequirementsFunc func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error)
 }
 
@@ -38,11 +38,11 @@ func (m *MockInstancetypeMethods) StoreControllerRevisions(vm *v1.VirtualMachine
 	return m.StoreControllerRevisionsFunc(vm)
 }
 
-func (m *MockInstancetypeMethods) InferDefaultInstancetype(vm *v1.VirtualMachine) (*v1.InstancetypeMatcher, error) {
+func (m *MockInstancetypeMethods) InferDefaultInstancetype(vm *v1.VirtualMachine) error {
 	return m.InferDefaultInstancetypeFunc(vm)
 }
 
-func (m *MockInstancetypeMethods) InferDefaultPreference(vm *v1.VirtualMachine) (*v1.PreferenceMatcher, error) {
+func (m *MockInstancetypeMethods) InferDefaultPreference(vm *v1.VirtualMachine) error {
 	return m.InferDefaultPreferenceFunc(vm)
 }
 
@@ -64,11 +64,11 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 		StoreControllerRevisionsFunc: func(_ *v1.VirtualMachine) error {
 			return nil
 		},
-		InferDefaultInstancetypeFunc: func(_ *v1.VirtualMachine) (*v1.InstancetypeMatcher, error) {
-			return nil, nil
+		InferDefaultInstancetypeFunc: func(_ *v1.VirtualMachine) error {
+			return nil
 		},
-		InferDefaultPreferenceFunc: func(_ *v1.VirtualMachine) (*v1.PreferenceMatcher, error) {
-			return nil, nil
+		InferDefaultPreferenceFunc: func(_ *v1.VirtualMachine) error {
+			return nil
 		},
 		CheckPreferenceRequirementsFunc: func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error) {
 			return nil, nil
