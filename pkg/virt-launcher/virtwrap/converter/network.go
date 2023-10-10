@@ -37,11 +37,6 @@ import (
 )
 
 func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) ([]api.Interface, error) {
-	isVirtioNetProhibited, err := c.IsVirtIONetProhibited()
-	if err != nil {
-		return nil, err
-	}
-
 	var domainInterfaces []api.Interface
 
 	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
@@ -67,12 +62,6 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, 
 				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType),
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
-		}
-
-		// if AllowEmulation unset and at least one NIC model is virtio,
-		// /dev/vhost-net must be present as we should have asked for it.
-		if ifaceType == v1.VirtIO && isVirtioNetProhibited {
-			return nil, fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 
 		if queueCount := uint(CalculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {

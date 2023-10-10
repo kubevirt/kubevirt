@@ -2139,20 +2139,6 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 	return gracePeriodSeconds
 }
 
-func (c *ConverterContext) IsVirtIONetProhibited() (bool, error) {
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(vhostNetPath, c.AllowEmulation); err != nil {
-		return false, err
-	} else if softwareEmulation {
-		logger := log.DefaultLogger()
-		logger.Infof("In-kernel virtio-net device emulation '%s' not present. Falling back to QEMU userland emulation.", vhostNetPath)
-	} else if _, err := os.Stat(vhostNetPath); errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	} else if err != nil {
-		return false, err
-	}
-	return false, nil
-}
-
 func InterpretTransitionalModelType(useVirtioTransitional *bool) string {
 	if useVirtioTransitional != nil && *useVirtioTransitional {
 		return "virtio-transitional"
