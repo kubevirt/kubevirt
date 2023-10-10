@@ -1016,9 +1016,14 @@ var _ = Describe("VirtualMachine", func() {
 					}
 				}).Return(nil, nil)
 
-				//	if runStrategy != v1.RunStrategyManual {
+				if runStrategy == virtv1.RunStrategyRerunOnFailure {
+					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
+						}).Return(vm, nil).Times(2)
+				}
+
 				shouldExpectVMIFinalizerRemoval(vmi)
-				//	}
 
 				controller.Execute()
 
@@ -1371,6 +1376,13 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 					Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 				}).Return(nil, nil)
+
+				if runStrategy == virtv1.RunStrategyRerunOnFailure {
+					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
+						}).Return(vm, nil).Times(1)
+				}
 
 				controller.Execute()
 
@@ -1902,6 +1914,13 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(arg.(*virtv1.VirtualMachine).Status.Created).To(BeFalse())
 				Expect(arg.(*virtv1.VirtualMachine).Status.Ready).To(BeFalse())
 			}).Return(nil, nil)
+
+			if runStrategy == virtv1.RunStrategyRerunOnFailure {
+				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+					func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+						Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
+					}).Return(vm, nil).Times(1)
+			}
 
 			controller.Execute()
 
@@ -2913,6 +2932,13 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(objVM.Status.PrintableStatus).ToNot(Equal(virtv1.VirtualMachineStatusCrashLoopBackOff))
 					}
 				})
+
+				if runStrategy == virtv1.RunStrategyRerunOnFailure {
+					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
+							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
+						}).Return(vm, nil).Times(1)
+				}
 
 				controller.Execute()
 			},
