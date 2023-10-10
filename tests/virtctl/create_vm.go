@@ -375,7 +375,9 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			vm := unmarshalVM(out)
 
 			By("Asserting that implicit inference is enabled")
-			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(pvc.Name))
 			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
@@ -389,8 +391,11 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Asserting that matchers were cleared")
+			By("Asserting that matchers were cleared and memory was kept")
 			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
 		})

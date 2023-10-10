@@ -162,7 +162,13 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(*inferFromVolumePolicy))
 			}
-			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			if inferFromVolumePolicy != nil && *inferFromVolumePolicy == v1.IgnoreInferFromVolumeFailure {
+				Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+				Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+				Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			}
 		},
 			Entry("PvcVolumeFlag and implicit inference (enabled by default)", []string{setFlag(PvcVolumeFlag, "src:my-pvc")}, "my-pvc", &ignoreInferFromVolumeFailure),
 			Entry("PvcVolumeFlag and explicit inference", []string{setFlag(PvcVolumeFlag, "src:my-pvc"), setFlag(InferInstancetypeFlag, "true")}, "my-pvc", nil),
@@ -194,7 +200,13 @@ var _ = Describe("create vm", func() {
 				Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 				Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			}
-			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			if explicit {
+				Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
+			} else {
+				Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
+				Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+				Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
+			}
 		},
 			Entry("implicit (inference enabled by default)", false),
 			Entry("explicit", true),
