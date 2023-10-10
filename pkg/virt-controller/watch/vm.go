@@ -825,14 +825,14 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	case virtv1.RunStrategyRerunOnFailure:
 		// For this RunStrategy, a VMI should only be restarted if it failed.
 		// If a VMI enters the Succeeded phase, it should not be restarted.
+		var forceStop, vmiFailed bool
 		if vmi != nil {
-			var forceStop bool
 			if forceStop = hasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("processing stop request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
-
 			}
+			vmiFailed = vmi.Status.Phase == virtv1.Failed
 
-			if forceStop || vmi.Status.Phase == virtv1.Failed {
+			if vmi.DeletionTimestamp == nil && (forceStop || vmiFailed) {
 				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance
 				// if it failed.
 				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
@@ -841,9 +841,25 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return &syncErrorImpl{fmt.Errorf(failureDeletingVmiErrFormat, err), VMIFailedDeleteReason}
 				}
-				// return to let the controller pick up the expected deletion
+
+				if vmiFailed {
+					addRequest := []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
+					req, err := json.Marshal(addRequest)
+					if err != nil {
+						return &syncErrorImpl{fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason}
+					}
+					patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/stateChangeRequests", "value": %s}]`, string(req))
+					err = c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+					if err != nil {
+						return &syncErrorImpl{fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason}
+					}
+				}
 			}
-			// VirtualMachineInstance is OK no need to do anything
+			// return to let the controller pick up the expected deletion
+			return nil
+		}
+
+		if !hasStartRequest(vm) {
 			return nil
 		}
 
@@ -2450,7 +2466,7 @@ func (c *VMController) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine,
 		}
 	case virtv1.StartRequest:
 		// If the current VMI is running, then it has been started.
-		if vmi != nil {
+		if vmi != nil && vmi.DeletionTimestamp == nil {
 			log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
 			return true
 		}
@@ -2595,6 +2611,22 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 	if !c.needsSync(key) {
 		return vm, nil, nil
+	}
+
+	// Using the empty printableStatus as an indication that the VM was just created.
+	if vm.Status.PrintableStatus == "" && vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyRerunOnFailure {
+		// VM just got created a RerunOnFailure VM, it needs to auto-start
+		addRequest := []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
+		req, err := json.Marshal(addRequest)
+		if err != nil {
+			return vm, nil, err
+		}
+		patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/stateChangeRequests", "value": %s}]`, string(req))
+		err = c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+		if err != nil {
+			return vm, nil, err
+		}
+		vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, addRequest[0])
 	}
 
 	if vm.DeletionTimestamp != nil {
