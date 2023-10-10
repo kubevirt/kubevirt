@@ -6498,9 +6498,20 @@ var CRDsValidation map[string]string = map[string]string{
                   - devices
                   type: object
                 evictionStrategy:
-                  description: EvictionStrategy can be set to "LiveMigrate" if the
-                    VirtualMachineInstance should be migrated instead of shut-off
-                    in case of a node drain.
+                  description: 'EvictionStrategy describes the strategy to follow
+                    when a node drain occurs. The possible options are: - "None":
+                    No action will be taken, according to the specified ''RunStrategy''
+                    the VirtualMachine will be restarted or shutdown. - "LiveMigrate":
+                    the VirtualMachineInstance will be migrated instead of being shutdown.
+                    - "LiveMigrateIfPossible": the same as "LiveMigrate" but only
+                    if the VirtualMachine is Live-Migratable, otherwise it will behave
+                    as "None". - "External": the VirtualMachineInstance will be protected
+                    by a PDB and ''vmi.Status.EvacuationNodeName'' will be set on
+                    eviction. This is mainly useful for cluster-api-provider-kubevirt
+                    (capk) which needs a way for VMI''s to be blocked from eviction,
+                    yet signal capk that eviction has been called on the VMI so the
+                    capk controller can handle tearing the VMI down. Details can be
+                    found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.'
                   type: string
                 hostname:
                   description: Specifies the hostname of the vmi If not specified,
@@ -10998,8 +11009,19 @@ var CRDsValidation map[string]string = map[string]string{
           - devices
           type: object
         evictionStrategy:
-          description: EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance
-            should be migrated instead of shut-off in case of a node drain.
+          description: 'EvictionStrategy describes the strategy to follow when a node
+            drain occurs. The possible options are: - "None": No action will be taken,
+            according to the specified ''RunStrategy'' the VirtualMachine will be
+            restarted or shutdown. - "LiveMigrate": the VirtualMachineInstance will
+            be migrated instead of being shutdown. - "LiveMigrateIfPossible": the
+            same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable,
+            otherwise it will behave as "None". - "External": the VirtualMachineInstance
+            will be protected by a PDB and ''vmi.Status.EvacuationNodeName'' will
+            be set on eviction. This is mainly useful for cluster-api-provider-kubevirt
+            (capk) which needs a way for VMI''s to be blocked from eviction, yet signal
+            capk that eviction has been called on the VMI so the capk controller can
+            handle tearing the VMI down. Details can be found in the commit description
+            https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.'
           type: string
         hostname:
           description: Specifies the hostname of the vmi If not specified, the hostname
@@ -15953,9 +15975,20 @@ var CRDsValidation map[string]string = map[string]string{
                   - devices
                   type: object
                 evictionStrategy:
-                  description: EvictionStrategy can be set to "LiveMigrate" if the
-                    VirtualMachineInstance should be migrated instead of shut-off
-                    in case of a node drain.
+                  description: 'EvictionStrategy describes the strategy to follow
+                    when a node drain occurs. The possible options are: - "None":
+                    No action will be taken, according to the specified ''RunStrategy''
+                    the VirtualMachine will be restarted or shutdown. - "LiveMigrate":
+                    the VirtualMachineInstance will be migrated instead of being shutdown.
+                    - "LiveMigrateIfPossible": the same as "LiveMigrate" but only
+                    if the VirtualMachine is Live-Migratable, otherwise it will behave
+                    as "None". - "External": the VirtualMachineInstance will be protected
+                    by a PDB and ''vmi.Status.EvacuationNodeName'' will be set on
+                    eviction. This is mainly useful for cluster-api-provider-kubevirt
+                    (capk) which needs a way for VMI''s to be blocked from eviction,
+                    yet signal capk that eviction has been called on the VMI so the
+                    capk controller can handle tearing the VMI down. Details can be
+                    found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.'
                   type: string
                 hostname:
                   description: Specifies the hostname of the vmi If not specified,
@@ -20371,9 +20404,22 @@ var CRDsValidation map[string]string = map[string]string{
                           - devices
                           type: object
                         evictionStrategy:
-                          description: EvictionStrategy can be set to "LiveMigrate"
-                            if the VirtualMachineInstance should be migrated instead
-                            of shut-off in case of a node drain.
+                          description: 'EvictionStrategy describes the strategy to
+                            follow when a node drain occurs. The possible options
+                            are: - "None": No action will be taken, according to the
+                            specified ''RunStrategy'' the VirtualMachine will be restarted
+                            or shutdown. - "LiveMigrate": the VirtualMachineInstance
+                            will be migrated instead of being shutdown. - "LiveMigrateIfPossible":
+                            the same as "LiveMigrate" but only if the VirtualMachine
+                            is Live-Migratable, otherwise it will behave as "None".
+                            - "External": the VirtualMachineInstance will be protected
+                            by a PDB and ''vmi.Status.EvacuationNodeName'' will be
+                            set on eviction. This is mainly useful for cluster-api-provider-kubevirt
+                            (capk) which needs a way for VMI''s to be blocked from
+                            eviction, yet signal capk that eviction has been called
+                            on the VMI so the capk controller can handle tearing the
+                            VMI down. Details can be found in the commit description
+                            https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.'
                           type: string
                         hostname:
                           description: Specifies the hostname of the vmi If not specified,
@@ -25563,9 +25609,23 @@ var CRDsValidation map[string]string = map[string]string{
                               - devices
                               type: object
                             evictionStrategy:
-                              description: EvictionStrategy can be set to "LiveMigrate"
-                                if the VirtualMachineInstance should be migrated instead
-                                of shut-off in case of a node drain.
+                              description: 'EvictionStrategy describes the strategy
+                                to follow when a node drain occurs. The possible options
+                                are: - "None": No action will be taken, according
+                                to the specified ''RunStrategy'' the VirtualMachine
+                                will be restarted or shutdown. - "LiveMigrate": the
+                                VirtualMachineInstance will be migrated instead of
+                                being shutdown. - "LiveMigrateIfPossible": the same
+                                as "LiveMigrate" but only if the VirtualMachine is
+                                Live-Migratable, otherwise it will behave as "None".
+                                - "External": the VirtualMachineInstance will be protected
+                                by a PDB and ''vmi.Status.EvacuationNodeName'' will
+                                be set on eviction. This is mainly useful for cluster-api-provider-kubevirt
+                                (capk) which needs a way for VMI''s to be blocked
+                                from eviction, yet signal capk that eviction has been
+                                called on the VMI so the capk controller can handle
+                                tearing the VMI down. Details can be found in the
+                                commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.'
                               type: string
                             hostname:
                               description: Specifies the hostname of the vmi If not
