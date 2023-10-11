@@ -14,36 +14,36 @@ import (
 
 // +genclient
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=ipamleases,singular=ipamlease,scope=Namespaced
+// +kubebuilder:resource:path=ipamclaims,singular=ipamclaim,scope=Namespaced
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// IPAMLease is the Schema for the IPAMLease API
-type IPAMLease struct {
+// IPAMClaim is the Schema for the IPAMClaim API
+type IPAMClaim struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IPAMLeaseSpec   `json:"spec,omitempty"`
-	Status IPAMLeaseStatus `json:"status,omitempty"`
+	Spec   IPAMClaimSpec   `json:"spec,omitempty"`
+	Status IPAMClaimStatus `json:"status,omitempty"`
 }
 
-type IPAMLeaseSpec struct {
+type IPAMClaimSpec struct {
 	// The network attachment definition name for which this persistent allocation was created
 	Network string `json:"network"`
 	// The pod interface name for which this allocation was created
 	Interface string `json:"interface"`
 }
 
-type IPAMLeaseStatus struct {
+type IPAMClaimStatus struct {
 	// The list of IP addresses (v4, v6) that were allocated for the pod interface
 	IPs []string `json:"ips"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type IPAMLeaseList struct {
+type IPAMClaimList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IPAMLease `json:"items"`
+	Items           []IPAMClaim `json:"items"`
 }

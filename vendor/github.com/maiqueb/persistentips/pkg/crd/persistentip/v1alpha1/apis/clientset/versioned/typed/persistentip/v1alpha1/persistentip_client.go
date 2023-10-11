@@ -28,7 +28,7 @@ import (
 
 type K8sV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	IPAMLeasesGetter
+	IPAMClaimsGetter
 }
 
 // K8sV1alpha1Client is used to interact with features provided by the k8s.cni.cncf.io group.
@@ -36,8 +36,8 @@ type K8sV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *K8sV1alpha1Client) IPAMLeases(namespace string) IPAMLeaseInterface {
-	return newIPAMLeases(c, namespace)
+func (c *K8sV1alpha1Client) IPAMClaims(namespace string) IPAMClaimInterface {
+	return newIPAMClaims(c, namespace)
 }
 
 // NewForConfig creates a new K8sV1alpha1Client for the given config.

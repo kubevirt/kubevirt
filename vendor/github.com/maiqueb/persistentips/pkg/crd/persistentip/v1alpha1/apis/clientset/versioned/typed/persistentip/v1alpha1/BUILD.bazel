@@ -5,7 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "generated_expansion.go",
-        "ipamlease.go",
+        "ipamclaim.go",
         "persistentip_client.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/maiqueb/persistentips/pkg/crd/persistentip/v1alpha1/apis/clientset/versioned/typed/persistentip/v1alpha1",

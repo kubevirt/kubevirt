@@ -33,7 +33,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v4 v4.2.0
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20230627123556-81a891d4462a
 	github.com/machadovilaca/operator-observability v0.0.6
-	github.com/maiqueb/persistentips v0.2.0-alpha
+	github.com/maiqueb/persistentips v0.3.0-alpha
 	github.com/mdlayher/vsock v1.1.1
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed

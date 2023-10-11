@@ -795,8 +795,8 @@ github.com/mailru/easyjson v0.7.1/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7
 github.com/mailru/easyjson v0.7.6/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0=
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
-github.com/maiqueb/persistentips v0.2.0-alpha h1:Fg3dIon/Kht1m2Pmg1Hl8YOzz25AZTWhvZrOd9yHuks=
-github.com/maiqueb/persistentips v0.2.0-alpha/go.mod h1:LsLXKMxYM0OJ7vVZDcApEqalE77KDh1r/nMJuNL5I1M=
+github.com/maiqueb/persistentips v0.3.0-alpha h1:lVzJsQmWo3vj60l7UnYNyi6Rb8oWo36qviK1s6mfTR8=
+github.com/maiqueb/persistentips v0.3.0-alpha/go.mod h1:LsLXKMxYM0OJ7vVZDcApEqalE77KDh1r/nMJuNL5I1M=
 github.com/markbates/oncer v0.0.0-20181203154359-bf2de49a0be2/go.mod h1:Ld9puTsIW75CHf65OeIOkyKbteujpZVXDpWK6YGZbxE=
 github.com/markbates/safe v1.0.1/go.mod h1:nAqgmRi7cY2nqMc92/bSEeQA+R4OheNU2T1kNSCBdG0=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
