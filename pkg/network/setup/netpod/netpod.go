@@ -25,6 +25,8 @@ import (
 	"net"
 	"strconv"
 
+	k8serrors "k8s.io/apimachinery/pkg/util/errors"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -124,16 +126,23 @@ func (n NetPod) Setup() error {
 		return err
 	}
 
-	pendingNets, startedNets, err := n.state.PendingAndStarted(filteredNets)
+	pendingNets, startedNets, finishedNets, err := n.state.PendingStartedFinished(filteredNets)
 	if err != nil {
 		return err
 	}
-	if len(startedNets) > 0 {
-		return neterrors.CreateCriticalNetworkError(
-			fmt.Errorf("preparation for networks %v cannot be restarted", startedNets),
-		)
+	if err := n.validateNoNetworkReconfigured(startedNets); err != nil {
+		return err
 	}
-	if len(pendingNets) == 0 {
+
+	unplugIfaces := n.unplugInterfaces(startedNets, finishedNets)
+
+	// The pending networks should not include networks that are marked for removal.
+	// Filter out such networks for the pending network list.
+	pendingNets = vmispec.FilterNetworksSpec(pendingNets, func(net v1.Network) bool {
+		iface := vmispec.LookupInterfaceByName(n.vmiSpecIfaces, net.Name)
+		return iface != nil && iface.State != v1.InterfaceStateAbsent
+	})
+	if len(pendingNets) == 0 && len(unplugIfaces) == 0 {
 		return nil
 	}
 
@@ -172,6 +181,25 @@ func (n NetPod) Setup() error {
 		return serr
 	}
 
+	unplugNetworks := vmispec.FilterNetworksByInterfaces(n.vmiSpecNets, unplugIfaces)
+	if serr := n.clearCache(unplugNetworks); serr != nil {
+		return serr
+	}
+
+	return nil
+}
+
+func (n NetPod) validateNoNetworkReconfigured(startedNets []v1.Network) error {
+	if len(startedNets) > 0 {
+		for _, net := range startedNets {
+			startedIface := vmispec.LookupInterfaceByName(n.vmiSpecIfaces, net.Name)
+			if startedIface != nil && startedIface.State != v1.InterfaceStateAbsent {
+				return neterrors.CreateCriticalNetworkError(
+					fmt.Errorf("preparation for networks %v cannot be restarted", startedNets),
+				)
+			}
+		}
+	}
 	return nil
 }
 
@@ -210,15 +238,10 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 		)
 		podIfaceName := podIfaceNameByVMINetwork[iface.Name]
 
-		// Filter out network interfaces marked for removal.
-		// TODO: Support in the same flow the removal of such interfaces.
-		if iface.State == v1.InterfaceStateAbsent {
-			continue
-		}
-
 		switch {
 		case iface.Bridge != nil:
-			if _, exists := podIfaceStatusByName[podIfaceName]; !exists {
+			// A missing pod interface is not considered an error in case the interface is marked for removal.
+			if _, exists := podIfaceStatusByName[podIfaceName]; !exists && iface.State != v1.InterfaceStateAbsent {
 				return nil, fmt.Errorf("pod link (%s) is missing", podIfaceName)
 			}
 			ifacesSpec, err = n.bridgeBindingSpec(podIfaceName, ifIndex, podIfaceStatusByName)
@@ -226,6 +249,19 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			if nmstate.AnyInterface(ifacesSpec, hasIP4GlobalUnicast) {
 				spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
 			}
+
+			if iface.State == v1.InterfaceStateAbsent {
+				var filteredIfacesSpec []nmstate.Interface
+				for _, ifaceSpec := range ifacesSpec {
+					// Interfaces with no type are not owned by kubevirt, therefore not removed.
+					if ifaceSpec.TypeName != "" {
+						ifaceSpec.State = nmstate.IfaceStateAbsent
+						filteredIfacesSpec = append(filteredIfacesSpec, ifaceSpec)
+					}
+				}
+				ifacesSpec = filteredIfacesSpec
+			}
+
 		case iface.Masquerade != nil:
 			if _, exists := podIfaceStatusByName[podIfaceName]; !exists {
 				return nil, fmt.Errorf("pod link (%s) is missing", podIfaceName)
@@ -519,4 +555,44 @@ func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []
 	}
 
 	return networks, nil
+}
+
+func (n NetPod) unplugInterfaces(startedNets, finishedNets []v1.Network) []v1.Interface {
+	nonPendingNetworks := append(startedNets, finishedNets...)
+	nonPendingNetsByName := vmispec.IndexNetworkSpecByName(nonPendingNetworks)
+	unplugIfaces := vmispec.FilterInterfacesSpec(n.vmiSpecIfaces, func(iface v1.Interface) bool {
+		_, netExists := nonPendingNetsByName[iface.Name]
+		return iface.State == v1.InterfaceStateAbsent && netExists
+	})
+	return unplugIfaces
+}
+
+func (n NetPod) clearCache(nets []v1.Network) error {
+	var unplugErrors []error
+	for _, net := range nets {
+		err := cache.DeleteDomainInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), net.Name)
+		if err != nil {
+			unplugErrors = append(unplugErrors, err)
+		}
+
+		podInterfaceName := namescheme.HashedPodInterfaceName(net)
+		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
+		if err != nil {
+			unplugErrors = append(unplugErrors, err)
+		}
+
+		// the PodInterface cache should be the last one to be cleaned.
+		// It should be cleaned as the last step of the cleanup, since it is the indicator the cleanup should be done/not over yet.
+		if len(unplugErrors) == 0 {
+			err = cache.DeletePodInterfaceCache(n.cacheCreator, n.vmiUID, net.Name)
+			if err != nil {
+				unplugErrors = append(unplugErrors, err)
+			}
+		}
+	}
+
+	if len(unplugErrors) > 0 {
+		return k8serrors.NewAggregate(unplugErrors)
+	}
+	return n.state.Delete(nets)
 }

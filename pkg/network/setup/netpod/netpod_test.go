@@ -761,7 +761,32 @@ var _ = Describe("netpod", func() {
 							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
 							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 						},
-						// Secondary network is ignored due to the `absent` marking.
+						// Secondary network with `absent` marking.
+						{
+							Name:     "k6t-914f438d88d",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateAbsent,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
+						},
+						{
+							Name:       "tap914f438d88d",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateAbsent,
+							MTU:        1500,
+							Controller: "k6t-914f438d88d",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
+						},
+						{
+							Name:     secondaryPodInterfaceName,
+							TypeName: nmstate.TypeDummy,
+							State:    nmstate.IfaceStateAbsent,
+							MTU:      1500,
+							IPv4:     ipDisabled,
+							IPv6:     ipDisabled,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
+						},
 					},
 					LinuxStack: nmstate.LinuxStack{
 						IPv4: nmstate.LinuxStackIP4{Forwarding: pointer.P(true)},
@@ -954,6 +979,612 @@ var _ = Describe("netpod", func() {
 		// Interfaces will not get populated because the specific binding (slirp) is not treated there.
 		Entry("Slirp", v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}, nmstate.Spec{Interfaces: []nmstate.Interface{}}),
 	)
+
+	Context("setup with plugged networks marked for removal", func() {
+		const (
+			testNet1 = "testnet1"
+			testNet2 = "testnet2"
+		)
+		var (
+			specNetworks   []v1.Network
+			specInterfaces []v1.Interface
+			nmstatestub    *nmstateStub
+		)
+
+		BeforeEach(func() {
+			specNetworks = []v1.Network{
+				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+			}
+			specInterfaces = []v1.Interface{
+				{
+					Name:                   defaultPodNetworkName,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				},
+				{Name: testNet1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			}
+
+			nmstatestub = &nmstateStub{status: nmstate.Status{
+				Interfaces: []nmstate.Interface{
+					{
+						Name:       "eth0",
+						Index:      0,
+						TypeName:   nmstate.TypeVETH,
+						State:      nmstate.IfaceStateUp,
+						MacAddress: "12:34:56:78:90:ab",
+						MTU:        1500,
+					},
+					{
+						Name:       "pod7087ef4cd1f",
+						Index:      0,
+						TypeName:   nmstate.TypeVETH,
+						State:      nmstate.IfaceStateUp,
+						MacAddress: "22:34:56:78:90:ab",
+						MTU:        1500,
+					},
+					{
+						Name:       "podbc6cc93fa1e",
+						Index:      0,
+						TypeName:   nmstate.TypeVETH,
+						State:      nmstate.IfaceStateUp,
+						MacAddress: "32:34:56:78:90:ab",
+						MTU:        1500,
+					},
+				},
+			}}
+
+			netPod := netpod.NewNetPod(
+				specNetworks,
+				specInterfaces,
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(nmstatestub),
+				netpod.WithCacheCreator(&baseCacheCreator),
+			)
+
+			Expect(netPod.Setup()).To(Succeed())
+
+			pending, started, finished, err := state.PendingStartedFinished(specNetworks)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pending).To(BeEmpty())
+			Expect(started).To(BeEmpty())
+			Expect(finished).To(Equal(specNetworks))
+
+			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)).NotTo(BeNil())
+			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)).NotTo(BeNil())
+		})
+
+		It("unplug 1 out of 2 secondary bridge binding networks", func() {
+			specInterfaces[1].State = v1.InterfaceStateAbsent
+			netPod := netpod.NewNetPod(
+				specNetworks,
+				specInterfaces,
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(nmstatestub),
+				netpod.WithCacheCreator(&baseCacheCreator),
+			)
+
+			Expect(netPod.Setup()).To(Succeed())
+			Expect(nmstatestub.spec).To(Equal(
+				nmstate.Spec{
+					Interfaces: []nmstate.Interface{
+						// Primary network
+						{
+							Name:       "k6t-eth0",
+							TypeName:   nmstate.TypeBridge,
+							State:      nmstate.IfaceStateUp,
+							MacAddress: "02:00:00:00:00:00",
+							MTU:        1500,
+							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+							LinuxStack: nmstate.LinuxIfaceStack{},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						{
+							Name:       "tap0",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateUp,
+							MTU:        1500,
+							Controller: "k6t-eth0",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						// Secondary network with `absent` marking.
+						{
+							Name:     "k6t-7087ef4cd1f",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateAbsent,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:       "tap7087ef4cd1f",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateAbsent,
+							MTU:        1500,
+							Controller: "k6t-7087ef4cd1f",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:     "pod7087ef4cd1f",
+							TypeName: nmstate.TypeDummy,
+							State:    nmstate.IfaceStateAbsent,
+							MTU:      1500,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						// Third network.
+						{
+							Name:     "k6t-bc6cc93fa1e",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateUp,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:        "bc6cc93fa1e-nic",
+							CopyMacFrom: "k6t-bc6cc93fa1e",
+							Controller:  "k6t-bc6cc93fa1e",
+							IPv4:        ipDisabled,
+							IPv6:        ipDisabled,
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:       "tapbc6cc93fa1e",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateUp,
+							MTU:        1500,
+							Controller: "k6t-bc6cc93fa1e",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:     "podbc6cc93fa1e",
+							TypeName: nmstate.TypeDummy,
+							MTU:      1500,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+					},
+					LinuxStack: nmstate.LinuxStack{},
+				},
+			))
+
+			_, _, finished, err := state.PendingStartedFinished(specNetworks)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(finished).To(Equal([]v1.Network{
+				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+			}))
+
+			// testNet1 is not expected to exist anymore.
+			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)
+			Expect(err).To(HaveOccurred())
+
+			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)).NotTo(BeNil())
+		})
+
+		It("unplug 2 out of 2 secondary bridge binding networks", func() {
+			specInterfaces[1].State = v1.InterfaceStateAbsent
+			specInterfaces[2].State = v1.InterfaceStateAbsent
+			netPod := netpod.NewNetPod(
+				specNetworks,
+				specInterfaces,
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(nmstatestub),
+				netpod.WithCacheCreator(&baseCacheCreator),
+			)
+
+			Expect(netPod.Setup()).To(Succeed())
+			Expect(nmstatestub.spec).To(Equal(
+				nmstate.Spec{
+					Interfaces: []nmstate.Interface{
+						// Primary network
+						{
+							Name:       "k6t-eth0",
+							TypeName:   nmstate.TypeBridge,
+							State:      nmstate.IfaceStateUp,
+							MacAddress: "02:00:00:00:00:00",
+							MTU:        1500,
+							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+							LinuxStack: nmstate.LinuxIfaceStack{},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						{
+							Name:       "tap0",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateUp,
+							MTU:        1500,
+							Controller: "k6t-eth0",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						// Secondary network with `absent` marking.
+						{
+							Name:     "k6t-7087ef4cd1f",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateAbsent,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:       "tap7087ef4cd1f",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateAbsent,
+							MTU:        1500,
+							Controller: "k6t-7087ef4cd1f",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:     "pod7087ef4cd1f",
+							TypeName: nmstate.TypeDummy,
+							State:    nmstate.IfaceStateAbsent,
+							MTU:      1500,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						// Third network.
+						{
+							Name:     "k6t-bc6cc93fa1e",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateAbsent,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:       "tapbc6cc93fa1e",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateAbsent,
+							MTU:        1500,
+							Controller: "k6t-bc6cc93fa1e",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:     "podbc6cc93fa1e",
+							TypeName: nmstate.TypeDummy,
+							State:    nmstate.IfaceStateAbsent,
+							MTU:      1500,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+					},
+					LinuxStack: nmstate.LinuxStack{},
+				},
+			))
+
+			_, _, finished, err := state.PendingStartedFinished(specNetworks)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(finished).To(Equal([]v1.Network{
+				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			}))
+
+			// testNet1 and testNet2 are not expected to exist anymore.
+			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)
+			Expect(err).To(HaveOccurred())
+
+			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("unplug secondary bridge binding network that is still in pending state", func() {
+			// This test is placed as a stand alone to emphasize an unexpected side effect.
+			// The composed configuration includes removal of interfaces that do not even exist yet.
+			// With the nmstate backend implementation, this is acceptable, as the interface deletion
+			// is conditional to its existence. The composed configuration is expressing the desire
+			// for the interface to be removed, therefore, if it is already absent, it will silently do nothing.
+
+			By("Unplug the 3rd network")
+			specInterfaces[2].State = v1.InterfaceStateAbsent
+			netPod := netpod.NewNetPod(
+				specNetworks,
+				specInterfaces,
+				vmiUID, 0, 0, 0, state,
+				netpod.WithNMStateAdapter(nmstatestub),
+				netpod.WithCacheCreator(&baseCacheCreator),
+			)
+			Expect(netPod.Setup()).To(Succeed())
+
+			By("Unplug the 3rd network again")
+			Expect(netPod.Setup()).To(Succeed())
+			Expect(nmstatestub.spec).To(Equal(
+				nmstate.Spec{
+					Interfaces: []nmstate.Interface{
+						// Primary network
+						{
+							Name:       "k6t-eth0",
+							TypeName:   nmstate.TypeBridge,
+							State:      nmstate.IfaceStateUp,
+							MacAddress: "02:00:00:00:00:00",
+							MTU:        1500,
+							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
+							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+							LinuxStack: nmstate.LinuxIfaceStack{},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						{
+							Name:       "tap0",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateUp,
+							MTU:        1500,
+							Controller: "k6t-eth0",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+						},
+						// Secondary network.
+						{
+							Name:     "k6t-7087ef4cd1f",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateUp,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:        "7087ef4cd1f-nic",
+							CopyMacFrom: "k6t-7087ef4cd1f",
+							Controller:  "k6t-7087ef4cd1f",
+							IPv4:        ipDisabled,
+							IPv6:        ipDisabled,
+							LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+							Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:       "tap7087ef4cd1f",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateUp,
+							MTU:        1500,
+							Controller: "k6t-7087ef4cd1f",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						{
+							Name:     "pod7087ef4cd1f",
+							TypeName: nmstate.TypeDummy,
+							MTU:      1500,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+						},
+						// Third network.
+						{
+							Name:     "k6t-bc6cc93fa1e",
+							TypeName: nmstate.TypeBridge,
+							State:    nmstate.IfaceStateAbsent,
+							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:       "tapbc6cc93fa1e",
+							TypeName:   nmstate.TypeTap,
+							State:      nmstate.IfaceStateAbsent,
+							MTU:        1500,
+							Controller: "k6t-bc6cc93fa1e",
+							Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+							Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+						{
+							Name:     "podbc6cc93fa1e",
+							TypeName: nmstate.TypeDummy,
+							State:    nmstate.IfaceStateAbsent,
+							MTU:      1500,
+							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+						},
+					},
+					LinuxStack: nmstate.LinuxStack{},
+				},
+			))
+
+			_, _, finished, err := state.PendingStartedFinished(specNetworks)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(finished).To(Equal([]v1.Network{
+				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+			}))
+
+			Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)).NotTo(BeNil())
+
+			// testNet2 is not expected to exist anymore.
+			_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	It("unplug secondary bridge binding network that is still in started state", func() {
+		// This test is placed as a stand alone to emphasize an unexpected side effect.
+		// The composed configuration includes removal of interfaces that do not even exist yet.
+		// With the nmstate backend implementation, this is acceptable, as the interface deletion
+		// is conditional to its existence. The composed configuration is expressing the desire
+		// for the interface to be removed, therefore, if it is already absent, it will silently do nothing.
+
+		const (
+			testNet1 = "testnet1"
+			testNet2 = "testnet2"
+		)
+
+		specNetworks := []v1.Network{
+			{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+			{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+		}
+		specInterfaces := []v1.Interface{
+			{
+				Name:                   defaultPodNetworkName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			},
+			{Name: testNet1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		}
+
+		nmstatestub := &nmstateStub{status: nmstate.Status{
+			Interfaces: []nmstate.Interface{
+				{
+					Name:       "eth0",
+					Index:      0,
+					TypeName:   nmstate.TypeVETH,
+					State:      nmstate.IfaceStateUp,
+					MacAddress: "12:34:56:78:90:ab",
+					MTU:        1500,
+				},
+				{
+					Name:       "pod7087ef4cd1f",
+					Index:      0,
+					TypeName:   nmstate.TypeVETH,
+					State:      nmstate.IfaceStateUp,
+					MacAddress: "22:34:56:78:90:ab",
+					MTU:        1500,
+				},
+				{
+					Name:       "podbc6cc93fa1e",
+					Index:      0,
+					TypeName:   nmstate.TypeVETH,
+					State:      nmstate.IfaceStateUp,
+					MacAddress: "32:34:56:78:90:ab",
+					MTU:        1500,
+				},
+			},
+		}}
+
+		By("Plug 2 networks")
+		netPod := netpod.NewNetPod(
+			specNetworks[:2],
+			specInterfaces[:2],
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+		)
+		Expect(netPod.Setup()).To(Succeed())
+
+		By("Plug an additional network that fails the config step")
+		nmstatestub.applyErr = errNMStateApply
+		netPod = netpod.NewNetPod(
+			specNetworks[2:],
+			specInterfaces[2:],
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+		)
+		err := netPod.Setup()
+		Expect(err).To(MatchError(errNMStateApply))
+
+		pending, started, finished, err := state.PendingStartedFinished(specNetworks)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pending).To(BeEmpty())
+		Expect(started).To(Equal(specNetworks[2:]))
+		Expect(finished).To(Equal(specNetworks[:2]))
+
+		By("Unplug the 3rd network (that is in started state)")
+		nmstatestub.applyErr = nil
+		specInterfaces[2].State = v1.InterfaceStateAbsent
+		netPod = netpod.NewNetPod(
+			specNetworks,
+			specInterfaces,
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+		)
+		Expect(netPod.Setup()).To(Succeed())
+
+		Expect(nmstatestub.spec).To(Equal(
+			nmstate.Spec{
+				Interfaces: []nmstate.Interface{
+					// Primary network
+					{
+						Name:       "k6t-eth0",
+						TypeName:   nmstate.TypeBridge,
+						State:      nmstate.IfaceStateUp,
+						MacAddress: "02:00:00:00:00:00",
+						MTU:        1500,
+						Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+						IPv4:       nmstate.IP{Enabled: pointer.P(false)},
+						IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+						LinuxStack: nmstate.LinuxIfaceStack{},
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+					},
+					{
+						Name:       "tap0",
+						TypeName:   nmstate.TypeTap,
+						State:      nmstate.IfaceStateUp,
+						MTU:        1500,
+						Controller: "k6t-eth0",
+						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
+					},
+					// Secondary network.
+					{
+						Name:     "k6t-7087ef4cd1f",
+						TypeName: nmstate.TypeBridge,
+						State:    nmstate.IfaceStateUp,
+						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+					},
+					{
+						Name:        "7087ef4cd1f-nic",
+						CopyMacFrom: "k6t-7087ef4cd1f",
+						Controller:  "k6t-7087ef4cd1f",
+						IPv4:        ipDisabled,
+						IPv6:        ipDisabled,
+						LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+						Metadata:    &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+					},
+					{
+						Name:       "tap7087ef4cd1f",
+						TypeName:   nmstate.TypeTap,
+						State:      nmstate.IfaceStateUp,
+						MTU:        1500,
+						Controller: "k6t-7087ef4cd1f",
+						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+					},
+					{
+						Name:     "pod7087ef4cd1f",
+						TypeName: nmstate.TypeDummy,
+						MTU:      1500,
+						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
+					},
+					// Third network.
+					{
+						Name:     "k6t-bc6cc93fa1e",
+						TypeName: nmstate.TypeBridge,
+						State:    nmstate.IfaceStateAbsent,
+						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+					},
+					{
+						Name:       "tapbc6cc93fa1e",
+						TypeName:   nmstate.TypeTap,
+						State:      nmstate.IfaceStateAbsent,
+						MTU:        1500,
+						Controller: "k6t-bc6cc93fa1e",
+						Tap:        &nmstate.TapDevice{Queues: 0, UID: 0, GID: 0},
+						Metadata:   &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+					},
+					{
+						Name:     "podbc6cc93fa1e",
+						TypeName: nmstate.TypeDummy,
+						State:    nmstate.IfaceStateAbsent,
+						MTU:      1500,
+						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
+					},
+				},
+				LinuxStack: nmstate.LinuxStack{},
+			},
+		))
+
+		_, _, finished, err = state.PendingStartedFinished(specNetworks)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(finished).To(Equal([]v1.Network{
+			{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+		}))
+
+		Expect(cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet1)).NotTo(BeNil())
+
+		// testNet2 is not expected to exist anymore.
+		_, err = cache.ReadDomainInterfaceCache(&baseCacheCreator, "0", testNet2)
+		Expect(err).To(HaveOccurred())
+	})
 })
 
 type nmstateStub struct {
@@ -1057,10 +1688,11 @@ type configStateCacheStub struct {
 	stateCache map[string]cache.PodIfaceState
 	readErr    error
 	writeErr   error
+	deleteErr  error
 }
 
 func newConfigStateCacheStub() configStateCacheStub {
-	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil}
+	return configStateCacheStub{map[string]cache.PodIfaceState{}, nil, nil, nil}
 }
 
 func (c configStateCacheStub) Read(key string) (cache.PodIfaceState, error) {
@@ -1076,6 +1708,9 @@ func (c configStateCacheStub) Write(key string, state cache.PodIfaceState) error
 }
 
 func (c configStateCacheStub) Delete(key string) error {
+	if c.deleteErr != nil {
+		return c.deleteErr
+	}
 	delete(c.stateCache, key)
 	return nil
 }
