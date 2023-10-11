@@ -3,13 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "configstate.go",
         "configstatecache.go",
         "netconf.go",
         "netstat.go",
         "network.go",
         "podnic.go",
-        "unpluggedpodnic.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/setup",
     visibility = ["//visibility:public"],
@@ -32,23 +30,19 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
-        "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "configstate_test.go",
         "configstatecache_test.go",
         "netconf_test.go",
         "netstat_test.go",
         "network_suite_test.go",
         "network_test.go",
         "podnic_test.go",
-        "unpluggedpodnic_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
@@ -68,7 +62,6 @@ go_test(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/vishvananda/netlink:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )

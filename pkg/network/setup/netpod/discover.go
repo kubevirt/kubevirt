@@ -42,8 +42,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 	for _, vmiSpecIface := range n.vmiSpecIfaces {
 		podIfaceName := podIfaceNameByVMINetwork[vmiSpecIface.Name]
 
-		// Filter out network interfaces marked for removal.
-		// TODO: Support in the same flow the removal of such interfaces.
+		// The discovery is not relevant for interfaces marked for removal.
 		if vmiSpecIface.State == v1.InterfaceStateAbsent {
 			continue
 		}

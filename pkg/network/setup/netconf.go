@@ -24,8 +24,6 @@ import (
 	"strconv"
 	"sync"
 
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -47,14 +45,9 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
-type ConfigStateExecutor interface {
-	Unplug(networks []v1.Network, cleanupFunc func(string) error) error
-}
-
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
-	configState      map[string]ConfigStateExecutor
 	state            map[string]*netpod.State
 	configStateMutex *sync.RWMutex
 }
@@ -69,12 +62,11 @@ func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
 	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory, map[string]ConfigStateExecutor{}, map[string]*netpod.State{})
+	}, cacheFactory, map[string]*netpod.State{})
 }
 
-func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]ConfigStateExecutor, state map[string]*netpod.State) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, state map[string]*netpod.State) *NetConf {
 	return &NetConf{
-		configState:      configState,
 		state:            state,
 		configStateMutex: &sync.RWMutex{},
 		cacheCreator:     cacheCreator,
@@ -89,8 +81,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	}
 
 	c.configStateMutex.RLock()
-	configState, ok := c.configState[string(vmi.UID)]
-	state := c.state[string(vmi.UID)]
+	state, ok := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
 		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
@@ -99,11 +90,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 			return err
 		}
 		ns := c.nsFactory(launcherPid)
-		newConfigState := NewConfigState(configStateCache, ns)
-		configState = &newConfigState
 		state = netpod.NewState(configStateCache, ns)
 		c.configStateMutex.Lock()
-		c.configState[string(vmi.UID)] = configState
 		c.state[string(vmi.UID)] = state
 		c.configStateMutex.Unlock()
 	}
@@ -127,16 +115,6 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 	if err := netpod.Setup(); err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
-	}
-
-	absentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State == v1.InterfaceStateAbsent
-	})
-	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
-	if len(absentIfaces) != 0 {
-		if err := unplugPodNetworks(vmi, absentNets, c.cacheCreator, launcherPid, configState); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -168,7 +146,7 @@ func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.configStateMutex.Lock()
-	delete(c.configState, string(vmi.UID))
+	delete(c.state, string(vmi.UID))
 	c.configStateMutex.Unlock()
 	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
 	if err := podCache.Remove(); err != nil {
@@ -187,20 +165,4 @@ func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
 			masquerade.WithLegacyMigrationPorts(),
 		)
 	}
-}
-
-func unplugPodNetworks(vmi *v1.VirtualMachineInstance, networks []v1.Network, cacheCreator cacheCreator, launcherPid int, configState ConfigStateExecutor) error {
-	networkByName := netvmispec.IndexNetworkSpecByName(networks)
-	err := configState.Unplug(
-		networks,
-		func(network string) error {
-			unpluggedPodNic := NewUnpluggedpodnic(
-				string(vmi.UID), networkByName[network], &netdriver.NetworkUtilsHandler{}, launcherPid, cacheCreator,
-			)
-			return unpluggedPodNic.UnplugPhase1()
-		})
-	if err != nil {
-		return fmt.Errorf("failed unplug pod networks phase1: %w", err)
-	}
-	return nil
 }
