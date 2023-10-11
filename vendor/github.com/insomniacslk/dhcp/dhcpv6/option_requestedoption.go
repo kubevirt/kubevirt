@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptionCodes are a collection of option codes.
@@ -71,5 +71,5 @@ func (*optRequestedOption) Code() OptionCode {
 }
 
 func (op *optRequestedOption) String() string {
-	return fmt.Sprintf("RequestedOptions: %s", op.OptionCodes)
+	return fmt.Sprintf("%s: %s", op.Code(), op.OptionCodes)
 }

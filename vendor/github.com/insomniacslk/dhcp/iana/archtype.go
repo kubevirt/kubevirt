@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // Arch encodes an architecture type per RFC 4578, Section 2.1.

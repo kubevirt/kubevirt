@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/insomniacslk/dhcp/iana"
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 const RelayHeaderSize = 34
@@ -94,29 +95,36 @@ func (r *RelayMessage) Type() MessageType {
 
 // String prints a short human-readable relay message.
 func (r *RelayMessage) String() string {
-	ret := fmt.Sprintf(
-		"RelayMessage(messageType=%s hopcount=%d, linkaddr=%s, peeraddr=%s, %d options)",
-		r.Type(), r.HopCount, r.LinkAddr, r.PeerAddr, len(r.Options.Options),
-	)
-	return ret
+	return fmt.Sprintf("RelayMessage(MessageType=%s, HopCount=%d, LinkAddr=%s, PeerAddr=%s, %d options)",
+		r.Type(), r.HopCount, r.LinkAddr, r.PeerAddr, len(r.Options.Options))
 }
 
 // Summary prints all options associated with this relay message.
 func (r *RelayMessage) Summary() string {
-	ret := fmt.Sprintf(
-		"RelayMessage\n"+
-			"  messageType=%v\n"+
-			"  hopcount=%v\n"+
-			"  linkaddr=%v\n"+
-			"  peeraddr=%v\n"+
-			"  options=%v\n",
-		r.Type(),
-		r.HopCount,
-		r.LinkAddr,
-		r.PeerAddr,
-		r.Options,
-	)
-	return ret
+	return r.LongString(0)
+}
+
+// LongString prints all options associated with this message.
+func (r *RelayMessage) LongString(spaceIndent int) string {
+	indent := strings.Repeat(" ", spaceIndent)
+
+	var s strings.Builder
+	s.WriteString(indent)
+	s.WriteString("RelayMessage{\n")
+	s.WriteString(indent)
+	s.WriteString(fmt.Sprintf("  MessageType=%s\n", r.MessageType))
+	s.WriteString(indent)
+	s.WriteString(fmt.Sprintf("  HopCount=%d\n", r.HopCount))
+	s.WriteString(indent)
+	s.WriteString(fmt.Sprintf("  LinkAddr=%s\n", r.LinkAddr))
+	s.WriteString(indent)
+	s.WriteString(fmt.Sprintf("  PeerAddr=%s\n", r.PeerAddr))
+	s.WriteString(indent)
+	s.WriteString("  Options: ")
+	s.WriteString(r.Options.Options.LongString(spaceIndent + 2))
+	s.WriteString("\n}")
+
+	return s.String()
 }
 
 // ToBytes returns the serialized version of this relay message as defined by
