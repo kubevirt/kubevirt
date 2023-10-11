@@ -41,7 +41,7 @@ require (
 	github.com/nxadm/tail v1.4.8
 	github.com/onsi/ginkgo/v2 v2.9.4
 	github.com/onsi/gomega v1.27.6
-	github.com/opencontainers/runc v1.1.4
+	github.com/opencontainers/runc v1.1.9
 	github.com/opencontainers/selinux v1.10.2
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
