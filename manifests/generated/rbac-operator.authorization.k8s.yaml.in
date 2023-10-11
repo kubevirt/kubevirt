@@ -664,7 +664,7 @@ rules:
 - apiGroups:
   - k8s.cni.cncf.io
   resources:
-  - ipamleases
+  - ipamclaims
   verbs:
   - create
 - apiGroups:

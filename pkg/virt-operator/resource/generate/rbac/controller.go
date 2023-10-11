@@ -530,7 +530,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			{
 				Verbs:     []string{"create"},
 				APIGroups: []string{"k8s.cni.cncf.io"},
-				Resources: []string{"ipamleases"},
+				Resources: []string{"ipamclaims"},
 			},
 		},
 	}

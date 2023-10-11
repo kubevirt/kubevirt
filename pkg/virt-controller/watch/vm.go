@@ -2785,7 +2785,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 
 			claimName := fmt.Sprintf("%s.%s", vm.Name, network.Name)
 			log.Log.Object(vm).Infof("about to create ipam Claim for %q", claimName)
-			_, err = c.clientset.IPAMClaimsClient().K8sV1alpha1().IPAMLeases(vmi.Namespace).Create(
+			_, err = c.clientset.IPAMClaimsClient().K8sV1alpha1().IPAMClaims(vmi.Namespace).Create(
 				context.Background(),
 				createIPAMClaim(vm, claimName, network),
 				v1.CreateOptions{},
@@ -2887,8 +2887,8 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	return vm, syncErr, nil
 }
 
-func createIPAMClaim(vm *virtv1.VirtualMachine, claimName string, network virtv1.Network) *persistentipsapi.IPAMLease {
-	return &persistentipsapi.IPAMLease{
+func createIPAMClaim(vm *virtv1.VirtualMachine, claimName string, network virtv1.Network) *persistentipsapi.IPAMClaim {
+	return &persistentipsapi.IPAMClaim{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      claimName,
 			Namespace: vm.Namespace,
@@ -2896,7 +2896,7 @@ func createIPAMClaim(vm *virtv1.VirtualMachine, claimName string, network virtv1
 				*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
 			},
 		},
-		Spec: persistentipsapi.IPAMLeaseSpec{
+		Spec: persistentipsapi.IPAMClaimSpec{
 			Network: network.Multus.NetworkName,
 		},
 	}
