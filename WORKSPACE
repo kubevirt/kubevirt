@@ -1785,19 +1785,13 @@ rpm(
 rpm(
     name = "kernel-headers-0__5.14.0-364.el9.aarch64",
     sha256 = "80896565b489078aa16387cc15fc3e33124da317df32ca760a18246a73527bed",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/kernel-headers-5.14.0-364.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/80896565b489078aa16387cc15fc3e33124da317df32ca760a18246a73527bed",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/80896565b489078aa16387cc15fc3e33124da317df32ca760a18246a73527bed"],
 )
 
 rpm(
     name = "kernel-headers-0__5.14.0-364.el9.x86_64",
     sha256 = "30795c050f07f3d6168f90cccf32968cfdc20e008f299df3355b8619fbddc804",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/kernel-headers-5.14.0-364.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/30795c050f07f3d6168f90cccf32968cfdc20e008f299df3355b8619fbddc804",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/30795c050f07f3d6168f90cccf32968cfdc20e008f299df3355b8619fbddc804"],
 )
 
 rpm(
