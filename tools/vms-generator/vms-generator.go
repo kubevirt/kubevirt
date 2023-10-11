@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"kubevirt.io/api/migrations/v1alpha1"
 
@@ -36,9 +37,11 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -187,9 +190,37 @@ func main() {
 		return nil
 	}
 
+	instancetypeMethods := instancetype.InstancetypeMethods{}
+	admitter := validating_webhook.VMsAdmitter{
+		InstancetypeMethods: &testutils.MockInstancetypeMethods{
+			FindInstancetypeSpecFunc: func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
+				if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.Name != "" {
+					switch strings.ToLower(vm.Spec.Instancetype.Kind) {
+					case "":
+					case apiinstancetype.ClusterSingularResourceName:
+						if vmClusterInstancetype, ok := virtualMachineClusterInstancetypes[vm.Spec.Instancetype.Name]; ok {
+							return &vmClusterInstancetype.Spec, nil
+						}
+					case apiinstancetype.SingularResourceName:
+						if vmInstancetype, ok := virtualMachineInstancetypes[vm.Spec.Instancetype.Name]; ok {
+							return &vmInstancetype.Spec, nil
+						}
+					}
+				}
+				return nil, nil
+			},
+			FindPreferenceSpecFunc: func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
+				return nil, nil
+			},
+			ApplyToVmiFunc: instancetypeMethods.ApplyToVmi,
+		},
+	}
+
 	// Having no generics is lots of fun
 	for name, obj := range vms {
-		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, "user-account")
+		objCopy := obj.DeepCopy()
+		admitter.ApplyInstancetypeToVm(objCopy)
+		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &objCopy.Spec, config, "user-account")
 		handleCauses(causes, name, "vm")
 		handleError(dumpObject(name, *obj))
 	}

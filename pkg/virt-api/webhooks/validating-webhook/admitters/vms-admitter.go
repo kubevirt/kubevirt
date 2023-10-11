@@ -142,7 +142,7 @@ func (admitter *VMsAdmitter) Admit(ar *admissionv1.AdmissionReview) *admissionv1
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
 	vmCopy := vm.DeepCopy()
-	instancetypeSpec, preferenceSpec, causes := admitter.applyInstancetypeToVm(vmCopy)
+	instancetypeSpec, preferenceSpec, causes := admitter.ApplyInstancetypeToVm(vmCopy)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -241,7 +241,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ar *admissionv1.AdmissionReview) *admis
 	return &reviewResponse
 }
 
-func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
+func (admitter *VMsAdmitter) ApplyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
 	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
 	if err != nil {
 		return nil, nil, []metav1.StatusCause{{
@@ -356,6 +356,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, accountName)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(field.Child("template", "spec"), &spec.Template.Spec)...)
 
 	causes = append(causes, validateDataVolumeTemplate(field, spec)...)
 	causes = append(causes, validateRunStrategy(field, spec)...)

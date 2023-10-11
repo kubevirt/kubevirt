@@ -6,9 +6,11 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/vms-generator",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/instancetype:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks/validating-webhook/admitters:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",

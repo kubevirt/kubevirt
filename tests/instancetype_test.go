@@ -1357,6 +1357,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vm.Spec.DataVolumeTemplates = generateDataVolumeTemplatesFromDataVolume(dv)
 			vm.Spec.Template.Spec.Volumes = generateVolumesForDataVolumeTemplates()
 
+			// Provide guest memory as fallback when inference fails
+			guestMemory := resource.MustParse("512Mi")
+			vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+				Guest: &guestMemory,
+			}
+
 			failurePolicy := v1.IgnoreInferFromVolumeFailure
 			vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
 			vm.Spec.Preference.InferFromVolumeFailurePolicy = &failurePolicy
@@ -1773,6 +1779,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Spec.Instancetype.Name = instancetype.Name
+			}
+
+			if instancetype == nil && vm.Spec.Template.Spec.Domain.Memory == nil {
+				// Provide memory to satisfy admitter
+				guestMemory := resource.MustParse("512Mi")
+				vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guestMemory,
+				}
 			}
 
 			preference, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).Create(context.Background(), preference, metav1.CreateOptions{})

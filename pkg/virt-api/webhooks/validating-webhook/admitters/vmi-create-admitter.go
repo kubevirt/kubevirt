@@ -1681,7 +1681,6 @@ func appendNewStatusCauseForNumberOfDisksExceeded(field *k8sfield.Path, causes [
 }
 
 // ValidateVirtualMachineInstanceMandatoryFields should be invoked after all defaults and presets are applied.
-// It is only meant to be used for VMI reviews, not if they are templates on other objects
 func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 

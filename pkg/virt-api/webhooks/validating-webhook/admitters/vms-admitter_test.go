@@ -907,6 +907,22 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 	})
 
+	It("should reject VM without any memory settings", func() {
+		vm := &v1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "vm-namespace",
+			},
+			Spec: v1.VirtualMachineSpec{
+				Running:  &notRunning,
+				Template: &v1.VirtualMachineInstanceTemplateSpec{},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal("no memory requested, at least one of 'spec.template.spec.domain.memory.guest', 'spec.template.spec.domain.memory.hugepages.size' or 'spec.template.spec.domain.resources.requests.memory' must be set"))
+	})
+
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
@@ -1568,7 +1584,16 @@ var _ = Describe("Validating VM Admitter", func() {
 			return false
 		}, true),
 		Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+			guestMemory := resource.MustParse("512Mi")
+			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Memory: &v1.Memory{
+							Guest: &guestMemory,
+						},
+					},
+				},
+			}
 			return true
 		}, false),
 		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
@@ -1834,6 +1859,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			It("should reject VM creation when resource requests are configured", func() {
 				vm.Spec.Template.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
 				vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("400m")
+				vm.Spec.Template.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
 
 				response := admitVm(vmsAdmitter, vm)
 				Expect(response.Allowed).To(BeFalse())

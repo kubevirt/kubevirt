@@ -122,6 +122,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
+		It("should reject creation if template spec does not contain any memory settings", func() {
+			vmi := libvmi.NewCirros()
+			vmi.Spec.Domain.Resources.Requests = nil
+			vm := tests.NewRandomVirtualMachine(vmi, false)
+			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
+			Expect(errors.IsInvalid(err)).To(BeTrue())
+			cause, ok := errors.StatusCause(err, metav1.CauseTypeFieldValueRequired)
+			Expect(ok).To(BeTrue())
+			Expect(cause.Message).To(Equal("no memory requested, at least one of 'spec.template.spec.domain.memory.guest', 'spec.template.spec.domain.memory.hugepages.size' or 'spec.template.spec.domain.resources.requests.memory' must be set"))
+		})
 	})
 
 	Context("[Serial]A mutated VirtualMachine given", Serial, func() {
