@@ -1,11 +1,10 @@
 package dhcpv6
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptVendorClass represents a DHCPv6 Vendor Class option
@@ -36,21 +35,21 @@ func (op *OptVendorClass) String() string {
 	for _, data := range op.Data {
 		vcStrings = append(vcStrings, string(data))
 	}
-	return fmt.Sprintf("OptVendorClass{enterprisenum=%d, data=[%s]}", op.EnterpriseNumber, strings.Join(vcStrings, ", "))
+	return fmt.Sprintf("%s: {EnterpriseNumber=%d Data=[%s]}", op.Code(), op.EnterpriseNumber, strings.Join(vcStrings, ", "))
 }
 
-// ParseOptVendorClass builds an OptVendorClass structure from a sequence of
-// bytes. The input data does not include option code and length bytes.
-func ParseOptVendorClass(data []byte) (*OptVendorClass, error) {
-	var opt OptVendorClass
+// FromBytes builds an OptVendorClass structure from a sequence of bytes. The
+// input data does not include option code and length bytes.
+func (op *OptVendorClass) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	opt.EnterpriseNumber = buf.Read32()
+	*op = OptVendorClass{}
+	op.EnterpriseNumber = buf.Read32()
 	for buf.Has(2) {
 		len := buf.Read16()
-		opt.Data = append(opt.Data, buf.CopyN(int(len)))
+		op.Data = append(op.Data, buf.CopyN(int(len)))
 	}
-	if len(opt.Data) < 1 {
-		return nil, errors.New("ParseOptVendorClass: at least one vendor class data is required")
+	if len(op.Data) == 0 {
+		return fmt.Errorf("%w: vendor class data should not be empty", uio.ErrBufferTooShort)
 	}
-	return &opt, buf.FinError()
+	return buf.FinError()
 }

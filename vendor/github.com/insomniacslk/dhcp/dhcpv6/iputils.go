@@ -90,8 +90,15 @@ func ExtractMAC(packet DHCPv6) (net.HardwareAddr, error) {
 	if duid == nil {
 		return nil, fmt.Errorf("client ID not found in packet")
 	}
-	if duid.LinkLayerAddr == nil {
-		return nil, fmt.Errorf("failed to extract MAC")
+	switch d := duid.(type) {
+	case *DUIDLL:
+		if d.LinkLayerAddr != nil {
+			return d.LinkLayerAddr, nil
+		}
+	case *DUIDLLT:
+		if d.LinkLayerAddr != nil {
+			return d.LinkLayerAddr, nil
+		}
 	}
-	return duid.LinkLayerAddr, nil
+	return nil, fmt.Errorf("failed to extract MAC")
 }

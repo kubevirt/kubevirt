@@ -31,7 +31,7 @@ go_library(
         "//vendor/github.com/insomniacslk/dhcp/iana:go_default_library",
         "//vendor/github.com/insomniacslk/dhcp/interfaces:go_default_library",
         "//vendor/github.com/insomniacslk/dhcp/rfc1035label:go_default_library",
-        "//vendor/github.com/u-root/u-root/pkg/rand:go_default_library",
-        "//vendor/github.com/u-root/u-root/pkg/uio:go_default_library",
+        "//vendor/github.com/u-root/uio/rand:go_default_library",
+        "//vendor/github.com/u-root/uio/uio:go_default_library",
     ],
 )

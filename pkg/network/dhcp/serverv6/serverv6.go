@@ -123,7 +123,7 @@ func (h *DHCPv6Handler) buildResponse(msg dhcpv6.DHCPv6) (*dhcpv6.Message, error
 
 func prepareDHCPv6Modifiers(clientIP net.IP, serverInterfaceMac net.HardwareAddr) []dhcpv6.Modifier {
 	optIAAddress := dhcpv6.OptIAAddress{IPv6Addr: clientIP, PreferredLifetime: infiniteLease, ValidLifetime: infiniteLease}
-	duid := dhcpv6.Duid{Type: dhcpv6.DUID_LL, HwType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
+	duid := &dhcpv6.DUIDLL{HWType: iana.HWTypeEthernet, LinkLayerAddr: serverInterfaceMac}
 
 	return []dhcpv6.Modifier{dhcpv6.WithIANA(optIAAddress), dhcpv6.WithServerID(duid)}
 }

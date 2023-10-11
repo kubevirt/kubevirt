@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // Strings represents an option encapsulating a list of strings in IPv4 DHCP as

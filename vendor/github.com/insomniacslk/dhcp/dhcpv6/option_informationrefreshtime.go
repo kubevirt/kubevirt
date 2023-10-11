@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptInformationRefreshTime implements OptionInformationRefreshTime option.
@@ -32,17 +32,16 @@ func (op *optInformationRefreshTime) ToBytes() []byte {
 }
 
 func (op *optInformationRefreshTime) String() string {
-	return fmt.Sprintf("InformationRefreshTime: %v", op.InformationRefreshtime)
+	return fmt.Sprintf("%s: %v", op.Code(), op.InformationRefreshtime)
 }
 
-// parseOptInformationRefreshTime builds an optInformationRefreshTime structure from a sequence
-// of bytes. The input data does not include option code and length bytes.
-func parseOptInformationRefreshTime(data []byte) (*optInformationRefreshTime, error) {
-	var opt optInformationRefreshTime
+// FromBytes builds an optInformationRefreshTime structure from a sequence of
+// bytes. The input data does not include option code and length bytes.
+func (op *optInformationRefreshTime) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
 
 	var irt Duration
 	irt.Unmarshal(buf)
-	opt.InformationRefreshtime = irt.Duration
-	return &opt, buf.FinError()
+	op.InformationRefreshtime = irt.Duration
+	return buf.FinError()
 }

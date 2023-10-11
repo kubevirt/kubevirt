@@ -89,6 +89,10 @@ func FromBytes(data []byte) (*Labels, error) {
 	return &l, nil
 }
 
+// ErrBufferTooShort is returned when the label cannot be parsed due to a wrong
+// length or missing bytes.
+var ErrBufferTooShort = errors.New("rfc1035label: buffer too short")
+
 // fromBytes decodes a serialized stream and returns a list of labels
 func labelsFromBytes(buf []byte) ([]string, error) {
 	var (
@@ -100,6 +104,12 @@ func labelsFromBytes(buf []byte) ([]string, error) {
 
 	for {
 		if pos >= len(buf) {
+			// interpret label without trailing zero-length byte as a partial
+			// domain name field as per RFC 4704 Section 4.2
+			if label != "" {
+				labels = append(labels, label)
+			}
+
 			break
 		}
 		length := int(buf[pos])
@@ -126,7 +136,7 @@ func labelsFromBytes(buf []byte) ([]string, error) {
 			pos = off
 		} else {
 			if pos+length > len(buf) {
-				return nil, errors.New("rfc1035label: buffer too short")
+				return nil, ErrBufferTooShort
 			}
 			chunk = string(buf[pos : pos+length])
 			if label != "" {

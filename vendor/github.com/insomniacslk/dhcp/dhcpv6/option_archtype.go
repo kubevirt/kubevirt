@@ -23,13 +23,9 @@ func (op *optClientArchType) Code() OptionCode {
 }
 
 func (op optClientArchType) String() string {
-	return fmt.Sprintf("ClientArchType: %s", op.Archs.String())
+	return fmt.Sprintf("%s: %s", op.Code(), op.Archs)
 }
 
-// parseOptClientArchType builds an OptClientArchType structure from
-// a sequence of bytes The input data does not include option code and
-// length bytes.
-func parseOptClientArchType(data []byte) (*optClientArchType, error) {
-	var opt optClientArchType
-	return &opt, opt.FromBytes(data)
+func (op *optClientArchType) FromBytes(p []byte) error {
+	return op.Archs.FromBytes(p)
 }
