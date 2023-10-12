@@ -28,7 +28,6 @@ go_test(
     srcs = [
         "heartbeat_suite_test.go",
         "heartbeat_test.go",
-        "ksm_test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
@@ -42,7 +41,6 @@ go_test(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
     ],
 )
