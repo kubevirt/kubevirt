@@ -76,7 +76,6 @@ func TestTests(t *testing.T) {
 	suiteConfig, _ := GinkgoConfiguration()
 	if suiteConfig.ParallelTotal > 1 {
 		artifactsPath = filepath.Join(artifactsPath, strconv.Itoa(GinkgoParallelProcess()))
-		junitOutput = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", GinkgoParallelProcess()))
 	}
 
 	outputEnricherReporter := reporter.NewCapturedOutputEnricher(
@@ -85,9 +84,6 @@ func TestTests(t *testing.T) {
 	afterSuiteReporters = append(afterSuiteReporters, outputEnricherReporter)
 
 	if qe_reporters.Polarion.Run {
-		if suiteConfig.ParallelTotal > 1 {
-			qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
-		}
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}
 
