@@ -300,7 +300,6 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	defer clientSocket.Close()
 
 	log.Log.Object(vmi).Infof("Websocket connection upgraded")
 
@@ -309,28 +308,32 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	defer conn.Close()
-
-	errCh := make(chan error, 2)
-	go func() {
-		_, err := kubecli.CopyTo(clientSocket, conn)
-		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
-		errCh <- err
-	}()
 
 	go func() {
-		_, err := kubecli.CopyFrom(conn, clientSocket)
-		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
-		errCh <- err
-	}()
+		defer clientSocket.Close()
+		defer conn.Close()
+		errCh := make(chan error, 2)
+		go func() {
+			_, err := kubecli.CopyTo(clientSocket, conn)
+			log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
+			errCh <- err
+		}()
 
-	select {
-	case <-stopCh:
-		break
-	case err := <-errCh:
-		if err != nil && err != io.EOF {
-			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
-			response.WriteHeader(http.StatusInternalServerError)
+		go func() {
+			_, err := kubecli.CopyFrom(conn, clientSocket)
+			log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
+			errCh <- err
+		}()
+
+		select {
+		case <-stopCh:
+			break
+		case err := <-errCh:
+			if err != nil && err != io.EOF {
+				log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
+				response.WriteHeader(http.StatusInternalServerError)
+			}
 		}
-	}
+	}()
+
 }
