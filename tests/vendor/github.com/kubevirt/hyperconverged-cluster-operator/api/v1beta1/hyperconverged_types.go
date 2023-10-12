@@ -207,6 +207,14 @@ type HyperConvergedSpec struct {
 	// VirtualMachineOptions holds the cluster level information regarding the virtual machine.
 	// +optional
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
+
+	// CommonBootImageNamespace override the default namespace of the common boot images, in order to hide them.
+	//
+	// If not set, HCO won't set any namespace, letting SSP to use the default. If set, use the namespace to create the
+	// DataImportCronTemplates and the common image streams, with this namespace. This field is not set by default.
+	//
+	// +optional
+	CommonBootImageNamespace *string `json:"commonBootImageNamespace,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.

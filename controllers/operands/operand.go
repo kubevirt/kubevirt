@@ -44,7 +44,7 @@ type hcoResourceHooks interface {
 	// Generate the required resource, with all the required fields)
 	getFullCr(*hcov1beta1.HyperConverged) (client.Object, error)
 	// Generate an empty resource, to be used as the input of the client.Get method. After calling this method, it will
-	// contains the actual values in K8s.
+	// contain the actual values in K8s.
 	getEmptyCr() client.Object
 	// check if there is a change between the required resource and the resource read from K8s, and update K8s accordingly.
 	updateCr(*common.HcoRequest, client.Client, runtime.Object, runtime.Object) (bool, bool, error)

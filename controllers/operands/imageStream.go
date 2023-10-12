@@ -2,18 +2,18 @@ package operands
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 
-	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
-	"k8s.io/client-go/tools/reference"
-
 	log "github.com/go-logr/logr"
 	imagev1 "github.com/openshift/api/image/v1"
+	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
@@ -42,6 +42,11 @@ type imageStreamOperand struct {
 func (iso imageStreamOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	if req.Instance.Spec.FeatureGates.EnableCommonBootImageImport != nil && *req.Instance.Spec.FeatureGates.EnableCommonBootImageImport {
 		// if the FG is set, make sure the imageStream is in place and up-to-date
+
+		if result := iso.checkCustomNamespace(req); result != nil {
+			return result
+		}
+
 		return iso.operand.ensure(req)
 	}
 
@@ -70,32 +75,59 @@ func (iso imageStreamOperand) ensure(req *common.HcoRequest) *EnsureResult {
 	return res.SetUpgradeDone(req.ComponentUpgradeInProgress)
 }
 
+func (iso imageStreamOperand) checkCustomNamespace(req *common.HcoRequest) *EnsureResult {
+	if ns, h := req.Instance.Spec.CommonBootImageNamespace, iso.operand.hooks.(*isHooks); ns != nil && len(*ns) > 0 && h.required.Namespace != *ns {
+		if result := iso.deleteImageStream(req); result != nil {
+			return result
+		}
+
+		h.required.Namespace = *ns
+	} else if (ns == nil || len(*ns) == 0) && h.required.Namespace != h.originalNS {
+		if result := iso.deleteImageStream(req); result != nil {
+			return result
+		}
+
+		h.required.Namespace = h.originalNS
+	}
+	return nil
+}
+
+func (iso imageStreamOperand) deleteImageStream(req *common.HcoRequest) *EnsureResult {
+	h := iso.operand.hooks.(*isHooks)
+	_, err := util.EnsureDeleted(req.Ctx, iso.operand.Client, h.required, req.Instance.Name, req.Logger, false, true, false)
+	if err != nil {
+		return NewEnsureResult(h.required).Error(fmt.Errorf("failed to delete imagestream %s/%s; %w", h.required.Namespace, h.required.Name, err))
+	}
+	return nil
+}
+
 func (iso imageStreamOperand) reset() {
 	iso.operand.reset()
 }
 
-func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, required *imagev1.ImageStream) Operand {
+func newImageStreamHandler(Client client.Client, Scheme *runtime.Scheme, required *imagev1.ImageStream, origNS string) Operand {
 	return &imageStreamOperand{
 		operand: &genericOperand{
 			Client: Client,
 			Scheme: Scheme,
 			crType: "ImageStream",
-			hooks:  newIsHook(required),
+			hooks:  newIsHook(required, origNS),
 		},
 	}
 }
 
 type isHooks struct {
-	required *imagev1.ImageStream
-	tags     map[string]imagev1.TagReference
+	required   *imagev1.ImageStream
+	originalNS string
+	tags       map[string]imagev1.TagReference
 }
 
-func newIsHook(required *imagev1.ImageStream) *isHooks {
+func newIsHook(required *imagev1.ImageStream, origNS string) *isHooks {
 	tags := make(map[string]imagev1.TagReference)
 	for _, tag := range required.Spec.Tags {
 		tags[tag.Name] = tag
 	}
-	return &isHooks{required: required, tags: tags}
+	return &isHooks{required: required, tags: tags, originalNS: origNS}
 }
 
 func (h isHooks) getFullCr(_ *hcov1beta1.HyperConverged) (client.Object, error) {
@@ -260,9 +292,14 @@ func processImageStreamFile(path string, info os.FileInfo, logger log.Logger, hc
 			return nil, err
 		}
 
+		origNS := is.ObjectMeta.Namespace
+		if ns := hc.Spec.CommonBootImageNamespace; ns != nil && len(*ns) > 0 {
+			is.ObjectMeta.Namespace = *ns
+		}
+
 		is.Labels = getLabels(hc, util.AppComponentCompute)
 		imageStreamNames = append(imageStreamNames, is.Name)
-		return newImageStreamHandler(Client, Scheme, is), nil
+		return newImageStreamHandler(Client, Scheme, is, origNS), nil
 	}
 
 	return nil, nil

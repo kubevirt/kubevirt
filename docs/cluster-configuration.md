@@ -801,6 +801,19 @@ for example, set the storage class for centos8 golden image, and modify the sour
     managedDataSource: centos-stream8
 ```
 
+### Override the golden images namespace
+To use another namespace for the common golden images, e.g. in order to hide them, set the `spec.commonBootImageNamespace`
+field with the required namespace name.
+
+The customized namespace is ignored for modified golden images.
+
+```yaml
+- metadata:
+    name: kubevirt-hyperconverged
+  spec:
+    commonBootImageNamespace: custom-namespace-name
+```
+
 ## Configure custom golden images
 Golden images are root disk images for commonly used operating systems. HCO provides several common images, but it
 is also possible to add custom golden images. For more details, see [the golden image documentation](https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md).

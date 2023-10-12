@@ -433,6 +433,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(VirtualMachineOptions)
 		**out = **in
 	}
+	if in.CommonBootImageNamespace != nil {
+		in, out := &in.CommonBootImageNamespace, &out.CommonBootImageNamespace
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

@@ -8,26 +8,27 @@ import (
 	"strings"
 	"time"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 )
+
+const customNS = "custom-ns"
 
 var _ = Describe("SSP Operands", func() {
 
@@ -1122,6 +1123,63 @@ var _ = Describe("SSP Operands", func() {
 					Expect(annotationTrue).Should(Equal(2))
 					Expect(annotationFalse).Should(Equal(2))
 				})
+
+				It("should use custom namespace for common dicts, if defined in the hyperConverged CR", func() {
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					Expect(commontestutils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml"))).To(Succeed())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
+
+					hco := commontestutils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+					hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
+					ssp, _, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+
+					for _, dict := range ssp.Spec.CommonTemplates.DataImportCronTemplates {
+						Expect(dict.Namespace).Should(Equal(customNS))
+					}
+				})
+
+				It("only common dict should be with custom namespace", func() {
+					Expect(os.Mkdir(dir, os.ModePerm)).To(Succeed())
+					defer func() { _ = os.RemoveAll(dir) }()
+					destFile := path.Join(dir, "dataImportCronTemplates.yaml")
+
+					Expect(
+						commontestutils.CopyFile(destFile, path.Join(testFilesLocation, "dataImportCronTemplates.yaml")),
+					).To(Succeed())
+					defer os.Remove(destFile)
+					Expect(readDataImportCronTemplatesFromFile()).To(Succeed())
+
+					hco := commontestutils.NewHco()
+					hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+					hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
+					hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
+					ssp, _, err := NewSSP(hco)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).ShouldNot(BeNil())
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+
+					var commonImages []hcov1beta1.DataImportCronTemplate
+					for _, d := range dataImportCronTemplateHardCodedMap {
+						dict := *d.DeepCopy()
+						dict.ObjectMeta.Namespace = customNS
+
+						commonImages = append(commonImages, dict)
+					}
+					commonImages = append(commonImages, image3)
+					commonImages = append(commonImages, image4)
+
+					Expect(ssp.Spec.CommonTemplates.DataImportCronTemplates).Should(ContainElements(hcoDictSliceToSSP(commonImages)))
+				})
 			})
 
 			Context("test applyDataImportSchedule", func() {
@@ -1354,17 +1412,16 @@ var _ = Describe("SSP Operands", func() {
 							}
 						}
 					})
-				})
 
-				Context("on SSP update", func() {
-					It("should create ssp with 2 common DICTs", func() {
+					It("should create ssp with custom namespace", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+						hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-						cl := commontestutils.InitClient([]client.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
-						Expect(res.Created).To(BeFalse())
+						Expect(res.Created).To(BeTrue())
 						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
@@ -1382,54 +1439,33 @@ var _ = Describe("SSP Operands", func() {
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
 							Expect(dict.Status.Modified).To(BeFalse())
+							Expect(dict.Namespace).To(Equal(customNS))
 						}
 					})
 
-					It("should create ssp with 2 custom DICTs", func() {
-						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(false)
-
-						expectedResource, _, err := NewSSP(hco)
-						Expect(err).ToNot(HaveOccurred())
-
-						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
-
-						cl := commontestutils.InitClient([]client.Object{expectedResource})
-						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
-						res := handler.ensure(req)
-						Expect(res.Created).To(BeFalse())
-						Expect(res.Updated).To(BeTrue())
-						Expect(res.Overwritten).To(BeFalse())
-						Expect(res.UpgradeDone).To(BeFalse())
-						Expect(res.Err).ToNot(HaveOccurred())
-
-						foundResource := &sspv1beta2.SSP{}
-						Expect(
-							cl.Get(context.TODO(),
-								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-								foundResource),
-						).ToNot(HaveOccurred())
-						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
-						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
-						for _, dict := range hco.Status.DataImportCronTemplates {
-							Expect(dict.Status.CommonTemplate).To(BeFalse())
-							Expect(dict.Status.Modified).To(BeFalse())
-						}
-					})
-
-					It("should create ssp with 2 common and 2 custom DICTs", func() {
+					It("modified or custom dicts should not be with custom namespace", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
+
+						modifiedCentos8 := sspCentos8.DeepCopy()
+
+						modifiedStorage := &cdiv1beta1.StorageSpec{
+							StorageClassName: ptr.To("anotherStorageClassName"),
+							VolumeName:       "volumeName",
+						}
+
+						modifiedCentos8.ObjectMeta.Namespace = ""
+						modifiedCentos8.Spec.Template.Spec.Storage = modifiedStorage.DeepCopy()
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
+						hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
 
 						expectedResource, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
-
-						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
-
-						cl := commontestutils.InitClient([]client.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
-						Expect(res.Created).To(BeFalse())
-						Expect(res.Updated).To(BeTrue())
+						Expect(res.Created).To(BeTrue())
+						Expect(res.Updated).To(BeFalse())
 						Expect(res.Overwritten).To(BeFalse())
 						Expect(res.UpgradeDone).To(BeFalse())
 						Expect(res.Err).ToNot(HaveOccurred())
@@ -1442,6 +1478,121 @@ var _ = Describe("SSP Operands", func() {
 						).ToNot(HaveOccurred())
 						Expect(foundResource.Name).To(Equal(expectedResource.Name))
 						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						for _, dict := range foundResource.Spec.CommonTemplates.DataImportCronTemplates {
+							if dict.Name == "centos8-image-cron" {
+								Expect(dict.Spec.Template.Spec.Storage).Should(Equal(modifiedStorage))
+							}
+
+							if dict.Name == "fedora-image-cron" {
+								Expect(dict.Namespace).Should(Equal(customNS))
+							} else {
+								Expect(dict.Namespace).Should(Equal(""))
+							}
+						}
+
+						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
+						for _, dict := range hco.Status.DataImportCronTemplates {
+							if dict.Name == image3.Name || dict.Name == image4.Name {
+								Expect(dict.Status.CommonTemplate).To(BeFalse())
+							} else {
+								Expect(dict.Status.CommonTemplate).To(BeTrue())
+							}
+
+							if dict.Name == "centos8-image-cron" {
+								Expect(dict.Status.Modified).To(BeTrue())
+							} else {
+								Expect(dict.Status.Modified).To(BeFalse())
+							}
+						}
+					})
+				})
+
+				Context("on SSP update", func() {
+					It("should create ssp with 2 common DICTs", func() {
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+						origSSP, _, err := NewSSP(hco)
+						Expect(err).ToNot(HaveOccurred())
+						cl := commontestutils.InitClient([]client.Object{origSSP})
+						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
+						res := handler.ensure(req)
+						Expect(res.Created).To(BeFalse())
+						Expect(res.Updated).To(BeFalse())
+						Expect(res.Overwritten).To(BeFalse())
+						Expect(res.UpgradeDone).To(BeFalse())
+						Expect(res.Err).ToNot(HaveOccurred())
+
+						foundSSP := &sspv1beta2.SSP{}
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
+						).ToNot(HaveOccurred())
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
+						for _, dict := range hco.Status.DataImportCronTemplates {
+							Expect(dict.Status.CommonTemplate).To(BeTrue())
+							Expect(dict.Status.Modified).To(BeFalse())
+						}
+					})
+
+					It("should create ssp with 2 custom DICTs", func() {
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(false)
+
+						origSSP, _, err := NewSSP(hco)
+						Expect(err).ToNot(HaveOccurred())
+
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
+
+						cl := commontestutils.InitClient([]client.Object{origSSP})
+						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
+						res := handler.ensure(req)
+						Expect(res.Created).To(BeFalse())
+						Expect(res.Updated).To(BeTrue())
+						Expect(res.Overwritten).To(BeFalse())
+						Expect(res.UpgradeDone).To(BeFalse())
+						Expect(res.Err).ToNot(HaveOccurred())
+
+						foundSSP := &sspv1beta2.SSP{}
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
+						).ToNot(HaveOccurred())
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
+						for _, dict := range hco.Status.DataImportCronTemplates {
+							Expect(dict.Status.CommonTemplate).To(BeFalse())
+							Expect(dict.Status.Modified).To(BeFalse())
+						}
+					})
+
+					It("should create ssp with 2 common and 2 custom DICTs", func() {
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+
+						origSSP, _, err := NewSSP(hco)
+						Expect(err).ToNot(HaveOccurred())
+
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{image3, image4}
+
+						cl := commontestutils.InitClient([]client.Object{origSSP})
+						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
+						res := handler.ensure(req)
+						Expect(res.Created).To(BeFalse())
+						Expect(res.Updated).To(BeTrue())
+						Expect(res.Overwritten).To(BeFalse())
+						Expect(res.UpgradeDone).To(BeFalse())
+						Expect(res.Err).ToNot(HaveOccurred())
+
+						foundSSP := &sspv1beta2.SSP{}
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
+						).ToNot(HaveOccurred())
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							if dict.Name == image3.Name || dict.Name == image4.Name {
@@ -1456,7 +1607,7 @@ var _ = Describe("SSP Operands", func() {
 					It("should create ssp with 1 common and 2 custom DICTs, when one of the common is disabled", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
-						expectedResource, _, err := NewSSP(hco)
+						origSSP, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
@@ -1465,7 +1616,7 @@ var _ = Describe("SSP Operands", func() {
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*disabledCentos8, image3, image4}
 
-						cl := commontestutils.InitClient([]client.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{origSSP})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1474,14 +1625,14 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.UpgradeDone).To(BeFalse())
 						Expect(res.Err).ToNot(HaveOccurred())
 
-						foundResource := &sspv1beta2.SSP{}
+						foundSSP := &sspv1beta2.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
-								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-								foundResource),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
 						).ToNot(HaveOccurred())
-						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(3))
 						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(3))
 						for _, dict := range hco.Status.DataImportCronTemplates {
 							Expect(dict.Name).ShouldNot(Equal("centos8-image-cron"))
@@ -1497,7 +1648,7 @@ var _ = Describe("SSP Operands", func() {
 					It("should create ssp with 1 modified common DICT and 2 custom DICTs, when one of the common is modified", func() {
 						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
 
-						expectedResource, _, err := NewSSP(hco)
+						origSSP, _, err := NewSSP(hco)
 						Expect(err).ToNot(HaveOccurred())
 
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
@@ -1507,7 +1658,7 @@ var _ = Describe("SSP Operands", func() {
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 
-						cl := commontestutils.InitClient([]client.Object{expectedResource})
+						cl := commontestutils.InitClient([]client.Object{origSSP})
 						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
 						res := handler.ensure(req)
 						Expect(res.Created).To(BeFalse())
@@ -1516,17 +1667,108 @@ var _ = Describe("SSP Operands", func() {
 						Expect(res.UpgradeDone).To(BeFalse())
 						Expect(res.Err).ToNot(HaveOccurred())
 
-						foundResource := &sspv1beta2.SSP{}
+						foundSSP := &sspv1beta2.SSP{}
 						Expect(
 							cl.Get(context.TODO(),
-								types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-								foundResource),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
 						).ToNot(HaveOccurred())
-						Expect(foundResource.Name).To(Equal(expectedResource.Name))
-						Expect(foundResource.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
-						for _, dict := range foundResource.Spec.CommonTemplates.DataImportCronTemplates {
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						for _, dict := range foundSSP.Spec.CommonTemplates.DataImportCronTemplates {
 							if dict.Name == "centos8-image-cron" {
 								Expect(*dict.Spec.Template.Spec.Storage.StorageClassName).Should(Equal(scName))
+							}
+						}
+
+						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(4))
+						for _, dict := range hco.Status.DataImportCronTemplates {
+							if dict.Name == image3.Name || dict.Name == image4.Name {
+								Expect(dict.Status.CommonTemplate).To(BeFalse())
+							} else {
+								Expect(dict.Status.CommonTemplate).To(BeTrue())
+							}
+
+							if dict.Name == "centos8-image-cron" {
+								Expect(dict.Status.Modified).To(BeTrue())
+							} else {
+								Expect(dict.Status.Modified).To(BeFalse())
+							}
+						}
+					})
+
+					It("should create ssp with 2 common DICTs, in a custom namespace", func() {
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+						origSSP, _, err := NewSSP(hco)
+						Expect(err).ToNot(HaveOccurred())
+						cl := commontestutils.InitClient([]client.Object{origSSP})
+
+						hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
+						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
+						res := handler.ensure(req)
+						Expect(res.Created).To(BeFalse())
+						Expect(res.Updated).To(BeTrue())
+						Expect(res.Overwritten).To(BeFalse())
+						Expect(res.UpgradeDone).To(BeFalse())
+						Expect(res.Err).ToNot(HaveOccurred())
+
+						foundSSP := &sspv1beta2.SSP{}
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
+						).ToNot(HaveOccurred())
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(2))
+						Expect(hco.Status.DataImportCronTemplates).To(HaveLen(2))
+						for _, dict := range hco.Status.DataImportCronTemplates {
+							Expect(dict.Status.CommonTemplate).To(BeTrue())
+							Expect(dict.Status.Modified).To(BeFalse())
+							Expect(dict.Namespace).To(Equal(customNS))
+						}
+					})
+
+					It("only non modified common dict should use the custom namespace", func() {
+						hco.Spec.FeatureGates.EnableCommonBootImageImport = ptr.To(true)
+
+						origSSP, _, err := NewSSP(hco)
+						Expect(err).ToNot(HaveOccurred())
+
+						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
+						modifiedCentos8 := sspCentos8.DeepCopy()
+						scName := "anotherStorageClassName"
+						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: &scName}
+						modifiedCentos8.ObjectMeta.Namespace = ""
+
+						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
+						hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
+
+						cl := commontestutils.InitClient([]client.Object{origSSP})
+						handler := (*genericOperand)(newSspHandler(cl, commontestutils.GetScheme()))
+						res := handler.ensure(req)
+						Expect(res.Created).To(BeFalse())
+						Expect(res.Updated).To(BeTrue())
+						Expect(res.Overwritten).To(BeFalse())
+						Expect(res.UpgradeDone).To(BeFalse())
+						Expect(res.Err).ToNot(HaveOccurred())
+
+						foundSSP := &sspv1beta2.SSP{}
+						Expect(
+							cl.Get(context.TODO(),
+								types.NamespacedName{Name: origSSP.Name, Namespace: origSSP.Namespace},
+								foundSSP),
+						).ToNot(HaveOccurred())
+						Expect(foundSSP.Name).To(Equal(origSSP.Name))
+						Expect(foundSSP.Spec.CommonTemplates.DataImportCronTemplates).Should(HaveLen(4))
+						for _, dict := range foundSSP.Spec.CommonTemplates.DataImportCronTemplates {
+							if dict.Name == "centos8-image-cron" {
+								Expect(*dict.Spec.Template.Spec.Storage.StorageClassName).Should(Equal(scName))
+							}
+
+							if dict.Name == "fedora-image-cron" {
+								Expect(dict.Namespace).To(Equal(customNS))
+							} else {
+								Expect(dict.Namespace).To(Equal(""))
 							}
 						}
 

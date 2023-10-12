@@ -11,12 +11,11 @@ import (
 	"sort"
 	"strings"
 
-	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	sspv1beta2 "kubevirt.io/ssp-operator/api/v1beta2"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
@@ -257,7 +256,7 @@ func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) ([]hcov1beta1.Dat
 
 	var dictList []hcov1beta1.DataImportCronTemplateStatus
 	if hc.Spec.FeatureGates.EnableCommonBootImageImport != nil && *hc.Spec.FeatureGates.EnableCommonBootImageImport {
-		dictList = getCommonDicts(dictList, crDicts)
+		dictList = getCommonDicts(dictList, crDicts, hc)
 	}
 	dictList = getCustomDicts(dictList, crDicts)
 
@@ -266,7 +265,7 @@ func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) ([]hcov1beta1.Dat
 	return dictList, nil
 }
 
-func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]hcov1beta1.DataImportCronTemplate) []hcov1beta1.DataImportCronTemplateStatus {
+func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[string]hcov1beta1.DataImportCronTemplate, hc *hcov1beta1.HyperConverged) []hcov1beta1.DataImportCronTemplateStatus {
 	for dictName, commonDict := range dataImportCronTemplateHardCodedMap {
 		targetDict := hcov1beta1.DataImportCronTemplateStatus{
 			DataImportCronTemplate: *commonDict.DeepCopy(),
@@ -285,8 +284,12 @@ func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 				crDict.Spec.Schedule = targetDict.Spec.Schedule
 			}
 			targetDict.Spec = crDict.Spec.DeepCopy()
+			targetDict.ObjectMeta.Namespace = crDict.Namespace
 			targetDict.Status.Modified = true
+		} else if ns := hc.Spec.CommonBootImageNamespace; ns != nil && len(*ns) > 0 {
+			targetDict.ObjectMeta.Namespace = *ns
 		}
+
 		list = append(list, targetDict)
 	}
 
