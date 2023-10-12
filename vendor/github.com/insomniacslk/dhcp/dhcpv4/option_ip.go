@@ -3,7 +3,7 @@ package dhcpv4
 import (
 	"net"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // IP implements DHCPv4 IP option marshaling and unmarshaling as described by

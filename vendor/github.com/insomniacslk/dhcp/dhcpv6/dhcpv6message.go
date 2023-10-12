@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
-	"github.com/u-root/u-root/pkg/rand"
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/rand"
+	"github.com/u-root/uio/uio"
 )
 
 const MessageHeaderSize = 4
@@ -31,21 +32,21 @@ func (mo MessageOptions) ArchTypes() iana.Archs {
 }
 
 // ClientID returns the client identifier option.
-func (mo MessageOptions) ClientID() *Duid {
+func (mo MessageOptions) ClientID() DUID {
 	opt := mo.GetOne(OptionClientID)
 	if opt == nil {
 		return nil
 	}
-	return &opt.(*optClientID).Duid
+	return opt.(*optClientID).DUID
 }
 
 // ServerID returns the server identifier option.
-func (mo MessageOptions) ServerID() *Duid {
+func (mo MessageOptions) ServerID() DUID {
 	opt := mo.GetOne(OptionServerID)
 	if opt == nil {
 		return nil
 	}
-	return &opt.(*optServerID).Duid
+	return opt.(*optServerID).DUID
 }
 
 // IANA returns all Identity Association for Non-temporary Address options.
@@ -69,7 +70,7 @@ func (mo MessageOptions) OneIANA() *OptIANA {
 
 // IATA returns all Identity Association for Temporary Address options.
 func (mo MessageOptions) IATA() []*OptIATA {
-	opts := mo.Get(OptionIANA)
+	opts := mo.Get(OptionIATA)
 	var iatas []*OptIATA
 	for _, o := range opts {
 		iatas = append(iatas, o.(*OptIATA))
@@ -103,6 +104,18 @@ func (mo MessageOptions) OneIAPD() *OptIAPD {
 		return nil
 	}
 	return iapds[0]
+}
+
+// FourRD returns all 4RD options.
+func (mo MessageOptions) FourRD() []*Opt4RD {
+	opts := mo.Get(Option4RD)
+	var frds []*Opt4RD
+	for _, o := range opts {
+		if m, ok := o.(*Opt4RD); ok {
+			frds = append(frds, m)
+		}
+	}
+	return frds
 }
 
 // Status returns the status code associated with this option.
@@ -168,8 +181,8 @@ func (mo MessageOptions) BootFileURL() string {
 	if opt == nil {
 		return ""
 	}
-	if u, ok := opt.(optBootFileURL); ok {
-		return string(u)
+	if u, ok := opt.(*optBootFileURL); ok {
+		return u.url
 	}
 	return ""
 }
@@ -180,8 +193,8 @@ func (mo MessageOptions) BootFileParam() []string {
 	if opt == nil {
 		return nil
 	}
-	if u, ok := opt.(optBootFileParam); ok {
-		return []string(u)
+	if u, ok := opt.(*optBootFileParam); ok {
+		return u.params
 	}
 	return nil
 }
@@ -198,12 +211,39 @@ func (mo MessageOptions) UserClasses() [][]byte {
 	return nil
 }
 
+// VendorClasses returns the all vendor class options.
+func (mo MessageOptions) VendorClasses() []*OptVendorClass {
+	opt := mo.Options.Get(OptionVendorClass)
+	if opt == nil {
+		return nil
+	}
+	var vo []*OptVendorClass
+	for _, o := range opt {
+		if t, ok := o.(*OptVendorClass); ok {
+			vo = append(vo, t)
+		}
+	}
+	return vo
+}
+
+// VendorClass returns the vendor class options matching the given enterprise
+// number.
+func (mo MessageOptions) VendorClass(enterpriseNumber uint32) [][]byte {
+	vo := mo.VendorClasses()
+	for _, v := range vo {
+		if v.EnterpriseNumber == enterpriseNumber {
+			return v.Data
+		}
+	}
+	return nil
+}
+
 // VendorOpts returns the all vendor-specific options.
 //
 // RFC 8415 Section 21.17:
 //
-//   Multiple instances of the Vendor-specific Information option may appear in
-//   a DHCP message.
+//	Multiple instances of the Vendor-specific Information option may appear in
+//	a DHCP message.
 func (mo MessageOptions) VendorOpts() []*OptVendorOpts {
 	opt := mo.Options.Get(OptionVendorOpts)
 	if opt == nil {
@@ -222,8 +262,8 @@ func (mo MessageOptions) VendorOpts() []*OptVendorOpts {
 //
 // RFC 8415 Section 21.17:
 //
-//   Servers and clients MUST NOT send more than one instance of the
-//   Vendor-specific Information option with the same Enterprise Number.
+//	Servers and clients MUST NOT send more than one instance of the
+//	Vendor-specific Information option with the same Enterprise Number.
 func (mo MessageOptions) VendorOpt(enterpriseNumber uint32) Options {
 	vo := mo.VendorOpts()
 	for _, v := range vo {
@@ -288,6 +328,32 @@ func (mo MessageOptions) DHCP4oDHCP6Server() *OptDHCP4oDHCP6Server {
 	return nil
 }
 
+// NTPServers returns the NTP server addresses contained in the
+// NTP_SUBOPTION_SRV_ADDR of an OPTION_NTP_SERVER.
+// If multiple NTP server options exist, the function will return all the NTP
+// server addresses it finds, as defined by RFC 5908.
+func (mo MessageOptions) NTPServers() []net.IP {
+	opts := mo.Options.Get(OptionNTPServer)
+	if opts == nil {
+		return nil
+	}
+	addrs := make([]net.IP, 0)
+	for _, opt := range opts {
+		ntp, ok := opt.(*OptNTPServer)
+		if !ok {
+			continue
+		}
+		for _, subopt := range ntp.Suboptions {
+			so, ok := subopt.(*NTPSuboptionSrvAddr)
+			if !ok {
+				continue
+			}
+			addrs = append(addrs, net.IP(*so))
+		}
+	}
+	return addrs
+}
+
 // Message represents a DHCPv6 Message as defined by RFC 3315 Section 6.
 type Message struct {
 	MessageType   MessageType
@@ -320,9 +386,8 @@ func GetTime() uint32 {
 // NewSolicit creates a new SOLICIT message, using the given hardware address to
 // derive the IAID in the IA_NA option.
 func NewSolicit(hwaddr net.HardwareAddr, modifiers ...Modifier) (*Message, error) {
-	duid := Duid{
-		Type:          DUID_LLT,
-		HwType:        iana.HWTypeEthernet,
+	duid := &DUIDLLT{
+		HWType:        iana.HWTypeEthernet,
 		Time:          GetTime(),
 		LinkLayerAddr: hwaddr,
 	}
@@ -517,28 +582,33 @@ func (m *Message) IsOptionRequested(requested OptionCode) bool {
 
 // String returns a short human-readable string for this message.
 func (m *Message) String() string {
-	return fmt.Sprintf("Message(messageType=%s transactionID=%s, %d options)",
+	return fmt.Sprintf("Message(MessageType=%s, TransactionID=%#x, %d options)",
 		m.MessageType, m.TransactionID, len(m.Options.Options))
 }
 
 // Summary prints all options associated with this message.
 func (m *Message) Summary() string {
-	ret := fmt.Sprintf(
-		"Message\n"+
-			"  messageType=%s\n"+
-			"  transactionid=%s\n",
-		m.MessageType,
-		m.TransactionID,
-	)
-	ret += "  options=["
-	if len(m.Options.Options) > 0 {
-		ret += "\n"
-	}
-	for _, opt := range m.Options.Options {
-		ret += fmt.Sprintf("    %v\n", opt.String())
-	}
-	ret += "  ]\n"
-	return ret
+	return m.LongString(0)
+}
+
+// LongString prints all options associated with this message.
+func (m *Message) LongString(spaceIndent int) string {
+	indent := strings.Repeat(" ", spaceIndent)
+
+	var s strings.Builder
+	s.WriteString("Message{\n")
+	s.WriteString(indent)
+	s.WriteString(fmt.Sprintf("  MessageType=%s\n", m.MessageType))
+	s.WriteString(indent)
+	s.WriteString(fmt.Sprintf("  TransactionID=%s\n", m.TransactionID))
+	s.WriteString(indent)
+	s.WriteString("  Options: ")
+	s.WriteString(m.Options.Options.LongString(spaceIndent + 2))
+	s.WriteString("\n")
+	s.WriteString(indent)
+	s.WriteString("}")
+
+	return s.String()
 }
 
 // ToBytes returns the serialized version of this message as defined by RFC

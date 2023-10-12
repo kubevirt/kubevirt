@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "archtype.go",
+        "entid.go",
         "hwtypes.go",
         "iana.go",
         "statuscodes.go",
@@ -11,5 +12,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/insomniacslk/dhcp/iana",
     importpath = "github.com/insomniacslk/dhcp/iana",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/u-root/u-root/pkg/uio:go_default_library"],
+    deps = ["//vendor/github.com/u-root/uio/uio:go_default_library"],
 )

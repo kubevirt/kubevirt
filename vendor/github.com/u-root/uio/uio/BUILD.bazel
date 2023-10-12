@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "alignreader.go",
+        "alignwriter.go",
+        "archivereader.go",
+        "buffer.go",
+        "cached.go",
+        "lazy.go",
+        "linewriter.go",
+        "multiwriter.go",
+        "null.go",
+        "progress.go",
+        "reader.go",
+        "uio.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/u-root/uio/uio",
+    importpath = "github.com/u-root/uio/uio",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/josharian/native:go_default_library",
+        "//vendor/github.com/pierrec/lz4/v4:go_default_library",
+    ],
+)

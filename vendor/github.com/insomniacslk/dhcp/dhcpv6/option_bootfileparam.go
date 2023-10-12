@@ -3,16 +3,18 @@ package dhcpv6
 import (
 	"fmt"
 
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptBootFileParam returns a BootfileParam option as defined in RFC 5970
 // Section 3.2.
 func OptBootFileParam(args ...string) Option {
-	return optBootFileParam(args)
+	return &optBootFileParam{args}
 }
 
-type optBootFileParam []string
+type optBootFileParam struct {
+	params []string
+}
 
 // Code returns the option code
 func (optBootFileParam) Code() OptionCode {
@@ -22,7 +24,7 @@ func (optBootFileParam) Code() OptionCode {
 // ToBytes serializes the option and returns it as a sequence of bytes
 func (op optBootFileParam) ToBytes() []byte {
 	buf := uio.NewBigEndianBuffer(nil)
-	for _, param := range op {
+	for _, param := range op.params {
 		if len(param) >= 1<<16 {
 			// TODO: say something here instead of silently ignoring a parameter
 			continue
@@ -42,20 +44,16 @@ func (op optBootFileParam) ToBytes() []byte {
 }
 
 func (op optBootFileParam) String() string {
-	return fmt.Sprintf("BootFileParam: %v", ([]string)(op))
+	return fmt.Sprintf("%s: %v", op.Code(), op.params)
 }
 
-// parseOptBootFileParam builds an OptBootFileParam structure from a sequence
+// FromBytes builds an OptBootFileParam structure from a sequence
 // of bytes. The input data does not include option code and length bytes.
-func parseOptBootFileParam(data []byte) (optBootFileParam, error) {
+func (op *optBootFileParam) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	var result optBootFileParam
 	for buf.Has(2) {
 		length := buf.Read16()
-		result = append(result, string(buf.CopyN(int(length))))
+		op.params = append(op.params, string(buf.CopyN(int(length))))
 	}
-	if err := buf.FinError(); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return buf.FinError()
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/insomniacslk/dhcp/iana"
-	"github.com/u-root/u-root/pkg/uio"
+	"github.com/u-root/uio/uio"
 )
 
 // OptStatusCode represents a DHCPv6 Status Code option
@@ -31,16 +31,15 @@ func (op *OptStatusCode) ToBytes() []byte {
 
 // String returns a human-readable option.
 func (op *OptStatusCode) String() string {
-	return fmt.Sprintf("StatusCode: Code: %s (%d); Message: %s",
-		op.StatusCode, op.StatusCode, op.StatusMessage)
+	return fmt.Sprintf("%s: {Code=%s (%d); Message=%s}",
+		op.Code(), op.StatusCode, op.StatusCode, op.StatusMessage)
 }
 
-// ParseOptStatusCode builds an OptStatusCode structure from a sequence of
-// bytes. The input data does not include option code and length bytes.
-func ParseOptStatusCode(data []byte) (*OptStatusCode, error) {
-	var opt OptStatusCode
+// FromBytes builds an OptStatusCode structure from a sequence of bytes. The
+// input data does not include option code and length bytes.
+func (op *OptStatusCode) FromBytes(data []byte) error {
 	buf := uio.NewBigEndianBuffer(data)
-	opt.StatusCode = iana.StatusCode(buf.Read16())
-	opt.StatusMessage = string(buf.ReadAll())
-	return &opt, buf.FinError()
+	op.StatusCode = iana.StatusCode(buf.Read16())
+	op.StatusMessage = string(buf.ReadAll())
+	return buf.FinError()
 }
