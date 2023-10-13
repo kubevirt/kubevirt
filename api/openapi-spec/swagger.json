@@ -17343,6 +17343,10 @@
    "v1.InterfaceBindingPlugin": {
     "type": "object",
     "properties": {
+     "networkAttachmentDefinition": {
+      "description": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object. Format: \u003cname\u003e, \u003cnamespace\u003e/\u003cname\u003e. If namespace is not specified, VMI namespace is assumed. version: 1alphav1",
+      "type": "string"
+     },
      "sidecarImage": {
       "description": "SidecarImage references a container image that runs in the virt-launcher pod. The sidecar handles (libvirt) domain configuration and optional services. version: 1alphav1",
       "type": "string"

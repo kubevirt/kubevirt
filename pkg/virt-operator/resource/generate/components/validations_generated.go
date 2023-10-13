@@ -1224,6 +1224,12 @@ var CRDsValidation map[string]string = map[string]string{
                 binding:
                   additionalProperties:
                     properties:
+                      networkAttachmentDefinition:
+                        description: 'NetworkAttachmentDefinition references to a
+                          NetworkAttachmentDefinition CR object. Format: <name>, <namespace>/<name>.
+                          If namespace is not specified, VMI namespace is assumed.
+                          version: 1alphav1'
+                        type: string
                       sidecarImage:
                         description: 'SidecarImage references a container image that
                           runs in the virt-launcher pod. The sidecar handles (libvirt)
