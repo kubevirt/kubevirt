@@ -31,7 +31,9 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type multusNetworkAnnotationPool struct {
@@ -54,11 +56,11 @@ func (mnap multusNetworkAnnotationPool) toString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network) (string, error) {
-	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks))
+func GenerateMultusCNIAnnotation(namespace string, interfaces []v1.Interface, networks []v1.Network, config *virtconfig.ClusterConfig) (string, error) {
+	return GenerateMultusCNIAnnotationFromNameScheme(namespace, interfaces, networks, namescheme.CreateHashedNetworkNameScheme(networks), config)
 }
 
-func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string) (string, error) {
+func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1.Interface, networks []v1.Network, networkNameScheme map[string]string, config *virtconfig.ClusterConfig) (string, error) {
 	multusNetworkAnnotationPool := multusNetworkAnnotationPool{}
 
 	for _, network := range networks {
@@ -67,12 +69,44 @@ func GenerateMultusCNIAnnotationFromNameScheme(namespace string, interfaces []v1
 			multusNetworkAnnotationPool.add(
 				newMultusAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
+
+		if config != nil && config.NetworkBindingPlugingsEnabled() {
+			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+				bindingPluginAnnotationData, err := newBindingPluginMultusAnnotationData(
+					config.GetConfig(), iface.Binding.Name, namespace, network.Name)
+				if err != nil {
+					return "", err
+				}
+				multusNetworkAnnotationPool.add(*bindingPluginAnnotationData)
+			}
+		}
 	}
 
 	if !multusNetworkAnnotationPool.isEmpty() {
 		return multusNetworkAnnotationPool.toString()
 	}
 	return "", nil
+}
+
+func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pluginName, namespace, networkName string) (*networkv1.NetworkSelectionElement, error) {
+	plugin := netbinding.ReadNetBindingPluginConfiguration(kvConfig, pluginName)
+	if plugin == nil {
+		return nil, fmt.Errorf("unable to find the network binding plugin '%s' in Kubevirt configuration", pluginName)
+	}
+
+	netAttachDefNamespace, netAttachDefName := getNamespaceAndNetworkName(namespace, plugin.NetworkAttachmentDefinition)
+
+	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
+	// The binding plugin CNI should read this arg and realize which logical network it should modify.
+	const cniArgNetworkName = "logic-network-name"
+
+	return &networkv1.NetworkSelectionElement{
+		Namespace: netAttachDefNamespace,
+		Name:      netAttachDefName,
+		CNIArgs: &map[string]interface{}{
+			cniArgNetworkName: networkName,
+		},
+	}, nil
 }
 
 func newMultusAnnotationData(namespace string, interfaces []v1.Interface, network v1.Network, podInterfaceName string) networkv1.NetworkSelectionElement {
