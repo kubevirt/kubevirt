@@ -330,42 +330,56 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	})
 
 	Context("Annotations and labels filters", func() {
-		testFilter := func(filter string, expectAllowed, templateField bool) {
-			if !templateField {
-				vmClone.Spec.LabelFilters = []string{filter}
-				vmClone.Spec.AnnotationFilters = []string{filter}
-			} else {
-				vmClone.Spec.Template.LabelFilters = []string{filter}
-				vmClone.Spec.Template.AnnotationFilters = []string{filter}
-			}
+		testFilter := func(filter string, expectAllowed bool) {
+			vmClone.Spec.LabelFilters = []string{filter}
+			vmClone.Spec.AnnotationFilters = []string{filter}
 			admitter.admitAndExpect(vmClone, expectAllowed)
 		}
-		DescribeTable("Should reject", func(filter string, templateField bool) {
-			testFilter(filter, false, templateField)
+
+		DescribeTable("Should reject", func(filter string) {
+			testFilter(filter, false)
 		},
-			Entry("negation character alone", "!", false),
-			Entry("negation in the middle", "mykey/!something", false),
-			Entry("negation in the end", "mykey/something!", false),
-			Entry("wildcard in the beginning", "*mykey/something", false),
-			Entry("wildcard in the middle", "mykey/*something", false),
-			Entry("templateFilter negation character alone", "!", true),
-			Entry("templateFilter negation in the middle", "mykey/!something", true),
-			Entry("templateFilter negation in the end", "mykey/something!", true),
-			Entry("templateFilter wildcard in the beginning", "*mykey/something", true),
-			Entry("templateFilter wildcard in the middle", "mykey/*something", true),
+			Entry("negation character alone", "!"),
+			Entry("negation in the middle", "mykey/!something"),
+			Entry("negation in the end", "mykey/something!"),
+			Entry("wildcard in the beginning", "*mykey/something"),
+			Entry("wildcard in the middle", "mykey/*something"),
 		)
 
-		DescribeTable("Should allow", func(filter string, templateField bool) {
-			testFilter(filter, true, templateField)
+		DescribeTable("Should allow", func(filter string) {
+			testFilter(filter, true)
 		},
-			Entry("regular filter", "mykey/something", false),
+			Entry("regular filter", "mykey/something"),
 			Entry("wildcard only", "*"),
-			Entry("wildcard in the end", "mykey/something*", false),
-			Entry("negation in the beginning", "!mykey/something", false),
-			Entry("templateFilter regular filter", "mykey/something", true),
-			Entry("templateFilter wildcard only", "*", true),
-			Entry("templateFilter wildcard in the end", "mykey/something*", true),
-			Entry("templateFilter negation in the beginning", "!mykey/something", true),
+			Entry("wildcard in the end", "mykey/something*"),
+			Entry("negation in the beginning", "!mykey/something"),
+		)
+	})
+
+	Context("Template Annotations and labels filters", func() {
+		testFilter := func(filter string, expectAllowed bool) {
+			vmClone.Spec.Template.LabelFilters = []string{filter}
+			vmClone.Spec.Template.AnnotationFilters = []string{filter}
+			admitter.admitAndExpect(vmClone, expectAllowed)
+		}
+
+		DescribeTable("Should reject", func(filter string) {
+			testFilter(filter, false)
+		},
+			Entry("templateFilter negation character alone", "!"),
+			Entry("templateFilter negation in the middle", "mykey/!something"),
+			Entry("templateFilter negation in the end", "mykey/something!"),
+			Entry("templateFilter wildcard in the beginning", "*mykey/something"),
+			Entry("templateFilter wildcard in the middle", "mykey/*something"),
+		)
+
+		DescribeTable("Should allow", func(filter string) {
+			testFilter(filter, true)
+		},
+			Entry("templateFilter regular filter", "mykey/something"),
+			Entry("templateFilter wildcard only", "*"),
+			Entry("templateFilter wildcard in the end", "mykey/something*"),
+			Entry("templateFilter negation in the beginning", "!mykey/something"),
 		)
 	})
 

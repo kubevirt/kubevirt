@@ -78,17 +78,17 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 
 	var causes []metav1.StatusCause
 
-	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "Annotations", false); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "spec.annotations"); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
-	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "Labels", false); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "spec.labels"); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
-	if newCauses := validateFilters(vmClone.Spec.Template.AnnotationFilters, "templateAnnotations", true); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.Template.AnnotationFilters, "spec.template.annotations"); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
-	if newCauses := validateFilters(vmClone.Spec.Template.LabelFilters, "templateLabels", true); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.Template.LabelFilters, "spec.template.labels"); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -110,23 +110,17 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 	return &reviewResponse
 }
 
-func validateFilters(filters []string, fieldName string, templateFiled bool) (causes []metav1.StatusCause) {
+func validateFilters(filters []string, fieldName string) (causes []metav1.StatusCause) {
 	if filters == nil {
 		return nil
 	}
 
-	fieldString := k8sfield.NewPath("spec").Child(fieldName).String()
 	errPattern := "%s filter %s is invalid: cannot contain a %s character (%s); FilterRules: %s"
-	if templateFiled {
-		fieldString = k8sfield.NewPath("spec").Child("template").Child(strings.Trim(fieldName, "template")).String()
-		errPattern = "template" + " " + "%s filter %s is invalid: cannot contain a %s character (%s); FilterRules: %s"
-	}
-
 	addCause := func(message string) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: message,
-			Field:   fieldString,
+			Field:   fieldName,
 		})
 	}
 
