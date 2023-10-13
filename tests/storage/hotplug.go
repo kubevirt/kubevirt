@@ -25,6 +25,7 @@ import (
 	"math"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -947,6 +948,44 @@ var _ = SIGDescribe("Hotplug", func() {
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, corev1.PersistentVolumeFilesystem, true),
 				Entry("[Serial] with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, corev1.PersistentVolumeBlock, false),
 			)
+
+			It("should allow to hotplug 75 volumes simultaneously", func() {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+				testVolumes := make([]string, 0)
+				dvNames := make([]string, 0)
+				for i := 0; i < 75; i = i + 5 {
+					var wg sync.WaitGroup
+					for j := 0; j < 5; j++ {
+						volumeName := fmt.Sprintf("volume%d", i+j)
+						testVolumes = append(testVolumes, volumeName)
+						wg.Add(1)
+
+						go func() {
+							defer GinkgoRecover()
+							defer wg.Done()
+							dv := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeFilesystem)
+							dvNames = append(dvNames, dv.Name)
+						}()
+					}
+					wg.Wait()
+				}
+
+				for i := 0; i < 75; i++ {
+					By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
+					addDVVolumeVM(vm.Name, vm.Namespace, testVolumes[i], dvNames[i], v1.DiskBusSCSI, false, "")
+					if i > 0 && i%5 == 0 {
+						verifyVolumeStatus(vmi, v1.VolumeReady, "", testVolumes[i-5:i]...)
+					}
+				}
+
+				By(verifyingVolumeDiskInVM)
+				verifyVolumeAndDiskVMAdded(virtClient, vm, testVolumes[:len(testVolumes)-1]...)
+				verifyVolumeStatus(vmi, v1.VolumeReady, "", testVolumes...)
+			})
 
 			It("should permanently add hotplug volume when added to VM, but still unpluggable after restart", func() {
 				dvBlock := createDataVolumeAndWaitForImport(sc, corev1.PersistentVolumeBlock)

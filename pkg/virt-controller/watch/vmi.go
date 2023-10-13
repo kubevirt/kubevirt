@@ -1836,7 +1836,51 @@ func (c *VMIController) getActiveAndOldAttachmentPods(readyHotplugVolumes []*vir
 			currentPod = attachmentPod
 		}
 	}
+	sort.Slice(oldPods, func(i, j int) bool {
+		return oldPods[i].CreationTimestamp.Time.After(oldPods[j].CreationTimestamp.Time)
+	})
 	return currentPod, oldPods
+}
+
+// cleanupAttachmentPods deletes all old attachment pods when the following is true
+// 1. There is a currentPod that is running. (not nil and phase.Status == Running)
+// 2. There are no readyVolumes (numReadyVolumes == 0)
+// 3. The newest oldPod is not running and not marked for deletion.
+// If any of those are true, it will not delete the newest oldPod, since that one is the latest
+// pod that is closest to the desired state.
+func (c *VMIController) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, numReadyVolumes int) syncError {
+	foundRunning := false
+	for _, attachmentPod := range oldPods {
+		if !foundRunning &&
+			attachmentPod.Status.Phase == k8sv1.PodRunning &&
+			attachmentPod.DeletionTimestamp == nil &&
+			numReadyVolumes > 0 &&
+			(currentPod == nil || currentPod.Status.Phase != k8sv1.PodRunning) {
+			foundRunning = true
+			continue
+		}
+		if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+			return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+		}
+	}
+	return nil
+}
+
+func hasPendingPods(pods []*k8sv1.Pod) bool {
+	for _, pod := range pods {
+		if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func (c *VMIController) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
+	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*threshold)) {
+		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
+	}
+	return false, 0
 }
 
 func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) syncError {
@@ -1866,24 +1910,26 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
 		}
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
-	// Determine if the ready volumes have changed compared to the current pod
+
 	currentPod, oldPods := c.getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
-
-	if currentPod == nil && len(readyHotplugVolumes) > 0 {
-		// ready volumes have changed
-		// Create new attachment pod that holds all the ready volumes
-		if err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
-			return err
-		}
-	}
-
-	if len(readyHotplugVolumes) == 0 || (currentPod != nil && currentPod.Status.Phase == k8sv1.PodRunning) {
-		// Delete old attachment pod
-		for _, attachmentPod := range oldPods {
-			if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
-				return &syncErrorImpl{fmt.Errorf("Error deleting attachment pod %v", err), FailedDeletePodReason}
+	if currentPod == nil && !hasPendingPods(oldPods) && len(readyHotplugVolumes) > 0 {
+		if rateLimited, waitTime := c.requeueAfter(oldPods, time.Duration(len(readyHotplugVolumes)/-10)); rateLimited {
+			key, err := controller.KeyFunc(vmi)
+			if err != nil {
+				logger.Object(vmi).Reason(err).Error("failed to extract key from virtualmachine.")
+				return &syncErrorImpl{fmt.Errorf("failed to extract key from virtualmachine. %v", err), FailedHotplugSyncReason}
+			}
+			c.Queue.AddAfter(key, waitTime)
+		} else {
+			if newPod, err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
+				return err
+			} else {
+				currentPod = newPod
 			}
 		}
+	}
+	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
+		return err
 	}
 
 	return nil
@@ -1906,10 +1952,10 @@ func (c *VMIController) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, 
 	return len(podVolumeMap) == 0
 }
 
-func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) syncError {
+func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, syncError) {
 	attachmentPodTemplate, _ := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes)
 	if attachmentPodTemplate == nil {
-		return nil
+		return nil, nil
 	}
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	c.podExpectations.ExpectCreations(vmiKey, 1)
@@ -1918,10 +1964,10 @@ func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, 
 	if err != nil {
 		c.podExpectations.CreationObserved(vmiKey)
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating attachment pod: %v", err)
-		return &syncErrorImpl{fmt.Errorf("Error creating attachment pod %v", err), FailedCreatePodReason}
+		return nil, &syncErrorImpl{fmt.Errorf("Error creating attachment pod %v", err), FailedCreatePodReason}
 	}
 	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created attachment pod %s", pod.Name)
-	return nil
+	return pod, nil
 }
 
 func (c *VMIController) triggerHotplugPopulation(volume *virtv1.Volume, vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) syncError {

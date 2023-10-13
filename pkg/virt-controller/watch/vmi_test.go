@@ -3097,6 +3097,95 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			Expect(vmi.Status.Phase).To(Equal(virtv1.Running))
 		})
+
+		DescribeTable("Should requeue if pod is not created before", func(pod *k8sv1.Pod, creationTimeAdd, requeueTime time.Duration, expected bool) {
+			var pods []*k8sv1.Pod
+			if pod != nil {
+				pod.CreationTimestamp.Time = time.Now().Add(creationTimeAdd)
+				pods = append(pods, pod)
+			}
+			requeue, threshold := controller.requeueAfter(pods, requeueTime)
+			Expect(requeue).To(Equal(expected))
+			if expected {
+				Expect(threshold).To(BeNumerically(">", 0))
+			}
+		},
+			Entry("nil pod, should not requeue", nil, time.Duration(0), time.Second, false),
+			Entry("created 5 seconds ago, with 1 second requeu time, should not requeue", &k8sv1.Pod{}, -5*time.Second, time.Second, false),
+			Entry("created now, with second requeue time, should requeue in second", &k8sv1.Pod{}, time.Duration(0), time.Second, true),
+			Entry("created in 2 seconds, with second requeue time, should requeue now", &k8sv1.Pod{}, 2*time.Second, time.Second, true),
+		)
+
+		DescribeTable("should clean up attachment pods, based on the number of volumes", func(readyVolumes []*virtv1.Volume, currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, expectDelete bool) {
+			vmi := NewRunningVirtualMachine("testvmi", &k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testnode",
+				},
+			})
+			if currentPod == nil && len(oldPods) > 0 {
+				currentPod = oldPods[0]
+			}
+			if expectDelete {
+				if currentPod != nil {
+					shouldExpectPodDeletion(currentPod)
+				}
+				if len(oldPods) > 0 {
+					for i := range oldPods {
+						if i > 0 {
+							shouldExpectPodDeletion(oldPods[i])
+						}
+					}
+				}
+			}
+			err := controller.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyVolumes))
+			Expect(err).ToNot(HaveOccurred())
+			if expectDelete {
+				eventReasons := []string{}
+				if len(oldPods) > 0 {
+					for i := 0; i < len(oldPods); i++ {
+						eventReasons = append(eventReasons, SuccessfulDeletePodReason)
+					}
+				}
+				By(fmt.Sprintf("expected events %v", eventReasons))
+				testutils.ExpectEvents(recorder, eventReasons...)
+			}
+		},
+			Entry("no volumes, no pods", nil, nil, nil, false),
+			Entry("no volumes, pending current pod", nil, &k8sv1.Pod{
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodPending,
+				},
+			}, nil, true),
+			Entry("no volumes, running current pod", nil, &k8sv1.Pod{
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}, nil, true),
+			Entry("a volume, running current pod", []*virtv1.Volume{{}}, &k8sv1.Pod{
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}, nil, false),
+			Entry("no volumes, no current pod, pending oldpod", nil, nil, []*k8sv1.Pod{
+				{
+					Status: k8sv1.PodStatus{
+						Phase: k8sv1.PodPending,
+					},
+				},
+			}, true),
+			Entry("no volumes, no current pod, multiple oldpods", nil, nil, []*k8sv1.Pod{
+				{
+					Status: k8sv1.PodStatus{
+						Phase: k8sv1.PodRunning,
+					},
+				},
+				{
+					Status: k8sv1.PodStatus{
+						Phase: k8sv1.PodRunning,
+					},
+				},
+			}, true),
+		)
 	})
 
 	Context("topology hints", func() {
