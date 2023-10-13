@@ -30,11 +30,9 @@ const (
 )
 
 var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-		config     v1.KubeVirtConfiguration
-		vmi        *v1.VirtualMachineInstance
-	)
+	var virtClient kubecli.KubevirtClient
+	var config v1.KubeVirtConfiguration
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -61,13 +59,6 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 		err := virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, &metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
-
-		kv := util.GetCurrentKv(virtClient)
-		// Reinitialized the DeveloperConfiguration to avoid to influence the next test
-		config = kv.Spec.Configuration
-		config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-		config.PermittedHostDevices = &v1.PermittedHostDevices{}
-		tests.UpdateKubeVirtConfigValueAndWait(config)
 	})
 
 	Context("with usb storage", func() {

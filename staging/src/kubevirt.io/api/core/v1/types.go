@@ -2596,6 +2596,9 @@ type USBHostDevice struct {
 	ResourceName string `json:"resourceName"`
 	// +listType=atomic
 	Selectors []USBSelector `json:"selectors,omitempty"`
+	// If true, KubeVirt will leave the allocation and monitoring to an
+	// external device plugin
+	ExternalResourceProvider bool `json:"externalResourceProvider,omitempty"`
 }
 
 type USBSelector struct {

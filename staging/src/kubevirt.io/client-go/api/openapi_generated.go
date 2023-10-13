@@ -22135,6 +22135,13 @@ func schema_kubevirtio_api_core_v1_USBHostDevice(ref common.ReferenceCallback) c
 							},
 						},
 					},
+					"externalResourceProvider": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If true, KubeVirt will leave the allocation and monitoring to an external device plugin",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"resourceName"},
 			},
