@@ -236,7 +236,11 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
-	podStatusIface := ifaceStatusByName[podIfaceName]
+	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
+	if !exist {
+		podStatusIface = ifaceStatusByName[podIfaceName]
+	}
 
 	if hasIPGlobalUnicast(podStatusIface.IPv4) {
 		bridgeIface.IPv4 = nmstate.IP{
@@ -250,7 +254,6 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		}
 	}
 
-	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
 	podIface := nmstate.Interface{
 		Index:       podStatusIface.Index,
 		Name:        podIfaceAlternativeName,
