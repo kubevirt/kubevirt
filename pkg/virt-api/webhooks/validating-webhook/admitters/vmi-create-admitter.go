@@ -141,7 +141,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	if maxNumberOfVolumesExceeded {
 		return appendNewStatusCauseForMaxNumberOfVolumesExceeded(field, causes)
 	}
-	root := config.RootEnabled()
+
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
 	causes = append(causes, validateMemoryRequestsNegativeOrNull(field, spec)...)
@@ -159,7 +159,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateCPUHotplug(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
-	causes = append(causes, validateRealtime(field, spec, !root)...)
+	causes = append(causes, validateRealtime(field, spec)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
@@ -1569,7 +1569,7 @@ func validateHostNameNotConformingToDNSLabelRules(field *k8sfield.Path, spec *v1
 	return causes
 }
 
-func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, nonroot bool) (causes []metav1.StatusCause) {
+func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Realtime != nil {
 		causes = append(causes, validateCPURealtime(field, spec)...)
 		causes = append(causes, validateMemoryRealtime(field, spec)...)
