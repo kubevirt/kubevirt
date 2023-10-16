@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
-package tests_test
+package vmi_configuration
 
 import (
 	"bufio"
@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 	"unicode"
-
-	"kubevirt.io/kubevirt/tests/decorators"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -51,6 +49,8 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -71,7 +71,6 @@ import (
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libdv"
@@ -188,7 +187,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+			vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {
@@ -214,7 +213,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+			vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(kubevirt_hooks_v1alpha2.Version)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {
@@ -638,7 +637,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			case v1.Failed:
 				// This Error is expected to be handled
 				By("Getting virt-launcher logs")
-				logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+				logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
 				Eventually(logs,
 					30*time.Second,
 					500*time.Millisecond).
@@ -1768,10 +1767,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(console.LoginToCirros(cpuVmi)).To(Succeed())
 
 				By("Checking the CPU model under the guest OS")
-				console.SafeExpectBatch(cpuVmi, []expect.Batcher{
+				err = console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", niceName)},
 					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
 				}, 10)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 

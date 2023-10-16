@@ -1826,6 +1826,7 @@ func renderPkillAllPod(processName string) *k8sv1.Pod {
 	return tests.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
 }
 
+// TODO use libvmi package instead
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()

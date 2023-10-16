@@ -265,6 +265,7 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	return string(logsRaw)
 }
 
+// TODO use libvmi package instead
 func RenderSidecar(version string) map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
@@ -272,6 +273,7 @@ func RenderSidecar(version string) map[string]string {
 	}
 }
 
+// TODO use libvmi package instead
 func RenderInvalidSMBiosSidecar() map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
