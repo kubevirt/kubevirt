@@ -555,7 +555,7 @@ func GetRecordingRules(namespace string) []KubevirtRecordingRule {
 				Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
 			},
 			MType:       prometheusv1.MetricTypeGauge,
-			Description: "The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available.",
+			Description: "The number of nodes allocatable nodes in the cluster.",
 		},
 		{
 			Rule: v1.Rule{
