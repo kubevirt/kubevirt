@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -483,7 +482,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		sidecarContainer := newSidecarContainerRenderer(
 			sidecarContainerName(i), vmi, sidecarResources(vmi, t.clusterConfig), requestedHookSidecar, userId).Render(requestedHookSidecar.Command)
 
-		if !reflect.DeepEqual(requestedHookSidecar.ConfigMap, hooks.ConfigMap{}) {
+		if requestedHookSidecar.ConfigMap != nil {
 			cm, err := t.virtClient.CoreV1().ConfigMaps(vmi.Namespace).Get(context.TODO(), requestedHookSidecar.ConfigMap.Name, metav1.GetOptions{})
 			if err != nil {
 				return nil, err
@@ -663,8 +662,8 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		WithArgs(requestedHookSidecar.Args),
 	}
 
-	if !reflect.DeepEqual(requestedHookSidecar.ConfigMap, hooks.ConfigMap{}) {
-		sidecarOpts = append(sidecarOpts, WithVolumeMounts(sidecarVolumeMount(), configMapVolumeMount(requestedHookSidecar.ConfigMap)))
+	if requestedHookSidecar.ConfigMap != nil {
+		sidecarOpts = append(sidecarOpts, WithVolumeMounts(sidecarVolumeMount(), configMapVolumeMount(*requestedHookSidecar.ConfigMap)))
 	} else {
 		sidecarOpts = append(sidecarOpts, WithVolumeMounts(sidecarVolumeMount()))
 	}
@@ -792,7 +791,7 @@ func sidecarVolumeMount() k8sv1.VolumeMount {
 func configMapVolumeMount(v hooks.ConfigMap) k8sv1.VolumeMount {
 	return k8sv1.VolumeMount{
 		Name:      v.Name,
-		MountPath: "/usr/bin/onDefineDomain",
+		MountPath: v.HookPath,
 		SubPath:   v.Key,
 	}
 }

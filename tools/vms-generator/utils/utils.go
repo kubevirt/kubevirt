@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/rand"
-
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -1203,8 +1202,12 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
 
+	annotation := `[{"args": ["--version", "v1alpha2"], "image":` +
+		`"registry:5000/kubevirt/sidecar-shim:devel", "configMap": {"name": "my-config-map",` +
+		`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`
+
 	vmi.ObjectMeta.Annotations = map[string]string{
-		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/sidecar-shim:%s\", \"configMap\": {\"name\": \"my-config-map\", \"key\": \"my_script.sh\"}}]", DockerPrefix, DockerTag),
+		"hooks.kubevirt.io/hookSidecars": annotation,
 	}
 	// TODO: also add the ConfigMap in generated example. Refer https://github.com/kubevirt/kubevirt/pull/10479#discussion_r1362021721
 	return vmi

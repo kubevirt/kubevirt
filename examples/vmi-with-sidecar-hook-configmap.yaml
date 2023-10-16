@@ -3,9 +3,8 @@ apiVersion: kubevirt.io/v1
 kind: VirtualMachineInstance
 metadata:
   annotations:
-    hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"], "image":
-      "registry:5000/kubevirt/sidecar-shim:devel", "configMap": {"name": "my-config-map",
-      "key": "my_script.sh"}}]'
+    hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"], "image":"registry:5000/kubevirt/sidecar-shim:devel",
+      "configMap": {"name": "my-config-map","key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]'
   labels:
     special: vmi-with-sidecar-hook-configmap
   name: vmi-with-sidecar-hook-configmap

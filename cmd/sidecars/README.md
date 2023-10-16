@@ -180,8 +180,14 @@ the annotations:
 annotations:
   hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"],
     "image": "registry:5000/kubevirt/sidecar-shim:devel",
-    "configMap": {"name": "my-config-map", "key": "my_script.sh"}}]'
+    "configMap": {"name": "my-config-map", "key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]'
 ```
+
+The `name` field indicates the name of the ConfigMap on the cluster which contains the script you 
+want to execute. The `key` field indicates the key in the ConfigMap which contains the script to 
+be executed. Finally, `hookPath` indicates the path where you would like the script to be 
+mounted. It could be either of `/usr/bin/onDefineDomain` or `/usr/bin/preCloudInitIso` depending 
+upon the hook you would like to execute.
 
 After creating the VMI, verify that it is in the `Running` state, and connect to its console and
 see if the desired changes to baseboard manufacturer get reflected:
