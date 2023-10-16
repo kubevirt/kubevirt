@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["vmi_configuration.go"],
+    srcs = [
+        "vmi-definition.go",
+        "vmi_configuration.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/compute/vmi-configuration",
     visibility = ["//visibility:public"],
     deps = [
@@ -18,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests:go_default_library",
+        "//tests/compute:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/decorators:go_default_library",
