@@ -48,6 +48,7 @@ import (
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,6 +64,9 @@ import (
 	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
+	apiinstancetype "kubevirt.io/api/instancetype"
+	"kubevirt.io/api/instancetype/v1beta1"
+	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/version"
@@ -126,13 +130,14 @@ type KubeVirtTestData struct {
 
 	recorder *record.FakeRecorder
 
-	mockQueue   *testutils.MockWorkQueue
-	virtClient  *kubecli.MockKubevirtClient
-	kubeClient  *fake.Clientset
-	secClient   *secv1fake.FakeSecurityV1
-	extClient   *extclientfake.Clientset
-	promClient  *promclientfake.Clientset
-	routeClient *routev1fake.FakeRouteV1
+	mockQueue      *testutils.MockWorkQueue
+	virtClient     *kubecli.MockKubevirtClient
+	virtFakeClient *kubevirtfake.Clientset
+	kubeClient     *fake.Clientset
+	secClient      *secv1fake.FakeSecurityV1
+	extClient      *extclientfake.Clientset
+	promClient     *promclientfake.Clientset
+	routeClient    *routev1fake.FakeRouteV1
 
 	informers util.Informers
 	stores    util.Stores
@@ -279,6 +284,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 		Fake: &fake.NewSimpleClientset().Fake,
 	}
 
+	k.virtFakeClient = kubevirtfake.NewSimpleClientset()
+
 	k.virtClient.EXPECT().AdmissionregistrationV1().Return(k.kubeClient.AdmissionregistrationV1()).AnyTimes()
 	k.virtClient.EXPECT().CoreV1().Return(k.kubeClient.CoreV1()).AnyTimes()
 	k.virtClient.EXPECT().BatchV1().Return(k.kubeClient.BatchV1()).AnyTimes()
@@ -289,6 +296,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.virtClient.EXPECT().PolicyV1().Return(k.kubeClient.PolicyV1()).AnyTimes()
 	k.virtClient.EXPECT().PrometheusClient().Return(k.promClient).AnyTimes()
 	k.virtClient.EXPECT().RouteClient().Return(k.routeClient).AnyTimes()
+	k.virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+	k.virtClient.EXPECT().VirtualMachineClusterPreference().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 	// Make sure that all unexpected calls to kubeClient will fail
 	k.kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -331,6 +340,17 @@ func (k *KubeVirtTestData) BeforeTest() {
 		return true, nil, nil
 	})
 	k.routeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		Expect(action).To(BeNil())
+		return true, nil, nil
+	})
+	k.virtFakeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		if action.GetVerb() == "list" && action.GetResource().Resource == apiinstancetype.ClusterPluralResourceName {
+			return true, &v1beta1.VirtualMachineClusterInstancetypeList{}, nil
+		}
+		if action.GetVerb() == "list" && action.GetResource().Resource == apiinstancetype.ClusterPluralPreferenceResourceName {
+			return true, &v1beta1.VirtualMachineClusterPreferenceList{}, nil
+		}
+		// Make sure other unexpected calls fail
 		Expect(action).To(BeNil())
 		return true, nil, nil
 	})
@@ -1519,7 +1539,8 @@ func (k *KubeVirtTestData) addValidatingWebhook(wh *admissionregistrationv1.Vali
 
 func (k *KubeVirtTestData) addInstallStrategy(config *util.KubeVirtDeploymentConfig) {
 	// install strategy config
-	resource, _ := install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
+	resource, err := install.NewInstallStrategyConfigMap(config, "openshift-monitoring", NAMESPACE)
+	Expect(err).ToNot(HaveOccurred())
 
 	resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 
@@ -1669,6 +1690,21 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 		k.mockEnvVarManager)
 }
 
+func (k *KubeVirtTestData) shouldExpectInstancetypesAndPreferencesDeletions() {
+	expectDeleteCollection := func(action testing.Action) (bool, runtime.Object, error) {
+		deleteCollection, ok := action.(testing.DeleteCollectionAction)
+		Expect(ok).To(BeTrue())
+		ls := labels.Set{
+			v1.AppComponentLabel: v1.AppComponent,
+			v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+		}
+		Expect(deleteCollection.GetListRestrictions().Labels).To(Equal(ls.AsSelector()))
+		return true, nil, nil
+	}
+	k.virtFakeClient.Fake.PrependReactor("delete-collection", apiinstancetype.ClusterPluralResourceName, expectDeleteCollection)
+	k.virtFakeClient.Fake.PrependReactor("delete-collection", apiinstancetype.ClusterPluralPreferenceResourceName, expectDeleteCollection)
+}
+
 var _ = Describe("KubeVirt Operator", func() {
 
 	Context("On valid KubeVirt object", func() {
@@ -1715,6 +1751,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			// Now when the controller runs, if the namespace will be patched, the test will fail
 			// because the patch is not expected here.
@@ -1782,6 +1819,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 			kvTestData.addAll(customConfig, kv)
 			// install strategy config
 			kvTestData.addInstallStrategy(customConfig)
@@ -1835,6 +1873,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(1))
@@ -1907,6 +1946,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(1))
@@ -1948,6 +1988,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			kvTestData.controller.Execute()
 
@@ -1994,6 +2035,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			// invalidate all lastGeneration versions
 			numGenerations := len(kv.Status.Generations)
@@ -2056,6 +2098,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectNamespacePatch()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			kvTestData.controller.Execute()
 			Expect(kvTestData.totalDeletions).To(Equal(numResources))
@@ -2704,6 +2747,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			kvTestData.controller.Execute()
 
@@ -2781,6 +2825,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstancetypesAndPreferencesDeletions()
 
 			kvTestData.controller.Execute()
 

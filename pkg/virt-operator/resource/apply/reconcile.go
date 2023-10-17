@@ -37,6 +37,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -633,6 +634,22 @@ func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
 		return false, err
 	}
 
+	if r.commonInstancetypesDeploymentEnabled() {
+		if err := r.createOrUpdateInstancetypes(); err != nil {
+			return false, err
+		}
+		if err := r.createOrUpdatePreferences(); err != nil {
+			return false, err
+		}
+	} else {
+		if err := r.deleteInstancetypes(); err != nil {
+			return false, err
+		}
+		if err := r.deletePreferences(); err != nil {
+			return false, err
+		}
+	}
+
 	return true, nil
 }
 
@@ -1174,21 +1191,80 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 		}
 	}
 
+	managedByVirtOperatorLabelSet := labels.Set{
+		v1.AppComponentLabel: v1.AppComponent,
+		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+	}
+
+	// remove unused instancetype objects
+	instancetypes, err := r.clientset.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	if err != nil {
+		log.Log.Errorf("Failed to get instancetypes: %v", err)
+	}
+	for _, instancetype := range instancetypes.Items {
+		if instancetype.DeletionTimestamp == nil {
+			found := false
+			for _, targetInstancetype := range r.targetStrategy.Instancetypes() {
+				if targetInstancetype.Name == instancetype.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if err := r.clientset.VirtualMachineClusterInstancetype().Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{}); err != nil {
+					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, err)
+					return err
+				}
+			}
+		}
+	}
+
+	// remove unused preference objects
+	preferences, err := r.clientset.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	if err != nil {
+		log.Log.Errorf("Failed to get preferences: %v", err)
+	}
+	for _, preference := range preferences.Items {
+		if preference.DeletionTimestamp == nil {
+			found := false
+			for _, targetPreference := range r.targetStrategy.Preferences() {
+				if targetPreference.Name == preference.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if err := r.clientset.VirtualMachineClusterPreference().Delete(context.Background(), preference.Name, metav1.DeleteOptions{}); err != nil {
+					log.Log.Errorf("Failed to delete preference %+v: %v", preference, err)
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
-func (r *Reconciler) exportProxyEnabled() bool {
+func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false
 	}
 
 	for _, fg := range r.kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-		if fg == virtconfig.VMExportGate {
+		if fg == featureGate {
 			return true
 		}
 	}
 
 	return false
+}
+
+func (r *Reconciler) exportProxyEnabled() bool {
+	return r.isFeatureGateEnabled(virtconfig.VMExportGate)
+}
+
+func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
+	return r.isFeatureGateEnabled(virtconfig.CommonInstancetypesDeploymentGate)
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
