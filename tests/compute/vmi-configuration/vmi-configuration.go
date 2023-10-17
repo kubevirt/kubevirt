@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libdv"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
@@ -67,6 +69,20 @@ import (
 var _ = ConfigDescribe("", func() {
 	const enoughMemForSafeBiosEmulation = "32Mi"
 	var virtClient kubecli.KubevirtClient
+
+	createBlockDataVolume := func(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
+		sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
+		if !foundSC {
+			return nil, nil
+		}
+
+		dataVolume := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
+		)
+
+		return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+	}
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()

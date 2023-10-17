@@ -20,22 +20,7 @@
 package vmi_configuration
 
 import (
-	"context"
-
-	k8sv1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-
-	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	"kubevirt.io/kubevirt/tests/compute"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libdv"
-	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func ConfigDescribe(text string, args ...interface{}) bool {
@@ -44,38 +29,4 @@ func ConfigDescribe(text string, args ...interface{}) bool {
 
 func FConfigDescribe(text string, args ...interface{}) bool {
 	return compute.SIGDescribe("Configurations"+text, args)
-}
-
-func createRuntimeClass(name, handler string) error {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.NodeV1().RuntimeClasses().Create(
-		context.Background(),
-		&nodev1.RuntimeClass{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Handler:    handler,
-		},
-		metav1.CreateOptions{},
-	)
-	return err
-}
-
-func deleteRuntimeClass(name string) error {
-	virtCli := kubevirt.Client()
-
-	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-}
-
-func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
-	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-	if !foundSC {
-		return nil, nil
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
-	)
-
-	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 }

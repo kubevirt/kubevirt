@@ -37,6 +37,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
+	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -1431,6 +1432,26 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 
 	Context("[Serial]using defaultRuntimeClass configuration", Serial, func() {
 		var runtimeClassName string
+
+		createRuntimeClass := func(name, handler string) error {
+			virtCli := kubevirt.Client()
+
+			_, err := virtCli.NodeV1().RuntimeClasses().Create(
+				context.Background(),
+				&nodev1.RuntimeClass{
+					ObjectMeta: metav1.ObjectMeta{Name: name},
+					Handler:    handler,
+				},
+				metav1.CreateOptions{},
+			)
+			return err
+		}
+
+		deleteRuntimeClass := func(name string) error {
+			virtCli := kubevirt.Client()
+
+			return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+		}
 
 		BeforeEach(func() {
 			// use random runtime class to avoid collisions with cleanup where a
