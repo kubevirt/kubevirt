@@ -23,7 +23,10 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"kubevirt.io/kubevirt/tests/flags"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/util"
@@ -44,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -73,7 +75,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		virtClient = kubevirt.Client()
 
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
+		vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(hooksv1alpha1.Version)
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
@@ -158,7 +160,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
+				vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -193,7 +195,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
-				vmi.ObjectMeta.Annotations = RenderInvalidSMBiosSidecar()
+				vmi.ObjectMeta.Annotations = libvmi.RenderInvalidSMBiosSidecar()
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 
@@ -263,22 +265,6 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	Expect(err).ToNot(HaveOccurred())
 
 	return string(logsRaw)
-}
-
-// TODO use libvmi package instead
-func RenderSidecar(version string) map[string]string {
-	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
-		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
-	}
-}
-
-// TODO use libvmi package instead
-func RenderInvalidSMBiosSidecar() map[string]string {
-	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
-		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
-	}
 }
 
 func RenderSidecarWithConfigMap(version, name string) map[string]string {

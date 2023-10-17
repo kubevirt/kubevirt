@@ -154,7 +154,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
@@ -231,7 +231,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
@@ -260,7 +260,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
 
 			const totalTestTime = 2 * time.Second
 			const checkIntervalTime = 500 * time.Millisecond
@@ -1824,36 +1824,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 func renderPkillAllPod(processName string) *k8sv1.Pod {
 	return tests.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
-}
-
-// TODO use libvmi package instead
-func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
-	namespace := vmi.GetObjectMeta().GetNamespace()
-	uid := vmi.GetObjectMeta().GetUID()
-
-	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
-	Expect(err).ToNot(HaveOccurred(), "Should list pods")
-
-	podName := ""
-	for _, pod := range pods.Items {
-		if pod.ObjectMeta.DeletionTimestamp == nil {
-			podName = pod.ObjectMeta.Name
-			break
-		}
-	}
-	Expect(podName).ToNot(BeEmpty(), "Should find pod not scheduled for deletion")
-
-	logsRaw, err := virtCli.CoreV1().
-		Pods(namespace).
-		GetLogs(podName, &k8sv1.PodLogOptions{
-			Container: "compute",
-		}).
-		DoRaw(context.Background())
-	Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher pod logs")
-
-	return string(logsRaw)
 }
 
 func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
