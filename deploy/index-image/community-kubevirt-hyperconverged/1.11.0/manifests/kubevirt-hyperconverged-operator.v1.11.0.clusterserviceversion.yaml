@@ -3252,7 +3252,7 @@ spec:
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
                 - name: KUBE_RBAC_PROXY_IMAGE
-                  value: quay.io/openshift/origin-kube-rbac-proxy@sha256:b5e574c5b2fdd0a90d899793e2ce97792dc2d3e3fbf934a107139b1b4f2732a7
+                  value: quay.io/openshift/origin-kube-rbac-proxy@sha256:326630b9c564c91870e088cef53698a41f5127210bbba3f8672494eb3de0540b
                 - name: KUBE_SECONDARY_DNS_IMAGE
                   value: ghcr.io/kubevirt/kubesecondarydns@sha256:a2c0c54c6332606b24183ffe630b9eaf7314afc60b67d7fd61f96d82fd76d9b4
                 - name: CORE_DNS_IMAGE
@@ -3298,7 +3298,7 @@ spec:
                 - --logtostderr
                 - --secure-listen-address=:8443
                 - --upstream=http://127.0.0.1:8080
-                image: quay.io/openshift/origin-kube-rbac-proxy@sha256:b5e574c5b2fdd0a90d899793e2ce97792dc2d3e3fbf934a107139b1b4f2732a7
+                image: quay.io/openshift/origin-kube-rbac-proxy@sha256:326630b9c564c91870e088cef53698a41f5127210bbba3f8672494eb3de0540b
                 imagePullPolicy: IfNotPresent
                 name: kube-rbac-proxy
                 ports:
@@ -4330,7 +4330,7 @@ spec:
     name: multus-cni
   - image: ghcr.io/k8snetworkplumbingwg/multus-dynamic-networks-controller@sha256:dee1979d92f0a31598a6e3569ac7004be7d29e7ca9e31db23753ef263110dc04
     name: multus-dynamic-networks-controller
-  - image: quay.io/openshift/origin-kube-rbac-proxy@sha256:b5e574c5b2fdd0a90d899793e2ce97792dc2d3e3fbf934a107139b1b4f2732a7
+  - image: quay.io/openshift/origin-kube-rbac-proxy@sha256:326630b9c564c91870e088cef53698a41f5127210bbba3f8672494eb3de0540b
     name: origin-kube-rbac-proxy
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:5f7290e2294255ab2547c3b4bf48cc2d75531ec5a43e600366e9b2719bef983f
     name: ovs-cni-plugin
