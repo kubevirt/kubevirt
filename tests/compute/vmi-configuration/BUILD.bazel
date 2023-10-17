@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cpu-pinning.go",
         "cpu-spec.go",
+        "framework.go",
         "requests-and-limits.go",
         "vmi-configuration.go",
         "vmi-definition.go",
