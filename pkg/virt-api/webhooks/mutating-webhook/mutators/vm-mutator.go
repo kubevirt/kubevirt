@@ -97,7 +97,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// Set VM defaults
 	log.Log.Object(&vm).V(4).Info("Apply defaults")
 
-	if err = mutator.inferDefaultInstancetype(&vm); err != nil {
+	if err = mutator.InstancetypeMethods.InferDefaultInstancetype(&vm); err != nil {
 		log.Log.Reason(err).Error("admission failed, unable to set default instancetype")
 		return &admissionv1.AdmissionResponse{
 			Result: &metav1.Status{
@@ -107,7 +107,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		}
 	}
 
-	if err = mutator.inferDefaultPreference(&vm); err != nil {
+	if err = mutator.InstancetypeMethods.InferDefaultPreference(&vm); err != nil {
 		log.Log.Reason(err).Error("admission failed, unable to set default preference")
 		return &admissionv1.AdmissionResponse{
 			Result: &metav1.Status{
@@ -206,24 +206,6 @@ func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, 
 			}
 		}
 	}
-}
-
-func (mutator *VMsMutator) inferDefaultInstancetype(vm *v1.VirtualMachine) error {
-	instancetypeMatcher, err := mutator.InstancetypeMethods.InferDefaultInstancetype(vm)
-	if err != nil {
-		return err
-	}
-	vm.Spec.Instancetype = instancetypeMatcher
-	return nil
-}
-
-func (mutator *VMsMutator) inferDefaultPreference(vm *v1.VirtualMachine) error {
-	preferenceMatcher, err := mutator.InstancetypeMethods.InferDefaultPreference(vm)
-	if err != nil {
-		return err
-	}
-	vm.Spec.Preference = preferenceMatcher
-	return nil
 }
 
 func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {

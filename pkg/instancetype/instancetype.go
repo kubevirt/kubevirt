@@ -46,8 +46,8 @@ type Methods interface {
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
-	InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error)
-	InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error)
+	InferDefaultInstancetype(vm *virtv1.VirtualMachine) error
+	InferDefaultPreference(vm *virtv1.VirtualMachine) error
 	CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (Conflicts, error)
 }
 
@@ -726,43 +726,49 @@ func (m *InstancetypeMethods) findClusterInstancetypeByClient(resourceName strin
 	return instancetype, nil
 }
 
-func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeMatcher, error) {
+func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil {
-		return nil, nil
+		return nil
 	}
-	// Return unchanged matcher when inference is disabled
+	// Leave matcher unchanged when inference is disabled
 	if vm.Spec.Instancetype.InferFromVolume == "" {
-		return vm.Spec.Instancetype, nil
+		return nil
 	}
+
+	ignoreFailure := vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil &&
+		*vm.Spec.Instancetype.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
 
 	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Instancetype.InferFromVolume, apiinstancetype.DefaultInstancetypeLabel, apiinstancetype.DefaultInstancetypeKindLabel)
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
-		ignoreFailure := vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil &&
-			*vm.Spec.Instancetype.InferFromVolumeFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
-
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
 			//nolint:gomnd
 			log.Log.Object(vm).V(3).Info("Ignored error during inference of instancetype, clearing matcher.")
-			return nil, nil
+			vm.Spec.Instancetype = nil
+			return nil
 		}
 
-		return nil, err
+		return err
 	}
 
-	return &virtv1.InstancetypeMatcher{
+	if ignoreFailure {
+		vm.Spec.Template.Spec.Domain.Memory = nil
+	}
+
+	vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
-	}, nil
+	}
+	return nil
 }
 
-func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) (*virtv1.PreferenceMatcher, error) {
+func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Preference == nil {
-		return nil, nil
+		return nil
 	}
-	// Return unchanged matcher when inference is disabled
+	// Leave matcher unchanged when inference is disabled
 	if vm.Spec.Preference.InferFromVolume == "" {
-		return vm.Spec.Preference, nil
+		return nil
 	}
 
 	defaultName, defaultKind, err := m.inferDefaultsFromVolumes(vm, vm.Spec.Preference.InferFromVolume, apiinstancetype.DefaultPreferenceLabel, apiinstancetype.DefaultPreferenceKindLabel)
@@ -774,16 +780,18 @@ func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) 
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
 			//nolint:gomnd
 			log.Log.Object(vm).V(3).Info("Ignored error during inference of preference, clearing matcher.")
-			return nil, nil
+			vm.Spec.Preference = nil
+			return nil
 		}
 
-		return nil, err
+		return err
 	}
 
-	return &virtv1.PreferenceMatcher{
+	vm.Spec.Preference = &virtv1.PreferenceMatcher{
 		Name: defaultName,
 		Kind: defaultKind,
-	}, nil
+	}
+	return nil
 }
 
 /*

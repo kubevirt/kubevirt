@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -1814,6 +1815,48 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				Kind: defaultInferedKindFromPVC,
 			}))
 		})
+
+		DescribeTable("When inference was successful", func(failurePolicy v1.InferFromVolumeFailurePolicy, expectMemoryCleared bool) {
+			By("Setting guest memory")
+			guestMemory := resource.MustParse("512Mi")
+			vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{
+				Guest: &guestMemory,
+			}
+
+			By("Creating a VM using a PVC as boot and inference Volume")
+			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+				InferFromVolume:              inferVolumeName,
+				InferFromVolumeFailurePolicy: &failurePolicy,
+			}
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: inferVolumeName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvc.Name,
+						},
+					},
+				},
+			}}
+			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
+
+			expectedInstancetypeMatcher := &v1.InstancetypeMatcher{
+				Name: defaultInferedNameFromPVC,
+				Kind: defaultInferedKindFromPVC,
+			}
+			Expect(vmSpec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+
+			if expectMemoryCleared {
+				Expect(vmSpec.Template.Spec.Domain.Memory).To(BeNil())
+			} else {
+				Expect(vmSpec.Template.Spec.Domain.Memory).ToNot(BeNil())
+				Expect(vmSpec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
+				Expect(*vmSpec.Template.Spec.Domain.Memory.Guest).To(Equal(guestMemory))
+			}
+		},
+			Entry("it should clear guest memory when ignoring inference failures", v1.IgnoreInferFromVolumeFailure, true),
+			Entry("it should not clear guest memory when rejecting inference failures", v1.RejectInferFromVolumeFailure, false),
+		)
 	})
 
 	It("should default architecture to compiled architecture when not provided", func() {
