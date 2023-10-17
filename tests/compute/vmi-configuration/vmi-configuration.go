@@ -35,7 +35,6 @@ import (
 	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -59,7 +58,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -995,76 +993,3 @@ var _ = ConfigDescribe("", func() {
 		})
 	})
 })
-
-func createRuntimeClass(name, handler string) error {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.NodeV1().RuntimeClasses().Create(
-		context.Background(),
-		&nodev1.RuntimeClass{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Handler:    handler,
-		},
-		metav1.CreateOptions{},
-	)
-	return err
-}
-
-func deleteRuntimeClass(name string) error {
-	virtCli := kubevirt.Client()
-
-	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-}
-
-func withNoRng() libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Rng = nil
-	}
-}
-
-func overcommitGuestOverhead() libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
-	}
-}
-
-func withMachineType(machineType string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
-	}
-}
-
-func WithSchedulerName(schedulerName string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.SchedulerName = schedulerName
-	}
-}
-
-func withSerialBIOS() libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
-			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
-		}
-		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.Bool(true)
-	}
-}
-
-func createBlockDataVolume(virtClient kubecli.KubevirtClient) (*cdiv1.DataVolume, error) {
-	sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-	if !foundSC {
-		return nil, nil
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithBlockVolumeMode()),
-	)
-
-	return virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-}
