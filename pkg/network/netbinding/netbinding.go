@@ -96,7 +96,7 @@ func slirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.K
 	}
 
 	var slirpSidecarImage string
-	if plugin := readNetBindingPluginConfiguration(kvConfig, SlirpNetworkBindingPluginName); plugin == nil {
+	if plugin := ReadNetBindingPluginConfiguration(kvConfig, SlirpNetworkBindingPluginName); plugin == nil {
 		// In case no Slirp network binding plugin is registered (i.e.: specified in in Kubevirt config) use default image
 		// to prevent newly created Slirp VMs from hanging, and reduce friction for users who didn't register an image yet.
 		// TODO: remove this workaround by next Kubevirt release v1.2.0.
@@ -114,7 +114,7 @@ func slirpNetBindingPluginSidecar(vmi *v1.VirtualMachineInstance, kvConfig *v1.K
 	}
 }
 
-func readNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, pluginName string) *v1.InterfaceBindingPlugin {
+func ReadNetBindingPluginConfiguration(kvConfig *v1.KubeVirtConfiguration, pluginName string) *v1.InterfaceBindingPlugin {
 	if kvConfig != nil && kvConfig.NetworkConfiguration != nil && kvConfig.NetworkConfiguration.Binding != nil {
 		if plugin, exist := kvConfig.NetworkConfiguration.Binding[pluginName]; exist {
 			return &plugin

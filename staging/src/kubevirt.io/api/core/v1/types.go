@@ -2678,6 +2678,11 @@ type InterfaceBindingPlugin struct {
 	// The sidecar handles (libvirt) domain configuration and optional services.
 	// version: 1alphav1
 	SidecarImage string `json:"sidecarImage,omitempty"`
+	// NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object.
+	// Format: <name>, <namespace>/<name>.
+	// If namespace is not specified, VMI namespace is assumed.
+	// version: 1alphav1
+	NetworkAttachmentDefinition string `json:"networkAttachmentDefinition,omitempty"`
 }
 
 // GuestAgentPing configures the guest-agent based ping probe

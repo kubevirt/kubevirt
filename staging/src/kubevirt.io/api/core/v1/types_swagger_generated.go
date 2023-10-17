@@ -879,7 +879,8 @@ func (NetworkConfiguration) SwaggerDoc() map[string]string {
 
 func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"sidecarImage": "SidecarImage references a container image that runs in the virt-launcher pod.\nThe sidecar handles (libvirt) domain configuration and optional services.\nversion: 1alphav1",
+		"sidecarImage":                "SidecarImage references a container image that runs in the virt-launcher pod.\nThe sidecar handles (libvirt) domain configuration and optional services.\nversion: 1alphav1",
+		"networkAttachmentDefinition": "NetworkAttachmentDefinition references to a NetworkAttachmentDefinition CR object.\nFormat: <name>, <namespace>/<name>.\nIf namespace is not specified, VMI namespace is assumed.\nversion: 1alphav1",
 	}
 }
 
