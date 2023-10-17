@@ -19,8 +19,8 @@ if ! grep -q -E '^enabled$' /proc/sys/fs/binfmt_misc/qemu-aarch64 2>/dev/null; t
     ${KUBEVIRT_CRI} >&2 run --rm --privileged multiarch/qemu-user-static --reset -p yes
 fi
 
-# shellcheck source=hack/builder/arch.sh
-. "${SCRIPT_DIR}/arch.sh"
+# shellcheck source=hack/builder/common.sh
+. "${SCRIPT_DIR}/common.sh"
 # shellcheck source=hack/builder/version.sh
 . "${SCRIPT_DIR}/version.sh"
 
@@ -36,7 +36,7 @@ for ARCH in ${ARCHITECTURES}; do
         ;;
     esac
     ${KUBEVIRT_CRI} >&2 pull --platform="linux/${ARCH}" quay.io/centos/centos:stream9
-    ${KUBEVIRT_CRI} >&2 build --platform="linux/${ARCH}" -t "quay.io/kubevirt/builder:${VERSION}-${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+    ${KUBEVIRT_CRI} >&2 build --platform="linux/${ARCH}" -t "${DOCKER_PREFIX}/${DOCKER_IMAGE}:${VERSION}-${ARCH}" --build-arg SONOBUOY_ARCH=${sonobuoy_arch} --build-arg BAZEL_ARCH=${bazel_arch} -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
 done
 
 # Print the version for use by other callers such as publish.sh
