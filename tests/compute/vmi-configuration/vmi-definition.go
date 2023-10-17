@@ -470,7 +470,7 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
-				withSerialBIOS(),
+				libvmi.WithSerialBIOS(),
 			)
 
 			By("Starting a VirtualMachineInstance")
@@ -595,7 +595,7 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
 		It("[test_id:755]should show the requested memory different than guest memory", func() {
-			vmi := libvmi.NewCirros(overcommitGuestOverhead())
+			vmi := libvmi.NewCirros(libvmi.WithOvercommitGuestOverhead())
 			guestMemory := resource.MustParse("256Mi")
 			vmi.Spec.Domain.Memory = &v1.Memory{
 				Guest: &guestMemory,
@@ -633,7 +633,7 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 
 		BeforeEach(func() {
 			var err error
-			vmi = libvmi.NewCirros(overcommitGuestOverhead())
+			vmi = libvmi.NewCirros(libvmi.WithOvercommitGuestOverhead())
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -1019,7 +1019,7 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 		var rngVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			rngVmi = libvmi.NewAlpine(withNoRng())
+			rngVmi = libvmi.NewAlpine(libvmi.WithNoRNG())
 		})
 
 		It("[test_id:1674]should have the virtio rng device present when present", func() {

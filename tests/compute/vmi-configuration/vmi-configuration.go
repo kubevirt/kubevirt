@@ -208,7 +208,7 @@ var _ = ConfigDescribe("", func() {
 		It("[test_id:3124]should set machine type from VMI spec", func() {
 			vmi := libvmi.New(
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
-				withMachineType("pc"),
+				libvmi.WithMachineType("pc"),
 			)
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -234,7 +234,7 @@ var _ = ConfigDescribe("", func() {
 			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
 			vmi := libvmi.New(
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
-				withMachineType(""),
+				libvmi.WithMachineType(""),
 			)
 
 			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -273,7 +273,7 @@ var _ = ConfigDescribe("", func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := libvmi.New(
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
-				WithSchedulerName("my-custom-scheduler"),
+				libvmi.WithSchedulerName("my-custom-scheduler"),
 			)
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 			launcherPod, err := libvmi.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))

@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-
+	k8spointer "k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -89,6 +89,12 @@ func WithTerminationGracePeriod(seconds int64) Option {
 func WithRng() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+	}
+}
+
+func WithNoRNG() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Rng = nil
 	}
 }
 
@@ -283,6 +289,39 @@ func WithNodeAffinityFor(node *k8sv1.Node) Option {
 func WithEvictionStrategy(evictionStrategy v1.EvictionStrategy) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.EvictionStrategy = &evictionStrategy
+	}
+}
+
+func WithOvercommitGuestOverhead() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
+	}
+}
+
+func WithMachineType(machineType string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
+	}
+}
+
+func WithSchedulerName(schedulerName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.SchedulerName = schedulerName
+	}
+}
+
+func WithSerialBIOS() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = k8spointer.Bool(true)
 	}
 }
 
