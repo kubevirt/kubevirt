@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/compute"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
@@ -68,7 +66,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = compute.SIGDescribe("Configurations", func() {
+var _ = ConfigDescribe("", func() {
 	const enoughMemForSafeBiosEmulation = "32Mi"
 	var virtClient kubecli.KubevirtClient
 

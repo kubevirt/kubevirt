@@ -23,8 +23,6 @@ import (
 	"context"
 	"runtime"
 
-	"kubevirt.io/kubevirt/tests/compute"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,19 +32,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/util"
 
-	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-
 	"kubevirt.io/kubevirt/tests/libvmi"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = compute.SIGDescribe("Configurations", func() {
+var _ = ConfigDescribe("", func() {
 	const enoughMemForSafeBiosEmulation = "32Mi"
 	var virtClient kubecli.KubevirtClient
 
