@@ -247,7 +247,7 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 		if len(tlsConfiguration.Ciphers) > 0 {
 			statuses = append(statuses, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "You cannot specify ciphers when spec.configuration.tlsConfiguration.minTLSVersion is empty or VersionTLS13",
+				Message: "You cannot specify non-compliant ciphers when spec.configuration.tlsConfiguration.minTLSVersion is empty or VersionTLS13",
 				Field:   "spec.configuration.tlsConfiguration.ciphers",
 			})
 		}
