@@ -1804,6 +1804,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var (
 			preferCores   = instancetypev1beta1.PreferCores
 			preferThreads = instancetypev1beta1.PreferThreads
+			preferAny     = instancetypev1beta1.PreferAny
 		)
 
 		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *v1.VirtualMachine) {
@@ -2047,6 +2048,46 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 										Cores:   uint32(1),
 										Threads: uint32(2),
 										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			Entry("VirtualMachine meets CPU (preferAny) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferAny,
+						},
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(4),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(2),
+										Threads: uint32(1),
+										Sockets: uint32(2),
 									},
 								},
 							},
@@ -2305,6 +2346,47 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 								Domain: v1.DomainSpec{
 									CPU: &v1.CPU{
 										Cores:   uint32(1),
+										Threads: uint32(1),
+										Sockets: uint32(1),
+									},
+								},
+							},
+						},
+					},
+				},
+				"insufficient CPU resources",
+			),
+			Entry("VirtualMachine does not meet CPU (preferAny) requirements",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferAny,
+						},
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+								Guest: uint32(4),
+							},
+						},
+					},
+				},
+				&v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: v1.VirtualMachineSpec{
+						Running: pointer.Bool(false),
+						Preference: &v1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Domain: v1.DomainSpec{
+									CPU: &v1.CPU{
+										Cores:   uint32(2),
 										Threads: uint32(1),
 										Sockets: uint32(1),
 									},
