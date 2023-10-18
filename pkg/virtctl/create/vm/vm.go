@@ -581,14 +581,17 @@ func (c *createVM) withInferredInstancetype(vm *v1.VirtualMachine) error {
 		return err
 	}
 
-	vm.Spec.Template.Spec.Domain.Memory = nil
 	vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 		InferFromVolume: c.inferInstancetypeFrom,
 	}
 
-	// If inferring implicitly possible errors during inference should be ignored
-	// on the backend because the executed command possibly still was valid.
-	if !c.explicitInstancetypeInference {
+	if c.explicitInstancetypeInference {
+		// If inferring explicitly the default guest memory should be cleared.
+		vm.Spec.Template.Spec.Domain.Memory = nil
+	} else {
+		// If inferring implicitly possible errors during inference should be ignored
+		// on the backend because the executed command possibly still was valid.
+		// The guest memory should not be cleared to provide a fallback value when inference failed.
 		failurePolicy := v1.IgnoreInferFromVolumeFailure
 		vm.Spec.Instancetype.InferFromVolumeFailurePolicy = &failurePolicy
 	}
