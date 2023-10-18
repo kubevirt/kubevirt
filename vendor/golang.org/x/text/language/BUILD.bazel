@@ -5,8 +5,6 @@ go_library(
     srcs = [
         "coverage.go",
         "doc.go",
-        "go1_1.go",
-        "go1_2.go",
         "language.go",
         "match.go",
         "parse.go",
