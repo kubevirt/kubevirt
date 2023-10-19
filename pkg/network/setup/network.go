@@ -31,16 +31,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type setuper interface {
-	Setup(func() error) error
-}
-
 type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheCreator cacheCreator
 	launcherPid  *int
-	netSetup     setuper
 }
 
 type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
@@ -55,12 +50,6 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 		opt(v)
 	}
 	return v
-}
-
-func WithNetSetup(netSetup setuper) vmNetConfiguratorOption {
-	return func(v *VMNetworkConfigurator) {
-		v.netSetup = netSetup
-	}
 }
 
 func WithNetUtilsHandler(h netdriver.NetworkHandler) vmNetConfiguratorOption {
@@ -96,29 +85,6 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 		nics = append(nics, *nic)
 	}
 	return nics, nil
-}
-
-func (n *VMNetworkConfigurator) SetupPodNetworkPhase1(networks []v1.Network, configState ConfigStateExecutor) error {
-	var networkNames []string
-	for _, network := range networks {
-		iface := vmispec.LookupInterfaceByName(n.vmi.Spec.Domain.Devices.Interfaces, network.Name)
-		if iface == nil {
-			return fmt.Errorf("no iface matching with network %s", network.Name)
-		}
-
-		// Some bindings are not participating in phase 1.
-		if iface.Binding != nil || iface.SRIOV != nil || iface.Macvtap != nil {
-			continue
-		}
-
-		networkNames = append(networkNames, network.Name)
-	}
-
-	err := configState.Run(networkNames, n.netSetup.Setup)
-	if err != nil {
-		return fmt.Errorf("failed setup pod network phase1: %w", err)
-	}
-	return nil
 }
 
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networks []v1.Network) error {
