@@ -58,12 +58,12 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.1.1-0.20210330154013-f5de75959ad5
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
-	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
-	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8
-	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467
+	golang.org/x/crypto v0.14.0
+	golang.org/x/net v0.17.0
+	golang.org/x/sys v0.13.0
+	golang.org/x/term v0.13.0
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
-	golang.org/x/tools v0.1.12
+	golang.org/x/tools v0.6.0
 	google.golang.org/grpc v1.48.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/yaml.v2 v2.4.0
@@ -148,10 +148,10 @@ require (
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f // indirect
 	github.com/willf/bitset v1.1.11 // indirect
 	go.mongodb.org/mongo-driver v1.8.4 // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
