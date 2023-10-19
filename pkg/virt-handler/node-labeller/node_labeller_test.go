@@ -23,6 +23,7 @@ package nodelabeller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -197,6 +198,135 @@ var _ = Describe("Node-labeller ", func() {
 				HaveKeyWithValue(v1.CPUModelLabel+"Opteron_G2", "true"),
 				HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"Opteron_G2", "true"),
 			))))
+		})
+	})
+
+	Context("with shadow node", func() {
+		someRandomLabels := map[string]string{
+			"arrival": "2016",
+		}
+
+		setup := func(node *k8sv1.Node, shadownode *v1.ShadowNode) {
+			virtClient := kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
+
+			kubeClient = fake.NewSimpleClientset(node)
+			virtFakeClient = kubevirtfake.NewSimpleClientset(shadownode)
+
+			nlController = initNodeLabeller(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kubevirt",
+					Namespace: "kubevirt",
+				},
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
+						MinCPUModel:       "Penryn",
+					},
+				},
+			}, virtClient,
+			)
+			nlController.queue.Add(node)
+			Eventually(nlController.queue.Len, time.Second).Should(Equal(1))
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+			virtClient.EXPECT().ShadowNodeClient().Return(virtFakeClient.KubevirtV1().ShadowNodes()).AnyTimes()
+		}
+
+		It("should keep ksm labels and annotations", func() {
+			labels := map[string]string{
+				v1.KSMEnabledLabel: "true",
+			}
+			annotations := map[string]string{
+				v1.KSMHandlerManagedAnnotation: "true",
+			}
+			setupnode := *newNode(hostName, someRandomLabels, map[string]string{})
+			setupshadowNode := v1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: hostName, Labels: labels, Annotations: annotations}}
+
+			setup(&setupnode, &setupshadowNode)
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+
+			shadowNode, err := virtFakeClient.KubevirtV1().ShadowNodes().Get(context.TODO(), hostName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(shadowNode.Labels).To(
+				HaveKeyWithValue(v1.KSMEnabledLabel, "true"),
+			)
+			Expect(shadowNode.Annotations).To(
+				HaveKeyWithValue(v1.KSMHandlerManagedAnnotation, "true"),
+			)
+			// Also check we have labels we expect
+			expectLabels(kubeClient, virtFakeClient, SatisfyAll(
+				HaveKeyWithValue(v1.CPUModelLabel+"Penryn", "true"),
+				HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"Penryn", "true"),
+			))
+		})
+
+		It("should keep hearbeat labels and annotations", func() {
+			now, err := json.Marshal(metav1.Now())
+			Expect(err).ToNot(HaveOccurred())
+
+			labels := map[string]string{
+				v1.NodeSchedulable: "true",
+				v1.CPUManager:      "true",
+			}
+			annotations := map[string]string{
+				v1.VirtHandlerHeartbeat: string(now),
+			}
+			setupnode := *newNode(hostName, someRandomLabels, map[string]string{})
+			setupshadowNode := v1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: hostName, Labels: labels, Annotations: annotations}}
+
+			setup(&setupnode, &setupshadowNode)
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+			shadowNode, err := virtFakeClient.KubevirtV1().ShadowNodes().Get(context.TODO(), hostName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(shadowNode.Labels).To(SatisfyAll(
+				HaveKeyWithValue(v1.NodeSchedulable, "true"),
+				HaveKeyWithValue(v1.CPUManager, "true"),
+			))
+			Expect(shadowNode.Annotations).To(
+				HaveKeyWithValue(v1.VirtHandlerHeartbeat, string(now)),
+			)
+			// Also check we have labels we expect
+			expectLabels(kubeClient, virtFakeClient, SatisfyAll(
+				HaveKeyWithValue(v1.CPUModelLabel+"Penryn", "true"),
+				HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"Penryn", "true"),
+			))
+		})
+
+		It("should remove not relevant label", func() {
+			labels := map[string]string{
+				v1.CPUModelLabel: "true",
+			}
+			annotations := map[string]string{}
+			setupnode := *newNode(hostName, labels, map[string]string{})
+			setupshadowNode := v1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: hostName, Labels: labels, Annotations: annotations}}
+
+			setup(&setupnode, &setupshadowNode)
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+
+			expectLabels(kubeClient, virtFakeClient, SatisfyAll(
+				Not(HaveKeyWithValue(v1.CPUModelLabel, "true")),
+				HaveKeyWithValue(v1.CPUModelLabel+"Penryn", "true"),
+			))
+		})
+
+		It("should update relevant label", func() {
+			labels := map[string]string{
+				v1.CPUModelLabel + "Opteron_G2": "true",
+			}
+			annotations := map[string]string{}
+			setupnode := *newNode(hostName, labels, map[string]string{})
+			setupshadowNode := v1.ShadowNode{ObjectMeta: metav1.ObjectMeta{Name: hostName, Labels: labels, Annotations: annotations}}
+
+			setup(&setupnode, &setupshadowNode)
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+
+			expectLabels(kubeClient, virtFakeClient, SatisfyAll(
+				Not(HaveKeyWithValue(v1.CPUModelLabel+"Opteron_G2", "true")),
+				HaveKeyWithValue(v1.CPUModelLabel+"Penryn", "true"),
+			))
 		})
 	})
 })
