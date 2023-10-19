@@ -12,6 +12,16 @@ metadata:
     createdAt: "2023-10-18 04:10:16"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
+    features.operators.openshift.io/cnf: "false"
+    features.operators.openshift.io/cni: "true"
+    features.operators.openshift.io/csi: "true"
+    features.operators.openshift.io/disconnected: "true"
+    features.operators.openshift.io/fips-compliant: "false"
+    features.operators.openshift.io/proxy-aware: "true"
+    features.operators.openshift.io/tls-profiles: "true"
+    features.operators.openshift.io/token-auth-aws: "false"
+    features.operators.openshift.io/token-auth-azure: "false"
+    features.operators.openshift.io/token-auth-gcp: "false"
     operatorframework.io/initialization-resource: '{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}}'
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
     operators.openshift.io/infrastructure-features: '["disconnected","proxy-aware"]'
