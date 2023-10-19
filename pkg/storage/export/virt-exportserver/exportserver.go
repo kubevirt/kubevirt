@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	goflag "flag"
@@ -196,6 +197,9 @@ func (s *exportServer) Run() {
 	srv := &http.Server{
 		Addr:    s.ListenAddr,
 		Handler: s.handler,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 
 	ch := make(chan error)

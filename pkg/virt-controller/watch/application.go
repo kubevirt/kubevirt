@@ -21,6 +21,7 @@ package watch
 
 import (
 	"context"
+	"crypto/tls"
 	golog "log"
 	"net/http"
 	"os"
@@ -487,6 +488,9 @@ func (vca *VirtControllerApp) Run() {
 			Addr:      vca.Address(),
 			Handler:   http.DefaultServeMux,
 			TLSConfig: promTLSConfig,
+			// Disable HTTP/2
+			// See CVE-2023-44487
+			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		}
 		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
