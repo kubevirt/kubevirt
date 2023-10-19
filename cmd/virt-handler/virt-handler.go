@@ -498,6 +498,9 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 		Addr:      app.ServiceListen.Address(),
 		Handler:   mux,
 		TLSConfig: app.promTLSConfig,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 	errCh <- server.ListenAndServeTLS("", "")
 }
