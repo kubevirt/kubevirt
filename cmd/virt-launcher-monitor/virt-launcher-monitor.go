@@ -418,7 +418,10 @@ func removeArg(args []string, arg string) []string {
 func dumpLogFile(filePath string) {
 	f, err := os.Open(filePath)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to open file %s", filePath)
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Log.Reason(err).Errorf("failed to open file %s", filePath)
+			return
+		}
 		return
 	}
 	defer func() {
