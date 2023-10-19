@@ -124,16 +124,16 @@ var _ = Describe("KSM", func() {
 		fakeClient = fake.NewSimpleClientset(node)
 
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
-		heartbeat.do()
 		testutils.DoNotExpectNodePatch(fakeClient, kubevirtv1.KSMEnabledLabel)
+		heartbeat.do()
 
 		err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
 		Expect(err).ToNot(HaveOccurred())
 
 		createCustomMemInfo(false)
 
-		heartbeat.do()
 		testutils.ExpectNodePatch(fakeClient, kubevirtv1.KSMEnabledLabel)
+		heartbeat.do()
 	})
 
 	Describe(", when ksmConfiguration is provided,", func() {
@@ -174,8 +174,8 @@ var _ = Describe("KSM", func() {
 			createCustomMemInfo(true)
 			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
 
-			heartbeat.do()
 			testutils.ExpectNodePatch(fakeClient, expectedNodePatch...)
+			heartbeat.do()
 			running, err := os.ReadFile(filepath.Join(fakeSysKSMDir, "run"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(string(bytes.TrimSpace(running))).To(Equal(expectedKsmValue))
