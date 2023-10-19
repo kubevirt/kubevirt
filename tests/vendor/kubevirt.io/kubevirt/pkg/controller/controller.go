@@ -387,20 +387,29 @@ func AttachmentPods(ownerPod *k8sv1.Pod, podInformer cache.SharedIndexInformer) 
 	return attachmentPods, nil
 }
 
-func ApplyNetworkInterfaceRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
+func ApplyNetworkInterfaceRequestOnVMTemplateSpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineInterfaceRequest) *v1.VirtualMachineInstanceSpec {
 	switch {
 	case request.AddInterfaceOptions != nil:
-		if iface := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, request.AddInterfaceOptions.Name); iface == nil {
-			newNetwork, newIface := newNetworkInterface(request.AddInterfaceOptions.Name, request.AddInterfaceOptions.NetworkAttachmentDefinitionName)
-			vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
-			vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newIface)
-		}
+		vmiSpec = ApplyNetworkInterfaceAddRequest(vmiSpec, request.AddInterfaceOptions)
 	case request.RemoveInterfaceOptions != nil:
-		if iface := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, request.RemoveInterfaceOptions.Name); iface != nil {
-			iface.State = v1.InterfaceStateAbsent
-		}
+		vmiSpec = ApplyNetworkInterfaceRemoveRequest(vmiSpec, request.RemoveInterfaceOptions)
 	}
+	return vmiSpec
+}
 
+func ApplyNetworkInterfaceAddRequest(vmiSpec *v1.VirtualMachineInstanceSpec, options *v1.AddInterfaceOptions) *v1.VirtualMachineInstanceSpec {
+	if iface := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, options.Name); iface == nil {
+		newNetwork, newIface := newNetworkInterface(options.Name, options.NetworkAttachmentDefinitionName)
+		vmiSpec.Networks = append(vmiSpec.Networks, newNetwork)
+		vmiSpec.Domain.Devices.Interfaces = append(vmiSpec.Domain.Devices.Interfaces, newIface)
+	}
+	return vmiSpec
+}
+
+func ApplyNetworkInterfaceRemoveRequest(vmiSpec *v1.VirtualMachineInstanceSpec, options *v1.RemoveInterfaceOptions) *v1.VirtualMachineInstanceSpec {
+	if iface := vmispec.LookupInterfaceByName(vmiSpec.Domain.Devices.Interfaces, options.Name); iface != nil {
+		iface.State = v1.InterfaceStateAbsent
+	}
 	return vmiSpec
 }
 

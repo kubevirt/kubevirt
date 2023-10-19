@@ -17,32 +17,26 @@
  *
  */
 
-package libnet
+package libstorage
 
 import (
-	"fmt"
-	"time"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/tests/console"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func InterfaceExists(vmi *v1.VirtualMachineInstance, interfaceName string) error {
-	const timeout = 15 * time.Second
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	if err := console.RunCommand(vmi, cmdCheck, timeout); err != nil {
-		return fmt.Errorf("could not check interface: interface %s was not found in the VMI %s: %w", interfaceName, vmi.Name, err)
+// NewVolumeSnapshot initializes a VolumeSnapshot struct
+func NewVolumeSnapshot(name, namespace, sourcePvcName string, snapshotClassName *string) *vsv1.VolumeSnapshot {
+	return &vsv1.VolumeSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: vsv1.VolumeSnapshotSpec{
+			Source: vsv1.VolumeSnapshotSource{
+				PersistentVolumeClaimName: &sourcePvcName,
+			},
+			VolumeSnapshotClassName: snapshotClassName,
+		},
 	}
-	return nil
-}
-
-func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
-	for i, net := range networks {
-		if net.Name == name {
-			return &networks[i]
-		}
-	}
-
-	return nil
 }

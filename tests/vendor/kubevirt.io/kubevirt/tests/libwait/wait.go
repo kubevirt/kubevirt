@@ -116,7 +116,7 @@ func WithWarningsIgnoreList(warningIgnoreList []string) Option {
 			waiting.wp = &watcher.WarningsPolicy{FailOnWarnings: true}
 		}
 
-		waiting.wp.WarningsIgnoreList = warningIgnoreList
+		waiting.wp.WarningsIgnoreList = append(waiting.wp.WarningsIgnoreList, warningIgnoreList...)
 	}
 }
 

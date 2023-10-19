@@ -13,6 +13,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -41,6 +42,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(util.RootUser),
 			Privileged: pointer.Bool(true),
 		},
 	}
@@ -274,9 +276,6 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
 		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
 	}
-	if enablePrHelper {
-		volumes = append(volumes, volume{prVolumeName, reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocketDir(), &bidi})
-	}
 
 	for _, volume := range volumes {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
@@ -326,6 +325,16 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	}
 
 	if enablePrHelper {
+		directoryOrCreate := corev1.HostPathDirectoryOrCreate
+		pod.Volumes = append(pod.Volumes, corev1.Volume{
+			Name: prVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: reservation.GetPrHelperSocketDir(),
+					Type: &directoryOrCreate,
+				},
+			},
+		})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
 	}
 	return daemonset, nil

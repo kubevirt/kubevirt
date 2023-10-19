@@ -84,6 +84,8 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 		"SYS_NICE",
 		// add CAP_NET_BIND_SERVICE capability to allow dhcp and slirp operations
 		"NET_BIND_SERVICE",
+		// add CAP_SYS_PTRACE capability needed for libvirt <8.1.0 to find the pid of swtpm
+		"SYS_PTRACE",
 	}
 	scc.AllowHostDirVolumePlugin = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}

@@ -42,3 +42,11 @@ const (
 	DefaultPreferenceLabel       = "instancetype.kubevirt.io/default-preference"
 	DefaultPreferenceKindLabel   = "instancetype.kubevirt.io/default-preference-kind"
 )
+
+const (
+	ControllerRevisionObjectGenerationLabel = "instancetype.kubevirt.io/object-generation"
+	ControllerRevisionObjectKindLabel       = "instancetype.kubevirt.io/object-kind"
+	ControllerRevisionObjectNameLabel       = "instancetype.kubevirt.io/object-name"
+	ControllerRevisionObjectUIDLabel        = "instancetype.kubevirt.io/object-uid"
+	ControllerRevisionObjectVersionLabel    = "instancetype.kubevirt.io/object-version"
+)

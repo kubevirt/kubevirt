@@ -3278,6 +3278,8 @@ rules:
   - namespaces
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -3294,6 +3296,13 @@ rules:
   - list
   - watch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - limitranges
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - mtq.kubevirt.io
   resources:

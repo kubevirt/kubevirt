@@ -971,6 +971,10 @@ const (
 
 	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
 	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
+
+	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
+	// Must be a float >= 1.
+	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -2309,19 +2313,20 @@ type ReloadableComponentConfiguration struct {
 
 // KubeVirtConfiguration holds all kubevirt configurations
 type KubeVirtConfiguration struct {
-	CPUModel                  string                  `json:"cpuModel,omitempty"`
-	CPURequest                *resource.Quantity      `json:"cpuRequest,omitempty"`
-	DeveloperConfiguration    *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
-	EmulatedMachines          []string                `json:"emulatedMachines,omitempty"`
-	ImagePullPolicy           k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
-	MigrationConfiguration    *MigrationConfiguration `json:"migrations,omitempty"`
-	MachineType               string                  `json:"machineType,omitempty"`
-	NetworkConfiguration      *NetworkConfiguration   `json:"network,omitempty"`
-	OVMFPath                  string                  `json:"ovmfPath,omitempty"`
-	SELinuxLauncherType       string                  `json:"selinuxLauncherType,omitempty"`
-	DefaultRuntimeClass       string                  `json:"defaultRuntimeClass,omitempty"`
-	SMBIOSConfig              *SMBiosConfiguration    `json:"smbios,omitempty"`
-	ArchitectureConfiguration *ArchConfiguration      `json:"architectureConfiguration,omitempty"`
+	CPUModel               string                  `json:"cpuModel,omitempty"`
+	CPURequest             *resource.Quantity      `json:"cpuRequest,omitempty"`
+	DeveloperConfiguration *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	EmulatedMachines       []string                `json:"emulatedMachines,omitempty"`
+	ImagePullPolicy        k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
+	MigrationConfiguration *MigrationConfiguration `json:"migrations,omitempty"`
+	// Deprecated. Use architectureConfiguration instead.
+	MachineType               string                `json:"machineType,omitempty"`
+	NetworkConfiguration      *NetworkConfiguration `json:"network,omitempty"`
+	OVMFPath                  string                `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType       string                `json:"selinuxLauncherType,omitempty"`
+	DefaultRuntimeClass       string                `json:"defaultRuntimeClass,omitempty"`
+	SMBIOSConfig              *SMBiosConfiguration  `json:"smbios,omitempty"`
+	ArchitectureConfiguration *ArchConfiguration    `json:"architectureConfiguration,omitempty"`
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
 	// migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific
 	// field is set it overrides the cluster level one.
@@ -2405,6 +2410,8 @@ const (
 	VirtioFS SupportContainerType = "virtiofs"
 	// SideCar is the container resources for a side car
 	SideCar SupportContainerType = "sidecar"
+	// VMExport is the container resources for a vm exporter pod
+	VMExport SupportContainerType = "vmexport"
 )
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.

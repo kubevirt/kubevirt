@@ -482,12 +482,12 @@ func NewPrometheusRuleSpec(ns string, workloadUpdatesEnabled bool) *v1.Prometheu
 			},
 		},
 		{
-			Alert: "KubeVirtDeprecatedAPIsRequested",
+			Alert: "KubeVirtDeprecatedAPIRequested",
 			Expr:  intstr.FromString("sum by (resource,group,version) ((round(increase(kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"}[10m])) > 0 and kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"} offset 10m) or (kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"} != 0 unless kubevirt_api_request_deprecated_total{verb!~\"LIST|WATCH\"} offset 10m))"),
 			Annotations: map[string]string{
 				"description": "Detected requests to the deprecated {{ $labels.resource }}.{{ $labels.group }}/{{ $labels.version }} API.",
 				"summary":     "Detected {{ $value }} requests in the last 10 minutes.",
-				"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtDeprecatedAPIsRequested"),
+				"runbook_url": fmt.Sprintf(runbookURLTemplate, "KubeVirtDeprecatedAPIRequested"),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "info",

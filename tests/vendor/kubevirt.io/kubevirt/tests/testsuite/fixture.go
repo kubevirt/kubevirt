@@ -95,7 +95,6 @@ func SynchronizedBeforeTestSetup() []byte {
 	EnsureKVMPresent()
 	AdjustKubeVirtResource()
 	EnsureKubevirtReady()
-	InitRunConfiguration()
 
 	return nil
 }
@@ -120,6 +119,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 
 	// Wait for schedulable nodes
 	virtClient := kubevirt.Client()
+	initRunConfiguration(virtClient)
 	Eventually(func() int {
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
 		if len(nodes.Items) > 0 {

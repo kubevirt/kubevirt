@@ -27,15 +27,17 @@ const (
 	HostRootMount                             = "/proc/1/root/"
 	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 	CPUManagerPath                            = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+
+	// Alphanums is the list of alphanumeric characters used to create a securely generated random string
+	Alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+	NonRootUID         = 107
+	NonRootUserString  = "qemu"
+	RootUser           = 0
+	memoryDumpOverhead = 100 * 1024 * 1024
+
+	UnprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
 )
-
-// Alphanums is the list of alphanumeric characters used to create a securely generated random string
-const Alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
-const NonRootUID = 107
-const NonRootUserString = "qemu"
-const RootUser = 0
-const memoryDumpOverhead = 100 * 1024 * 1024
 
 func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
 	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]

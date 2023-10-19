@@ -1,7 +1,6 @@
 package reservation
 
 import (
-	"fmt"
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -20,15 +19,15 @@ func GetPrResourceName() string {
 }
 
 func GetPrHelperSocketDir() string {
-	return fmt.Sprintf(filepath.Join(sourceDaemonsPath, prHelperDir))
+	return filepath.Join(sourceDaemonsPath, prHelperDir)
 }
 
 func GetPrHelperHostSocketDir() string {
-	return fmt.Sprintf(filepath.Join(hostSourceDaemonsPath, prHelperDir))
+	return filepath.Join(hostSourceDaemonsPath, prHelperDir)
 }
 
 func GetPrHelperSocketPath() string {
-	return fmt.Sprintf(filepath.Join(GetPrHelperSocketDir(), prHelperSocket))
+	return filepath.Join(GetPrHelperSocketDir(), prHelperSocket)
 }
 
 func GetPrHelperSocket() string {

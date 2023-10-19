@@ -172,7 +172,7 @@ func SetDataVolumeGC(virtCli kubecli.KubevirtClient, ttlSec *int32) {
 func IsDataVolumeGC(virtCli kubecli.KubevirtClient) bool {
 	config, err := virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.TODO(), "config", v12.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	return config.Spec.DataVolumeTTLSeconds == nil || *config.Spec.DataVolumeTTLSeconds >= 0
+	return config.Spec.DataVolumeTTLSeconds != nil && *config.Spec.DataVolumeTTLSeconds >= 0
 }
 
 func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {

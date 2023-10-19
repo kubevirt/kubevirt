@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	namespace = "kubevirt"
+	kvObjectNamespace = "kubevirt"
+	kvObjectName      = "kubevirt"
 )
 
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
@@ -32,15 +33,15 @@ func NewFakeClusterConfigUsingKVWithCPUArch(kv *KVv1.KubeVirt, CPUArch string) (
 	kubeVirtInformer.GetStore().Add(kv)
 
 	AddDataVolumeAPI(crdInformer)
-	cfg, _ := virtconfig.NewClusterConfigWithCPUArch(crdInformer, kubeVirtInformer, namespace, CPUArch)
+	cfg, _ := virtconfig.NewClusterConfigWithCPUArch(crdInformer, kubeVirtInformer, kvObjectNamespace, CPUArch)
 	return cfg, crdInformer, kubeVirtInformer
 }
 
 func NewFakeClusterConfigUsingKVConfig(config *KVv1.KubeVirtConfiguration) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	kv := &KVv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt",
-			Namespace: "kubevirt",
+			Name:      kvObjectName,
+			Namespace: kvObjectNamespace,
 		},
 		Spec: KVv1.KubeVirtSpec{
 			Configuration: *config,
@@ -94,11 +95,17 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	})
 }
 
+func GetFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer) *KVv1.KubeVirt {
+	obj, _, _ := kubeVirtInformer.GetStore().GetByKey(kvObjectNamespace + "/" + kvObjectName)
+	return obj.(*KVv1.KubeVirt)
+
+}
+
 func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer, kv *KVv1.KubeVirt) {
 	clone := kv.DeepCopy()
 	clone.ResourceVersion = rand.String(10)
-	clone.Name = "kubevirt"
-	clone.Namespace = "kubevirt"
+	clone.Name = kvObjectName
+	clone.Namespace = kvObjectNamespace
 	clone.Status.Phase = "Deployed"
 
 	kubeVirtInformer.GetStore().Update(clone)
