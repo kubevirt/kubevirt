@@ -40,5 +40,13 @@ container_image(
     directory = "/",
     entrypoint = ["/sidecar-shim"],
     files = [":sidecar-shim"],
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": [
+            "//rpm:sidecar-shim_aarch64",
+        ],
+        "//conditions:default": [
+            "//rpm:sidecar-shim_x86_64",
+        ],
+    }),
     visibility = ["//visibility:public"],
 )

@@ -20,6 +20,9 @@ The `sidecar-shim-image` contains the `sidecar-shim` binary which should be kept
 of the container. This binary will search in $PATH for binaries named after the Hook names (e.g
 onDefineDomain) and run them and provide the necessary arguments as command line options (flags).
 
+Besides a binary, one could also execute shell or python scripts by making them available at the
+expected location.
+
 In the case of `onDefineDomain`, the arguments will be the VMI information as JSON string, (e.g
 --vmi vmiJSON) and the current domain XML (e.g --domain domainXML) to the users binaries. As
 standard output it expects the modified domain XML.
@@ -89,4 +92,110 @@ func main() {
 	}
 	fmt.Println(onDefineDomain([]byte(vmiJSON), []byte(domainXML)))
 }
+```
+
+## Using ConfigMap to run custom script
+
+Besides injecting a script into the container image, one can also store it in a ConfigMap and 
+use annotations to make sure the script is run before the VMI creation. The flow would be as below:
+
+1. Create a ConfigMap containing the shell or python script you would like to run
+2. Create a VMI containing the annotation `hooks.kubevirt.io/hookSidecars` and mention the
+   ConfigMap information in it.
+
+## Examples
+
+Create a ConfigMap using one of the following examples. In both the examples, we are modifying
+the value of baseboard manufacturer for the VMI.
+
+### Shell script
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config-map
+data:
+  my_script.sh: |
+    #!/bin/sh
+    tempFile=`mktemp --dry-run`
+    echo $4 > $tempFile
+    sed -i "s|<baseBoard></baseBoard>|<baseBoard><entry name='manufacturer'>Radical Edward</entry></baseBoard>|" $tempFile
+    cat $tempFile
+```
+
+### Python script
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config-map
+data:
+  my_script.sh: |
+    #!/usr/bin/env python
+
+    import xml.etree.ElementTree as ET
+    import sys
+
+    def main(s):
+        # write to a temporary file
+        f = open("/tmp/orig.xml", "w")
+        f.write(s)
+        f.close()
+
+        # parse xml from file
+        xml = ET.parse("/tmp/orig.xml")
+        # get the root element
+        root = xml.getroot()
+        # find the baseBoard element
+        baseBoard = root.find("sysinfo").find("baseBoard")
+
+        # prepare new element to be inserted into the xml definition
+        element = ET.Element("entry", {"name": "manufacturer"})
+        element.text = "Radical Edward"
+        # insert the element
+        baseBoard.insert(0, element)
+
+        # write to a new file
+        xml.write("/tmp/new.xml")
+        # print file contents to stdout
+        f = open("/tmp/new.xml")
+        print(f.read())
+        f.close()
+
+    if __name__ == "__main__":
+        main(sys.argv[4])
+```
+
+Above ConfigMap manifests have a shell/python script embedded in it. The script, when executed, modifies the baseboard
+manufacturer information of the VMI in its XML definition and prints the output on stdout. This output is then used
+to create a VMI on the cluster.
+
+After creating one of the above ConfigMap, create the VMI using the manifest in
+[this example](../../examples/vmi-with-sidecar-hook-configmap.yaml). Of importance here is the ConfigMap information stored in
+the annotations:
+
+```yaml
+annotations:
+  hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"],
+    "image": "registry:5000/kubevirt/sidecar-shim:devel",
+    "configMap": {"name": "my-config-map", "key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]'
+```
+
+The `name` field indicates the name of the ConfigMap on the cluster which contains the script you 
+want to execute. The `key` field indicates the key in the ConfigMap which contains the script to 
+be executed. Finally, `hookPath` indicates the path where you would like the script to be 
+mounted. It could be either of `/usr/bin/onDefineDomain` or `/usr/bin/preCloudInitIso` depending 
+upon the hook you would like to execute.
+
+After creating the VMI, verify that it is in the `Running` state, and connect to its console and
+see if the desired changes to baseboard manufacturer get reflected:
+
+```shell
+# Once the VM is ready, connect to its display and login using name and password "fedora"
+cluster/virtctl.sh vnc vmi-with-sidecar-hook-configmap
+
+# Check whether the base board manufacturer value was successfully overwritten
+sudo dmidecode -s baseboard-manufacturer
 ```
