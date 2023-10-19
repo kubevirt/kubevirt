@@ -904,6 +904,9 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 	server := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
 		TLSConfig: app.tlsConfig,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 
 	// start TLS server
