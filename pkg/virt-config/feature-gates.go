@@ -81,6 +81,8 @@ const (
 	//
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
 	CommonInstancetypesDeploymentGate = "CommonInstancetypesDeploymentGate"
+	// CPUManagerPolicyBetaOptionsGate allows conforming VM to static CPU-Manager Policies.
+	CPUManagerPolicyBetaOptionsGate = "CPUManagerPolicyBetaOptions"
 )
 
 var deprecatedFeatureGates = [...]string{
@@ -258,4 +260,8 @@ func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 
 func (config *ClusterConfig) CommonInstancetypesDeploymentEnabled() bool {
 	return config.isFeatureGateEnabled(CommonInstancetypesDeploymentGate)
+}
+
+func (config *ClusterConfig) CPUManagerPolicyBetaOptionsEnabled() bool {
+	return config.isFeatureGateEnabled(CPUManagerPolicyBetaOptionsGate)
 }
