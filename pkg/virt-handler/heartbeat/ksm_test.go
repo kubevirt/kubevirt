@@ -50,11 +50,10 @@ const (
 )
 
 var _ = Describe("KSM", func() {
-	var err error
-	var fakeClient *fake.Clientset
 	var fakeSysKSMDir string
 
 	createCustomKSMTree := func() {
+		var err error
 		fakeSysKSMDir, err = os.MkdirTemp("", "ksm")
 		Expect(err).NotTo(HaveOccurred())
 		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("0\n"), 0644)
@@ -68,7 +67,7 @@ var _ = Describe("KSM", func() {
 	createCustomMemInfo := func(pressure bool) {
 		if filepath.Dir(memInfoPath) == "/tmp" {
 			// Not the first custom meminfo, remove the previous one
-			err = os.Remove(memInfoPath)
+			err := os.Remove(memInfoPath)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		fakeMemInfo, err := os.CreateTemp("", "meminfo")
@@ -121,7 +120,7 @@ var _ = Describe("KSM", func() {
 				Name: "mynode",
 			},
 		}
-		fakeClient = fake.NewSimpleClientset(node)
+		fakeClient := fake.NewSimpleClientset(node)
 
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(virtconfig.CPUManager), "mynode")
 		testutils.DoNotExpectNodePatch(fakeClient, kubevirtv1.KSMEnabledLabel)
@@ -168,7 +167,7 @@ var _ = Describe("KSM", func() {
 					Annotations: nodeAnnotations,
 				},
 			}
-			fakeClient = fake.NewSimpleClientset(node)
+			fakeClient := fake.NewSimpleClientset(node)
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			createCustomMemInfo(true)
@@ -207,7 +206,7 @@ var _ = Describe("KSM", func() {
 				sleep:   sleepMsBaselineDefault * (16 * 1024 * 1024) / (memTotal - memAvailablePressure),
 				pages:   nPagesInitDefault,
 			}
-			fakeClient = fake.NewSimpleClientset(node)
+			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
 			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
 
@@ -273,7 +272,7 @@ var _ = Describe("KSM", func() {
 				sleep:   1213 * (16 * 1024 * 1024) / (memTotal - memAvailableNoPressure),
 				pages:   166,
 			}
-			fakeClient = fake.NewSimpleClientset(node)
+			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
 			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
 
@@ -293,7 +292,7 @@ var _ = Describe("KSM", func() {
 
 			By("cancelling memory pressure and expecting to decrease pages and stop running when reaching minimum")
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
-			_, err = fakeClient.CoreV1().Nodes().Patch(context.Background(), "mynode", types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			_, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), "mynode", types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			heartbeat.do()
 			expected.pages = 789 - 50
