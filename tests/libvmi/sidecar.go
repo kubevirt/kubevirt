@@ -31,14 +31,25 @@ const (
 
 func RenderSidecar(version string) map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, flags.KubeVirtUtilityRepoPrefix, HookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(
+			`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+			version,
+			flags.KubeVirtUtilityRepoPrefix,
+			HookSidecarImage,
+			flags.KubeVirtUtilityVersionTag,
+		),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
 
 func RenderInvalidSMBiosSidecar() map[string]string {
 	return map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, HookSidecarImage, flags.KubeVirtUtilityVersionTag),
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(
+			`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+			flags.KubeVirtUtilityRepoPrefix,
+			HookSidecarImage,
+			flags.KubeVirtUtilityVersionTag,
+		),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 }
