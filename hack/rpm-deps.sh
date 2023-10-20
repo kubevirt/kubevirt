@@ -155,6 +155,10 @@ pr_helper="
   qemu-pr-helper
 "
 
+sidecar_shim="
+    python3
+"
+
 # get latest repo data from repo.yaml
 bazel run \
     --config=${ARCHITECTURE} \
@@ -266,6 +270,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $pr_helper
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_x86_64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
+
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
@@ -368,6 +383,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_main \
         $centos_extra \
         $pr_helper
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name sidecar-shim_aarch64 --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $sidecar_shim
 
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
