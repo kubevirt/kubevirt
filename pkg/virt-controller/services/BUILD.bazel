@@ -66,6 +66,7 @@ go_test(
         "//pkg/config:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/network/istio:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/util:go_default_library",
