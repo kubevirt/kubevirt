@@ -716,12 +716,6 @@ func (d *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 	return nil
 }
 
-type NetworkStatus struct {
-	Name      string   `yaml:"name"`
-	Ips       []string `yaml:"ips"`
-	Interface string   `yaml:"interface"`
-}
-
 func domainIsActiveOnTarget(domain *api.Domain) bool {
 
 	if domain == nil {

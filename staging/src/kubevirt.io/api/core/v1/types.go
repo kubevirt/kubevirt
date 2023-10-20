@@ -994,6 +994,9 @@ const (
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.
 	AutoMemoryLimitsRatioLabel string = "alpha.kubevirt.io/auto-memory-limits-ratio"
+
+	// MigrationInterfaceName is an arbitrary name used in virt-handler to connect it to a dedicated migration network
+	MigrationInterfaceName string = "migration0"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
