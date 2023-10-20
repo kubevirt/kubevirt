@@ -120,8 +120,20 @@ var _ = Describe("Add volume command", func() {
 		Entry("addvolume no args", "addvolume", "argument validation failed"),
 		Entry("addvolume name, missing required volume-name", "addvolume", "required flag(s)", "testvmi"),
 		Entry("addvolume name, invalid extra parameter", "addvolume", "unknown flag", "testvmi", "--volume-name=blah", "--invalid=test"),
-		Entry("addvolume name, invalid disk type", "addvolume", "Invalid disk type", "testvmi", "--volume-name=blah", "--disk-type=test")
 	)
+
+	It("should fail when trying to add volume with invalid disk type", func() {
+		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+		coreClient.CoreV1().PersistentVolumeClaims(k8smetav1.NamespaceDefault).Create(context.Background(), createTestPVC(), k8smetav1.CreateOptions{})
+		commandAndArgs := []string{"addvolume", "testvmi", "--volume-name=testvolume", "--disk-type=cdrom"}
+
+		cmdAdd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		err := cmdAdd()
+
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("Invalid disk type"))
+	})
 
 	DescribeTable("should fail addvolume when no source is found according to option", func(isDryRun bool) {
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
