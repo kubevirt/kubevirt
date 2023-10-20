@@ -32,7 +32,7 @@ const (
 func RenderSidecar(version string) map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(
-			`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
+			`[{"args": ["--version", %q],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`,
 			version,
 			flags.KubeVirtUtilityRepoPrefix,
 			HookSidecarImage,

@@ -42,7 +42,8 @@ func GetVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	Expect(err).ToNot(HaveOccurred(), "Should list pods")
 
 	podName := ""
-	for _, pod := range pods.Items {
+	for i := range pods.Items {
+		pod := &pods.Items[i]
 		if pod.ObjectMeta.DeletionTimestamp == nil {
 			podName = pod.ObjectMeta.Name
 			break
