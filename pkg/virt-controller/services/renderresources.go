@@ -380,6 +380,10 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		overhead = multiplyMemory(overhead, ratio)
 	}
 
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		overhead.Add(resource.MustParse("100Mi"))
+	}
+
 	return overhead
 }
 
