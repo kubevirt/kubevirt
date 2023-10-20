@@ -432,6 +432,70 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		},
 			true),
+		Entry("with valid request to add volume to a LUN disk", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testlun2",
+					Disk: &v1.Disk{
+						Name: "testlun2",
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "madeupLUN",
+						},
+						},
+					},
+				},
+			},
+		},
+			true),
+		Entry("with invalid request to add volume with invalid disk/bus combination", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testLUN-usb",
+					Disk: &v1.Disk{
+						Name: "testLUN-usb",
+						DiskDevice: v1.DiskDevice{
+							LUN: &v1.LunTarget{
+								Bus: "usb",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "invalidCombination",
+						}},
+					},
+				},
+			},
+		},
+			false),
+		Entry("with invalid request to add volume with invalid disk type", []v1.VirtualMachineVolumeRequest{
+			{
+				AddVolumeOptions: &v1.AddVolumeOptions{
+					Name: "testCDRom",
+					Disk: &v1.Disk{
+						Name: "testCDRom",
+						DiskDevice: v1.DiskDevice{
+							CDRom: &v1.CDRomTarget{
+								Bus: "scsi",
+							},
+						},
+					},
+					VolumeSource: &v1.HotplugVolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "cdRomtest",
+						}},
+					},
+				},
+			},
+		},
+			false),
 		Entry("with invalid request to add volume that conflicts with running vmi", []v1.VirtualMachineVolumeRequest{
 			{
 				AddVolumeOptions: &v1.AddVolumeOptions{
