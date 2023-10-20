@@ -303,7 +303,7 @@ func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (bool, bo
 
 func disableKSM(node *v1.Node, enabled bool) bool {
 	if enabled {
-		if _, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found {
+		if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
 			err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
 			if err != nil {
 				log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
