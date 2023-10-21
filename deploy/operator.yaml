@@ -61,7 +61,7 @@ spec:
         - name: SSP_VERSION
           value: v0.18.3
         - name: HPPO_VERSION
-          value: v0.17.0
+          value: v0.18.0
         - name: MTQ_VERSION
         - name: KV_CONSOLE_PLUGIN_IMAGE
         - name: KV_CONSOLE_PROXY_IMAGE
@@ -693,7 +693,7 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:16ecabb1d733aa17084cd16d88963c5255d04f389e0f4d41941d67e8be973594
+          value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:dd2948ca8e62d17eafba40bdcaad8367a97f092fd3b8d9849b2d62aec3152a72
         - name: PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-provisioner@sha256:ea5b4ddffa24d4c539698f6a38bb32c55595919ab8a17f9b10f709b9c210845f
         - name: CSI_PROVISIONER_IMAGE
@@ -711,7 +711,7 @@ spec:
         - name: MONITORING_NAMESPACE
         - name: PRIORITY_CLASS
           value: kubevirt-cluster-critical
-        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:16ecabb1d733aa17084cd16d88963c5255d04f389e0f4d41941d67e8be973594
+        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:dd2948ca8e62d17eafba40bdcaad8367a97f092fd3b8d9849b2d62aec3152a72
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1
