@@ -1208,7 +1208,7 @@ func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.Kubevir
 		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: "env", fileNameSuffix: "env"},
-		{command: "[ -f /var/run/kubevirt/passt.log ] && cat /var/run/kubevirt/passt.log", fileNameSuffix: "passt"},
+		{command: "cat /var/run/kubevirt/passt.log || true", fileNameSuffix: "passt"},
 	}
 
 	if tests.IsRunningOnKindInfra() {
@@ -1225,7 +1225,7 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 	}
 
 	for _, cmd := range cmds {
-		command := strings.Split(cmd.command, " ")
+		command := []string{"sh", "-c", cmd.command}
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtCli, pod, container, command)
 		if err != nil {
@@ -1239,6 +1239,10 @@ func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtCl
 			if errors.IsNotFound(err) || (err == nil && (pod.Status.Phase != "Running" || !isContainerReady(pod.Status.ContainerStatuses, container))) {
 				break
 			}
+			continue
+		}
+
+		if stdout == "" {
 			continue
 		}
 
