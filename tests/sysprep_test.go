@@ -226,7 +226,7 @@ func addExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 }
 
-var getWindowsSysprepVMISpec = func() v1.VirtualMachineInstanceSpec {
+func getWindowsSysprepVMISpec() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(libvmi.WindowsFirmware)
