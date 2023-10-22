@@ -975,6 +975,48 @@ spec:
   virtualMachineOptions:
     disableFreePageReporting: false
 ```
+
+## KSM Configuration
+
+`ksmConfiguration` instructs on which nodes KSM will be enabled, exposing a `nodeLabelSelector`.  
+`nodeLabelSelector` is a [LabelSelector](https://github.com/kubernetes/apimachinery/blob/60180f072f73eafec72ef9f2c418a6bb1357d434/pkg/apis/meta/v1/types.go#L1195)
+and defines the filter, based on the node labels. If a node's labels match the label selector term,
+then on that node, KSM will be enabled.
+>**NOTE**  
+>If `nodeLabelSelector` is nil KSM will not be enabled on any nodes.  
+>Empty `nodeLabelSelector` will enable KSM on every node.
+
+Examples
+- Enabling KSM on nodes in which the hostname is `node01` or `node03`:
+```yaml
+spec:
+  ksmConfiguration:
+    nodeLabelSelector:
+      matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+            - node01
+            - node03
+```
+
+- Enabling KSM on nodes with labels `kubevirt.io/first-label: true`, `kubevirt.io/second-label: true`:
+```yaml
+spec:
+  ksmConfiguration:
+    nodeLabelSelector:
+      matchLabels:
+        kubevirt.io/first-label: "true"
+        kubevirt.io/second-label: "true"
+```
+
+- Enabling KSM on every node:
+```yaml
+spec:
+  ksmConfiguration:
+    nodeLabelSelector: {}
+```
+
 ## Hyperconverged Kubevirt cluster-wide Crypto Policy API
 
 Starting from OCP/OKD 4.6, a [cluster-wide API](https://github.com/openshift/enhancements/blob/master/enhancements/kube-apiserver/tls-config.md) is available for cluster administrators to set TLS profiles for OCP/OKD core components.

@@ -438,6 +438,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.KSMConfiguration != nil {
+		in, out := &in.KSMConfiguration, &out.KSMConfiguration
+		*out = new(corev1.KSMConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

@@ -2951,6 +2951,42 @@ Version: 1.2.3`)
 
 		})
 
+		Context("KSM Configuration", func() {
+			It("should set the namespace label selector according to HCO CR", func() {
+				existingResource, err := NewKubeVirt(hco)
+				Expect(err).ToNot(HaveOccurred())
+
+				hco.Spec.KSMConfiguration = &kubevirtcorev1.KSMConfiguration{
+					NodeLabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"someLabel": "true"},
+					},
+				}
+
+				cl := commontestutils.InitClient([]client.Object{hco, existingResource})
+				handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
+				res := handler.ensure(req)
+				Expect(res.UpgradeDone).To(BeFalse())
+				Expect(res.Updated).To(BeTrue())
+				Expect(res.Err).ToNot(HaveOccurred())
+
+				foundResource := &kubevirtcorev1.KubeVirt{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: existingResource.Name, Namespace: existingResource.Namespace},
+						foundResource),
+				).ToNot(HaveOccurred())
+
+				Expect(existingResource.Spec.Configuration.KSMConfiguration).To(BeNil())
+
+				Expect(foundResource.Spec.Configuration.KSMConfiguration).NotTo(BeNil())
+				Expect(foundResource.Spec.Configuration.KSMConfiguration.NodeLabelSelector).NotTo(BeNil())
+				Expect(foundResource.Spec.Configuration.KSMConfiguration.NodeLabelSelector.MatchLabels).To(HaveLen(1))
+				Expect(foundResource.Spec.Configuration.KSMConfiguration.NodeLabelSelector.MatchLabels).To(HaveKeyWithValue("someLabel", "true"))
+
+				Expect(req.Conditions).To(BeEmpty())
+			})
+		})
+
 		It("should handle conditions", func() {
 			expectedResource, err := NewKubeVirt(hco, commontestutils.Namespace)
 			Expect(err).ToNot(HaveOccurred())

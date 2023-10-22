@@ -215,6 +215,11 @@ type HyperConvergedSpec struct {
 	//
 	// +optional
 	CommonBootImageNamespace *string `json:"commonBootImageNamespace,omitempty"`
+
+	// KSMConfiguration holds the information regarding
+	// the enabling the KSM in the nodes (if available).
+	// +optional
+	KSMConfiguration *v1.KSMConfiguration `json:"ksmConfiguration,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
