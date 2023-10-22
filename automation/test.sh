@@ -432,7 +432,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   fi
 fi
 
-if [[ $KUBEVIRT_NONROOT =~ true ]]; then
+if [[ $FEATURE_GATES != *"Root"* ]]; then
   add_to_label_filter '(verify-non-root)' ','
 else
   add_to_label_filter '(!verify-non-root)' '&&'

@@ -27,9 +27,9 @@ var _ = Describe("[sig-compute]NonRoot feature", decorators.SigCompute, func() {
 		virtClient = kubevirt.Client()
 	})
 
-	Context("[verify-nonroot] NonRoot feature", decorators.NonRoot, func() {
+	Context("[verify-nonroot] NonRoot feature", func() {
 		It("Fails if can't be tested", func() {
-			Expect(checks.HasFeature(virtconfig.NonRoot)).To(BeTrue())
+			Expect(checks.HasFeature(virtconfig.Root)).To(BeFalse())
 
 			vmi := tests.NewRandomVMI()
 			vmi, err = virtClient.VirtualMachineInstance(util.NamespaceTestDefault).Create(context.Background(), vmi)
