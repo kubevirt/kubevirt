@@ -64,7 +64,7 @@ func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&cache, cacheArg, "", "caching options attribute control the cache mechanism")
 	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	cmd.Flags().StringVar(&diskType, diskTypeArg, "", "specifies disk type to be hotplugged (disk/lun). Disk by default.")
+	cmd.Flags().StringVar(&diskType, diskTypeArg, "disk", "specifies disk type to be hotplugged (disk/lun). Disk by default.")
 
 	return cmd
 }
@@ -135,17 +135,20 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		VolumeSource: volumeSource,
 		DryRun:       *dryRunOption,
 	}
-	if diskType == "" || diskType == "disk" {
+
+	switch diskType {
+	case "disk":
 		hotplugRequest.Disk.DiskDevice.Disk = &v1.DiskTarget{
 			Bus: "scsi",
 		}
-	} else if diskType == "lun" {
+	case "lun":
 		hotplugRequest.Disk.DiskDevice.LUN = &v1.LunTarget{
 			Bus: "scsi",
 		}
-	} else {
+	default:
 		return fmt.Errorf("Invalid disk type '%s'. Only LUN and Disk are supported.", diskType)
 	}
+
 	if serial != "" {
 		hotplugRequest.Disk.Serial = serial
 	} else {

@@ -376,6 +376,23 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		return res
 	}
 
+	makeCDRomDisks := func(indexes ...int) []v1.Disk {
+		res := make([]v1.Disk, 0)
+		for _, index := range indexes {
+			bootOrder := uint(index + 1)
+			res = append(res, v1.Disk{
+				Name: fmt.Sprintf("volume-name-%d", index),
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: "scsi",
+					},
+				},
+				BootOrder: &bootOrder,
+			})
+		}
+		return res
+	}
+
 	makeDisksInvalidBusLastDisk := func(indexes ...int) []v1.Disk {
 		res := makeDisks(indexes...)
 		for i, index := range indexes {
@@ -551,6 +568,13 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeLUNDisks(0),
 			makeStatus(1, 0),
 			makeExpected("hotplugged Disk volume-name-1 does not use a scsi bus", "")),
+		Entry("Should reject if we add disk with neither Disk nor LUN type",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeCDRomDisks(0, 1),
+			makeCDRomDisks(0),
+			makeStatus(1, 0),
+			makeExpected("Disk volume-name-1 requires diskDevice of type 'disk' or 'lun' to be hotplugged.", "")),
 		Entry("Should reject if we add disk with invalid boot order",
 			makeVolumes(0, 1),
 			makeVolumes(0),
