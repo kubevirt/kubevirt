@@ -2,7 +2,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["curve25519.go"],
+    srcs = [
+        "curve25519.go",
+        "curve25519_compat.go",
+        "curve25519_go120.go",
+    ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/crypto/curve25519",
     importpath = "golang.org/x/crypto/curve25519",
     visibility = ["//visibility:public"],
