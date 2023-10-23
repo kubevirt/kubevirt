@@ -713,7 +713,6 @@ var _ = SIGDescribe("Storage", func() {
 
 				var pvcs = []string{}
 				var node string
-				var nodeSelector map[string]string
 
 				BeforeEach(func() {
 					for i := 0; i < 3; i++ {
@@ -723,15 +722,6 @@ var _ = SIGDescribe("Storage", func() {
 						hostpath := filepath.Join(testsuite.HostPathBase, pvc)
 						node = libstorage.CreateHostPathPv(pvc, testsuite.GetTestNamespace(nil), hostpath)
 						libstorage.CreateHostPathPVC(pvc, testsuite.GetTestNamespace(nil), "1G")
-						if checks.HasFeature(virtconfig.NonRoot) {
-							nodeSelector = map[string]string{"kubernetes.io/hostname": node}
-							By("changing permissions to qemu")
-							args := []string{fmt.Sprintf(`chown 107 %s`, hostpath)}
-							pod := tests.RenderHostPathPod("tmp-change-owner-job", hostpath, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
-
-							pod.Spec.NodeSelector = nodeSelector
-							tests.RunPodAndExpectCompletion(pod)
-						}
 					}
 				})
 
