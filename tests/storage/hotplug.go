@@ -1747,9 +1747,10 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	// Some of the functions used here don't behave well in paralel
+	// Some of the functions used here don't behave well in parallel (CreateSCSIDisk).
+	// The device is created directly on the node and the addition and removal
+	// of the scsi_debug kernel module could create flakiness in parallel.
 	Context("[Serial]Hotplug LUN disk", Serial, func() {
-		const randLen = 8
 		var (
 			nodeName, address, device string
 			pvc                       *corev1.PersistentVolumeClaim
@@ -1775,10 +1776,10 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		It("on an offline VM", func() {
 			By("Creating VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), tests.NewRandomVirtualMachine(libvmi.NewCirros(), false))
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), tests.NewRandomVirtualMachine(libvmi.NewCirros(), false))
 			Expect(err).ToNot(HaveOccurred())
 			By("Adding test volumes")
-			pv2, pvc2, err := tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks-test2", "scsipv2", "scsipvc2")
+			pv2, pvc2, err := tests.CreatePVandPVCwithSCSIDisk(nodeName, device, util.NamespaceTestDefault, "scsi-disks-test2", "scsipv2", "scsipvc2")
 			Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 
 			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions(testNewVolume1, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
@@ -1804,20 +1805,20 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		It("on an online VM", func() {
-			opts := []libvmi.Option{}
-			opts = append(opts, libvmi.WithNodeSelectorFor(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}))
-			vmi := libvmi.NewCirros(opts...)
+			vmi := libvmi.NewCirros(libvmi.WithNodeSelectorFor(&corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+			}))
 
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), tests.NewRandomVirtualMachine(vmi, true))
+			vm, err = virtClient.VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), tests.NewRandomVirtualMachine(vmi, true))
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				vm, err := virtClient.VirtualMachine(util.NamespaceTestDefault).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
 			By(addingVolumeRunningVM)
 			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions("testvolume", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
 				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
@@ -1827,7 +1828,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			By(verifyingVolumeDiskInVM)
 			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
 
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			verifyVolumeAndDiskVMIAdded(virtClient, vmi, "testvolume")
 			verifyVolumeStatus(vmi, v1.VolumeReady, "", "testvolume")
