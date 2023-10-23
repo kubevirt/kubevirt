@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libinfra",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/downwardmetrics/vhostmd/api:go_default_library",
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
@@ -23,7 +24,6 @@ go_library(
         "//tests/flags:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libnet:go_default_library",
-        "//tests/libnode:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
@@ -32,6 +32,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/fields:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/tools/leaderelection/resourcelock:go_default_library",
     ],
 )
