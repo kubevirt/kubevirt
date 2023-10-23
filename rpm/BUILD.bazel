@@ -1746,6 +1746,7 @@ rpmtree(
         "@gdbm-libs-1__1.19-4.el9.aarch64//rpm",
         "@glibc-0__2.34-83.el9.7.aarch64//rpm",
         "@glibc-common-0__2.34-83.el9.7.aarch64//rpm",
+        "@glibc-minimal-langpack-0__2.34-83.el9.7.aarch64//rpm",
         "@gmp-1__6.2.0-13.el9.aarch64//rpm",
         "@grep-0__3.6-5.el9.aarch64//rpm",
         "@keyutils-libs-0__1.6.3-1.el9.aarch64//rpm",
@@ -1787,10 +1788,6 @@ rpmtree(
         "@xz-libs-0__5.2.5-8.el9.aarch64//rpm",
         "@zlib-0__1.2.11-40.el9.aarch64//rpm",
     ],
-    symlinks = {
-        "/usr/bin/python": "/usr/bin/python3.9",
-        "/usr/bin/python3": "/usr/bin/python3.9",
-    },
     visibility = ["//visibility:public"],
 )
 
@@ -1815,6 +1812,7 @@ rpmtree(
         "@gdbm-libs-1__1.19-4.el9.x86_64//rpm",
         "@glibc-0__2.34-83.el9.7.x86_64//rpm",
         "@glibc-common-0__2.34-83.el9.7.x86_64//rpm",
+        "@glibc-minimal-langpack-0__2.34-83.el9.7.x86_64//rpm",
         "@gmp-1__6.2.0-13.el9.x86_64//rpm",
         "@grep-0__3.6-5.el9.x86_64//rpm",
         "@keyutils-libs-0__1.6.3-1.el9.x86_64//rpm",
@@ -1856,10 +1854,6 @@ rpmtree(
         "@xz-libs-0__5.2.5-8.el9.x86_64//rpm",
         "@zlib-0__1.2.11-40.el9.x86_64//rpm",
     ],
-    symlinks = {
-        "/usr/bin/python": "/usr/bin/python3.9",
-        "/usr/bin/python3": "/usr/bin/python3.9",
-    },
     visibility = ["//visibility:public"],
 )
 
