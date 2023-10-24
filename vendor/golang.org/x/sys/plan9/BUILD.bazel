@@ -26,10 +26,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/sys/plan9",
     importpath = "golang.org/x/sys/plan9",
     visibility = ["//visibility:public"],
-    deps = select({
-        "@io_bazel_rules_go//go/platform:plan9": [
-            "//vendor/golang.org/x/sys/internal/unsafeheader:go_default_library",
-        ],
-        "//conditions:default": [],
-    }),
 )
