@@ -44,7 +44,6 @@ const (
 	MacvtapGate                = "Macvtap"
 	PasstGate                  = "Passt"
 	DownwardMetricsFeatureGate = "DownwardMetrics"
-	NonRootDeprecated          = "NonRootExperimental"
 	NonRoot                    = "NonRoot"
 	Root                       = "Root"
 	ClusterProfiler            = "ClusterProfiler"
@@ -88,7 +87,6 @@ var deprecatedFeatureGates = [...]string{
 	LiveMigrationGate,
 	SRIOVLiveMigrationGate,
 	NonRoot,
-	NonRootDeprecated,
 	PSA,
 	CPUNodeDiscoveryGate,
 }
