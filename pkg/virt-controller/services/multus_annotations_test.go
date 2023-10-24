@@ -125,7 +125,7 @@ var _ = Describe("Multus annotations", func() {
 
 				Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(
 					`[
-						{"name": "test-binding-net","namespace": "default", "cni-args": {"logic-network-name": "default"}},						
+						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},						
 						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
 						{"name": "test1","namespace": "other-namespace","interface": "podb1f51a511f1"}
 					]`,
@@ -146,9 +146,9 @@ var _ = Describe("Multus annotations", func() {
 					Expect(GenerateMultusCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, config)).To(MatchJSON(expectedAnnot))
 				},
 				Entry("name with no namespace", "my-binding",
-					`[{"namespace": "default", "name": "my-binding", "cni-args": {"logic-network-name": "default"}}]`),
+					`[{"namespace": "default", "name": "my-binding", "cni-args": {"logicNetworkName": "default"}}]`),
 				Entry("name with namespace", "namespace1/my-binding",
-					`[{"namespace": "namespace1", "name": "my-binding", "cni-args": {"logic-network-name": "default"}}]`),
+					`[{"namespace": "namespace1", "name": "my-binding", "cni-args": {"logicNetworkName": "default"}}]`),
 			)
 		})
 	})
