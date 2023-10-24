@@ -98,7 +98,7 @@ func newBindingPluginMultusAnnotationData(kvConfig *v1.KubeVirtConfiguration, pl
 
 	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
 	// The binding plugin CNI should read this arg and realize which logical network it should modify.
-	const cniArgNetworkName = "logic-network-name"
+	const cniArgNetworkName = "logicNetworkName"
 
 	return &networkv1.NetworkSelectionElement{
 		Namespace: netAttachDefNamespace,
