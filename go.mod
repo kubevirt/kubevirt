@@ -5,6 +5,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/cheggaaa/pb/v3 v3.1.0
+	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.1.1
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.38.3
