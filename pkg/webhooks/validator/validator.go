@@ -376,8 +376,14 @@ func (wh *WebhookHandler) validateTLSSecurityProfiles(hc *v1beta1.HyperConverged
 		return nil
 	}
 
+	if !isValidTLSProtocolVersion(tlsSP.Custom.MinTLSVersion) {
+		return fmt.Errorf("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion")
+	}
+
 	if tlsSP.Custom.MinTLSVersion < openshiftconfigv1.VersionTLS13 && !hasRequiredHTTP2Ciphers(tlsSP.Custom.Ciphers) {
 		return fmt.Errorf("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)")
+	} else if tlsSP.Custom.MinTLSVersion == openshiftconfigv1.VersionTLS13 && len(tlsSP.Custom.Ciphers) > 0 {
+		return fmt.Errorf("custom ciphers cannot be selected when minTLSVersion is VersionTLS13")
 	}
 
 	return nil
@@ -438,4 +444,16 @@ func SelectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtoc
 	}
 
 	return openshiftconfigv1.TLSProfiles[profile.Type].Ciphers, openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion
+}
+
+func isValidTLSProtocolVersion(pv openshiftconfigv1.TLSProtocolVersion) bool {
+	switch pv {
+	case
+		openshiftconfigv1.VersionTLS10,
+		openshiftconfigv1.VersionTLS11,
+		openshiftconfigv1.VersionTLS12,
+		openshiftconfigv1.VersionTLS13:
+		return true
+	}
+	return false
 }

@@ -446,15 +446,27 @@ var _ = Describe("webhooks validator", func() {
 			)
 
 			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
-				Expect(
-					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
-				).ToNot(Succeed())
+				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)"))
 			})
 
 			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
 				Expect(
-					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
+					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{}),
 				).To(Succeed())
+			})
+
+			It("should fail if does have custom ciphers with TLS version >= 1.3", func() {
+				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("custom ciphers cannot be selected when minTLSVersion is VersionTLS13"))
+			})
+
+			It("should fail when minTLSVersion is invalid", func() {
+				err := updateTLSSecurityProfile("invalidProtocolVersion", []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
 		})
 
@@ -1080,15 +1092,27 @@ var _ = Describe("webhooks validator", func() {
 			)
 
 			It("should fail if does not have any of the HTTP/2-required ciphers", func() {
-				Expect(
-					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
-				).ToNot(Succeed())
+				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS12, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("http2: TLSConfig.CipherSuites is missing an HTTP/2-required AES_128_GCM_SHA256 cipher (need at least one of ECDHE-RSA-AES128-GCM-SHA256 or ECDHE-ECDSA-AES128-GCM-SHA256)"))
 			})
 
 			It("should succeed if does not have any of the HTTP/2-required ciphers but TLS version >= 1.3", func() {
 				Expect(
-					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"}),
+					updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{}),
 				).To(Succeed())
+			})
+
+			It("should fail if does have custom ciphers with TLS version >= 1.3", func() {
+				err := updateTLSSecurityProfile(openshiftconfigv1.VersionTLS13, []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("custom ciphers cannot be selected when minTLSVersion is VersionTLS13"))
+			})
+
+			It("should fail when minTLSVersion is invalid", func() {
+				err := updateTLSSecurityProfile("invalidProtocolVersion", []string{"TLS_AES_128_GCM_SHA256", "TLS_CHACHA20_POLY1305_SHA256"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).Should(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
 		})
 
