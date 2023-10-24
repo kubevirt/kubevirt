@@ -281,7 +281,7 @@ spec:
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni@sha256:434420511e09b2b5ede785a2c9062b6658ffbc26fbdd4629ce06110f9039c600
         - name: KUBE_RBAC_PROXY_IMAGE
-          value: quay.io/openshift/origin-kube-rbac-proxy@sha256:7109817acc1cb96d4ad04d6e576ee837ae7f8448d1f3b8b37be4167b520d05e8
+          value: quay.io/openshift/origin-kube-rbac-proxy@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
         - name: KUBE_SECONDARY_DNS_IMAGE
           value: ghcr.io/kubevirt/kubesecondarydns@sha256:a2c0c54c6332606b24183ffe630b9eaf7314afc60b67d7fd61f96d82fd76d9b4
         - name: CORE_DNS_IMAGE
@@ -327,7 +327,7 @@ spec:
         - --logtostderr
         - --secure-listen-address=:8443
         - --upstream=http://127.0.0.1:8080
-        image: quay.io/openshift/origin-kube-rbac-proxy@sha256:7109817acc1cb96d4ad04d6e576ee837ae7f8448d1f3b8b37be4167b520d05e8
+        image: quay.io/openshift/origin-kube-rbac-proxy@sha256:e2def4213ec0657e72eb790ae8a115511d5b8f164a62d3568d2f1bff189917e8
         imagePullPolicy: IfNotPresent
         name: kube-rbac-proxy
         ports:
