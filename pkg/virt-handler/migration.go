@@ -22,6 +22,7 @@ package virthandler
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -29,10 +30,20 @@ import (
 // FindMigrationIP looks for dedicated migration network migration0 using the downward API and, if found, sets migration IP to it
 func FindMigrationIP(networkStatusPath string, migrationIp string) (string, error) {
 	var networkStatus []NetworkStatus
+	var dat []byte
+	var err error
 
-	dat, err := os.ReadFile(networkStatusPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read network status from downwards API")
+	for i := 0; i < 5; i++ {
+		dat, err = os.ReadFile(networkStatusPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read network status from downwards API")
+		}
+		if len(dat) != 0 {
+			break
+		}
+		if i < 4 {
+			time.Sleep(500 * time.Millisecond)
+		}
 	}
 	err = yaml.Unmarshal(dat, &networkStatus)
 	if err != nil {
