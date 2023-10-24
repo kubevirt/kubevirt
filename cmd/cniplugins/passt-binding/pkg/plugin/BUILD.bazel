@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "plugin.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//cmd/cniplugins/passt-binding/pkg/plugin/netlink:go_default_library",
+        "//cmd/cniplugins/passt-binding/pkg/plugin/sysctl:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/skel:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types/100:go_default_library",
+        "//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "plugin_suite_test.go",
+        "plugin_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/skel:go_default_library",
+        "//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)
