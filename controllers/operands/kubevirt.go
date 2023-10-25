@@ -161,6 +161,7 @@ const (
 	kvRoot                   = "Root"
 	kvDisableMDevConfig      = "DisableMDEVConfiguration"
 	kvPersistentReservation  = "PersistentReservation"
+	kvAutoResourceLimits     = "AutoResourceLimitsGate"
 )
 
 // CPU Plugin default values
@@ -729,6 +730,9 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 	}
 	if featureGates.PersistentReservation != nil && *featureGates.PersistentReservation {
 		fgs = append(fgs, kvPersistentReservation)
+	}
+	if featureGates.AutoResourceLimits != nil && *featureGates.AutoResourceLimits {
+		fgs = append(fgs, kvAutoResourceLimits)
 	}
 
 	return fgs

@@ -52,10 +52,15 @@ spec:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
               featureGates:
+                autoResourceLimits: false
                 deployKubeSecondaryDNS: false
                 deployTektonTaskResources: false
+                deployVmConsoleProxy: false
+                disableMDevConfiguration: false
                 enableCommonBootImageImport: true
+                enableManagedTenantQuota: false
                 nonRoot: true
+                persistentReservation: false
                 withHostPassthroughCPU: false
               liveMigrationConfig:
                 allowAutoConverge: false
@@ -1067,15 +1072,32 @@ spec:
                 type: string
               featureGates:
                 default:
+                  autoResourceLimits: false
                   deployKubeSecondaryDNS: false
                   deployTektonTaskResources: false
+                  deployVmConsoleProxy: false
+                  disableMDevConfiguration: false
                   enableCommonBootImageImport: true
+                  enableManagedTenantQuota: false
                   nonRoot: true
+                  persistentReservation: false
                   withHostPassthroughCPU: false
                 description: featureGates is a map of feature gate flags. Setting
                   a flag to `true` will enable the feature. Setting `false` or removing
                   the feature gate, disables the feature.
                 properties:
+                  autoResourceLimits:
+                    default: false
+                    description: 'Enable KubeVirt to set automatic limits when they
+                      are needed. If ResourceQuota with set memory limits is associated
+                      with a namespace, each pod in that namespace must have memory
+                      limits set. By default, KubeVirt does not set such limits to
+                      the virt-launcher pod. When this feature gate is enabled, KubeVirt
+                      will set limits to the virt-launcher pod if they are not set
+                      manually and if a resource quota with memory limits is associated
+                      with the creation namespace. Note: this feature is in Developer
+                      Preview.'
+                    type: boolean
                   deployKubeSecondaryDNS:
                     default: false
                     description: Deploy KubeSecondaryDNS by CNAO

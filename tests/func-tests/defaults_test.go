@@ -84,6 +84,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			NonRoot:                     ptr.To(true), //nolint SA1019
 			WithHostPassthroughCPU:      ptr.To(false),
 			EnableManagedTenantQuota:    ptr.To(false),
+			AutoResourceLimits:          ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(path string) {
@@ -106,6 +107,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			Entry("when removing /spec/featureGates/nonRoot", "/spec/featureGates/nonRoot"),
 			Entry("when removing /spec/featureGates/withHostPassthroughCPU", "/spec/featureGates/withHostPassthroughCPU"),
 			Entry("when removing /spec/featureGates/enableManagedTenantQuota", "/spec/featureGates/enableManagedTenantQuota"),
+			Entry("when removing /spec/featureGates/autoResourceLimits", "/spec/featureGates/autoResourceLimits"),
 			Entry("when removing /spec/featureGates", "/spec/featureGates"),
 			Entry("when removing /spec", "/spec"),
 		)

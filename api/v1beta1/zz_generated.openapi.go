@@ -267,6 +267,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"autoResourceLimits": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable KubeVirt to set automatic limits when they are needed. If ResourceQuota with set memory limits is associated with a namespace, each pod in that namespace must have memory limits set. By default, KubeVirt does not set such limits to the virt-launcher pod. When this feature gate is enabled, KubeVirt will set limits to the virt-launcher pod if they are not set manually and if a resource quota with memory limits is associated with the creation namespace. Note: this feature is in Developer Preview.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

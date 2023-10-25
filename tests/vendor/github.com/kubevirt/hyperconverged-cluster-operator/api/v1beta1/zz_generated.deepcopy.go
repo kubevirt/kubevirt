@@ -255,6 +255,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AutoResourceLimits != nil {
+		in, out := &in.AutoResourceLimits, &out.AutoResourceLimits
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

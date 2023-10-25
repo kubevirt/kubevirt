@@ -1636,6 +1636,45 @@ Version: 1.2.3`)
 					})
 				})
 
+				It("should add the AutoResourceLimitsGate feature gate if AutoResourceLimits is true in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						AutoResourceLimits: ptr.To(true),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should contain the AutoResourceLimitsGate feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvAutoResourceLimits))
+					})
+				})
+
+				It("should not add the AutoResourceLimitsGate feature gate if AutoResourceLimits is not set in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						AutoResourceLimits: nil,
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the AutoResourceLimitsGate feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAutoResourceLimits))
+					})
+				})
+
+				It("should not add the AutoResourceLimitsGate feature gate if AutoResourceLimits is false in HyperConverged CR", func() {
+					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
+						AutoResourceLimits: ptr.To(false),
+					}
+
+					existingResource, err := NewKubeVirt(hco)
+					Expect(err).ToNot(HaveOccurred())
+					By("KV CR should not contain the AutoResourceLimitsGate feature gate", func() {
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
+						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAutoResourceLimits))
+					})
+				})
+
 				It("should not add the feature gates if FeatureGates field is empty", func() {
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(false)
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
