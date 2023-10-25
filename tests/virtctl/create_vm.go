@@ -68,13 +68,14 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 
 		It("Example with volume-import flag and PVC type", func() {
 			const runStrategy = v1.RunStrategyAlways
+			volumeName := "imported-volume"
 			instancetype := createInstancetype(virtClient)
 			preference := createPreference(virtClient)
 			pvc := createAnnotatedSourcePVC(instancetype.Name, preference.Name)
 
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
 				setFlag(RunStrategyFlag, string(runStrategy)),
-				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,name:%s,namespace:%s", size, pvc.Name, pvc.Namespace)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volumeName)),
 			)()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -94,6 +95,8 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
 			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(volumeName))
+			Expect(vm.Spec.DataVolumeTemplates[0].Name).To(Equal(volumeName))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC).ToNot(BeNil())
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Name).To(Equal(pvc.Name))
 			Expect(vm.Spec.DataVolumeTemplates[0].Spec.Source.PVC.Namespace).To(Equal(pvc.Namespace))
@@ -366,10 +369,11 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 		It("Failure of implicit inference does not fail the VM creation", func() {
 			By("Creating a PVC without annotation labels")
 			pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.GetTestNamespace(nil), size, nil)
+			volumeName := "imported-volume"
 
 			By("Creating a VM with implicit inference (inference enabled by default)")
 			out, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, VM,
-				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,name:%s,namespace:%s", size, pvc.Name, pvc.Namespace)),
+				setFlag(VolumeImportFlag, fmt.Sprintf("type:pvc,size:%s,src:%s/%s,name:%s", size, pvc.Namespace, pvc.Name, volumeName)),
 			)()
 			Expect(err).ToNot(HaveOccurred())
 			vm := unmarshalVM(out)
@@ -379,11 +383,11 @@ var _ = Describe("[sig-compute][virtctl]create vm", func() {
 			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
 			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(resource.MustParse("512Mi")))
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(pvc.Name))
+			Expect(vm.Spec.Instancetype.InferFromVolume).To(Equal(volumeName))
 			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 			Expect(vm.Spec.Preference).ToNot(BeNil())
-			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(pvc.Name))
+			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(volumeName))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).ToNot(BeNil())
 			Expect(*vm.Spec.Preference.InferFromVolumeFailurePolicy).To(Equal(v1.IgnoreInferFromVolumeFailure))
 
