@@ -189,10 +189,10 @@ type dataVolumeSourceImageIO struct {
 }
 
 type dataVolumeSourcePVC struct {
-	Name      string             `param:"name"`
-	Namespace string             `param:"namespace"`
-	Size      *resource.Quantity `param:"size"`
-	Type      string             `param:"type"`
+	Name   string             `param:"name"`
+	Source string             `param:"src"`
+	Size   *resource.Quantity `param:"size"`
+	Type   string             `param:"type"`
 }
 
 type dataVolumeSourceRegistry struct {
@@ -228,10 +228,10 @@ type dataVolumeSourceVDDK struct {
 }
 
 type dataVolumeSourceSnapshot struct {
-	Name      string             `param:"name"`
-	Namespace string             `param:"namespace"`
-	Size      *resource.Quantity `param:"size"`
-	Type      string             `param:"type"`
+	Name   string             `param:"name"`
+	Source string             `param:"src"`
+	Size   *resource.Quantity `param:"size"`
+	Type   string             `param:"type"`
 }
 
 type volumeImportFn func(string, *v1.VirtualMachine) (*cdiv1.DataVolumeSource, error)
@@ -1104,14 +1104,23 @@ func withVolumeSourcePVC(paramStr string, vm *v1.VirtualMachine) (*cdiv1.DataVol
 		return nil, err
 	}
 
-	if sourceStruct.Name == "" || sourceStruct.Namespace == "" {
-		return nil, params.FlagErr(VolumeImportFlag, "name and namespace are both required with PVC volume source")
+	if sourceStruct.Source == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "src must be specified")
+	}
+
+	namespace, name, err := params.SplitPrefixedName(sourceStruct.Source)
+	if err != nil {
+		return nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
+	}
+
+	if namespace == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "namespace of pvc '%s' must be specified", name)
 	}
 
 	source := cdiv1.DataVolumeSource{
 		PVC: &cdiv1.DataVolumeSourcePVC{
-			Name:      sourceStruct.Name,
-			Namespace: sourceStruct.Namespace,
+			Name:      name,
+			Namespace: namespace,
 		},
 	}
 
@@ -1206,14 +1215,23 @@ func withVolumeSourceSnapshot(paramStr string, vm *v1.VirtualMachine) (*cdiv1.Da
 		return nil, err
 	}
 
-	if sourceStruct.Name == "" || sourceStruct.Namespace == "" {
-		return nil, params.FlagErr(VolumeImportFlag, "name and namespace are both required with Snapshot volume source")
+	if sourceStruct.Source == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "src must be specified")
+	}
+
+	namespace, name, err := params.SplitPrefixedName(sourceStruct.Source)
+	if err != nil {
+		return nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
+	}
+
+	if namespace == "" {
+		return nil, params.FlagErr(VolumeImportFlag, "namespace of snapshot '%s' must be specified", name)
 	}
 
 	source := cdiv1.DataVolumeSource{
 		Snapshot: &cdiv1.DataVolumeSourceSnapshot{
-			Name:      sourceStruct.Name,
-			Namespace: sourceStruct.Namespace,
+			Name:      name,
+			Namespace: namespace,
 		},
 	}
 
