@@ -720,6 +720,24 @@ var _ = Describe("ImageUpload", func() {
 			Expect(err.Error()).Should(ContainSubstring("doesn't have archive contentType annotation"))
 		})
 
+		It("DV is using populators and target PVC is bound", func() {
+			dv := dvSpecWithPhase(cdiv1.UploadReady)
+			dv.Annotations = map[string]string{UsePopulatorAnnotation: "true"}
+			pvc := pvcSpecWithUploadAnnotation()
+			pvc.Status.Phase = v1.ClaimBound
+			testInitAsyncWithCdiObjects(
+				http.StatusOK,
+				true,
+				[]runtime.Object{pvc},
+				[]runtime.Object{dv},
+			)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
+				"--uploadproxy-url", server.URL, "--insecure", "--archive-path", archiveFilePath)
+			err := cmd()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).Should(ContainSubstring("already successfully populated"))
+		})
+
 		It("DV is using populators but PVC has no PVC Prime annotation", func() {
 			dv := dvSpecWithPhase(cdiv1.UploadReady)
 			dv.Annotations = map[string]string{UsePopulatorAnnotation: "true"}
@@ -734,24 +752,6 @@ var _ = Describe("ImageUpload", func() {
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(ContainSubstring("Unable to get PVC Prime name from PVC"))
-		})
-
-		It("DV is using populators but PVC has no PVC Prime annotation and pod is succeeded", func() {
-			dv := dvSpecWithPhase(cdiv1.UploadReady)
-			dv.Annotations = map[string]string{UsePopulatorAnnotation: "true"}
-			pvc := pvcSpecWithUploadAnnotation()
-			pvc.Annotations = map[string]string{podPhaseAnnotation: string(v1.PodSucceeded)}
-			testInitAsyncWithCdiObjects(
-				http.StatusOK,
-				true,
-				[]runtime.Object{pvc},
-				[]runtime.Object{dv},
-			)
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--uploadproxy-url", server.URL, "--insecure", "--archive-path", archiveFilePath)
-			err := cmd()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("already successfully populated"))
 		})
 
 		It("DV is using populators but PVC Prime doesn't exist", func() {
