@@ -50,6 +50,7 @@ elif [[ $TARGET =~ cnao ]]; then
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
   export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
   export KUBEVIRT_DEPLOY_CDI=false
   # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
   if [[ $TARGET =~ no-istio ]]; then
