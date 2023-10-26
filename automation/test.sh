@@ -392,7 +392,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (cnao|multus) ]]; then
     label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
-    label_filter='(sig-network)'
+    label_filter='(sig-network,netCustomBindingPlugins)'
     # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
     if [[ $TARGET =~ no-istio ]]; then
       add_to_label_filter "(!Istio)" "&&"
@@ -429,7 +429,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} ]]; then
   elif [[ $TARGET =~ (okd|ocp).* ]]; then
     label_filter='(!(SRIOV,GPU,VGPU))'
   else
-    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU))'
+    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins))'
   fi
 fi
 
