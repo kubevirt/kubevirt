@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/imdario/mergo"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

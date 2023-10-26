@@ -7,6 +7,7 @@
 package bsoncodec
 
 import (
+	"encoding"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -19,13 +20,28 @@ import (
 var defaultMapCodec = NewMapCodec()
 
 // MapCodec is the Codec used for map values.
+//
+// Deprecated: Use [go.mongodb.org/mongo-driver/bson.NewRegistry] to get a registry with the
+// MapCodec registered.
 type MapCodec struct {
-	DecodeZerosMap         bool
-	EncodeNilAsEmpty       bool
+	// DecodeZerosMap causes DecodeValue to delete any existing values from Go maps in the destination
+	// value passed to Decode before unmarshaling BSON documents into them.
+	//
+	// Deprecated: Use bson.Decoder.ZeroMaps instead.
+	DecodeZerosMap bool
+
+	// EncodeNilAsEmpty causes EncodeValue to marshal nil Go maps as empty BSON documents instead of
+	// BSON null.
+	//
+	// Deprecated: Use bson.Encoder.NilMapAsEmpty instead.
+	EncodeNilAsEmpty bool
+
+	// EncodeKeysWithStringer causes the Encoder to convert Go map keys to BSON document field name
+	// strings using fmt.Sprintf() instead of the default string conversion logic.
+	//
+	// Deprecated: Use bson.Encoder.StringifyMapKeysWithFmt instead.
 	EncodeKeysWithStringer bool
 }
-
-var _ ValueCodec = &MapCodec{}
 
 // KeyMarshaler is the interface implemented by an object that can marshal itself into a string key.
 // This applies to types used as map keys and is similar to encoding.TextMarshaler.
@@ -44,6 +60,9 @@ type KeyUnmarshaler interface {
 }
 
 // NewMapCodec returns a MapCodec with options opts.
+//
+// Deprecated: Use [go.mongodb.org/mongo-driver/bson.NewRegistry] to get a registry with the
+// MapCodec registered.
 func NewMapCodec(opts ...*bsonoptions.MapCodecOptions) *MapCodec {
 	mapOpt := bsonoptions.MergeMapCodecOptions(opts...)
 
@@ -66,7 +85,7 @@ func (mc *MapCodec) EncodeValue(ec EncodeContext, vw bsonrw.ValueWriter, val ref
 		return ValueEncoderError{Name: "MapEncodeValue", Kinds: []reflect.Kind{reflect.Map}, Received: val}
 	}
 
-	if val.IsNil() && !mc.EncodeNilAsEmpty {
+	if val.IsNil() && !mc.EncodeNilAsEmpty && !ec.nilMapAsEmpty {
 		// If we have a nil map but we can't WriteNull, that means we're probably trying to encode
 		// to a TopLevel document. We can't currently tell if this is what actually happened, but if
 		// there's a deeper underlying problem, the error will also be returned from WriteDocument,
@@ -99,7 +118,7 @@ func (mc *MapCodec) mapEncodeValue(ec EncodeContext, dw bsonrw.DocumentWriter, v
 
 	keys := val.MapKeys()
 	for _, key := range keys {
-		keyStr, err := mc.encodeKey(key)
+		keyStr, err := mc.encodeKey(key, ec.stringifyMapKeysWithFmt)
 		if err != nil {
 			return err
 		}
@@ -162,7 +181,7 @@ func (mc *MapCodec) DecodeValue(dc DecodeContext, vr bsonrw.ValueReader, val ref
 		val.Set(reflect.MakeMap(val.Type()))
 	}
 
-	if val.Len() > 0 && mc.DecodeZerosMap {
+	if val.Len() > 0 && (mc.DecodeZerosMap || dc.zeroMaps) {
 		clearMap(val)
 	}
 
@@ -210,8 +229,8 @@ func clearMap(m reflect.Value) {
 	}
 }
 
-func (mc *MapCodec) encodeKey(val reflect.Value) (string, error) {
-	if mc.EncodeKeysWithStringer {
+func (mc *MapCodec) encodeKey(val reflect.Value, encodeKeysWithStringer bool) (string, error) {
+	if mc.EncodeKeysWithStringer || encodeKeysWithStringer {
 		return fmt.Sprint(val), nil
 	}
 
@@ -230,6 +249,19 @@ func (mc *MapCodec) encodeKey(val reflect.Value) (string, error) {
 		}
 		return "", err
 	}
+	// keys implement encoding.TextMarshaler are marshaled.
+	if km, ok := val.Interface().(encoding.TextMarshaler); ok {
+		if val.Kind() == reflect.Ptr && val.IsNil() {
+			return "", nil
+		}
+
+		buf, err := km.MarshalText()
+		if err != nil {
+			return "", err
+		}
+
+		return string(buf), nil
+	}
 
 	switch val.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -241,6 +273,7 @@ func (mc *MapCodec) encodeKey(val reflect.Value) (string, error) {
 }
 
 var keyUnmarshalerType = reflect.TypeOf((*KeyUnmarshaler)(nil)).Elem()
+var textUnmarshalerType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
 
 func (mc *MapCodec) decodeKey(key string, keyType reflect.Type) (reflect.Value, error) {
 	keyVal := reflect.ValueOf(key)
@@ -251,6 +284,12 @@ func (mc *MapCodec) decodeKey(key string, keyType reflect.Type) (reflect.Value, 
 		keyVal = reflect.New(keyType)
 		v := keyVal.Interface().(KeyUnmarshaler)
 		err = v.UnmarshalKey(key)
+		keyVal = keyVal.Elem()
+	// Try to decode encoding.TextUnmarshalers.
+	case reflect.PtrTo(keyType).Implements(textUnmarshalerType):
+		keyVal = reflect.New(keyType)
+		v := keyVal.Interface().(encoding.TextUnmarshaler)
+		err = v.UnmarshalText([]byte(key))
 		keyVal = keyVal.Elem()
 	// Otherwise, go to type specific behavior
 	default:

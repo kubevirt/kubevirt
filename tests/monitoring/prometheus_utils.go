@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	k8sv1 "k8s.io/api/core/v1"

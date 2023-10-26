@@ -29,11 +29,15 @@ var vwPool = sync.Pool{
 }
 
 // BSONValueWriterPool is a pool for BSON ValueWriters.
+//
+// Deprecated: BSONValueWriterPool will not be supported in Go Driver 2.0.
 type BSONValueWriterPool struct {
 	pool sync.Pool
 }
 
 // NewBSONValueWriterPool creates a new pool for ValueWriter instances that write to BSON.
+//
+// Deprecated: BSONValueWriterPool will not be supported in Go Driver 2.0.
 func NewBSONValueWriterPool() *BSONValueWriterPool {
 	return &BSONValueWriterPool{
 		pool: sync.Pool{
@@ -45,6 +49,8 @@ func NewBSONValueWriterPool() *BSONValueWriterPool {
 }
 
 // Get retrieves a BSON ValueWriter from the pool and resets it to use w as the destination.
+//
+// Deprecated: BSONValueWriterPool will not be supported in Go Driver 2.0.
 func (bvwp *BSONValueWriterPool) Get(w io.Writer) ValueWriter {
 	vw := bvwp.pool.Get().(*valueWriter)
 
@@ -56,6 +62,8 @@ func (bvwp *BSONValueWriterPool) Get(w io.Writer) ValueWriter {
 }
 
 // GetAtModeElement retrieves a ValueWriterFlusher from the pool and resets it to use w as the destination.
+//
+// Deprecated: BSONValueWriterPool will not be supported in Go Driver 2.0.
 func (bvwp *BSONValueWriterPool) GetAtModeElement(w io.Writer) ValueWriterFlusher {
 	vw := bvwp.Get(w).(*valueWriter)
 	vw.push(mElement)
@@ -64,6 +72,8 @@ func (bvwp *BSONValueWriterPool) GetAtModeElement(w io.Writer) ValueWriterFlushe
 
 // Put inserts a ValueWriter into the pool. If the ValueWriter is not a BSON ValueWriter, nothing
 // happens and ok will be false.
+//
+// Deprecated: BSONValueWriterPool will not be supported in Go Driver 2.0.
 func (bvwp *BSONValueWriterPool) Put(vw ValueWriter) (ok bool) {
 	bvw, ok := vw.(*valueWriter)
 	if !ok {
@@ -529,7 +539,7 @@ func (vw *valueWriter) WriteDocumentEnd() error {
 	vw.pop()
 
 	if vw.stack[vw.frame].mode == mCodeWithScope {
-		// We ignore the error here because of the gaurantee of writeLength.
+		// We ignore the error here because of the guarantee of writeLength.
 		// See the docs for writeLength for more info.
 		_ = vw.writeLength()
 		vw.pop()

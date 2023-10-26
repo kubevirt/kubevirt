@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "byte_slice_codec_options.go",
+        "doc.go",
         "empty_interface_codec_options.go",
         "map_codec_options.go",
         "slice_codec_options.go",

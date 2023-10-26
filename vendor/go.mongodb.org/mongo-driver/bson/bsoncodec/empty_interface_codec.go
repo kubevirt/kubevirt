@@ -16,18 +16,30 @@ import (
 )
 
 // EmptyInterfaceCodec is the Codec used for interface{} values.
+//
+// Deprecated: Use [go.mongodb.org/mongo-driver/bson.NewRegistry] to get a registry with the
+// EmptyInterfaceCodec registered.
 type EmptyInterfaceCodec struct {
+	// DecodeBinaryAsSlice causes DecodeValue to unmarshal BSON binary field values that are the
+	// "Generic" or "Old" BSON binary subtype as a Go byte slice instead of a primitive.Binary.
+	//
+	// Deprecated: Use bson.Decoder.BinaryAsSlice instead.
 	DecodeBinaryAsSlice bool
 }
 
 var (
 	defaultEmptyInterfaceCodec = NewEmptyInterfaceCodec()
 
-	_ ValueCodec  = defaultEmptyInterfaceCodec
+	// Assert that defaultEmptyInterfaceCodec satisfies the typeDecoder interface, which allows it
+	// to be used by collection type decoders (e.g. map, slice, etc) to set individual values in a
+	// collection.
 	_ typeDecoder = defaultEmptyInterfaceCodec
 )
 
 // NewEmptyInterfaceCodec returns a EmptyInterfaceCodec with options opts.
+//
+// Deprecated: Use [go.mongodb.org/mongo-driver/bson.NewRegistry] to get a registry with the
+// EmptyInterfaceCodec registered.
 func NewEmptyInterfaceCodec(opts ...*bsonoptions.EmptyInterfaceCodecOptions) *EmptyInterfaceCodec {
 	interfaceOpt := bsonoptions.MergeEmptyInterfaceCodecOptions(opts...)
 
@@ -57,11 +69,18 @@ func (eic EmptyInterfaceCodec) EncodeValue(ec EncodeContext, vw bsonrw.ValueWrit
 
 func (eic EmptyInterfaceCodec) getEmptyInterfaceDecodeType(dc DecodeContext, valueType bsontype.Type) (reflect.Type, error) {
 	isDocument := valueType == bsontype.Type(0) || valueType == bsontype.EmbeddedDocument
-	if isDocument && dc.Ancestor != nil {
-		// Using ancestor information rather than looking up the type map entry forces consistent decoding.
-		// If we're decoding into a bson.D, subdocuments should also be decoded as bson.D, even if a type map entry
-		// has been registered.
-		return dc.Ancestor, nil
+	if isDocument {
+		if dc.defaultDocumentType != nil {
+			// If the bsontype is an embedded document and the DocumentType is set on the DecodeContext, then return
+			// that type.
+			return dc.defaultDocumentType, nil
+		}
+		if dc.Ancestor != nil {
+			// Using ancestor information rather than looking up the type map entry forces consistent decoding.
+			// If we're decoding into a bson.D, subdocuments should also be decoded as bson.D, even if a type map entry
+			// has been registered.
+			return dc.Ancestor, nil
+		}
 	}
 
 	rtype, err := dc.LookupTypeMapEntry(valueType)
@@ -114,7 +133,7 @@ func (eic EmptyInterfaceCodec) decodeType(dc DecodeContext, vr bsonrw.ValueReade
 		return emptyValue, err
 	}
 
-	if eic.DecodeBinaryAsSlice && rtype == tBinary {
+	if (eic.DecodeBinaryAsSlice || dc.binaryAsSlice) && rtype == tBinary {
 		binElem := elem.Interface().(primitive.Binary)
 		if binElem.Subtype == bsontype.BinaryGeneric || binElem.Subtype == bsontype.BinaryBinaryOld {
 			elem = reflect.ValueOf(binElem.Data)

@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["stack.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-stack/stack",
-    importpath = "github.com/go-stack/stack",
-    visibility = ["//visibility:public"],
-)

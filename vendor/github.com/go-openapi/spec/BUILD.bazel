@@ -32,6 +32,8 @@ go_library(
         "spec.go",
         "swagger.go",
         "tag.go",
+        "url_go18.go",
+        "url_go19.go",
         "validations.go",
         "xml_object.go",
     ],
