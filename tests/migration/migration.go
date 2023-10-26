@@ -3054,7 +3054,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			nodes         []k8sv1.Node
 			migratableVMI *v1.VirtualMachineInstance
 			pausePod      *k8sv1.Pod
-			workerLabel   = "node-role.kubernetes.io/worker"
 			testLabel1    = "kubevirt.io/testlabel1"
 			testLabel2    = "kubevirt.io/testlabel2"
 			cgroupVersion cgroup.CgroupVersion
@@ -3142,15 +3141,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			// So let's be sig-compute and skip ourselves on sig-compute always... (they have only 1 node with CPU manager)
 			checks.SkipTestIfNotEnoughNodesWithCPUManager(2)
 			virtClient = kubevirt.Client()
-
-			By("getting the list of worker nodes that have cpumanager enabled")
-			nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
-			})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(nodeList).ToNot(BeNil())
-			nodes = nodeList.Items
-			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
+			nodes = libnode.GetWorkerNodesWithCPUManagerEnabled(virtClient)
 
 			By("creating a migratable VMI with 2 dedicated CPU cores")
 			migratableVMI = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
@@ -3197,8 +3188,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 
 		It("should successfully update a VMI's CPU set on migration", func() {
-			By("ensuring at least 2 worker nodes have cpumanager")
-			Expect(len(nodes)).To(BeNumerically(">=", 2), "at least two worker nodes with cpumanager are required for migration")
 
 			By("starting a VMI on the first node of the list")
 			libnode.AddLabelToNode(nodes[0].Name, testLabel1, "true")
