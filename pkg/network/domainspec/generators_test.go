@@ -75,7 +75,7 @@ var _ = Describe("Pod Network", func() {
 
 			var (
 				domain        *api.Domain
-				specGenerator *MacvtapLibvirtSpecGenerator
+				specGenerator *TapLibvirtSpecGenerator
 			)
 
 			BeforeEach(func() {
@@ -84,7 +84,7 @@ var _ = Describe("Pod Network", func() {
 				vmi := newVMIMacvtapInterface("testnamespace", "testVmName", "default")
 				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
-				specGenerator = NewMacvtapLibvirtSpecGenerator(
+				specGenerator = NewTapLibvirtSpecGenerator(
 					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
 			})
 

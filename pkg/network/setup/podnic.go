@@ -150,7 +150,7 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain) domainspec.LibvirtS
 		return domainspec.NewMasqueradeLibvirtSpecGenerator(l.vmiSpecIface, l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Macvtap != nil {
-		return domainspec.NewMacvtapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
 	}
 	if l.vmiSpecIface.Passt != nil {
 		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.vmi)
