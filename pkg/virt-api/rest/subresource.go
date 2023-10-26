@@ -601,10 +601,10 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 }
 
 func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, response *restful.Response) {
-	// RunStrategyHalted         -> force stop if graceperiod in request is shorter than before, otherwise doesn't make sense
+	// RunStrategyHalted         -> force stop if grace period in request is shorter than before, otherwise doesn't make sense
 	// RunStrategyManual         -> send stop request
 	// RunStrategyAlways         -> spec.running = false
-	// RunStrategyRerunOnFailure -> spec.running = false
+	// RunStrategyRerunOnFailure -> send stop request
 	// RunStrategyOnce           -> spec.running = false
 
 	name := request.PathParameter("name")
