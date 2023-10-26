@@ -1017,7 +1017,7 @@ var _ = Describe("VirtualMachine", func() {
 				}).Return(nil, nil)
 
 				if runStrategy == virtv1.RunStrategyRerunOnFailure {
-					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
 						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
 							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 						}).Return(vm, nil).Times(2)
@@ -1378,7 +1378,7 @@ var _ = Describe("VirtualMachine", func() {
 				}).Return(nil, nil)
 
 				if runStrategy == virtv1.RunStrategyRerunOnFailure {
-					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
 						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
 							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 						}).Return(vm, nil).Times(1)
@@ -1902,6 +1902,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
+
 			addVirtualMachine(vm)
 
 			// expect creation called
@@ -1916,7 +1917,7 @@ var _ = Describe("VirtualMachine", func() {
 			}).Return(nil, nil)
 
 			if runStrategy == virtv1.RunStrategyRerunOnFailure {
-				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+				vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
 					func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
 						Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 					}).Return(vm, nil).Times(1)
@@ -2934,7 +2935,7 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				if runStrategy == virtv1.RunStrategyRerunOnFailure {
-					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Do(
+					vmInterface.EXPECT().PatchStatus(context.Background(), vm.Name, types.MergePatchType, gomock.Any(), gomock.Any()).Do(
 						func(ctx context.Context, name string, patchType types.PatchType, body []byte, opts *metav1.PatchOptions) {
 							Expect(string(body)).To(ContainSubstring(`"action":"Start"`))
 						}).Return(vm, nil).Times(1)

@@ -859,6 +859,22 @@ func (c *VMController) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virt
 	return nil
 }
 
+func (c *VMController) addStartRequest(vm *virtv1.VirtualMachine) error {
+	addRequest := []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
+	req, err := json.Marshal(addRequest)
+	if err != nil {
+		return err
+	}
+	patch := fmt.Sprintf(`{ "status":{ "stateChangeRequests":%s } }`, string(req))
+	err = c.statusUpdater.PatchStatus(vm, types.MergePatchType, []byte(patch), &v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+	vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, addRequest[0])
+
+	return nil
+}
+
 func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) syncError {
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -916,16 +932,16 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	case virtv1.RunStrategyRerunOnFailure:
 		// For this RunStrategy, a VMI should only be restarted if it failed.
 		// If a VMI enters the Succeeded phase, it should not be restarted.
-		var forceStop, vmiFailed bool
 		if vmi != nil {
-			if forceStop = hasStopRequestForVMI(vm, vmi); forceStop {
+			forceStop := hasStopRequestForVMI(vm, vmi)
+			if forceStop {
 				log.Log.Object(vm).Infof("processing stop request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
-			vmiFailed = vmi.Status.Phase == virtv1.Failed
+			vmiFailed := vmi.Status.Phase == virtv1.Failed
+			vmiSucceeded := vmi.Status.Phase == virtv1.Succeeded
 
-			if vmi.DeletionTimestamp == nil && (forceStop || vmiFailed) {
-				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance
-				// if it failed.
+			if vmi.DeletionTimestamp == nil && (forceStop || vmiFailed || vmiSucceeded) {
+				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance if it failed.
 				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
@@ -934,13 +950,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 				}
 
 				if vmiFailed {
-					addRequest := []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
-					req, err := json.Marshal(addRequest)
-					if err != nil {
-						return &syncErrorImpl{fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason}
-					}
-					patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/stateChangeRequests", "value": %s}]`, string(req))
-					err = c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
+					err = c.addStartRequest(vm)
 					if err != nil {
 						return &syncErrorImpl{fmt.Errorf("failed to patch VM with start action: %v", err), VMIFailedDeleteReason}
 					}
@@ -2505,8 +2515,9 @@ func (c *VMController) syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
 	syncIgnoreMap := map[string]interface{}{
-		string(virtv1.VirtualMachineReady):   nil,
-		string(virtv1.VirtualMachineFailure): nil,
+		string(virtv1.VirtualMachineReady):       nil,
+		string(virtv1.VirtualMachineFailure):     nil,
+		string(virtv1.VirtualMachineInitialized): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
 
@@ -2746,20 +2757,23 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		return vm, nil, nil
 	}
 
-	// Using the empty printableStatus as an indication that the VM was just created.
-	if vm.Status.PrintableStatus == "" && vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyRerunOnFailure {
-		// VM just got created a RerunOnFailure VM, it needs to auto-start
-		addRequest := []virtv1.VirtualMachineStateChangeRequest{{Action: virtv1.StartRequest}}
-		req, err := json.Marshal(addRequest)
+	conditionManager := controller.NewVirtualMachineConditionManager()
+	if !conditionManager.HasCondition(vm, virtv1.VirtualMachineInitialized) {
+		runStrategy, err := vm.RunStrategy()
 		if err != nil {
 			return vm, nil, err
 		}
-		patch := fmt.Sprintf(`[{ "op": "add", "path": "/status/stateChangeRequests", "value": %s}]`, string(req))
-		err = c.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(patch), &v1.PatchOptions{})
-		if err != nil {
-			return vm, nil, err
+		if runStrategy == virtv1.RunStrategyRerunOnFailure {
+			// VM just got created with RerunOnFailure runStrategy, it needs to auto-start
+			err = c.addStartRequest(vm)
+			if err != nil {
+				return vm, nil, err
+			}
 		}
-		vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, addRequest[0])
+		vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+			Type:   virtv1.VirtualMachineInitialized,
+			Status: k8score.ConditionTrue,
+		})
 	}
 
 	if vm.DeletionTimestamp != nil {
