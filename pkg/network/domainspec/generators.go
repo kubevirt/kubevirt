@@ -41,13 +41,13 @@ type LibvirtSpecGenerator interface {
 	Generate() error
 }
 
-func NewMacvtapLibvirtSpecGenerator(
+func NewTapLibvirtSpecGenerator(
 	iface *v1.Interface,
 	domain *api.Domain,
 	podInterfaceName string,
 	handler netdriver.NetworkHandler,
-) *MacvtapLibvirtSpecGenerator {
-	return &MacvtapLibvirtSpecGenerator{
+) *TapLibvirtSpecGenerator {
+	return &TapLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
 		domain:           domain,
 		podInterfaceName: podInterfaceName,
@@ -200,14 +200,14 @@ func (b *MasqueradeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interfa
 	return &domainIface, nil
 }
 
-type MacvtapLibvirtSpecGenerator struct {
+type TapLibvirtSpecGenerator struct {
 	vmiSpecIface     *v1.Interface
 	domain           *api.Domain
 	podInterfaceName string
 	handler          netdriver.NetworkHandler
 }
 
-func (b *MacvtapLibvirtSpecGenerator) Generate() error {
+func (b *TapLibvirtSpecGenerator) Generate() error {
 	domainIface, err := b.discoverDomainIfaceSpec()
 	if err != nil {
 		return err
@@ -224,7 +224,7 @@ func (b *MacvtapLibvirtSpecGenerator) Generate() error {
 	return nil
 }
 
-func (b *MacvtapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
+func (b *TapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
 	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
