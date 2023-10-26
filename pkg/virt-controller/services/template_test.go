@@ -4285,7 +4285,7 @@ var _ = Describe("Template", func() {
 			BeforeEach(func() {
 				vmi = api.NewMinimalVMI("configmap-sidecar-test")
 				vmi.Annotations = map[string]string{
-					hooks.HookSidecarListAnnotationName: `[{"image": "test:test", "configMap": {"name": "test-cm", 
+					hooks.HookSidecarListAnnotationName: `[{"image": "test:test", "configMap": {"name": "test-cm",
 "key": "script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
 				}
 			})
@@ -4329,6 +4329,61 @@ var _ = Describe("Template", func() {
 					config, kvInformer, svc = configFactory(defaultArch)
 					_, err := svc.RenderLaunchManifest(vmi)
 					Expect(err).To(HaveOccurred())
+				})
+			})
+		})
+
+		Context("with pvc in VMI annotations for sidecar", func() {
+			var vmi *v1.VirtualMachineInstance
+			const (
+				claim           = "test-pvc"
+				dirSidecar      = "/debug"
+				shareDirCompute = "/var/run/debug"
+			)
+			BeforeEach(func() {
+				vmi = api.NewMinimalVMI("pvc-sidecar-test")
+				vmi.Annotations = map[string]string{
+					hooks.HookSidecarListAnnotationName: fmt.Sprintf(`[{"image": "test:test", "pvc": {"name": "%s","volumePath": "%s", "sharedComputePath": "%s"}}]`, claim, dirSidecar, shareDirCompute),
+				}
+			})
+			When("PVC exists on the cluster", func() {
+				BeforeEach(func() {
+					mode := k8sv1.PersistentVolumeFilesystem
+					k8sClient := k8sfake.NewSimpleClientset()
+					k8sClient.Fake.PrependReactor("get", "pvcs", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+						pvc := k8sv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: claim,
+							},
+							Spec: k8sv1.PersistentVolumeClaimSpec{
+								VolumeMode: &mode,
+							},
+						}
+						return true, &pvc, nil
+					})
+					virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+				})
+				It("should add the pvc to Pod and mount in sidecar", func() {
+					config, kvInformer, svc = configFactory(defaultArch)
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+						Name: claim,
+						VolumeSource: k8sv1.VolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: claim,
+							},
+						},
+					}))
+					Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+						MountPath: shareDirCompute,
+						Name:      claim,
+					}))
+					Expect(pod.Spec.Containers[1].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+						MountPath: dirSidecar,
+						Name:      claim,
+					}))
 				})
 			})
 		})
