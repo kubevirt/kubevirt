@@ -163,6 +163,32 @@ var _ = Describe("Converter", func() {
 			Entry("Lower request than capacity", int64(1111), int64(9999)),
 		)
 
+		DescribeTable("Should assign scsi controller to", func(diskDevice v1.DiskDevice) {
+			context := &ConverterContext{}
+			v1Disk := v1.Disk{
+				Name:       "myvolume",
+				DiskDevice: diskDevice,
+			}
+			apiDisk := api.Disk{}
+			devicePerBus := map[string]deviceNamer{}
+			numQueues := uint(2)
+			volumeStatusMap := make(map[string]v1.VolumeStatus)
+			volumeStatusMap["myvolume"] = v1.VolumeStatus{}
+			Convert_v1_Disk_To_api_Disk(context, &v1Disk, &apiDisk, devicePerBus, &numQueues, volumeStatusMap)
+			Expect(apiDisk.Address).ToNot(BeNil())
+			Expect(apiDisk.Address.Bus).To(Equal("0"))
+			Expect(apiDisk.Address.Controller).To(Equal("0"))
+			Expect(apiDisk.Address.Type).To(Equal("drive"))
+			Expect(apiDisk.Address.Unit).To(Equal("0"))
+		},
+			Entry("LUN-type disk", v1.DiskDevice{
+				LUN: &v1.LunTarget{Bus: "scsi"},
+			}),
+			Entry("Disk-type disk", v1.DiskDevice{
+				Disk: &v1.DiskTarget{Bus: "scsi"},
+			}),
+		)
+
 		It("Should add boot order when provided", func() {
 			order := uint(1)
 			kubevirtDisk := &v1.Disk{

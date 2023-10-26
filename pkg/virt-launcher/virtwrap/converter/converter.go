@@ -158,24 +158,26 @@ func isARM64(arch string) bool {
 	return false
 }
 
+func assignDiskToSCSIController(disk *api.Disk, unit int) {
+	// Ensure we assign this disk to the correct scsi controller
+	if disk.Address == nil {
+		disk.Address = &api.Address{}
+	}
+	disk.Address.Type = "drive"
+	// This should be the index of the virtio-scsi controller, which is hard coded to 0
+	disk.Address.Controller = "0"
+	disk.Address.Bus = "0"
+	disk.Address.Unit = strconv.Itoa(unit)
+}
+
 func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
 		disk.Target.Bus = diskDevice.Disk.Bus
-		if diskDevice.Disk.Bus == "scsi" {
-			// Ensure we assign this disk to the correct scsi controller
-			if disk.Address == nil {
-				disk.Address = &api.Address{}
-			}
-			disk.Address.Type = "drive"
-			// This should be the index of the virtio-scsi controller, which is hard coded to 0
-			disk.Address.Controller = "0"
-			disk.Address.Bus = "0"
-		}
 		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.Disk.Bus, prefixMap)
 		if diskDevice.Disk.Bus == "scsi" {
-			disk.Address.Unit = strconv.Itoa(unit)
+			assignDiskToSCSIController(disk, unit)
 		}
 		if diskDevice.Disk.PciAddress != "" {
 			if diskDevice.Disk.Bus != v1.DiskBusVirtio {
@@ -204,9 +206,13 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			}
 		}
 	} else if diskDevice.LUN != nil {
+		var unit int
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
-		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		disk.Target.Device, unit = makeDeviceName(diskDevice.Name, diskDevice.LUN.Bus, prefixMap)
+		if diskDevice.LUN.Bus == "scsi" {
+			assignDiskToSCSIController(disk, unit)
+		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
 		if diskDevice.LUN.Reservation {
 			setReservation(disk)
