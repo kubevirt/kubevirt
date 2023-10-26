@@ -1,16 +1,15 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
     srcs = [
+        "annotation.go",
         "cloudinit.go",
         "config.go",
         "cpu.go",
         "factory.go",
-        "logs.go",
         "memory.go",
         "network.go",
-        "sidecar.go",
         "status.go",
         "storage.go",
         "vmi.go",
@@ -21,18 +20,29 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/testsuite:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "annotation_test.go",
+        "libvmi_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
     ],
 )

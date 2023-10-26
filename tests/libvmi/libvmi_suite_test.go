@@ -13,22 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
-package compute
+package libvmi
 
 import (
-	ginkgo "github.com/onsi/ginkgo/v2"
+	"testing"
 
-	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/client-go/testutils"
 )
 
-func SIGDescribe(text string, args ...interface{}) bool {
-	return ginkgo.Describe("[sig-compute] "+text, decorators.SigCompute, args)
-}
-
-func FSIGDescribe(text string, args ...interface{}) bool {
-	return ginkgo.FDescribe("[sig-compute] "+text, decorators.SigCompute, args)
+func TestLibVMI(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }

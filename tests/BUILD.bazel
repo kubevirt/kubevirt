@@ -215,6 +215,7 @@ go_test(
         "//tests/libmigration:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libpod:go_default_library",
         "//tests/libreplicaset:go_default_library",
         "//tests/libssh:go_default_library",
         "//tests/libstorage:go_default_library",

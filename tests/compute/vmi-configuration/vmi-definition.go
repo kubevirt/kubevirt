@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017-2023 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
@@ -26,6 +26,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/libpod"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -502,7 +504,7 @@ var _ = ConfigDescribe("VirtualMachineInstance definition", func() {
 		case v1.Failed:
 			// This Error is expected to be handled
 			By("Getting virt-launcher logs")
-			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libpod.GetVirtLauncherLogs(virtClient, vmi) }
 			Eventually(logs,
 				30*time.Second,
 				500*time.Millisecond).

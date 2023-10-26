@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/libpod"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/exec"
@@ -154,7 +156,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libpod.GetVirtLauncherLogs(virtClient, vmi) }
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
@@ -231,7 +233,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libpod.GetVirtLauncherLogs(virtClient, vmi) }
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
@@ -260,7 +262,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting virt-launcher logs")
-			logs := func() string { return libvmi.GetVirtLauncherLogs(virtClient, vmi) }
+			logs := func() string { return libpod.GetVirtLauncherLogs(virtClient, vmi) }
 
 			const totalTestTime = 2 * time.Second
 			const checkIntervalTime = 500 * time.Millisecond

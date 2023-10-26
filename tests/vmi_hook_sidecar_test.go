@@ -23,8 +23,9 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"kubevirt.io/kubevirt/tests/flags"
 	"time"
+
+	"kubevirt.io/kubevirt/tests/flags"
 
 	"kubevirt.io/kubevirt/tests/libvmi"
 
@@ -75,7 +76,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		virtClient = kubevirt.Client()
 
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-		vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(hooksv1alpha1.Version)
+		vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
+			libvmi.WithExampleHookSideCarAndVersion(hooksv1alpha1.Version),
+			libvmi.WithBaseBoardManufacturer(),
+		)
 	})
 
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
@@ -160,7 +164,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
-				vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(hooksv1alpha2.Version)
+				vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
+					libvmi.WithExampleHookSideCarAndVersion(hooksv1alpha2.Version),
+					libvmi.WithBaseBoardManufacturer(),
+				)
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -195,7 +202,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			It("should not start with hook sidecar annotation when the version is not provided", func() {
 				By("Starting a VMI")
-				vmi.ObjectMeta.Annotations = libvmi.RenderInvalidSMBiosSidecar()
+				vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
+					libvmi.WithExampleHookSideCarAndNoVersion(),
+					libvmi.WithBaseBoardManufacturer(),
+				)
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
 				Expect(err).NotTo(HaveOccurred(), "the request to create the VMI should be accepted")
 

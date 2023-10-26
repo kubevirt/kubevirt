@@ -17,18 +17,23 @@
  *
  */
 
-package compute
+package libvmi
 
 import (
-	ginkgo "github.com/onsi/ginkgo/v2"
-
-	"kubevirt.io/kubevirt/tests/decorators"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func SIGDescribe(text string, args ...interface{}) bool {
-	return ginkgo.Describe("[sig-compute] "+text, decorators.SigCompute, args)
-}
-
-func FSIGDescribe(text string, args ...interface{}) bool {
-	return ginkgo.FDescribe("[sig-compute] "+text, decorators.SigCompute, args)
-}
+var _ = Describe("libvmi annotations", func() {
+	Context("common test cases", func() {
+		It("creates empty map", func() {
+			Expect(NewAnnotations()).To(BeEquivalentTo(map[string]string{}))
+		})
+		It("creates map with hooksidecars key", func() {
+			Expect(NewAnnotations(WithExampleHookSideCarAndVersion(""))).To(HaveKey(annotationKeyHookSideCars))
+		})
+		It("creates map with base board manufacturer key", func() {
+			Expect(NewAnnotations(WithBaseBoardManufacturer())).To(HaveKey(annotationKeyBaseBoardManufacturer))
+		})
+	})
+})

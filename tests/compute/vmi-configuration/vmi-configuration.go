@@ -158,7 +158,10 @@ var _ = ConfigDescribe("", func() {
 			}
 
 			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+			vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
+				libvmi.WithExampleHookSideCarAndVersion(kubevirt_hooks_v1alpha2.Version),
+				libvmi.WithBaseBoardManufacturer(),
+			)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {
@@ -184,7 +187,10 @@ var _ = ConfigDescribe("", func() {
 			}
 
 			By("adding a sidecar to ensure it gets limits assigned too")
-			vmi.ObjectMeta.Annotations = libvmi.RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+			vmi.ObjectMeta.Annotations = libvmi.NewAnnotations(
+				libvmi.WithExampleHookSideCarAndVersion(kubevirt_hooks_v1alpha2.Version),
+				libvmi.WithBaseBoardManufacturer(),
+			)
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
 			Eventually(func() kubev1.PodQOSClass {

@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	k8spointer "k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -321,7 +320,7 @@ func WithSerialBIOS() Option {
 		if vmi.Spec.Domain.Firmware.Bootloader.BIOS == nil {
 			vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{}
 		}
-		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = k8spointer.Bool(true)
+		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
 }
 

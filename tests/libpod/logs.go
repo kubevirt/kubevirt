@@ -17,7 +17,7 @@
  *
  */
 
-package libvmi
+package libpod
 
 import (
 	"context"
