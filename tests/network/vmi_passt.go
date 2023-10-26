@@ -61,9 +61,17 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 
 	Context("VirtualMachineInstance with passt binding mechanism", func() {
 
-		It("should report the IP to the status", func() {
+		It("should apply the interface configuration", func() {
+			const testMACAddr = "02:02:02:02:02:02"
+			const testPCIAddr = "0000:01:00.0"
 			vmi := libvmi.NewAlpineWithTestTooling(
-				libvmi.WithPasstInterfaceWithPort(),
+				libvmi.WithInterface(v1.Interface{
+					Name:                   libvmi.DefaultInterfaceName,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Passt: &v1.InterfacePasst{}},
+					Ports:                  []v1.Port{{Port: 1234, Protocol: "TCP"}},
+					MacAddress:             testMACAddr,
+					PciAddress:             testPCIAddr,
+				}),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
@@ -74,6 +82,11 @@ var _ = SIGDescribe("[Serial] Passt", decorators.PasstGate, Serial, func() {
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
 			Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 			Expect(vmi.Status.Interfaces[0].IP).NotTo(BeEmpty())
+			Expect(vmi.Status.Interfaces[0].MAC).To(Equal(testMACAddr))
+
+			guestIfaceName := vmi.Status.Interfaces[0].InterfaceName
+			cmd := fmt.Sprintf("ls /sys/bus/pci/devices/%s/virtio0/net/%s", testPCIAddr, guestIfaceName)
+			Expect(console.RunCommand(vmi, cmd, time.Second*5)).To(Succeed())
 		})
 
 		Context("should allow regular network connection", func() {
