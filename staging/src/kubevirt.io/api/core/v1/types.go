@@ -1640,6 +1640,9 @@ const (
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
+
+	// VirtualMachineInitialized means the virtual machine object has been seen by the VM controller
+	VirtualMachineInitialized VirtualMachineConditionType = "Initialized"
 )
 
 type HostDiskType string
