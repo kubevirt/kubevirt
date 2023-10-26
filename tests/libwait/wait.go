@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
@@ -188,6 +189,11 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 		opts...,
 	)
 	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
+
+	var err error
+	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 	return vmi
 }
 
