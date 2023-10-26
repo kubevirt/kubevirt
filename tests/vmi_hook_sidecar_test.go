@@ -33,7 +33,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -52,7 +51,9 @@ import (
 
 const (
 	hookSidecarImage     = "example-hook-sidecar"
+	sidecarShimImage     = "sidecar-shim"
 	sidecarContainerName = "hook-sidecar-0"
+	configMapKey         = "my_script"
 )
 
 var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
@@ -213,6 +214,23 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			})
 		})
 
+		Context("with ConfigMap in sidecar hook annotation", func() {
+
+			It("should update domain XML with SM BIOS properties", func() {
+				cm, err := virtClient.CoreV1().ConfigMaps(vmi.Namespace).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMap(hooksv1alpha2.Version, cm.Name)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi)
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi)
+				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
+				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
+				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
+			})
+		})
+
 		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
 			BeforeEach(func() {
 				tests.DisableFeatureGate(virtconfig.SidecarGate)
@@ -256,5 +274,29 @@ func RenderInvalidSMBiosSidecar() map[string]string {
 	return map[string]string{
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, hookSidecarImage, flags.KubeVirtUtilityVersionTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+	}
+}
+
+func RenderSidecarWithConfigMap(version, name string) map[string]string {
+	return map[string]string{
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"args": ["--version", "%s"], "image":"%s/%s:%s", "configMap": {"name": "%s","key": "%s", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+			version, flags.KubeVirtUtilityRepoPrefix, sidecarShimImage, flags.KubeVirtUtilityVersionTag, name, configMapKey),
+	}
+}
+
+func RenderConfigMap() *k8sv1.ConfigMap {
+	var configMapData = `#!/bin/sh
+tempFile=$(mktemp --dry-run)
+echo $4 > $tempFile
+sed -i "s|<baseBoard></baseBoard>|<baseBoard><entry name='manufacturer'>Radical Edward</entry></baseBoard>|" $tempFile
+cat $tempFile`
+
+	return &k8sv1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "cm-",
+		},
+		Data: map[string]string{
+			configMapKey: configMapData,
+		},
 	}
 }
