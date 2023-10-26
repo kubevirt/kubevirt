@@ -171,7 +171,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 		})
 
-		It("should successfully plug guaranteed vCPUs", func() {
+		It("should successfully plug guaranteed vCPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			checks.ExpectAtLeastTwoWorkerNodesWithCPUManager(virtClient)
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			const (

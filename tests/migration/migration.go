@@ -2825,7 +2825,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		)
 	})
 
-	Context("[Serial] with CPU pinning and huge pages", Serial, func() {
+	Context("[Serial] with CPU pinning and huge pages", Serial, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		It("should not make migrations fail", func() {
 			checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
 			var err error
@@ -2848,7 +2848,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 			migration := tests.NewRandomMigration(cpuVMI.Name, cpuVMI.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 		})
-		Context("and NUMA passthrough", func() {
+		Context("and NUMA passthrough", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			It("should not make migrations fail", func() {
 				checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 				checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(2)
@@ -3047,7 +3047,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
-	Context("with dedicated CPUs", func() {
+	Context("with dedicated CPUs", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		var (
 			virtClient    kubecli.KubevirtClient
 			err           error

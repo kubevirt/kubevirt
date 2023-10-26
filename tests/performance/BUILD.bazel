@@ -18,6 +18,7 @@ go_library(
         "//tests:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
+        "//tests/decorators:go_default_library",
         "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libvmi:go_default_library",
