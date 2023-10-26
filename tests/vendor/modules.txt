@@ -66,9 +66,11 @@ github.com/go-task/slim-sprig
 ## explicit; go 1.15
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
-# github.com/golang/glog v1.0.0
-## explicit; go 1.11
+# github.com/golang/glog v1.1.0
+## explicit; go 1.18
 github.com/golang/glog
+github.com/golang/glog/internal/logsink
+github.com/golang/glog/internal/stackdump
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 ## explicit
 github.com/golang/groupcache/lru
@@ -375,7 +377,7 @@ google.golang.org/appengine/urlfetch
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.54.0
+# google.golang.org/grpc v1.56.3
 ## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -845,7 +847,7 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kube-aggregator v0.27.1 => k8s.io/kube-aggregator v0.26.3
+# k8s.io/kube-aggregator v0.27.4 => k8s.io/kube-aggregator v0.26.3
 ## explicit; go 1.19
 k8s.io/kube-aggregator/pkg/apis/apiregistration
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
@@ -1010,7 +1012,7 @@ kubevirt.io/kubevirt/tests/libwait
 kubevirt.io/kubevirt/tests/testsuite
 kubevirt.io/kubevirt/tests/util
 kubevirt.io/kubevirt/tests/watcher
-# kubevirt.io/managed-tenant-quota v1.1.9
+# kubevirt.io/managed-tenant-quota v1.1.10
 ## explicit; go 1.19
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core
 kubevirt.io/managed-tenant-quota/staging/src/kubevirt.io/managed-tenant-quota-api/pkg/apis/core/v1alpha1
