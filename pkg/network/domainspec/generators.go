@@ -20,6 +20,7 @@
 package domainspec
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -49,22 +50,6 @@ func NewTapLibvirtSpecGenerator(
 ) *TapLibvirtSpecGenerator {
 	return &TapLibvirtSpecGenerator{
 		vmiSpecIface:     iface,
-		domain:           domain,
-		podInterfaceName: podInterfaceName,
-		handler:          handler,
-	}
-}
-
-func NewMasqueradeLibvirtSpecGenerator(
-	iface *v1.Interface,
-	vmiSpecNetwork *v1.Network,
-	domain *api.Domain,
-	podInterfaceName string,
-	handler netdriver.NetworkHandler,
-) *MasqueradeLibvirtSpecGenerator {
-	return &MasqueradeLibvirtSpecGenerator{
-		vmiSpecIface:     iface,
-		vmiSpecNetwork:   vmiSpecNetwork,
 		domain:           domain,
 		podInterfaceName: podInterfaceName,
 		handler:          handler,
@@ -150,56 +135,6 @@ func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, 
 	return &b.cachedDomainInterface, nil
 }
 
-type MasqueradeLibvirtSpecGenerator struct {
-	vmiSpecIface     *v1.Interface
-	vmiSpecNetwork   *v1.Network
-	domain           *api.Domain
-	handler          netdriver.NetworkHandler
-	podInterfaceName string
-}
-
-func (b *MasqueradeLibvirtSpecGenerator) Generate() error {
-	domainIface, err := b.discoverDomainIfaceSpec()
-	if err != nil {
-		return err
-	}
-	ifaces := b.domain.Spec.Devices.Interfaces
-	for i, iface := range ifaces {
-		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			ifaces[i].MTU = domainIface.MTU
-			ifaces[i].MAC = domainIface.MAC
-			ifaces[i].Target = domainIface.Target
-			break
-		}
-	}
-	return nil
-}
-
-func (b *MasqueradeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
-	var domainIface api.Interface
-	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
-		return nil, err
-	}
-
-	mac, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(b.vmiSpecIface)
-	if err != nil {
-		return nil, err
-	}
-
-	domainIface.MTU = &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)}
-	domainIface.Target = &api.InterfaceTarget{
-		Device:  virtnetlink.GenerateTapDeviceName(podNicLink.Attrs().Name),
-		Managed: "no",
-	}
-
-	if mac != nil {
-		domainIface.MAC = &api.MAC{MAC: mac.String()}
-	}
-	return &domainIface, nil
-}
-
 type TapLibvirtSpecGenerator struct {
 	vmiSpecIface     *v1.Interface
 	domain           *api.Domain
@@ -238,14 +173,32 @@ func (b *TapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, err
 		mac = &podNicLink.Attrs().HardwareAddr
 	}
 
+	targetName, err := b.getTargetName()
+	if err != nil {
+		return nil, err
+	}
 	return &api.Interface{
 		MAC: &api.MAC{MAC: mac.String()},
 		MTU: &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)},
 		Target: &api.InterfaceTarget{
-			Device:  b.podInterfaceName,
+			Device:  targetName,
 			Managed: "no",
 		},
 	}, nil
+}
+
+// The method tries to find a tap device based on the hashed network name
+// in case such device doesn't exist, the pod interface is used as the target
+func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
+	tapName := virtnetlink.GenerateTapDeviceName(b.podInterfaceName)
+	if _, err := b.handler.LinkByName(tapName); err != nil {
+		var linkNotFoundErr netlink.LinkNotFoundError
+		if errors.As(err, &linkNotFoundErr) {
+			return b.podInterfaceName, nil
+		}
+		return "", err
+	}
+	return tapName, nil
 }
 
 type PasstLibvirtSpecGenerator struct {

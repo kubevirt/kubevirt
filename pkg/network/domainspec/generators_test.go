@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strconv"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -51,7 +52,7 @@ var _ = Describe("Pod Network", func() {
 	var ctrl *gomock.Controller
 	var fakeMac net.HardwareAddr
 	var tmpDir string
-	var mtu int
+	const mtu = "1410"
 
 	BeforeEach(func() {
 		dutils.MockDefaultOwnershipManager()
@@ -61,7 +62,6 @@ var _ = Describe("Pod Network", func() {
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = netdriver.NewMockNetworkHandler(ctrl)
-		mtu = 1410
 		fakeMac, _ = net.ParseMAC("12:34:56:78:9A:BC")
 	})
 
@@ -70,36 +70,53 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	Context("on successful setup", func() {
-		Context("Macvtap plug", func() {
+		Context("tap generator", func() {
 			const primaryPodIfaceName = "eth0"
+			const tapName = "tap0"
+			const specMAC = "11:22:33:44:55:66"
 
 			var (
 				domain        *api.Domain
 				specGenerator *TapLibvirtSpecGenerator
+				tapInterface  netlink.Link
+				vmi           *v1.VirtualMachineInstance
 			)
-
 			BeforeEach(func() {
-				domain = NewDomainWithMacvtapInterface("default")
+				domain = NewDomainInterface("default")
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
-				vmi := newVMIMacvtapInterface("testnamespace", "testVmName", "default")
-				macvtapInterface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtu, HardwareAddr: fakeMac}}
-				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(macvtapInterface, nil)
+				vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = specMAC
+				mtuVal, _ := strconv.Atoi(mtu)
+				iface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtuVal, HardwareAddr: fakeMac}}
+				tapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: tapName}}
+				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(iface, nil)
 				specGenerator = NewTapLibvirtSpecGenerator(
 					&vmi.Spec.Domain.Devices.Interfaces[0], domain, primaryPodIfaceName, mockNetwork)
 			})
 
-			It("Should pass a non-privileged macvtap interface to qemu", func() {
+			It("Should use the tap device as the target", func() {
+				mockNetwork.EXPECT().LinkByName(tapName).Return(tapInterface, nil)
+
 				Expect(specGenerator.Generate()).To(Succeed())
 
-				Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1), "should have a single interface")
-				Expect(domain.Spec.Devices.Interfaces[0].Target).To(
-					Equal(
-						&api.InterfaceTarget{
-							Device:  primaryPodIfaceName,
-							Managed: "no",
-						}), "should have an unmanaged interface")
-				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
-				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
+				verifyTapDomain(domain.Spec.Devices.Interfaces, tapName, mtu, specMAC)
+			})
+
+			It("Should use the pod interface as the target", func() {
+				mockNetwork.EXPECT().LinkByName(tapName).Return(nil, netlink.LinkNotFoundError{})
+
+				Expect(specGenerator.Generate()).To(Succeed())
+
+				verifyTapDomain(domain.Spec.Devices.Interfaces, primaryPodIfaceName, mtu, specMAC)
+			})
+
+			It("Should use the pod interface MAC address", func() {
+				mockNetwork.EXPECT().LinkByName(tapName).Return(tapInterface, nil)
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = ""
+
+				Expect(specGenerator.Generate()).To(Succeed())
+
+				verifyTapDomain(domain.Spec.Devices.Interfaces, tapName, mtu, fakeMac.String())
 			})
 		})
 
@@ -256,3 +273,15 @@ var _ = Describe("Pod Network", func() {
 		})
 	})
 })
+
+func verifyTapDomain(domainIfaces []api.Interface, expectedTargetName, expectedMTU, expectedMAC string) {
+	ExpectWithOffset(1, domainIfaces).To(HaveLen(1), "should have a single interface")
+	ExpectWithOffset(1, domainIfaces[0].Target).To(
+		Equal(
+			&api.InterfaceTarget{
+				Device:  expectedTargetName,
+				Managed: "no",
+			}), "should have an unmanaged interface")
+	ExpectWithOffset(1, domainIfaces[0].MAC).To(Equal(&api.MAC{MAC: expectedMAC}), "should have the expected MAC address")
+	ExpectWithOffset(1, domainIfaces[0].MTU).To(Equal(&api.MTU{Size: expectedMTU}), "should have the expected MTU")
+}
