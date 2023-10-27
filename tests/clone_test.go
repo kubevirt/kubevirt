@@ -59,9 +59,6 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 		vmi := libvmi.NewCirros(options...)
 		vmi.Namespace = testsuite.GetTestNamespace(nil)
 		vm = NewRandomVirtualMachine(vmi, false)
-		vm.Annotations = vmi.Annotations
-		vm.Labels = vmi.Labels
-
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -239,10 +236,12 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 
 		expectEqualLabels := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
 			expectEqualStrMap(targetVM.Labels, sourceVM.Labels, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "labels"), keysToExclude...)
+			expectEqualStrMap(targetVM.Spec.Template.ObjectMeta.Labels, sourceVM.Spec.Template.ObjectMeta.Labels, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "template.labels"), keysToExclude...)
 		}
 
 		expectEqualAnnotations := func(targetVM, sourceVM *virtv1.VirtualMachine, keysToExclude ...string) {
 			expectEqualStrMap(targetVM.Annotations, sourceVM.Annotations, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "annotations"), keysToExclude...)
+			expectEqualStrMap(targetVM.Spec.Template.ObjectMeta.Annotations, sourceVM.Spec.Template.ObjectMeta.Annotations, fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "template.annotations"), keysToExclude...)
 		}
 
 		expectSpecsToEqualExceptForMacAddress := func(vm1, vm2 *virtv1.VirtualMachine) {
@@ -362,6 +361,31 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				targetVM = expectVMRunnable(targetVM)
 
 				Expect(targetVM.Spec).To(Equal(sourceVM.Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec"))
+				expectEqualLabels(targetVM, sourceVM, key2)
+				expectEqualAnnotations(targetVM, sourceVM, key2)
+			})
+
+			It("clone with only some of template.labels/template.annotations", func() {
+				sourceVM = createVM()
+				vmClone = generateCloneFromVM()
+
+				vmClone.Spec.Template.LabelFilters = []string{
+					"*",
+					"!" + key2,
+				}
+				vmClone.Spec.Template.AnnotationFilters = []string{
+					key1,
+				}
+				createCloneAndWaitForFinish(vmClone)
+
+				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
+				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, &v1.GetOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				By("Making sure target is runnable")
+				targetVM = expectVMRunnable(targetVM)
+
+				Expect(targetVM.Spec.Template.ObjectMeta).To(Equal(sourceVM.Spec.Template.ObjectMeta), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec.template"))
 				expectEqualLabels(targetVM, sourceVM, key2)
 				expectEqualAnnotations(targetVM, sourceVM, key2)
 			})

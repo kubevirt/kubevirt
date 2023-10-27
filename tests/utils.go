@@ -1533,23 +1533,21 @@ func RunCommandOnVmiTargetPod(vmi *v1.VirtualMachineInstance, command []string) 
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
 	name := vmi.Name
 	namespace := vmi.Namespace
-	vmLabels := map[string]string{"name": name}
-	for k, v := range vmi.Labels {
-		vmLabels[k] = v
-	}
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      vmi.Labels,
+			Annotations: vmi.Annotations,
 		},
 		Spec: v1.VirtualMachineSpec{
 			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      vmLabels,
+					Labels:      vmi.Labels,
 					Name:        name + "makeitinteresting", // this name should have no effect
 					Namespace:   namespace,
-					Annotations: vmi.ObjectMeta.Annotations,
+					Annotations: vmi.Annotations,
 				},
 				Spec: vmi.Spec,
 			},
