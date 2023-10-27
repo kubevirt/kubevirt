@@ -11,7 +11,7 @@ WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
 FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
 VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
 LDFLAGS            ?= -w -s
-GOLANDCI_LINT_VERSION ?= v1.54.2
+GOLANDCI_LINT_VERSION ?= v1.55.1
 
 
 

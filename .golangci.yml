@@ -5,3 +5,7 @@ linters:
 linters-settings:
   ginkgolinter:
     forbid-focus-container: true
+  revive:
+    rules:
+    - name: dot-imports
+      disabled: true
