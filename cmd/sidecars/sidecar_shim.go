@@ -43,11 +43,13 @@ import (
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 )
 
 const (
 	onDefineDomainLoggingMessage  = "OnDefineDomain method has been called"
 	preCloudInitIsoLoggingMessage = "PreCloudInitIso method has been called"
+	onShutdownMessage             = "Hook's Shutdown callback method has been called"
 
 	onDefineDomainBin  = "onDefineDomain"
 	preCloudInitIsoBin = "preCloudInitIso"
@@ -64,6 +66,15 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 		hooksInfo.PreCloudInitIsoHookPointName: preCloudInitIsoBin,
 	}
 	var hookPoints = []*hooksInfo.HookPoint{}
+
+	// Shutdown fixes proper termination of Sidecars. It isn't related to
+	// user's binaries nor scripts.
+	if s.Version != "v1alpha1" && s.Version != "v1alpha2" {
+		hookPoints = append(hookPoints, &hooksInfo.HookPoint{
+			Name:     hooksInfo.ShutdownHookPointName,
+			Priority: 0,
+		})
+	}
 
 	for hookPointName, binName := range supportedHookPoints {
 		if _, err := exec.LookPath(binName); err != nil {
@@ -90,6 +101,39 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 
 type v1Alpha1Server struct{}
 type v1Alpha2Server struct{}
+type v1Alpha3Server struct {
+	done chan struct{}
+}
+
+func (s v1Alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.OnDefineDomainParams) (*hooksV1alpha3.OnDefineDomainResult, error) {
+	log.Log.Info(onDefineDomainLoggingMessage)
+	newDomainXML, err := runOnDefineDomain(params.GetVmi(), params.GetDomainXML())
+	if err != nil {
+		log.Log.Reason(err).Error("Failed OnDefineDomain")
+		return nil, err
+	}
+	return &hooksV1alpha3.OnDefineDomainResult{
+		DomainXML: newDomainXML,
+	}, nil
+}
+
+func (s v1Alpha3Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha3.PreCloudInitIsoParams) (*hooksV1alpha3.PreCloudInitIsoResult, error) {
+	log.Log.Info(preCloudInitIsoLoggingMessage)
+	cloudInitData, err := runPreCloudInitIso(params.GetVmi(), params.GetCloudInitData())
+	if err != nil {
+		log.Log.Reason(err).Error("Failed ProCloudInitIso")
+		return nil, err
+	}
+	return &hooksV1alpha3.PreCloudInitIsoResult{
+		CloudInitData: cloudInitData,
+	}, nil
+}
+
+func (s v1Alpha3Server) Shutdown(_ context.Context, _ *hooksV1alpha3.ShutdownParams) (*hooksV1alpha3.ShutdownResult, error) {
+	log.Log.Info(onShutdownMessage)
+	s.done <- struct{}{}
+	return &hooksV1alpha3.ShutdownResult{}, nil
+}
 
 func (s v1Alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
 	log.Log.Info(onDefineDomainLoggingMessage)
@@ -174,7 +218,7 @@ func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 }
 
 func parseCommandLineArgs() (string, error) {
-	supportedVersions := []string{"v1alpha1", "v1alpha2"}
+	supportedVersions := []string{"v1alpha1", "v1alpha2", "v1alpha3"}
 	version := ""
 
 	pflag.StringVar(&version, "version", "", "hook version to use")
@@ -244,6 +288,9 @@ func main() {
 	hooksV1alpha1.RegisterCallbacksServer(server, v1Alpha1Server{})
 	hooksV1alpha2.RegisterCallbacksServer(server, v1Alpha2Server{})
 
+	shutdownChan := make(chan struct{})
+	hooksV1alpha3.RegisterCallbacksServer(server, v1Alpha3Server{done: shutdownChan})
+
 	// Handle signals to properly shutdown process
 	signalStopChan := make(chan os.Signal, 1)
 	signal.Notify(signalStopChan, os.Interrupt,
@@ -264,6 +311,8 @@ func main() {
 		log.Log.Infof("sidecar-shim received signal: %s", s.String())
 	case err = <-errChan:
 		log.Log.Reason(err).Error("Failed to run grpc server")
+	case <-shutdownChan:
+		log.Log.Info("Exiting")
 	}
 
 	if err == nil {
