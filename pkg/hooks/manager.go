@@ -310,39 +310,42 @@ func preCloudInitIsoValidateResult(dataSource cloudinit.DataSourceType, initData
 }
 
 func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error) {
-	if callbacks, found := m.CallbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
-		for _, callback := range callbacks {
-			if callback.Version == hooksV1alpha2.Version {
-				cloudInitDataJSON, cloudInitNoCloudSourceJSON, vmiJSON, err := preCloudInitIsoDataToJSON(vmi, cloudInitData)
-				if err != nil {
-					log.Log.Reason(err).Error("Failed to run PreCloudInitIso")
-					return cloudInitData, err
-				}
-
-				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
-				if err != nil {
-					log.Log.Reason(err).Errorf(dialSockErr, callback.SocketPath)
-					return cloudInitData, err
-				}
-				defer conn.Close()
-
-				client := hooksV1alpha2.NewCallbacksClient(conn)
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				defer cancel()
-
-				result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
-					CloudInitData:          cloudInitDataJSON,
-					CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
-					Vmi:                    vmiJSON,
-				})
-				if err != nil {
-					log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
-					return cloudInitData, err
-				}
-				return preCloudInitIsoValidateResult(cloudInitData.DataSource, result.GetCloudInitData(), result.GetCloudInitNoCloudSource())
-			} else {
-				panic("Should never happen, version compatibility check is done during Info call")
+	callbacks, found := m.CallbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]
+	if !found {
+		return cloudInitData, nil
+	}
+	for _, callback := range callbacks {
+		switch callback.Version {
+		case hooksV1alpha2.Version:
+			cloudInitDataJSON, cloudInitNoCloudSourceJSON, vmiJSON, err := preCloudInitIsoDataToJSON(vmi, cloudInitData)
+			if err != nil {
+				log.Log.Reason(err).Error("Failed to run PreCloudInitIso")
+				return cloudInitData, err
 			}
+
+			conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
+			if err != nil {
+				log.Log.Reason(err).Errorf(dialSockErr, callback.SocketPath)
+				return cloudInitData, err
+			}
+			defer conn.Close()
+
+			client := hooksV1alpha2.NewCallbacksClient(conn)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+
+			result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
+				CloudInitData:          cloudInitDataJSON,
+				CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
+				Vmi:                    vmiJSON,
+			})
+			if err != nil {
+				log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
+				return cloudInitData, err
+			}
+			return preCloudInitIsoValidateResult(cloudInitData.DataSource, result.GetCloudInitData(), result.GetCloudInitNoCloudSource())
+		default:
+			panic("Should never happen, version compatibility check is done during Info call")
 		}
 	}
 	return cloudInitData, nil
