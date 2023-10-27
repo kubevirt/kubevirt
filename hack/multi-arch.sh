@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2023 NVIDIA CORPORATION
+# Copyright the KubeVirt Authors.
 #
 
 source hack/common.sh

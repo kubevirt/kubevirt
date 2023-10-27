@@ -14,7 +14,7 @@ The main branch of this repository is updated on every PR merge, release tags ar
 KubeVirt client-go is distributed under the
 [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt).
 
-    Copyright 2019
+    Copyright the KubeVirt Authors.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
