@@ -27,7 +27,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
@@ -241,6 +243,30 @@ func main() {
 	hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
 	hooksV1alpha1.RegisterCallbacksServer(server, v1Alpha1Server{})
 	hooksV1alpha2.RegisterCallbacksServer(server, v1Alpha2Server{})
+
+	// Handle signals to properly shutdown process
+	signalStopChan := make(chan os.Signal, 1)
+	signal.Notify(signalStopChan, os.Interrupt,
+		syscall.SIGHUP,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
+
 	log.Log.Infof("shim is now exposing its services on socket %s", socketPath)
-	server.Serve(socket)
+	errChan := make(chan error)
+	go func() {
+		errChan <- server.Serve(socket)
+	}()
+
+	select {
+	case s := <-signalStopChan:
+		log.Log.Infof("sidecar-shim received signal: %s", s.String())
+	case err = <-errChan:
+		log.Log.Reason(err).Error("Failed to run grpc server")
+	}
+
+	if err == nil {
+		server.GracefulStop()
+	}
 }

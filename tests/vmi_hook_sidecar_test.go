@@ -218,6 +218,34 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			})
 		})
 
+		Context("with sidecar-shim", func() {
+			It("should receive Terminal signal on VMI deletion", func() {
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func(g Gomega) {
+					vmiPod, exists, err := getVMIPod(vmi)
+					g.Expect(err).ToNot(HaveOccurred(), "must be able to retrieve the VMI virt-launcher pod")
+					g.Expect(exists).To(BeTrue())
+
+					var tailLines int64 = 100
+					logsRaw, err := virtClient.CoreV1().
+						Pods(vmiPod.GetObjectMeta().GetNamespace()).
+						GetLogs(vmiPod.GetObjectMeta().GetName(), &k8sv1.PodLogOptions{
+							TailLines: &tailLines,
+							Container: sidecarContainerName,
+						}).
+						DoRaw(context.Background())
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(string(logsRaw)).To(ContainSubstring("sidecar-shim received signal: terminated"))
+				}, 30*time.Second, time.Second).Should(
+					Succeed(),
+					fmt.Sprintf("container %s should terminate", sidecarContainerName))
+			})
+		})
+
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
 			It("should update domain XML with SM BIOS properties", func() {
