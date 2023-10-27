@@ -86,6 +86,15 @@ func (ctrl *VMCloneController) execute(key string) error {
 		vmClone = obj.(*clonev1alpha1.VirtualMachineClone)
 		logger = logger.Object(vmClone)
 	} else {
+		ctrl.vmCloneExpectations.DeleteExpectations(key)
+		ctrl.snapshotExpectations.DeleteExpectations(key)
+		return nil
+	}
+	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-controller owns the snapshot
+	needsSync := ctrl.snapshotExpectations.SatisfiedExpectations(key) && ctrl.vmCloneExpectations.SatisfiedExpectations(key)
+
+	if !needsSync {
+
 		return nil
 	}
 
@@ -346,8 +355,11 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 		if phaseChanged {
 			log.Log.Object(vmClone).Infof("Changing phase to %s", vmClone.Status.Phase)
 		}
+		key := getVirtualMachineCloneKey(vmClone)
+		ctrl.vmCloneExpectations.SetExpectations(key, 1, 0)
 		err := ctrl.cloneStatusUpdater.UpdateStatus(vmClone)
 		if err != nil {
+			ctrl.vmCloneExpectations.LowerExpectations(key, 1, 0)
 			return err
 		}
 	}
@@ -358,9 +370,12 @@ func (ctrl *VMCloneController) updateStatus(origClone *clonev1alpha1.VirtualMach
 func (ctrl *VMCloneController) createSnapshotFromVm(vmClone *clonev1alpha1.VirtualMachineClone, vm *k6tv1.VirtualMachine, syncInfo syncInfoType) (*snapshotv1alpha1.VirtualMachineSnapshot, syncInfoType) {
 	snapshot := generateSnapshot(vmClone, vm)
 	syncInfo.logger.Infof("creating snapshot %s for clone %s", snapshot.Name, vmClone.Name)
+	vmCloneKey := getVirtualMachineCloneKey(vmClone)
+	ctrl.snapshotExpectations.ExpectCreations(vmCloneKey, 1)
 
 	snapshot, syncInfo.err = ctrl.client.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	if syncInfo.err != nil {
+		ctrl.snapshotExpectations.CreationObserved(vmCloneKey)
 		return snapshot, addErrorToSyncInfo(syncInfo, fmt.Errorf("failed creating snapshot %s for clone %s: %v", snapshot.Name, vmClone.Name, syncInfo.err))
 	}
 
@@ -469,8 +484,14 @@ func (ctrl *VMCloneController) verifyVmReady(vmClone *clonev1alpha1.VirtualMachi
 }
 
 func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {
+	vmCloneKey := getVirtualMachineCloneKey(vmClone)
+	snapshotKey := getKey(*vmClone.Status.SnapshotName, vmClone.Namespace)
+
+	ctrl.snapshotExpectations.ExpectDeletions(vmCloneKey, []string{snapshotKey})
+
 	err := ctrl.client.VirtualMachineSnapshot(vmClone.Namespace).Delete(context.Background(), *vmClone.Status.SnapshotName, v1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
+		ctrl.snapshotExpectations.DeletionObserved(vmCloneKey, snapshotKey)
 		return addErrorToSyncInfo(syncInfo, fmt.Errorf("cannot clean up snapshot %s for clone %s", *vmClone.Status.SnapshotName, vmClone.Name))
 	}
 

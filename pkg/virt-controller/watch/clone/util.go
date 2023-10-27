@@ -17,6 +17,7 @@ import (
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 )
 
 const (
@@ -32,6 +33,14 @@ var currentTime = func() *metav1.Time {
 
 func getKey(name, namespace string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func getSnapshotKey(snapshot *snapshotv1alpha1.VirtualMachineSnapshot) string {
+	return fmt.Sprintf("%s/%s", snapshot.ObjectMeta.Namespace, snapshot.ObjectMeta.Name)
+}
+
+func getVirtualMachineCloneKey(vmclone *clonev1alpha1.VirtualMachineClone) string {
+	return fmt.Sprintf("%s/%s", vmclone.ObjectMeta.Namespace, vmclone.ObjectMeta.Name)
 }
 
 func generateNameWithRandomSuffix(names ...string) string {

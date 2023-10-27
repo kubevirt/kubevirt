@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+
 	"kubevirt.io/api/clone"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 
@@ -44,6 +46,8 @@ type VMCloneController struct {
 	vmInformer              cache.SharedIndexInformer
 	snapshotContentInformer cache.SharedIndexInformer
 	recorder                record.EventRecorder
+	snapshotExpectations    *controller.UIDTrackingControllerExpectations
+	vmCloneExpectations     *controller.UIDTrackingControllerExpectations
 
 	vmCloneQueue       workqueue.RateLimitingInterface
 	vmStatusUpdater    *status.VMStatusUpdater
@@ -59,16 +63,19 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		vmInformer:              vmInformer,
 		snapshotContentInformer: snapshotContentInformer,
 		recorder:                recorder,
-		vmCloneQueue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
-		vmStatusUpdater:         status.NewVMStatusUpdater(client),
-		cloneStatusUpdater:      status.NewCloneStatusUpdater(client),
+		snapshotExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmCloneExpectations:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+
+		vmCloneQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
+		vmStatusUpdater:    status.NewVMStatusUpdater(client),
+		cloneStatusUpdater: status.NewCloneStatusUpdater(client),
 	}
 
 	_, err := ctrl.vmCloneInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    ctrl.handleVMClone,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMClone(newObj) },
-			DeleteFunc: ctrl.handleVMClone,
+			AddFunc:    ctrl.addVirtualMachineClone,
+			UpdateFunc: ctrl.updateVirtualMachineClone,
+			DeleteFunc: ctrl.deleteVirtualMachineClone,
 		},
 	)
 
@@ -78,9 +85,9 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 
 	_, err = ctrl.snapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    ctrl.handleSnapshot,
+			AddFunc:    ctrl.addVirtualMachineSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleSnapshot(newObj) },
-			DeleteFunc: ctrl.handleSnapshot,
+			DeleteFunc: ctrl.deleteVirtualMachineSnapshot,
 		},
 	)
 
@@ -102,7 +109,92 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	return &ctrl, nil
 }
 
-func (ctrl *VMCloneController) handleVMClone(obj interface{}) {
+func (ctrl *VMCloneController) updateVirtualMachineClone(_, curr interface{}) {
+	ctrl.lowerVMCloneExpectation(curr)
+	ctrl.enqueueVirtualMachineClone(curr)
+}
+func (ctrl *VMCloneController) addVirtualMachineClone(obj interface{}) {
+	ctrl.lowerVMCloneExpectation(obj)
+	ctrl.enqueueVirtualMachineClone(obj)
+}
+func (ctrl *VMCloneController) deleteVirtualMachineClone(obj interface{}) {
+	ctrl.lowerVMCloneExpectation(obj)
+	ctrl.enqueueVirtualMachineClone(obj)
+}
+
+func (ctrl *VMCloneController) lowerVMCloneExpectation(curr interface{}) {
+	key, err := controller.KeyFunc(curr)
+	if err != nil {
+		return
+	}
+	ctrl.vmCloneExpectations.LowerExpectations(key, 1, 0)
+}
+func (ctrl *VMCloneController) addVirtualMachineSnapshot(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	snapshot, ok := obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
+	if !ok {
+		log.Log.Errorf(unknownTypeErrFmt, "virtualmachinesnapshot")
+		return
+	}
+
+	if ownedByClone, key := isOwnedByClone(snapshot); ownedByClone {
+		ctrl.snapshotExpectations.CreationObserved(key)
+		ctrl.vmCloneQueue.AddRateLimited(key)
+	}
+
+	snapshotKey, err := cache.MetaNamespaceKeyFunc(snapshot)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get snapshot key")
+		return
+	}
+
+	keys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("snapshotSource", snapshotKey)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone keys from snapshotSource indexer")
+		return
+	}
+
+	for _, key := range keys {
+		ctrl.vmCloneQueue.AddRateLimited(key)
+	}
+}
+func (ctrl *VMCloneController) deleteVirtualMachineSnapshot(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	snapshot, ok := obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
+	if !ok {
+		log.Log.Errorf(unknownTypeErrFmt, "virtualmachinesnapshot")
+		return
+	}
+
+	if ownedByClone, key := isOwnedByClone(snapshot); ownedByClone {
+		ctrl.snapshotExpectations.DeletionObserved(key, getSnapshotKey(snapshot))
+		ctrl.vmCloneQueue.AddRateLimited(key)
+	}
+
+	snapshotKey, err := cache.MetaNamespaceKeyFunc(snapshot)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get snapshot key")
+		return
+	}
+
+	keys, err := ctrl.vmCloneInformer.GetIndexer().IndexKeys("snapshotSource", snapshotKey)
+	if err != nil {
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone keys from snapshotSource indexer")
+		return
+	}
+
+	for _, key := range keys {
+		ctrl.vmCloneQueue.AddRateLimited(key)
+	}
+}
+
+func (ctrl *VMCloneController) enqueueVirtualMachineClone(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
 	}
