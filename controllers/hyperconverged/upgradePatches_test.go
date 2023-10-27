@@ -55,8 +55,7 @@ var _ = Describe("upgradePatches", func() {
 			Expect(copyTestFile("badJson.json")).To(Succeed())
 
 			err := validateUpgradePatches(req)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(HavePrefix("invalid character"))
+			Expect(err).Should(MatchError(HavePrefix("invalid character")))
 		})
 
 		Context("hcoCRPatchList", func() {
@@ -65,18 +64,14 @@ var _ = Describe("upgradePatches", func() {
 				Expect(copyTestFile("badSemverRange.json")).To(Succeed())
 
 				err := validateUpgradePatches(req)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(HavePrefix("Could not get version from string:"))
+				Expect(err).Should(MatchError(HavePrefix("Could not get version from string:")))
 			})
 
 			DescribeTable(
 				"should fail validating upgradePatches with bad patches",
 				func(filename, message string) {
 					Expect(copyTestFile(filename)).To(Succeed())
-
-					err := validateUpgradePatches(req)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).Should(HavePrefix(message))
+					Expect(validateUpgradePatches(req)).Should(MatchError(HavePrefix(message)))
 				},
 				Entry(
 					"bad operation kind",
@@ -102,8 +97,7 @@ var _ = Describe("upgradePatches", func() {
 
 					err := validateUpgradePatches(req)
 					if expectedErr {
-						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).Should(HavePrefix(message))
+						Expect(err).Should(MatchError(HavePrefix(message)))
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 					}
@@ -140,20 +134,14 @@ var _ = Describe("upgradePatches", func() {
 
 			It("should fail validating upgradePatches with bad semver ranges", func() {
 				Expect(copyTestFile("badSemverRangeOR.json")).To(Succeed())
-
-				err := validateUpgradePatches(req)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(HavePrefix("Could not get version from string:"))
+				Expect(validateUpgradePatches(req)).Should(MatchError(HavePrefix("Could not get version from string:")))
 			})
 
 			DescribeTable(
 				"should fail validating upgradePatches with bad patches",
 				func(filename, message string) {
 					Expect(copyTestFile(filename)).To(Succeed())
-
-					err := validateUpgradePatches(req)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).Should(HavePrefix(message))
+					Expect(validateUpgradePatches(req)).Should(MatchError(HavePrefix(message)))
 				},
 				Entry(
 					"empty object kind",

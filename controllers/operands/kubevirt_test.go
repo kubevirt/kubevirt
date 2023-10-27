@@ -3112,8 +3112,6 @@ Version: 1.2.3`)
 					hco.Spec.TuningPolicy = hcov1beta1.HyperConvergedAnnotationTuningPolicy
 
 					kv, err := NewKubeVirt(hco)
-
-					Expect(err).To(HaveOccurred())
 					Expect(err).Should(MatchError("tuning policy set but annotation not present or wrong"))
 
 					Expect(kv).To(BeNil())
@@ -3127,8 +3125,6 @@ Version: 1.2.3`)
 					hco.Annotations["hco.kubevirt.io/tuningPolicy"] = `{"qps": 100}`
 
 					kv, err := NewKubeVirt(hco)
-
-					Expect(err).To(HaveOccurred())
 					Expect(err).Should(MatchError("burst parameter not found in annotation"))
 					Expect(kv).To(BeNil())
 
@@ -3329,12 +3325,10 @@ Version: 1.2.3`)
 
 				kv := &kubevirtcorev1.KubeVirt{}
 
-				err := cl.Get(context.TODO(),
+				Expect(cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					kv)
-
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+					kv,
+				)).To(MatchError(errors.IsNotFound, "not found error"))
 			})
 
 			It("Ensure func should update KV object with changes from the annotation", func() {

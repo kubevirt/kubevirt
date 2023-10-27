@@ -205,11 +205,10 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		})
 
 		It("imageStream should be removed", func() {
-			Eventually(func(g Gomega) bool {
+			Eventually(func() error {
 				_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, "centos8", metav1.GetOptions{})
-				g.Expect(err).Should(HaveOccurred())
-				return errors.IsNotFound(err)
-			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(BeTrue())
+				return err
+			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(MatchError(errors.IsNotFound, "not found error"))
 		})
 
 		It("should empty the DICT in SSP", func() {

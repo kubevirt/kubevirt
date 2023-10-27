@@ -936,8 +936,7 @@ var _ = Describe("HyperconvergedController", func() {
 				err = cl.Get(context.TODO(),
 					types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
 					foundResource)
-				Expect(err).To(HaveOccurred())
-				Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 				verifyHyperConvergedCRExistsMetricFalse()
 			})
@@ -1568,8 +1567,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Expect(ver).Should(Equal(testHcoVersion))
 						// and a third
 						res, err = r.Reconcile(context.TODO(), request)
-						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).Should(ContainSubstring(errorMessage))
+						Expect(err).Should(MatchError(ContainSubstring(errorMessage)))
 						Expect(res.Requeue).To(BeTrue())
 						Expect(
 							cl.Get(context.TODO(),
@@ -2271,12 +2269,10 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Verify services do not exist anymore")
 					foundResource := &corev1.Service{}
 					err = cl.Get(context.TODO(), types.NamespacedName{Name: operatorMetrics, Namespace: expected.hco.Namespace}, foundResource)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					err = cl.Get(context.TODO(), types.NamespacedName{Name: webhookMetrics, Namespace: expected.hco.Namespace}, foundResource)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 				})
 
 				It("Should remove endpoints", func() {
@@ -2305,8 +2301,7 @@ var _ = Describe("HyperconvergedController", func() {
 					By("Verify endpoint do not exist anymore")
 					foundResource := &corev1.Endpoints{}
 					err = cl.Get(context.TODO(), types.NamespacedName{Name: operatorMetrics, Namespace: expected.hco.Namespace}, foundResource)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 				})
 			})
 
@@ -2397,12 +2392,10 @@ var _ = Describe("HyperconvergedController", func() {
 					foundCM := &corev1.ConfigMap{}
 
 					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved2), foundCM)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)).To(Succeed())
 					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)).To(Succeed())
@@ -2586,16 +2579,13 @@ var _ = Describe("HyperconvergedController", func() {
 					foundRoleBinding := &rbacv1.RoleBinding{}
 
 					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(cmToBeRemoved1), foundCM)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleToBeRemoved), foundRole)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					err = cl.Get(context.TODO(), client.ObjectKeyFromObject(roleBindingToBeRemoved), foundRoleBinding)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved1), foundCM)).To(Succeed())
 					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved2), foundCM)).To(Succeed())
@@ -2749,8 +2739,7 @@ var _ = Describe("HyperconvergedController", func() {
 					foundCRD := &apiextensionsv1.CustomResourceDefinition{}
 
 					err := cl.Get(context.TODO(), client.ObjectKeyFromObject(crdToBeRemoved), foundCRD)
-					Expect(err).To(HaveOccurred())
-					Expect(apierrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
 
 					foundCM := &corev1.ConfigMap{}
 					Expect(cl.Get(context.TODO(), client.ObjectKeyFromObject(cmNotToBeRemoved), foundCM)).To(Succeed())
@@ -3239,9 +3228,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 
 				res, err := r.Reconcile(context.TODO(), request)
-
-				Expect(err).To(HaveOccurred())
-				Expect(apierrors.IsConflict(err)).To(BeTrue())
+				Expect(err).To(MatchError(apierrors.IsConflict, "conflict error"))
 				Expect(res.Requeue).To(BeTrue())
 			})
 
@@ -3259,9 +3246,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 
 				res, err := r.Reconcile(context.TODO(), request)
-
-				Expect(err).To(HaveOccurred())
-				Expect(apierrors.IsConflict(err)).To(BeTrue())
+				Expect(err).To(MatchError(apierrors.IsConflict, "conflict error"))
 				Expect(res.Requeue).To(BeTrue())
 
 			})

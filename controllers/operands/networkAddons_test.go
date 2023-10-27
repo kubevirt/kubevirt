@@ -865,12 +865,10 @@ var _ = Describe("CNA Operand", func() {
 
 				cna := &networkaddonsv1.NetworkAddonsConfig{}
 
-				err := cl.Get(context.TODO(),
+				Expect(cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					cna)
-
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+					cna,
+				)).To(MatchError(errors.IsNotFound, "not found error"))
 			})
 
 			It("Ensure func should update CNA object with changes from the annotation", func() {

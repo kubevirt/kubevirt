@@ -212,8 +212,7 @@ var _ = Describe("MTQ tests", func() {
 
 			foundMTQ := &mtqv1alpha1.MTQ{}
 			err := cl.Get(context.Background(), client.ObjectKey{Name: res.Name}, foundMTQ)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).Should(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "not found error"))
 		})
 	})
 

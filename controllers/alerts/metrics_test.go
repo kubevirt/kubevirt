@@ -118,8 +118,7 @@ var _ = Describe("alert tests", func() {
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
 			err := r.Reconcile(req, false)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(fakeError))
+			Expect(err).To(MatchError(fakeError))
 		})
 	})
 
@@ -1296,9 +1295,7 @@ var _ = Describe("alert tests", func() {
 			})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			retErr := r.Reconcile(req, false)
-			Expect(retErr).Should(HaveOccurred())
-			Expect(retErr).Should(MatchError(err))
+			Expect(r.Reconcile(req, false)).Should(MatchError(err))
 		})
 
 		It("should return error if can't update the namespace", func() {
@@ -1309,9 +1306,7 @@ var _ = Describe("alert tests", func() {
 			})
 			r := NewMonitoringReconciler(ci, cl, ee, commontestutils.GetScheme())
 
-			retErr := r.Reconcile(req, false)
-			Expect(retErr).Should(HaveOccurred())
-			Expect(retErr).Should(MatchError(err))
+			Expect(r.Reconcile(req, false)).Should(MatchError(err))
 		})
 	})
 })

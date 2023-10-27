@@ -79,8 +79,7 @@ fieldObj:
 			err = ValidateManifestDir(fileName)
 			Expect(err).To(HaveOccurred())
 			err = errors.Unwrap(err)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal(fileName + " is not a directory"))
+			Expect(err).To(MatchError(fileName + " is not a directory"))
 		})
 
 		It("should return no error for a valid dir name", func() {

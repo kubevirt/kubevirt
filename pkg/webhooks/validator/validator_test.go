@@ -3,7 +3,6 @@ package validator
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -557,9 +556,8 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			Expect(err.Error()).Should(ContainSubstring("kubevirts.kubevirt.io"))
+			Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
+			Expect(err).To(MatchError(ContainSubstring("kubevirts.kubevirt.io")))
 		})
 
 		It("should return error if dry-run update of KV CR returns error", func() {
@@ -574,8 +572,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeKvError))
+			Expect(err).Should(MatchError(ErrFakeKvError))
 		})
 
 		It("should return error if CDI CR is missing", func() {
@@ -593,9 +590,8 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
 
 			err = wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			Expect(err.Error()).Should(ContainSubstring("cdis.cdi.kubevirt.io"))
+			Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
+			Expect(err).To(MatchError(ContainSubstring("cdis.cdi.kubevirt.io")))
 		})
 
 		It("should return error if dry-run update of CDI CR returns error", func() {
@@ -609,8 +605,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeCdiError))
+			Expect(err).Should(MatchError(ErrFakeCdiError))
 		})
 
 		It("should not return error if dry-run update of ALL CR passes", func() {
@@ -641,9 +636,8 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
 
 			err = wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			Expect(err.Error()).Should(ContainSubstring("networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io"))
+			Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
+			Expect(err).To(MatchError(ContainSubstring("networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io")))
 		})
 
 		It("should return error if dry-run update of NetworkAddons CR returns error", func() {
@@ -658,8 +652,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeNetworkError))
+			Expect(err).Should(MatchError(ErrFakeNetworkError))
 		})
 
 		It("should return error if SSP CR is missing", func() {
@@ -675,9 +668,8 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Infra.NodePlacement.NodeSelector["key3"] = "value3"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			Expect(err.Error()).Should(ContainSubstring("ssps.ssp.kubevirt.io"))
+			Expect(err).To(MatchError(apierrors.IsNotFound, "not found error"))
+			Expect(err).To(MatchError(ContainSubstring("ssps.ssp.kubevirt.io")))
 		})
 
 		It("should return error if dry-run update of SSP CR returns error", func() {
@@ -691,8 +683,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeSspError))
+			Expect(err).Should(MatchError(ErrFakeSspError))
 
 		})
 
@@ -708,8 +699,7 @@ var _ = Describe("webhooks validator", func() {
 			newHco.Spec.Workloads.NodePlacement.NodeSelector["a change"] = "Something else"
 
 			err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(context.DeadlineExceeded))
+			Expect(err).Should(MatchError(context.DeadlineExceeded))
 		})
 
 		It("should not return error if nothing was changed", func() {
@@ -794,9 +784,9 @@ var _ = Describe("webhooks validator", func() {
 					NodePlacement: newHyperConvergedConfig(),
 				}
 
-				err = wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).To(HaveOccurred())
-				Expect(apierrors.IsNotFound(err)).To(BeTrue())
+				Expect(
+					wh.ValidateUpdate(ctx, dryRun, newHco, hco),
+				).To(MatchError(apierrors.IsNotFound, "not found error"))
 			})
 		})
 
@@ -852,9 +842,9 @@ var _ = Describe("webhooks validator", func() {
 				wrongVal := "Wrong Value"
 				newHco.Spec.LiveMigrationConfig.BandwidthPerMigration = &wrongVal
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).Should(ContainSubstring("failed to parse the LiveMigrationConfig.bandwidthPerMigration field"))
+				Expect(
+					wh.ValidateUpdate(ctx, dryRun, newHco, hco),
+				).To(MatchError(ContainSubstring("failed to parse the LiveMigrationConfig.bandwidthPerMigration field")))
 			})
 		})
 
@@ -907,8 +897,7 @@ var _ = Describe("webhooks validator", func() {
 					wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
 
 					err := wh.ValidateUpdate(ctx, dryRun, &newHco, hco)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).Should(ContainSubstring(errorMsg))
+					Expect(err).Should(MatchError(ContainSubstring(errorMsg)))
 				},
 				Entry("certConfig.ca.duration is too short",
 					v1beta1.HyperConverged{
@@ -1211,8 +1200,7 @@ var _ = Describe("webhooks validator", func() {
 			})
 
 			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeKvError))
+			Expect(err).To(MatchError(ErrFakeKvError))
 		})
 
 		It("should reject if CDI deletion fails", func() {
@@ -1231,8 +1219,7 @@ var _ = Describe("webhooks validator", func() {
 			})
 
 			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeCdiError))
+			Expect(err).To(MatchError(ErrFakeCdiError))
 		})
 
 		It("should ignore if KV does not exist", func() {
@@ -1260,8 +1247,7 @@ var _ = Describe("webhooks validator", func() {
 			})
 
 			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeKvError))
+			Expect(err).To(MatchError(ErrFakeKvError))
 		})
 
 		It("should ignore if CDI does not exist", func() {
@@ -1289,8 +1275,7 @@ var _ = Describe("webhooks validator", func() {
 			})
 
 			err := wh.ValidateDelete(ctx, dryRun, hco)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(ErrFakeCdiError))
+			Expect(err).To(MatchError(ErrFakeCdiError))
 		})
 	})
 
@@ -1326,20 +1311,13 @@ var _ = Describe("webhooks validator", func() {
 				cli := getFakeClient(hco)
 				cli.InitiateUpdateErrors(initiateTimeout)
 
-				dryRun := false
-				ctx := context.TODO()
-
 				wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
 
 				newHco := &v1beta1.HyperConverged{}
 				hco.DeepCopyInto(newHco)
 				newHco.Annotations = map[string]string{annotationName: annotation}
 
-				err := wh.ValidateUpdate(ctx, dryRun, newHco, hco)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid jsonPatch in the %s", annotationName))
-				fmt.Fprintf(GinkgoWriter, "Expected error: %v\n", err)
-
+				Expect(wh.ValidateUpdate(context.TODO(), false, newHco, hco)).To(MatchError(ContainSubstring("invalid jsonPatch in the %s", annotationName)))
 			},
 			Entry("should reject if kv annotation is invalid", common.JSONPatchKVAnnotationName, invalidKvAnnotation),
 			Entry("should reject if cdi annotation is invalid", common.JSONPatchCDIAnnotationName, invalidCdiAnnotation),
@@ -1439,8 +1417,7 @@ var _ = Describe("webhooks validator", func() {
 				newCr.Spec.TLSSecurityProfile = &oldTLSSecurityProfile
 
 				err := wh.ValidateUpdate(ctx, false, newCr, cr)
-				Expect(err).To(HaveOccurred())
-				Expect(err).Should(Equal(ErrFakeCdiError))
+				Expect(err).To(MatchError(ErrFakeCdiError))
 				Expect(hcoTLSConfigCache).To(Equal(&initialTLSSecurityProfile))
 			})
 
@@ -1484,8 +1461,7 @@ var _ = Describe("webhooks validator", func() {
 				})
 
 				err := wh.ValidateDelete(ctx, false, cr)
-				Expect(err).To(HaveOccurred())
-				Expect(err).Should(Equal(ErrFakeKvError))
+				Expect(err).To(MatchError(ErrFakeKvError))
 				Expect(hcoTLSConfigCache).To(Equal(&modernTLSSecurityProfile))
 			})
 

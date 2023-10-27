@@ -101,9 +101,9 @@ var _ = Describe("Test operator.go", func() {
 			found := &cdiv1beta1.CDI{}
 
 			operand := genericOperand{Scheme: scheme.Scheme}
-			err := operand.addCrToTheRelatedObjectList(req, found)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("object reference must have, at a minimum: apiVersion, kind, and name"))
+			Expect(
+				operand.addCrToTheRelatedObjectList(req, found),
+			).To(MatchError(ContainSubstring("object reference must have, at a minimum: apiVersion, kind, and name")))
 		})
 
 		It("Should add into the list when it is missing", func() {
@@ -233,8 +233,7 @@ var _ = Describe("Test operator.go", func() {
 
 			operand := genericOperand{Scheme: scheme.Scheme, Client: cl}
 			outRes := operand.createNewCr(req, expectedResource, res)
-			Expect(outRes.Err).To(HaveOccurred())
-			Expect(apierrors.IsAlreadyExists(outRes.Err)).To(BeTrue())
+			Expect(outRes.Err).To(MatchError(apierrors.IsAlreadyExists, "already exists error"))
 			Expect(outRes.Created).To(BeFalse())
 			Expect(outRes.Deleted).To(BeFalse())
 			Expect(outRes.Updated).To(BeFalse())

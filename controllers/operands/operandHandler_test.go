@@ -155,9 +155,7 @@ var _ = Describe("Test operandHandler", func() {
 				return nil
 			})
 
-			err := handler.Ensure(req)
-			Expect(err).To(HaveOccurred())
-			Expect(err).Should(Equal(fakeError))
+			Expect(handler.Ensure(req)).Should(Equal(fakeError))
 
 			Expect(req.ComponentUpgradeInProgress).To(BeFalse())
 			cond := req.Conditions[hcov1beta1.ConditionReconcileComplete]
@@ -440,8 +438,7 @@ var _ = Describe("Test operandHandler", func() {
 			defer cancelFunc()
 			req.Ctx = ctx
 			err := handler.EnsureDeleted(req)
-			Expect(err).Should(HaveOccurred())
-			Expect(err.Error()).Should(Equal("context deadline exceeded"))
+			Expect(err).Should(MatchError("context deadline exceeded"))
 
 			expectedEvents := []commontestutils.MockEvent{
 				{

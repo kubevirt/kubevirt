@@ -96,8 +96,7 @@ var _ = Describe("Test MTQ", Label("MTQ"), Serial, Ordered, func() {
 
 			patch := []byte(fmt.Sprintf(setMTQFGPatchTemplate, true))
 			err := tests.PatchHCO(ctx, cli, patch)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(ContainSubstring("the EnableManagedTenantQuota feature gate"))
+			Expect(err).To(MatchError(ContainSubstring("the EnableManagedTenantQuota feature gate")))
 
 		})
 	})
@@ -130,14 +129,13 @@ func disableMTQFeatureGate(ctx context.Context, cli kubecli.KubevirtClient) {
 	setMTQFeatureGate(ctx, cli, false)
 
 	By("make sure the MTQ CR was removed")
-	Eventually(func(g Gomega) bool {
+	Eventually(func() error {
 		_, err := getMTQResource(ctx, cli)
-		g.Expect(err).To(HaveOccurred())
-		return errors.IsNotFound(err)
+		return err
 	}).WithTimeout(5 * time.Minute).
 		WithPolling(100 * time.Millisecond).
 		WithOffset(1).
-		Should(BeTrue())
+		Should(MatchError(errors.IsNotFound, "not found error"))
 }
 
 func setMTQFeatureGate(ctx context.Context, cli kubecli.KubevirtClient, fgState bool) {

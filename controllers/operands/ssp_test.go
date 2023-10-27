@@ -359,12 +359,10 @@ var _ = Describe("SSP Operands", func() {
 
 				ssp := &sspv1beta2.SSP{}
 
-				err := cl.Get(context.TODO(),
+				Expect(cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					ssp)
-
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+					ssp,
+				)).To(MatchError(errors.IsNotFound, "not found error"))
 			})
 
 			It("Ensure func should update SSP object with changes from the annotation", func() {

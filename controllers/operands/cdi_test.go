@@ -1093,12 +1093,10 @@ var _ = Describe("CDI Operand", func() {
 
 				cdi := &cdiv1beta1.CDI{}
 
-				err := cl.Get(context.TODO(),
+				Expect(cl.Get(context.TODO(),
 					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-					cdi)
-
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+					cdi,
+				)).To(MatchError(errors.IsNotFound, "not found error"))
 			})
 
 			It("Ensure func should update CDI object with changes from the annotation", func() {
