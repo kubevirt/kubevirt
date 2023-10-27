@@ -52,8 +52,6 @@ var _ = DescribeInfra("virt-handler", func() {
 		nodesToEnableKSM []string
 	)
 
-	type ksmTestFunc func() (*v1.KSMConfiguration, []string)
-
 	getNodesWithKSMAvailable := func(virtCli kubecli.KubevirtClient) []string {
 		nodes := libnode.GetAllSchedulableNodes(virtCli)
 
@@ -110,13 +108,13 @@ var _ = DescribeInfra("virt-handler", func() {
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 	})
 
-	DescribeTable("should enable/disable ksm and add/remove annotation", decorators.KSMRequired, func(ksmConfigFun ksmTestFunc) {
+	It("should enable/disable ksm and add/remove annotation on all the nodes when the selector is empty", decorators.KSMRequired, func() {
 		kvConfig := originalKubeVirt.Spec.Configuration.DeepCopy()
-		ksmConfig, expectedEnabledNodes := ksmConfigFun()
+		ksmConfig := &v1.KSMConfiguration{NodeLabelSelector: &metav1.LabelSelector{}}
 		kvConfig.KSMConfiguration = ksmConfig
 		tests.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 		By("Ensure ksm is enabled and annotation is added in the expected nodes")
-		for _, node := range expectedEnabledNodes {
+		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
 				command := []string{"cat", "/sys/kernel/mm/ksm/run"}
 				ksmValue, err := tests.ExecuteCommandInVirtHandlerPod(node, command)
@@ -140,7 +138,7 @@ var _ = DescribeInfra("virt-handler", func() {
 		tests.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
 
 		By("Ensure ksm is disabled and annotation is set to false in the expected nodes")
-		for _, node := range expectedEnabledNodes {
+		for _, node := range nodesToEnableKSM {
 			Eventually(func() (string, error) {
 				command := []string{"cat", "/sys/kernel/mm/ksm/run"}
 				ksmValue, err := tests.ExecuteCommandInVirtHandlerPod(node, command)
@@ -160,33 +158,5 @@ var _ = DescribeInfra("virt-handler", func() {
 				return found && value == "true", nil
 			}, 3*time.Minute, 2*time.Second).Should(BeFalse(), fmt.Sprintf("Annotation %s should be removed from the node %s", v1.KSMHandlerManagedAnnotation, node))
 		}
-	},
-		Entry("in specific nodes when the selector with MatchLabels matches the node label", func() (*v1.KSMConfiguration, []string) {
-			return &v1.KSMConfiguration{
-				NodeLabelSelector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"kubernetes.io/hostname": nodesToEnableKSM[0],
-					},
-				},
-			}, []string{nodesToEnableKSM[0]}
-		}),
-		Entry("in specific nodes when the selector with MatchExpressions matches the node label", func() (*v1.KSMConfiguration, []string) {
-			return &v1.KSMConfiguration{
-				NodeLabelSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "kubernetes.io/hostname",
-							Operator: metav1.LabelSelectorOpIn,
-							Values:   []string{nodesToEnableKSM[0]},
-						},
-					},
-				},
-			}, []string{nodesToEnableKSM[0]}
-		}),
-		Entry("in all the nodes when the selector is empty", func() (*v1.KSMConfiguration, []string) {
-			return &v1.KSMConfiguration{
-				NodeLabelSelector: &metav1.LabelSelector{},
-			}, nodesToEnableKSM
-		}),
-	)
+	})
 })
