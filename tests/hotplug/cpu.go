@@ -237,7 +237,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, &k8smetav1.PatchOptions{})
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("cannot update while VMI migration is in progress")))
 
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 
@@ -251,24 +251,11 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 			// Need to wait for the hotplug to begin.
 			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstanceVCPUChange))
 
-			By("Ensuring live-migration started")
-			Eventually(func() bool {
-				migrations, err := virtClient.VirtualMachineInstanceMigration(vm.Namespace).List(&k8smetav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for _, mig := range migrations.Items {
-					match := 0
-					if mig.Spec.VMIName == vmi.Name {
-						match++
-						if !migration.IsFinal() || match == 2 {
-							migration = mig.DeepCopy()
-							return true
-						}
-					}
-				}
-				return false
-			}, 30*time.Second, time.Second).Should(BeTrue())
-			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
-			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			By("Ensuring hotplug ended")
+			Eventually(ThisVMI(vmi), 1*time.Minute, 2*time.Second).ShouldNot(SatisfyAny(
+				HaveConditionTrue(v1.VirtualMachineInstanceVCPUChange),
+				HaveConditionFalse(v1.VirtualMachineInstanceVCPUChange),
+			))
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() cpuCount {

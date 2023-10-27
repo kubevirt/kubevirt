@@ -468,17 +468,10 @@ func GetRunningPodByLabel(label string, labelType string, namespace string, node
 
 	var readyPod *k8sv1.Pod
 	for _, pod := range pods.Items {
-		ready := true
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == "kubevirt-infra" {
-				ready = status.Ready
-				break
-			}
-		}
-		if ready {
-			readyPod = &pod
-			break
-		}
+		// TODO: This needs to be reworked.
+		// During migration there can be more than one pod
+		readyPod = &pod
+		break
 	}
 	if readyPod == nil {
 		return nil, fmt.Errorf("no ready pods with the label %s", label)
