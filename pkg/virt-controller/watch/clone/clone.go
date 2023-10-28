@@ -175,12 +175,19 @@ func (ctrl *VMCloneController) syncSourceVMTargetVM(source *k6tv1.VirtualMachine
 	syncInfo := syncInfoType{logger: log.Log.Object(vmClone)}
 
 	var snapshot *snapshotv1alpha1.VirtualMachineSnapshot
+	snapshot, syncInfo.err = currentVMCloneSnapshot(vmClone, ctrl.snapshotInformer)
+	if syncInfo.err != nil {
+		return addErrorToSyncInfo(syncInfo, fmt.Errorf("Failed to fetch snapshots for namespace %s from cache.: %v", vmClone.Namespace, syncInfo.err))
+	}
 
 	switch vmClone.Status.Phase {
 	case clonev1alpha1.PhaseUnset, clonev1alpha1.SnapshotInProgress:
 
-		if vmClone.Status.SnapshotName == nil {
+		if vmClone.Status.SnapshotName == nil && snapshot == nil {
 			_, syncInfo = ctrl.createSnapshotFromVm(vmClone, source, syncInfo)
+			return syncInfo
+		} else if vmClone.Status.SnapshotName == nil {
+			syncInfo.snapshotName = snapshot.Name
 			return syncInfo
 		}
 

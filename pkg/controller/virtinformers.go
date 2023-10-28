@@ -628,6 +628,7 @@ func GetVirtualMachineSnapshotInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
 	}
 }
 

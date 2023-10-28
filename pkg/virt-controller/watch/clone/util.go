@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"k8s.io/utils/pointer"
 
@@ -41,6 +42,32 @@ func getSnapshotKey(snapshot *snapshotv1alpha1.VirtualMachineSnapshot) string {
 
 func getVirtualMachineCloneKey(vmclone *clonev1alpha1.VirtualMachineClone) string {
 	return fmt.Sprintf("%s/%s", vmclone.ObjectMeta.Namespace, vmclone.ObjectMeta.Name)
+}
+func currentVMCloneSnapshot(vmclone *clonev1alpha1.VirtualMachineClone, snapshotInformer cache.SharedIndexInformer) (*snapshotv1alpha1.VirtualMachineSnapshot, error) {
+
+	// Get all snapshots from the namespace
+	objs, err := snapshotInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmclone.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	snapshots := []*snapshotv1alpha1.VirtualMachineSnapshot{}
+	for _, obj := range objs {
+		snapshot := obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
+		snapshots = append(snapshots, snapshot)
+	}
+
+	var curSnapshot *snapshotv1alpha1.VirtualMachineSnapshot = nil
+	for _, snapshot := range snapshots {
+		if !isControlledBy(snapshot, vmclone) {
+			continue
+		}
+
+		if curSnapshot == nil || curSnapshot.CreationTimestamp.Before(&snapshot.CreationTimestamp) {
+			curSnapshot = snapshot
+		}
+	}
+
+	return curSnapshot, nil
 }
 
 func generateNameWithRandomSuffix(names ...string) string {
@@ -199,4 +226,21 @@ func newProgressingCondition(status corev1.ConditionStatus, reason string) clone
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),
 	}
+}
+
+// GetControllerOf returns the controllerRef if controllee has a controller,
+// otherwise returns nil.
+func getControllerOf(snapshot *snapshotv1alpha1.VirtualMachineSnapshot) *metav1.OwnerReference {
+	controllerRef := metav1.GetControllerOf(snapshot)
+	if controllerRef != nil {
+		return controllerRef
+	}
+	return nil
+}
+
+func isControlledBy(snapshot *snapshotv1alpha1.VirtualMachineSnapshot, vmclone *clonev1alpha1.VirtualMachineClone) bool {
+	if controllerRef := getControllerOf(snapshot); controllerRef != nil {
+		return controllerRef.UID == vmclone.UID
+	}
+	return false
 }
