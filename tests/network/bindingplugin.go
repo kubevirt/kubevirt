@@ -98,7 +98,7 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 })
 
 func createBasicNetworkAttachmentDefinition(namespace, nadName, typeName string) error {
-	const netAttDefBasicFormat = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},"spec":{"config":"{ \"cniVersion\": \"1.0.0\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
+	const netAttDefBasicFormat = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":%q,"namespace":%q},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"%s\"}]}"}}`
 	return createNetworkAttachmentDefinition(
 		kubevirt.Client(),
 		nadName,
