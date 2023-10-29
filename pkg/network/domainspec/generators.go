@@ -56,22 +56,6 @@ func NewTapLibvirtSpecGenerator(
 	}
 }
 
-func NewBridgeLibvirtSpecGenerator(
-	iface *v1.Interface,
-	domain *api.Domain,
-	cachedDomainInterface api.Interface,
-	podInterfaceName string,
-	handler netdriver.NetworkHandler,
-) *BridgeLibvirtSpecGenerator {
-	return &BridgeLibvirtSpecGenerator{
-		vmiSpecIface:          iface,
-		domain:                domain,
-		cachedDomainInterface: cachedDomainInterface,
-		podInterfaceName:      podInterfaceName,
-		handler:               handler,
-	}
-}
-
 func NewPasstLibvirtSpecGenerator(
 	iface *v1.Interface,
 	domain *api.Domain,
@@ -84,55 +68,6 @@ func NewPasstLibvirtSpecGenerator(
 		podInterfaceName: podIfaceName,
 		vmi:              vmi,
 	}
-}
-
-type BridgeLibvirtSpecGenerator struct {
-	vmiSpecIface          *v1.Interface
-	domain                *api.Domain
-	cachedDomainInterface api.Interface
-	podInterfaceName      string
-	handler               netdriver.NetworkHandler
-}
-
-func (b *BridgeLibvirtSpecGenerator) Generate() error {
-	domainIface, err := b.discoverDomainIfaceSpec()
-	if err != nil {
-		return err
-	}
-	ifaces := b.domain.Spec.Devices.Interfaces
-	for i, iface := range ifaces {
-		if iface.Alias.GetName() == b.vmiSpecIface.Name {
-			ifaces[i].MTU = domainIface.MTU
-			ifaces[i].MAC = domainIface.MAC
-			ifaces[i].Target = domainIface.Target
-			break
-		}
-	}
-	return nil
-}
-
-func (b *BridgeLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, error) {
-	podNicLink, err := b.handler.LinkByName(b.podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf(linkIfaceFailFmt, b.podInterfaceName)
-		return nil, err
-	}
-	_, dummy := podNicLink.(*netlink.Dummy)
-	if dummy {
-		newPodNicName := virtnetlink.GenerateNewBridgedVmiInterfaceName(b.podInterfaceName)
-		podNicLink, err = b.handler.LinkByName(newPodNicName)
-		if err != nil {
-			log.Log.Reason(err).Errorf(linkIfaceFailFmt, newPodNicName)
-			return nil, err
-		}
-	}
-
-	b.cachedDomainInterface.MTU = &api.MTU{Size: strconv.Itoa(podNicLink.Attrs().MTU)}
-
-	b.cachedDomainInterface.Target = &api.InterfaceTarget{
-		Device:  virtnetlink.GenerateTapDeviceName(b.podInterfaceName),
-		Managed: "no"}
-	return &b.cachedDomainInterface, nil
 }
 
 type TapLibvirtSpecGenerator struct {
