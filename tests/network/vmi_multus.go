@@ -364,11 +364,12 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, testsuite.GetTestNamespace(vmiOne))
+				podInterfaceName := "e31d7ce2712-nic"
 				out, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					"compute",
-					[]string{"sh", "-c", "ip a"},
+					[]string{"sh", "-c", fmt.Sprintf("ip a show %s", podInterfaceName)},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
@@ -470,11 +471,12 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
+				podInterfaceName := "72ad293a5c9-nic"
 				out, err := exec.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
 					"compute",
-					[]string{"sh", "-c", "ip a"},
+					[]string{"sh", "-c", fmt.Sprintf("ip a show %s", podInterfaceName)},
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
