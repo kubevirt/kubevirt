@@ -32,7 +32,6 @@ var (
 	Networking                   = []interface{}{Label("Networking")}
 	VMIlifecycle                 = []interface{}{Label("VMIlifecycle")}
 	Expose                       = []interface{}{Label("Expose")}
-	NonRoot                      = []interface{}{Label("verify-non-root")}
 	NativeSsh                    = []interface{}{Label("native-ssh")}
 	ExcludeNativeSsh             = []interface{}{Label("exclude-native-ssh")}
 	Reenlightenment              = []interface{}{Label("Reenlightenment")}

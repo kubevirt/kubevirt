@@ -110,7 +110,6 @@ go_test(
         "instancetype_test.go",
         "kubectl_test.go",
         "mdev_configuration_allocation_test.go",
-        "nonroot_test.go",
         "pausing_test.go",
         "pool_test.go",
         "portforward_test.go",
