@@ -43,14 +43,12 @@ var _ = Describe("netconf", func() {
 		testNetworkName = "default"
 	)
 	var (
-		netConf   *netsetup.NetConf
-		vmi       *v1.VirtualMachineInstance
-		configMap map[string]netsetup.ConfigStateExecutor
-		stateMap  map[string]*netpod.State
+		netConf  *netsetup.NetConf
+		vmi      *v1.VirtualMachineInstance
+		stateMap map[string]*netpod.State
 
-		configState netsetup.ConfigStateStub
-		stateCache  stateCacheStub
-		ns          nsExecutorStub
+		stateCache stateCacheStub
+		ns         nsExecutorStub
 	)
 
 	const launcherPid = 0
@@ -58,12 +56,9 @@ var _ = Describe("netconf", func() {
 	BeforeEach(func() {
 		stateCache = newConfigStateCacheStub()
 		ns = nsExecutorStub{}
-		configMap = map[string]netsetup.ConfigStateExecutor{}
 		stateMap = map[string]*netpod.State{}
-		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, configMap, stateMap)
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, stateMap)
 		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
-
-		configState = netsetup.ConfigStateStub{}
 	})
 
 	It("runs setup successfully without networks", func() {
@@ -71,7 +66,6 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("runs setup successfully with networks", func() {
-		configMap[string(vmi.UID)] = &configState
 		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
 		Expect(stateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 
@@ -88,7 +82,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	DescribeTable("setup ignores specific network bindings", func(binding v1.InterfaceBindingMethod) {
-		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, configMap, stateMap)
+		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap)
 
 		stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
 
@@ -117,7 +111,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the setup run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, configMap, stateMap)
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap)
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   testNetworkName,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
@@ -130,45 +124,8 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("fails the teardown run", func() {
-		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, configMap, stateMap)
+		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nil, failingCacheCreator{}, stateMap)
 		Expect(netConf.Teardown(vmi)).NotTo(Succeed())
-	})
-
-	Context("hot unplug", func() {
-		const (
-			netName = "multusNet"
-			nadName = "blue"
-		)
-
-		BeforeEach(func() {
-			configMap[string(vmi.UID)] = &configState
-			stateMap[string(vmi.UID)] = netpod.NewState(stateCache, ns)
-
-			vmi.Spec.Networks = []v1.Network{{
-				Name: netName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: nadName}},
-			}}
-			iface := v1.Interface{
-				Name:                   netName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface}
-		})
-
-		It("runs setup successfully when there are absent interfaces", func() {
-			vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateAbsent
-
-			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
-			Expect(configState.UnplugWasExecuted).To(BeTrue())
-		})
-
-		It("runs setup successfully when there are no absent interfaces", func() {
-			Expect(stateCache.Write(netName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
-			Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
-			Expect(configState.UnplugWasExecuted).To(BeFalse())
-			Expect(stateCache.Read(netName)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
-		})
 	})
 })
 

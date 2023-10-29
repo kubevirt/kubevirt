@@ -44,13 +44,14 @@ func NewState(cache stateCacheReaderWriterDeleter, ns NSExecutor) *State {
 	return &State{cache: cache, NSExec: ns}
 }
 
-func (s *State) PendingAndStarted(nets []v1.Network) ([]v1.Network, []v1.Network, error) {
+func (s *State) PendingStartedFinished(nets []v1.Network) ([]v1.Network, []v1.Network, []v1.Network, error) {
 	var pendingNets []v1.Network
 	var startedNets []v1.Network
+	var finishedNets []v1.Network
 	for _, net := range nets {
 		state, err := s.cache.Read(net.Name)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		switch state {
@@ -58,9 +59,11 @@ func (s *State) PendingAndStarted(nets []v1.Network) ([]v1.Network, []v1.Network
 			pendingNets = append(pendingNets, net)
 		case cache.PodIfaceNetworkPreparationStarted:
 			startedNets = append(startedNets, net)
+		case cache.PodIfaceNetworkPreparationFinished:
+			finishedNets = append(finishedNets, net)
 		}
 	}
-	return pendingNets, startedNets, nil
+	return pendingNets, startedNets, finishedNets, nil
 }
 
 func (s *State) SetStarted(nets []v1.Network) error {
@@ -78,6 +81,15 @@ func (s *State) SetFinished(nets []v1.Network) error {
 			return neterrors.CreateCriticalNetworkError(
 				fmt.Errorf("failed to mark configuration as finished for %s: %w", net.Name, werr),
 			)
+		}
+	}
+	return nil
+}
+
+func (s *State) Delete(nets []v1.Network) error {
+	for _, net := range nets {
+		if err := s.cache.Delete(net.Name); err != nil {
+			return fmt.Errorf("failed to clear state cache for %s: %w", net.Name, err)
 		}
 	}
 	return nil
