@@ -360,9 +360,9 @@ func (app *VirtOperatorApp) Run() {
 		}
 	}()
 
-	endpointName := VirtOperator
+	leaseName := VirtOperator
 
-	recorder := app.getNewRecorder(k8sv1.NamespaceAll, endpointName)
+	recorder := app.getNewRecorder(k8sv1.NamespaceAll, leaseName)
 
 	id, err := os.Hostname()
 	if err != nil {
@@ -371,7 +371,7 @@ func (app *VirtOperatorApp) Run() {
 
 	rl, err := resourcelock.New(app.LeaderElection.ResourceLock,
 		app.operatorNamespace,
-		endpointName,
+		leaseName,
 		app.clientSet.CoreV1(),
 		app.clientSet.CoordinationV1(),
 		resourcelock.ResourceLockConfig{

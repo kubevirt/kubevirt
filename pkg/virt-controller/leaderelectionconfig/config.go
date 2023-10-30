@@ -31,7 +31,7 @@ const (
 	DefaultLeaseDuration = 15 * time.Second
 	DefaultRenewDeadline = 10 * time.Second
 	DefaultRetryPeriod   = 2 * time.Second
-	DefaultEndpointName  = "virt-controller"
+	DefaultLeaseName     = "virt-controller"
 )
 
 func DefaultLeaderElectionConfiguration() Configuration {
@@ -39,7 +39,7 @@ func DefaultLeaderElectionConfiguration() Configuration {
 		LeaseDuration: metav1.Duration{Duration: DefaultLeaseDuration},
 		RenewDeadline: metav1.Duration{Duration: DefaultRenewDeadline},
 		RetryPeriod:   metav1.Duration{Duration: DefaultRetryPeriod},
-		ResourceLock:  resourcelock.EndpointsLeasesResourceLock,
+		ResourceLock:  resourcelock.LeasesResourceLock,
 	}
 }
 
@@ -58,7 +58,4 @@ func BindFlags(l *Configuration) {
 	pflag.DurationVar(&l.RetryPeriod.Duration, "leader-elect-retry-period", l.RetryPeriod.Duration, ""+
 		"The duration the clients should wait between attempting acquisition and renewal "+
 		"of a leadership. This is only applicable if leader election is enabled.")
-	pflag.StringVar(&l.ResourceLock, "leader-elect-resource-lock", l.ResourceLock, ""+
-		"The type of resource object that is used for locking during "+
-		"leader election. Supported options are `endpoints` (default) and `configmap`.")
 }
