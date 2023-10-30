@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -300,9 +300,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(2),
 					// Set the following values to be compatible with objects converted from v1alpha1
-					Model:                 pointer.String(""),
-					DedicatedCPUPlacement: pointer.Bool(false),
-					IsolateEmulatorThread: pointer.Bool(false),
+					Model:                 ptr.To[string](""),
+					DedicatedCPUPlacement: ptr.To[bool](false),
+					IsolateEmulatorThread: ptr.To[bool](false),
 				}
 
 				specData, err := json.Marshal(clusterInstancetype.Spec)
@@ -490,9 +490,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				fakeInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(2),
 					// Set the following values to be compatible with objects converted from v1alpha1
-					Model:                 pointer.String(""),
-					DedicatedCPUPlacement: pointer.Bool(false),
-					IsolateEmulatorThread: pointer.Bool(false),
+					Model:                 ptr.To[string](""),
+					DedicatedCPUPlacement: ptr.To[bool](false),
+					IsolateEmulatorThread: ptr.To[bool](false),
 				}
 
 				specData, err := json.Marshal(fakeInstancetype.Spec)
@@ -1000,9 +1000,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
 						Guest:                 uint32(2),
-						Model:                 pointer.String("host-passthrough"),
-						DedicatedCPUPlacement: pointer.Bool(true),
-						IsolateEmulatorThread: pointer.Bool(true),
+						Model:                 ptr.To[string]("host-passthrough"),
+						DedicatedCPUPlacement: ptr.To[bool](true),
+						IsolateEmulatorThread: ptr.To[bool](true),
 						NUMA: &v1.NUMA{
 							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
 						},
@@ -1502,13 +1502,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 						Physical: 512,
 					},
 				}
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.Bool(false)
-				vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.Bool(false)
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = ptr.To[bool](false)
+				vmi.Spec.Domain.Devices.AutoattachMemBalloon = ptr.To[bool](false)
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 					{
 						Cache:             v1.CacheWriteBack,
 						IO:                v1.IONative,
-						DedicatedIOThread: pointer.Bool(false),
+						DedicatedIOThread: ptr.To[bool](false),
 						BlockSize:         userDefinedBlockSize,
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{
@@ -1566,16 +1566,16 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Devices: &instancetypev1beta1.DevicePreferences{
-						PreferredAutoattachGraphicsDevice:   pointer.Bool(true),
-						PreferredAutoattachMemBalloon:       pointer.Bool(true),
-						PreferredAutoattachPodInterface:     pointer.Bool(true),
-						PreferredAutoattachSerialConsole:    pointer.Bool(true),
-						PreferredAutoattachInputDevice:      pointer.Bool(true),
-						PreferredDiskDedicatedIoThread:      pointer.Bool(true),
-						PreferredDisableHotplug:             pointer.Bool(true),
-						PreferredUseVirtioTransitional:      pointer.Bool(true),
-						PreferredNetworkInterfaceMultiQueue: pointer.Bool(true),
-						PreferredBlockMultiQueue:            pointer.Bool(true),
+						PreferredAutoattachGraphicsDevice:   ptr.To[bool](true),
+						PreferredAutoattachMemBalloon:       ptr.To[bool](true),
+						PreferredAutoattachPodInterface:     ptr.To[bool](true),
+						PreferredAutoattachSerialConsole:    ptr.To[bool](true),
+						PreferredAutoattachInputDevice:      ptr.To[bool](true),
+						PreferredDiskDedicatedIoThread:      ptr.To[bool](true),
+						PreferredDisableHotplug:             ptr.To[bool](true),
+						PreferredUseVirtioTransitional:      ptr.To[bool](true),
+						PreferredNetworkInterfaceMultiQueue: ptr.To[bool](true),
+						PreferredBlockMultiQueue:            ptr.To[bool](true),
 						PreferredDiskBlockSize: &v1.BlockSize{
 							Custom: &v1.CustomBlockSize{
 								Logical:  4096,
@@ -1693,26 +1693,26 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Features: &instancetypev1beta1.FeaturePreferences{
 						PreferredAcpi: &v1.FeatureState{},
 						PreferredApic: &v1.FeatureAPIC{
-							Enabled:        pointer.Bool(true),
+							Enabled:        ptr.To[bool](true),
 							EndOfInterrupt: false,
 						},
 						PreferredHyperv: &v1.FeatureHyperv{
 							Relaxed: &v1.FeatureState{},
 							VAPIC:   &v1.FeatureState{},
 							Spinlocks: &v1.FeatureSpinlocks{
-								Enabled: pointer.Bool(true),
+								Enabled: ptr.To[bool](true),
 								Retries: &spinLockRetries,
 							},
 							VPIndex: &v1.FeatureState{},
 							Runtime: &v1.FeatureState{},
 							SyNIC:   &v1.FeatureState{},
 							SyNICTimer: &v1.SyNICTimer{
-								Enabled: pointer.Bool(true),
+								Enabled: ptr.To[bool](true),
 								Direct:  &v1.FeatureState{},
 							},
 							Reset: &v1.FeatureState{},
 							VendorID: &v1.FeatureVendorID{
-								Enabled:  pointer.Bool(true),
+								Enabled:  ptr.To[bool](true),
 								VendorID: "1234",
 							},
 							Frequencies:     &v1.FeatureState{},
@@ -1746,7 +1746,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
 						EVMCS: &v1.FeatureState{
-							Enabled: pointer.Bool(false),
+							Enabled: ptr.To[bool](false),
 						},
 					},
 				}
@@ -1763,10 +1763,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply BIOS preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       pointer.Bool(true),
-						PreferredUseBiosSerial: pointer.Bool(true),
-						PreferredUseEfi:        pointer.Bool(false),
-						PreferredUseSecureBoot: pointer.Bool(false),
+						PreferredUseBios:       ptr.To[bool](true),
+						PreferredUseBiosSerial: ptr.To[bool](true),
+						PreferredUseEfi:        ptr.To[bool](false),
+						PreferredUseSecureBoot: ptr.To[bool](false),
 					},
 				}
 
@@ -1779,10 +1779,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply SecureBoot preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       pointer.Bool(false),
-						PreferredUseBiosSerial: pointer.Bool(false),
-						PreferredUseEfi:        pointer.Bool(true),
-						PreferredUseSecureBoot: pointer.Bool(true),
+						PreferredUseBios:       ptr.To[bool](false),
+						PreferredUseBiosSerial: ptr.To[bool](false),
+						PreferredUseEfi:        ptr.To[bool](true),
+						PreferredUseSecureBoot: ptr.To[bool](true),
 					},
 				}
 
@@ -1795,14 +1795,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should not overwrite user defined Bootloader.BIOS with PreferredUseEfi - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseEfi:        pointer.Bool(true),
-						PreferredUseSecureBoot: pointer.Bool(true),
+						PreferredUseEfi:        ptr.To[bool](true),
+						PreferredUseSecureBoot: ptr.To[bool](true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						BIOS: &v1.BIOS{
-							UseSerial: pointer.Bool(false),
+							UseSerial: ptr.To[bool](false),
 						},
 					},
 				}
@@ -1814,14 +1814,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should not overwrite user defined value with PreferredUseBiosSerial - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       pointer.Bool(true),
-						PreferredUseBiosSerial: pointer.Bool(true),
+						PreferredUseBios:       ptr.To[bool](true),
+						PreferredUseBiosSerial: ptr.To[bool](true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						BIOS: &v1.BIOS{
-							UseSerial: pointer.Bool(false),
+							UseSerial: ptr.To[bool](false),
 						},
 					},
 				}
@@ -1832,14 +1832,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should not overwrite user defined Bootloader.EFI with PreferredUseBios - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       pointer.Bool(true),
-						PreferredUseBiosSerial: pointer.Bool(true),
+						PreferredUseBios:       ptr.To[bool](true),
+						PreferredUseBiosSerial: ptr.To[bool](true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						EFI: &v1.EFI{
-							SecureBoot: pointer.Bool(false),
+							SecureBoot: ptr.To[bool](false),
 						},
 					},
 				}
@@ -1851,14 +1851,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should not overwrite user defined value with PreferredUseSecureBoot - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseEfi:        pointer.Bool(true),
-						PreferredUseSecureBoot: pointer.Bool(true),
+						PreferredUseEfi:        ptr.To[bool](true),
+						PreferredUseSecureBoot: ptr.To[bool](true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						EFI: &v1.EFI{
-							SecureBoot: pointer.Bool(false),
+							SecureBoot: ptr.To[bool](false),
 						},
 					},
 				}
@@ -1889,7 +1889,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Clock: &instancetypev1beta1.ClockPreferences{
 						PreferredClockOffset: &v1.ClockOffset{
 							UTC: &v1.ClockOffsetUTC{
-								OffsetSeconds: pointer.Int(30),
+								OffsetSeconds: ptr.To[int](30),
 							},
 						},
 						PreferredTimer: &v1.Timer{
@@ -1909,7 +1909,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.PreferredSubdomain", func() {
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredSubdomain: pointer.String("kubevirt.io"),
+					PreferredSubdomain: ptr.To[string]("kubevirt.io"),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(vmi.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
@@ -1919,7 +1919,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				const userDefinedValue = "foo.com"
 				vmi.Spec.Subdomain = userDefinedValue
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredSubdomain: pointer.String("kubevirt.io"),
+					PreferredSubdomain: ptr.To[string]("kubevirt.io"),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(vmi.Spec.Subdomain).To(Equal(userDefinedValue))
@@ -1929,7 +1929,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.PreferredTerminationGracePeriodSeconds", func() {
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredTerminationGracePeriodSeconds: pointer.Int64(180),
+					PreferredTerminationGracePeriodSeconds: ptr.To[int64](180),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(*preferenceSpec.PreferredTerminationGracePeriodSeconds))
@@ -1937,9 +1937,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should not overwrite user defined value", func() {
 				const userDefinedValue = int64(100)
-				vmi.Spec.TerminationGracePeriodSeconds = pointer.Int64(userDefinedValue)
+				vmi.Spec.TerminationGracePeriodSeconds = ptr.To[int64](userDefinedValue)
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredTerminationGracePeriodSeconds: pointer.Int64(180),
+					PreferredTerminationGracePeriodSeconds: ptr.To[int64](180),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(userDefinedValue))

@@ -119,7 +119,7 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 	}
 
 	const finish = true
-	err := wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+	err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, func(context.Context) (bool, error) {
 		var err error
 		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
 		if err != nil {
