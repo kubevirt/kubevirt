@@ -56,7 +56,6 @@ import (
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]ContainerDisk", decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
-	var err error
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -102,11 +101,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					MemoryLimit: resource.NewScaledQuantity(42, resource.Kilo),
 				}
 				tests.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmifact.NewCirros()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
 				Eventually(func() bool {
