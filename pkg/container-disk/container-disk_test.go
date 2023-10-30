@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -359,13 +360,13 @@ var _ = Describe("ContainerDisk", func() {
 
 				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
-				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1"))
+				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0000000000000000000000000000000000000000000000000000000000000000"))
+				Expect(imageIDs).To(HaveKeyWithValue("disk2", "someimage@sha256:1111111111111111111111111111111111111111111111111111111111111111"))
 				Expect(imageIDs).To(HaveLen(2))
 
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
-				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0"))
-				Expect(newContainers[1].Image).To(Equal("someimage@sha256:1"))
+				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0000000000000000000000000000000000000000000000000000000000000000"))
+				Expect(newContainers[1].Image).To(Equal("someimage@sha256:1111111111111111111111111111111111111111111111111111111111111111"))
 			})
 			It("for a new migration pod with a containerDisk and a kernel image", func() {
 				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
@@ -381,15 +382,15 @@ var _ = Describe("ContainerDisk", func() {
 
 				imageIDs, err := ExtractImageIDsFromSourcePod(vmi, pod)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0"))
-				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bootcontainer"))
+				Expect(imageIDs).To(HaveKeyWithValue("disk1", "someimage@sha256:0000000000000000000000000000000000000000000000000000000000000000"))
+				Expect(imageIDs).To(HaveKeyWithValue("kernel-boot-volume", "someimage@sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc"))
 				Expect(imageIDs).To(HaveLen(2))
 
 				newContainers := GenerateContainers(vmi, clusterConfig, imageIDs, "a-name", "something")
 				newBootContainer := GenerateKernelBootContainer(vmi, clusterConfig, imageIDs, "a-name", "something")
 				newContainers = append(newContainers, *newBootContainer)
-				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0"))
-				Expect(newContainers[1].Image).To(Equal("someimage@sha256:bootcontainer"))
+				Expect(newContainers[0].Image).To(Equal("someimage@sha256:0000000000000000000000000000000000000000000000000000000000000000"))
+				Expect(newContainers[1].Image).To(Equal("someimage@sha256:bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc"))
 			})
 
 			It("should fail if it can't detect a reproducible imageID", func() {
@@ -403,7 +404,7 @@ var _ = Describe("ContainerDisk", func() {
 			})
 
 			DescribeTable("It should detect the image ID from", func(imageID string) {
-				expected := "myregistry.io/myimage@sha256:4gjffGJlg4"
+				expected := "myregistry.io/myimage@sha256:4cbffcbac421e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"
 				res, err := toImageWithDigest("myregistry.io/myimage", imageID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).To(Equal(expected))
@@ -414,23 +415,24 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).To(Equal(expected))
 			},
-				Entry("docker", "docker://sha256:4gjffGJlg4"),
-				Entry("dontainerd", "sha256:4gjffGJlg4"),
-				Entry("cri-o", "myregistry/myimage@sha256:4gjffGJlg4"),
+				Entry("docker", "docker://sha256:4cbffcbac421e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"),
+				Entry("dontainerd", "sha256:4cbffcbac421e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"),
+				Entry("cri-o", "myregistry/myimage@sha256:4cbffcbac421e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"),
+				Entry("cri-o >= 1.28", "4cbffcbac421e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812"),
 			)
 
 			DescribeTable("It should detect the base image from", func(given, expected string) {
-				res, err := toImageWithDigest(given, "docker://sha256:4gjffGJlg4")
+				res, err := toImageWithDigest(given, "docker://sha256:4cbffcbac421e150ae84b0973863609494aad70f0a80eaeb64bddd8d92465812")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Split(res, "@sha256:")[0]).To(Equal(expected))
 			},
 				Entry("image with registry and no tags or shasum", "myregistry.io/myimage", "myregistry.io/myimage"),
 				Entry("image with registry and tag", "myregistry.io/myimage:latest", "myregistry.io/myimage"),
-				Entry("image with registry and shasum", "myregistry.io/myimage@sha256:123534", "myregistry.io/myimage"),
+				Entry("image with registry and shasum", "myregistry.io/myimage@sha256:1234567890123456789012345678901234567890123456789012345678901234", "myregistry.io/myimage"),
 				Entry("image with registry and no tags or shasum and custom port", "myregistry.io:5000/myimage", "myregistry.io:5000/myimage"),
 				Entry("image with registry and tag and custom port", "myregistry.io:5000/myimage:latest", "myregistry.io:5000/myimage"),
-				Entry("image with registry and shasum and custom port", "myregistry.io:5000/myimage@sha256:123534", "myregistry.io:5000/myimage"),
-				Entry("image with registry and shasum and custom port and group", "myregistry.io:5000/mygroup/myimage@sha256:123534", "myregistry.io:5000/mygroup/myimage"),
+				Entry("image with registry and shasum and custom port", "myregistry.io:5000/myimage@sha256:1234567890123456789012345678901234567890123456789012345678901234", "myregistry.io:5000/myimage"),
+				Entry("image with registry and shasum and custom port and group", "myregistry.io:5000/mygroup/myimage@sha256:1234567890123456789012345678901234567890123456789012345678901234", "myregistry.io:5000/mygroup/myimage"),
 			)
 		})
 
@@ -503,7 +505,7 @@ func createMigrationSourcePod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 		status := k8sv1.ContainerStatus{
 			Name:    container.Name,
 			Image:   container.Image,
-			ImageID: fmt.Sprintf("finalimg@sha256:%v", idx),
+			ImageID: fmt.Sprintf("finalimg@sha256:%v", strings.Repeat(strconv.Itoa(idx%10), 64)),
 		}
 		pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, status)
 	}
@@ -512,7 +514,7 @@ func createMigrationSourcePod(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 		status := k8sv1.ContainerStatus{
 			Name:    bootContainer.Name,
 			Image:   bootContainer.Image,
-			ImageID: fmt.Sprintf("finalimg@sha256:%v", "bootcontainer"),
+			ImageID: fmt.Sprintf("finalimg@sha256:%v", "bcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbc"),
 		}
 		pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, status)
 	}

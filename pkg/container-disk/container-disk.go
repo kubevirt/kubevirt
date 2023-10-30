@@ -56,7 +56,7 @@ const KernelBootVolumeName = KernelBootName + "-volume"
 
 const ephemeralStorageOverheadSize = "50M"
 
-var digestRegex = regexp.MustCompile(`sha256:([a-zA-Z0-9]+)`)
+var digestRegex = regexp.MustCompile(`(?:sha256:)?(?P<digest>[[:xdigit:]]{64})$`)
 
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
