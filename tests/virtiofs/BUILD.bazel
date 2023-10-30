@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "config.go",
         "datavolume.go",
-        "feature_gate.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/virtiofs",
     visibility = ["//visibility:public"],
