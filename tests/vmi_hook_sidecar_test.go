@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"time"
 
@@ -55,6 +56,9 @@ const (
 	sidecarContainerName = "hook-sidecar-0"
 	configMapKey         = "my_script"
 )
+
+//go:embed testdata/sidecar-hook-configmap.sh
+var configMapData string
 
 var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
@@ -283,12 +287,6 @@ func RenderSidecarWithConfigMap(version, name string) map[string]string {
 }
 
 func RenderConfigMap() *k8sv1.ConfigMap {
-	var configMapData = `#!/bin/sh
-tempFile=$(mktemp --dry-run)
-echo $4 > $tempFile
-sed -i "s|<baseBoard></baseBoard>|<baseBoard><entry name='manufacturer'>Radical Edward</entry></baseBoard>|" $tempFile
-cat $tempFile`
-
 	return &k8sv1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "cm-",
