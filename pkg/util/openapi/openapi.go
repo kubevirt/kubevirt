@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
+	"k8s.io/kube-openapi/pkg/openapiconv"
+	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"kubevirt.io/client-go/api"
@@ -110,7 +112,7 @@ func CreateConfig() *common.Config {
 	}
 }
 
-func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
+func LoadOpenAPISpec(webServices []*restful.WebService) *spec3.OpenAPI {
 	config := CreateConfig()
 	openapispec, err := builder.BuildOpenAPISpec(webServices, config)
 	if err != nil {
@@ -201,7 +203,7 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 		}
 	}
 
-	return openapispec
+	return openapiconv.ConvertV2ToV3(openapispec)
 }
 
 func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {

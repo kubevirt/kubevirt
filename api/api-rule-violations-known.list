@@ -221,7 +221,6 @@ API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,StatusCause
 API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,Time,Time
 API rule violation: names_match,k8s.io/apimachinery/pkg/runtime,Unknown,ContentEncoding
 API rule violation: names_match,k8s.io/apimachinery/pkg/runtime,Unknown,ContentType
-API rule violation: names_match,k8s.io/apimachinery/pkg/runtime,Unknown,Raw
 API rule violation: names_match,k8s.io/apimachinery/pkg/util/intstr,IntOrString,IntVal
 API rule violation: names_match,k8s.io/apimachinery/pkg/util/intstr,IntOrString,StrVal
 API rule violation: names_match,k8s.io/apimachinery/pkg/util/intstr,IntOrString,Type

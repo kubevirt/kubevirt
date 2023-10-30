@@ -37,6 +37,7 @@ import (
 	v18 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	v1beta13 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	v19 "k8s.io/client-go/kubernetes/typed/certificates/v1"
+	v1alpha12 "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1"
 	v1beta14 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	v110 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 	v1beta15 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
@@ -46,22 +47,22 @@ import (
 	v113 "k8s.io/client-go/kubernetes/typed/events/v1"
 	v1beta17 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	v1beta18 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
-	v1alpha12 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
+	v1alpha13 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1"
 	v1beta19 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
 	v1beta20 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
 	v1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
 	v114 "k8s.io/client-go/kubernetes/typed/networking/v1"
-	v1alpha13 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
+	v1alpha14 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
 	v1beta110 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	v115 "k8s.io/client-go/kubernetes/typed/node/v1"
-	v1alpha14 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
+	v1alpha15 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
 	v1beta111 "k8s.io/client-go/kubernetes/typed/node/v1beta1"
 	v116 "k8s.io/client-go/kubernetes/typed/policy/v1"
 	v1beta112 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	v117 "k8s.io/client-go/kubernetes/typed/rbac/v1"
-	v1alpha15 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
+	v1alpha16 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
 	v1beta113 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
-	v1alpha16 "k8s.io/client-go/kubernetes/typed/resource/v1alpha1"
+	v1alpha2 "k8s.io/client-go/kubernetes/typed/resource/v1alpha2"
 	v118 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
 	v1alpha17 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
 	v1beta114 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
@@ -645,6 +646,16 @@ func (_mr *_MockKubevirtClientRecorder) CertificatesV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CertificatesV1beta1")
 }
 
+func (_m *MockKubevirtClient) CertificatesV1alpha1() v1alpha12.CertificatesV1alpha1Interface {
+	ret := _m.ctrl.Call(_m, "CertificatesV1alpha1")
+	ret0, _ := ret[0].(v1alpha12.CertificatesV1alpha1Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) CertificatesV1alpha1() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CertificatesV1alpha1")
+}
+
 func (_m *MockKubevirtClient) CoordinationV1beta1() v1beta15.CoordinationV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "CoordinationV1beta1")
 	ret0, _ := ret[0].(v1beta15.CoordinationV1beta1Interface)
@@ -725,9 +736,9 @@ func (_mr *_MockKubevirtClientRecorder) ExtensionsV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ExtensionsV1beta1")
 }
 
-func (_m *MockKubevirtClient) FlowcontrolV1alpha1() v1alpha12.FlowcontrolV1alpha1Interface {
+func (_m *MockKubevirtClient) FlowcontrolV1alpha1() v1alpha13.FlowcontrolV1alpha1Interface {
 	ret := _m.ctrl.Call(_m, "FlowcontrolV1alpha1")
-	ret0, _ := ret[0].(v1alpha12.FlowcontrolV1alpha1Interface)
+	ret0, _ := ret[0].(v1alpha13.FlowcontrolV1alpha1Interface)
 	return ret0
 }
 
@@ -775,9 +786,9 @@ func (_mr *_MockKubevirtClientRecorder) NetworkingV1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NetworkingV1")
 }
 
-func (_m *MockKubevirtClient) NetworkingV1alpha1() v1alpha13.NetworkingV1alpha1Interface {
+func (_m *MockKubevirtClient) NetworkingV1alpha1() v1alpha14.NetworkingV1alpha1Interface {
 	ret := _m.ctrl.Call(_m, "NetworkingV1alpha1")
-	ret0, _ := ret[0].(v1alpha13.NetworkingV1alpha1Interface)
+	ret0, _ := ret[0].(v1alpha14.NetworkingV1alpha1Interface)
 	return ret0
 }
 
@@ -805,9 +816,9 @@ func (_mr *_MockKubevirtClientRecorder) NodeV1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NodeV1")
 }
 
-func (_m *MockKubevirtClient) NodeV1alpha1() v1alpha14.NodeV1alpha1Interface {
+func (_m *MockKubevirtClient) NodeV1alpha1() v1alpha15.NodeV1alpha1Interface {
 	ret := _m.ctrl.Call(_m, "NodeV1alpha1")
-	ret0, _ := ret[0].(v1alpha14.NodeV1alpha1Interface)
+	ret0, _ := ret[0].(v1alpha15.NodeV1alpha1Interface)
 	return ret0
 }
 
@@ -865,9 +876,9 @@ func (_mr *_MockKubevirtClientRecorder) RbacV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RbacV1beta1")
 }
 
-func (_m *MockKubevirtClient) RbacV1alpha1() v1alpha15.RbacV1alpha1Interface {
+func (_m *MockKubevirtClient) RbacV1alpha1() v1alpha16.RbacV1alpha1Interface {
 	ret := _m.ctrl.Call(_m, "RbacV1alpha1")
-	ret0, _ := ret[0].(v1alpha15.RbacV1alpha1Interface)
+	ret0, _ := ret[0].(v1alpha16.RbacV1alpha1Interface)
 	return ret0
 }
 
@@ -875,14 +886,14 @@ func (_mr *_MockKubevirtClientRecorder) RbacV1alpha1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RbacV1alpha1")
 }
 
-func (_m *MockKubevirtClient) ResourceV1alpha1() v1alpha16.ResourceV1alpha1Interface {
-	ret := _m.ctrl.Call(_m, "ResourceV1alpha1")
-	ret0, _ := ret[0].(v1alpha16.ResourceV1alpha1Interface)
+func (_m *MockKubevirtClient) ResourceV1alpha2() v1alpha2.ResourceV1alpha2Interface {
+	ret := _m.ctrl.Call(_m, "ResourceV1alpha2")
+	ret0, _ := ret[0].(v1alpha2.ResourceV1alpha2Interface)
 	return ret0
 }
 
-func (_mr *_MockKubevirtClientRecorder) ResourceV1alpha1() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResourceV1alpha1")
+func (_mr *_MockKubevirtClientRecorder) ResourceV1alpha2() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResourceV1alpha2")
 }
 
 func (_m *MockKubevirtClient) SchedulingV1alpha1() v1alpha17.SchedulingV1alpha1Interface {

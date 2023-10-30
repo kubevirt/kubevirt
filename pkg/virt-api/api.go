@@ -31,8 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	"k8s.io/kube-openapi/pkg/validation/spec"
-
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	restful "github.com/emicklei/go-restful/v3"
@@ -44,7 +42,9 @@ import (
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-	builderv3 "k8s.io/kube-openapi/pkg/builder3"
+	builder "k8s.io/kube-openapi/pkg/builder"
+	"k8s.io/kube-openapi/pkg/openapiconv"
+	"k8s.io/kube-openapi/pkg/spec3"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
@@ -670,7 +670,7 @@ func (app *virtAPIApp) composeSubresources() {
 		To(func(request *restful.Request, response *restful.Response) {
 			paths := []string{
 				"/apis",
-				"/openapi/v2",
+				"/openapi/v3",
 			}
 			for _, version := range v1.SubresourceGroupVersions {
 				paths = append(paths, definitions.GroupBasePath(version))
@@ -718,8 +718,8 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusNotFound, httpStatusNotFoundMessage, ""))
 
 	once := sync.Once{}
-	var openapispec *spec.Swagger
-	ws.Route(ws.GET("openapi/v2").
+	var openapispec *spec3.OpenAPI
+	ws.Route(ws.GET("openapi/v3").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON).
 		To(func(request *restful.Request, response *restful.Response) {
@@ -758,16 +758,17 @@ func (app *virtAPIApp) Compose() {
 func (app *virtAPIApp) ConfigureOpenAPIService() {
 	config := openapi.CreateConfig()
 	config.GetDefinitions = v12.GetOpenAPIDefinitions
-	spec, err := builderv3.BuildOpenAPISpec(restful.RegisteredWebServices(), config)
+	spec, err := builder.BuildOpenAPISpec(restful.RegisteredWebServices(), config)
 	if err != nil {
 		panic(err)
 	}
 
+	specV3 := openapiconv.ConvertV2ToV3(spec)
 	ws := new(restful.WebService)
 	ws.Path("/swaggerapi")
 	ws.Produces(restful.MIME_JSON)
 	f := func(req *restful.Request, resp *restful.Response) {
-		resp.WriteAsJson(spec)
+		resp.WriteAsJson(specV3)
 	}
 	ws.Route(ws.GET("/").To(f))
 

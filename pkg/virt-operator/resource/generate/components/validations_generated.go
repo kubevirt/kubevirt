@@ -187,7 +187,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: 'Requests describes the minimum amount of compute resources
                     required. If Requests is omitted for a container, it defaults
                     to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                   type: object
               type: object
             selector:
@@ -570,7 +570,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: 'Requests describes the minimum amount of compute resources
                     required. If Requests is omitted for a container, it defaults
                     to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                   type: object
               type: object
             selector:
@@ -1415,7 +1415,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   type:
@@ -3815,7 +3816,7 @@ var CRDsValidation map[string]string = map[string]string{
                               compute resources required. If Requests is omitted for
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                       selector:
@@ -4217,7 +4218,7 @@ var CRDsValidation map[string]string = map[string]string{
                               compute resources required. If Requests is omitted for
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                       selector:
@@ -6565,7 +6566,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: The header field name. This will be canonicalized
+                                  upon output, so case-variant names will be understood
+                                  as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -6744,7 +6747,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: The header field name. This will be canonicalized
+                                  upon output, so case-variant names will be understood
+                                  as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -6939,14 +6944,18 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                         type: object
                       matchLabelKeys:
-                        description: MatchLabelKeys is a set of pod label keys to
+                        description: "MatchLabelKeys is a set of pod label keys to
                           select the pods over which spreading will be calculated.
                           The keys are used to lookup values from the incoming pod
                           labels, those key-value labels are ANDed with labelSelector
                           to select the group of existing pods over which spreading
-                          will be calculated for the incoming pod. Keys that don't
-                          exist in the incoming pod labels will be ignored. A null
-                          or empty list means only match against labelSelector.
+                          will be calculated for the incoming pod. The same key is
+                          forbidden to exist in both MatchLabelKeys and LabelSelector.
+                          MatchLabelKeys cannot be set when LabelSelector isn't set.
+                          Keys that don't exist in the incoming pod labels will be
+                          ignored. A null or empty list means only match against labelSelector.
+                          \n This is a beta field and requires the MatchLabelKeysInPodTopologySpread
+                          feature gate to be enabled (enabled by default)."
                         items:
                           type: string
                         type: array
@@ -11061,7 +11070,9 @@ var CRDsValidation map[string]string = map[string]string{
                       HTTP probes
                     properties:
                       name:
-                        description: The header field name
+                        description: The header field name. This will be canonicalized
+                          upon output, so case-variant names will be understood as
+                          the same header.
                         type: string
                       value:
                         description: The header field value
@@ -11231,7 +11242,9 @@ var CRDsValidation map[string]string = map[string]string{
                       HTTP probes
                     properties:
                       name:
-                        description: The header field name
+                        description: The header field name. This will be canonicalized
+                          upon output, so case-variant names will be understood as
+                          the same header.
                         type: string
                       value:
                         description: The header field value
@@ -11417,13 +11430,17 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                 type: object
               matchLabelKeys:
-                description: MatchLabelKeys is a set of pod label keys to select the
-                  pods over which spreading will be calculated. The keys are used
+                description: "MatchLabelKeys is a set of pod label keys to select
+                  the pods over which spreading will be calculated. The keys are used
                   to lookup values from the incoming pod labels, those key-value labels
                   are ANDed with labelSelector to select the group of existing pods
-                  over which spreading will be calculated for the incoming pod. Keys
+                  over which spreading will be calculated for the incoming pod. The
+                  same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+                  MatchLabelKeys cannot be set when LabelSelector isn't set. Keys
                   that don't exist in the incoming pod labels will be ignored. A null
-                  or empty list means only match against labelSelector.
+                  or empty list means only match against labelSelector. \n This is
+                  a beta field and requires the MatchLabelKeysInPodTopologySpread
+                  feature gate to be enabled (enabled by default)."
                 items:
                   type: string
                 type: array
@@ -16020,7 +16037,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: The header field name. This will be canonicalized
+                                  upon output, so case-variant names will be understood
+                                  as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -16199,7 +16218,9 @@ var CRDsValidation map[string]string = map[string]string{
                               used in HTTP probes
                             properties:
                               name:
-                                description: The header field name
+                                description: The header field name. This will be canonicalized
+                                  upon output, so case-variant names will be understood
+                                  as the same header.
                                 type: string
                               value:
                                 description: The header field value
@@ -16394,14 +16415,18 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                         type: object
                       matchLabelKeys:
-                        description: MatchLabelKeys is a set of pod label keys to
+                        description: "MatchLabelKeys is a set of pod label keys to
                           select the pods over which spreading will be calculated.
                           The keys are used to lookup values from the incoming pod
                           labels, those key-value labels are ANDed with labelSelector
                           to select the group of existing pods over which spreading
-                          will be calculated for the incoming pod. Keys that don't
-                          exist in the incoming pod labels will be ignored. A null
-                          or empty list means only match against labelSelector.
+                          will be calculated for the incoming pod. The same key is
+                          forbidden to exist in both MatchLabelKeys and LabelSelector.
+                          MatchLabelKeys cannot be set when LabelSelector isn't set.
+                          Keys that don't exist in the incoming pod labels will be
+                          ignored. A null or empty list means only match against labelSelector.
+                          \n This is a beta field and requires the MatchLabelKeysInPodTopologySpread
+                          feature gate to be enabled (enabled by default)."
                         items:
                           type: string
                         type: array
@@ -17490,8 +17515,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       of compute resources required. If Requests is
                                       omitted for a container, it defaults to Limits
                                       if that is explicitly specified, otherwise to
-                                      an implementation-defined value. More info:
-                                      https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                      an implementation-defined value. Requests cannot
+                                      exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                 type: object
                               selector:
@@ -17915,8 +17940,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       of compute resources required. If Requests is
                                       omitted for a container, it defaults to Limits
                                       if that is explicitly specified, otherwise to
-                                      an implementation-defined value. More info:
-                                      https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                      an implementation-defined value. Requests cannot
+                                      exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                     type: object
                                 type: object
                               selector:
@@ -20442,7 +20467,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       to be used in HTTP probes
                                     properties:
                                       name:
-                                        description: The header field name
+                                        description: The header field name. This will
+                                          be canonicalized upon output, so case-variant
+                                          names will be understood as the same header.
                                         type: string
                                       value:
                                         description: The header field value
@@ -20629,7 +20656,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       to be used in HTTP probes
                                     properties:
                                       name:
-                                        description: The header field name
+                                        description: The header field name. This will
+                                          be canonicalized upon output, so case-variant
+                                          names will be understood as the same header.
                                         type: string
                                       value:
                                         description: The header field value
@@ -20833,15 +20862,20 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                 type: object
                               matchLabelKeys:
-                                description: MatchLabelKeys is a set of pod label
+                                description: "MatchLabelKeys is a set of pod label
                                   keys to select the pods over which spreading will
                                   be calculated. The keys are used to lookup values
                                   from the incoming pod labels, those key-value labels
                                   are ANDed with labelSelector to select the group
                                   of existing pods over which spreading will be calculated
-                                  for the incoming pod. Keys that don't exist in the
-                                  incoming pod labels will be ignored. A null or empty
-                                  list means only match against labelSelector.
+                                  for the incoming pod. The same key is forbidden
+                                  to exist in both MatchLabelKeys and LabelSelector.
+                                  MatchLabelKeys cannot be set when LabelSelector
+                                  isn't set. Keys that don't exist in the incoming
+                                  pod labels will be ignored. A null or empty list
+                                  means only match against labelSelector. \n This
+                                  is a beta field and requires the MatchLabelKeysInPodTopologySpread
+                                  feature gate to be enabled (enabled by default)."
                                 items:
                                   type: string
                                 type: array
@@ -22541,7 +22575,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           Requests is omitted for a container, it
                                           defaults to Limits if that is explicitly
                                           specified, otherwise to an implementation-defined
-                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                          value. Requests cannot exceed Limits. More
+                                          info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                         type: object
                                     type: object
                                   selector:
@@ -22989,7 +23024,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           Requests is omitted for a container, it
                                           defaults to Limits if that is explicitly
                                           specified, otherwise to an implementation-defined
-                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                          value. Requests cannot exceed Limits. More
+                                          info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                         type: object
                                     type: object
                                   selector:
@@ -25636,7 +25672,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           header to be used in HTTP probes
                                         properties:
                                           name:
-                                            description: The header field name
+                                            description: The header field name. This
+                                              will be canonicalized upon output, so
+                                              case-variant names will be understood
+                                              as the same header.
                                             type: string
                                           value:
                                             description: The header field value
@@ -25828,7 +25867,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           header to be used in HTTP probes
                                         properties:
                                           name:
-                                            description: The header field name
+                                            description: The header field name. This
+                                              will be canonicalized upon output, so
+                                              case-variant names will be understood
+                                              as the same header.
                                             type: string
                                           value:
                                             description: The header field value
@@ -26039,16 +26081,21 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                     type: object
                                   matchLabelKeys:
-                                    description: MatchLabelKeys is a set of pod label
+                                    description: "MatchLabelKeys is a set of pod label
                                       keys to select the pods over which spreading
                                       will be calculated. The keys are used to lookup
                                       values from the incoming pod labels, those key-value
                                       labels are ANDed with labelSelector to select
                                       the group of existing pods over which spreading
-                                      will be calculated for the incoming pod. Keys
-                                      that don't exist in the incoming pod labels
-                                      will be ignored. A null or empty list means
-                                      only match against labelSelector.
+                                      will be calculated for the incoming pod. The
+                                      same key is forbidden to exist in both MatchLabelKeys
+                                      and LabelSelector. MatchLabelKeys cannot be
+                                      set when LabelSelector isn't set. Keys that
+                                      don't exist in the incoming pod labels will
+                                      be ignored. A null or empty list means only
+                                      match against labelSelector. \n This is a beta
+                                      field and requires the MatchLabelKeysInPodTopologySpread
+                                      feature gate to be enabled (enabled by default)."
                                     items:
                                       type: string
                                     type: array
@@ -27204,7 +27251,7 @@ var CRDsValidation map[string]string = map[string]string{
                               compute resources required. If Requests is omitted for
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                       selector:

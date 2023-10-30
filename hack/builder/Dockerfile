@@ -78,7 +78,7 @@ RUN set -x && \
     mkdir -p /go && \
     source /etc/profile.d/gimme.sh && \
     go install -v golang.org/x/tools/cmd/goimports@d5fe738 && \
-    go install -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
+    go install -v mvdan.cc/sh/v3/cmd/shfmt@v3.7.0 && \
     go install -v k8s.io/code-generator/cmd/conversion-gen@v0.20.2  && \
     go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.20.2 && \
     go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.20.2  && \
