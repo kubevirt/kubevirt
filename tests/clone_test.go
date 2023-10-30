@@ -689,14 +689,16 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				})
 
 				It("double cloning: clone target as a clone source", func() {
-					addAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+					addCloneAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
 						filters := []string{"somekey/*"}
 						vmClone.Spec.LabelFilters = filters
 						vmClone.Spec.AnnotationFilters = filters
+						vmClone.Spec.Template.LabelFilters = filters
+						vmClone.Spec.Template.AnnotationFilters = filters
 					}
 					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
 						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
-						addAnnotationAndLabelFilters(vmclone)
+						addCloneAnnotationAndLabelFilters(vmclone)
 						return vmclone
 					}
 
