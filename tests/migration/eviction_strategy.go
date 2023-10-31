@@ -69,46 +69,6 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	setControlPlaneSchedulability := func(setSchedulable bool) {
-		Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the cluster nodes must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
-		controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
-		for _, node := range controlPlaneNodes.Items {
-			if setSchedulable {
-				libnode.SetNodeSchedulable(node.Name, virtClient)
-			} else {
-				libnode.SetNodeUnschedulable(node.Name, virtClient)
-			}
-		}
-	}
-
-	// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
-	// nodes with this taint will be reset to their original state on each
-	// test teardown by the test framework. Check `libnode.CleanNodes`.
-	// TODO: move this function in `libnode` package. First resolve cycle in dependency graph
-	//  .-> //tests/testsuite:go_default_library
-	//  |   //tests/libnode:go_default_library
-	//  |   //tests/clientcmd:go_default_library
-	//  `-- //tests/testsuite:go_default_library
-	temporaryNodeDrain := func(nodeName string) {
-		By("taining the node with `NoExecute`, the framework will reset the node's taints and un-schedulable properties on test teardown")
-		libnode.Taint(nodeName, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
-
-		By(fmt.Sprintf("Draining node %s", nodeName))
-		// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
-		// time that we call it.
-		vmiSelector := v1.AppLabel + "=virt-launcher"
-		k8sClient := clientcmd.GetK8sCmdClient()
-		if k8sClient == "oc" {
-			_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-				"--ignore-daemonsets=true", "--force", "--timeout=180s")
-			Expect(err).ToNot(HaveOccurred())
-		} else {
-			_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-				"--ignore-daemonsets=true", "--force", "--timeout=180s")
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-
 	Context("with a live-migrate eviction strategy set", func() {
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
 
@@ -284,6 +244,56 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 			})
 
 			Context("[Serial] with node tainted during node drain", Serial, func() {
+
+				var nodeAffinity *k8sv1.NodeAffinity
+
+				// temporaryNodeDrain also sets the `NoSchedule` taint on the node.
+				// nodes with this taint will be reset to their original state on each
+				// test teardown by the test framework. Check `libnode.CleanNodes`.
+				// TODO: move this function in `libnode` package. First resolve cycle in dependency graph
+				//  .-> //tests/testsuite:go_default_library
+				//  |   //tests/libnode:go_default_library
+				//  |   //tests/clientcmd:go_default_library
+				//  `-- //tests/testsuite:go_default_library
+				temporaryNodeDrain := func(nodeName string) {
+					By("taining the node with `NoExecute`, the framework will reset the node's taints and un-schedulable properties on test teardown")
+					libnode.Taint(nodeName, libnode.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
+
+					By(fmt.Sprintf("Draining node %s", nodeName))
+					// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
+					// time that we call it.
+					vmiSelector := v1.AppLabel + "=virt-launcher"
+					k8sClient := clientcmd.GetK8sCmdClient()
+					if k8sClient == "oc" {
+						_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+							"--ignore-daemonsets=true", "--force", "--timeout=180s")
+						Expect(err).ToNot(HaveOccurred())
+					} else {
+						_, _, err := clientcmd.RunCommandWithNS("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+							"--ignore-daemonsets=true", "--force", "--timeout=180s")
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+
+				expectVMIMigratedToAnotherNode := func(vmiName, sourceNodeName string) {
+					EventuallyWithOffset(1, func() error {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmiName, &metav1.GetOptions{})
+						if err != nil {
+							return err
+						} else if vmi.Status.NodeName == sourceNodeName {
+							return fmt.Errorf("VMI still exists on the same node")
+						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != sourceNodeName {
+							return fmt.Errorf("VMI did not migrate yet")
+						} else if vmi.Status.EvacuationNodeName != "" {
+							return fmt.Errorf("evacuation node name is still set on the VMI")
+						}
+
+						Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
+						return nil
+					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "VMI should still be running")
+				}
+
 				BeforeEach(func() {
 					// Taints defined by k8s are special and can't be applied manually.
 					// Temporarily configure KubeVirt to use something else for the duration of these tests.
@@ -293,46 +303,37 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 						cfg.MigrationConfiguration.NodeDrainTaintKey = &drain
 						tests.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
-					setControlPlaneSchedulability(false)
-				})
 
-				AfterEach(func() {
-					setControlPlaneSchedulability(true)
+					controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
+
+					// This nodeAffinity will make sure the vmi, initially, will not be scheduled in the control-plane node in those clusters where there is only one.
+					// This is mandatory, since later the tests will drain the node where the vmi will be scheduled.
+					nodeAffinity = &k8sv1.NodeAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []k8sv1.PreferredSchedulingTerm{
+							{
+								Weight: int32(1),
+								Preference: k8sv1.NodeSelectorTerm{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpNotIn, Values: []string{controlPlaneNodes.Items[0].Name}},
+									},
+								},
+							},
+						},
+					}
 				})
 
 				It("[test_id:6982]should migrate a VMI only one time", func() {
 					vmi = fedoraVMIWithEvictionStrategy()
+					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					// Mark the control-plane nodes as schedulable so we can migrate there
-					setControlPlaneSchedulability(true)
-
 					node := vmi.Status.NodeName
 					temporaryNodeDrain(node)
-
-					// verify VMI migrated and lives on another node now.
-					Eventually(func() error {
-						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						} else if vmi.Status.EvacuationNodeName != "" {
-							return fmt.Errorf("evacuation node name is still set on the VMI")
-						}
-
-						// VMI should still be running at this point. If it
-						// isn't, then there's nothing to be waiting on.
-						Expect(vmi.Status.Phase).To(Equal(v1.Running))
-
-						return nil
-					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+					expectVMIMigratedToAnotherNode(vmi.Name, node)
 
 					Consistently(func() error {
 						migrations, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(&metav1.ListOptions{})
@@ -349,6 +350,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
 					vmi = fedoraVMIWithEvictionStrategy()
+					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
@@ -361,33 +363,14 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					// Put VMI under load
 					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
 
-					// Mark the control-plane nodes as schedulable so we can migrate there
-					setControlPlaneSchedulability(true)
-
 					node := vmi.Status.NodeName
 					temporaryNodeDrain(node)
-
-					// verify VMI migrated and lives on another node now.
-					Eventually(func() error {
-						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						}
-
-						// VMI should still be running at this point. If it
-						// isn't, then there's nothing to be waiting on.
-						Expect(vmi.Status.Phase).To(Equal(v1.Running))
-
-						return nil
-					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+					expectVMIMigratedToAnotherNode(vmi.Name, node)
 				})
 
 				It("[test_id:2222] should migrate a VMI when custom taint key is configured", func() {
 					vmi = alpineVMIWithEvictionStrategy()
+					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt configuration")
 					cfg := getCurrentKvConfig(virtClient)
@@ -398,24 +381,9 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					By("Starting the VirtualMachineInstance")
 					vmi = tests.RunVMIAndExpectLaunch(vmi, 180)
 
-					// Mark the control-plane nodes as schedulable so we can migrate there
-					setControlPlaneSchedulability(true)
-
 					node := vmi.Status.NodeName
 					temporaryNodeDrain(node)
-
-					// verify VMI migrated and lives on another node now.
-					Eventually(func() error {
-						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, &metav1.GetOptions{})
-						if err != nil {
-							return err
-						} else if vmi.Status.NodeName == node {
-							return fmt.Errorf("VMI still exist on the same node")
-						} else if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != node {
-							return fmt.Errorf("VMI did not migrate yet")
-						}
-						return nil
-					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+					expectVMIMigratedToAnotherNode(vmi.Name, node)
 				})
 
 				It("[test_id:2224] should handle mixture of VMs with different eviction strategies.", func() {
@@ -449,6 +417,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 								},
 							},
 						},
+						NodeAffinity: nodeAffinity,
 					}
 
 					vmi_evict1.Labels = labels
@@ -485,9 +454,6 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					By("Verifying all VMIs are collcated on the same node")
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_evict2.Status.NodeName))
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_noevict.Status.NodeName))
-
-					// Mark the control-plane nodes as schedulable so we can migrate there
-					setControlPlaneSchedulability(true)
 
 					node := vmi_evict1.Status.NodeName
 					temporaryNodeDrain(node)
