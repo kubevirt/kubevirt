@@ -29,6 +29,14 @@ if [[ ! -z "$SKIP_OUTSIDE_CONN_TESTS" ]]; then
     sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=\[outside_connectivity\]"
 fi
 
+if [[ ! -z "$RUN_ON_ARM64_INFRA" ]]; then
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=.*(\[outside_connectivity\].*\[IPv6\].*|\[IPv6\].*\[outside_connectivity\].*).*"
+fi
+
+if [[ ! -z "$KUBEVIRT_PROVIDER" ]]; then
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER}"
+fi
+
 echo 'Executing conformance tests and wait for them to finish'
 sonobuoy run ${sonobuoy_args}
 

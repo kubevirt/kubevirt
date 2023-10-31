@@ -2111,11 +2111,6 @@ func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) 
 	return nil, nil
 }
 
-func IsRunningOnKindInfra() bool {
-	provider := os.Getenv("KUBEVIRT_PROVIDER")
-	return strings.HasPrefix(provider, "kind")
-}
-
 func RandTmpDir() string {
 	const tmpPath = "/var/provision/kubevirt.io/tests"
 	return filepath.Join(tmpPath, rand.String(10))

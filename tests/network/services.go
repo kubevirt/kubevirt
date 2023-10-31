@@ -240,12 +240,12 @@ var _ = SIGDescribe("Services", func() {
 		)
 
 		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
-			vmi := libvmi.NewAlpineWithTestTooling(
+			vmi := libvmi.NewFedora(
 				libvmi.WithMasqueradeNetworking()...,
 			)
 			return readyVMI(
 				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue),
-				console.LoginToAlpine)
+				console.LoginToFedora)
 		}
 
 		BeforeEach(func() {
@@ -253,7 +253,7 @@ var _ = SIGDescribe("Services", func() {
 			hostname := "inbound"
 
 			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
-			tests.StartTCPServer(inboundVMI, servicePort, console.LoginToAlpine)
+			tests.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 
 		AfterEach(func() {
