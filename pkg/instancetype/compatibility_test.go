@@ -5,11 +5,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
@@ -46,9 +47,9 @@ var _ = Describe("compatibility", func() {
 				CPU: instancetypev1beta1.CPUInstancetype{
 					Guest: 4,
 					// Set the following values to be compatible with objects converted from prior API versions
-					Model:                 pointer.String(""),
-					DedicatedCPUPlacement: pointer.Bool(false),
-					IsolateEmulatorThread: pointer.Bool(false),
+					Model:                 ptr.To(""),
+					DedicatedCPUPlacement: ptr.To(false),
+					IsolateEmulatorThread: ptr.To(false),
 				},
 				Memory: instancetypev1beta1.MemoryInstancetype{
 					Guest: resource.MustParse("128Mi"),
