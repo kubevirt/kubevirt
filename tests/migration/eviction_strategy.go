@@ -73,9 +73,9 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
 		for _, node := range controlPlaneNodes.Items {
 			if setSchedulable {
-				libnode.SetNodeUnschedulable(node.Name, virtClient)
-			} else {
 				libnode.SetNodeSchedulable(node.Name, virtClient)
+			} else {
+				libnode.SetNodeUnschedulable(node.Name, virtClient)
 			}
 		}
 	}
