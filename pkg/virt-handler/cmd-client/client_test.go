@@ -20,6 +20,7 @@
 package cmdclient
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/net/context"
+
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 

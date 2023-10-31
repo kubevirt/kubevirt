@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -31,7 +32,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
