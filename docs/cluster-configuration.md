@@ -897,6 +897,22 @@ spec:
 All the values defined [here](https://kubevirt.io/api-reference/master/definitions.html#_v1_logverbosity)
 can be applied.
 
+### Containerized data importer (CDI)
+Different levels of verbosity are used in CDI to control the amount of information that is logged. The verbosity level of logs in CDI can be adjusted using a dedicated field that affect all of its components. 
+This feature enables users to control the amount of detail displayed in logs, ranging from minimal to detailed debugging information.
+
+For example:
+```yaml
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  logVerbosityConfig:
+    cdi: 3
+```
+
+The verbosity levels in CDI typically range from 1 to 3. Level 1 equates to essential log information, while level 3 delves into more detailed logging, providing more specific information.
+
 ## Workloads protection on uninstall
 
 `UninstallStrategy` defines how to proceed on uninstall when workloads (VirtualMachines, DataVolumes) still exist:

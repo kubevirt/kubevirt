@@ -659,8 +659,14 @@ type Version struct {
 // LogVerbosityConfiguration configures log verbosity for different components
 // +k8s:openapi-gen=true
 type LogVerbosityConfiguration struct {
+	// Kubevirt is a struct that allows specifying the log verbosity level that controls the amount of information
+	// logged for each Kubevirt component.
 	// +optional
 	Kubevirt *v1.LogVerbosity `json:"kubevirt,omitempty"`
+
+	// CDI indicates the log verbosity level that controls the amount of information logged for CDI components.
+	// +optional
+	CDI *int32 `json:"cdi,omitempty"`
 }
 
 // DataImportCronStatus is the status field of the DIC template

@@ -253,7 +253,8 @@ LogVerbosityConfiguration configures log verbosity for different components
 
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
-| kubevirt |  | *v1.LogVerbosity |  | false |
+| kubevirt | Kubevirt is a struct that allows specifying the log verbosity level that controls the amount of information logged for each Kubevirt component. | *v1.LogVerbosity |  | false |
+| cdi | CDI indicates the log verbosity level that controls the amount of information logged for CDI components. | *int32 |  | false |
 
 [Back to TOC](#table-of-contents)
 

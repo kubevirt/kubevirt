@@ -801,7 +801,15 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LogVerbosityCon
 				Properties: map[string]spec.Schema{
 					"kubevirt": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/core/v1.LogVerbosity"),
+							Description: "Kubevirt is a struct that allows specifying the log verbosity level that controls the amount of information logged for each Kubevirt component.",
+							Ref:         ref("kubevirt.io/api/core/v1.LogVerbosity"),
+						},
+					},
+					"cdi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CDI indicates the log verbosity level that controls the amount of information logged for CDI components.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

@@ -596,6 +596,11 @@ func (in *LogVerbosityConfiguration) DeepCopyInto(out *LogVerbosityConfiguration
 		*out = new(corev1.LogVerbosity)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CDI != nil {
+		in, out := &in.CDI, &out.CDI
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 

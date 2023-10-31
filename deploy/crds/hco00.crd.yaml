@@ -2276,9 +2276,15 @@ spec:
                   Kubevirt's different components. The higher the value - the higher
                   the log verbosity.
                 properties:
+                  cdi:
+                    description: CDI indicates the log verbosity level that controls
+                      the amount of information logged for CDI components.
+                    format: int32
+                    type: integer
                   kubevirt:
-                    description: LogVerbosity sets log verbosity level of  various
-                      components
+                    description: Kubevirt is a struct that allows specifying the log
+                      verbosity level that controls the amount of information logged
+                      for each Kubevirt component.
                     properties:
                       nodeVerbosity:
                         additionalProperties:

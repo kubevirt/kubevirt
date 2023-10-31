@@ -515,6 +515,31 @@ var _ = Describe("CDI Operand", func() {
 			})
 		})
 
+		Context("Log verbosity", func() {
+
+			It("Should be defined for CDI CR if defined in HCO CR", func() {
+				logVerbosity := int32(4)
+				hco.Spec.LogVerbosityConfig = &hcov1beta1.LogVerbosityConfiguration{CDI: &logVerbosity}
+				cdi, err := NewCDI(hco)
+
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(cdi).ToNot(BeNil())
+				Expect(*cdi.Spec.Config.LogVerbosity).To(Equal(logVerbosity))
+			})
+
+			DescribeTable("Should not be defined for CDI CR if not defined in HCO CR", func(logConfig *hcov1beta1.LogVerbosityConfiguration) {
+				hco.Spec.LogVerbosityConfig = logConfig
+				cdi, err := NewCDI(hco)
+
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(cdi).ToNot(BeNil())
+				Expect(cdi.Spec.Config.LogVerbosity).To(BeNil())
+			},
+				Entry("nil LogVerbosityConfiguration", nil),
+				Entry("nil CDI logs", &hcov1beta1.LogVerbosityConfiguration{CDI: nil}),
+			)
+		})
+
 		Context("Test ScratchSpaceStorageClass", func() {
 
 			hcoScratchSpaceStorageClassValue := "hcoScratchSpaceStorageClassValue"

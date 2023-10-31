@@ -143,6 +143,10 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		hc.Spec.Workloads.NodePlacement.DeepCopyInto(&spec.Workloads)
 	}
 
+	if lv := hc.Spec.LogVerbosityConfig; lv != nil {
+		spec.Config.LogVerbosity = lv.CDI
+	}
+
 	cdi := NewCDIWithNameOnly(hc, opts...)
 	cdi.Spec = spec
 
