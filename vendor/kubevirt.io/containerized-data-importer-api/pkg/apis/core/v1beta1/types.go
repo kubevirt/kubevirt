@@ -533,6 +533,7 @@ type DataSourceList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=dic;dics,categories=all
+// +kubebuilder:printcolumn:name="Format",type="string",JSONPath=".status.sourceFormat",description="The format in which created sources are saved"
 type DataImportCron struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -591,8 +592,10 @@ type DataImportCronStatus struct {
 	// LastExecutionTimestamp is the time of the last polling
 	LastExecutionTimestamp *metav1.Time `json:"lastExecutionTimestamp,omitempty"`
 	// LastImportTimestamp is the time of the last import
-	LastImportTimestamp *metav1.Time              `json:"lastImportTimestamp,omitempty"`
-	Conditions          []DataImportCronCondition `json:"conditions,omitempty" optional:"true"`
+	LastImportTimestamp *metav1.Time `json:"lastImportTimestamp,omitempty"`
+	// SourceFormat defines the format of the DataImportCron-created disk image sources
+	SourceFormat *DataImportCronSourceFormat `json:"sourceFormat,omitempty"`
+	Conditions   []DataImportCronCondition   `json:"conditions,omitempty" optional:"true"`
 }
 
 // ImportStatus of a currently in progress import
@@ -653,6 +656,12 @@ type VolumeImportSourceSpec struct {
 	Preallocation *bool `json:"preallocation,omitempty"`
 	// ContentType represents the type of the imported data (Kubevirt or archive)
 	ContentType DataVolumeContentType `json:"contentType,omitempty"`
+	// TargetClaim the name of the specific claim to be populated with a multistage import.
+	TargetClaim *string `json:"targetClaim,omitempty"`
+	// Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+	Checkpoints []DataVolumeCheckpoint `json:"checkpoints,omitempty"`
+	// FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+	FinalCheckpoint *bool `json:"finalCheckpoint,omitempty"`
 }
 
 // ImportSourceType contains each one of the source types allowed in a VolumeImportSource
@@ -940,6 +949,9 @@ type CDIConfigSpec struct {
 	TLSSecurityProfile *ocpconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 	// The imagePullSecrets used to pull the container images
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// LogVerbosity overrides the default verbosity level used to initialize loggers
+	// +optional
+	LogVerbosity *int32 `json:"logVerbosity,omitempty"`
 }
 
 // CDIConfigStatus provides the most recently observed status of the CDI Config resource

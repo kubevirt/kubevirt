@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.3
+    controller-gen.kubebuilder.io/version: v0.13.0
   name: cdis.cdi.kubevirt.io
 spec:
   group: cdi.kubevirt.io
@@ -171,6 +171,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  logVerbosity:
+                    description: LogVerbosity overrides the default verbosity level
+                      used to initialize loggers
+                    format: int32
+                    type: integer
                   podResourceRequirements:
                     description: ResourceRequirements describes the compute resource
                       requirements.
@@ -2406,6 +2411,11 @@ spec:
                     items:
                       type: string
                     type: array
+                  logVerbosity:
+                    description: LogVerbosity overrides the default verbosity level
+                      used to initialize loggers
+                    format: int32
+                    type: integer
                   podResourceRequirements:
                     description: ResourceRequirements describes the compute resource
                       requirements.
