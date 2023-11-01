@@ -20,13 +20,13 @@
 package device_manager
 
 import (
+	"context"
 	"math"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
 

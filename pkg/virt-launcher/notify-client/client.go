@@ -1,6 +1,7 @@
 package eventsclient
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -8,7 +9,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
 	"libvirt.org/go/libvirt"
@@ -92,7 +92,8 @@ func init() {
 }
 
 func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
 	if err != nil {
 		return 0, fmt.Errorf("could not check cmd server version: %v", err)

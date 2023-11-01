@@ -20,12 +20,12 @@
 package cmdserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"time"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
 	"k8s.io/apimachinery/pkg/util/json"

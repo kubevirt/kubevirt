@@ -26,6 +26,7 @@ package cmdclient
 */
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -37,7 +38,6 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -320,7 +320,8 @@ func NewClient(socketPath string) (LauncherClient, error) {
 }
 
 func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
-	ctx, _ := context.WithTimeout(context.Background(), shortTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("could not check cmd server version: %v", err)

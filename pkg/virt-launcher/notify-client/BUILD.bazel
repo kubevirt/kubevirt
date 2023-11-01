@@ -20,7 +20,6 @@ go_library(
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
