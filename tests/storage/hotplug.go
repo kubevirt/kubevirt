@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -594,7 +593,6 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		DescribeTable("Should be able to add and use WFFC local storage", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
-			checks.SkipIfNonRoot("root owned disk.img")
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,

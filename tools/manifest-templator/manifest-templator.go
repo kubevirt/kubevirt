@@ -145,11 +145,6 @@ func main() {
 		GeneratedManifests: make(map[string]string),
 	}
 
-	if featureGates != nil {
-
-		*featureGates = strings.Replace(*featureGates, "NonRootExperimental", "NonRoot", 1)
-	}
-
 	if *processVars {
 		data.Namespace = *namespace
 		data.CSVNamespace = *csvNamespace

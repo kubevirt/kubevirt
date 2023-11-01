@@ -139,12 +139,6 @@ func SkipTestIfNotSEVESCapable() {
 	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
-func SkipIfNonRoot(feature string) {
-	if HasFeature(virtconfig.NonRoot) {
-		ginkgo.Skip(fmt.Sprintf("NonRoot implementation doesn't support %s", feature))
-	}
-}
-
 func SkipIfMissingRequiredImage(virtClient kubecli.KubevirtClient, imageName string) {
 	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), imageName, v1.GetOptions{})
 	if err != nil || windowsPv.Status.Phase == v12.VolumePending || windowsPv.Status.Phase == v12.VolumeFailed {
