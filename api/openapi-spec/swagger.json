@@ -21255,6 +21255,11 @@
      "target": {
       "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "template": {
+      "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "default": {},
+      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneTemplateFilters"
      }
     }
    },
@@ -21284,6 +21289,29 @@
      },
      "targetName": {
       "type": "string"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineCloneTemplateFilters": {
+    "type": "object",
+    "properties": {
+     "annotationFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },

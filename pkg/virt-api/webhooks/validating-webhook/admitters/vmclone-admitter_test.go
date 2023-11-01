@@ -358,6 +358,32 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			Entry("negation in the beginning", "!mykey/something"),
 		)
 	})
+	Context("Template Annotations and labels filters", func() {
+		testFilter := func(filter string, expectAllowed bool) {
+			vmClone.Spec.Template.LabelFilters = []string{filter}
+			vmClone.Spec.Template.AnnotationFilters = []string{filter}
+			admitter.admitAndExpect(vmClone, expectAllowed)
+		}
+
+		DescribeTable("Should reject", func(filter string) {
+			testFilter(filter, false)
+		},
+			Entry("templateFilter negation character alone", "!"),
+			Entry("templateFilter negation in the middle", "mykey/!something"),
+			Entry("templateFilter negation in the end", "mykey/something!"),
+			Entry("templateFilter wildcard in the beginning", "*mykey/something"),
+			Entry("templateFilter wildcard in the middle", "mykey/*something"),
+		)
+
+		DescribeTable("Should allow", func(filter string) {
+			testFilter(filter, true)
+		},
+			Entry("templateFilter regular filter", "mykey/something"),
+			Entry("templateFilter wildcard only", "*"),
+			Entry("templateFilter wildcard in the end", "mykey/something*"),
+			Entry("templateFilter negation in the beginning", "!mykey/something"),
+		)
+	})
 
 })
 

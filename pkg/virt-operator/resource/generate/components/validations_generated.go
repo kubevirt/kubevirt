@@ -7934,6 +7934,24 @@ var CRDsValidation map[string]string = map[string]string{
           - kind
           - name
           type: object
+        template:
+          description: For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.
+          properties:
+            annotationFilters:
+              description: 'Example use: "!some/key*". For a detailed description,
+                please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.'
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+            labelFilters:
+              description: 'Example use: "!some/key*". For a detailed description,
+                please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.'
+              items:
+                type: string
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
       required:
       - source
       type: object

@@ -135,7 +135,7 @@ func withNewMacAddresses(c *createClone, cloneSpec *cloneSpec) error {
 func (c *createClone) usage() string {
 	return `  # Create a manifest for a clone with a random name:
   {{ProgramName}} create clone --source-name sourceVM --target-name targetVM
-  
+
   # Create a manifest for a clone with a specified name:
   {{ProgramName}} create clone --name my-clone --source-name sourceVM --target-name targetVM
 
@@ -150,10 +150,10 @@ func (c *createClone) usage() string {
 
   # Create a manifest for a clone with a source type snapshot to a target type VM:
   {{ProgramName}} create clone --source-name mySnapshot --source-type snapshot --target-name targetVM
-  
+
   # Create a manifest for a clone with label filters:
-  {{ProgramName}} create clone --source-name sourceVM --label-filter '*' --label-filter '!some/key' 
-  
+  {{ProgramName}} create clone --source-name sourceVM --label-filter '*' --label-filter '!some/key'
+
   # Create a manifest for a clone with annotation filters:
   {{ProgramName}} create clone --source-name sourceVM --annotation-filter '*' --annotation-filter '!some/key'
 

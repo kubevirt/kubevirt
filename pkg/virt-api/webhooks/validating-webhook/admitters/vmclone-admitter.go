@@ -78,10 +78,16 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ar *admissionv1.AdmissionRevi
 
 	var causes []metav1.StatusCause
 
-	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "Annotations"); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.AnnotationFilters, "spec.annotations"); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
-	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "Labels"); newCauses != nil {
+	if newCauses := validateFilters(vmClone.Spec.LabelFilters, "spec.labels"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := validateFilters(vmClone.Spec.Template.AnnotationFilters, "spec.template.annotations"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := validateFilters(vmClone.Spec.Template.LabelFilters, "spec.template.labels"); newCauses != nil {
 		causes = append(causes, newCauses...)
 	}
 
@@ -112,7 +118,7 @@ func validateFilters(filters []string, fieldName string) (causes []metav1.Status
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: message,
-			Field:   k8sfield.NewPath("spec").Child(fieldName).String(),
+			Field:   fieldName,
 		})
 	}
 	const negationChar = "!"
@@ -126,14 +132,14 @@ func validateFilters(filters []string, fieldName string) (causes []metav1.Status
 			continue
 		}
 
-		const errPattern = "filter %s is invalid: cannot contain a %s character (%s) at any place that is not the beginning"
+		const errPattern = "%s filter %s is invalid: cannot contain a %s character (%s); FilterRules: %s"
 
 		if filterWithoutFirstChar := filter[1:]; strings.Contains(filterWithoutFirstChar, negationChar) {
-			addCause(fmt.Sprintf(errPattern, filter, "negation", negationChar))
+			addCause(fmt.Sprintf(errPattern, fieldName, filter, "negation", negationChar, "NegationChar can be only used at the beginning of the filter"))
 		}
 
 		if filterWithoutLastChar := filter[:len(filter)-1]; strings.Contains(filterWithoutLastChar, wildcardChar) {
-			addCause(fmt.Sprintf(errPattern, filter, "wildcard", wildcardChar))
+			addCause(fmt.Sprintf(errPattern, fieldName, filter, "wildcard", wildcardChar, "WildcardChar can be only at the end of the filter"))
 		}
 	}
 
