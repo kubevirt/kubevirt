@@ -458,6 +458,11 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredInterfaceMasquerade *v1.InterfaceMasquerade `json:"preferredInterfaceMasquerade,omitempty"`
+
+	// PreferredInterfaceSRIOV optionally defines the preferred SRIOV configuration to use with each network interface.
+	//
+	// +optional
+	PreferredInterfaceSRIOV *v1.InterfaceSRIOV `json:"preferredInterfaceSRIOV,omitempty"`
 }
 
 // FeaturePreferences contains various optional defaults for Features.

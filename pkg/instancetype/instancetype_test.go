@@ -1582,23 +1582,27 @@ var _ = Describe("Instancetype and Preferences", func() {
 								Physical: 4096,
 							},
 						},
-						PreferredDiskCache:           v1.CacheWriteThrough,
-						PreferredDiskIO:              v1.IONative,
-						PreferredDiskBus:             v1.DiskBusVirtio,
-						PreferredCdromBus:            v1.DiskBusSCSI,
-						PreferredLunBus:              v1.DiskBusSATA,
-						PreferredInputBus:            v1.InputBusVirtio,
-						PreferredInputType:           v1.InputTypeTablet,
-						PreferredInterfaceModel:      v1.VirtIO,
-						PreferredSoundModel:          "ac97",
-						PreferredRng:                 &v1.Rng{},
-						PreferredTPM:                 &v1.TPMDevice{},
-						PreferredInterfaceMasquerade: &v1.InterfaceMasquerade{},
+						PreferredDiskCache:      v1.CacheWriteThrough,
+						PreferredDiskIO:         v1.IONative,
+						PreferredDiskBus:        v1.DiskBusVirtio,
+						PreferredCdromBus:       v1.DiskBusSCSI,
+						PreferredLunBus:         v1.DiskBusSATA,
+						PreferredInputBus:       v1.InputBusVirtio,
+						PreferredInputType:      v1.InputTypeTablet,
+						PreferredInterfaceModel: v1.VirtIO,
+						PreferredSoundModel:     "ac97",
+						PreferredRng:            &v1.Rng{},
+						PreferredTPM:            &v1.TPMDevice{},
 					},
 				}
 			})
 
 			Context("PreferredInterfaceMasquerade", func() {
+
+				BeforeEach(func() {
+					preferenceSpec.Devices.PreferredInterfaceMasquerade = &v1.InterfaceMasquerade{}
+				})
+
 				It("should be applied to interface on Pod network", func() {
 					vmi.Spec.Networks = []v1.Network{{
 						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
@@ -1610,18 +1614,54 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(BeNil())
 				})
+
 				It("should not be applied on interface that has another binding set", func() {
 					vmi.Spec.Domain.Devices.Interfaces[0].SRIOV = &v1.InterfaceSRIOV{}
 					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).ToNot(BeNil())
 				})
+
 				It("should not be applied on interface that is not on Pod network", func() {
 					vmi.Spec.Networks = []v1.Network{{
 						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
 					}}
 					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
+				})
+			})
+
+			Context("PreferredInterfaceSRIOV", func() {
+
+				BeforeEach(func() {
+					preferenceSpec.Devices.PreferredInterfaceSRIOV = &v1.InterfaceSRIOV{}
+				})
+
+				It("should be applied to interface on Multus network", func() {
+					vmi.Spec.Networks = []v1.Network{{
+						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{},
+						},
+					}}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).ToNot(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
+				})
+
+				It("should not be applied on interface that has another binding set", func() {
+					vmi.Spec.Domain.Devices.Interfaces[0].Masquerade = &v1.InterfaceMasquerade{}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
+				})
+
+				It("should not be applied to interface that is not on Multus network", func() {
+					vmi.Spec.Networks = []v1.Network{{
+						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
+					}}
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).To(BeNil())
 				})
 			})
 

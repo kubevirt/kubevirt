@@ -27956,11 +27956,17 @@ func schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref common.Ref
 							Ref:         ref("kubevirt.io/api/core/v1.InterfaceMasquerade"),
 						},
 					},
+					"preferredInterfaceSRIOV": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredInterfaceSRIOV optionally defines the preferred SRIOV configuration to use with each network interface.",
+							Ref:         ref("kubevirt.io/api/core/v1.InterfaceSRIOV"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
+			"kubevirt.io/api/core/v1.BlockSize", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VGPUOptions"},
 	}
 }
 

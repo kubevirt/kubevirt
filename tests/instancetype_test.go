@@ -310,7 +310,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				PreferredCPUTopology: &preferredCPUTopology,
 			}
 			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-				PreferredDiskBus: v1.DiskBusSATA,
+				PreferredDiskBus:             v1.DiskBusSATA,
+				PreferredInterfaceMasquerade: &v1.InterfaceMasquerade{},
 			}
 			preference.Spec.Features = &instancetypev1beta1.FeaturePreferences{
 				PreferredHyperv: &v1.FeatureHyperv{
@@ -355,6 +356,15 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Name: preference.Name,
 				Kind: instancetypeapi.SingularPreferenceResourceName,
 			}
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(vm.Spec.Template.Spec.Domain.Devices.Interfaces, v1.Interface{
+				Name: "default",
+			})
+			vm.Spec.Template.Spec.Networks = append(vm.Spec.Template.Spec.Networks, v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
+			})
 
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -386,6 +396,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			// Assert that the correct subdomain grace period are used
 			Expect(vmi.Spec.Subdomain).To(Equal(*preference.Spec.PreferredSubdomain))
+
+			// Assert that the correct interface is used
+			Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
 
 			// Assert the correct annotations have been set
 			Expect(vmi.Annotations[v1.InstancetypeAnnotation]).To(Equal(instancetype.Name))

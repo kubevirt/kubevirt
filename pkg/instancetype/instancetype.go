@@ -1322,10 +1322,15 @@ func isInterfaceBindingUnset(iface *virtv1.Interface) bool {
 	return reflect.ValueOf(iface.InterfaceBindingMethod).IsZero() && iface.Binding == nil
 }
 
-func isInterfaceOnPodNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachineInstanceSpec) bool {
+func isInterfaceOnRequiredNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachineInstanceSpec, networkType interface{}) bool {
 	for _, network := range vmiSpec.Networks {
 		if network.Name == interfaceName {
-			return network.Pod != nil
+			switch networkType.(type) {
+			case virtv1.PodNetwork:
+				return network.Pod != nil
+			case virtv1.MultusNetwork:
+				return network.Multus != nil
+			}
 		}
 	}
 	return false
@@ -1337,8 +1342,13 @@ func applyInterfacePreferences(preferenceSpec *instancetypev1beta1.VirtualMachin
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
 			vmiIface.Model = preferenceSpec.Devices.PreferredInterfaceModel
 		}
-		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && isInterfaceBindingUnset(vmiIface) && isInterfaceOnPodNetwork(vmiIface.Name, vmiSpec) {
+
+		if preferenceSpec.Devices.PreferredInterfaceMasquerade != nil && isInterfaceBindingUnset(vmiIface) && isInterfaceOnRequiredNetwork(vmiIface.Name, vmiSpec, virtv1.PodNetwork{}) {
 			vmiIface.Masquerade = preferenceSpec.Devices.PreferredInterfaceMasquerade.DeepCopy()
+		}
+
+		if preferenceSpec.Devices.PreferredInterfaceSRIOV != nil && isInterfaceBindingUnset(vmiIface) && isInterfaceOnRequiredNetwork(vmiIface.Name, vmiSpec, virtv1.MultusNetwork{}) {
+			vmiIface.SRIOV = preferenceSpec.Devices.PreferredInterfaceSRIOV.DeepCopy()
 		}
 	}
 }

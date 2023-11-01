@@ -22578,6 +22578,10 @@
       "description": "PreferredInterfaceModel optionally defines the preferred model to be used by Interface devices.",
       "type": "string"
      },
+     "preferredInterfaceSRIOV": {
+      "description": "PreferredInterfaceSRIOV optionally defines the preferred SRIOV configuration to use with each network interface.",
+      "$ref": "#/definitions/v1.InterfaceSRIOV"
+     },
      "preferredLunBus": {
       "description": "PreferredLunBus optionally defines the preferred bus for Lun Disk devices.",
       "type": "string"
