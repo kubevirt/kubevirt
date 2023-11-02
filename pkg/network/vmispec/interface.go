@@ -128,3 +128,14 @@ func IndexInterfaceStatusByName(interfaces []v1.VirtualMachineInstanceNetworkInt
 	}
 	return indexedInterfaceStatus
 }
+
+func FilterInterfacesByNetworks(interfaces []v1.Interface, networks []v1.Network) []v1.Interface {
+	var ifaces []v1.Interface
+	ifacesByName := IndexInterfaceSpecByName(interfaces)
+	for _, net := range networks {
+		if iface, exists := ifacesByName[net.Name]; exists {
+			ifaces = append(ifaces, iface)
+		}
+	}
+	return ifaces
+}

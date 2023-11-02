@@ -37,13 +37,14 @@ var _ = Describe("state", func() {
 
 	readErr := errors.New("read test error")
 	writeErr := errors.New("write test error")
+	deleteErr := errors.New("delete test error")
 
 	It("fails reporting", func() {
 		cache := newConfigStateCacheStub()
 		cache.readErr = readErr
 
 		state := netpod.NewState(cache, nil)
-		_, _, err := state.PendingAndStarted([]v1.Network{{Name: netName}})
+		_, _, _, err := state.PendingStartedFinished([]v1.Network{{Name: netName}})
 
 		Expect(err).To(MatchError(readErr))
 	})
@@ -64,26 +65,36 @@ var _ = Describe("state", func() {
 		Expect(state.SetFinished([]v1.Network{{Name: netName}})).To(MatchError(ContainSubstring(writeErr.Error())))
 	})
 
+	It("fails deleting state", func() {
+		cache := newConfigStateCacheStub()
+		cache.deleteErr = deleteErr
+
+		state := netpod.NewState(cache, nil)
+		Expect(state.Delete([]v1.Network{{Name: netName}})).To(MatchError(ContainSubstring(deleteErr.Error())))
+	})
+
 	It("succeeds setting started state", func() {
 		state := netpod.NewState(newConfigStateCacheStub(), nil)
 		Expect(state.SetStarted([]v1.Network{{Name: netName}})).To(Succeed())
 
-		pending, started, err := state.PendingAndStarted([]v1.Network{{Name: netName}})
+		pending, started, finished, err := state.PendingStartedFinished([]v1.Network{{Name: netName}})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(pending).To(BeEmpty())
 		Expect(started).To(Equal([]v1.Network{{Name: netName}}))
+		Expect(finished).To(BeEmpty())
 	})
 
 	It("succeeds setting finished state", func() {
 		state := netpod.NewState(newConfigStateCacheStub(), nil)
 		Expect(state.SetFinished([]v1.Network{{Name: netName}})).To(Succeed())
 
-		pending, started, err := state.PendingAndStarted([]v1.Network{{Name: netName}})
+		pending, started, finished, err := state.PendingStartedFinished([]v1.Network{{Name: netName}})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(pending).To(BeEmpty())
 		Expect(started).To(BeEmpty())
+		Expect(finished).To(Equal([]v1.Network{{Name: netName}}))
 	})
 
 	It("reports a mix of network states", func() {
@@ -104,10 +115,27 @@ var _ = Describe("state", func() {
 		cache.stateCache[nets[5].Name] = netcache.PodIfaceNetworkPreparationFinished
 
 		state := netpod.NewState(cache, nil)
-		pending, started, err := state.PendingAndStarted(nets)
+		pending, started, finished, err := state.PendingStartedFinished(nets)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pending).To(Equal([]v1.Network{nets[0], nets[1]}))
 		Expect(started).To(Equal([]v1.Network{nets[2], nets[3]}))
+		Expect(finished).To(Equal([]v1.Network{nets[4], nets[5]}))
+	})
+
+	It("succeeds deleting network state", func() {
+		state := netpod.NewState(newConfigStateCacheStub(), nil)
+		nets := []v1.Network{{Name: netName}}
+		Expect(state.SetFinished(nets)).To(Succeed())
+
+		Expect(state.Delete(nets)).To(Succeed())
+
+		pending, started, finished, err := state.PendingStartedFinished(nets)
+		Expect(err).NotTo(HaveOccurred())
+
+		// On deletion, all networks cache are initialized back to "pending".
+		Expect(pending).To(Equal(nets))
+		Expect(started).To(BeEmpty())
+		Expect(finished).To(BeEmpty())
 	})
 })

@@ -20,19 +20,12 @@
 package network
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/golang/mock/gomock"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 
-	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -52,7 +45,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 				Name:          "default",
 				NetworkSource: v1.NetworkSource{},
 			}}
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithLauncherPid(0))
+			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 			var domain *api.Domain
 			err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
 			Expect(err).To(MatchError("Network not implemented"))
@@ -72,8 +65,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 					Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 				}}
 
-				launcherPID := 0
-				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil, WithLauncherPid(launcherPID))
+				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
 
 				nics, err := vmNetworkConfigurator.getPhase2NICs(&api.Domain{}, vmi.Spec.Networks)
 				Expect(err).ToNot(HaveOccurred())
@@ -81,71 +73,4 @@ var _ = Describe("VMNetworkConfigurator", func() {
 			})
 		})
 	})
-
-	Context("UnplugPodNetworksPhase1", func() {
-		var (
-			vmi                   *v1.VirtualMachineInstance
-			vmNetworkConfigurator *VMNetworkConfigurator
-			configState           ConfigStateExecutor
-		)
-
-		BeforeEach(func() {
-			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
-			vmi.Spec.Networks = []v1.Network{}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, nil, WithLauncherPid(0))
-		})
-		It("should succeed on successful Unplug", func() {
-			configState = &ConfigStateStub{}
-			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).To(Succeed())
-		})
-		It("should fail on failing Unplug", func() {
-			configState = &ConfigStateStub{UnplugShouldFail: true}
-			Expect(vmNetworkConfigurator.UnplugPodNetworksPhase1(vmi, vmi.Spec.Networks, configState)).ToNot(Succeed())
-		})
-	})
-
-	Context("filter out ordinal interfaces", func() {
-		var (
-			vmi                   *v1.VirtualMachineInstance
-			vmNetworkConfigurator *VMNetworkConfigurator
-			mockNetworkH          *netdriver.MockNetworkHandler
-		)
-		const (
-			ordinalPodIfaceName = "net0"
-			hashPodIfaceName    = "pod123"
-		)
-
-		BeforeEach(func() {
-			ctrl := gomock.NewController(GinkgoT())
-			mockNetworkH = netdriver.NewMockNetworkHandler(ctrl)
-			vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123"}}
-			vmi.Spec.Networks = []v1.Network{{
-				Name: testNet0,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{},
-				},
-			}}
-			vmNetworkConfigurator = NewVMNetworkConfigurator(vmi, &baseCacheCreator, WithNetUtilsHandler(mockNetworkH), WithLauncherPid(0))
-		})
-		It("shouldn't filter the network, it has non-ordinal name", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: hashPodIfaceName}}, nil)
-			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(ConsistOf([]string{testNet0}))
-		})
-		It("shouldn't filter the ordinal network", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: ordinalPodIfaceName}}, nil)
-			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(BeEmpty())
-		})
-		It("shouldn't filter a network with no link", func() {
-			mockNetworkH.EXPECT().LinkByName(gomock.Any()).Return(nil, netlink.LinkNotFoundError{}).AnyTimes()
-			Expect(vmNetworkConfigurator.filterOutOrdinalInterfaces(vmi.Spec.Networks, vmi)).To(ConsistOf([]string{testNet0}))
-		})
-	})
 })
-
-type netpodStub struct {
-	errSetup error
-}
-
-func (n netpodStub) Setup(_ func() error) error {
-	return n.errSetup
-}

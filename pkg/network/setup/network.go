@@ -25,8 +25,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
-	"kubevirt.io/kubevirt/pkg/network/link"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -35,7 +33,6 @@ type VMNetworkConfigurator struct {
 	vmi          *v1.VirtualMachineInstance
 	handler      netdriver.NetworkHandler
 	cacheCreator cacheCreator
-	launcherPid  *int
 }
 
 type vmNetConfiguratorOption func(v *VMNetworkConfigurator)
@@ -50,18 +47,6 @@ func NewVMNetworkConfigurator(vmi *v1.VirtualMachineInstance, cacheCreator cache
 		opt(v)
 	}
 	return v
-}
-
-func WithNetUtilsHandler(h netdriver.NetworkHandler) vmNetConfiguratorOption {
-	return func(v *VMNetworkConfigurator) {
-		v.handler = h
-	}
-}
-
-func WithLauncherPid(pid int) vmNetConfiguratorOption {
-	return func(v *VMNetworkConfigurator) {
-		v.launcherPid = &pid
-	}
 }
 
 func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.Network) ([]podNIC, error) {
@@ -98,49 +83,4 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 		}
 	}
 	return nil
-}
-
-func discoverPodInterfaceName(handler netdriver.NetworkHandler, networks []v1.Network, subjectNetwork v1.Network) (string, error) {
-	ifaceLink, err := link.DiscoverByNetwork(handler, networks, subjectNetwork)
-	if err != nil {
-		return "", err
-	} else {
-		if ifaceLink == nil {
-			// couldn't find any interface
-			return "", nil
-		}
-		return ifaceLink.Attrs().Name, nil
-	}
-}
-
-func (n *VMNetworkConfigurator) UnplugPodNetworksPhase1(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor) error {
-	networkByName := vmispec.IndexNetworkSpecByName(networks)
-	err := configState.Unplug(
-		networks,
-		func(netsToFilter []v1.Network) ([]string, error) {
-			return n.filterOutOrdinalInterfaces(netsToFilter, vmi)
-		},
-		func(network string) error {
-			unpluggedPodNic := NewUnpluggedpodnic(string(vmi.UID), networkByName[network], n.handler, *n.launcherPid, n.cacheCreator)
-			return unpluggedPodNic.UnplugPhase1()
-		})
-	if err != nil {
-		return fmt.Errorf("failed unplug pod networks phase1: %w", err)
-	}
-	return nil
-}
-
-func (n *VMNetworkConfigurator) filterOutOrdinalInterfaces(networks []v1.Network, vmi *v1.VirtualMachineInstance) ([]string, error) {
-	networksToUnplug := []string{}
-	for _, net := range networks {
-		podIfaceName, err := discoverPodInterfaceName(n.handler, vmi.Spec.Networks, net)
-		if err != nil {
-			return nil, err
-		}
-		// podIfaceName can be empty in case the interface was already unplugged from the pod or not yet plugged
-		if podIfaceName == "" || !namescheme.OrdinalSecondaryInterfaceName(podIfaceName) {
-			networksToUnplug = append(networksToUnplug, net.Name)
-		}
-	}
-	return networksToUnplug, nil
 }

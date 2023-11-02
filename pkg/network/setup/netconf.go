@@ -24,8 +24,6 @@ import (
 	"strconv"
 	"sync"
 
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
@@ -41,20 +39,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/netns"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
-type ConfigStateExecutor interface {
-	Unplug(networks []v1.Network, filterFunc func([]v1.Network) ([]string, error), cleanupFunc func(string) error) error
-}
-
 type NetConf struct {
 	cacheCreator     cacheCreator
 	nsFactory        nsFactory
-	configState      map[string]ConfigStateExecutor
 	state            map[string]*netpod.State
 	configStateMutex *sync.RWMutex
 }
@@ -69,12 +63,11 @@ func NewNetConf() *NetConf {
 	var cacheFactory cache.CacheCreator
 	return NewNetConfWithCustomFactoryAndConfigState(func(pid int) NSExecutor {
 		return netns.New(pid)
-	}, cacheFactory, map[string]ConfigStateExecutor{}, map[string]*netpod.State{})
+	}, cacheFactory, map[string]*netpod.State{})
 }
 
-func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, configState map[string]ConfigStateExecutor, state map[string]*netpod.State) *NetConf {
+func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator cacheCreator, state map[string]*netpod.State) *NetConf {
 	return &NetConf{
-		configState:      configState,
 		state:            state,
 		configStateMutex: &sync.RWMutex{},
 		cacheCreator:     cacheCreator,
@@ -89,8 +82,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	}
 
 	c.configStateMutex.RLock()
-	configState, ok := c.configState[string(vmi.UID)]
-	state := c.state[string(vmi.UID)]
+	state, ok := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
 		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
@@ -99,11 +91,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 			return err
 		}
 		ns := c.nsFactory(launcherPid)
-		newConfigState := NewConfigState(configStateCache, ns)
-		configState = &newConfigState
 		state = netpod.NewState(configStateCache, ns)
 		c.configStateMutex.Lock()
-		c.configState[string(vmi.UID)] = configState
 		c.state[string(vmi.UID)] = state
 		c.configStateMutex.Unlock()
 	}
@@ -114,8 +103,8 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	}
 	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
 	netpod := netpod.NewNetPod(
-		vmi.Spec.Networks,
-		vmi.Spec.Domain.Devices.Interfaces,
+		networks,
+		vmispec.FilterInterfacesByNetworks(vmi.Spec.Domain.Devices.Interfaces, networks),
 		string(vmi.UID),
 		launcherPid,
 		ownerID,
@@ -127,16 +116,6 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 	if err := netpod.Setup(); err != nil {
 		return fmt.Errorf("setup failed, err: %w", err)
-	}
-
-	absentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State == v1.InterfaceStateAbsent
-	})
-	absentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
-	if len(absentIfaces) != 0 {
-		if err := c.hotUnplugInterfaces(vmi, absentNets, configState, launcherPid); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -168,7 +147,7 @@ func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.configStateMutex.Lock()
-	delete(c.configState, string(vmi.UID))
+	delete(c.state, string(vmi.UID))
 	c.configStateMutex.Unlock()
 	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
 	if err := podCache.Remove(); err != nil {
@@ -176,11 +155,6 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	}
 
 	return nil
-}
-
-func (c *NetConf) hotUnplugInterfaces(vmi *v1.VirtualMachineInstance, networks []v1.Network, configState ConfigStateExecutor, launcherPid int) error {
-	netConfigurator := NewVMNetworkConfigurator(vmi, c.cacheCreator, WithLauncherPid(launcherPid))
-	return netConfigurator.UnplugPodNetworksPhase1(vmi, networks, configState)
 }
 
 func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance) masquerade.MasqPod {
