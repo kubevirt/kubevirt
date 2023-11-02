@@ -429,10 +429,14 @@ func (n *Notifier) StartDomainNotifier(
 				}
 			case agentUpdate := <-agentStore.AgentUpdated:
 				metadataCache.ResetNotification()
-				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
-				guestOsInfo = agentUpdate.DomainInfo.OSInfo
-				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
-
+				switch agentUpdate.Type {
+				case agentpoller.GET_OSINFO:
+					guestOsInfo = agentUpdate.DomainInfo.OSInfo
+				case agentpoller.GET_INTERFACES:
+					interfaceStatuses = agentUpdate.DomainInfo.Interfaces
+				case agentpoller.GET_FSFREEZE_STATUS:
+					fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
+				}
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 			case <-reconnectChan:
