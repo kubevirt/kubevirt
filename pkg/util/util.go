@@ -46,8 +46,8 @@ func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
 	return ok || nonRoot
 }
 
-func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+func IsSRIOVVmi(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	for _, iface := range vmiSpec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {
 			return true
 		}
@@ -56,8 +56,8 @@ func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 }
 
 // Check if a VMI spec requests GPU
-func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
+func isGPUVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	if vmiSpec.Domain.Devices.GPUs != nil && len(vmiSpec.Domain.Devices.GPUs) != 0 {
 		return true
 	}
 	return false
@@ -76,17 +76,26 @@ func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
 }
 
 // Check if a VMI spec requests a HostDevice
-func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
+func isHostDevVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	if vmiSpec.Domain.Devices.HostDevices != nil && len(vmiSpec.Domain.Devices.HostDevices) != 0 {
 		return true
 	}
 	return false
 }
 
-// Check if a VMI spec requests a VFIO device
-func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
+// Wrapper functions used for template service VMI resource rules
+func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
+	return isHostDevVMI(&vmi.Spec)
+}
 
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) {
+func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
+	return isGPUVMI(&vmi.Spec)
+}
+
+// Check if a VMI spec requests a VFIO device
+func IsVFIOVMI(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+
+	if isHostDevVMI(vmiSpec) || isGPUVMI(vmiSpec) || IsSRIOVVmi(vmiSpec) {
 		return true
 	}
 	return false

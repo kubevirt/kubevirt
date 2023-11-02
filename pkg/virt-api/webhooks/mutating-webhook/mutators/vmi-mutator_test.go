@@ -640,6 +640,34 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("4096M"))
 	})
 
+	DescribeTable("when guest-memory is set, memory-request is not set and VFIO device is requested", func(memoryOvercommit int, requestMemory string) {
+		// no limits wanted on this test, to not copy the limit to requests
+		testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						MemoryOvercommit: memoryOvercommit,
+					},
+				},
+			},
+		})
+
+		guestMemory := resource.MustParse("3072M")
+		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{
+				Name:       "gpu1",
+				DeviceName: "example.org/deadbeef",
+			},
+		}
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("3072M"))
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal(requestMemory))
+	},
+		Entry("should apply memory-overcommit as 100% if resulting guest memory > request", 150, "3072M"),
+		Entry("should apply memory-overcommit if resulting guest memory <= request", 80, "3840M"))
+
 	It("should apply foreground finalizer on VMI create", func() {
 		vmiMeta, _, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))

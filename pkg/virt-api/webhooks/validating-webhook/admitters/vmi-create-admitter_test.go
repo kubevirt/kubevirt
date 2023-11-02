@@ -876,7 +876,37 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
 		})
-		It("should allow guest memory which is between requests and limits", func() {
+		It("should reject guest memory greater than requested memory when VM has VFIO device", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.GPUGate}
+			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
+				PciHostDevices: []v1.PciHostDevice{
+					{
+						PCIVendorSelector: "DEAD:BEEF",
+						ResourceName:      "example.org/deadbeef",
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvInformer, kvConfig)
+
+			vmi := api.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("128Mi")
+
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
+		})
+		It("should allow guest memory which is between requests and limits when VM does not have VFIO device", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("100Mi")
 
