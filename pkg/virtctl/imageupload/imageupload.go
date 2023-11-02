@@ -840,15 +840,16 @@ func validateUploadDataVolume(client kubecli.KubevirtClient, pvc *v1.PersistentV
 		}
 		return nil, err
 	}
+
 	// When using populators, the upload happens on the PVC Prime. We need to check it instead.
 	if dv.Annotations[UsePopulatorAnnotation] == "true" {
+		// We can assume the PVC is populated once it's bound
+		if pvc.Status.Phase == v1.ClaimBound {
+			return nil, fmt.Errorf("PVC %s already successfully populated", name)
+		}
+		// Get the PVC Prime since the upload is happening there
 		pvcPrimeName, ok := pvc.Annotations[PVCPrimeNameAnnotation]
 		if !ok {
-			// The PVC Prime name annotation is removed once the population succeeds.
-			// If the annotation is not there AND the pod is succeeded, we can safely assume the PVC was populated.
-			if pvc.Annotations[PodPhaseAnnotation] == string(v1.PodSucceeded) {
-				return nil, fmt.Errorf("PVC %s already successfully populated", name)
-			}
 			return nil, fmt.Errorf("Unable to get PVC Prime name from PVC %s/%s", pvc.Namespace, name)
 		}
 		pvc, err = client.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
@@ -856,6 +857,7 @@ func validateUploadDataVolume(client kubecli.KubevirtClient, pvc *v1.PersistentV
 			return nil, fmt.Errorf("Unable to get PVC Prime %s/%s", dv.Namespace, name)
 		}
 	}
+
 	return pvc, nil
 }
 
