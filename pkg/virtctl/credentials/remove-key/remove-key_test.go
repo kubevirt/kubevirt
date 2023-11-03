@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"testing"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
@@ -26,7 +25,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/testutils"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
@@ -349,8 +347,4 @@ func expectSecretToBeEmpty(cli kubernetes.Interface, name string) {
 
 func runRemoveKeyCommand(args ...string) error {
 	return clientcmd.NewRepeatableVirtctlCommand(append([]string{"credentials", "remove-ssh-key"}, args...)...)()
-}
-
-func TestRemoveSshKey(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +26,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/testutils"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
@@ -519,8 +517,4 @@ func updateSecret(cli kubernetes.Interface, name string, updateFunc func(secret 
 
 func runAddKeyCommand(args ...string) error {
 	return clientcmd.NewRepeatableVirtctlCommand(append([]string{"credentials", "add-ssh-key"}, args...)...)()
-}
-
-func TestAddSshKey(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
 }
