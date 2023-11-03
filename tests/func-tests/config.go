@@ -38,8 +38,15 @@ type DashboardTestConfig struct {
 }
 
 type DataImportCronConfig struct {
-	ExpectedDataImportCrons []string `yaml:"expectedDataImportCrons,omitempty"`
-	Namespace               string   `yaml:"namespace,omitempty"`
+	ExpectedDataImportCrons []string            `yaml:"expectedDataImportCrons,omitempty"`
+	ExpectedImageStream     []ImageStreamConfig `yaml:"expectedImageStream,omitempty"`
+	Namespace               string              `yaml:"namespace,omitempty"`
+}
+
+type ImageStreamConfig struct {
+	Name         string   `yaml:"name"`
+	RegistryName string   `yaml:"registryName"`
+	UsageImages  []string `yaml:"usageImages,omitempty"`
 }
 
 type TestConfig struct {

@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sort"
 	"time"
@@ -52,8 +53,15 @@ var (
 		Resource: "ssps",
 	}
 
-	expectedImages = []string{"centos-7-image-cron", "centos-stream8-image-cron", "centos-stream9-image-cron", "centos8-image-cron-is", "fedora-image-cron"}
-	imageNamespace = defaultImageNamespace
+	expectedImages       = []string{"centos-7-image-cron", "centos-stream8-image-cron", "centos-stream9-image-cron", "centos8-image-cron-is", "fedora-image-cron"}
+	imageNamespace       = defaultImageNamespace
+	expectedImageStreams = []tests.ImageStreamConfig{
+		{
+			Name:         "centos8",
+			RegistryName: "quay.io/kubevirt/centos8-container-disk-images",
+			UsageImages:  []string{"centos8-image-cron-is"},
+		},
+	}
 )
 
 var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered, func() {
@@ -76,6 +84,10 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		expectedImages = expectedImagesFromConfig
 	}
 
+	if expectedISFromConfig := tests.GetConfig().DataImportCron.ExpectedImageStream; len(expectedISFromConfig) > 0 {
+		expectedImageStreams = expectedISFromConfig
+	}
+
 	BeforeEach(func() {
 		var err error
 		cli, err = kubecli.GetKubevirtClient()
@@ -87,8 +99,13 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 	})
 
 	Context("test image-streams", func() {
-		DescribeTable("check that imagestream created", func(isName string) {
-			unstructured, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, isName, metav1.GetOptions{})
+		var isEntries []TableEntry
+		for _, is := range expectedImageStreams {
+			isEntries = append(isEntries, Entry(fmt.Sprintf("check the %s imagestream", is.Name), is))
+		}
+
+		DescribeTable("check that imagestream created", func(expectedIS tests.ImageStreamConfig) {
+			unstructured, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, expectedIS.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			is := &v1.ImageStream{}
@@ -96,28 +113,28 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 
 			Expect(is.Spec.Tags[0].From).ShouldNot(BeNil())
 			Expect(is.Spec.Tags[0].From.Kind).Should(Equal("DockerImage"))
-			Expect(is.Spec.Tags[0].From.Name).Should(Equal("quay.io/kubevirt/centos8-container-disk-images"))
+			Expect(is.Spec.Tags[0].From.Name).Should(Equal(expectedIS.RegistryName))
 		},
-			Entry("check the centos8 imagestream", "centos8"),
+			isEntries,
 		)
 
-		DescribeTable("check imagestream reconciliation", func(isName string) {
+		DescribeTable("check imagestream reconciliation", func(expectedIS tests.ImageStreamConfig) {
 			patchOp := []byte(`[{"op": "add", "path": "/metadata/labels/test-label", "value": "test"}]`)
 			Eventually(func() error {
-				_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Patch(ctx, isName, types.JSONPatchType, patchOp, metav1.PatchOptions{})
+				_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Patch(ctx, expectedIS.Name, types.JSONPatchType, patchOp, metav1.PatchOptions{})
 				return err
 			}).WithTimeout(time.Second * 5).WithPolling(time.Millisecond * 100).Should(Succeed())
 
 			is := &v1.ImageStream{}
 			Eventually(func(g Gomega) map[string]string {
-				unstructured, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, isName, metav1.GetOptions{})
+				unstructured, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, expectedIS.Name, metav1.GetOptions{})
 				g.Expect(err).ShouldNot(HaveOccurred())
 				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, is)).To(Succeed())
 
 				return is.GetLabels()
 			}).WithTimeout(time.Second * 15).WithPolling(time.Millisecond * 100).ShouldNot(HaveKey("test-label"))
 		},
-			Entry("check the centos8 imagestream", "centos8"),
+			isEntries,
 		)
 	})
 
@@ -186,16 +203,25 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		})
 	})
 
-	It("centos8-image-cron-is should have imageStream source", func() {
-		dic := &cdiv1beta1.DataImportCron{}
-		unstructured, err := cli.DynamicClient().Resource(dicGVR).Namespace(imageNamespace).Get(ctx, "centos8-image-cron-is", metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-		Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, dic)).To(Succeed())
+	Context("check imagestream images", func() {
+		var isUsageEntries []TableEntry
+		for _, is := range expectedImageStreams {
+			for _, image := range is.UsageImages {
+				isUsageEntries = append(isUsageEntries, Entry(fmt.Sprintf("%s should have imageStream source", image), image, is.Name))
+			}
+		}
 
-		Expect(dic.Spec.Template.Spec.Source).ShouldNot(BeNil())
-		Expect(dic.Spec.Template.Spec.Source.Registry).ShouldNot(BeNil())
-		Expect(dic.Spec.Template.Spec.Source.Registry.ImageStream).Should(HaveValue(Equal("centos8")))
-		Expect(dic.Spec.Template.Spec.Source.Registry.PullMethod).Should(HaveValue(Equal(cdiv1beta1.RegistryPullNode)))
+		DescribeTable("check the images that use image streams", func(imageName, streamName string) {
+			dic := &cdiv1beta1.DataImportCron{}
+			unstructured, err := cli.DynamicClient().Resource(dicGVR).Namespace(imageNamespace).Get(ctx, imageName, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(unstructured.Object, dic)).To(Succeed())
+
+			Expect(dic.Spec.Template.Spec.Source).ShouldNot(BeNil())
+			Expect(dic.Spec.Template.Spec.Source.Registry).ShouldNot(BeNil())
+			Expect(dic.Spec.Template.Spec.Source.Registry.ImageStream).Should(HaveValue(Equal(streamName)))
+			Expect(dic.Spec.Template.Spec.Source.Registry.PullMethod).Should(HaveValue(Equal(cdiv1beta1.RegistryPullNode)))
+		}, isUsageEntries)
 	})
 
 	Context("disable the feature", func() {
@@ -204,12 +230,19 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 			Eventually(tests.PatchHCO).WithArguments(ctx, cli, patch).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		})
 
-		It("imageStream should be removed", func() {
-			Eventually(func() error {
-				_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, "centos8", metav1.GetOptions{})
-				return err
-			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(MatchError(errors.IsNotFound, "not found error"))
-		})
+		var isEntries []TableEntry
+		for _, is := range expectedImageStreams {
+			isEntries = append(isEntries, Entry(fmt.Sprintf("check the %s imagestream", is.Name), is))
+		}
+
+		if len(isEntries) > 0 {
+			DescribeTable("imageStream should be removed", func(expectedIS tests.ImageStreamConfig) {
+				Eventually(func() error {
+					_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, expectedIS.Name, metav1.GetOptions{})
+					return err
+				}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(MatchError(errors.IsNotFound, "not found error"))
+			}, isEntries)
+		}
 
 		It("should empty the DICT in SSP", func() {
 			Eventually(func(g Gomega) []v1beta2.DataImportCronTemplate {
@@ -245,12 +278,19 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 			Eventually(tests.PatchHCO).WithArguments(ctx, cli, patch).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).Should(Succeed())
 		})
 
-		It("imageStream should be recovered", func() {
-			Eventually(func(g Gomega) error {
-				_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, "centos8", metav1.GetOptions{})
-				return err
-			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).ShouldNot(HaveOccurred())
-		})
+		var isEntries []TableEntry
+		for _, is := range expectedImageStreams {
+			isEntries = append(isEntries, Entry(fmt.Sprintf("check the %s imagestream", is.Name), is))
+		}
+
+		if len(isEntries) > 0 {
+			DescribeTable("imageStream should be recovered", func(expectedIS tests.ImageStreamConfig) {
+				Eventually(func(g Gomega) error {
+					_, err := cli.DynamicClient().Resource(isGVR).Namespace(imageNamespace).Get(ctx, expectedIS.Name, metav1.GetOptions{})
+					return err
+				}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).ShouldNot(HaveOccurred())
+			}, isEntries)
+		}
 
 		It("should propagate the DICT in SSP", func() {
 			Eventually(func(g Gomega) []v1beta2.DataImportCronTemplate {
