@@ -7,6 +7,7 @@ go_library(
         "appengine_gen2_flex.go",
         "default.go",
         "doc.go",
+        "error.go",
         "google.go",
         "jwt.go",
         "sdk.go",
