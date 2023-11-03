@@ -7,6 +7,7 @@
 | Type | Name | Since | Website | Use-Case |
 |:-|:-|:-|:-|:-|
 | End-User | arm | 2021 | [link](https://www.arm.com) | KubeVirt enables seamless transition from legacy Virtual Machine based workloads to cloud-native container platforms. Arm believes KubeVirt addresses this challenge, allowing Virtual Machines workloads to easily deploy and scale in the cloud and at the edge. <br><br>Arm is an active contributor to the project, focused on enabling and optimizing Kubevirt performance on aarch64 and working with the ecosystem to facilitate users in deploying their workloads on cloud-native platforms. |
+| End-user| Bytedance | 2023 | [link](https://www.bytedance.com/en/) | We use KubeVirt as part of our innovation Trusted Container Stack for TEE cluster provisioning. |
 | End-user| Civo | 2020 | [link](https://www.civo.com) | We are using KubeVirt as part of our stack to enable tenant cluster provisioning within Civo cloud. |
 | End-user | CoreWeave | 2020 | [link](https://www.coreweave.com) | A Kubernetes native cloud provider with focus on GPUs at scale. KubeVirt allows us to co-locate non-containerizable workloads such as Virtual Desktops next to compute intensive containers executing on bare metal. All orchestrated via the Kubernetes API leveraging the same network policies and persistent volumes for both VM and containerized workloads. |
 | End-user | Killercoda | 2022 | [link](https://killercoda.com) | Killercoda provides interactive learning environments based on VMs managed by KubeVirt. |
