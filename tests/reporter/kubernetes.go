@@ -67,7 +67,6 @@ const (
 const (
 	k8sCNICNCFEntityURLTemplate       = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/%s/"
 	networkAttachmentDefinitionEntity = "network-attachment-definitions"
-	mountNamespace                    = "/proc/1/ns/mnt"
 )
 
 type KubernetesReporter struct {
@@ -296,7 +295,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 			commands := []string{
 				virt_chroot.GetChrootBinaryPath(),
 				"--mount",
-				mountNamespace,
+				virt_chroot.GetChrootBinaryPath(),
 				"exec",
 				"--",
 				"/proc/1/root/bin/dmesg",
@@ -582,7 +581,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		commands := []string{
 			virt_chroot.GetChrootBinaryPath(),
 			"--mount",
-			mountNamespace,
+			virt_chroot.GetChrootBinaryPath(),
 			"exec",
 			"--",
 			"/usr/bin/journalctl",
