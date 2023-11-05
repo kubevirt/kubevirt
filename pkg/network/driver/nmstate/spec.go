@@ -53,7 +53,7 @@ func (n NMState) Apply(spec *Spec) error {
 				}
 				macSourceLink, err := n.adapter.LinkByName(iface.CopyMacFrom)
 				if err != nil {
-					return fmt.Errorf("unable to find mac shource link [%s]: %v", iface.Name, err)
+					return fmt.Errorf("unable to find mac source link [%s]: %v", iface.Name, err)
 				}
 				iface.MacAddress = macSourceLink.Attrs().HardwareAddr.String()
 			}
