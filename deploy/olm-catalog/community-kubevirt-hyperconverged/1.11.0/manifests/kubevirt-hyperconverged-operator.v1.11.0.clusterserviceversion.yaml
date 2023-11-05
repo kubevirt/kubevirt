@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.11.0-unstable
-    createdAt: "2023-10-31 05:12:48"
+    createdAt: "2023-11-05 05:12:19"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -1871,42 +1871,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - '*'
-          resources:
-          - configmaps
-          verbs:
-          - create
-          - delete
-          - list
-          - watch
-        - apiGroups:
-          - '*'
-          resources:
-          - persistentvolumeclaims
-          verbs:
-          - '*'
-        - apiGroups:
-          - '*'
-          resources:
-          - pods
-          verbs:
-          - create
-        - apiGroups:
-          - '*'
-          resources:
-          - secrets
-          verbs:
-          - '*'
-        - apiGroups:
           - admissionregistration.k8s.io
           resources:
           - validatingwebhookconfigurations
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -1914,7 +1885,6 @@ spec:
           resources:
           - customresourcedefinitions
           verbs:
-          - get
           - list
           - watch
         - apiGroups:
@@ -1926,7 +1896,6 @@ spec:
           - delete
           - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -1938,7 +1907,6 @@ spec:
           - delete
           - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -1982,7 +1950,6 @@ spec:
           resources:
           - datavolumes
           verbs:
-          - '*'
           - create
           - delete
           - get
@@ -2003,6 +1970,13 @@ spec:
           - infrastructures
           verbs:
           - get
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
           - list
           - watch
         - apiGroups:
@@ -2010,13 +1984,10 @@ spec:
           resources:
           - configmaps
           - serviceaccounts
-          - services
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2028,7 +1999,6 @@ spec:
           - delete
           - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2064,26 +2034,24 @@ spec:
           resources:
           - pods
           verbs:
+          - create
           - get
           - list
           - watch
         - apiGroups:
           - ""
           resources:
-          - serviceaccounts
+          - secrets
           verbs:
           - create
           - delete
           - get
           - list
           - patch
-          - update
-          - watch
         - apiGroups:
           - ""
           resources:
           - serviceaccounts
-          - services
           verbs:
           - create
           - delete
@@ -2099,15 +2067,24 @@ spec:
           verbs:
           - create
         - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - instancetype.kubevirt.io
           resources:
           - virtualmachineclusterinstancetypes
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2117,9 +2094,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2147,19 +2122,15 @@ spec:
           resources:
           - virtualmachines/finalizers
           verbs:
-          - '*'
+          - get
         - apiGroups:
           - monitoring.coreos.com
           resources:
           - prometheusrules
           - servicemonitors
-          - services
           verbs:
           - create
-          - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2170,9 +2141,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2184,9 +2153,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2197,9 +2164,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2211,9 +2176,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2223,9 +2186,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2233,20 +2194,6 @@ spec:
           resources:
           - rolebindings
           - roles
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io/v1
-          resources:
-          - role
-          - rolebinding
-          - serviceaccount
           verbs:
           - create
           - delete
@@ -2266,49 +2213,9 @@ spec:
         - apiGroups:
           - ssp.kubevirt.io
           resources:
-          - kubevirtcommontemplatesbundles
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ssp.kubevirt.io
-          resources:
-          - kubevirtmetricsaggregations
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ssp.kubevirt.io
-          resources:
-          - kubevirttemplatevalidators
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ssp.kubevirt.io
-          resources:
           - ssps
           verbs:
-          - create
-          - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2322,8 +2229,6 @@ spec:
           resources:
           - ssps/status
           verbs:
-          - get
-          - patch
           - update
         - apiGroups:
           - subresources.kubevirt.io
@@ -2342,24 +2247,11 @@ spec:
         - apiGroups:
           - tekton.dev
           resources:
-          - clustertasks
-          - tasks
-          verbs:
-          - delete
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - tekton.dev
-          resources:
           - pipelines
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -2369,9 +2261,7 @@ spec:
           verbs:
           - create
           - delete
-          - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -3102,7 +2992,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.89.1
                 - name: SSP_VERSION
-                  value: v0.18.3
+                  value: v0.19.0-rc.0
                 - name: HPPO_VERSION
                   value: v0.18.0
                 - name: MTQ_VERSION
@@ -3531,14 +3421,14 @@ spec:
                 - /manager
                 env:
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator:v0.18.3
+                  value: quay.io/kubevirt/kubevirt-template-validator:v0.19.0-rc.0
                 - name: VIRTIO_IMG
                 - name: OPERATOR_VERSION
-                  value: v0.18.3
+                  value: v0.19.0-rc.0
                 - name: TEKTON_TASKS_IMAGE
                 - name: TEKTON_TASKS_DISK_VIRT_IMAGE
                 - name: VM_CONSOLE_PROXY_IMAGE
-                image: quay.io/kubevirt/ssp-operator@sha256:49cac00844f091d6e80301573e00235d685415185ec29c89b4bd7361f938711e
+                image: quay.io/kubevirt/ssp-operator@sha256:70c609f689396763b79437d3e03b2995036f44157df64349a32e48e856f3d6d0
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -4501,7 +4391,7 @@ spec:
     name: origin-kube-rbac-proxy
   - image: quay.io/kubevirt/ovs-cni-plugin@sha256:5f7290e2294255ab2547c3b4bf48cc2d75531ec5a43e600366e9b2719bef983f
     name: ovs-cni-plugin
-  - image: quay.io/kubevirt/ssp-operator@sha256:49cac00844f091d6e80301573e00235d685415185ec29c89b4bd7361f938711e
+  - image: quay.io/kubevirt/ssp-operator@sha256:70c609f689396763b79437d3e03b2995036f44157df64349a32e48e856f3d6d0
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:5c375d9919853f9eec63bd68a0910fbd4d216235ec8e2835e6261d5778a7ae0b
     name: virt-api

@@ -90,7 +90,7 @@ type SSPSpec struct {
 	// TektonTasks is the configuration of the tekton-tasks operand
 	TektonTasks *TektonTasks `json:"tektonTasks,omitempty"`
 
-	// FeatureGates is the configuration of the tekton operands
+	// FeatureGates for SSP
 	FeatureGates *FeatureGates `json:"featureGates,omitempty"`
 }
 
@@ -104,11 +104,14 @@ type TektonTasks struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// FeatureGates defines feature gate for tto operator
+// FeatureGates for SSP
 type FeatureGates struct {
 	DeployTektonTaskResources bool `json:"deployTektonTaskResources,omitempty"`
 
 	DeployVmConsoleProxy bool `json:"deployVmConsoleProxy,omitempty"`
+
+	// Enables deployment of the common-instancetypes bundles, defaults to true.
+	DeployCommonInstancetypes *bool `json:"deployCommonInstancetypes,omitempty"`
 }
 
 // DataImportCronTemplate defines the template type for DataImportCrons.

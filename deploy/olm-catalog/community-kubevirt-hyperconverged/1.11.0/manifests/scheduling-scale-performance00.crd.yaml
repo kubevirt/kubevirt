@@ -3912,8 +3912,12 @@ spec:
                 - namespace
                 type: object
               featureGates:
-                description: FeatureGates is the configuration of the tekton operands
+                description: FeatureGates for SSP
                 properties:
+                  deployCommonInstancetypes:
+                    description: Enables deployment of the common-instancetypes bundles,
+                      defaults to true.
+                    type: boolean
                   deployTektonTaskResources:
                     type: boolean
                   deployVmConsoleProxy:

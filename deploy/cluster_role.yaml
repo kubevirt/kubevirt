@@ -2308,42 +2308,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - '*'
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - delete
-  - list
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - persistentvolumeclaims
-  verbs:
-  - '*'
-- apiGroups:
-  - '*'
-  resources:
-  - pods
-  verbs:
-  - create
-- apiGroups:
-  - '*'
-  resources:
-  - secrets
-  verbs:
-  - '*'
-- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2351,7 +2322,6 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
-  - get
   - list
   - watch
 - apiGroups:
@@ -2363,7 +2333,6 @@ rules:
   - delete
   - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2375,7 +2344,6 @@ rules:
   - delete
   - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2419,7 +2387,6 @@ rules:
   resources:
   - datavolumes
   verbs:
-  - '*'
   - create
   - delete
   - get
@@ -2440,6 +2407,13 @@ rules:
   - infrastructures
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
   - list
   - watch
 - apiGroups:
@@ -2447,13 +2421,10 @@ rules:
   resources:
   - configmaps
   - serviceaccounts
-  - services
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2465,7 +2436,6 @@ rules:
   - delete
   - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2501,26 +2471,24 @@ rules:
   resources:
   - pods
   verbs:
+  - create
   - get
   - list
   - watch
 - apiGroups:
   - ""
   resources:
-  - serviceaccounts
+  - secrets
   verbs:
   - create
   - delete
   - get
   - list
   - patch
-  - update
-  - watch
 - apiGroups:
   - ""
   resources:
   - serviceaccounts
-  - services
   verbs:
   - create
   - delete
@@ -2536,15 +2504,24 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - instancetype.kubevirt.io
   resources:
   - virtualmachineclusterinstancetypes
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2554,9 +2531,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2584,19 +2559,15 @@ rules:
   resources:
   - virtualmachines/finalizers
   verbs:
-  - '*'
+  - get
 - apiGroups:
   - monitoring.coreos.com
   resources:
   - prometheusrules
   - servicemonitors
-  - services
   verbs:
   - create
-  - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2607,9 +2578,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2621,9 +2590,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2634,9 +2601,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2648,9 +2613,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2660,9 +2623,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2670,20 +2631,6 @@ rules:
   resources:
   - rolebindings
   - roles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io/v1
-  resources:
-  - role
-  - rolebinding
-  - serviceaccount
   verbs:
   - create
   - delete
@@ -2703,49 +2650,9 @@ rules:
 - apiGroups:
   - ssp.kubevirt.io
   resources:
-  - kubevirtcommontemplatesbundles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ssp.kubevirt.io
-  resources:
-  - kubevirtmetricsaggregations
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ssp.kubevirt.io
-  resources:
-  - kubevirttemplatevalidators
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ssp.kubevirt.io
-  resources:
   - ssps
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2759,8 +2666,6 @@ rules:
   resources:
   - ssps/status
   verbs:
-  - get
-  - patch
   - update
 - apiGroups:
   - subresources.kubevirt.io
@@ -2779,24 +2684,11 @@ rules:
 - apiGroups:
   - tekton.dev
   resources:
-  - clustertasks
-  - tasks
-  verbs:
-  - delete
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
-  - tekton.dev
-  resources:
   - pipelines
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -2806,9 +2698,7 @@ rules:
   verbs:
   - create
   - delete
-  - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
