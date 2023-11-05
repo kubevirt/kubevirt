@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["server.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//cmd/sidecars/network-passt-binding/callback:go_default_library",
+        "//cmd/sidecars/network-passt-binding/domain:go_default_library",
+        "//pkg/hooks/info:go_default_library",
+        "//pkg/hooks/v1alpha2:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+    ],
+)
